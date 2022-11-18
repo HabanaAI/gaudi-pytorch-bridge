@@ -260,7 +260,7 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
   auto h_cout = h_out.to(torch::kCPU);
   auto cout = torch::select(a, dim, index);
 
-  EXPECT_EQ(allclose(h_cout, cout), true);
+  EXPECT_EQ(equal(h_cout, cout), true);
 }
 
 TEST_F(LazyTensorShapeKernelTest, SelectBackwardTest) {
@@ -514,14 +514,14 @@ TEST_F(LazyTensorShapeKernelTest, TTest2d) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, TTestAddInplace) {
-    torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-    torch::Tensor hA = A.to(torch::kHPU);
-    torch::Tensor hOut = torch::t(hA);
-    hOut.add_(1.0);
-    torch::Tensor Out = torch::t(A);
-    Out.add_(1.0);
-    EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
-    EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::t(hA);
+  hOut.add_(1.0);
+  torch::Tensor Out = torch::t(A);
+  Out.add_(1.0);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
 }
 
 TEST_F(LazyTensorShapeKernelTest, ExpandTest) {

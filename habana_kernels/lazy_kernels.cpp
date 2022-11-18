@@ -2699,19 +2699,30 @@ Tensor& index_add_hpu_lazy_out(
     Tensor& out) {
   PT_LAZY_TRACE;
 
-  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
+  auto func = [self, dim, indices, source, alpha, out]() mutable {
+    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
 
-  LazyOp<Tensor> index_add_op(
-      "aten::index_add",
-      {self, dim_, indices, source, alpha},
-      {1}, // metadata_indices
-      {self.sizes().vec()} // out_shapes
-  );
+    LazyOp<Tensor> index_add_op(
+        "aten::index_add",
+        {self, dim_, indices, source, alpha},
+        {1}, // metadata_indices
+        {self.sizes().vec()} // out_shapes
+    );
 
-  Tensor index_add_out = index_add_op.call();
+    Tensor index_add_out = index_add_op.call();
 
-  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_add_out, out}};
-  return k.call(out);
+    LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_add_out, out}};
+    // Can't call get_result, because sizes were set in the main thread and
+    // inner if will evalueate to false. So I need to set proper flag for shape
+    // change manually.
+    k.set_shape_changed();
+
+    return k.call(out);
+  };
+
+  out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_add_, func, out)
 }
 
 Tensor& index_add_hpu_lazy_(
@@ -3107,42 +3118,46 @@ Tensor& index_fill_hpu_lazy_(
     int64_t dim,
     const Tensor& index,
     const Scalar& value) {
-  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  if (dim_ == 0) {
-    auto value_dim = self.sizes().vec();
-    if (value_dim.size())
+  auto func = [self, dim, index, value]() mutable {
+    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+    if (dim_ == 0) {
+      auto value_dim = self.sizes().vec();
+      if (value_dim.size())
+        value_dim[0] = index.numel();
+      else
+        value_dim.emplace_back(index.numel());
+      auto value_tensor = empty_hpu_lazy(
+          value_dim, self.options(), self.suggest_memory_format(), true);
+      fill_hpu_lazy_(value_tensor, value);
+      c10::List<c10::optional<at::Tensor>> indices;
+      indices.push_back(index);
+      return index_put_hpu_lazy_(self, indices, value_tensor, false);
+    } else {
+      std::vector<int64_t> permute_dims(self.dim());
+      std::iota(permute_dims.begin(), permute_dims.end(), 0);
+      auto temp = permute_dims[self.dim() - dim_ - 1];
+      permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
+      permute_dims[self.dim() - 1] = temp;
+      auto permuted_self = permute_hpu_lazy_phy(self, permute_dims);
+
+      auto value_dim = permuted_self.sizes().vec();
       value_dim[0] = index.numel();
-    else
-      value_dim.emplace_back(index.numel());
-    auto value_tensor = empty_hpu_lazy(
-        value_dim, self.options(), self.suggest_memory_format(), true);
-    fill_hpu_lazy_(value_tensor, value);
-    c10::List<c10::optional<at::Tensor>> indices;
-    indices.push_back(index);
-    return index_put_hpu_lazy_(self, indices, value_tensor, false);
-  } else {
-    std::vector<int64_t> permute_dims(self.dim());
-    std::iota(permute_dims.begin(), permute_dims.end(), 0);
-    auto temp = permute_dims[self.dim() - dim_ - 1];
-    permute_dims[self.dim() - dim_ - 1] = permute_dims[self.dim() - 1];
-    permute_dims[self.dim() - 1] = temp;
-    auto permuted_self = permute_hpu_lazy_phy(self, permute_dims);
+      auto value_tensor = empty_hpu_lazy(
+          value_dim, self.options(), self.suggest_memory_format(), true);
+      fill_hpu_lazy_(value_tensor, value);
 
-    auto value_dim = permuted_self.sizes().vec();
-    value_dim[0] = index.numel();
-    auto value_tensor = empty_hpu_lazy(
-        value_dim, self.options(), self.suggest_memory_format(), true);
-    fill_hpu_lazy_(value_tensor, value);
+      c10::List<c10::optional<at::Tensor>> indices;
+      indices.push_back(index);
+      permuted_self =
+          index_put_hpu_lazy_(permuted_self, indices, value_tensor, false);
+      permuted_self = permute_hpu_lazy_phy(permuted_self, permute_dims);
+      LazyOp<at::Tensor&> k{
+          "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
+      return k.call(self);
+    }
+  };
 
-    c10::List<c10::optional<at::Tensor>> indices;
-    indices.push_back(index);
-    permuted_self =
-        index_put_hpu_lazy_(permuted_self, indices, value_tensor, false);
-    permuted_self = permute_hpu_lazy_phy(permuted_self, permute_dims);
-    LazyOp<at::Tensor&> k{
-        "hpu::habana_d2d_memcpy_other", {permuted_self, self}};
-    return k.call(self);
-  }
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_fill_, func, self)
 }
 
 Tensor& index_copy_hpu_lazy_(
@@ -3154,20 +3169,24 @@ Tensor& index_copy_hpu_lazy_(
   // TPC doesn't support inplace index add natively
   // Implement using out of place index add followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
-  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  auto hl_self = GetOrCreateHbLazyTensor(self);
+  auto func = [self, dim, indices, source]() mutable {
+    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+    auto hl_self = GetOrCreateHbLazyTensor(self);
+    LazyOp<Tensor> index_copy_op(
+        "aten::index_copy",
+        {self, dim_, indices, source},
+        {1}, // metadata_indices
+        {self.sizes().vec()} // out_shapes
+    );
 
-  LazyOp<Tensor> index_copy_op(
-      "aten::index_copy",
-      {self, dim_, indices, source},
-      {1}, // metadata_indices
-      {self.sizes().vec()} // out_shapes
-  );
+    Tensor index_copy_out = index_copy_op.call();
 
-  Tensor index_copy_out = index_copy_op.call();
+    LazyOp<at::Tensor&> k{
+        "hpu::habana_d2d_memcpy_other", {index_copy_out, self}};
+    return k.call(self);
+  };
 
-  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_copy_out, self}};
-  return k.call(self);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_copy_, func, self)
 }
 
 Tensor& masked_scatter_hpu_lazy_(

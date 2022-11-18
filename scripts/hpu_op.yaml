@@ -487,6 +487,7 @@ as_strided:
 
 select_backward:
   override_fn: select_backward_hpu_lazy
+  acc_thread: true
 
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu_lazy
@@ -5533,6 +5534,7 @@ select.int:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: select_hpu_lazy
+  acc_thread: true
 
 sgn.out:
   dtypes:
