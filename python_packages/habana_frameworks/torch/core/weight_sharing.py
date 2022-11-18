@@ -19,12 +19,11 @@ class HabanaParameterWrapper(torch.nn.Parameter):
         args = list(args)
         for i in range(len(args)):
             if type(args[i]) == HabanaParameterWrapper:
-                assert id(args[i]) in HabanaParameterWrapper.db
                 args[i] = HabanaParameterWrapper.db[id(args[i])]
         for key in kwargs:
             if type(kwargs[key]) == HabanaParameterWrapper:
                 kwargs[key] = HabanaParameterWrapper.db[id(kwargs[key])]
-        if "__set__" in str(func):
+        if func.__name__ == "__set__":
             if hasattr(args[0], "device") and hasattr(args[1], "device"):
                 if args[0].device != args[1].device:
                     args[0] = args[0].to(args[1].device)
@@ -34,10 +33,11 @@ class HabanaModuleWrapper(torch.nn.Module):
 
     def __getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
         result = super().__getattr__(name)
-        if isinstance(result, torch.nn.Parameter) and not isinstance(result, HabanaParameterWrapper):
-            result = HabanaParameterWrapper(result)
-            self._parameters[name] = result
-
+        if not name in self.checked_parameters:
+            if type(result) == torch.nn.Parameter:
+                result = HabanaParameterWrapper(result)
+                self._parameters[name] = result
+            self.checked_parameters.add(name)
         return result
 
     def to(self, *args, **kwargs):
@@ -131,6 +131,7 @@ def enable_weight_sharing_for(wrapped):
         class UpdatedModule(module.__class__,HabanaModuleWrapper):
             pass
         module.__class__ = UpdatedModule
+        module.checked_parameters = set()
     for key in wrapped._modules:
         enable_weight_sharing_for(wrapped._modules[key])
     update_module(wrapped)
