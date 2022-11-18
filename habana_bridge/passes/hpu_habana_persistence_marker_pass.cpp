@@ -171,12 +171,7 @@ void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
   // This pass marks tensors external if they are used as input tensors for
   // collective ops. Used for Signal From Graph to signal the tensor data is
   // ready prior to recipe completion
-  // TODO: SW-80913 enable for gaudi 2
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto device_type = device.type();
-  if (device_type == synDeviceGaudi) {
-    ExternalMarkingPass(graph_nodes);
-  }
+  ExternalMarkingPass(graph_nodes);
 }
 
 std::unique_ptr<PersistenceMarkerPassData> PersistenceMarkerPass::VisitGraph(
