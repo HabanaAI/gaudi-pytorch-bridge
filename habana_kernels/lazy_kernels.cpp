@@ -5347,6 +5347,7 @@ Tensor empty_hpu_lazy(
 
       at_tensor = AtenFromHbLazyTensor(
           std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format);
+
       // As its an inplace op and we want this op to execute
       // we want to wind back status of this tensor to registered
       // so that when post order is created, we actually execute it
@@ -5361,6 +5362,16 @@ Tensor empty_hpu_lazy(
 
     // If we are not from lowering context, return the storageless one.
     if (!is_in_lowering_mode) {
+      // Note: storage() api call also sets the front end storage()
+      if (create_storage && at_tensor.numel()) {
+        TORCH_CHECK(
+            (at_tensor.storage().data_ptr() &&
+             (at_tensor.data_ptr() != nullptr)),
+            "t_updated tensor is expected to be have storage and valid data_ptr ",
+            at_tensor.storage().data_ptr(),
+            " ",
+            at_tensor.data_ptr());
+      }
       return at_tensor;
     } else {
       // else return the internal tensor with storage

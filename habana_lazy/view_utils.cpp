@@ -605,9 +605,6 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
         t_updated.unsafeGetTensorImpl()->set_storage_keep_dtype(storage);
         t_updated.unsafeGetTensorImpl()->set_storage_offset(
             t.unsafeGetTensorImpl()->storage_offset());
-        TORCH_CHECK(
-            t_updated.storage().data_ptr(),
-            "t_updated tensor is expected to be have storage");
       } else {
         HandleViews(t, hl_t);
 
@@ -631,6 +628,11 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
       // check for updated version
       t_updated = get_recent_base_tensor(t);
     }
+
+    // Note: storage() api call also sets the front end storage()
+    TORCH_CHECK(
+        (t_updated.storage().data_ptr() && (t_updated.data_ptr() != nullptr)),
+        "t_updated tensor is expected to be have storage and valid data_ptr");
     out_vec.emplace_back(t_updated);
   }
   return out_vec;
