@@ -34,6 +34,9 @@ struct SingleHPUGraph {
 
   ~SingleHPUGraph();
   void replay();
+  void replayV2(
+      std::vector<at::Tensor>& static_inputs,
+      std::vector<at::Tensor>& inputs);
   std::shared_ptr<torch::jit::Graph> graph_;
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
@@ -51,6 +54,9 @@ struct HPUGraph {
   void capture_end();
   void replay();
   void mark_step();
+  void replayV2(
+      std::vector<at::Tensor>& static_inputs,
+      std::vector<at::Tensor>& inputs);
 
  protected:
   // Stream on which capture began

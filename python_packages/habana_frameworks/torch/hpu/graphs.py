@@ -1,3 +1,4 @@
+from typing import List
 import gc
 import torch
 import warnings
@@ -32,6 +33,18 @@ class HPUGraph(object):
         Replays the HPU work captured by this graph.
         """
         _hpu_C.replay(self.hpu_graph)
+
+    def replayV2(self, static_tlist: List[torch.Tensor], tlist: List[torch.Tensor]):
+        r"""
+        Replays the HPU work captured by this graph.
+
+        Arguments:
+            tlist: List of input tensors for the graph replay
+
+        .. warning::
+            This API is in beta and may change in future releases.
+        """
+        _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist)
 
 class graph(object):
     r"""
@@ -193,11 +206,12 @@ def make_graphed_callables(callables, sample_args, warmups=0):
         class Graphed(torch.autograd.Function):
             @staticmethod
             def forward(ctx, *inputs):
-                for i in range(len_user_args):
+                #for i in range(len_user_args):
                     # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
                     #     static_input_surface[i].copy_(inputs[i])
-                    static_input_surface[i].copy_(inputs[i])
-                fwd_graph.replay()
+                #    static_input_surface[i].copy_(inputs[i])
+                #fwd_graph.replay()
+                fwd_graph.replayV2(static_input_surface, inputs)
                 assert isinstance(static_outputs, tuple)
                 return tuple(o.detach() for o in static_outputs)
 
@@ -207,11 +221,12 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                 for g, grad in zip(static_grad_outputs, grads):
                     if g is None:
                         assert grad is None
-                    else:
+                    #else:
                         # if g.data_ptr() != grad.data_ptr():
                         #     g.copy_(grad)
-                        g.copy_(grad)
-                bwd_graph.replay()
+                        #g.copy_(grad)
+                #bwd_graph.replay()
+                bwd_graph.replayV2(static_grad_outputs, grads)
 
                 # Input args that didn't require grad expect a None gradient.
                 assert isinstance(static_grad_inputs, tuple)

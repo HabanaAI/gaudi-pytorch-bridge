@@ -233,5 +233,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
   m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });
   m.def("replay", [](at::hpu::HPUGraph& graph) { graph.replay(); });
+  m.def(
+      "replayV2",
+      [](at::hpu::HPUGraph& graph,
+         std::vector<at::Tensor>& static_inputs,
+         std::vector<at::Tensor>& inputs) {
+        graph.replayV2(static_inputs, inputs);
+      });
   m.doc() = "This module registers hpu backend.";
 }
