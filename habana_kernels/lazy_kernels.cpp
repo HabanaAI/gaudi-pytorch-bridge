@@ -569,6 +569,18 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     return fb_self.copy_(fb_src);
   }
 
+  Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
+  HbLazyTensor hb_tensor =
+      GetOrCreateHbLazyTensor(src_updated, src_updated.device(), false);
+  bool no_conversion = (self.scalar_type() == c10::ScalarType::Long) ||
+      (self.scalar_type() == c10::ScalarType::Double) ||
+      (src_updated.dtype() == self.dtype());
+  if (no_conversion && hb_tensor.IsExecutionInProgress()) {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    context->JoinPendingLaunchThread();
+  }
+
   auto op_func = [self, src, non_blocking]() mutable {
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;

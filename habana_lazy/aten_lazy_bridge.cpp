@@ -319,12 +319,13 @@ void setTensorAsInputNode(HbLazyTensor hl_tensor) {
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::Device& device) {
+    const c10::Device& device,
+    bool handle_collective) {
   PT_LAZY_TRACE;
   if (!tensor.defined()) {
     return HbLazyTensor(device);
   }
-  auto p_hb_tensor = TryGetHbLazyTensor(tensor);
+  auto p_hb_tensor = TryGetHbLazyTensor(tensor, true, handle_collective);
   HbLazyTensor hl_tensor;
   if (p_hb_tensor) {
     hl_tensor = *p_hb_tensor;
@@ -358,12 +359,13 @@ int64_t GetHbLazyTensorId(const at::Tensor& tensor, bool get_updated, bool) {
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
-    const c10::Device& device) {
+    const c10::Device& device,
+    bool handle_collective) {
   PT_LAZY_TRACE;
   if (!IsDefined(tensor)) {
     return HbLazyTensor();
   }
-  auto hb_tensor = TryGetHbLazyTensor(*tensor);
+  auto hb_tensor = TryGetHbLazyTensor(*tensor, true, handle_collective);
   return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
 }
 
