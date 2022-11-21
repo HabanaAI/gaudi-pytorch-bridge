@@ -1319,9 +1319,13 @@ class LazyOp {
         optimized_key = 0;
         break;
       } else if (isMetadataCandidate(input)) {
-        // Not handled so returning null key
-        optimized_key = 0;
-        break;
+        if (input.isList()) {
+          for (auto& v : input.toListRef()) {
+            optimized_key = ir::MetaData::ival_hash(v, optimized_key);
+          }
+        } else {
+          optimized_key = ir::MetaData::ival_hash(input, optimized_key);
+        }
       }
     }
 

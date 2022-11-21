@@ -243,13 +243,7 @@ class MetaData {
     return ss.str();
   }
 
- protected:
-  /* This meta data store mapping of index of jit input
-   * to the IValue
-   */
-  IndexToIvalMap m_data;
-
-  size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
+  static size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
     if (v.isInt()) {
       return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
     } else if (v.isString()) {
@@ -270,6 +264,12 @@ class MetaData {
     }
     return h;
   }
+
+ protected:
+  /* This meta data store mapping of index of jit input
+   * to the IValue
+   */
+  IndexToIvalMap m_data;
 
  private:
   bool m_enable_to_string = false;
