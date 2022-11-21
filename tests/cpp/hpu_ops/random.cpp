@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
@@ -48,6 +51,24 @@ TEST_F(HpuOpTest, normal_) {
   GenerateInputs(2, torch::kBFloat16);
   result1 = GetHpuInput(0).normal_(mean, std, gen1).cpu();
   result2 = GetHpuInput(1).normal_(mean, std, gen2).cpu();
+  EXPECT_TRUE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, log_normal_) {
+  GenerateInputs(2);
+
+  auto result1 = GetHpuInput(0).log_normal_().cpu();
+  auto result2 = GetHpuInput(1).log_normal_().cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto mean = GenerateScalar<float>();
+  auto std = GenerateScalar<float>();
+  GenerateInputs(2, torch::kBFloat16);
+  result1 = GetHpuInput(0).log_normal_(mean, std, gen1).cpu();
+  result2 = GetHpuInput(1).log_normal_(mean, std, gen2).cpu();
   EXPECT_TRUE(result1.equal(result2));
 }
 
