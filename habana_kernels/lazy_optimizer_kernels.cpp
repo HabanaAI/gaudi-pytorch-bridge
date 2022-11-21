@@ -534,24 +534,55 @@ void optimizer_lars_hpu_lazy(
     const float weight_decay,
     const float eps,
     const float lr) {
-  habana_lazy::SyncAccThreadPool();
-
   auto lr_t = get_tensor_for_scalar(lr, params[0].options());
-  LazyOptimizationOp<void> lo(
-      "hpu::habanaOptimizerLars",
-      {grads, params, lr_t, skipMasks, eeta, weight_decay, eps});
-  lo.call(grads, LARS);
+  std::vector<at::Tensor> params_copy;
+  std::copy(params.begin(), params.end(), std::back_inserter(params_copy));
+  std::vector<at::Tensor> grads_copy;
+  std::copy(grads.begin(), grads.end(), std::back_inserter(grads_copy));
+
+  auto func = [grads_copy = std::move(grads_copy),
+               params_copy = std::move(params_copy),
+               skipMasks,
+               eeta,
+               weight_decay,
+               eps,
+               lr_t]() {
+    auto params = torch::TensorList(params_copy);
+    auto grads = torch::TensorList(grads_copy);
+    LazyOptimizationOp<void> lo(
+        "hpu::habanaOptimizerLars",
+        {grads, params, lr_t, skipMasks, eeta, weight_decay, eps});
+    lo.call(grads, LARS);
+  };
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_lars, func);
 }
 
 void optimizer_ResourceApplyMomentum_hpu_lazy(
     at::TensorList& params_momentum_buffer_list,
     const at::TensorList& d_p_list,
     const float momentum) {
-  habana_lazy::SyncAccThreadPool();
+  std::vector<at::Tensor> params_momentum_buffer_list_copy;
+  std::copy(
+      params_momentum_buffer_list.begin(),
+      params_momentum_buffer_list.end(),
+      std::back_inserter(params_momentum_buffer_list_copy));
+  std::vector<at::Tensor> d_p_list_copy;
+  std::copy(
+      d_p_list.begin(), d_p_list.end(), std::back_inserter(d_p_list_copy));
 
-  LazyOptimizationOp<void> lo(
-      "hpu::habanaOptimizerResourceApplyMomentum",
-      {params_momentum_buffer_list, d_p_list, momentum});
-  lo.call(params_momentum_buffer_list);
+  auto func = [params_momentum_buffer_list_copy =
+                   std::move(params_momentum_buffer_list_copy),
+               d_p_list_copy = std::move(d_p_list_copy),
+               momentum]() {
+    auto params_momentum_buffer_list =
+        torch::TensorList(params_momentum_buffer_list_copy);
+    auto d_p_list = torch::TensorList(d_p_list_copy);
+    LazyOptimizationOp<void> lo(
+        "hpu::habanaOptimizerResourceApplyMomentum",
+        {params_momentum_buffer_list, d_p_list, momentum});
+    lo.call(params_momentum_buffer_list);
+  };
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(
+      optimizer_ResourceApplyMomentum, func);
 }
 } // namespace habana_lazy
