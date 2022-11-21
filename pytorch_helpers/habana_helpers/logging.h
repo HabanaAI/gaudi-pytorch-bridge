@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -12,6 +12,7 @@
 #include <logging.h>
 #include <synapse_helpers/runtime_tracing.h>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utility>

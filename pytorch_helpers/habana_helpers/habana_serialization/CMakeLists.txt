@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2021 HabanaLabs, Ltd.
+# Copyright (C) 2021-2022 HabanaLabs, Ltd.
 # All Rights Reserved.
 #
 # Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -9,6 +9,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 find_package(Torch REQUIRED)
+set(CMAKE_CXX_STANDARD 17)
 
 add_library(habana_serialization STATIC
     cache_file_handler.cpp

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -319,7 +319,11 @@ bool InterHostCache::send_file(std::string cache_id) {
     return false;
   }
 
-  PT_HABHELPER_TRACE("InterHostCache Send", cache_id);
+  // Limited namespace scope.
+  {
+    using namespace Logger;
+    PT_HABHELPER_TRACE("InterHostCache Send", cache_id);
+  }
 
   size_t num;
   int bytes_recv;
@@ -362,7 +366,11 @@ bool InterHostCache::recv_file(std::string cache_id) {
     return false;
   }
 
-  PT_HABHELPER_TRACE("InterHostCache Recv", cache_id);
+  // Limited namespace scope
+  {
+    using namespace Logger;
+    PT_HABHELPER_TRACE("InterHostCache Recv", cache_id);
+  }
 
   size_t num;
   int bytes_recv;
