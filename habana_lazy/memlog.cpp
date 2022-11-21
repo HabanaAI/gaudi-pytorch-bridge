@@ -58,7 +58,7 @@ void log_dev_mem_stats(
   std::stringstream ss;
   ss.precision(2);
   ss << std::fixed;
-  ss << "MEMLOG: " << msg;
+  ss << msg;
   if (not name.empty()) {
     ss << " [" << name << "]";
   }

@@ -90,3 +90,6 @@ def _is_enabled_lazy_collectives() -> bool:
 
 def _hb_print(msg) -> None:
     return _debug_C.hb_print(msg)
+
+def _mem_log(msg) -> bool:
+    return _debug_C.mem_log(msg)

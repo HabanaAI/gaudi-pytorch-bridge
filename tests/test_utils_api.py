@@ -33,6 +33,8 @@ htdebug._dump_dynamic_shape_memory_stat()
 print(htdebug._is_enabled_synapse_layout_handling())
 print(htdebug._is_enabled_lazy_collectives())
 
+htdebug._mem_log("User level memory log point")
+
 from habana_frameworks.torch.utils import profiler as htprofiler
 htprofiler._setup_profiler()
 htprofiler._start_profiler()
