@@ -132,14 +132,21 @@ void RandomSeedTensorInput::AddNode(
   p_context_->syn_inputs_.pop_front();
   HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
 
+  auto outshape = stack_tensor(stack, 0).sizes();
+  std::vector<synTensor> inputs{syn_in(0)};
+  CreateShapeTensorInput(
+      graph,
+      ScalarType() == c10::ScalarType::Int ? at::kFloat : ScalarType(),
+      outshape,
+      inputs);
+  size_t size = 0;
+  auto rand_params = FillParams(stack, size);
+
   if (ScalarType() == c10::ScalarType::Int) {
-    auto outshape = stack_tensor(stack, 0).sizes();
-    size_t size = 0;
-    auto rand_params = FillParams(stack, size);
     auto rand = BuildOp(
         graph,
         update_guid_dtype(guid_, "f32"),
-        {syn_in(0)},
+        inputs,
         {{outshape}},
         rand_params.get(),
         size);
@@ -159,6 +166,13 @@ void RandomSeedTensorInput::AddNode(
     return;
   }
 
-  OpBackend::AddNode(graph, stack);
+  auto rand = BuildOp(
+      graph,
+      guid_,
+      inputs,
+      {{outshape, ScalarType(), 0}},
+      rand_params.get(),
+      size);
+  syn_out(0) = std::move(rand[0]);
 }
 } // namespace habana
