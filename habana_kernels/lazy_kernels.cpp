@@ -662,9 +662,12 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
         HbLazyTensorViews::HandleViewsD2D(src_cast, self);
       } else {
-        auto hlresult = GetHbLazyTensor(self);
-        hlresult.IrSetNode(node);
-        flush_op(1);
+        auto out_type = (self.scalar_type() == c10::ScalarType::Long)
+            ? (c10::ScalarType::Int)
+            : self.scalar_type();
+        LazyOp<at::Tensor> k{
+            "hpu::cast", {src, out_type}, {src.sizes().vec()}, out_type};
+        k.call(self);
       }
     }
   };

@@ -141,3 +141,36 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
     UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
   }
 }
+
+TEST_F(LazyEagerTest, optimized_lazy_copy_inplace_1) {
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE, false, 1);
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor tensor_A = torch::randn({1, 3, 3, 3});
+    torch::Tensor tensor_B = torch::randn({1, 3, 3, 3});
+    torch::Tensor tensor_C = torch::randn({1, 3, 3, 3});
+    auto tensor_A_bf16 = tensor_A.to(torch::kBFloat16);
+    auto tensor_B_bf16 = tensor_B.to(torch::kBFloat16);
+    auto tensor_C_bf16 = tensor_C.to(torch::kBFloat16);
+
+    torch::Tensor tHabana_A = tensor_A_bf16.to(torch::kHPU);
+    torch::Tensor tHabana_B = tensor_B_bf16.to(torch::kHPU);
+    torch::Tensor tHabana_C = tensor_C_bf16.to(torch::kHPU);
+
+    for (int i = 0; i < 3; i++) {
+      tensor_B = tensor_B.add_(tensor_A);
+      tensor_B = relu_(tensor_B);
+      tensor_C.copy_(tensor_B);
+      tHabana_B = tHabana_B.add_(tHabana_A);
+      tHabana_B = relu_(tHabana_B);
+      tHabana_C.copy_(tHabana_B);
+      torch::Tensor out = tHabana_C.to(torch::kFloat).to(torch::kCPU);
+      EXPECT_EQ(allclose(out, tensor_C, 0.01, 0.01), true);
+    }
+  }
+}
