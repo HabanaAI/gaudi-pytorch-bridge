@@ -5292,6 +5292,10 @@ Tensor empty_hpu_lazy(
       // Any lazy tensor created with storage should be marked as executed
       if (create_storage) {
         hb_tensor.getDataPtr()->execution_status = kEXECUTION_COMPLETE;
+        if (size_bytes == 0) {
+          PT_LAZY_DEBUG("empty_hpu_lazy: size_bytes is zero!");
+          hb_tensor.created_as_zero_size_tensor = true;
+        }
       }
 
       at_tensor = AtenFromHbLazyTensor(

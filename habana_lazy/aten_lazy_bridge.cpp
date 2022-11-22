@@ -236,7 +236,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // As set_sizes_and_strides() call in pytorch-fork doesn't impact
   // the backend tensor properties like size, stride etc,
   // here we try to update these properties using frontend tensor info
-  if (is_size_strides_update) {
+  if (is_size_strides_update && hl_t.created_as_zero_size_tensor) {
     hl_t = CheckAndUpdateSizeStride(hl_t, tensor);
   }
 

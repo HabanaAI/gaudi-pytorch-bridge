@@ -345,6 +345,8 @@ class HbLazyTensor {
     return data()->tensor_layout;
   }
 
+  bool created_as_zero_size_tensor = false;
+
  private:
   Data* data() const;
   std::shared_ptr<Data> mp_data;
