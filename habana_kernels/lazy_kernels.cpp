@@ -1773,7 +1773,6 @@ Tensor permute_wt_hpu(const Tensor& self) {
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass() &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
-    habana_lazy::SyncAccThreadPool();
     if (self.dim() == 4 || self.dim() == 5) {
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       auto layout_format = hb_tensor.GetTensorLayout();
@@ -1840,11 +1839,13 @@ Tensor convolution_hpu_lazy(
     int64_t groups) {
   PT_LAZY_TRACE;
   const auto& bias = bias_opt.value_or(Tensor());
-  auto weight_hpu = weight;
+  Tensor weight_hpu = weight;
+  if (weight.device().type() == c10::DeviceType::CPU &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+    weight_hpu = weight.to(c10::kHPU, true);
 
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass()) {
-    habana_lazy::SyncAccThreadPool();
     weight_hpu = weight.to(c10::kHPU, true);
     HbLazyTensor src_hb_tensor =
         GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
@@ -1858,13 +1859,40 @@ Tensor convolution_hpu_lazy(
     }
   }
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
+    habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
+  }
+
   auto weight_hwck = permute_wt_hpu(weight_hpu);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    auto hb_tensor = GetHbLazyTensor(weight_hwck);
+    if (hb_tensor.isStorageAttached()) {
+      auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
+      if (at_internal_tensor.has_storage()) {
+        auto internal_tensor =
+            habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+        internal_tensor->SetConstTensor(true);
+      }
+    }
+    if (bias.defined()) {
+      auto hb_tensor = GetHbLazyTensor(bias);
+      if (hb_tensor.isStorageAttached()) {
+        auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
+        if (at_internal_tensor.has_storage()) {
+          auto internal_tensor =
+              habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+          internal_tensor->SetConstTensor(true);
+        }
+      }
+    }
+  }
 
   bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
                              ->IsEnabledWeightPermutePass())
       ? false
       : true;
-
   if (weight_hwck.device().type() == c10::DeviceType::CPU &&
       (!habana_lazy::exec::OptPassCfg::GetInstance()
             ->IsEnabledWeightPermutePass()) &&
@@ -1894,11 +1922,6 @@ Tensor convolution_hpu_lazy(
     weight_hwck.unsafeGetTensorImpl()->set_sizes_and_strides(
         weight_hwck.sizes(), new_strides);
   }
-
-  if (weight.device().type() == c10::DeviceType::CPU &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    weight_hwck = weight_hwck.to(c10::kHPU, true);
-
   LazyOp<at::Tensor> k(
       "aten::convolution_overrideable",
       {input,
@@ -1924,42 +1947,7 @@ Tensor convolution_hpu_lazy(
           is_weight_hwck,
           groups)},
       0);
-
-  auto out = k.get_result();
-
-  auto func = [out, op = std::move(k), weight_hwck, bias]() mutable {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
-      habana_lazy::PermuteTensors::permuteWeight(weight_hwck);
-    }
-
-    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-      auto hb_tensor = GetHbLazyTensor(weight_hwck);
-      if (hb_tensor.isStorageAttached()) {
-        auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
-        if (at_internal_tensor.has_storage()) {
-          auto internal_tensor =
-              habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-          internal_tensor->SetConstTensor(true);
-        }
-      }
-      if (bias.defined()) {
-        auto hb_tensor = GetHbLazyTensor(bias);
-        if (hb_tensor.isStorageAttached()) {
-          auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
-          if (at_internal_tensor.has_storage()) {
-            auto internal_tensor =
-                habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-            internal_tensor->SetConstTensor(true);
-          }
-        }
-      }
-    }
-
-    op.call(out);
-  };
-
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(convolution_overrideable, func, out)
+  return k.call();
 }
 
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
@@ -1978,7 +1966,16 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
   // Construct using LazyOp templated with class ir::Convolution
   std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
   ir::NodePtr node = std::make_shared<ir::Convolution>(
-      "aten::convolution_backward_overrideable");
+      grad_output,
+      input,
+      weight_hwck,
+      stride,
+      padding,
+      dilation,
+      transposed,
+      output_padding,
+      groups,
+      output_mask_vec);
 
   using T = std::tuple<at::Tensor, at::Tensor, at::Tensor>;
   using U = ir::Convolution;
@@ -2045,44 +2042,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
       output_padding,
       groups,
       output_mask);
-  auto out = k.get_result();
-  std::vector<at::Tensor> out_v;
-  for_each_in_tuple(
-      out, [&out_v](const auto& result) { out_v.push_back(result); });
-
-  auto func = [node = std::move(node),
-               out_v = std::move(out_v),
-               op = std::move(k),
-               grad_output,
-               input,
-               weight_hwck,
-               stride_vec = stride.vec(),
-               padding_vec = padding.vec(),
-               dilation_vec = dilation.vec(),
-               transposed,
-               output_padding_vec = output_padding.vec(),
-               groups,
-               output_mask_vec]() mutable {
-    IntArrayRef stride = stride_vec;
-    IntArrayRef padding = padding_vec;
-    IntArrayRef dilation = dilation_vec;
-    IntArrayRef output_padding = output_padding_vec;
-    auto node_derived = std::dynamic_pointer_cast<ir::Convolution>(node);
-    node_derived->Init(
-        grad_output,
-        input,
-        weight_hwck,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups,
-        output_mask_vec);
-    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
-  };
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(
-      convolution_backward_overrideable, func, out)
+  return k.call();
 }
 
 Tensor constant_pad_hpu_lazy(
