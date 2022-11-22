@@ -139,6 +139,55 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
 #undef OK
 #undef N
 
+  // ======== gaudi3 ========
+
+  // cast
+  // fr/to f32 bf16 i8 i16 i32 i64 u8 u16 u32 u64 f16
+  // f32     *    X  X   X   X   -  X   X   X   -   X
+  // bf16    X    *  X   X   X   -  X   X   X   -   X
+  // i8      X    X  *   X   X   -  X   X   X   -   X
+  // i16     X    X  -   *   X   -  -   X   X   -   X
+  // i32     X    X  X   X   *   X  X   X   X   -   X
+  // i64     -    -  -   -   X   *  -   -   -   -   -
+  // u8      X    X  X   -   X   -  *   X   X   -   X
+  // u16     X    X  X   X   X   -  X   *   X   -   X
+  // u32     X    X  X   X   X   -  X   X   *   X   X
+  // u64     -    -  -   -   -   -  -   -   X   *   -
+  // f16     X    X  X   X   X   -  X   X   X   -   *
+
+  // clang-format off
+#define OK  CastStage {}
+#define N   CastStage {}
+#define I32 CastStage { CastType::i32 }
+#define U16 CastStage { CastType::u16 }
+#define U32 CastStage { CastType::u32 }
+  // clang-format on
+
+  // TODO: SW-35847 Remove indirect casting
+  using LineT = EnumMappingTable<CastType, CastStage>;
+  static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi3 = {
+      // clang-format off
+      //              to:    f32  bf16   i8  i16  i32  i64   u8  u16  u32  u64  f16
+      /* from  f32 */ LineT{   N,   OK,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
+      /* from bf16 */ LineT{  OK,    N,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
+      /* from   i8 */ LineT{  OK,   OK,   N,  OK,  OK, I32,  OK,  OK,  OK, U32,  OK },
+      /* from  i16 */ LineT{  OK,   OK, I32,   N,  OK, I32, U16,  OK,  OK, U32,  OK },
+      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,   N,  OK,  OK,  OK,  OK, U32,  OK },
+      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,   N, I32, I32, I32,   N, I32 },
+      /* from   u8 */ LineT{  OK,   OK,  OK, U16,  OK, I32,   N,  OK,  OK, U32,  OK },
+      /* from  u16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,   N,  OK, U32,  OK },
+      /* from  u32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK,   N,  OK,  OK },
+      /* from  u64 */ LineT{ U32,  U32, U32, U32, U32,   N, U32, U32,  OK,   N, U32 },
+      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK,  OK, U32,   N },
+      // clang-format on
+  };
+
+#undef U32
+#undef U16
+#undef I32
+#undef OK
+#undef N
+
   EnumMappingTable<CastType, LineT> cast_stage_matrix;
   switch (syn_device_type) {
     case synDeviceType::synDeviceGaudi:
@@ -149,6 +198,9 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
       break;
     case synDeviceType::synDeviceGreco:
       cast_stage_matrix = cast_stage_matrix_greco;
+      break;
+    case synDeviceType::synDeviceGaudi3:
+      cast_stage_matrix = cast_stage_matrix_gaudi3;
       break;
     default:
       HABANA_ASSERT(false, "Unknown device: ", syn_device_type);

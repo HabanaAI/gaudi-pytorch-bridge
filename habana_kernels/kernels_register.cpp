@@ -2280,7 +2280,8 @@ Tensor habana_cast_to_fp8_wrap(
       to_string(stochastic_rounding),
       ", seed=",
       to_string(seed));
-  if (synapse_helpers::HPURegistrar::get_device().type() == synDeviceGaudi2) {
+  auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+  if (device_type == synDeviceGaudi2 || device_type == synDeviceGaudi3) {
     return habana_cast_to_fp8_lazy(input, stochastic_rounding, seed);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")

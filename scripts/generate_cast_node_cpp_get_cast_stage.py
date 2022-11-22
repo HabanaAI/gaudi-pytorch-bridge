@@ -23,10 +23,11 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--npu_stack_directory", "-d", type=str, required=True)
 
-devices = ['gaudi', 'gaudi2', 'greco']
+devices = ['gaudi', 'gaudi2', 'greco', 'gaudi3']
 files_with_cast_kernels = {devices[0] : '/tpc_kernels/src/kernel_factory_gaudi.cpp',
                            devices[1] : '/tpc_kernels/src/kernel_factory_gaudi2.cpp',
-                           devices[2] : '/tpc_kernels/src/kernel_factory_goya2.cpp'}
+                           devices[2] : '/tpc_kernels/src/kernel_factory_goya2.cpp',
+                           devices[3] : '/tpc_kernels/src/kernel_factory_gaudi3.cpp'}
 
 sign_id = 0
 exp_id = 1
@@ -62,8 +63,13 @@ num_bits_greco = {
     "u32": (0, 0, 32),
 }
 
+num_bits_gaudi3 = num_bits_gaudi2.copy()
 
-num_bits = {devices[0] : num_bits_gaudi, devices[1] : num_bits_gaudi2, devices[2] : num_bits_greco }
+
+num_bits = {devices[0] : num_bits_gaudi,
+            devices[1] : num_bits_gaudi2,
+            devices[2] : num_bits_greco,
+            devices[3] : num_bits_gaudi3}
 
 cast_types = {}
 max_len = {}

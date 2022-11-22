@@ -77,6 +77,7 @@ get_platform_cast_map() {
   auto type{synapse_helpers::HPURegistrar::get_device().type()};
   switch (type) {
     case synDeviceGaudi2:
+    case synDeviceGaudi3:
     case synDeviceGreco:
       // Half
       cast_map.insert(
@@ -111,7 +112,7 @@ get_platform_cast_map() {
   }
 
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-  if (type == synDeviceGaudi2) {
+  if (type == synDeviceGaudi2 || type == synDeviceGaudi3) {
     // fp8r152
     cast_map.insert(
         {{c10::ScalarType::Float, c10::ScalarType::Fp8r152}, "cast_f32_to_f8"});

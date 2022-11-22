@@ -468,6 +468,7 @@ _fused_dropout:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
   override_fn: fused_dropout_hpu_lazy
   acc_thread: true
@@ -476,6 +477,7 @@ _index_put_impl_:
   dtypes:
     Gaudi: [BFloat16, Float, Char, Short, Int]
     Gaudi2: [BFloat16, Float, Half, Char, Short, Int]
+    Gaudi3: [BFloat16, Float, Half, Char, Short, Int]
     Greco: [BFloat16, Float, Char, Short, Int]
   fallback_check: [IndexFallbackCheck, indices]
   override_fn: _index_put_impl_hpu_lazy_
@@ -494,6 +496,7 @@ abs:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
   out_ids: [0]
@@ -503,6 +506,7 @@ abs_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
   inplace_ids: [0]
@@ -511,6 +515,7 @@ abs.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Short, Half, Char]
   guid: abs_fwd
 
@@ -557,6 +562,7 @@ add.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy
   acc_thread: true
@@ -567,6 +573,7 @@ add.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy
   acc_thread: true
@@ -577,6 +584,7 @@ add_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy_
   type_promotion: true
@@ -586,6 +594,7 @@ add_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy_
   acc_thread: true
@@ -596,6 +605,7 @@ add.out:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   guid: add_fwd
   op_backend: BinaryWithAlpha
@@ -607,6 +617,7 @@ add.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   guid: add_fwd
   op_backend: BinaryWithAlpha
@@ -619,6 +630,7 @@ addbmm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
   guid: batch_gemm
   op_backend: AddBMM
@@ -629,6 +641,7 @@ addbmm_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
   guid: batch_gemm
   op_backend: AddBMM
@@ -639,6 +652,7 @@ addbmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
   guid: batch_gemm
   op_backend: AddBMM
@@ -649,6 +663,7 @@ addcdiv:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: div
   op_frontend: AddCOpFE
@@ -662,6 +677,7 @@ addcdiv_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: div
   op_frontend: AddCOpFE
@@ -683,6 +699,7 @@ addcmul:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half]
   guid: mult_fwd
   op_frontend: AddCOpFE
@@ -696,6 +713,7 @@ addcmul_:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half]
   guid: mult_fwd
   op_frontend: AddCOpFE
@@ -847,6 +865,7 @@ any:
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
   op_frontend: AllAnyOutputType
   op_backend: Any
@@ -858,6 +877,7 @@ any.dim:
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
   op_frontend: AllAnyOutputType
   op_backend: AnyDim
@@ -868,6 +888,7 @@ any.out:
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AnyDim
 
@@ -956,6 +977,7 @@ atan2:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: atan2_fwd
   out_ids: [0]
@@ -966,6 +988,7 @@ atan2_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: atan2_fwd
   inplace_ids: [0]
@@ -976,6 +999,7 @@ atan2.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: atan2_fwd
 
@@ -985,6 +1009,7 @@ avg_pool2d:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: avg_pool_2d_fwd
   layouts:
@@ -1002,6 +1027,7 @@ avg_pool2d.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: avg_pool_2d_fwd
   layouts:
@@ -1018,6 +1044,7 @@ avg_pool2d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
   layouts:
   - [NHWC, NCHW]
@@ -1032,6 +1059,7 @@ avg_pool2d_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
   layouts:
   - [NHWC, NCHW]
@@ -1062,6 +1090,7 @@ baddbmm:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   force_default: false
   override_fn: baddbmm_hpu_lazy
@@ -1070,6 +1099,7 @@ baddbmm_:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   force_default: false
   override_fn: baddbmm_hpu_lazy_
@@ -1078,6 +1108,7 @@ baddbmm.out:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16, Int, Char, Half, Short]
   override_fn: baddbmm_out_hpu_lazy
 
@@ -1086,6 +1117,7 @@ bernoulli:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyTensorSeed
@@ -1098,6 +1130,7 @@ bernoulli_.float:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
@@ -1110,6 +1143,7 @@ bernoulli_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
@@ -1121,6 +1155,7 @@ bernoulli.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyTensorOutSeed
@@ -1131,6 +1166,7 @@ bernoulli.float_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: LazyBernoulliOutFrontend
@@ -1142,6 +1178,7 @@ binary_cross_entropy:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16]
   op_backend: BinaryCrossEntropyFwd
   out_ids: [0]
@@ -1151,6 +1188,7 @@ binary_cross_entropy_backward:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
   out_ids: [0]
 
@@ -1159,6 +1197,7 @@ binary_cross_entropy.out:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16]
   op_backend: BinaryCrossEntropyFwd
 
@@ -1167,6 +1206,7 @@ binary_cross_entropy_backward.grad_input:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
 
 binary_cross_entropy_with_logits:
@@ -1174,6 +1214,7 @@ binary_cross_entropy_with_logits:
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16]
   op_backend: BinaryCrossEntropyWithLogitsFwd
   fallback_check: [BCELogitsFallbackCheck, self]
@@ -1186,6 +1227,7 @@ bitwise_and.Scalar:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalar
   guid: bitwise_and_fwd
@@ -1198,6 +1240,7 @@ bitwise_and.Scalar_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalar
   guid: bitwise_and_fwd
@@ -1209,6 +1252,7 @@ bitwise_and.Scalar_Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalarTensor
   guid: bitwise_and_fwd
@@ -1221,6 +1265,7 @@ bitwise_and.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   out_ids: [0]
@@ -1230,6 +1275,7 @@ bitwise_and.Tensor_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
 
@@ -1239,6 +1285,7 @@ bitwise_and_.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   inplace_ids: [0]
@@ -1322,6 +1369,7 @@ bitwise_or.Scalar_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalar
   guid: bitwise_or_fwd
@@ -1333,6 +1381,7 @@ bitwise_or.Scalar_Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalarTensor
   guid: bitwise_or_fwd
@@ -1345,6 +1394,7 @@ bitwise_or.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   out_ids: [0]
@@ -1354,6 +1404,7 @@ bitwise_or.Tensor_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
 
@@ -1363,6 +1414,7 @@ bitwise_or_.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   inplace_ids: [0]
@@ -1430,6 +1482,7 @@ bitwise_xor.Scalar_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalar
   guid: bitwise_xor_fwd
@@ -1441,6 +1494,7 @@ bitwise_xor.Scalar_Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalarTensor
   guid: bitwise_xor_fwd
@@ -1453,6 +1507,7 @@ bitwise_xor.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   out_ids: [0]
@@ -1462,6 +1517,7 @@ bitwise_xor.Tensor_out:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
 
@@ -1471,6 +1527,7 @@ bitwise_xor_.Tensor:
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
     Greco: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   inplace_ids: [0]
@@ -1480,6 +1537,7 @@ bmm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
+    Gaudi3: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
@@ -1489,6 +1547,7 @@ bmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
+    Gaudi3: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Char, Short, Byte]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
@@ -1519,6 +1578,7 @@ clamp:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_frontend: LazyClamp
   out_ids: [0]
@@ -1528,6 +1588,7 @@ clamp.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
   out_ids: [0]
@@ -1537,6 +1598,7 @@ clamp_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_frontend: LazyClamp
   inplace_ids: [0]
@@ -1546,6 +1608,7 @@ clamp_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
   inplace_ids: [0]
@@ -1555,6 +1618,7 @@ clamp.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
 
@@ -1562,6 +1626,7 @@ clamp.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   op_backend: clampTensor
 
@@ -1571,6 +1636,7 @@ clamp_max:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   out_ids: [0]
@@ -1582,6 +1648,7 @@ clamp_max.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   out_ids: [0]
@@ -1594,6 +1661,7 @@ clamp_max_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   inplace_ids: [0]
@@ -1605,6 +1673,7 @@ clamp_max_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   inplace_ids: [0]
@@ -1616,6 +1685,7 @@ clamp_max.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   type_promotion: true
@@ -1625,6 +1695,7 @@ clamp_max.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: min_fwd
   type_promotion: true
@@ -1636,6 +1707,7 @@ clamp_min:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   out_ids: [0]
@@ -1647,6 +1719,7 @@ clamp_min.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   out_ids: [0]
@@ -1659,6 +1732,7 @@ clamp_min_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   inplace_ids: [0]
@@ -1670,6 +1744,7 @@ clamp_min_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   inplace_ids: [0]
@@ -1681,6 +1756,7 @@ clamp_min.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   type_promotion: true
@@ -1690,6 +1766,7 @@ clamp_min.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   guid: max_fwd
   type_promotion: true
@@ -1700,6 +1777,7 @@ clone:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: clone_hpu_lazy
   acc_thread: true
@@ -1708,6 +1786,7 @@ constant_pad_nd:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte]
+    Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte]
     Greco: [BFloat16, Float, Int, Half, Short, Char, Byte]
   override_fn: constant_pad_hpu_lazy
   force_default: false
@@ -1717,6 +1796,7 @@ convolution_overrideable:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_hpu_lazy
 
@@ -1725,6 +1805,7 @@ convolution_backward_overrideable:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float, Half]
   override_fn: convolution_backward_hpu_lazy
 
@@ -1784,6 +1865,7 @@ cos:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: cos_fwd
   out_ids: [0]
@@ -1793,6 +1875,7 @@ cos.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: cos_fwd
 
@@ -1802,6 +1885,7 @@ cos_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: cos_fwd
   inplace_ids: [0]
@@ -1812,6 +1896,7 @@ cosh:
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
+    Gaudi3: [Float, Half]
     Greco: [Float, Half]
   guid: cosh_fwd
   out_ids: [0]
@@ -1821,6 +1906,7 @@ cosh.out:
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
+    Gaudi3: [Float, Half]
     Greco: [Float, Half]
   guid: cosh_fwd
 
@@ -1830,6 +1916,7 @@ cosh_:
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
+    Gaudi3: [Float, Half]
     Greco: [Float, Half]
   guid: cosh_fwd
   inplace_ids: [0]
@@ -1862,6 +1949,7 @@ cumsum:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   op_frontend: LazyCumsum
@@ -1873,6 +1961,7 @@ cumsum.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   op_backend: CumsumHabanaOperator
@@ -1883,6 +1972,7 @@ cumsum_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   inplace_ids: [0]
@@ -1893,6 +1983,7 @@ diag:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float]
   out_ids: [0]
   custom_fill_params: FillDiagParams
@@ -1903,6 +1994,7 @@ diag.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float]
   custom_fill_params: FillDiagParams
   op_backend: Diag
@@ -1997,6 +2089,7 @@ dot:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Int, Short, Char]
   op_backend: Dot
   out_ids: [0]
@@ -2007,6 +2100,7 @@ dot.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Int, Short, Char]
   op_backend: Dot
 
@@ -2015,6 +2109,7 @@ elu:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
@@ -2028,6 +2123,7 @@ elu_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
@@ -2040,6 +2136,7 @@ elu.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: elu_fwd
   tpc_param:
@@ -2053,6 +2150,7 @@ elu_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: elu_bwd
   out_ids: [0]
 
@@ -2061,6 +2159,7 @@ elu_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: elu_bwd
 
 embedding:
@@ -2070,6 +2169,9 @@ embedding:
       weight: [BFloat16, Float, Int, Char, Short, Byte]
       indices: [Int]
     Gaudi2:
+      weight: [BFloat16, Float, Int, Char, Short, Byte]
+      indices: [Int]
+    Gaudi3:
       weight: [BFloat16, Float, Int, Char, Short, Byte]
       indices: [Int]
     Greco:
@@ -2085,6 +2187,9 @@ embedding_dense_backward:
       grad_output: [BFloat16, Float]
       indices: [Int]
     Gaudi2:
+      grad_output: [BFloat16, Float]
+      indices: [Int]
+    Gaudi3:
       grad_output: [BFloat16, Float]
       indices: [Int]
     Greco:
@@ -2135,6 +2240,7 @@ eq.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: equal_fwd
   op_frontend: LazyCmp
@@ -2149,6 +2255,7 @@ eq.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: equal_fwd
   op_frontend: LazyCmp
@@ -2162,6 +2269,7 @@ erf:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [Float]
   guid: erf_fwd
   out_ids: [0]
@@ -2172,6 +2280,7 @@ erf_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [Float]
   guid: erf_fwd
   inplace_ids: [0]
@@ -2181,6 +2290,7 @@ erf.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [Float]
   guid: erf_fwd
 
@@ -2226,6 +2336,7 @@ exp:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
+    Gaudi3: [BFloat16, Float, Short, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   out_ids: [0]
@@ -2236,6 +2347,7 @@ exp_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
+    Gaudi3: [BFloat16, Float, Short, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   inplace_ids: [0]
@@ -2246,6 +2358,7 @@ exp.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
+    Gaudi3: [BFloat16, Float, Short, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: exp_fwd
 
@@ -2339,6 +2452,7 @@ fill.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
@@ -2347,6 +2461,7 @@ fill.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: Fill
 
@@ -2354,6 +2469,7 @@ fill_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
@@ -2363,6 +2479,7 @@ fill_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: Fill
   inplace_ids: [0]
@@ -2371,6 +2488,7 @@ flip:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char]
   op_backend: Flip
   out_ids: [0]
@@ -2380,6 +2498,7 @@ floor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: floor_fwd
   out_ids: [0]
@@ -2388,6 +2507,7 @@ floor.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: floor_fwd
 
@@ -2396,6 +2516,7 @@ floor_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: floor_fwd
   inplace_ids: [0]
@@ -2519,6 +2640,7 @@ gather:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Half]
   force_default: false
   op_backend: GatherHabanaOperator
@@ -2530,6 +2652,7 @@ gather.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Half]
   op_backend: GatherHabanaOperator
 
@@ -2599,6 +2722,7 @@ gelu:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float, Half]
   op_backend: Gelu
   out_ids: [0]
@@ -2609,6 +2733,7 @@ gelu_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float, Half]
   op_backend: Gelu
   inplace_ids: [0]
@@ -2618,6 +2743,7 @@ gelu.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float, Half]
   op_backend: Gelu
 
@@ -2627,6 +2753,7 @@ gelu_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [Float, Half]
   op_backend: GeluBwd
   out_ids: [0]
@@ -2636,6 +2763,7 @@ gelu_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [Float, Half]
   op_backend: GeluBwd
 
@@ -2685,6 +2813,7 @@ gt.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   scalar_ids: [1]
@@ -2695,6 +2824,7 @@ gt.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   type_promotion: true
@@ -2704,6 +2834,7 @@ gt_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   scalar_ids: [1]
@@ -2715,6 +2846,7 @@ gt_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   inplace_ids: [0]
@@ -2725,6 +2857,7 @@ gt.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   op_frontend: LazyCmp
@@ -2739,6 +2872,7 @@ gt.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   op_frontend: LazyCmp
@@ -2775,6 +2909,7 @@ hardsigmoid.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
 
@@ -2783,6 +2918,7 @@ hardsigmoid_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: hard_sigmoid_bwd
 
@@ -2792,6 +2928,7 @@ hardsigmoid:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
   out_ids: [0]
@@ -2802,6 +2939,7 @@ hardsigmoid_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
   inplace_ids: [0]
@@ -2812,6 +2950,7 @@ hardsigmoid_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: hard_sigmoid_bwd
   out_ids: [0]
@@ -2928,6 +3067,7 @@ index.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half]
   fallback_check: [IndexFallbackCheck, indices]
   guid: index
@@ -2941,6 +3081,7 @@ isfinite:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_frontend: IsFinite
   op_backend: _IsFinite
@@ -2951,6 +3092,7 @@ isnan:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half]
   guid: isnan_fwd
   op_backend: IsNanOperator
@@ -2999,6 +3141,10 @@ index_add_:
       self: [BFloat16, Float, Int, Half]
       index: [Int]
       source: [BFloat16, Float, Int, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Half]
+      index: [Int]
+      source: [BFloat16, Float, Int, Half]
     Greco:
       self: [BFloat16, Float, Half]
       index: [Int]
@@ -3011,6 +3157,7 @@ index_select:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
@@ -3021,6 +3168,7 @@ index_select.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
@@ -3030,6 +3178,7 @@ le.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   scalar_ids: [1]
@@ -3040,6 +3189,7 @@ le.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   type_promotion: true
@@ -3049,6 +3199,7 @@ le_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   scalar_ids: [1]
@@ -3060,6 +3211,7 @@ le_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   inplace_ids: [0]
@@ -3070,6 +3222,7 @@ le.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   op_frontend: LazyCmp
@@ -3084,6 +3237,7 @@ le.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   op_frontend: LazyCmp
@@ -3096,6 +3250,7 @@ leaky_relu_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: leakyrelu_bwd
 
@@ -3105,6 +3260,7 @@ leaky_relu_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: leakyrelu_bwd
   out_ids: [0]
@@ -3114,6 +3270,7 @@ leaky_relu:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: leakyrelu_fwd
   out_ids: [0]
@@ -3127,6 +3284,7 @@ leaky_relu_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: leakyrelu_fwd
   inplace_ids: [0]
@@ -3139,6 +3297,7 @@ leaky_relu.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: leakyrelu_fwd
   tpc_param:
@@ -3220,6 +3379,7 @@ log.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log_fwd
 
@@ -3229,6 +3389,7 @@ log:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log_fwd
   out_ids: [0]
@@ -3239,6 +3400,7 @@ log_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log_fwd
   inplace_ids: [0]
@@ -3285,6 +3447,7 @@ log2.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log2_fwd
 
@@ -3294,6 +3457,7 @@ log2:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log2_fwd
   out_ids: [0]
@@ -3304,6 +3468,7 @@ log2_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: log2_fwd
   inplace_ids: [0]
@@ -3371,6 +3536,7 @@ _log_softmax:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
@@ -3380,6 +3546,7 @@ _log_softmax.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
@@ -3389,6 +3556,7 @@ _log_softmax_backward_data:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd
   custom_fill_params: FillLogSoftmaxBackwardParams
   op_backend: LogSoftmaxBackward
@@ -3398,6 +3566,7 @@ _log_softmax_backward_data.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd
   custom_fill_params: FillLogSoftmaxBackwardParams
   op_backend: LogSoftmaxBackward
@@ -3412,6 +3581,7 @@ logical_and:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
   guid: and
@@ -3423,6 +3593,7 @@ logical_and_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
   guid: and
@@ -3433,6 +3604,7 @@ logical_and.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   guid: and
 
@@ -3440,6 +3612,7 @@ logical_not:
   dtypes:
     Gaudi: [Byte, Char]
     Gaudi2: [Half, Byte, Char]
+    Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
   guid: not_fwd
@@ -3450,6 +3623,7 @@ logical_not_:
   dtypes:
     Gaudi: [Byte, Char]
     Gaudi2: [Half, Byte, Char]
+    Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
   guid: not_fwd
@@ -3459,6 +3633,7 @@ logical_not.out:
   dtypes:
     Gaudi: [Byte, Char]
     Gaudi2: [Half, Byte, Char]
+    Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   guid: not_fwd
 
@@ -3467,6 +3642,7 @@ logical_or:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [BFloat16, Half, Int, Byte, Char]
   force_default: false
   guid: or
@@ -3478,6 +3654,7 @@ logical_or_:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [BFloat16, Half, Int, Byte, Char]
   force_default: false
   guid: or
@@ -3488,6 +3665,7 @@ logical_or.out:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [BFloat16, Half, Int, Byte, Char]
   guid: or
 
@@ -3496,6 +3674,7 @@ logical_xor:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   force_default: false
   guid: xor
@@ -3507,6 +3686,7 @@ logical_xor_:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   force_default: false
   guid: xor
@@ -3517,6 +3697,7 @@ logical_xor.out:
   dtypes:
     Gaudi: [BFloat16, Float, Byte, Char]
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
+    Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   guid: xor
 
@@ -3558,6 +3739,7 @@ lt.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   scalar_ids: [1]
@@ -3568,6 +3750,7 @@ lt.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   type_promotion: true
@@ -3577,6 +3760,7 @@ lt_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   inplace_ids: [0]
@@ -3587,6 +3771,7 @@ lt_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   scalar_ids: [1]
@@ -3598,6 +3783,7 @@ lt.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   op_frontend: LazyCmp
@@ -3612,6 +3798,7 @@ lt.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   op_frontend: LazyCmp
@@ -3624,6 +3811,7 @@ _masked_scale:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   op_backend: MaskedScale
   out_ids: [0]
@@ -3633,6 +3821,7 @@ max:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_max_fwd
   op_backend: MinMaxNoDim
@@ -3644,6 +3833,7 @@ max.dim_max:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_max_fwd
   op_backend: MinMaxOut
@@ -3654,6 +3844,7 @@ maximum:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   out_ids: [0]
@@ -3665,6 +3856,7 @@ maximum.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   type_promotion: true
@@ -3676,6 +3868,7 @@ max_pool2d_with_indices:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   op_backend: MaxPool2DWithIndicesOut
   op_frontend: LazyMaxPool2d
@@ -3691,6 +3884,10 @@ max_pool2d_with_indices_backward:
       grad_output: [BFloat16, Float]
       indices: [Int]
     Gaudi2:
+      self: [BFloat16, Float, Half]
+      grad_output: [BFloat16, Float, Half]
+      indices: [Int]
+    Gaudi3:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
       indices: [Int]
@@ -3780,6 +3977,7 @@ mean:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: mean_hpu_lazy
   acc_thread: true
@@ -3789,6 +3987,7 @@ mean.dim:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_mean_fwd
   op_template: reduction
@@ -3798,6 +3997,7 @@ mean.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_mean_fwd
   op_template: reduction
@@ -3807,6 +4007,7 @@ median:
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
     Greco: [Float, Int, Char, Short]
   op_backend: Median
   out_ids: [0]
@@ -3817,6 +4018,7 @@ median.dim:
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
     Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
   out_ids: [0, 0]
@@ -3826,6 +4028,7 @@ median.dim_values:
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
     Greco: [Float, Int, Char, Short]
   op_backend: Mediandim
 
@@ -3834,6 +4037,7 @@ min:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_backend: MinMaxNoDim
@@ -3846,6 +4050,7 @@ min.dim:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_frontend: LazyMinMax
@@ -3858,6 +4063,7 @@ min.dim_min:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
   op_backend: MinMaxOut
@@ -3868,6 +4074,7 @@ minimum:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
   out_ids: [0]
@@ -3879,6 +4086,7 @@ minimum.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
   type_promotion: true
@@ -3912,6 +4120,7 @@ mm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
+    Gaudi3: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: gemm
   out_ids: [0]
@@ -3922,6 +4131,7 @@ mm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
+    Gaudi3: [BFloat16, Float, Half, Fp8r152]
     Greco: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: gemm
 
@@ -3932,6 +4142,7 @@ mse_loss:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
   guid: mse_loss_fwd
   out_ids: [0]
@@ -3942,6 +4153,7 @@ mse_loss_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_bwd
   out_ids: [0]
 
@@ -3951,6 +4163,7 @@ mse_loss.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
   guid: mse_loss_fwd
 
@@ -3960,6 +4173,7 @@ mse_loss_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_bwd
 
 mul.Tensor:
@@ -3967,6 +4181,7 @@ mul.Tensor:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   broadcast: true
   guid: mult_fwd
@@ -3978,6 +4193,7 @@ mul.Scalar:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
@@ -3992,6 +4208,7 @@ mul.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   guid: mult_fwd
   type_promotion: true
@@ -4003,6 +4220,7 @@ mul_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
@@ -4015,6 +4233,7 @@ mul_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   force_default: false
   guid: mult_fwd
@@ -4027,6 +4246,7 @@ mul.out:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   override_fn: mul_out_hpu_lazy
   acc_thread: true
@@ -4093,6 +4313,7 @@ native_batch_norm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   override_fn: batch_norm_hpu_lazy
   acc_thread: true
@@ -4101,6 +4322,7 @@ native_batch_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   override_fn: batch_norm_bwd_hpu_lazy
   acc_thread: true
 
@@ -4109,6 +4331,7 @@ native_layer_norm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   override_fn: layer_norm_hpu_lazy
   acc_thread: true
@@ -4117,6 +4340,7 @@ native_layer_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   override_fn: layer_norm_backward_hpu_lazy
   acc_thread: true
 
@@ -4125,6 +4349,7 @@ ne.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   type_promotion: true
@@ -4133,6 +4358,7 @@ ne.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
@@ -4143,6 +4369,7 @@ ne_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   scalar_ids: [1]
@@ -4154,6 +4381,7 @@ ne_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   inplace_ids: [0]
@@ -4164,6 +4392,7 @@ ne.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
   op_backend: NE
@@ -4177,6 +4406,7 @@ ne.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
   op_backend: NE
@@ -4216,6 +4446,12 @@ nll_loss_backward:
       target: [Int]
       weight: [BFloat16, Float, Half]
       total_weight: [BFloat16, Float, Half]
+    Gaudi3:
+      grad_output: [BFloat16, Float, Half]
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLossBwd
   out_ids: [0]
@@ -4230,6 +4466,10 @@ nll_loss_forward:
       target: [Int]
       weight: [BFloat16, Float]
     Gaudi2:
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+    Gaudi3:
       self: [BFloat16, Float, Half]
       target: [Int]
       weight: [BFloat16, Float, Half]
@@ -4257,6 +4497,12 @@ nll_loss2d_backward:
       target: [Int]
       weight: [BFloat16, Float, Half]
       total_weight: [BFloat16, Float, Half]
+    Gaudi3:
+      grad_output: [BFloat16, Float, Half]
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
   out_ids: [0]
@@ -4273,6 +4519,10 @@ nll_loss2d_forward:
       target: [Int]
       weight: [BFloat16, Float]
     Gaudi2:
+      self: [BFloat16, Float, Half]
+      target: [Int]
+      weight: [BFloat16, Float, Half]
+    Gaudi3:
       self: [BFloat16, Float, Half]
       target: [Int]
       weight: [BFloat16, Float, Half]
@@ -4343,6 +4593,7 @@ nonzero:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char]
     Gaudi2: [BFloat16, Float, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Half]
     Greco: [BFloat16, Float, Half]
   override_fn: nonzero_hpu_lazy
 
@@ -4351,6 +4602,7 @@ normal_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
   guid: random_normal_fwd
   inplace_ids: [0]
@@ -4374,6 +4626,7 @@ norm.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormOpScalar
   out_ids: [0]
@@ -4405,6 +4658,7 @@ one_hot:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   override_fn: one_hot_hpu_lazy
 
@@ -4549,6 +4803,7 @@ randperm.generator_out:
   dtypes:
     Gaudi: [Int]
     Gaudi2: [Int]
+    Gaudi3: [Int]
     Greco: [Int]
   override_fn: randperm_hpu_lazy
   acc_thread: true
@@ -4576,6 +4831,7 @@ relu:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   out_ids: [0]
@@ -4584,6 +4840,7 @@ relu_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   inplace_ids: [0]
@@ -4592,6 +4849,7 @@ relu.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: relu_fwd
 
@@ -4688,6 +4946,7 @@ remainder.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [0]
@@ -4700,6 +4959,7 @@ remainder.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [0]
@@ -4712,6 +4972,7 @@ remainder_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   inplace_ids: [0]
@@ -4724,6 +4985,7 @@ remainder_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   inplace_ids: [0]
@@ -4735,6 +4997,7 @@ remainder.Scalar_Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [1]
@@ -4746,6 +5009,7 @@ remainder.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   type_promotion: true
@@ -4757,6 +5021,7 @@ remainder.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   scalar_ids: [1]
@@ -4950,6 +5215,7 @@ rsub.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: RSubScalarOperator
@@ -4964,6 +5230,10 @@ scatter.src:
       src: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int]
     Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+    Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
@@ -4982,6 +5252,10 @@ scatter_.src:
       src: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int]
     Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+    Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
@@ -5004,6 +5278,11 @@ scatter.src_out:
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
@@ -5020,6 +5299,9 @@ scatter.value:
     Gaudi2:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
     Greco:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
@@ -5033,6 +5315,9 @@ scatter_.value:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int]
     Gaudi2:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+    Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
     Greco:
@@ -5051,6 +5336,10 @@ scatter.value_out:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      index: [Int]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int]
@@ -5062,6 +5351,7 @@ select.int:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: select_hpu_lazy
 
@@ -5069,6 +5359,7 @@ sgn.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sign_fwd
 
@@ -5076,6 +5367,7 @@ sgn:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: sign_fwd
@@ -5085,6 +5377,7 @@ sgn_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: sign_fwd
@@ -5095,6 +5388,7 @@ sigmoid.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sigmoid_fwd
 
@@ -5104,6 +5398,7 @@ sigmoid:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sigmoid_fwd
   out_ids: [0]
@@ -5114,6 +5409,7 @@ sigmoid_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sigmoid_fwd
   inplace_ids: [0]
@@ -5122,6 +5418,7 @@ sigmoid_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   guid: sigmoid_bwd
   out_ids: [0]
@@ -5130,12 +5427,14 @@ sigmoid_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: sigmoid_bwd
 
 sign.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sign_fwd
 
@@ -5144,6 +5443,7 @@ sign:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sign_fwd
   out_ids: [0]
@@ -5153,6 +5453,7 @@ sign_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sign_fwd
   inplace_ids: [0]
@@ -5194,6 +5495,7 @@ sin:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sin_fwd
   out_ids: [0]
@@ -5203,6 +5505,7 @@ sin.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sin_fwd
 
@@ -5212,6 +5515,7 @@ sin_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sin_fwd
   inplace_ids: [0]
@@ -5283,6 +5587,7 @@ _softmax:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: softmax_fwd
   out_ids: [0]
@@ -5292,6 +5597,7 @@ _softmax.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: softmax_fwd
 
@@ -5301,6 +5607,7 @@ _softmax_backward_data:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
@@ -5311,6 +5618,7 @@ _softmax_backward_data.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: softmax_bwd
   op_backend: SoftmaxBackward
@@ -5369,6 +5677,7 @@ special_xlog1py:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_backend: XlogYOperator
@@ -5380,6 +5689,7 @@ special_xlog1py.other_scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_frontend: LazyXlogY
@@ -5392,6 +5702,7 @@ special_xlog1py.other_scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_frontend: LazyXlogY
@@ -5402,6 +5713,7 @@ special_xlog1py.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_backend: XlogYOperator
@@ -5412,6 +5724,7 @@ special_xlog1py.self_scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_frontend: LazyXlogY
@@ -5424,6 +5737,7 @@ special_xlog1py.self_scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   guid: log1p_fwd
   op_frontend: LazyXlogY
@@ -5447,6 +5761,7 @@ sqrt:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
   out_ids: [0]
@@ -5456,6 +5771,7 @@ sqrt.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
 
@@ -5465,6 +5781,7 @@ sqrt_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: sqrt_fwd
   inplace_ids: [0]
@@ -5492,6 +5809,7 @@ sub.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
@@ -5506,6 +5824,7 @@ sub.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
@@ -5520,6 +5839,7 @@ sub_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   inplace_ids: [0]
@@ -5534,6 +5854,7 @@ sub_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
@@ -5547,6 +5868,7 @@ sub.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
@@ -5559,6 +5881,7 @@ sub.out:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
@@ -5571,6 +5894,7 @@ sum:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_sum_fwd
   out_ids: [0]
@@ -5581,6 +5905,7 @@ sum.dim_IntList:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: sum_dim_IntList_hpu_lazy
   acc_thread: true
@@ -5589,6 +5914,7 @@ sum.IntList_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_sum_fwd
   op_template: reduction
@@ -5636,6 +5962,7 @@ tanh:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: tanh_fwd
   out_ids: [0]
@@ -5645,6 +5972,7 @@ tanh.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: tanh_fwd
 
@@ -5654,6 +5982,7 @@ tanh_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: tanh_fwd
   inplace_ids: [0]
@@ -5662,12 +5991,14 @@ tanh_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: tanh_bwd
 
 tanh_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   guid: tanh_bwd
   out_ids: [0]
@@ -5693,6 +6024,7 @@ threshold_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
   out_ids: [1]
@@ -5708,6 +6040,7 @@ topk:
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
     Greco: [Float, Int, Half, Char]
   override_fn: topk_hpu_lazy
   fallback_check: [TopkFallbackCheck, sorted]
@@ -5717,6 +6050,7 @@ topk.values:
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
     Greco: [Float, Int, Half, Char]
   override_fn: topk_out_hpu_lazy
   fallback_check: [TopkFallbackCheck, sorted]
@@ -5793,6 +6127,7 @@ uniform_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int]
+    Gaudi3: [BFloat16, Float, Int]
     Greco: [BFloat16, Float]
   guid: philox_random_uniform
   inplace_ids: [0]
@@ -5827,6 +6162,7 @@ upsample_bicubic2d:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5843,6 +6179,7 @@ upsample_bicubic2d.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5859,6 +6196,7 @@ upsample_bicubic2d.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5876,6 +6214,7 @@ upsample_bicubic2d_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -5892,6 +6231,7 @@ upsample_bicubic2d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -5908,6 +6248,7 @@ upsample_bicubic2d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -5925,6 +6266,7 @@ upsample_bilinear2d:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5941,6 +6283,7 @@ upsample_bilinear2d.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5957,6 +6300,7 @@ upsample_bilinear2d.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   layouts:
@@ -5974,6 +6318,7 @@ upsample_bilinear2d_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -5990,6 +6335,7 @@ upsample_bilinear2d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -6006,6 +6352,7 @@ upsample_bilinear2d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   layouts:
@@ -6022,6 +6369,7 @@ upsample_linear1d:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
@@ -6035,6 +6383,7 @@ upsample_linear1d.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
@@ -6048,6 +6397,7 @@ upsample_linear1d.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
@@ -6062,6 +6412,7 @@ upsample_linear1d_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
@@ -6075,6 +6426,7 @@ upsample_linear1d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
@@ -6088,6 +6440,7 @@ upsample_linear1d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
@@ -6102,6 +6455,7 @@ upsample_nearest1d:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
@@ -6115,6 +6469,7 @@ upsample_nearest1d.out:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
@@ -6128,6 +6483,7 @@ upsample_nearest1d.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
@@ -6142,6 +6498,7 @@ upsample_nearest1d_backward:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
@@ -6155,6 +6512,7 @@ upsample_nearest1d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
@@ -6168,6 +6526,7 @@ upsample_nearest1d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
@@ -6184,6 +6543,7 @@ upsample_nearest2d:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
@@ -6201,6 +6561,7 @@ upsample_nearest2d.out:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
@@ -6219,6 +6580,7 @@ upsample_nearest2d_backward:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
@@ -6237,6 +6599,7 @@ upsample_nearest2d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
@@ -6252,6 +6615,7 @@ upsample_nearest3d:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
@@ -6265,6 +6629,7 @@ upsample_nearest3d.out:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
@@ -6277,6 +6642,7 @@ upsample_nearest3d_backward:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   force_default: false
   guid: resize_bwd
@@ -6291,6 +6657,7 @@ upsample_nearest3d_backward.grad_input:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
@@ -6307,6 +6674,7 @@ upsample_nearest2d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   layouts:
@@ -6326,6 +6694,7 @@ upsample_nearest2d.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   layouts:
@@ -6341,6 +6710,7 @@ upsample_nearest3d.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
@@ -6354,6 +6724,7 @@ upsample_nearest3d_backward.vec:
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
+    Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
   op_backend: UpSampleNearest3DBwdOperator
@@ -6420,6 +6791,7 @@ xlogy.OutTensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_backend: XlogYOperator
 
@@ -6430,6 +6802,7 @@ xlogy.OutScalar_Self:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
@@ -6441,6 +6814,7 @@ xlogy.OutScalar_Other:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
@@ -6452,6 +6826,7 @@ xlogy.Scalar_Self:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
@@ -6464,6 +6839,7 @@ xlogy.Scalar_Other:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
@@ -6476,6 +6852,7 @@ xlogy_.Scalar_Other:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
@@ -6488,6 +6865,7 @@ xlogy.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_backend: XlogYOperator
   out_ids: [0]
@@ -6499,6 +6877,7 @@ xlogy_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
     Greco: [BFloat16, Float]
   op_backend: XlogYOperator
   inplace_ids: [0]
@@ -6507,6 +6886,7 @@ zero_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   override_fn: zero_hpu_lazy
   acc_thread: true

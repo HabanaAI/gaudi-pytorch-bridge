@@ -36,7 +36,8 @@ FALLBACK_CHECK(
       return true;
     case torch::kHalf: {
       auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
-      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco;
+      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco ||
+          device_type == synDeviceGaudi3;
     }
     default:
       return false;

@@ -192,6 +192,7 @@ _DEVICE_STR_TO_ENUM = {
     "Gaudi": "synDeviceGaudi",
     "Gaudi2": "synDeviceGaudi2",
     "Greco": "synDeviceGreco",
+    "Gaudi3": "synDeviceGaudi3",
 }
 
 

@@ -75,9 +75,10 @@ class synDeviceType(Enum):
     synDeviceGoya2 = synDeviceGreco = 1
     synDeviceGaudi = 2
     synDeviceGaudi2 = 4
-    synDeviceEmulator = 5
-    synDeviceTypeInvalid = 6
-    synDeviceTypeSize = 7
+    synDeviceGaudi3 = 5
+    synDeviceEmulator = 6
+    synDeviceTypeInvalid = 7
+    synDeviceTypeSize = 8
 
 hcl_ops = {0: "eHCLOpNone", 1: "eHCLSum", 2: "eHCLProd"}
 

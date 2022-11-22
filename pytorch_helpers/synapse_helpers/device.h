@@ -410,6 +410,8 @@ class device {
       return 4;
     if (type_ == synDeviceGreco)
       return 4;
+    if (type_ == synDeviceGaudi3)
+      return 4;
     return 1;
   }
 
