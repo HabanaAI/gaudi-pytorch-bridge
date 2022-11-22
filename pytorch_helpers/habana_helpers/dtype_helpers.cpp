@@ -90,8 +90,12 @@ void DTypeHelper::build() {
     for (auto& input : input_values_) {
       if (input->isTensor()) {
         state = at::native::update_result_type_state(input->toTensor(), state);
-      } else {
+      } else if (input->isScalar()) {
         state = at::native::update_result_type_state(input->toScalar(), state);
+      } else {
+        for (const at::Tensor& tensor : input->toTensorList()) {
+          state = update_result_type_state(tensor, state);
+        }
       }
     }
     common_dtype_ = at::native::result_type(state);
@@ -252,8 +256,8 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
   std::vector<const at::IValue*> inputs;
   inputs.reserve(stack.size());
   for (const auto& val : stack) {
-    // TODO Implement div.xx_mode correctly and remove this check
-    if (val.isTensor() or val.isScalar()) {
+    // Remove this check when we reuse FE dtype in BE
+    if (val.isTensor() or val.isScalar() or val.isTensorList()) {
       inputs.emplace_back(&val);
     }
   }

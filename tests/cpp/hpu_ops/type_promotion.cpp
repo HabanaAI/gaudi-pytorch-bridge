@@ -14,7 +14,8 @@ const std::array DtypesList{
     torch::kFloat,
     torch::kBFloat16,
     torch::kInt,
-    torch::kShort};
+    // torch::kShort, Similar to issue in SW-112252
+};
 
 const std::array DefaultDtypesList{
     torch::kFloat,
@@ -48,7 +49,7 @@ struct PrintParam3 {
     os << static_cast<c10::ScalarType>(std::get<0>(p.param));
     os << "x";
     os << static_cast<c10::ScalarType>(std::get<1>(p.param));
-    os << "_";
+    os << "x";
     os << static_cast<c10::ScalarType>(std::get<2>(p.param));
     return os.str();
   }
@@ -137,3 +138,31 @@ INSTANTIATE_TEST_SUITE_P(
     UnaryIntToFloatPromotion,
     ::testing::Combine(::testing::ValuesIn(DtypesList)),
     PrintParam1());
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+class TensorListPromotion
+    : public HpuOpTestUtil,
+      public testing::WithParamInterface<
+          std::tuple<c10::ScalarType, c10::ScalarType, c10::ScalarType>> {};
+
+TEST_P(TensorListPromotion, cat) {
+  const auto& testParams = GetParam();
+  const auto dtype0 = std::get<0>(testParams);
+  const auto dtype1 = std::get<1>(testParams);
+  const auto dtype2 = std::get<2>(testParams);
+  GenerateInputs(3, {dtype0, dtype1, dtype2});
+
+  auto exp = torch::cat({GetCpuInput(0), GetCpuInput(1), GetCpuInput(2)});
+  auto res = torch::cat({GetHpuInput(0), GetHpuInput(1), GetHpuInput(2)});
+  Compare(exp, res);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TypePromotion,
+    TensorListPromotion,
+    ::testing::Combine(
+        ::testing::ValuesIn(DtypesList),
+        ::testing::ValuesIn(DtypesList),
+        ::testing::ValuesIn(DtypesList)),
+    PrintParam3());

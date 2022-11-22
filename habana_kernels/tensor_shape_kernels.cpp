@@ -103,7 +103,6 @@ Tensor CatOperator::CheckAllocateOutput(
       out_size,
       first_tensor.options().dtype(output_dtype),
       first_tensor.suggest_memory_format(),
-      first_tensor.scalar_type(),
       output_metadata.persistent);
 
   return out;

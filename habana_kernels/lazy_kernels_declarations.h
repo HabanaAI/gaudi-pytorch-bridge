@@ -473,15 +473,6 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
 at::Tensor _copy_from_and_resize_lazy(
     const at::Tensor& self,
     const at::Tensor& dst);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR > 12))
-at::Tensor empty_symint_hpu(
-    c10::SymIntArrayRef size,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<at::MemoryFormat> memory_format);
-#endif
 at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,
@@ -503,11 +494,11 @@ at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::MemoryFormat> memory_format);
 at::Tensor& zero_hpu_lazy(at::Tensor& self);
-at::Tensor cat_hpu_lazy(const at::TensorList tensors, int64_t dim_ = 0);
+at::Tensor cat_hpu_lazy(const at::ITensorListRef& tensors, int64_t dim_ = 0);
 at::Tensor& cat_hpu_lazy_out(
-    at::Tensor& result,
-    const at::TensorList tensors,
-    int64_t dim_);
+    const at::ITensorListRef& tensors,
+    int64_t dim_,
+    at::Tensor& result);
 at::Tensor transpose_hpu_lazy(
     const at::Tensor& self,
     int64_t dim0_,

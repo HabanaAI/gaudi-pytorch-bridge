@@ -8,14 +8,12 @@
  ******************************************************************************
  */
 
-#include "../habana_kernels/lazy_kernels_declarations.h"
 #include "div_mod_util.h"
 #include "generated/div.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
 
 // For use in div_rounding_mode
-#define StrModeTrue ""
 #define StrModeFloor "floor"
 #define StrModeTruncate "trunc"
 
@@ -42,8 +40,8 @@ static c10::ScalarType GetCommonDtype(
 static bool DivCommonCheck(
     const at::Tensor& self,
     const c10::IValue& other,
-    c10::optional<c10::string_view> rounding_mode) {
-  auto promote_int_to_float = rounding_mode == StrModeTrue;
+    c10::optional<c10::string_view>&& rounding_mode) {
+  auto promote_int_to_float = !rounding_mode;
   auto result_type = GetCommonDtype({self, other}, promote_int_to_float);
   if (!promote_int_to_float && c10::isIntegralType(result_type, true)) {
     return true;
@@ -58,6 +56,12 @@ static bool DivCommonCheck(
       return device_type == synDeviceGaudi2 || device_type == synDeviceGreco ||
           device_type == synDeviceGaudi3;
     }
+    case torch::kInt8:
+    case torch::kInt16:
+    case torch::kInt32:
+    case torch::kInt64:
+      // floor and trunc support integral types by casts
+      return rounding_mode.has_value();
     default:
       return false;
   }
@@ -68,7 +72,7 @@ FALLBACK_CHECK(
     const at::Tensor& self,
     const at::Tensor& other,
     c10::optional<c10::string_view> rounding_mode) {
-  return DivCommonCheck(self, other, rounding_mode);
+  return DivCommonCheck(self, other, std::move(rounding_mode));
 }
 
 FALLBACK_CHECK(
@@ -76,33 +80,16 @@ FALLBACK_CHECK(
     const at::Tensor& self,
     const at::Scalar& other,
     c10::optional<c10::string_view> rounding_mode) {
-  return DivCommonCheck(self, other, rounding_mode);
+  return DivCommonCheck(self, other, std::move(rounding_mode));
 }
 
-FALLBACK_CHECK(
-    DivTensorFallbackCheck,
-    const at::Tensor& self,
-    const at::Tensor& other) {
-  return DivCommonCheck(self, other, StrModeTrue);
-}
-
-FALLBACK_CHECK(
-    DivScalarFallbackCheck,
-    const at::Tensor& self,
-    const at::Scalar& other) {
-  return DivCommonCheck(self, other, StrModeTrue);
-}
-
-static void convert_scalar_val_to_tensor(std::vector<at::IValue>& inputs) {
-  auto self = inputs[0].toTensor();
-  if (inputs[1].isScalar()) {
-    auto s = inputs[1].toScalar();
-    double val = s.to<double>();
-    c10::ScalarType result_type = GetResultDtype(inputs, false);
-    at::Tensor val_t = habana_lazy::get_tensor_for_scalar(
-        val, self.options().dtype(result_type));
-    inputs[1] = val_t;
-  }
+static void convert_scalar_to_tensor(
+    at::Stack& stack,
+    c10::optional<c10::ScalarType> compute_dtype = c10::nullopt) {
+  auto& other_ival = stack.at(1);
+  const auto& other = other_ival.toScalar();
+  other_ival = habana_lazy::get_tensor_for_scalar(
+      other.to<double>(), compute_dtype.value_or(other.type()));
 }
 
 template <>
@@ -110,36 +97,41 @@ LazyDivScalar<at::Tensor>::LazyDivScalar(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  convert_scalar_val_to_tensor(get_inputs());
-}
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
+
 template <>
 at::Tensor LazyDivScalar<at::Tensor>::get_result_overrideable() {
-  auto inputs = LazyOp<at::Tensor>::get_inputs();
-  auto self = inputs[0].toTensor();
-  auto other = inputs[1].toTensor();
-  c10::ScalarType result_dtype = GetResultDtype(inputs, true);
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto& inputs = LazyOp<at::Tensor>::get_inputs();
+  at::ScalarType result_dtype = get_scalar_type();
+  convert_scalar_to_tensor(inputs, result_dtype);
 
-  auto result = habana_lazy::empty_hpu_lazy(
-      shape_out,
+  const auto& self = inputs[0].toTensor();
+  return habana_lazy::empty_hpu_lazy(
+      self.sizes(),
       self.options().dtype(result_dtype),
       self.suggest_memory_format(),
       false);
-
-  return result;
 }
 
 template <>
-LazyDiv<at::Tensor>::LazyDiv(
+LazyDivScalarInplace<at::Tensor&>::LazyDivScalarInplace(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  c10::optional<std::string> rounding_mode =
-      inputs[2].toOptional<std::string>();
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  convert_scalar_to_tensor(get_inputs());
+}
+template <>
+at::Tensor& LazyDivScalarInplace<at::Tensor&>::get_result_overrideable() {
+  return LazyOp<at::Tensor&>::get_result_overrideable();
+}
+
+template <typename T>
+static void div_mode(habana_lazy::LazyOp<T>* op, at::Stack& inputs) {
+  c10::optional<c10::string_view> rounding_mode =
+      inputs.at(2).toOptional<c10::string_view>();
   TORCH_CHECK(
-      !rounding_mode.has_value() or (*rounding_mode == StrModeTruncate) or
+      !rounding_mode.has_value() or (*rounding_mode == "trunc") or
           (*rounding_mode == StrModeFloor),
       "div expected rounding_mode to be one of None, '",
       StrModeTruncate,
@@ -149,43 +141,39 @@ LazyDiv<at::Tensor>::LazyDiv(
       "but found '",
       *rounding_mode,
       "'");
-  convert_scalar_val_to_tensor(get_inputs());
+  at::ScalarType result_type =
+      GetResultDtype(inputs, !rounding_mode.has_value());
+  op->set_scalar_type(result_type);
+  if (inputs.at(1).isScalar()) {
+    convert_scalar_to_tensor(inputs, result_type);
+  }
 }
 
 template <>
-at::Tensor LazyDiv<at::Tensor>::get_result_overrideable() {
-  auto inputs = LazyOp<at::Tensor>::get_inputs();
-  auto self = inputs[0].toTensor();
-  auto other = inputs[1].toTensor();
-
-  c10::optional<std::string> rounding_mode =
-      inputs[2].toOptional<std::string>();
-
-  const std::string strRroundingMode = rounding_mode.value_or(StrModeTrue);
-  auto promote_int_to_float = strRroundingMode == StrModeTrue;
-  c10::ScalarType result_dtype = GetResultDtype(inputs, promote_int_to_float);
-
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
-
-  auto result = habana_lazy::empty_hpu_lazy(
-      shape_out,
-      self.options().dtype(result_dtype),
-      self.suggest_memory_format(),
-      false);
-
-  return result;
+DivMode<at::Tensor>::DivMode(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  div_mode(this, get_inputs());
 }
 
 template <>
-LazyDivScalarInplace<at::Tensor&>::LazyDivScalarInplace(
+at::Tensor DivMode<at::Tensor>::get_result_overrideable() {
+  return LazyOp<at::Tensor>::get_result_overrideable();
+}
+
+template <>
+DivMode<at::Tensor&>::DivMode(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
-  convert_scalar_val_to_tensor(get_inputs());
+  div_mode(this, get_inputs());
 }
+
 template <>
-at::Tensor& LazyDivScalarInplace<at::Tensor&>::get_result_overrideable() {
+at::Tensor& DivMode<at::Tensor&>::get_result_overrideable() {
   return LazyOp<at::Tensor&>::get_result_overrideable();
 }
 
@@ -194,20 +182,18 @@ static std::vector<synapse_helpers::tensor> CommonFuncForRoundingModeIntType(
     synapse_helpers::graph& graph,
     std::vector<synTensor> inputs,
     std::vector<int64_t> shape_out,
-    std::string rounding_mode,
+    const c10::optional<c10::string_view>& rounding_mode,
     c10::ScalarType final_result_type) {
-  size_t size = 0;
   std::vector<synapse_helpers::tensor> output;
   // The second argument of "FillDivModParams", pyCompatible is false
   // for 'trunc' mode and true for 'floor' case
-  const auto& params = FillDivModParams(size, (StrModeFloor == rounding_mode));
   output = GetDivModOutput(
       op,
       graph,
       inputs[0],
       inputs[1],
       (StrModeFloor == rounding_mode),
-      shape_out,
+      std::move(shape_out),
       final_result_type,
       DIV_MODE_OUTPUT_TYPE::QUOTIENT);
   return output;
@@ -218,29 +204,21 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     std::vector<synTensor> binaryop_inputs,
-    std::string rounding_mode) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  at::Tensor other;
-  if (stack.at(1).isTensor()) {
-    other = stack_tensor(stack, 1);
-  }
+    const c10::optional<c10::string_view>& rounding_mode) {
+  const at::Tensor& self = stack_tensor(stack, 0);
+  const at::Tensor& other = stack_tensor(stack, 1);
   std::vector<at::Tensor> tensors = {self, other};
 
-  // Check if mode is other than default "true", i.e. "floor" or "trunc"
-  bool bOtherThanTrueMode = (StrModeTrue != rounding_mode);
+  // Check if mode is other than None, i.e. "floor" or "trunc"
+  bool isNotNone = rounding_mode.has_value();
 
   // Find the result type
-  auto final_result_type = GetResultDtype(stack, !bOtherThanTrueMode);
-  if (stack.at(1).isScalar()) {
-    op->SetScalarType(final_result_type);
-  }
+  auto final_result_type = GetResultDtype(stack, !isNotNone);
 
-  auto shape_out = stack.at(1).isScalar()
-      ? self.sizes().vec()
-      : BinaryOperator::compute_output_shape(self, other);
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
   // Handle integral cases differently using div_mod, else floating point
   // convertion yields error after truncation in some cases.
-  if (bOtherThanTrueMode && (c10::isIntegralType(final_result_type, true))) {
+  if (isNotNone && (c10::isIntegralType(final_result_type, true))) {
     auto res = CommonFuncForRoundingModeIntType(
         op,
         graph,
@@ -252,13 +230,12 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
   } else { // if (isIntegralType(final_result_type, true))
 
     // Computation is always done in float or bfloat16
-    at::ScalarType computation_type =
-        GetCommonDtype(stack, !bOtherThanTrueMode);
+    at::ScalarType computation_type = GetCommonDtype(stack, !isNotNone);
     const std::string opStringSuffix =
         "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 
     // Initialization
-    const unsigned int cNoOfInputTensors = stack.at(1).isScalar() ? 1 : 2;
+    const unsigned cNoOfInputTensors = 2;
     std::vector<synapse_helpers::tensor> divOp, makeIntegerOp;
     std::unique_ptr<synapse_helpers::tensor> cast[cNoOfInputTensors];
 
@@ -295,8 +272,8 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
          binaryop_inputs,
          {{shape_out,
            computation_type,
-           bOtherThanTrueMode ? c10::nullopt : c10::make_optional<int>(0)}}});
-    if (!bOtherThanTrueMode) {
+           isNotNone ? c10::nullopt : c10::make_optional<int>(0)}}});
+    if (!isNotNone) {
       // when flow reaches here, computation_type is same as final_result_type,
       // so computation_type can be used as div's return type and that is the
       // return type of div_rounding_mode
@@ -307,7 +284,7 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     makeIntegerOp = OpBackend::BuildNode(
         op,
         graph,
-        {rounding_mode + opStringSuffix,
+        {std::string(*rounding_mode) + opStringSuffix,
          {divOp.at(0).get()},
          {{shape_out,
            computation_type,
@@ -332,21 +309,11 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
   }
 }
 
-void DivWithoutRoundModeOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  std::string rounding_mode = "";
-  std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
-  auto out =
-      DivCommonFunction(this, graph, stack, binaryop_inputs, rounding_mode);
-  syn_out(0) = std::move(out[0]);
-}
-
 void DivRoundModeOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  std::string rounding_mode =
-      stack[2].isNone() ? StrModeTrue : stack[2].toStringRef();
+  c10::optional<c10::string_view> rounding_mode =
+      stack.at(2).toOptional<c10::string_view>();
   std::vector<synTensor> binaryop_inputs{syn_in(0), syn_in(1)};
   auto out =
       DivCommonFunction(this, graph, stack, binaryop_inputs, rounding_mode);

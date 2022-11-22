@@ -1154,46 +1154,6 @@ Tensor hpu_wrap::empty_strided(
   return empty_strided_hpu(size, stride, options);
 }
 
-Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cat :", " tensors=", to_string(tensors), " dim_=", to_string(dim_));
-
-  FALLBACK_IF_UNSUPPORTED_OP(cat, PARAMS1(tensors[0]), PARAMS2(tensors, dim_))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return cat_hpu_lazy(tensors, dim_);
-
-  } else {
-    return cat_hpu(tensors, dim_);
-  }
-};
-Tensor& hpu_wrap::cat_out(
-    const TensorList tensors,
-    int64_t dim_,
-    Tensor& result) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cat_out :",
-      " tensprs=",
-      to_string(tensors),
-      " dim_=",
-      to_string(dim_),
-      " result=",
-      to_string(result));
-
-  FALLBACK_IF_UNSUPPORTED_OP(
-      cat_out, PARAMS1(result, tensors[0]), PARAMS2(tensors, dim_, result))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return cat_hpu_lazy_out(result, tensors, dim_);
-
-  } else {
-    return cat_hpu_out(result, tensors, dim_);
-  }
-};
 #else
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
@@ -1273,49 +1233,6 @@ Tensor hpu_wrap::empty_strided(
       asIntArrayRefSlow(size), asIntArrayRefSlow(stride), options);
 }
 
-Tensor hpu_wrap::cat(const ITensorListRef& tensors, int64_t dim_) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cat :", " tensors=", to_string(tensors), " dim_=", to_string(dim_));
-
-  FALLBACK_IF_UNSUPPORTED_OP(
-      cat, PARAMS1(tensors.toUnboxed()[0]), PARAMS2(tensors, dim_))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return cat_hpu_lazy(tensors.toUnboxed(), dim_);
-
-  } else {
-    return cat_hpu(tensors.toUnboxed(), dim_);
-  }
-};
-Tensor& hpu_wrap::cat_out(
-    const ITensorListRef& tensors,
-    int64_t dim_,
-    Tensor& result) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cat_out :",
-      " tensprs=",
-      to_string(tensors),
-      " dim_=",
-      to_string(dim_),
-      " result=",
-      to_string(result));
-
-  FALLBACK_IF_UNSUPPORTED_OP(
-      cat_out,
-      PARAMS1(result, tensors.toUnboxed()[0]),
-      PARAMS2(tensors, dim_, result))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return cat_hpu_lazy_out(result, tensors.toUnboxed(), dim_);
-
-  } else {
-    return cat_hpu_out(result, tensors.toUnboxed(), dim_);
-  }
-};
 #endif
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,

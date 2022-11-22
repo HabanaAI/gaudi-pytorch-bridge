@@ -43,6 +43,7 @@ __lshift__.Scalar:
   scalar_ids: [1]
 
 __lshift__.Scalar_out:
+  force_default: false
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
@@ -54,14 +55,15 @@ __lshift__.Tensor:
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 __lshift__.Tensor_out:
+  force_default: false
   broadcast: true
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 __rshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -71,6 +73,7 @@ __rshift__.Scalar:
   scalar_ids: [1]
 
 __rshift__.Scalar_out:
+  force_default: false
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
@@ -82,14 +85,15 @@ __rshift__.Tensor:
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 __rshift__.Tensor_out:
+  force_default: false
   broadcast: true
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize_lazy
@@ -487,6 +491,7 @@ as_strided:
   acc_thread: true
 
 select_backward:
+  force_default: false
   override_fn: select_backward_hpu_lazy
   acc_thread: true
 
@@ -523,38 +528,38 @@ abs.out:
 
 acos:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: acos_fwd
   out_ids: [0]
 
 acos.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: acos_fwd
 
 acos_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: acos_fwd
   inplace_ids: [0]
 
 acosh:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: acosh_fwd
   out_ids: [0]
 
 acosh.out:
   dtypes: [Float]
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   guid: acosh_fwd
 
 acosh_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: acosh_fwd
   inplace_ids: [0]
@@ -568,7 +573,7 @@ add.Tensor:
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy
   acc_thread: true
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 add.Scalar:
   force_default: false
@@ -579,7 +584,7 @@ add.Scalar:
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy
   acc_thread: true
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 add_.Scalar:
   force_default: false
@@ -589,7 +594,7 @@ add_.Scalar:
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy_
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 add_.Tensor:
   force_default: false
@@ -600,7 +605,7 @@ add_.Tensor:
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy_
   acc_thread: true
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 add.out:
   broadcast: true
@@ -611,9 +616,10 @@ add.out:
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   guid: add_fwd
   op_backend: BinaryWithAlpha
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 add.Scalar_out:
+  force_default: false
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
@@ -623,7 +629,7 @@ add.Scalar_out:
   guid: add_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 addbmm:
   custom_output_shape: AddBMMOutshape
@@ -915,57 +921,57 @@ argmin.out:
 
 asin:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: asin_fwd
   out_ids: [0]
 
 asin.out:
   dtypes: [Float]
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   guid: asin_fwd
 
 asin_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: asin_fwd
   inplace_ids: [0]
 
 asinh:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: asinh_fwd
   out_ids: [0]
 
 asinh.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: asinh_fwd
 
 asinh_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: asinh_fwd
   inplace_ids: [0]
 
 atan:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: atan_fwd
   out_ids: [0]
 
 atan.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: atan_fwd
 
 atan_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: atan_fwd
   inplace_ids: [0]
@@ -973,7 +979,7 @@ atan_:
 atan2:
   force_default: false
   broadcast: true
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -984,7 +990,7 @@ atan2:
 
 atan2_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -995,7 +1001,7 @@ atan2_:
 
 atan2.out:
   broadcast: true
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1166,6 +1172,7 @@ bernoulli.out:
   schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1309,14 +1316,14 @@ bitwise_left_shift.Tensor:
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 bitwise_left_shift.Tensor_out:
   broadcast: true
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 bitwise_left_shift.Tensor_Scalar:
   force_default: false
@@ -1436,14 +1443,14 @@ bitwise_right_shift.Tensor:
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 bitwise_right_shift.Tensor_out:
   broadcast: true
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 bitwise_right_shift.Tensor_Scalar:
   force_default: false
@@ -1551,6 +1558,15 @@ bmm.out:
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
 
+cat:
+  force_default: false
+  promote_to_common_type: [tensors]
+  override_fn: cat_hpu_lazy
+
+cat.out:
+  promote_to_common_type: [tensors]
+  override_fn: cat_hpu_lazy_out
+
 ceil:
   force_default: false
   dtypes: [BFloat16, Float]
@@ -1579,6 +1595,7 @@ clamp:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min, max]
   op_frontend: LazyClamp
   out_ids: [0]
 
@@ -1589,6 +1606,7 @@ clamp.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min, max]
   op_backend: clampTensor
   out_ids: [0]
 
@@ -1599,6 +1617,7 @@ clamp_:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min, max]
   op_frontend: LazyClamp
   inplace_ids: [0]
 
@@ -1609,6 +1628,7 @@ clamp_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min, max]
   op_backend: clampTensor
   inplace_ids: [0]
 
@@ -1619,6 +1639,7 @@ clamp.out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, min, max]
   guid: clamp_fwd
 
 clamp.Tensor_out:
@@ -1627,6 +1648,7 @@ clamp.Tensor_out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min, max]
   op_backend: clampTensor
 
 clamp_max:
@@ -1639,7 +1661,7 @@ clamp_max:
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
   guid: clamp_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, max]
 
 clamp_max.Tensor:
   force_default: false
@@ -1648,9 +1670,9 @@ clamp_max.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, max]
   guid: min_fwd
   out_ids: [0]
-  type_promotion: true
 
 clamp_max_:
   force_default: false
@@ -1660,9 +1682,9 @@ clamp_max_:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, max]
   guid: clamp_fwd
   inplace_ids: [0]
-  type_promotion: true
 
 clamp_max_.Tensor:
   force_default: false
@@ -1671,9 +1693,9 @@ clamp_max_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, max]
   guid: min_fwd
   inplace_ids: [0]
-  type_promotion: true
 
 clamp_max.out:
   custom_fill_params: FillClampMaxParams
@@ -1682,8 +1704,8 @@ clamp_max.out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, max]
   guid: clamp_fwd
-  type_promotion: true
 
 clamp_max.Tensor_out:
   dtypes:
@@ -1691,8 +1713,8 @@ clamp_max.Tensor_out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, max]
   guid: min_fwd
-  type_promotion: true
 
 clamp_min:
   force_default: false
@@ -1702,9 +1724,9 @@ clamp_min:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, min]
   guid: clamp_fwd
   out_ids: [0]
-  type_promotion: true
 
 clamp_min.Tensor:
   force_default: false
@@ -1713,9 +1735,9 @@ clamp_min.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min]
   guid: max_fwd
   out_ids: [0]
-  type_promotion: true
 
 clamp_min_:
   force_default: false
@@ -1725,9 +1747,9 @@ clamp_min_:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, min]
   guid: clamp_fwd
   inplace_ids: [0]
-  type_promotion: true
 
 clamp_min_.Tensor:
   force_default: false
@@ -1736,9 +1758,9 @@ clamp_min_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min]
   guid: max_fwd
   inplace_ids: [0]
-  type_promotion: true
 
 clamp_min.out:
   custom_fill_params: FillClampMinParams
@@ -1747,8 +1769,8 @@ clamp_min.out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float]
+  promote_to_common_type: [self, min]
   guid: clamp_fwd
-  type_promotion: true
 
 clamp_min.Tensor_out:
   dtypes:
@@ -1756,8 +1778,8 @@ clamp_min.Tensor_out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
+  promote_to_common_type: [self, min]
   guid: max_fwd
-  type_promotion: true
 
 clone:
   force_default: false
@@ -1802,13 +1824,13 @@ copysign.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 copysign.Scalar_out:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
   scalar_ids: [1]
 
 copysign_.Scalar:
@@ -1816,7 +1838,7 @@ copysign_.Scalar:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   inplace_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
   scalar_ids: [1]
 
 copysign_.Tensor:
@@ -1824,7 +1846,7 @@ copysign_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   inplace_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 copysign.Scalar:
   force_default: false
@@ -1832,7 +1854,7 @@ copysign.Scalar:
   guid: copy_sign_fwd
   scalar_ids: [1]
   out_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 copysign.Tensor:
   force_default: false
@@ -1840,11 +1862,11 @@ copysign.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   out_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 cos:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1854,7 +1876,7 @@ cos:
   out_ids: [0]
 
 cos.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1864,7 +1886,7 @@ cos.out:
 
 cos_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1875,7 +1897,7 @@ cos_:
 
 cosh:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -1885,7 +1907,7 @@ cosh:
   out_ids: [0]
 
 cosh.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -1895,7 +1917,7 @@ cosh.out:
 
 cosh_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float, Half]
@@ -1984,9 +2006,8 @@ diag.out:
 
 div.out:
   custom_output_shape: BinaryOutputShape
-  fallback_check: [DivTensorFallbackCheck, self, other]
-  guid: div_fwd
-  promote_int_to_float: true
+  guid: div
+  promote_int_to_float: [self, other]
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
@@ -1994,93 +2015,102 @@ div.out_mode:
   guid: div
   op_backend: DivRoundModeOperator
 
-# Convert scalar to tensor for better utilization of cache
-# as in div_scalar_hpu_lazy
 div.Scalar:
   force_default: false
-  custom_output_shape: BinaryOutputShape
-  fallback_check: [DivScalarFallbackCheck, self, other]
-  guid: div_fwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: div
   op_frontend: LazyDivScalar
   out_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 div_.Scalar:
   force_default: false
-  custom_output_shape: BinaryOutputShape
-  fallback_check: [DivScalarFallbackCheck, self, other]
-  guid: div_fwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: div
   op_frontend: LazyDivScalarInplace
   inplace_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 div.Scalar_mode:
   force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
-  op_frontend: LazyDiv
-  op_backend: DivRoundModeOperator
+  op_frontend: DivMode
   out_ids: [0]
-  type_promotion: true
 
 div_.Scalar_mode:
-  custom_output_shape: BinaryOutputShape
   force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
-  op_frontend: LazyDivScalarInplace
-  op_backend: DivRoundModeOperator
+  op_frontend: DivMode
   inplace_ids: [0]
-  type_promotion: true
 
 div.Tensor:
-  custom_output_shape: BinaryOutputShape
   force_default: false
-  fallback_check: [DivTensorFallbackCheck, self, other]
-  guid: div_fwd
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: div
   out_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 div.Tensor_mode:
   custom_output_shape: BinaryOutputShape
   force_default: false
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   guid: div
-  op_frontend: LazyDiv
+  op_frontend: DivMode
   op_backend: DivRoundModeOperator
   out_ids: [0]
 
 div_.Tensor:
   force_default: false
-  fallback_check: [DivTensorFallbackCheck, self, other]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   custom_output_shape: BinaryOutputShape
-  guid: div_fwd
+  guid: div
   inplace_ids: [0]
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 div_.Tensor_mode:
   force_default: false
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   custom_output_shape: BinaryOutputShape
   guid: div
+  op_frontend: DivMode
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
 
 div.Scalar_mode_out:
-  custom_output_shape: BinaryOutputShape
+  force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
-  op_frontend: LazyDivScalarInplace
-  op_backend: DivRoundModeOperator
-  type_promotion: true
+  op_frontend: DivMode
 
 div.Scalar_out:
-  custom_output_shape: BinaryOutputShape
-  fallback_check: [DivScalarFallbackCheck, self, other]
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: div
-  op_backend: DivWithoutRoundModeOperator
   op_frontend: LazyDivScalarInplace
-  promote_int_to_float: true
+  promote_int_to_float: [self, other]
 
 dot:
   custom_output_shape: DotOutputShape
@@ -2197,10 +2227,6 @@ embedding_dense_backward:
   override_fn: embedding_dense_backward_hpu_lazy
   acc_thread: true
 
-empty.SymInt:
-  override_fn: empty_symint_hpu
-
-
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: Equal
@@ -2210,14 +2236,14 @@ eq.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 eq.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 eq_.Scalar:
@@ -2226,7 +2252,7 @@ eq_.Scalar:
   guid: equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 eq_.Tensor:
@@ -2234,7 +2260,7 @@ eq_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 eq.Scalar:
@@ -2249,7 +2275,7 @@ eq.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 eq.Tensor:
   force_default: false
@@ -2263,11 +2289,11 @@ eq.Tensor:
   op_frontend: LazyCmp
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 erf:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2278,7 +2304,7 @@ erf:
 
 erf_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2288,7 +2314,7 @@ erf_:
   inplace_ids: [0]
 
 erf.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -2298,20 +2324,20 @@ erf.out:
 
 erfc:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Erfc
   out_ids: [0]
 
 erfc_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Erfc
   inplace_ids: [0]
 
 erfc.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Erfc
 
@@ -2322,19 +2348,19 @@ erfinv:
   out_ids: [0]
 
 erfinv_:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   force_default: false
   guid: erfinv_fwd
   inplace_ids: [0]
 
 erfinv.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
 
 exp:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2345,7 +2371,7 @@ exp:
   force_default: false
 
 exp_:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2356,7 +2382,7 @@ exp_:
   force_default: false
 
 exp.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Short, Half]
@@ -2366,19 +2392,19 @@ exp.out:
 
 exp2:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   out_ids: [0]
 
 exp2.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
 
 exp2_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   inplace_ids: [0]
@@ -2390,19 +2416,19 @@ expand:
 
 expm1:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
   out_ids: [0]
 
 expm1.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
 
 expm1_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
@@ -2425,6 +2451,7 @@ exponential_:
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
 
 exponential.out:
+  force_default: false
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
   op_frontend: LazyTensorOutSeedExp
@@ -2451,6 +2478,7 @@ eye.m_out:
   op_backend: EyeOpOut
 
 fill.Scalar_out:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
@@ -2460,6 +2488,7 @@ fill.Scalar_out:
   op_frontend: FillFE
 
 fill.Tensor_out:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
@@ -2528,14 +2557,14 @@ floor_divide.out:
   dtypes: [BFloat16, Float, Int, Byte, Char]
   guid: div
   op_backend: FloorDivideOperator
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 floor_divide:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Byte, Char]
   guid: div
   op_backend: FloorDivideOperator
-  type_promotion: true
+  promote_to_common_type: [self, other]
   out_ids: [0]
 
 floor_divide_.Tensor:
@@ -2543,7 +2572,7 @@ floor_divide_.Tensor:
   dtypes: [BFloat16, Float, Int, Byte, Char]
   guid: div
   op_backend: FloorDivideOperator
-  type_promotion: true
+  promote_to_common_type: [self, other]
   inplace_ids: [0]
 
 frac:
@@ -2584,7 +2613,7 @@ fmod.Scalar:
   op_backend: Fmod
   out_ids: [0]
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 fmod.Scalar_out:
   force_default: false
@@ -2592,7 +2621,7 @@ fmod.Scalar_out:
   guid: mod_fwd
   op_backend: Fmod
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 fmod.Tensor:
   force_default: false
@@ -2601,14 +2630,14 @@ fmod.Tensor:
   guid: mod_fwd
   op_backend: Fmod
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 fmod.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   op_backend: Fmod
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 fmod_.Scalar:
   force_default: false
@@ -2617,7 +2646,7 @@ fmod_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   op_backend: Fmod
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 fmod_.Tensor:
   force_default: false
@@ -2625,7 +2654,7 @@ fmod_.Tensor:
   guid: mod_fwd
   inplace_ids: [0]
   op_backend: Fmod
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 gather:
   custom_fill_params: FillGatherParams
@@ -2653,14 +2682,14 @@ ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ge.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ge_.Scalar:
@@ -2669,7 +2698,7 @@ ge_.Scalar:
   guid: greater_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ge_.Tensor:
@@ -2677,7 +2706,7 @@ ge_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ge.Scalar:
@@ -2688,7 +2717,7 @@ ge.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 ge.Tensor:
   force_default: false
@@ -2698,7 +2727,7 @@ ge.Tensor:
   op_frontend: LazyCmp
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 gelu:
   custom_fill_params: FillGeluFwdParams
@@ -2760,6 +2789,7 @@ geometric_:
   schema_args: "(Tensor(a!) self, float p, Tensor seed) -> Tensor(a!)"
 
 geometric.out:
+  force_default: false
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
   op_frontend: LazyGeometric
@@ -2815,7 +2845,7 @@ gt.Scalar_out:
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 gt.Tensor_out:
@@ -2826,7 +2856,7 @@ gt.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 gt_.Scalar:
@@ -2839,7 +2869,7 @@ gt_.Scalar:
   guid: greater_fwd
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 gt_.Tensor:
@@ -2851,7 +2881,7 @@ gt_.Tensor:
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: greater_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 gt.Scalar:
@@ -2866,7 +2896,7 @@ gt.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 gt.Tensor:
   force_default: false
@@ -2880,7 +2910,7 @@ gt.Tensor:
   op_frontend: LazyCmp
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 hardshrink:
   force_default: false
@@ -3065,6 +3095,7 @@ hypot_:
   inplace_ids: [0]
 
 index.Tensor:
+  force_default: false
   custom_output_shape: IndexOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
@@ -3247,7 +3278,7 @@ le.Scalar_out:
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 le.Tensor_out:
@@ -3258,7 +3289,7 @@ le.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 le_.Scalar:
@@ -3271,7 +3302,7 @@ le_.Scalar:
   guid: less_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 le_.Tensor:
@@ -3283,7 +3314,7 @@ le_.Tensor:
     Greco: [BFloat16, Float, Int, Half, Short]
   guid: less_equal_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 le.Scalar:
@@ -3298,7 +3329,7 @@ le.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 le.Tensor:
   force_default: false
@@ -3312,7 +3343,7 @@ le.Tensor:
   op_frontend: LazyCmp
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 leaky_relu_backward.grad_input:
   custom_fill_params: FillLeakyReluBackwardParams
@@ -3447,7 +3478,7 @@ linspace.out:
   custom_output_shape: LinspaceOutputShape
 
 log.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3457,7 +3488,7 @@ log.out:
 
 log:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3468,7 +3499,7 @@ log:
 
 log_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3479,39 +3510,39 @@ log_:
 
 log1p:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   out_ids: [0]
 
 log1p_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   inplace_ids: [0]
 
 log1p.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
 
 log10:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Log10
   out_ids: [0]
 
 log10_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Log10
   inplace_ids: [0]
 
 log10.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Log10
 
@@ -3525,7 +3556,7 @@ log2.out:
 
 log2:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3536,7 +3567,7 @@ log2:
 
 log2_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -3551,13 +3582,13 @@ logaddexp:
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 logaddexp.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 logaddexp2:
   force_default: false
@@ -3565,13 +3596,13 @@ logaddexp2:
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   op_backend: LogAddExp2
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 logcumsumexp:
   force_default: false
@@ -3811,7 +3842,7 @@ lt.Scalar_out:
     Greco: [BFloat16, Float, Short, Half]
   guid: less_fwd
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 lt.Tensor_out:
@@ -3822,7 +3853,7 @@ lt.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 lt_.Tensor:
@@ -3834,7 +3865,7 @@ lt_.Tensor:
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: less_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 lt_.Scalar:
@@ -3847,7 +3878,7 @@ lt_.Scalar:
   guid: less_fwd
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 lt.Scalar:
@@ -3862,7 +3893,7 @@ lt.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 lt.Tensor:
   force_default: false
@@ -3876,7 +3907,7 @@ lt.Tensor:
   op_frontend: LazyCmp
   out_ids: [0]
   op_backend: CompareOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 _masked_scale:
   custom_output_shape: MaskedScaleOutputShape
@@ -3959,7 +3990,7 @@ maximum:
     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 maximum.out:
   broadcast: true
@@ -3969,7 +4000,7 @@ maximum.out:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: max_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
@@ -4187,7 +4218,7 @@ minimum:
     Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 minimum.out:
   broadcast: true
@@ -4197,7 +4228,7 @@ minimum.out:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: min_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 mish:
   force_default: false
@@ -4293,7 +4324,7 @@ mul.Tensor:
   broadcast: true
   guid: mult_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 mul.Scalar:
   dtypes:
@@ -4306,9 +4337,10 @@ mul.Scalar:
   broadcast: true
   out_ids: [0]
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 mul.Scalar_out:
+  force_default: false
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
@@ -4316,7 +4348,7 @@ mul.Scalar_out:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Greco: [BFloat16, Float, Half, Char]
   guid: mult_fwd
-  type_promotion: true
+  promote_to_common_type: [self, other]
   scalar_ids: [1]
 
 mul_.Tensor:
@@ -4329,7 +4361,7 @@ mul_.Tensor:
   force_default: false
   guid: mult_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 mul_.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -4342,7 +4374,7 @@ mul_.Scalar:
   guid: mult_fwd
   inplace_ids: [0]
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 mul.out:
   dtypes:
@@ -4454,7 +4486,7 @@ ne.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ne.Scalar_out:
@@ -4465,7 +4497,7 @@ ne.Scalar_out:
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ne_.Scalar:
@@ -4478,7 +4510,7 @@ ne_.Scalar:
   op_backend: NE
   scalar_ids: [1]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ne_.Tensor:
@@ -4490,7 +4522,7 @@ ne_.Tensor:
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ne.Scalar:
@@ -4504,7 +4536,7 @@ ne.Scalar:
   op_backend: NE
   scalar_ids: [1]
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 ne.Tensor:
   force_default: false
@@ -4517,7 +4549,7 @@ ne.Tensor:
   op_frontend: LazyCmp
   op_backend: NE
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 neg.out:
   dtypes:
@@ -4816,7 +4848,7 @@ pow_.Scalar:
   inplace_ids: [0]
   op_backend: PowOp
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow_.Tensor:
   custom_output_shape: BinaryOutputShape
@@ -4827,7 +4859,7 @@ pow_.Tensor:
   force_default: false
   guid: pow_fwd
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -4840,7 +4872,7 @@ pow.Scalar:
   guid: pow_fwd
   out_ids: [1]
   scalar_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Scalar_out:
   custom_output_shape: BinaryOutputShape
@@ -4850,7 +4882,7 @@ pow.Scalar_out:
     Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   scalar_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Tensor_Scalar:
   custom_output_shape: BinaryOutputShape
@@ -4863,7 +4895,7 @@ pow.Tensor_Scalar:
   out_ids: [0]
   op_backend: PowOp
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Tensor_Scalar_out:
   custom_output_shape: BinaryOutputShape
@@ -4874,7 +4906,7 @@ pow.Tensor_Scalar_out:
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Tensor_Tensor:
   custom_output_shape: BinaryOutputShape
@@ -4885,7 +4917,7 @@ pow.Tensor_Tensor:
   force_default: false
   guid: pow_fwd
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 pow.Tensor_Tensor_out:
   custom_output_shape: BinaryOutputShape
@@ -4894,7 +4926,7 @@ pow.Tensor_Tensor_out:
     Gaudi2: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: pow_fwd
-  type_promotion: true
+  promote_to_common_type: [self, exponent]
 
 prelu:
   dtypes: [BFloat16, Float]
@@ -4966,7 +4998,7 @@ randperm.generator_out:
 
 reciprocal:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4976,7 +5008,7 @@ reciprocal:
 
 reciprocal_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4985,7 +5017,7 @@ reciprocal_:
   inplace_ids: [0]
 
 reciprocal.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5011,6 +5043,7 @@ relu_:
   inplace_ids: [0]
 
 relu.out:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5115,7 +5148,7 @@ remainder.Tensor:
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   broadcast: true
 
 remainder.Scalar:
@@ -5128,7 +5161,7 @@ remainder.Scalar:
   op_backend: RemainderOp
   out_ids: [0]
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 remainder_.Tensor:
   force_default: false
@@ -5139,7 +5172,7 @@ remainder_.Tensor:
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
   broadcast: true
 
 remainder_.Scalar:
@@ -5152,7 +5185,7 @@ remainder_.Scalar:
   op_backend: RemainderOp
   inplace_ids: [0]
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 remainder.Scalar_Tensor:
   dtypes:
@@ -5164,7 +5197,7 @@ remainder.Scalar_Tensor:
   op_backend: RemainderOp
   out_ids: [1]
   scalar_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 remainder.Tensor_out:
   dtypes:
@@ -5173,7 +5206,7 @@ remainder.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
-  type_promotion: true
+  promote_to_common_type: [self, other]
   broadcast: true
 
 remainder.Scalar_out:
@@ -5185,7 +5218,7 @@ remainder.Scalar_out:
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_backend: RemainderOp
   scalar_ids: [1]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 replication_pad1d:
   force_default: false
@@ -5361,7 +5394,7 @@ rrelu_with_noise_backward:
 
 rsqrt:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5371,7 +5404,7 @@ rsqrt:
 
 rsqrt_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5380,7 +5413,7 @@ rsqrt_:
   inplace_ids: [0]
 
 rsqrt.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5389,7 +5422,11 @@ rsqrt.out:
 
 rsub.Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Char, Half]
+  promote_to_common_type: [self, other]
   guid: sub_fwd
   op_frontend: LazyRsub
   out_ids: [0]
@@ -5403,6 +5440,7 @@ rsub.Scalar:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
+  promote_to_common_type: [self, other]
   guid: sub_fwd
   op_backend: RSubScalarOperator
   out_ids: [0]
@@ -5571,7 +5609,7 @@ sgn_:
   inplace_ids: [0]
 
 sigmoid.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5581,7 +5619,7 @@ sigmoid.out:
 
 sigmoid:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5592,7 +5630,7 @@ sigmoid:
 
 sigmoid_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5678,7 +5716,7 @@ silu_backward.grad_input:
 
 sin:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5688,7 +5726,7 @@ sin:
   out_ids: [0]
 
 sin.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5698,7 +5736,7 @@ sin.out:
 
 sin_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5709,31 +5747,31 @@ sin_:
 
 sinc:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Sinc
   out_ids: [0]
 
 sinc.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Sinc
 
 sinc_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   op_backend: Sinc
   inplace_ids: [0]
 
 sinh.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: sinh_fwd
 
 sinh:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: sinh_fwd
   out_ids: [0]
@@ -5931,20 +5969,20 @@ special_xlog1py.self_scalar_out:
   op_backend: XlogYOperator
 
 special_entr:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   force_default: false
   op_backend: SpecialEntr
   out_ids: [0]
 
 special_entr.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   op_backend: SpecialEntr
 
 sqrt:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5954,7 +5992,7 @@ sqrt:
   out_ids: [0]
 
 sqrt.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5964,7 +6002,7 @@ sqrt.out:
 
 sqrt_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -6017,7 +6055,7 @@ sub.Tensor:
   op_backend: BinaryWithAlpha
   out_ids: [0]
   scalar_ids: [2]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sub.Scalar:
   force_default: false
@@ -6031,7 +6069,7 @@ sub.Scalar:
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
   out_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sub_.Tensor:
   force_default: false
@@ -6045,7 +6083,7 @@ sub_.Tensor:
   inplace_ids: [0]
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sub_.Scalar:
   force_default: false
@@ -6059,9 +6097,10 @@ sub_.Scalar:
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
   inplace_ids: [0]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sub.Scalar_out:
+  force_default: false
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
@@ -6071,7 +6110,7 @@ sub.Scalar_out:
   guid: sub_fwd
   op_backend: BinaryWithAlpha
   scalar_ids: [1, 2]
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sub.out:
   broadcast: true
@@ -6082,7 +6121,7 @@ sub.out:
     Greco: [BFloat16, Float, Short, Char, Half]
   guid: sub_fwd
   op_backend: BinaryWithAlpha
-  type_promotion: true
+  promote_to_common_type: [self, other]
 
 sum:
   force_default: false
@@ -6134,27 +6173,27 @@ take.out:
   op_backend: TakeOperator
 
 tan.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: tan_fwd
 
 tan:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: tan_fwd
   out_ids: [0]
 
 tan_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: tan_fwd
   inplace_ids: [0]
 
 tanh:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -6164,7 +6203,7 @@ tanh:
   out_ids: [0]
 
 tanh.out:
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -6174,7 +6213,7 @@ tanh.out:
 
 tanh_:
   force_default: false
-  promote_int_to_float: true
+  promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

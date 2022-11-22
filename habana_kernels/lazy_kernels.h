@@ -1001,6 +1001,10 @@ class LazyOp {
     m_scalar_type = scalar_type;
   }
 
+  [[nodiscard]] c10::ScalarType get_scalar_type() const {
+    return m_scalar_type;
+  }
+
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isDevice() || input.isIntList() ||

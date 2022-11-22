@@ -323,17 +323,14 @@ class Op(object):
     def get_scalar_ids(self):
         return self.op.get("scalar_ids", [])
 
-    def use_meta(self):
-        return self.op.get("use_meta", False)
-
     def force_default(self):
         return self.op.get("force_default", None)
 
-    def supports_type_promotion(self):
-        return self.op.get("type_promotion", False)
+    def promote_to_common_type(self):
+        return self.op.get("promote_to_common_type", [])
 
     def promote_int_to_float(self):
-        return self.op.get("promote_int_to_float", False)
+        return self.op.get("promote_int_to_float", [])
 
     def safe_cast_check(self):
         return self.op.get("safe_cast_check", None)
@@ -663,45 +660,45 @@ def frontend(
 
     # TODO safe cast check should be done for out variants without type promotion too
     # https://jira.habana-labs.com/browse/SW-111202
-    if ctxop.supports_type_promotion() or ctxop.promote_int_to_float():
-        # Exclude out tensor
-        in_params = param_vars[:-1] if is_out_fn(fname) else param_vars[:]
+    promote_to_common_type = ctxop.promote_to_common_type()
+    promote_int_to_float = ctxop.promote_int_to_float()
+    safe_cast_check = ctxop.safe_cast_check()
 
-        # HACK: alpha for add/sub does not contribute to type promotion
-        # https://jira.habana-labs.com/browse/SW-111203
-        skip_alpha_ops = ("add", "add_", "sub", "sub_", "rsub", "rsub_")
-        if skip_alpha_ops.count(opname):
-            in_params.remove("alpha")
+    if promote_to_common_type or promote_int_to_float:
+        assert (not promote_to_common_type) ^ (
+            not promote_int_to_float
+        ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
 
-        promote_to_common_type = (
-            ctxop.supports_type_promotion() or ctxop.promote_int_to_float()
+        promote_inputs = (
+            promote_to_common_type if promote_to_common_type else promote_int_to_float
         )
 
-        safe_cast_check = is_inplace_or_out_op(fname)
-        if ctxop.safe_cast_check() is not None:
-            assert is_inplace_or_out_op(
-                fname
+        safe_cast = is_inplace_or_out_op(fname)
+        if safe_cast_check is not None:
+            assert (
+                safe_cast
             ), f"safe_cast_check cannot check for non inplace/non out variant, op={fname}"
             assert (
-                ctxop.safe_cast_check() == False
+                safe_cast_check == False
             ), f"safe_cast_check is true by default for inplace/out variant, op={fname}"
-            safe_cast_check = ctxop.safe_cast_check()
+            safe_cast = safe_cast_check
 
         code += (
             f"  auto&& compute_type = "
-            f"DTypeHelper::get_compute_dtype({{{', '.join(in_params)}}}, "
+            f"DTypeHelper::get_compute_dtype({{{', '.join(promote_inputs)}}}, "
             f'{lazyop_call_args if lazyop_call_args else "c10::nullopt"}, '
-            f"{str(promote_to_common_type).lower()}/*promote_to_common_type*/, "
-            f"{str(ctxop.promote_int_to_float()).lower()}/*promote_int_to_float*/, "
-            f"{str(safe_cast_check).lower()}/*safe_cast*/);\n\n"
+            f"true/*promote_to_common_type*/, "
+            f"{str(not not promote_int_to_float).lower()}/*promote_int_to_float*/, "
+            f"{str(safe_cast).lower()}/*safe_cast*/);\n"
+            f"  static_cast<void>(compute_type);\n\n"
         )
 
     dtypes = ctxop.get_dtypes()
     if dtypes:
         code += generate_dtype_macro(dtypes)
 
-        # Check the promoted input when type promotion applies
-        if ctxop.supports_type_promotion() or ctxop.promote_int_to_float():
+        # Check compute_type when type promotion applies
+        if promote_to_common_type or promote_int_to_float:
             code += (
                 "  FALLBACK_IF_UNSUPPORTED_DTYPE{}(compute_type, {}, {}{})\n".format(
                     "2" if overload else "",
@@ -773,7 +770,7 @@ def frontend(
 
         code += "};\n"
 
-        if ctxop.supports_type_promotion() or ctxop.promote_int_to_float():
+        if ctxop.promote_to_common_type() or ctxop.promote_int_to_float():
             code += "  hpu_op.set_scalar_type(compute_type);\n"
 
         if ctxop.get_op_template() == "reduction":
@@ -861,7 +858,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     tpc_param = ctxop.get_tpc_param()
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
-    promote_type = ctxop.supports_type_promotion()
+    promote_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (

@@ -5149,26 +5149,6 @@ void InitSizesAndStrides(
   }
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR > 12))
-at::Tensor empty_symint_hpu(
-    c10::SymIntArrayRef size,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<at::MemoryFormat> memory_format) {
-  at::TensorOptions o = at::TensorOptions()
-                            .dtype(dtype)
-                            .layout(layout)
-                            .device(device)
-                            .pinned_memory(pin_memory)
-                            .memory_format(memory_format);
-  c10::IntArrayRef array_ref(
-      reinterpret_cast<const int64_t*>(size.data()), size.size());
-  return empty_hpu_lazy(array_ref, o, memory_format);
-}
-#endif
-
 Tensor empty_hpu_lazy(
     IntArrayRef size,
     const TensorOptions& options,
@@ -5370,10 +5350,11 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   return fill_hpu_lazy_(self, 0);
 }
 
-Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
+Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(tensors.size() > 0, "Empty tensors list!");
+  TORCH_CHECK(_tensors.size() > 0, "Empty tensors list!");
 
+  TensorList tensors = _tensors.toUnboxed();
   auto non_empty_list = filter(tensors, is_nonempty_tensor);
   auto first_tensor = tensors[0];
 
@@ -5431,9 +5412,10 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
 }
 
 Tensor& cat_hpu_lazy_out(
-    Tensor& result,
-    const TensorList tensors,
-    int64_t dim_) {
+    const at::ITensorListRef& _tensors,
+    int64_t dim_,
+    Tensor& result) {
+  TensorList tensors = _tensors.toUnboxed();
   auto non_empty_list = filter(tensors, is_nonempty_tensor);
   if (non_empty_list.empty()) {
     return result;

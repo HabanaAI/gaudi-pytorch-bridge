@@ -198,11 +198,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool keepdim);
-  static at::Tensor cat(const at::TensorList tensors, int64_t dim_ = 0);
-  static at::Tensor& cat_out(
-      const at::TensorList tensors,
-      int64_t dim_,
-      at::Tensor& result);
   static ::std::vector<at::Tensor> split_with_sizes(
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
