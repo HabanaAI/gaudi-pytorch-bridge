@@ -45,7 +45,8 @@ intptr_t GetDataPtr(const at::Tensor& t) {
 
 void RecordQuantParams(std::string name, float min, float max) {
   PtTensorInferenceData::get_instance().SetInferenceTensorRange(name, min, max);
-  PT_BRIDGE_DEBUG(name, " = min  : ", min, " max : ", max);
+  std::replace(name.begin(), name.end(), '.', '/'); // replace all 'x' to 'y'
+  PT_BRIDGE_DEBUG("Quantization Record", " ", name, " ", min, " ", max);
 }
 
 void RecordParam(

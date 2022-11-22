@@ -357,9 +357,9 @@ synapse_error_o tensor::create() {
     PT_SYNHELPER_DEBUG(
         "syn Tensor Quantization set ",
         tensor_name_,
-        " Min=",
+        " ",
         dynamic_range_.min,
-        " Max=",
+        " ",
         dynamic_range_.max);
   }
 

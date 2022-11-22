@@ -23,6 +23,15 @@ def _record_quant_param(name, min, max) -> None:
     if hpu.is_available():
         _experimental_C.record_quant_param(name, min, max)
 
+def read_min_max_overwrite():
+    range_path = environ.get('PT_INFERENCE_RANGE_FILE')
+    if range_path:
+        with open(range_path) as file:
+            for line in file:
+                line = line[line.find('/')+1:len(line)]
+                line = line.split()
+                _record_quant_param(line[0], float(line[1]), float(line[2]))
+
 def handle_quant_stats(model=None):
     if model is not None:
         min_calibration_data = dict()
@@ -63,6 +72,7 @@ def handle_quant_stats(model=None):
 
 def hpu_initialize(model=None, optimizer=None, args=None):
     if model is not None:
+        read_min_max_overwrite()
         handle_quant_stats(model)
 
 def pre_fwd_hook(module, input):

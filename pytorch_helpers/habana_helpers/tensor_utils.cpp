@@ -860,9 +860,20 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   // Add a check to validate the inference_range
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
-    PtTensorInferenceData::InferenceRangePair inference_range =
-        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-            inference_name.c_str(), range_found);
+    PtTensorInferenceData::InferenceRangePair inference_range;
+    if (name.size() > 0) {
+      auto string_pos = name.find('/', 1);
+      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
+      auto module_name = name.substr(string_pos, name.length() - string_pos);
+
+      inference_range =
+          PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+              module_name.c_str(), range_found);
+    }
+    if (!range_found)
+      inference_range =
+          PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+              inference_name.c_str(), range_found);
     if (range_found)
       builder = builder.with_inference_range(
           inference_range.first, inference_range.second);
@@ -980,9 +991,20 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
-    PtTensorInferenceData::InferenceRangePair inference_range =
-        PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-            inference_name.c_str(), range_found);
+    PtTensorInferenceData::InferenceRangePair inference_range;
+    if (name.size() > 0) {
+      auto string_pos = name.find('/', 1);
+      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
+      auto module_name = name.substr(string_pos, name.length() - string_pos);
+
+      inference_range =
+          PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+              module_name.c_str(), range_found);
+    }
+    if (!range_found)
+      inference_range =
+          PtTensorInferenceData::get_instance().GetInferenceTensorRange(
+              inference_name.c_str(), range_found);
     if (range_found)
       builder = builder.with_inference_range(
           inference_range.first, inference_range.second);
