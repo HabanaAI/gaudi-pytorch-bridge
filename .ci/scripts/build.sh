@@ -1474,6 +1474,7 @@ run_pytorch_qa_tests()
 
        __python_path=`pip show pytest | grep "Location:" | { read pkg_loc; IFS=" " read -ra arr  <<< $pkg_loc;  echo ${arr[-1]};}`
        __python_path+=":/usr/local/lib/python3.8/dist-packages:/usr/lib/python3/dist-packages"
+       __python_path+=":/usr/local/lib/python3.10/dist-packages:/usr/lib/python3/dist-packages"
 
        # Add old framework paths to pytest cmd line
        opts_forked="$opts_forked ${__pytorch_qa_test_path}${test_path}"
@@ -1676,11 +1677,11 @@ install_pillow_simd()
 set_python_version()
 {
     case $1 in
-    "3.6" | "3.7" | "3.8" )
+    "3.6" | "3.7" | "3.8" | "3.10")
         echo "version $1"
         ;;
     *)
-        echo "Usage: $0 <3.7/3.8>"
+        echo "Usage: $0 <3.7/3.8/3.10>"
         return
         ;;
     esac
