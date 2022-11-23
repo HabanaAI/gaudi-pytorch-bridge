@@ -125,6 +125,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   if (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION)) {
     for (auto& uid_wptr : devctx->tensors_data_opt) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
+      HABANA_ASSERT(data);
       auto id = data->unique_id;
       auto hl_t = HbLazyTensor(std::move(data));
 
@@ -1160,6 +1161,10 @@ void SetupExecutionFromRunningHash(
     graph_hash_builder.prepareInputs(stack_input_map, po_data.inputs);
     graph_hash_builder.invalidateDeviceTids(device);
     graph_hash_builder.reset();
+  } else {
+    po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+    // Prepare Input Stack map from post order for cache Miss case
+    PrepareStackMapFromRunPostOrder(device, hlexec, po_data);
   }
 }
 
@@ -1276,16 +1281,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   } else {
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
       SetupExecutionFromRunningHash(device, hlexec, *tensors, indices, po_data);
+    } else {
+      po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
     }
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH) ||
-        hlexec.isRunningHashCacheMiss()) {
-      po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
-      if (hlexec.isRunningHashCacheMiss()) {
-        // Prepare Input Stack map from post order for cache Miss case
-        PrepareStackMapFromRunPostOrder(device, hlexec, po_data);
-      }
-    }
     // When queuing synlaunches is enabled, we shouldnot do
     // JoinPendingLaunchThread. if the mode is sync/threadpool/eager is not
     // enabled, then JoinPendingLaunchThread must be done
