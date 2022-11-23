@@ -3679,9 +3679,8 @@ _log_softmax_backward_data:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: logsoftmax_bwd
+  guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
-  op_backend: LogSoftmaxBackward
   out_ids: [0]
 
 _log_softmax_backward_data.out:
@@ -3689,9 +3688,8 @@ _log_softmax_backward_data.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: logsoftmax_bwd
+  guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
-  op_backend: LogSoftmaxBackward
 
 logcumsumexp.out:
   force_default: false

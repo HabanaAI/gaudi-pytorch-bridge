@@ -35,22 +35,5 @@ std::shared_ptr<void> FillLogSoftmaxBackwardParams(
   return params;
 }
 
-void LogSoftmaxBackward::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  constexpr int inputTensorPos = 1; //PT v 11.1 paramters list is changed
-  const auto& outshape = stack_tensor(stack, inputTensorPos).sizes();
 
-  size_t size = 0;
-  const auto& params = FillLogSoftmaxBackwardParams(stack, size);
-  auto log_softmax_bwd = BuildOp(
-      graph,
-      guid_,
-      {syn_in(1), syn_in(0)},
-      {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
-
-  syn_out(0) = std::move(log_softmax_bwd[0]);
-}
 } // namespace habana
