@@ -631,15 +631,9 @@ Tensor pin_memory_hpu(
 OutputShapeInfRetType SliceInsertOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  std::vector<int64_t> shape;
+  std::vector<int64_t> shape = self.sizes().vec();
 
   bool have_shape_tensor = inputs[2].isTensor();
-  if (have_shape_tensor) {
-    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
-  } else {
-    shape = self.sizes().vec();
-  }
-
   auto metaData = TensorMetaData(
       shape,
       HabanaOperator::CalculateStrides(shape, self.suggest_memory_format()),
@@ -667,13 +661,7 @@ void SliceInsertOperator::ReuseMemoryAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   TORCH_CHECK(graph_input.sizes() == self.sizes(), "incorrect graph input");
   bool have_shape_tensor = inputs[2].isTensor();
-  if (have_shape_tensor) {
-    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
-  }
 
-  auto paramsList = inputs[2].toIntList();
-  synSliceParamsNDims params;
-  ComputeParams(params, self, paramsList, graph);
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           syn_t_vec[0], graph, output_metadata.at(0).external));
@@ -682,6 +670,10 @@ void SliceInsertOperator::ReuseMemoryAndAddSynapseNode(
   if (have_shape_tensor) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
+    auto paramsList = inputs[2].toIntList();
+    synSliceParamsNDims params;
+    ComputeParams(params, self, paramsList, graph);
+
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
@@ -769,7 +761,15 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   bool have_shape_tensor = inputs[2].isTensor();
   if (have_shape_tensor) {
-    HABANA_ASSERT(false, "DynamicShapes not yet supported with slice_insert");
+    TORCH_CHECK(
+        inputs.size() == 4,
+        "Incorrect size of inputs expected for slice_insert operator");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[2].ref().is_shape_tensor(),
+        "Synapse input3 type expected to be shape tensor");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[3].ref().is_shape_tensor(),
+        "Synapse input4 type expected to be shape tensor");
   } else {
     TORCH_CHECK(
         inputs.size() == 3,
@@ -777,6 +777,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(
         inputs[2].isIntList(),
         "Input slice params type expected to be integer list");
+  }
     std::vector<int64_t> shape = self.sizes().vec();
     Tensor output = habana_helpers::createPTTensor(
         self,
@@ -785,17 +786,20 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
         self.suggest_memory_format(),
         output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
-    // Allocate Shape tensor
-    if (graph.is_dynamic_graph()) {
-      HABANA_ASSERT(false, "DynamicGraph not yet supported with slice_insert");
-      AllocateSynapseShapeTensor(graph, output);
-    }
-    auto paramsList = inputs[2].toIntList();
 
-    synSliceParamsNDims params;
-    ComputeParams(params, self, paramsList, graph);
-    AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  }
+    if (have_shape_tensor) {
+      AddNodeToSynapseGraph(graph, nullptr, 0);
+    } else {
+      // Allocate Shape tensor
+      if (graph.is_dynamic_graph()) {
+        AllocateSynapseShapeTensor(graph, output);
+      }
+      auto paramsList = inputs[2].toIntList();
+
+      synSliceParamsNDims params;
+      ComputeParams(params, self, paramsList, graph);
+      AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    }
 }
 
 bool StridedInsertOperator::verifyViewMemoryAccess(
@@ -1324,6 +1328,7 @@ static auto& BasicKernelsKernelRegistry =
             "hpu::strided_view_out_orig_ds",
             KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
+        .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(

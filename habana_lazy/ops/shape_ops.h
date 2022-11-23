@@ -254,7 +254,10 @@ struct SliceInsert : public ir::Node {
       const at::Tensor& orig_t,
       const at::Tensor& insert_t,
       at::IntArrayRef params)
-      : Node(c10::Symbol::fromQualString("hpu::slice_insert")) {
+      : Node(
+            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+                ? c10::Symbol::fromQualString("hpu::slice_insert_ds")
+                : c10::Symbol::fromQualString("hpu::slice_insert")) {
     auto hl_orig = habana_lazy::GetOrCreateHbLazyTensor(orig_t, c10::kHPU);
     AddInput(hl_orig.GetIrValue());
 
@@ -262,16 +265,63 @@ struct SliceInsert : public ir::Node {
     AddInput(hl_insert.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{orig_t, insert_t};
-    AddInputPtTensors(input_pt_vec);
 
-    m_meta_data.set(
-        params, static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      auto dims = orig_t.dim();
+      std::vector<int64_t> step_vec(dims, 1);
+      std::vector<int64_t> start_vec(dims, 0);
+
+      int num_slice_params = params.size() / 4;
+      for (int i = 0; i < num_slice_params; i++) {
+        int64_t dim = params[i * 4];
+        int64_t start = params[i * 4 + 1];
+        int64_t step = params[i * 4 + 3];
+
+        dim = at::maybe_wrap_dim(dim, dims, /*wrap_scalar=*/true);
+        start_vec[dim] = start;
+        step_vec[dim] = step;
+      }
+      auto step_t = empty_hpu_lazy(
+          c10::IntArrayRef(step_vec.data(), step_vec.size()),
+          orig_t.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      auto hl_step = GetOrCreateHbLazyTensor(step_t, c10::kHPU);
+      AddInput(hl_step.GetIrValue());
+      input_pt_vec.emplace_back(step_t);
+      auto start_t = empty_hpu_lazy(
+          c10::IntArrayRef(start_vec.data(), start_vec.size()),
+          orig_t.options(),
+          c10::MemoryFormat::Contiguous,
+          false,
+          SHAPE_TENSOR);
+      auto hl_start = GetOrCreateHbLazyTensor(start_t, c10::kHPU);
+      AddInput(hl_start.GetIrValue());
+      input_pt_vec.emplace_back(start_t);
+    } else {
+      m_meta_data.set(
+          params, static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+    }
+    AddInputPtTensors(input_pt_vec);
   }
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", slice_params(dim, start, end, step)="
-       << m_meta_data.get(static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      auto& start = m_inputs[3];
+      HABANA_ASSERT(start.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
+      ss << ", start=" << data_start->sizes;
+      auto& step = m_inputs[2];
+      HABANA_ASSERT(step.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> data_step = step.m_data_ptr.lock();
+      ss << ", step=" << data_step->sizes;
+    } else {
+      ss << Node::ToString() << ", slice_params(dim, start, end, step)="
+         << m_meta_data.get(
+                static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
+    }
     return ss.str();
   }
 };

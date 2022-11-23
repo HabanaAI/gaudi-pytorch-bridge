@@ -644,7 +644,6 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
   // slice operation on differnt axes, we combine them into single slice
   // operation.
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT) ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
       (recent_orig_t.sizes().size() != recent_src_t.sizes().size())) {
     return std::vector<StridedOpSliceParams>();
   }
