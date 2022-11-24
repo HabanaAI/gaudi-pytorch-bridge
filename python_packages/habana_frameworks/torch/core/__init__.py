@@ -341,8 +341,8 @@ def enable_weight_sharing_if_needed():
     from os import getenv
     def check_env_flag(name, default=""):
         return getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
-    
-    if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING"):
+
+    if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING","1"):
         from .weight_sharing import enable_weight_sharing
         enable_weight_sharing()
 

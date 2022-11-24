@@ -2,7 +2,6 @@ import torch
 import numpy as np
 import inspect
 import os
-os.environ['EXPERIMENTAL_WEIGHT_SHARING'] = '1'
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
