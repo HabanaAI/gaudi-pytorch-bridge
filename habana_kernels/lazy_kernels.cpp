@@ -63,7 +63,7 @@ namespace habana_lazy {
 static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
 void print_tensor_debug(const torch::Tensor& src) {
-  std::string marker = "********************\n";
+  static const std::string marker = "********************\n";
   PT_LAYOUTS_DEBUG(
       marker,
       " Tensor Data info:\n",
