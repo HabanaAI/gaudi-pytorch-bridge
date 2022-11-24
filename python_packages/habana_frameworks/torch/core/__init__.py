@@ -6,7 +6,6 @@ from collections import deque
 from functools import wraps
 from typing import Union
 import datetime
-from .weight_sharing import enable_weight_sharing_for
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch.utils import _experimental_C
@@ -334,4 +333,14 @@ def enable_profiler_if_needed():
     if "HABANA_PROFILE" not in os.environ:
         os.environ["HABANA_PROFILE"] = "profile_api_light"
 
+def enable_weight_sharing_if_needed():
+    from os import getenv
+    def check_env_flag(name, default=""):
+        return getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
+    
+    if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING"):
+        from .weight_sharing import enable_weight_sharing
+        enable_weight_sharing()
+
 enable_profiler_if_needed()
+enable_weight_sharing_if_needed()

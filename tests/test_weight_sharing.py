@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import inspect
+import os
+os.environ['EXPERIMENTAL_WEIGHT_SHARING'] = '1'
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
@@ -19,7 +21,6 @@ def test_hpu_weight_sharing_in_same_module():
 
     #initial - cpu, no weight sharing
     model = TestModel()
-    htcore.enable_weight_sharing_for(model)
     result = model(1)
     assert model.a.device.type == "cpu"
     assert model.b.device.type == "cpu"
@@ -64,7 +65,6 @@ def test_hpu_weight_sharing_in_submodule():
             return c
     # initial - cpu with weight sharing
     model = TestModel()
-    htcore.enable_weight_sharing_for(model)
     result = model(2)
     assert model.a.device.type == "cpu"
     assert model.b.a.device.type == "cpu"
@@ -92,7 +92,6 @@ def test_hpu_weight_sharing_in_exported_parameter():
 
     #initial - cpu with exported parameter
     model = TestModel()
-    htcore.enable_weight_sharing_for(model)
     exported = model.a
     assert model.a.device.type == "cpu"
     assert exported.device.type == "cpu"
@@ -119,6 +118,5 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
             self.a = torch.nn.Parameter(torch.ones([1]))
 
     model = TestModel()
-    htcore.enable_weight_sharing_for(model)
     model.to("hpu")
     model.a.data = model.a.data.cpu()
