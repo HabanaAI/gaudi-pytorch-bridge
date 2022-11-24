@@ -1463,15 +1463,6 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
   }
 }
 
-std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("unbind :", " self=", to_string(self), " dim=", to_string(dim));
-  FALLBACK_IF_UNSUPPORTED_OP_O(unbind, PARAMS1(self), PARAMS2(self, dim), int)
-
-  return at::native::unbind(self, dim);
-}
-
 Tensor hpu_wrap::alias(const at::Tensor& self) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;

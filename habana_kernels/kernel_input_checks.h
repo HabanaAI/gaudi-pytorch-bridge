@@ -826,18 +826,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "unbind",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
-            {
                 "stack",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

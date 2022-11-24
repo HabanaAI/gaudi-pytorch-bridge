@@ -6200,6 +6200,10 @@ trunc_:
   guid: trunc_fwd
   inplace_ids: [0]
 
+unbind.int:
+  force_default: false
+  override_fn: unbind_hpu_lazy_
+
 uniform_:
   custom_fill_params: FillUniformParams
   dtypes:

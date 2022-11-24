@@ -217,7 +217,6 @@ struct hpu_wrap {
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
   static at::Tensor matmul(const at::Tensor& self, const at::Tensor& other);
-  static ::std::vector<at::Tensor> unbind(const at::Tensor& self, int64_t dim);
   static at::Tensor alias(const at::Tensor& self);
   static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
   static at::Tensor squeeze(const at::Tensor& self);

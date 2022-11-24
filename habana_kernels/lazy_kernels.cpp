@@ -2632,6 +2632,12 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   return output;
 }
 
+std::vector<at::Tensor> unbind_hpu_lazy_(const Tensor& self, int64_t dim) {
+  PT_LAZY_TRACE;
+
+  return at::native::unbind(self, dim);
+}
+
 Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   PT_LAZY_TRACE;
   Tensor reshape_mask = mask;

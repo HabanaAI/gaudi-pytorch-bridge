@@ -516,6 +516,7 @@ at::Tensor t_hpu_lazy(const at::Tensor& self);
 at::Tensor squeeze_hpu_lazy(const at::Tensor& self, const int64_t dim);
 at::Tensor unsqueeze_hpu_lazy(const at::Tensor& self, const int64_t dim);
 at::Tensor& unsqueeze_hpu_lazy_(at::Tensor& self, const int64_t dim);
+std::vector<at::Tensor> unbind_hpu_lazy_(const at::Tensor& self, int64_t dim);
 at::Tensor permute_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor permute_cl_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
