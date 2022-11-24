@@ -1003,3 +1003,80 @@ TEST_F(LazyNormKernelTest, LayerNormFwdBwdExecute) {
 
   EXPECT_EQ(allclose(result_bwd_lazy, result_bwd_cpu, 0.01, 0.01), true);
 }
+
+TEST_F(LazyNormKernelTest, GroupNormFwdBwdExecute) {
+  int64_t N = 1;
+  int64_t C = 2;
+  int64_t H = 2;
+  int64_t G = 1;
+  double eps = 0.0001;
+  auto input_tensor =
+      torch::arange(N * C * H, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({N, C, H}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+  at::Tensor weight =
+      torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({C}); // nchw;
+  torch::Tensor tWeight = weight.to(torch::kHPU);
+  at::Tensor bias =
+      torch::zeros(C, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({C}); // nchw;
+  torch::Tensor tBias = bias.to(torch::kHPU);
+  auto results =
+      torch::native_group_norm(tHabanaX, tWeight, tBias, N, C, H, G, eps);
+
+  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+  at::Tensor mean_lazy = std::get<1>(results);
+  at::Tensor rstd_lazy = std::get<2>(results);
+  auto results_cpu =
+      torch::native_group_norm(input_tensor, weight, bias, N, C, H, G, eps);
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+  at::Tensor mean_cpu = std::get<1>(results_cpu);
+  at::Tensor rstd_cpu = std::get<2>(results_cpu);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(mean_lazy, mean_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(rstd_lazy, rstd_cpu, 0.01, 0.01), true);
+
+  // Backward
+
+  auto input_grad =
+      torch::arange(N * C * H, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({N, C, H}); // nchw
+  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
+
+  auto results_bwd = torch::native_group_norm_backward(
+      tHabanaGrad,
+      tHabanaX,
+      mean_lazy,
+      rstd_lazy,
+      tWeight,
+      N,
+      C,
+      H,
+      G,
+      {true, true, true});
+
+  auto results_bwd_cpu = torch::native_group_norm_backward(
+      input_grad,
+      input_tensor,
+      mean_cpu,
+      rstd_cpu,
+      weight,
+      N,
+      C,
+      H,
+      G,
+      {true, true, true});
+  at::Tensor result_bwd_lazy = (std::get<0>(results_bwd)).to(torch::kCPU);
+  at::Tensor grad_weight_bwd_lazy = (std::get<1>(results_bwd)).to(torch::kCPU);
+  at::Tensor grad_bias_bwd_lazy = (std::get<2>(results_bwd)).to(torch::kCPU);
+
+  at::Tensor result_bwd_cpu = std::get<0>(results_bwd_cpu);
+  at::Tensor grad_weight_bwd_cpu = std::get<1>(results_bwd_cpu);
+  at::Tensor grad_bias_bwd_cpu = std::get<2>(results_bwd_cpu);
+
+  EXPECT_EQ(allclose(result_bwd_lazy, result_bwd_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(
+      allclose(grad_weight_bwd_lazy, grad_weight_bwd_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(grad_bias_bwd_lazy, grad_bias_bwd_cpu, 0.01, 0.01), true);
+}

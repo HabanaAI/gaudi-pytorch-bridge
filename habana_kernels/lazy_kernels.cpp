@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
@@ -4114,6 +4113,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_LAZY_TRACE;
+
   // Get Output Image
   using T = std::tuple<Tensor, Tensor, Tensor>;
   using U = ir::LayerNormBackward;
@@ -4284,6 +4284,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm, func, out)
 }
+
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& dY,
     const at::Tensor& X,
@@ -4397,6 +4398,154 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm_backward, func, out)
 }
 #endif
+
+std::tuple<Tensor, Tensor, Tensor> native_group_norm_hpu_lazy(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    UNUSED c10::SymInt N,
+    UNUSED c10::SymInt C,
+    UNUSED c10::SymInt HxW,
+    int64_t num_groups,
+    double eps) {
+  auto normalized_shape_ = input.sizes();
+  auto weight = weight_opt.value_or(Tensor());
+  auto sizes_vec = input.sizes().vec();
+  // check whether we can use a perf optimized TPC exec path
+  auto use_tpc_affine_path =
+      LayerNormOperator::is_tpc_affine_path(input, normalized_shape_, weight);
+  std::vector<int64_t> normalized_shape_vec = normalized_shape_.vec();
+  // check whether to use LN affine path
+  if (use_tpc_affine_path) { // if optimized path, then we can't have
+                             // N/mini-batch-size for generating weights/biases
+    sizes_vec.erase(sizes_vec.begin());
+    // NOTE: Add Hack to indicate to lowering kernel that
+    // elementwise_affine=False Without this we have to change the schema and
+    // add a new variable to indicate the path. If, in future, TPC moves fully
+    // to use optimized path, we can remove this.
+    if (normalized_shape_vec.size() == (size_t)input.dim() - 1) {
+      normalized_shape_vec.insert(normalized_shape_vec.begin(), 1);
+    }
+  }
+  if (!weight.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(c10::ScalarType::Float)
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(normalized_shape_vec, options);
+  }
+
+  auto bias = bias_opt.value_or(Tensor());
+  if (!bias.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(c10::ScalarType::Float)
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    bias = torch::zeros(normalized_shape_vec, options);
+  }
+  std::vector<int64_t> normalized_shape = input.sizes().vec();
+  normalized_shape.erase(normalized_shape.begin());
+
+  auto sizes = GroupNormForwardOperator::getOutputSizes(
+      input, normalized_shape, num_groups);
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  LazyOp<T> k(
+      "hpu::group_norm",
+      {input, weight, bias, normalized_shape, num_groups, eps},
+      {3, 4, 5}, // metadata_indices
+      {sizes} // out_shapes
+  );
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm, k)
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+native_group_norm_backward_hpu_lazy(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    UNUSED c10::SymInt N,
+    UNUSED c10::SymInt C,
+    UNUSED c10::SymInt HxW,
+    int64_t num_groups,
+    std::array<bool, 3> output_mask) {
+  std::vector<int64_t> normalized_shape = input.sizes().vec();
+  normalized_shape.erase(normalized_shape.begin());
+  // IntArrayRef normalized_shape = normalized_shape_vec;
+  Tensor weight = weight_opt.value_or(Tensor());
+  if (!weight.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(c10::ScalarType::Float)
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(normalized_shape, options);
+  }
+
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  struct GNBack : LazyOp<T> {
+    GNBack(
+        const at::Tensor& grad_out,
+        const at::Tensor& input,
+        const at::Tensor& mean,
+        const at::Tensor& rstd,
+        const at::Tensor& weight,
+        std::vector<int64_t> normalized_shape,
+        int64_t num_groups,
+        std::array<bool, 3> output_mask)
+        : LazyOp<T>(
+              "hpu::group_norm_backward",
+              {grad_out,
+               input,
+               mean,
+               rstd,
+               weight,
+               normalized_shape,
+               num_groups,
+               output_mask},
+              {5, 6, 7},
+              {},
+              -1),
+          grad_output{std::move(grad_out)},
+          weight{std::move(weight)},
+          normalized_shape{normalized_shape},
+          output_mask{output_mask} {}
+
+   private:
+    T get_result_overrideable() override {
+      auto sizes = GroupNormBackwardOperator::getOutputSizes(
+          grad_output, normalized_shape);
+      auto result1 = empty_hpu_lazy(
+          sizes[0],
+          grad_output.options(),
+          grad_output.suggest_memory_format(),
+          false);
+      at::Tensor result2, result3;
+      if (output_mask[1])
+        result2 = empty_hpu_lazy(
+            sizes[1], weight.options(), weight.suggest_memory_format(), false);
+      if (output_mask[2])
+        result3 = empty_hpu_lazy(
+            sizes[2], weight.options(), weight.suggest_memory_format(), false);
+      return std::make_tuple(result1, result2, result3);
+    }
+    Tensor grad_output;
+    Tensor weight;
+    std::vector<int64_t> normalized_shape;
+    std::array<bool, 3> output_mask;
+  };
+  GNBack op(
+      grad_out,
+      input,
+      mean,
+      rstd,
+      weight,
+      normalized_shape,
+      num_groups,
+      output_mask);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm_backward, op)
+}
+
 Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
   std::vector<int64_t> size = {};
   at::Tensor empty_tensor =

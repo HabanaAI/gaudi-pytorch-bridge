@@ -2895,6 +2895,18 @@ grid_sampler_2d:
   - [WHCN]
   out_ids: [0]
 
+native_group_norm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+  override_fn: native_group_norm_hpu_lazy
+
+native_group_norm_backward:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+  override_fn: native_group_norm_backward_hpu_lazy
+
 gt.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]

@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
@@ -476,6 +479,82 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
   static std::vector<int64_t> compute_output_shape(
       at::Tensor input,
       c10::MemoryFormat mf);
+};
+
+class GroupNormForwardOperator : public habana::HabanaOperator {
+ public:
+  GroupNormForwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "layer_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id); // GroupNorm using LayerNorm
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+  std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
+      const at::Tensor& input,
+      at::IntArrayRef normalized_shape,
+      const at::Tensor& bias,
+      const at::Tensor& weight,
+      int64_t num_groups,
+      std::array<bool, 3> is_persistent);
+  static std::vector<std::vector<int64_t>> getOutputSizes(
+      const at::Tensor& input,
+      at::IntArrayRef normalized_shape,
+      int64_t num_groups);
+};
+
+class GroupNormBackwardOperator : public habana::HabanaOperator {
+ public:
+  GroupNormBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "layer_norm_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id); // GroupNorm using LayerNorm
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NCHW,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.synapse_input_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+    kernel_meta_data_.synapse_output_layout.assign(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+  static std::vector<std::vector<int64_t>> getOutputSizes(
+      const at::Tensor& input,
+      at::IntArrayRef normalized_shape);
 };
 
 } // namespace habana

@@ -1,13 +1,15 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-
 #include <ATen/ExpandUtils.h>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
@@ -30,6 +32,7 @@
 #include "habana_kernels/lowering_util.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
+#include "habana_kernels/repeat.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
@@ -544,9 +547,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto mean = inputs[3].toTensor();
   const auto rstd = inputs[4].toTensor();
   const auto gamma = inputs[5].toTensor();
-
   const auto grad_input_mask = inputs[7].toBoolList();
-
   const auto input_shape = X.sizes();
   const auto input_ndim = X.dim();
   const int normalized_ndim = normalized_shape.size();
@@ -598,7 +599,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto gamma_reshaped = reshape_op_gamma->GetOutputs()[0];
   synapse_helpers::tensor& syn_gamma = reshape_op_gamma->GetSynOutputs()[0];
   stack.clear();
-
   // Add reshape node for mean
   auto reshape_op_mean =
       make_operator<ReshapeOperator>(mean.device().index(), mean.scalar_type());
@@ -687,7 +687,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       graph, stack, SelectVectorIndices(output_metadata_all_outputs, {0}));
   synapse_helpers::tensor& syn_reshape_grad_in =
       reshape_op_grad_in->GetSynOutputs()[0];
-
   auto reshape_op_grad_gamma = make_operator<ReshapeOperator>(
       gamma.device().index(), gamma.scalar_type());
   reshape_op_grad_gamma->SetSynapseInput(p_context_->syn_outputs_[2]);
@@ -696,7 +695,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       graph, stack, SelectVectorIndices(output_metadata_all_outputs, {1}));
   synapse_helpers::tensor& syn_reshape_grad_gamma =
       reshape_op_grad_gamma->GetSynOutputs()[0];
-
   auto reshape_op_grad_beta = make_operator<ReshapeOperator>(
       gamma.device().index(), gamma.scalar_type());
   reshape_op_grad_beta->SetSynapseInput(p_context_->syn_outputs_[1]);
@@ -1991,6 +1989,451 @@ OutputShapeInfRetType BatchNormBackwardOperator::ComputeOutputShape(
   return out;
 }
 
+std::vector<std::vector<int64_t>> GroupNormForwardOperator::getOutputSizes(
+    const at::Tensor& input,
+    UNUSED IntArrayRef normalized_shape,
+    int64_t num_groups) {
+  auto output_sizes = input.sizes().vec();
+  const auto input_shape = input.sizes();
+  int64_t m = input_shape[0] * num_groups;
+  std::vector<int64_t> shape_mean{m};
+  return std::vector<std::vector<int64_t>>{
+      output_sizes, shape_mean, shape_mean};
+}
+
+std::tuple<Tensor, Tensor, Tensor> GroupNormForwardOperator::AllocatePTOutputs(
+    const Tensor& input,
+    IntArrayRef normalized_shape,
+    const Tensor& bias,
+    const Tensor& weight,
+    int64_t num_groups,
+    std::array<bool, 3> is_persistent) {
+  auto sizes = GroupNormForwardOperator::getOutputSizes(
+      input, normalized_shape, num_groups);
+  auto output = habana_helpers::createPTTensor(
+      input,
+      sizes[0],
+      input.options(),
+      input.suggest_memory_format(),
+      is_persistent[0]);
+  auto istd = habana_helpers::createPTTensor(
+      bias,
+      sizes[1],
+      bias.options(),
+      bias.suggest_memory_format(),
+      is_persistent[1]);
+  auto mean = habana_helpers::createPTTensor(
+      weight,
+      sizes[2],
+      weight.options(),
+      weight.suggest_memory_format(),
+      is_persistent[2]);
+
+  return std::make_tuple(std::move(output), std::move(mean), std::move(istd));
+}
+
+void GroupNormForwardOperator::AllocateAndAddSynapseNode(
+    UNUSED synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    UNUSED const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 6,
+      "GroupNormForwardOperator::AllocateAndAddSynapseNode expected 6 args but got ",
+      inputs.size())
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isIntList(), "Input type expected to be int64_t");
+  TORCH_CHECK(inputs[4].isInt(), "Input type expected to be int64_t");
+  TORCH_CHECK(inputs[5].isDouble(), "Input type expected to be double");
+  const auto input = inputs[0].toTensor();
+  const auto weight = inputs[1].toTensor();
+  const auto bias = inputs[2].toTensor();
+  auto normalized_shape = inputs[3].toIntList().vec();
+  const auto num_groups = inputs[4].toInt();
+  auto eps = inputs[5].toDouble();
+  int num_channels;
+  int64_t input_ndim = input.dim();
+  int64_t normalized_ndim = (int64_t)normalized_shape.size();
+  int64_t axis = input_ndim - normalized_ndim;
+  num_channels = input.size(axis);
+
+  // Split the input tensor to num_groups sub-tensors to feed to LayerNorm
+  int split_size = num_channels / num_groups;
+  auto split_input_op = make_operator<SplitWithSizeOperator>(
+      input.device().index(), input.scalar_type());
+  OutputMetaDataVector split_output_metadata(num_groups);
+  split_input_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  torch::jit::Stack stack = {IValue(input), IValue(split_size), IValue(axis)};
+  split_input_op->AllocateAndAddSynapseNode(
+      graph, stack, split_output_metadata);
+  // We need to "broadcast" weight and bias to [C, H, W] (or normalized_shape)
+  // from [C] that comes as input to group_norm Use Reshape to [C, 1, 1]
+  // followed by RepeatOperator Add Reshape node for input to graph for
+  // input.view({m,n})
+  int64_t modified_wt_bias_sizes[normalized_ndim];
+  for (int64_t i = 0; i < normalized_ndim; i++) {
+    modified_wt_bias_sizes[i] = 1;
+  }
+  modified_wt_bias_sizes[0] = weight.size(0);
+  c10::IntArrayRef modified_wt_bias_shape(
+      modified_wt_bias_sizes, normalized_ndim);
+  auto repeat_vec = normalized_shape;
+  repeat_vec.at(0) = 1;
+  IntArrayRef repeat_arr(repeat_vec.data(), repeat_vec.size());
+
+  auto reshape_op_wt = make_operator<ReshapeOperator>(
+      weight.device().index(), weight.scalar_type());
+  reshape_op_wt->SetSynapseInput(p_context_->syn_inputs_[1]);
+  torch::jit::Stack stack_wt_reshape = {
+      c10::IValue(weight), c10::IValue(modified_wt_bias_shape)};
+  reshape_op_wt->AllocateAndAddSynapseNode(
+      graph, stack_wt_reshape, OutputMetaDataVector(1));
+  auto wt_reshaped = reshape_op_wt->GetOutputs()[0];
+
+  auto rpt_wt_op = make_operator<RepeatOperator>(
+      weight.device().index(), weight.scalar_type());
+  rpt_wt_op->SetSynapseInput(reshape_op_wt->GetSynOutputs()[0]);
+  torch::jit::Stack stack_wt = {IValue(wt_reshaped), IValue(repeat_arr)};
+  rpt_wt_op->AllocateAndAddSynapseNode(
+      graph, stack_wt, OutputMetaDataVector(1));
+
+  input_ndim = weight.dim();
+  auto split_wt_op = make_operator<SplitWithSizeOperator>(
+      weight.device().index(), weight.scalar_type());
+  split_wt_op->SetSynapseInput(rpt_wt_op->GetSynOutputs()[0]);
+  torch::jit::Stack stack1 = {
+      IValue(rpt_wt_op->GetOutputs()[0]), IValue(split_size), IValue(0)};
+  split_wt_op->AllocateAndAddSynapseNode(graph, stack1, split_output_metadata);
+
+  auto reshape_op_bias =
+      make_operator<ReshapeOperator>(bias.device().index(), bias.scalar_type());
+  reshape_op_bias->SetSynapseInput(p_context_->syn_inputs_[2]);
+  torch::jit::Stack stack_bias_reshape = {
+      c10::IValue(bias), c10::IValue(modified_wt_bias_shape)};
+  reshape_op_bias->AllocateAndAddSynapseNode(
+      graph, stack_bias_reshape, OutputMetaDataVector(1));
+  auto bias_reshaped = reshape_op_bias->GetOutputs()[0];
+
+  auto rpt_bias_op =
+      make_operator<RepeatOperator>(bias.device().index(), bias.scalar_type());
+  rpt_bias_op->SetSynapseInput(reshape_op_bias->GetSynOutputs()[0]);
+  torch::jit::Stack stack_bias = {IValue(bias_reshaped), IValue(repeat_arr)};
+  rpt_bias_op->AllocateAndAddSynapseNode(
+      graph, stack_bias, OutputMetaDataVector(1));
+
+  input_ndim = bias.dim();
+  auto split_bias_op = make_operator<SplitWithSizeOperator>(
+      bias.device().index(), bias.scalar_type());
+  split_bias_op->SetSynapseInput(rpt_bias_op->GetSynOutputs()[0]);
+  torch::jit::Stack stack2 = {
+      IValue(rpt_bias_op->GetOutputs()[0]), IValue(split_size), IValue(0)};
+  split_bias_op->AllocateAndAddSynapseNode(
+      graph, stack2, split_output_metadata);
+
+  std::vector<Tensor> cat_input, cat_mean, cat_istd;
+  auto cat_ln_out_op =
+      make_operator<CatOperator>(input.device().index(), input.scalar_type());
+  auto cat_ln_mean_op =
+      make_operator<CatOperator>(weight.device().index(), weight.scalar_type());
+  auto cat_ln_istd_op =
+      make_operator<CatOperator>(weight.device().index(), weight.scalar_type());
+  // normalized_shape given to LN will also be changed according to split_size
+  // along axis=0
+  normalized_shape.at(0) = split_size;
+  for (auto i = 0; i < num_groups; i++) {
+    // Call layernorm with split input
+    auto ln_op = make_operator<LayerNormOperator>(
+        input.device().index(), input.scalar_type());
+    ln_op->SetSynapseInput(split_input_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_wt_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_bias_op->GetSynOutputs()[i]);
+    torch::jit::Stack stack = {
+        IValue(split_input_op->GetOutputs()[i]),
+        IValue(normalized_shape),
+        IValue(split_wt_op->GetOutputs()[i]),
+        IValue(split_bias_op->GetOutputs()[i]),
+        IValue(eps)};
+    ln_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(3));
+    // Cat LN outputs
+    cat_input.emplace_back(ln_op->GetOutputs()[0]);
+    cat_ln_out_op->SetSynapseInput(ln_op->GetSynOutputs()[0]);
+    cat_mean.emplace_back(ln_op->GetOutputs()[1]);
+    cat_ln_mean_op->SetSynapseInput(ln_op->GetSynOutputs()[1]);
+    cat_istd.emplace_back(ln_op->GetOutputs()[2]);
+    cat_ln_istd_op->SetSynapseInput(ln_op->GetSynOutputs()[2]);
+  }
+
+  torch::jit::Stack stack3 = {IValue(cat_input), IValue(axis)};
+  cat_ln_out_op->AllocateAndAddSynapseNode(graph, stack3, output_metadata);
+  synapse_helpers::tensor& syn_cat_out = cat_ln_out_op->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(std::move(syn_cat_out));
+  p_context_->pt_outputs_.emplace_back(cat_ln_out_op->GetOutputs()[0]);
+
+  auto sizes = GroupNormForwardOperator::getOutputSizes(
+      input, normalized_shape, num_groups);
+  torch::jit::Stack stack4 = {IValue(cat_mean), IValue(axis)};
+  cat_ln_mean_op->AllocateAndAddSynapseNode(
+      graph, stack4, OutputMetaDataVector(1));
+  synapse_helpers::tensor& syn_cat_mean_out =
+      cat_ln_mean_op->GetSynOutputs()[0];
+
+  auto reshape_op_mean = make_operator<ReshapeOperator>(
+      input.device().index(), input.scalar_type());
+  reshape_op_mean->SetSynapseInput(syn_cat_mean_out);
+  torch::jit::Stack stack_mean_reshape = {
+      c10::IValue(cat_ln_mean_op->GetOutputs()[0]), c10::IValue(sizes[1])};
+  reshape_op_mean->AllocateAndAddSynapseNode(
+      graph, stack_mean_reshape, output_metadata);
+  auto mean_reshaped = reshape_op_mean->GetOutputs()[0];
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(reshape_op_mean->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(mean_reshaped);
+  torch::jit::Stack stack5 = {IValue(cat_istd), IValue(axis)};
+  cat_ln_istd_op->AllocateAndAddSynapseNode(
+      graph, stack5, OutputMetaDataVector(1));
+  synapse_helpers::tensor& syn_cat_istd_out =
+      cat_ln_istd_op->GetSynOutputs()[0];
+
+  auto reshape_op_istd = make_operator<ReshapeOperator>(
+      input.device().index(), input.scalar_type());
+  reshape_op_istd->SetSynapseInput(syn_cat_istd_out);
+  torch::jit::Stack stack_istd_reshape = {
+      c10::IValue(cat_ln_istd_op->GetOutputs()[0]), c10::IValue(sizes[2])};
+  reshape_op_istd->AllocateAndAddSynapseNode(
+      graph, stack_istd_reshape, output_metadata);
+  auto istd_reshaped = reshape_op_istd->GetOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(
+      std::move(reshape_op_istd->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(istd_reshaped);
+}
+
+std::vector<std::vector<int64_t>> GroupNormBackwardOperator::getOutputSizes(
+    const at::Tensor& input,
+    IntArrayRef normalized_shape) {
+  auto output_sizes = input.sizes().vec();
+  const auto input_shape = input.sizes();
+  const int axis = input.dim() - normalized_shape.size();
+  int64_t m = input_shape.vec()[axis];
+  std::vector<int64_t> shape_mean{m};
+  std::vector<std::vector<int64_t>> out_tensor_sizes;
+  out_tensor_sizes.emplace_back(output_sizes);
+  out_tensor_sizes.emplace_back(shape_mean);
+  out_tensor_sizes.emplace_back(shape_mean);
+  return out_tensor_sizes;
+}
+
+void GroupNormBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "GroupNormBackwardOperator::AllocateAndAddSynapseNode expected 9 args but got ",
+      inputs.size())
+  TORCH_CHECK(inputs[0].isTensor(), "Input-0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input-1 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input-2 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input-3 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input-4 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[6].isInt(), "Input type expected to be int64_t");
+  TORCH_CHECK(inputs[7].isBoolList(), "Input type expected to be BoolList");
+  const auto grad_out = inputs[0].toTensor();
+  const auto input = inputs[1].toTensor();
+  const auto mean = inputs[2].toTensor();
+  const auto rstd = inputs[3].toTensor();
+  const auto weight = inputs[4].toTensor();
+  auto normalized_shape = inputs[5].toIntList().vec();
+  const auto num_groups = inputs[6].toInt();
+  auto output_mask_ = inputs[7].toBoolList();
+  std::array<bool, 3> output_mask;
+  output_mask[0] = output_mask_[0];
+  output_mask[1] = output_mask_[1];
+  output_mask[2] = output_mask_[2];
+  int num_channels;
+  int64_t input_ndim = input.dim();
+  int64_t normalized_ndim = (int64_t)normalized_shape.size();
+  int64_t axis = input_ndim - normalized_ndim;
+  num_channels = input.size(axis);
+
+  // Split the input tensor to num_groups sub-tensors to feed to LayerNorm
+  int split_size = num_channels / num_groups;
+  auto split_grad_out_op = make_operator<SplitWithSizeOperator>(
+      grad_out.device().index(), grad_out.scalar_type());
+  OutputMetaDataVector split_output_metadata(num_groups);
+  split_grad_out_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  torch::jit::Stack stack_grad_out = {
+      IValue(grad_out), IValue(split_size), IValue(axis)};
+  split_grad_out_op->AllocateAndAddSynapseNode(
+      graph, stack_grad_out, split_output_metadata);
+
+  auto split_input_op = make_operator<SplitWithSizeOperator>(
+      input.device().index(), input.scalar_type());
+  split_input_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+  torch::jit::Stack stack = {IValue(input), IValue(split_size), IValue(axis)};
+  split_input_op->AllocateAndAddSynapseNode(
+      graph, stack, split_output_metadata);
+  // OutputMetaDataVector split_mean_rstd_metadata(num_groups);
+  int64_t mean_rstd_split_size = mean.sizes().vec()[0] / num_groups; // N/G
+  auto split_mean_op = make_operator<SplitWithSizeOperator>(
+      mean.device().index(), mean.scalar_type());
+  split_mean_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+  torch::jit::Stack stack1 = {
+      IValue(mean), IValue(mean_rstd_split_size), IValue(0)};
+  split_mean_op->AllocateAndAddSynapseNode(
+      graph, stack1, split_output_metadata);
+
+  auto split_rstd_op = make_operator<SplitWithSizeOperator>(
+      rstd.device().index(), rstd.scalar_type());
+  split_rstd_op->SetSynapseInput(p_context_->syn_inputs_[3]);
+  torch::jit::Stack stack2 = {
+      IValue(rstd), IValue(mean_rstd_split_size), IValue(0)};
+  split_rstd_op->AllocateAndAddSynapseNode(
+      graph, stack2, split_output_metadata);
+
+  // We need to "broadcast" weight and bias to [C, H, W] (or normalized_shape)
+  // from [C] that comes as input to group_norm Use Reshape to [C, 1, 1]
+  // followed by RepeatOperator Add Reshape node for input to graph for
+  // input.view({m,n})
+  int64_t modified_wt_bias_sizes[normalized_ndim];
+  for (int64_t i = 0; i < normalized_ndim; i++) {
+    modified_wt_bias_sizes[i] = 1;
+  }
+  modified_wt_bias_sizes[0] = weight.size(0);
+  c10::IntArrayRef modified_wt_bias_shape(
+      modified_wt_bias_sizes, normalized_ndim);
+  auto repeat_vec = normalized_shape;
+  repeat_vec.at(0) = 1;
+  IntArrayRef repeat_arr(repeat_vec.data(), repeat_vec.size());
+
+  auto reshape_op_wt = make_operator<ReshapeOperator>(
+      weight.device().index(), weight.scalar_type());
+  reshape_op_wt->SetSynapseInput(p_context_->syn_inputs_[4]);
+  torch::jit::Stack stack_wt_reshape = {
+      c10::IValue(weight), c10::IValue(modified_wt_bias_shape)};
+  reshape_op_wt->AllocateAndAddSynapseNode(
+      graph, stack_wt_reshape, OutputMetaDataVector(1));
+  auto wt_reshaped = reshape_op_wt->GetOutputs()[0];
+
+  auto rpt_wt_op = make_operator<RepeatOperator>(
+      weight.device().index(), weight.scalar_type());
+  rpt_wt_op->SetSynapseInput(reshape_op_wt->GetSynOutputs()[0]);
+  torch::jit::Stack stack_wt_rpt = {IValue(wt_reshaped), IValue(repeat_arr)};
+  rpt_wt_op->AllocateAndAddSynapseNode(
+      graph, stack_wt_rpt, OutputMetaDataVector(1));
+
+  input_ndim = weight.dim();
+  auto split_wt_op = make_operator<SplitWithSizeOperator>(
+      weight.device().index(), weight.scalar_type());
+  split_wt_op->SetSynapseInput(rpt_wt_op->GetSynOutputs()[0]);
+  torch::jit::Stack stack_wt = {
+      IValue(rpt_wt_op->GetOutputs()[0]), IValue(split_size), IValue(0)};
+  split_wt_op->AllocateAndAddSynapseNode(
+      graph, stack_wt, split_output_metadata);
+
+  std::vector<Tensor> cat_input, cat_weight, cat_bias;
+  auto cat_ln_out_op =
+      make_operator<CatOperator>(input.device().index(), input.scalar_type());
+  auto cat_ln_weight_op =
+      make_operator<CatOperator>(weight.device().index(), weight.scalar_type());
+  auto cat_ln_bias_op =
+      make_operator<CatOperator>(weight.device().index(), weight.scalar_type());
+  // normalized_shape given to LN will also be changed according to split_size
+  // along axis=0
+  normalized_shape.at(0) = split_size;
+  int64_t bias_sizes[1];
+  bias_sizes[0] = normalized_shape[0];
+  c10::IntArrayRef bias_shape(bias_sizes, 1);
+  // bias is not used by LN backward, but we need to provide in the stack.
+  const auto bias_opt =
+      habana_helpers::createPTTensor(input, bias_shape, input.options(), false);
+  AllocateSynapseInput(
+      graph, bias_opt, false); // TO DO: is this allowed within an Op?
+  for (auto i = 0; i < num_groups; i++) {
+    // Call layernorm with split input
+    auto ln_op = make_operator<LayerNormBackwardOperator>(
+        input.device().index(), input.scalar_type());
+    ln_op->SetSynapseInput(split_grad_out_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_input_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_mean_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_rstd_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(split_wt_op->GetSynOutputs()[i]);
+    ln_op->SetSynapseInput(p_context_->syn_inputs_[5]); // bias
+
+    torch::jit::Stack stack = {
+        IValue(split_grad_out_op->GetOutputs()[i]),
+        IValue(split_input_op->GetOutputs()[i]),
+        IValue(normalized_shape),
+        IValue(split_mean_op->GetOutputs()[i]),
+        IValue(split_rstd_op->GetOutputs()[i]),
+        IValue(split_wt_op->GetOutputs()[i]),
+        IValue(bias_opt),
+        IValue(output_mask)};
+    ln_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(3));
+    // Cat LN outputs
+    cat_input.emplace_back(ln_op->GetOutputs()[0]);
+    cat_ln_out_op->SetSynapseInput(ln_op->GetSynOutputs()[0]);
+    cat_weight.emplace_back(ln_op->GetOutputs()[1]);
+    cat_ln_weight_op->SetSynapseInput(ln_op->GetSynOutputs()[1]);
+    cat_bias.emplace_back(ln_op->GetOutputs()[2]);
+    cat_ln_bias_op->SetSynapseInput(ln_op->GetSynOutputs()[2]);
+  }
+  torch::jit::Stack stack3 = {IValue(cat_input), IValue(axis)};
+  cat_ln_out_op->AllocateAndAddSynapseNode(graph, stack3, output_metadata);
+  synapse_helpers::tensor& syn_cat_out = cat_ln_out_op->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(std::move(syn_cat_out));
+  p_context_->pt_outputs_.emplace_back(cat_ln_out_op->GetOutputs()[0]);
+
+  auto sizes =
+      GroupNormBackwardOperator::getOutputSizes(input, normalized_shape);
+
+  torch::jit::Stack stack4 = {IValue(cat_weight), IValue(0)};
+  cat_ln_weight_op->AllocateAndAddSynapseNode(
+      graph, stack4, OutputMetaDataVector(1));
+  std::vector<int64_t> dims_to_reduce;
+  for (int i = 1; i < normalized_ndim; i++) {
+    dims_to_reduce.emplace_back(i);
+  }
+  auto om1 = {output_metadata[1]};
+
+  // Reduction operation - Create the operator
+  auto sum_dim_wt_op = make_operator<SumDimOperator>(
+      this->p_context_->device_id_, weight.scalar_type());
+  sum_dim_wt_op->SetSynapseInput(cat_ln_weight_op->GetSynOutputs()[0]);
+  torch::jit::Stack stack5 = {
+      IValue(cat_ln_weight_op->GetOutputs()[0]),
+      IValue(dims_to_reduce),
+      IValue(false),
+      IValue(weight.scalar_type())};
+  sum_dim_wt_op->AllocateAndAddSynapseNode(
+      graph, stack5, output_mask[1] ? om1 : OutputMetaDataVector(1));
+  p_context_->syn_outputs_.emplace_back(
+      std::move(sum_dim_wt_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(sum_dim_wt_op->GetOutputs()[0]);
+
+  torch::jit::Stack stack6 = {IValue(cat_bias), IValue(0)};
+  cat_ln_bias_op->AllocateAndAddSynapseNode(
+      graph, stack6, OutputMetaDataVector(1));
+  auto om2 = {output_metadata[2]};
+
+  // Reduction operation - Create the operator
+  auto sum_dim_bias_op = make_operator<SumDimOperator>(
+      this->p_context_->device_id_, weight.scalar_type());
+  sum_dim_bias_op->SetSynapseInput(cat_ln_bias_op->GetSynOutputs()[0]);
+  torch::jit::Stack stack7 = {
+      IValue(cat_ln_bias_op->GetOutputs()[0]),
+      IValue(dims_to_reduce),
+      IValue(false),
+      IValue(weight.scalar_type())};
+  sum_dim_bias_op->AllocateAndAddSynapseNode(
+      graph, stack7, output_mask[2] ? om2 : OutputMetaDataVector(1));
+  p_context_->syn_outputs_.emplace_back(
+      std::move(sum_dim_bias_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(sum_dim_bias_op->GetOutputs()[0]);
+}
+
 ///////////////////////////////////////
 static auto& NormKernelsKernelRegistry =
     habana::KernelRegistry()
@@ -2010,4 +2453,6 @@ static auto& NormKernelsKernelRegistry =
         .add("hpu::instance_norm", KERNEL_FN(InstanceNormOperator))
         .add(
             "hpu::instance_norm_backward",
-            KERNEL_FN(InstanceNormBackwardOperator));
+            KERNEL_FN(InstanceNormBackwardOperator))
+        .add("hpu::group_norm", KERNEL_FN(GroupNormForwardOperator))
+        .add("hpu::group_norm_backward", KERNEL_FN(GroupNormBackwardOperator));

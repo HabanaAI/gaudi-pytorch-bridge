@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <ATen/ExpandUtils.h>
@@ -759,4 +762,25 @@ at::Tensor habana_cast_to_fp8_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& weight,
     ::std::array<bool, 3> output_mask);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> native_group_norm_hpu_lazy(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    c10::SymInt N,
+    c10::SymInt C,
+    c10::SymInt HxW,
+    int64_t group,
+    double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+native_group_norm_backward_hpu_lazy(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight,
+    c10::SymInt N,
+    c10::SymInt C,
+    c10::SymInt HxW,
+    int64_t group,
+    std::array<bool, 3> output_mask);
 } // namespace habana_lazy

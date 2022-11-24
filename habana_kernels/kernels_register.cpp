@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <torch/library.h>
 
@@ -2401,6 +2404,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
   m.def(
       "hpu::native_batch_norm_backward(Tensor input, Tensor? grad_out, Tensor? weight, Tensor? mean, Tensor? invistd, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::group_norm(Tensor input, Tensor weight, Tensor bias, int[] normalized_shape, int64_t num_groups, double eps) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::group_norm_backward(Tensor grad_out,Tensor input, Tensor mean, Tensor rstd, Tensor weight, int[] normalized_shape, int64_t num_groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)");
   m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def(

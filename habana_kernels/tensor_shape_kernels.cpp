@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
@@ -129,7 +132,6 @@ void CatOperator::AllocateAndAddSynapseNode(
   inputs.emplace_back(out);
   auto dim = inputs[1].toInt();
   auto kernel_dim = (out.ndimension() - dim) - 1;
-
   auto tensors = inputs[0].toTensorList();
   auto output_dtype = out.scalar_type();
   for (unsigned i = 0; i < tensors.size(); i++) {
@@ -1184,19 +1186,34 @@ void SplitWithSizeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 3,
       "Incorrect size of input arguments for SplitWithSizes Operator");
   auto self = inputs[0].toTensor();
-  auto split_sizes = inputs[1].toIntList();
-  HABANA_ASSERT(output_metadata.size() == split_sizes.size());
+  c10::List<int64_t> split_sizes;
+  int uniform_split_size = 0;
+  // input[1] is an array of split sizes along dim or an int that gives the
+  // uniform split size along the dim
+  if (inputs[1].isIntList()) {
+    split_sizes = inputs[1].toIntList();
+  } else {
+    uniform_split_size = inputs[1].toInt();
+  }
   auto dim = inputs[2].toInt();
+  int64_t num_splits = (!uniform_split_size)
+      ? split_sizes.size()
+      : self.size(dim) / uniform_split_size;
 
+  HABANA_ASSERT(
+      output_metadata.size() == split_sizes.size() ||
+      output_metadata.size() == (size_t)num_splits);
   TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
   int64_t dim_size = self.size(dim);
-  int64_t num_splits = split_sizes.size();
-  std::vector<Tensor> splits(num_splits);
   int64_t start_idx = 0;
   int64_t i;
 
   for (i = 0; i < num_splits; ++i) {
-    auto length = split_sizes.get(i);
+    int length;
+    if (!uniform_split_size)
+      length = split_sizes.get(i);
+    else
+      length = uniform_split_size;
     TORCH_CHECK(
         length >= 0,
         "split_with_sizes expects split_sizes have only non-negative ",
