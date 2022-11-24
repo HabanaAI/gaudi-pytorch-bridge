@@ -4705,7 +4705,10 @@ poisson:
 
 pow_.Scalar:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
   inplace_ids: [0]
@@ -4715,7 +4718,10 @@ pow_.Scalar:
 
 pow_.Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
   inplace_ids: [0]
@@ -4723,7 +4729,10 @@ pow_.Tensor:
 
 pow.Scalar:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   force_default: false
   op_frontend: PowScalar
   guid: pow_fwd
@@ -4733,14 +4742,20 @@ pow.Scalar:
 
 pow.Scalar_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   scalar_ids: [0]
   type_promotion: true
 
 pow.Tensor_Scalar:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
   out_ids: [0]
@@ -4750,7 +4765,10 @@ pow.Tensor_Scalar:
 
 pow.Tensor_Scalar_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
@@ -4758,7 +4776,10 @@ pow.Tensor_Scalar_out:
 
 pow.Tensor_Tensor:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
   out_ids: [0]
@@ -4766,7 +4787,10 @@ pow.Tensor_Tensor:
 
 pow.Tensor_Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   type_promotion: true
 
@@ -4841,20 +4865,29 @@ randperm.generator_out:
 reciprocal:
   force_default: false
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   out_ids: [0]
 
 reciprocal_:
   force_default: false
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   inplace_ids: [0]
 
 reciprocal.out:
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
 
 relu:
@@ -5227,20 +5260,29 @@ rrelu_with_noise_backward:
 rsqrt:
   force_default: false
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   out_ids: [0]
 
 rsqrt_:
   force_default: false
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   inplace_ids: [0]
 
 rsqrt.out:
   promote_int_to_float: true
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
 
 rsub.Tensor:
