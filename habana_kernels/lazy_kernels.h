@@ -742,6 +742,11 @@ class LazyOp {
       at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      isOptimizedLazyEager =
+          info_to_lazy_backend->get_is_optimized_lazy_eager();
+    }
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     auto hl_self = GetHbLazyTensor(self);
 
@@ -775,19 +780,25 @@ class LazyOp {
       if (!is_inplace(m_symbol)) {
         updateDstDependencies(self_updated);
       }
-      const auto& node = create_node();
-      ir::Value& out = hl_self.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_self.GetDevice(),
-          hl_self.GetSizes(),
-          hl_self.dtype_optional());
-
-      // Special handling for SBS in inplace, before the inplace op will
-      // override the tensor
-      if (is_inplace(m_symbol)) {
-        m_sbs_runner->populateInputForCPUOp(
-            get_inputs(), node->GetMetaData(), sbs_stack);
+      if (isOptimizedLazyEager == false) {
+        PT_LAZY_DEBUG("Normal Lazy Eager Inplace Path Chosen");
+        const auto& node = create_node();
+        ir::Value& out = hl_self.CurrentIrValue();
+        out.SetNode(
+            node,
+            hl_self.GetDevice(),
+            hl_self.GetSizes(),
+            hl_self.dtype_optional());
+        // Special handling for SBS in inplace, before the inplace op will
+        // override the tensor
+        if (is_inplace(m_symbol)) {
+          m_sbs_runner->populateInputForCPUOp(
+              get_inputs(), node->GetMetaData(), sbs_stack);
+        }
+      } else {
+        PT_LAZY_DEBUG("Optimized Lazy Eager Inplace Path Chosen");
+        std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+        info_to_lazy_backend->set_input_values(input_vals);
       }
     } else {
       HandleViewsInplace(self, hl_self);
@@ -810,7 +821,7 @@ class LazyOp {
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(self, sbs_stack);
-    flush_op(1, info_to_lazy_backend);
+    flush_op(1, info_to_lazy_backend, {hl_self});
     return self;
   }
 
@@ -836,10 +847,8 @@ class LazyOp {
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
-    // Temporarily disabled the switch - To Do
     if (is_optimized_lazy_eager_supported(
-            isView, context->viewContext.isLazyViewPresent) &&
-        false) {
+            isView, context->viewContext.isLazyViewPresent)) {
       size_t lazy_eager_key = 0;
       bool IsOptimizedLazyEagerCached =
           calculate_key_and_check_optimized_lazy_eager_cache(lazy_eager_key);

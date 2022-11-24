@@ -76,3 +76,68 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
     }
   }
 }
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
+    torch::Tensor A = torch::randn({2, 3});
+    torch::Tensor B = torch::randn({2, 3});
+    torch::Tensor C = torch::randn({2, 3});
+    auto hA = A.to(torch::kHPU);
+    auto hB = B.to(torch::kHPU);
+    auto hC = C.to(torch::kHPU);
+    A = A.mul_(B);
+    auto exp = torch::add(A, C);
+    hA = hA.mul_(hB);
+    auto result = torch::add(hA, hC);
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+    UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
+    SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
+  }
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
+    torch::Tensor A = torch::randn({2, 3});
+    torch::Tensor B = torch::randn({2, 3});
+    torch::Tensor C = torch::randn({2, 3});
+    auto hA = A.to(torch::kHPU);
+    auto hB = B.to(torch::kHPU);
+    auto hC = C.to(torch::kHPU);
+    A = A.mul_(B);
+    hA = hA.mul_(hB);
+    torch::Tensor out = hA.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, A, 0.001, 0.001), true);
+    long long total_time = 0;
+    const int iterations = 10;
+    for (int i = 0; i < iterations; i++) {
+      A = A.mul_(B);
+      auto start = std::chrono::high_resolution_clock::now();
+      hA = hA.mul_(hB);
+      auto elapsed = std::chrono::high_resolution_clock::now() - start;
+      torch::Tensor out = hA.to(torch::kCPU);
+      total_time +=
+          std::chrono::duration_cast<std::chrono::microseconds>(elapsed)
+              .count();
+      EXPECT_EQ(allclose(out, hA, 0.001, 0.001), true);
+    }
+    UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+  }
+}
