@@ -4625,12 +4625,18 @@ normal_:
 
 norm.out:
   custom_output_shape: NormOpOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithOutDtype
 
 norm.dtype_out:
   custom_output_shape: NormOpOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
 
 norm.Scalar:
@@ -4647,7 +4653,10 @@ norm.Scalar:
 norm.ScalarOpt_dim_dtype:
   force_default: false
   custom_output_shape: NormOpOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
   op_frontend: LazyNormOp
   out_ids: [0]
@@ -4655,14 +4664,20 @@ norm.ScalarOpt_dim_dtype:
 norm.ScalarOpt_dim:
   force_default: false
   custom_output_shape: NormOpOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithOutDtype
   out_ids: [0]
 
 norm.ScalarOpt_dtype:
   force_default: false
   custom_output_shape: NormOutputShape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: NormHabanaOperator
   out_ids: [0]
 
