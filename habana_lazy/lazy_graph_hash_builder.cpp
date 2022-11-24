@@ -108,7 +108,7 @@ void GraphHashBuilder::prepareInputsStackMap(
       auto indx = itr - graph_input_stack_uids.begin();
       graph_input_stack_uid_map.emplace_back(indx);
     } else {
-      assert(0);
+      HABANA_ASSERT(0);
     }
   }
 }

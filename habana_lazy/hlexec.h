@@ -293,15 +293,6 @@ class HlExec {
     return m_fwd_graph_hash_;
   }
 
-  bool isRunningHashCacheMiss() {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH))
-      return false;
-    auto mp_g_and_meta_data_ =
-        habana_lazy::LazyGraphCache::GetLazyCache()
-            .GetOptimizedJITGraphAndMetaData(m_fwd_graph_hash_);
-    return (mp_g_and_meta_data_ == nullptr);
-  }
-
   void set_fwd_graph_stack_map(std::vector<uint64_t> graph_input_stack_map) {
     m_fwd_graph_stack_map_ = graph_input_stack_map;
   }
