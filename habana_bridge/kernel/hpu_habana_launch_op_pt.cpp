@@ -2270,10 +2270,17 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
       // TODO: When creating a new stack, we need to look, if this
       // can be done using storage less pytorch tensor, need to fix
       // this
-      auto new_tensor = at::empty(
+      synTensorType tensor_type = DATA_TENSOR;
+      if (impl) {
+        tensor_type = impl->getTensorType();
+      }
+
+      auto new_tensor = habana_lazy::empty_hpu_lazy(
           dynamic_shapes.at(i).get_dims(),
           tensor.options(),
-          tensor.suggest_memory_format());
+          tensor.suggest_memory_format(),
+          true,
+          tensor_type);
       /*
        * Every new tensor is created using Habana Tensor Implementer.
        * Ensure propogation of shape tensor information for the new
