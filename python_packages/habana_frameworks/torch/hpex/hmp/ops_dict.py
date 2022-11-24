@@ -45,6 +45,7 @@ ops_dict = {
     "dropout1d": [torch.nn.functional],
     "dropout2d": [torch.nn.functional],
     "dropout3d": [torch.nn.functional],
+    "einsum": [torch, torch.Tensor],
     "embedding_bag_sum_fwd": [torch],
     "embedding_bag_sum_bwd": [torch],
     "embedding_bag": [torch.nn.functional, torch],
