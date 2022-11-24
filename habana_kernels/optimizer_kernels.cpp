@@ -1228,8 +1228,8 @@ class OptimizerFusedLarsOperator : public OpBackend {
             device_id,
             NO_TPC + "optimizer_fused_lars_",
             scalar_type,
+            {0}, // outplace id
             {},
-            {0}, // inplace id
             {},
             false) {
     this->CreateSynContext(device_id);

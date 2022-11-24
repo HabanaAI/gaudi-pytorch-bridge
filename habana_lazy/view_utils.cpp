@@ -933,15 +933,8 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto hl_weight = GetHbLazyTensor(weight);
   auto id = hl_weight.getTensorUniqueId();
-  if (context->viewContext.GetViewTableEntry(id) == nullptr) {
-    ir::Value& out5 = hl_weight.CurrentIrValue();
-    out5.SetNode(
-        node,
-        hl_weight.GetDevice(),
-        hl_weight.GetSizes(),
-        hl_weight.dtype_optional(),
-        out_index++);
-  } else {
+  auto params_ptr = context->viewContext.GetViewTableEntry(id);
+  if ((params_ptr != nullptr) && (params_ptr->viewStatus != kEvaluated)) {
     auto wt_updated = empty_hpu_lazy(
         weight.sizes(),
         weight.options(),
@@ -959,6 +952,14 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
     // add strided insert node. Do not flush in lazy eager as it is a fused
     // op. step marker will be used at the end
     strided_insert_hpu_lazy(weight, wt_updated, /*is_flush*/ false);
+  } else {
+    ir::Value& out5 = hl_weight.CurrentIrValue();
+    out5.SetNode(
+        node,
+        hl_weight.GetDevice(),
+        hl_weight.GetSizes(),
+        hl_weight.dtype_optional(),
+        out_index++);
   }
 }
 

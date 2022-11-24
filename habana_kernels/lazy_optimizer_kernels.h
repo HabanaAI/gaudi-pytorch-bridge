@@ -52,8 +52,8 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1,
-      OPTIMIZER optimizer = OTHER) {
-    LazyOp<T>::viewUpdateInputs(); // TOCHECK: Is this needed
+      UNUSED OPTIMIZER optimizer = OTHER) {
+    LazyOp<T>::viewUpdateInputs();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();
@@ -66,25 +66,9 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
     ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
-    // In the Lars case, grads are updated. grads will be accessed as
-    // views in multichip scenario. With gradient bucket feature in,
-    // we should not be using CustomKernelAddNodeInplace in this case.
-    if (LARS == optimizer) {
-      for (size_t i = 0; i < noOfTensor; ++i) {
-        auto hl_result = GetHbLazyTensor(tList1[i]);
-        ir::Value& out = hl_result.CurrentIrValue();
-        out.SetNode(
-            node_unpack,
-            hl_result.GetDevice(),
-            hl_result.GetSizes(),
-            hl_result.dtype_optional(),
-            out_index++);
-      }
-    } else {
-      for (size_t i = 0; i < noOfTensor; ++i) {
-        HbLazyTensorViews::CustomKernelAddNodeInplace(
-            tList1[i], node_unpack, out_index);
-      }
+    for (size_t i = 0; i < noOfTensor; ++i) {
+      HbLazyTensorViews::CustomKernelAddNodeInplace(
+          tList1[i], node_unpack, out_index);
     }
     flush_op({});
   }
