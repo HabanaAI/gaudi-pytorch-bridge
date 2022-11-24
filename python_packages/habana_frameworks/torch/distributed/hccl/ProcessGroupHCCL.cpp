@@ -1158,7 +1158,11 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
   // Record even for outputFlattened on ncclStream
   for (size_t i = 0; i < outputTensors.size(); ++i) {
     for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-      outputTensors[i][j].copy_(outputFlattened[i][j], true);
+      if (!this->emulate_distributed_) {
+        outputTensors[i][j].copy_(outputFlattened[i][j], true);
+      } else {
+        outputTensors[i][j].copy_(inputTensors[i], true);
+      }
     }
   }
   if (change) {

@@ -1,6 +1,10 @@
 import os
 import torch
 from habana_frameworks.torch.distributed._hccl_C import *
+from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled
+
+distributed_emulation_apply_if_enabled()
+
 
 def checkVisibleDevices(rank):
     HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
@@ -20,7 +24,8 @@ def checkVisibleDevices(rank):
         available for training. Please verify if {HABANA_VISIBLE_DEVICES_VAR}
         is set correctly."""
         os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[rank]
-        return      
+        return
+
 
 def initialize_distributed_hpu() -> None:
     r"""Initializes and returns distributed configuration
@@ -34,13 +39,13 @@ def initialize_distributed_hpu() -> None:
         'RANK' in os.environ and
         'LOCAL_RANK' in os.environ):
         world_size = int(os.environ["WORLD_SIZE"])
-        rank       = int(os.environ["RANK"])
+        rank = int(os.environ["RANK"])
         local_rank = int(os.environ["LOCAL_RANK"])
     elif ('OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and
           'OMPI_COMM_WORLD_SIZE' in os.environ and
           'OMPI_COMM_WORLD_RANK' in os.environ):
         world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
-        rank       = int(os.environ["OMPI_COMM_WORLD_RANK"])
+        rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
         local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
     else:
         try:
