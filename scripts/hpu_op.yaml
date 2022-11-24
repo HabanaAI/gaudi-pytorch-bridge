@@ -7217,6 +7217,10 @@ view:
   override_fn: view_hpu_lazy
   acc_thread: true
 
+view.dtype:
+  override_fn: view_dtype_hpu_lazy
+  acc_thread: true
+
 linear_backward:
   override_fn: linear_bwd_hpu_lazy
   acc_thread: true

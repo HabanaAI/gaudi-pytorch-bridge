@@ -75,6 +75,7 @@ at::Tensor view_hpu_lazy(const at::Tensor& self_, at::IntArrayRef size);
 #else
 at::Tensor view_hpu_lazy(const at::Tensor& self, at::SymIntArrayRef size);
 #endif
+at::Tensor view_dtype_hpu_lazy(const at::Tensor& self_, c10::ScalarType dtype);
 at::Tensor add_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,

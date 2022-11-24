@@ -105,6 +105,7 @@ void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
     const c10::VariableVersion& version_counter,
     bool allow_tensor_metadata_change) const {
+  PT_LAZY_TRACE;
   auto aten_t = AtenFromHbLazyTensor(
       m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
@@ -133,6 +134,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
     c10::VariableVersion&& version_counter,
     bool allow_tensor_metadata_change) const {
+  PT_LAZY_TRACE;
   auto aten_t = AtenFromHbLazyTensor(
       m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
   auto impl = c10::make_intrusive<HbLazyTensorImpl>(
@@ -161,6 +163,7 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
 void HbLazyTensorImpl::shallow_copy_from(
     const c10::intrusive_ptr<TensorImpl>& impl) {
   // HABANA_ASSERT(0);
+  PT_LAZY_TRACE;
   HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
   copy_tensor_metadata(
       /*src_impl=*/hl_impl,
