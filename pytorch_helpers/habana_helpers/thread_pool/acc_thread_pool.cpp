@@ -23,11 +23,15 @@ AccThreadPool::AccThreadPool() : threads_(1), running_(true), task_count_(0) {
     at::init_num_threads();
   };
 
-  for (std::size_t i = 0; i < threads_.size(); ++i) {
-    threads_[i] = std::thread([this, init_thread]() {
-      init_thread();
-      this->main_loop();
-    });
+  if (!GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
+    for (std::size_t i = 0; i < threads_.size(); ++i) {
+      threads_[i] = std::thread([this, init_thread]() {
+        init_thread();
+        this->main_loop();
+      });
+    }
+  } else {
+    running_ = false;
   }
 }
 
@@ -68,7 +72,43 @@ void AccThreadPool::run(std::function<void()>&& func) {
 
 void AccThreadPool::waitWorkComplete() {
   while (task_count_ > 0) {
+    if (!running_) {
+      executePendingTask();
+    }
   }
+}
+
+void AccThreadPool::executePendingTask() {
+  std::unique_lock<std::mutex> lock(mutex_);
+
+  if (tasks_.empty()) {
+    return;
+  }
+
+  AccTask task = std::move(tasks_.front());
+  tasks_.pop();
+  lock.unlock();
+
+  // Run the task.
+  try {
+    task();
+  } catch (const std::exception& e) {
+    PT_BRIDGE_FATAL("Exception in acc thread pool task: ", e.what());
+  } catch (...) {
+    PT_BRIDGE_FATAL("Exception in acc thread pool task: unknown");
+  }
+
+  --task_count_;
+}
+
+void AccThreadPool::discardPendingTasks() {
+  HABANA_ASSERT(running_ == false);
+  std::queue<AccTask> empty_queue;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    tasks_.swap(empty_queue);
+  }
+  task_count_ = 0;
 }
 
 void AccThreadPool::main_loop() {
@@ -83,27 +123,7 @@ void AccThreadPool::main_loop() {
       break;
     }
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (tasks_.empty()) {
-      continue;
-    }
-
-    {
-      AccTask task = std::move(tasks_.front());
-      tasks_.pop();
-      lock.unlock();
-
-      // Run the task.
-      try {
-        task();
-      } catch (const std::exception& e) {
-        PT_BRIDGE_FATAL("Exception in acc thread pool task: ", e.what());
-      } catch (...) {
-        PT_BRIDGE_FATAL("Exception in acc thread pool task: unknown");
-      }
-    }
-
-    --task_count_;
+    executePendingTask();
   } // while running_
 }
 

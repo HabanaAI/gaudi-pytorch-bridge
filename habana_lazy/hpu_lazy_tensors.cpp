@@ -960,6 +960,7 @@ void PostLaunch(
     UNUSED bool is_OptimizedLazyEager = false) {
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
+
   HABANA_ASSERT(is_exception || (stack.size() == indices.size()));
 
   if (!is_exception) {

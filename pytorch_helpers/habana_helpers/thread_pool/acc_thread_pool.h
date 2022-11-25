@@ -30,6 +30,7 @@ class AccThreadPool {
   bool inThreadPool() const;
   void run(std::function<void()>&& func);
   void waitWorkComplete();
+  void discardPendingTasks();
 
  private:
   std::queue<AccTask> tasks_;
@@ -39,6 +40,7 @@ class AccThreadPool {
   std::atomic<std::size_t> task_count_;
 
   void main_loop();
+  void executePendingTask();
 };
 
 } // namespace habana_lazy
