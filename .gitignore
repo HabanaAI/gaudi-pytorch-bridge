@@ -15,5 +15,7 @@ __pycache__/
 *.eggs/
 dist
 *.pbtxt
+*.swp
+*.swo
 .cache/
 tests/test_pt_integration

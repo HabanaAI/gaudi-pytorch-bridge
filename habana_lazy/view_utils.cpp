@@ -128,12 +128,7 @@ at::Tensor add_slice_insert_node(
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   flush_op(1);
   return result;
 }
@@ -210,12 +205,7 @@ Tensor add_strided_insert_node(
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
 
   if (is_flush) {
     flush_op(1);
@@ -745,13 +735,8 @@ Tensor HbLazyTensorViews::add_view_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hb_result = GetHbLazyTensor(result);
-  ir::Value& out = hb_result.CurrentIrValue();
   ir::NodePtr node = std::make_shared<ir::View>(self, inferred_size);
-  out.SetNode(
-      node,
-      hb_result.GetDevice(),
-      hb_result.GetSizes(),
-      hb_result.dtype_optional());
+  hb_result.IrSetNode(node);
   return result;
 }
 
@@ -764,13 +749,8 @@ Tensor HbLazyTensorViews::add_identity_lazy(
   HABANA_ASSERT(out_t.has_value());
   auto result = out_t.value();
   auto hb_result = GetHbLazyTensor(result);
-  ir::Value& out = hb_result.CurrentIrValue();
   ir::NodePtr node = std::make_shared<ir::Identity>(self, "hpu::identity");
-  out.SetNode(
-      node,
-      hb_result.GetDevice(),
-      hb_result.GetSizes(),
-      hb_result.dtype_optional());
+  hb_result.IrSetNode(node);
   return result;
 }
 
@@ -789,12 +769,7 @@ Tensor HbLazyTensorViews::add_slice_lazy(
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   return result;
 }
 
@@ -810,12 +785,7 @@ Tensor HbLazyTensorViews::add_transpose_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   return result;
 }
 
@@ -829,12 +799,7 @@ Tensor HbLazyTensorViews::add_t_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   return result;
@@ -854,12 +819,7 @@ Tensor HbLazyTensorViews::add_permute_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   return result;
 }
 
@@ -881,12 +841,7 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   return result;
 }
 
@@ -910,13 +865,7 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
         weight.suggest_memory_format(),
         false);
     auto hl_wt_updated = GetHbLazyTensor(wt_updated);
-    ir::Value& out5 = hl_wt_updated.CurrentIrValue();
-    out5.SetNode(
-        node,
-        hl_wt_updated.GetDevice(),
-        hl_wt_updated.GetSizes(),
-        hl_wt_updated.dtype_optional(),
-        out_index++);
+    hl_wt_updated.IrSetNode(node, out_index++);
 
     // add strided insert node. Do not flush in lazy eager as it is a fused
     // op. step marker will be used at the end
@@ -970,12 +919,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   input_pt_vec.emplace_back(self);
   input_pt_vec.emplace_back(expand_shape);
   node->AddInputPtTensors(input_pt_vec);

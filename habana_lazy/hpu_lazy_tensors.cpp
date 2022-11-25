@@ -341,6 +341,12 @@ const ir::Value& HbLazyTensor::GetIrValue() const {
   return data()->ir_value;
 }
 
+ir::Value& HbLazyTensor::IrSetNode(ir::NodePtr node, size_t index) const {
+  auto& v{CurrentIrValue()};
+  v.SetNode(node, GetDevice(), GetSizes(), dtype_optional(), index);
+  return v;
+}
+
 void HbLazyTensor::MarkStep(const c10::Device& device) {
   HbContextArena::Get()->MarkStep(device);
 }

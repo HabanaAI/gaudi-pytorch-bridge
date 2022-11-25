@@ -219,6 +219,7 @@ class HbLazyTensor {
   // available.
   ir::Value& CurrentIrValue() const;
   const ir::Value& GetIrValue() const;
+  ir::Value& IrSetNode(ir::NodePtr node, size_t index = 0) const;
   c10::optional<at::Tensor> CurrentTensorData() const;
   void setTensorOriginalType(c10::ScalarType type);
   c10::ScalarType getTensorOriginalType() const;

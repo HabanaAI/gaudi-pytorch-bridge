@@ -9,8 +9,8 @@
  */
 #pragma once
 #include <synapse_api_types.h>
-#include <synapse_helpers/device.h>
 #include <list>
+#include <set>
 #include <unordered_map>
 #include "Chunk.h"
 #include "PoolAllocator.h"

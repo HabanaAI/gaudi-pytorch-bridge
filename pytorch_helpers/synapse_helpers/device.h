@@ -270,7 +270,7 @@ class device {
       std::vector<device_ptr>&& bound_addresses,
       stream& stream,
       event_done_callback done_cb,
-      synEventHandle event_handle = {nullptr});
+      synEventHandle event_handle = nullptr);
 
   void register_producer_on_stream(
       std::vector<device_ptr>&& bound_addresses,

@@ -9,7 +9,6 @@
  */
 #pragma once
 #include <synapse_api_types.h>
-#include <synapse_helpers/device.h>
 #include "PoolAllocator.h"
 
 namespace synapse_helpers {

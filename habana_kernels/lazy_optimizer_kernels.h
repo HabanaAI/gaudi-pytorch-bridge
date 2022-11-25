@@ -60,9 +60,8 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
     int64_t out_index = 0;
     auto t = GetHbLazyTensor(tList1[0]);
-    ir::Value& out = t.CurrentIrValue();
     node->set_as_output_tensor_list();
-    out.SetNode(node, t.GetDevice(), t.GetSizes(), t.dtype_optional());
+    ir::Value& out{t.IrSetNode(node)};
 
     ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
@@ -107,13 +106,8 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     int64_t out_index = 0;
 
     auto hlList5 = habana_lazy::GetHbLazyTensor(tList3[0]);
-    habana_lazy::ir::Value& out = hlList5.CurrentIrValue();
     node->set_as_output_tensor_list();
-    out.SetNode(
-        node,
-        hlList5.GetDevice(),
-        hlList5.GetSizes(),
-        hlList5.dtype_optional());
+    auto& out{hlList5.IrSetNode(node)};
 
     habana_lazy::ir::NodePtr node_unpack =
         std::make_shared<habana_lazy::ir::ListUnpack>(out);
@@ -127,46 +121,16 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
       if (flagAdditionalOutput) {
         auto hl_list3 = GetHbLazyTensor(tList3[i]);
-        ir::Value& out0 = hl_list3.CurrentIrValue();
-        out0.SetNode(
-            node_unpack,
-            hl_list3.GetDevice(),
-            hl_list3.GetSizes(),
-            hl_list3.dtype_optional(),
-            out_index++);
+        hl_list3.IrSetNode(node_unpack, out_index++);
       }
 
-      ir::Value& out1 = hl_result1.CurrentIrValue();
-      out1.SetNode(
-          node,
-          hl_result1.GetDevice(),
-          hl_result1.GetSizes(),
-          hl_result1.dtype_optional(),
-          out_index++);
+      hl_result1.IrSetNode(node, out_index++);
 
-      ir::Value& out2 = hl_result2.CurrentIrValue();
-      out2.SetNode(
-          node,
-          hl_result2.GetDevice(),
-          hl_result2.GetSizes(),
-          hl_result2.dtype_optional(),
-          out_index++);
+      hl_result2.IrSetNode(node, out_index++);
 
-      ir::Value& out3 = hl_result3.CurrentIrValue();
-      out3.SetNode(
-          node,
-          hl_result3.GetDevice(),
-          hl_result3.GetSizes(),
-          hl_result3.dtype_optional(),
-          out_index++);
+      hl_result3.IrSetNode(node, out_index++);
 
-      ir::Value& out4 = hl_result4.CurrentIrValue();
-      out4.SetNode(
-          node,
-          hl_result4.GetDevice(),
-          hl_result4.GetSizes(),
-          hl_result4.dtype_optional(),
-          out_index++);
+      hl_result4.IrSetNode(node, out_index++);
 
       HbLazyTensorViews::CustomKernelAddNodeInplace(
           tList3[i], node_unpack, out_index);
@@ -198,13 +162,8 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
     int64_t out_index = 0;
 
     auto hl_result1 = GetHbLazyTensor(tList1[0]);
-    ir::Value& out = hl_result1.CurrentIrValue();
     node->set_as_output_tensor_list();
-    out.SetNode(
-        node,
-        hl_result1.GetDevice(),
-        hl_result1.GetSizes(),
-        hl_result1.dtype_optional());
+    ir::Value& out{hl_result1.IrSetNode(node)};
     habana_lazy::ir::NodePtr node_unpack =
         std::make_shared<habana_lazy::ir::ListUnpack>(out);
     for (size_t i = 0; i < noOfTensor; ++i) {
@@ -212,14 +171,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
           tList1[i], node_unpack, out_index);
 
       auto hl_result2 = GetHbLazyTensor(tList2[i]);
-      ir::Value& out2 = hl_result2.CurrentIrValue();
-
-      out2.SetNode(
-          node_unpack,
-          hl_result2.GetDevice(),
-          hl_result2.GetSizes(),
-          hl_result2.dtype_optional(),
-          out_index++);
+      hl_result2.IrSetNode(node_unpack, out_index++);
 
       context->MarkTensorStatus(
           hl_result1.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
@@ -247,13 +199,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
 
       HbLazyTensorViews::CustomKernelAddNodeInplace(tList1[i], node, out_index);
 
-      ir::Value& out2 = hl_result2.CurrentIrValue();
-      out2.SetNode(
-          node,
-          hl_result2.GetDevice(),
-          hl_result2.GetSizes(),
-          hl_result2.dtype_optional(),
-          out_index++);
+      hl_result2.IrSetNode(node, out_index++);
 
       context->MarkTensorStatus(
           hl_result1.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);

@@ -268,14 +268,7 @@ class LazyOp {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
       auto node = create_node();
       for (auto hl_result : hl_results) {
-        ir::Value& out = hl_result.CurrentIrValue();
-        out.SetNode(
-            node,
-            hl_result.GetDevice(),
-            hl_result.GetSizes(),
-            hl_result.dtype_optional(),
-            i);
-        i++;
+        hl_result.IrSetNode(node, i++);
       }
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
@@ -394,14 +387,7 @@ class LazyOp {
       i = 0;
       auto node = create_node();
       for (auto hl_result : hl_results) {
-        ir::Value& out = hl_result.CurrentIrValue();
-        out.SetNode(
-            node,
-            hl_result.GetDevice(),
-            hl_result.GetSizes(),
-            hl_result.dtype_optional(),
-            i);
-        i++;
+        hl_result.IrSetNode(node, i++);
       }
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
@@ -449,12 +435,7 @@ class LazyOp {
     const auto& result =
         empty_hpu_lazy(1, t.options(), t.suggest_memory_format(), false);
     auto hl_result = GetHbLazyTensor(result);
-    ir::Value& out = hl_result.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_result.GetDevice(),
-        hl_result.GetSizes(),
-        hl_result.dtype_optional());
+    hl_result.IrSetNode(node);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
     runSBS(result);
@@ -472,12 +453,7 @@ class LazyOp {
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
       updateDstDependencies(tensor);
-      hl_result.CurrentIrValue().SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional(),
-          i++);
+      hl_result.IrSetNode(node, i++);
       context->MarkTensorStatus(
           hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
@@ -498,12 +474,7 @@ class LazyOp {
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
       updateDstDependencies(tensor);
-      hl_result.CurrentIrValue().SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional(),
-          i++);
+      hl_result.IrSetNode(node, i++);
       context->MarkTensorStatus(
           hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     }
@@ -522,12 +493,7 @@ class LazyOp {
 
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
-      hl_result.CurrentIrValue().SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional(),
-          i++);
+      hl_result.IrSetNode(node, i++);
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
@@ -547,12 +513,7 @@ class LazyOp {
 
     for (const auto& tensor : tensors) {
       auto hl_result = GetHbLazyTensor(tensor);
-      hl_result.CurrentIrValue().SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional(),
-          i++);
+      hl_result.IrSetNode(node, i++);
     }
     runSBS(tensors);
     flush_op(tensors.size());
@@ -574,12 +535,7 @@ class LazyOp {
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
       const auto& node = create_node();
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(node);
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
@@ -608,12 +564,7 @@ class LazyOp {
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
       const auto& node = create_node();
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(node);
     } else {
       PT_LAZY_DEBUG("Optimized Lazy Eager Path Chosen");
       std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
@@ -722,12 +673,7 @@ class LazyOp {
 
     const auto& node = create_node();
     hl_self = GetHbLazyTensor(out_t);
-    ir::Value& out = hl_self.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_self.GetDevice(),
-        hl_self.GetSizes(),
-        hl_self.dtype_optional());
+    hl_self.IrSetNode(node);
 
     flush_op(1);
     // add strided insert node and update most recent version of original
@@ -783,12 +729,7 @@ class LazyOp {
       if (isOptimizedLazyEager == false) {
         PT_LAZY_DEBUG("Normal Lazy Eager Inplace Path Chosen");
         const auto& node = create_node();
-        ir::Value& out = hl_self.CurrentIrValue();
-        out.SetNode(
-            node,
-            hl_self.GetDevice(),
-            hl_self.GetSizes(),
-            hl_self.dtype_optional());
+        hl_self.IrSetNode(node);
         // Special handling for SBS in inplace, before the inplace op will
         // override the tensor
         if (is_inplace(m_symbol)) {
@@ -869,12 +810,7 @@ class LazyOp {
     auto hl_self = GetHbLazyTensor(self);
     updateDstDependencies(self);
     const auto& node = create_node();
-    ir::Value& out = hl_self.CurrentIrValue();
-    out.SetNode(
-        node,
-        hl_self.GetDevice(),
-        hl_self.GetSizes(),
-        hl_self.dtype_optional());
+    hl_self.IrSetNode(node);
 
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()

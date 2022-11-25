@@ -352,12 +352,7 @@ ir::Value AddControlEdge(const at::Tensor& src, const at::Tensor& dst) {
   std::vector<at::Tensor> input_pt_vec;
   input_pt_vec.push_back(src);
   input_pt_vec.push_back(dst);
-  ir::Value& out = hb_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hb_result.GetDevice(),
-      hb_result.GetSizes(),
-      hb_result.dtype_optional());
+  ir::Value& out = hb_result.IrSetNode(node);
   node->AddInputPtTensors(input_pt_vec);
   return out;
 }
@@ -660,23 +655,13 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
             src.sizes(), options, src.suggest_memory_format(), false);
 
         auto hl_src_cast = GetHbLazyTensor(src_cast);
-        ir::Value& out = hl_src_cast.CurrentIrValue();
-        out.SetNode(
-            node,
-            hl_src_cast.GetDevice(),
-            hl_src_cast.GetSizes(),
-            hl_src_cast.dtype_optional());
+        hl_src_cast.IrSetNode(node);
         flush_op(1);
 
         HbLazyTensorViews::HandleViewsD2D(src_cast, self);
       } else {
         auto hlresult = GetHbLazyTensor(self);
-        ir::Value& out = hlresult.CurrentIrValue();
-        out.SetNode(
-            node,
-            hlresult.GetDevice(),
-            hlresult.GetSizes(),
-            hlresult.dtype_optional());
+        hlresult.IrSetNode(node);
         flush_op(1);
       }
     }
@@ -744,12 +729,7 @@ Tensor as_strided_layout_hpu_lazy(
       self, dims_, "hpu::as_strided_layout");
   auto result = empty_strided_hpu_lazy(size, stride, self.options(), false);
   auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   return result;
 }
 
@@ -1364,12 +1344,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
     // update of lazy tensor size is required for permute pass to see output
     // with updated shape
     hb_result.setTensorSize(size);
-    ir::Value& out = hb_result.CurrentIrValue();
-    out.SetNode(
-        node,
-        hb_result.GetDevice(),
-        hb_result.GetSizes(),
-        hb_result.dtype_optional());
+    hb_result.IrSetNode(node);
 
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
@@ -1426,12 +1401,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       dst.device().index());
   context->RegisterTensor(hl_dst.getDataPtr());
-  habana_lazy::ir::Value& out = hl_dst.CurrentIrValue();
-  out.SetNode(
-      copy_node,
-      hl_dst.GetDevice(),
-      hl_dst.GetSizes(),
-      hl_dst.dtype_optional());
+  hl_dst.IrSetNode(copy_node);
   std::vector<at::Tensor> input_pt_vec;
   input_pt_vec.push_back(src);
   input_pt_vec.push_back(dst);
@@ -2582,12 +2552,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   auto end_tensor = empty_hpu_lazy(
       end_shape, hb_options, self.suggest_memory_format(), false);
   auto hl_end = GetHbLazyTensor(end_tensor);
-  ir::Value& end_out = hl_end.CurrentIrValue();
-  end_out.SetNode(
-      node_slice,
-      hl_end.GetDevice(),
-      hl_end.GetSizes(),
-      hl_end.dtype_optional());
+  hl_end.IrSetNode(node_slice);
   // Force an exections here to capture second element of shape tensor.
   // This element is required to determine shape of next node's output
   std::vector<HbLazyTensor> hl_flush_end = {
@@ -2622,12 +2587,7 @@ Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
 
   auto node = std::make_shared<ir::Slice>(where_tensor, 0, 0, end, 1);
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   flush_op(1);
   return output;
 }
@@ -3392,12 +3352,7 @@ Tensor& arange_hpu_lazy_ht(
           {hl_params_shape.GetIrValue(),
            hl_result.GetIrValue(),
            hl_result_shape.GetIrValue()});
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(node);
       input_pt_vec.emplace_back(output);
       input_pt_vec.emplace_back(params_shape);
       input_pt_vec.emplace_back(result_shape);
@@ -3415,26 +3370,16 @@ Tensor& arange_hpu_lazy_ht(
           {hl_params_shape.GetIrValue(),
            hl_int_output.GetIrValue(),
            hl_result_shape.GetIrValue()});
-      ir::Value& out = hl_int_output.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_int_output.GetDevice(),
-          hl_int_output.GetSizes(),
-          hl_int_output.dtype_optional());
+      hl_int_output.IrSetNode(node);
       input_pt_vec.emplace_back(int_output);
       input_pt_vec.emplace_back(params_shape);
       input_pt_vec.emplace_back(result_shape);
       node->AddInputPtTensors(input_pt_vec);
 
       // Add cast node to cast int_output as required
-      ir::Value& out_cast = hl_result.CurrentIrValue();
       ir::NodePtr node_cast =
           std::make_shared<ir::Cast>(int_output, output.scalar_type(), true);
-      out_cast.SetNode(
-          node_cast,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(node_cast);
     }
     flush_op(1);
     return output;
@@ -3446,12 +3391,7 @@ Tensor& arange_hpu_lazy_ht(
       Symbol::fromQualString("hpu::arange_out"),
       {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   input_pt_vec.emplace_back(output);
   node->AddInputPtTensors(input_pt_vec);
   flush_op(1);
@@ -3501,12 +3441,7 @@ Tensor& arange_hpu_lazy(
       node = ir::Node::Create(
           Symbol::fromQualString("hpu::arange_out_ds"),
           {hl_params_shape.GetIrValue(), hl_result.GetIrValue()});
-      ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(node);
       input_pt_vec.emplace_back(output);
       input_pt_vec.emplace_back(params_shape);
       node->AddInputPtTensors(input_pt_vec);
@@ -3521,25 +3456,14 @@ Tensor& arange_hpu_lazy(
       node = ir::Node::Create(
           Symbol::fromQualString("hpu::arange_out_ds"),
           {hl_params_shape.GetIrValue(), hl_int_output.GetIrValue()});
-      ir::Value& out = hl_int_output.CurrentIrValue();
-      out.SetNode(
-          node,
-          hl_int_output.GetDevice(),
-          hl_int_output.GetSizes(),
-          hl_int_output.dtype_optional());
+      hl_int_output.IrSetNode(node);
       input_pt_vec.emplace_back(int_output);
       input_pt_vec.emplace_back(params_shape);
       node->AddInputPtTensors(input_pt_vec);
 
       // Add cast node to cast int_output as required
-      ir::Value& out_cast = hl_result.CurrentIrValue();
-      ir::NodePtr node_cast =
-          std::make_shared<ir::Cast>(int_output, output.scalar_type(), true);
-      out_cast.SetNode(
-          node_cast,
-          hl_result.GetDevice(),
-          hl_result.GetSizes(),
-          hl_result.dtype_optional());
+      hl_result.IrSetNode(
+          std::make_shared<ir::Cast>(int_output, output.scalar_type(), true));
     }
 
     flush_op(1);
@@ -3552,12 +3476,7 @@ Tensor& arange_hpu_lazy(
       Symbol::fromQualString("hpu::arange_out"),
       {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
 
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
+  hl_result.IrSetNode(node);
   input_pt_vec.emplace_back(output);
   node->AddInputPtTensors(input_pt_vec);
   flush_op(1);
@@ -6083,22 +6002,14 @@ Tensor fused_norm_hpu_lazy(
     int64_t out_index = 0;
 
     auto hlgrad = habana_lazy::GetHbLazyTensor(grad[0]);
-    habana_lazy::ir::Value& out1 = hlgrad.CurrentIrValue();
     node->set_as_output_tensor_list();
-    out1.SetNode(
-        node, hlgrad.GetDevice(), hlgrad.GetSizes(), hlgrad.dtype_optional());
+    habana_lazy::ir::Value& out1 = hlgrad.IrSetNode(node);
 
     habana_lazy::ir::NodePtr node_unpack =
         std::make_shared<habana_lazy::ir::ListUnpack>(out1);
 
     auto hlresult = GetHbLazyTensor(result);
-    ir::Value& out2 = hlresult.CurrentIrValue();
-    out2.SetNode(
-        node_unpack,
-        hlresult.GetDevice(),
-        hlresult.GetSizes(),
-        hlresult.dtype_optional(),
-        out_index++);
+    hlresult.IrSetNode(node_unpack, out_index++);
 
     // check if any of the grad is a view output and add strided insert node
     // accordingly
@@ -6108,13 +6019,7 @@ Tensor fused_norm_hpu_lazy(
       auto id = hlgrad.getTensorUniqueId();
       StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
       if ((params_ptr == nullptr) || (is_view_evaluated)) {
-        ir::Value& out1 = hlgrad.CurrentIrValue();
-        out1.SetNode(
-            node_unpack,
-            hlgrad.GetDevice(),
-            hlgrad.GetSizes(),
-            hlgrad.dtype_optional(),
-            out_index++);
+        hlgrad.IrSetNode(node_unpack, out_index++);
       } else {
         // fused norm has operated out of place on strided view's output
         auto clip_grad = empty_hpu_lazy(
@@ -6123,13 +6028,7 @@ Tensor fused_norm_hpu_lazy(
             grad_t.suggest_memory_format(),
             false);
         auto hlgrad = GetHbLazyTensor(clip_grad);
-        ir::Value& out1 = hlgrad.CurrentIrValue();
-        out1.SetNode(
-            node_unpack,
-            hlgrad.GetDevice(),
-            hlgrad.GetSizes(),
-            hlgrad.dtype_optional(),
-            out_index++);
+        hlgrad.IrSetNode(node_unpack, out_index++);
 
         // add strided insert node. Do not flush in lazy eager as it is a
         // fused op. step marker will be used at the end

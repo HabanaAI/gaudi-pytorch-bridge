@@ -92,11 +92,8 @@ void optimizer_ema_hpu_lazy(
   int64_t out_index = 0;
 
   auto hl_ema = GetHbLazyTensor(updated_ema[0]);
-  ir::Value& out = hl_ema.CurrentIrValue();
   node->set_as_output_tensor_list();
-  out.SetNode(
-      node, hl_ema.GetDevice(), hl_ema.GetSizes(), hl_ema.dtype_optional());
-
+  ir::Value& out = hl_ema.IrSetNode(node);
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
   for (size_t i = 0; i < updated_ema.size(); i++) {
@@ -164,13 +161,8 @@ void optimizer_adamw_hpu_lazy(
     int64_t out_index = 0;
 
     auto hlweight = habana_lazy::GetHbLazyTensor(weights[0]);
-    habana_lazy::ir::Value& out = hlweight.CurrentIrValue();
     node->set_as_output_tensor_list();
-    out.SetNode(
-        node,
-        hlweight.GetDevice(),
-        hlweight.GetSizes(),
-        hlweight.dtype_optional());
+    habana_lazy::ir::Value& out = hlweight.IrSetNode(node);
 
     habana_lazy::ir::NodePtr node_unpack =
         std::make_shared<habana_lazy::ir::ListUnpack>(out);
@@ -178,50 +170,20 @@ void optimizer_adamw_hpu_lazy(
     for (size_t i = 0; i < weights.size(); i++) {
       if (modified_wd != 1.0) {
         auto hl_wd = GetHbLazyTensor(weights[i]);
-        ir::Value& out0 = hl_wd.CurrentIrValue();
-        out0.SetNode(
-            node_unpack,
-            hl_wd.GetDevice(),
-            hl_wd.GetSizes(),
-            hl_wd.dtype_optional(),
-            out_index++);
+        hl_wd.IrSetNode(node_unpack, out_index++);
       }
 
       auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
-      ir::Value& out1 = hl_exp_avg.CurrentIrValue();
-      out1.SetNode(
-          node_unpack,
-          hl_exp_avg.GetDevice(),
-          hl_exp_avg.GetSizes(),
-          hl_exp_avg.dtype_optional(),
-          out_index++);
+      hl_exp_avg.IrSetNode(node_unpack, out_index++);
 
       auto hl_exp_avg_1 = GetHbLazyTensor(exp_avg[i]);
-      ir::Value& out2 = hl_exp_avg_1.CurrentIrValue();
-      out2.SetNode(
-          node_unpack,
-          hl_exp_avg_1.GetDevice(),
-          hl_exp_avg_1.GetSizes(),
-          hl_exp_avg_1.dtype_optional(),
-          out_index++);
+      hl_exp_avg_1.IrSetNode(node_unpack, out_index++);
 
       auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
-      ir::Value& out3 = hl_exp_avg_sq.CurrentIrValue();
-      out3.SetNode(
-          node_unpack,
-          hl_exp_avg_sq.GetDevice(),
-          hl_exp_avg_sq.GetSizes(),
-          hl_exp_avg_sq.dtype_optional(),
-          out_index++);
+      hl_exp_avg_sq.IrSetNode(node_unpack, out_index++);
 
       auto hl_exp_avg_sq_1 = GetHbLazyTensor(exp_avg_sq[i]);
-      ir::Value& out4 = hl_exp_avg_sq_1.CurrentIrValue();
-      out4.SetNode(
-          node_unpack,
-          hl_exp_avg_sq_1.GetDevice(),
-          hl_exp_avg_sq_1.GetSizes(),
-          hl_exp_avg_sq_1.dtype_optional(),
-          out_index++);
+      hl_exp_avg_sq_1.IrSetNode(node_unpack, out_index++);
 
       HbLazyTensorViews::CustomKernelAddNodeInplace(
           weights[i], node_unpack, out_index);
@@ -338,13 +300,7 @@ optimizer_lamb_phase1_hpu_lazy(
         weights[i].suggest_memory_format(),
         false);
     auto hl_adam_step = GetHbLazyTensor(adam_step);
-    ir::Value& out1 = hl_adam_step.CurrentIrValue();
-    out1.SetNode(
-        node,
-        hl_adam_step.GetDevice(),
-        hl_adam_step.GetSizes(),
-        hl_adam_step.dtype_optional(),
-        out_index++);
+    hl_adam_step.IrSetNode(node, out_index++);
 
     context->m_retained_tensor_list.emplace_back(adam_step);
     adam_step_vec.push_back(adam_step);
@@ -352,13 +308,7 @@ optimizer_lamb_phase1_hpu_lazy(
     auto adam_norm = empty_hpu_lazy(
         {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
     auto hl_adam_norm = GetHbLazyTensor(adam_norm);
-    ir::Value& out2 = hl_adam_norm.CurrentIrValue();
-    out2.SetNode(
-        node,
-        hl_adam_norm.GetDevice(),
-        hl_adam_norm.GetSizes(),
-        hl_adam_norm.dtype_optional(),
-        out_index++);
+    hl_adam_norm.IrSetNode(node, out_index++);
 
     context->m_retained_tensor_list.emplace_back(adam_norm);
     adam_norm_vec.push_back(adam_norm);
@@ -366,13 +316,7 @@ optimizer_lamb_phase1_hpu_lazy(
     auto weight_norm = empty_hpu_lazy(
         {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
     auto hl_weight_norm = GetHbLazyTensor(weight_norm);
-    ir::Value& out3 = hl_weight_norm.CurrentIrValue();
-    out3.SetNode(
-        node,
-        hl_weight_norm.GetDevice(),
-        hl_weight_norm.GetSizes(),
-        hl_weight_norm.dtype_optional(),
-        out_index++);
+    hl_weight_norm.IrSetNode(node, out_index++);
 
     context->m_retained_tensor_list.emplace_back(weight_norm);
     weight_norm_vec.push_back(weight_norm);
@@ -384,23 +328,11 @@ optimizer_lamb_phase1_hpu_lazy(
         exp_avg[i].suggest_memory_format(),
         false);
     auto hl_exp_avg_temp = GetHbLazyTensor(exp_avg_temp);
-    ir::Value& out4 = hl_exp_avg_temp.CurrentIrValue();
-    out4.SetNode(
-        node,
-        hl_exp_avg_temp.GetDevice(),
-        hl_exp_avg_temp.GetSizes(),
-        hl_exp_avg_temp.dtype_optional(),
-        out_index++);
+    hl_exp_avg_temp.IrSetNode(node, out_index++);
     context->m_retained_tensor_list.emplace_back(exp_avg_temp);
 
     auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
-    ir::Value& out5 = hl_exp_avg.CurrentIrValue();
-    out5.SetNode(
-        node,
-        hl_exp_avg.GetDevice(),
-        hl_exp_avg.GetSizes(),
-        hl_exp_avg.dtype_optional(),
-        out_index++);
+    hl_exp_avg.IrSetNode(node, out_index++);
     context->m_retained_tensor_list.emplace_back(exp_avg[i]);
 
     auto exp_avg_sq_temp = empty_hpu_lazy(
@@ -409,23 +341,11 @@ optimizer_lamb_phase1_hpu_lazy(
         exp_avg_sq[i].suggest_memory_format(),
         false);
     auto hl_exp_avg_sq_temp = GetHbLazyTensor(exp_avg_sq_temp);
-    ir::Value& out6 = hl_exp_avg_sq_temp.CurrentIrValue();
-    out6.SetNode(
-        node,
-        hl_exp_avg_sq_temp.GetDevice(),
-        hl_exp_avg_sq_temp.GetSizes(),
-        hl_exp_avg_sq_temp.dtype_optional(),
-        out_index++);
+    hl_exp_avg_sq_temp.IrSetNode(node, out_index++);
     context->m_retained_tensor_list.emplace_back(exp_avg_sq_temp);
 
     auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
-    ir::Value& out7 = hl_exp_avg_sq.CurrentIrValue();
-    out7.SetNode(
-        node,
-        hl_exp_avg_sq.GetDevice(),
-        hl_exp_avg_sq.GetSizes(),
-        hl_exp_avg_sq.dtype_optional(),
-        out_index++);
+    hl_exp_avg_sq.IrSetNode(node, out_index++);
     context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
   }
 

@@ -28,13 +28,7 @@ std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
     auto result = habana_lazy::empty_hpu_lazy(
         result_sizes, options, in_tensor.suggest_memory_format(), false);
     const auto hlresult = habana_lazy::GetHbLazyTensor(result);
-    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-    out.SetNode(
-        node,
-        hlresult.GetDevice(),
-        hlresult.GetSizes(),
-        hlresult.dtype_optional(),
-        outputs_desc[out_idx].index);
+    hlresult.IrSetNode(node, outputs_desc[out_idx].index);
     results.emplace_back(result);
   }
   return results;
