@@ -502,7 +502,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
 
     // Mark as input
     HbLazyTensor hb_tensor = GetHbLazyTensor(t);
-    setTensorAsInputNode(hb_tensor);
+    hb_tensor.IrInitAsInputNode();
     context->MarkTensorStatus(
         hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 
@@ -1017,7 +1017,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   }
 
   // Set the tensor as input and mark as input
-  setTensorAsInputNode(self_hb_tensor);
+  self_hb_tensor.IrReconnectAsInputNode();
 
   context->MarkTensorStatus(
       self_hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
@@ -5231,7 +5231,7 @@ Tensor empty_hpu_lazy(
       // context->MarkTensorStatus(
       //    hb_tensor.getDataPtr(),
       //    LazyTensorExecutionStatus::kINPUT);
-      // setTensorAsInputNode(hb_tensor);
+      // hb_tensor.IrInitAsInputNode();
     }
 
     // If we are not from lowering context, return the storageless one.
@@ -5298,7 +5298,7 @@ Tensor empty_strided_hpu_lazy(
   if (create_storage) {
     auto hl_empty = TryGetHbLazyTensor(empty_tensor);
     if (hl_empty) {
-      setTensorAsInputNode(hl_empty.value());
+      hl_empty.value().IrInitAsInputNode();
     }
   }
   return empty_tensor;

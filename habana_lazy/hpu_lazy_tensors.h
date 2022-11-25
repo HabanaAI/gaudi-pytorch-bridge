@@ -195,7 +195,9 @@ class HbLazyTensor {
   // Sets up a pointer from IR in data ptr back to data ptr
   // its cyclic in nature, being managed by weak pointer in IR
   void setPtrDataIrToData();
-  ir::Value createIrValueFromData();
+  ir::Value createIrValueFromData() const {
+    return {data_ptr()};
+  }
   void SetTensorData(at::Tensor tensor_data);
   c10::optional<at::Tensor> GetTensorData();
   void SetCPUTensorData(at::Tensor tensor_data);
@@ -242,7 +244,11 @@ class HbLazyTensor {
       at::Scalar fill_value,
       const at::Device& device,
       at::ScalarType scalar_type);
-  ir::Value CreateTensorNode() const;
+  // Assigns tensor to an Input IR node if it is not assigned to any node,
+  // otherwise assets.
+  void IrInitAsInputNode() const;
+  // Unconditionally assigns tensor to an Input IR node. Preserves data pointer.
+  void IrReconnectAsInputNode() const;
   static std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
   static ir::PostOrderData RunPostOrder(
@@ -321,9 +327,7 @@ class HbLazyTensor {
   c10::optional<at::Tensor> CurrentTensorAttached() const {
     return data()->tensor_data;
   }
-  ir::Value GetIrValueForTensor(
-      const at::Tensor& tensor,
-      const c10::Device& device) const;
+
   void addView(ir::LazyView view) {
     // WE will support multiple views in future , but for now a single one is
     // supported
@@ -365,6 +369,7 @@ class HbLazyTensor {
       synEventHandle event_handle = nullptr,
       synapse_helpers::hpuStream_t event_stream = 0,
       bool event_flag = false);
+
   static bool switch_dynamic_mode;
 };
 

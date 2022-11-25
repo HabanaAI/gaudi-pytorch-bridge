@@ -71,8 +71,6 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::Device& device = c10::kHPU,
     bool handle_collective = true);
 
-void setTensorAsInputNode(HbLazyTensor hl_tensor);
-
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
     const c10::Device& device,

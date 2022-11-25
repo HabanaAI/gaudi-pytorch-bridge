@@ -319,26 +319,14 @@ const ir::Value& HbLazyTensor::GetIrValue() const {
   if (ir_value) {
     return ir_value;
   }
-  void* device_data = CurrentHabanaData();
-  if (device_data != nullptr) {
-    // In case of tensor node, we do not clear the device data when we set the
-    // IR node. This because we want further calls to GetIrValue() to fetch the
-    // same IR node, and not create new ones (even though the lowering context
-    // will still collapse them all into a single Habana parameter op). So call
-    // which wants the device data will still find it, w/out having to fetch it
-    // via a computation on device
-    AssignIrValue(CreateTensorNode());
-    return data()->ir_value;
-  }
-  c10::optional<at::Tensor> tensor_data = CurrentTensorData();
-  if (tensor_data)
-    AssignIrValue(GetIrValueForTensor(*tensor_data, GetDevice()));
-  else {
-    at::Tensor tensor_dummy;
-    AssignIrValue(GetIrValueForTensor(tensor_dummy, GetDevice()));
-  }
-
-  return data()->ir_value;
+  // In case of tensor node, we do not clear the device data when we set the
+  // IR node. This because we want further calls to GetIrValue() to fetch the
+  // same IR node, and not create new ones (even though the lowering context
+  // will still collapse them all into a single Habana parameter op). So call
+  // which wants the device data will still find it, w/out having to fetch it
+  // via a computation on device
+  IrReconnectAsInputNode();
+  return CurrentIrValue();
 }
 
 ir::Value& HbLazyTensor::IrSetNode(ir::NodePtr node, size_t index) const {
@@ -488,27 +476,24 @@ c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
   return data()->logical_element_type;
 }
 
-ir::Value HbLazyTensor::CreateTensorNode() const {
-  setTensorAsInputNode(*this);
-  return CurrentIrValue();
+void HbLazyTensor::IrInitAsInputNode() const {
+  TORCH_CHECK(
+      (!CurrentIrValue()),
+      " Habana Lazy Trying to set a tensor as leaf input node but IR value"
+      " is set already");
+  IrReconnectAsInputNode();
+}
+
+void HbLazyTensor::IrReconnectAsInputNode() const {
+  ir::Value val = createIrValueFromData();
+  ir::NodePtr node = std::make_shared<ir::Input>(*this);
+  val.SetNode(node, GetDevice(), GetSizes(), dtype_optional());
+  AssignIrValue(val);
 }
 
 void HbLazyTensor::setPtrDataIrToData() {
   if (mp_data.get())
     mp_data->ir_value.m_data_ptr = mp_data;
-}
-
-ir::Value HbLazyTensor::createIrValueFromData() {
-  ir::Value v{data_ptr()};
-  return v;
-}
-
-ir::Value HbLazyTensor::GetIrValueForTensor(
-    const at::Tensor& tensor,
-    const c10::Device& device) const {
-  static_cast<void>(device);
-  static_cast<void>(tensor);
-  return CreateTensorNode();
 }
 
 void HbLazyTensor::ClearAndAssignNewIrValue() {
@@ -1340,21 +1325,20 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     auto& out_tensor = (*tensors)[idx];
     out_tensor.SetExecutionInProgress();
     // clear IR values corresponding to sync tensors
-    out_tensor.ClearAndAssignNewIrValue();
+    out_tensor.IrReconnectAsInputNode();
   }
 
   // clear IR values corresponding to unexecuted view outputs
   for (auto& t : context->viewContext.hb_tensors_exclude_out_view) {
     t.SetExecutionInProgress();
     executing_tids.emplace_back(t.getTensorUniqueId());
-    ir::Value val = t.createIrValueFromData();
-    t.AssignIrValue(val);
+    t.IrReconnectAsInputNode();
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
     for (auto t : context->viewContext.updated_bucket_list) {
       // clear IR values corresponding to sync tensors
-      t.ClearAndAssignNewIrValue();
+      t.IrReconnectAsInputNode();
     }
   }
 
