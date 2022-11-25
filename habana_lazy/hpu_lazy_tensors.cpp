@@ -875,6 +875,18 @@ void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
   }
 }
 
+void SetLaunchContextFlags(
+    habana_lazy::ir::ValueList& inputs,
+    std::vector<int64_t>& executing_tids) {
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  for (const auto& in : inputs) {
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    context->MarkTensorExecuting(d);
+    d->is_executing = true;
+    executing_tids.emplace_back(d->unique_id);
+  }
+}
+
 torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices,
@@ -923,8 +935,6 @@ torch::jit::Stack PrepareInputStack(
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
     context->MarkTensorExecuting(d);
-    d->is_executing = true;
-    context->executing_tids.emplace_back(d->unique_id);
   }
 
   return stack;
@@ -934,6 +944,7 @@ void PostLaunch(
     std::vector<HbLazyTensor>* tensors,
     torch::jit::Stack& stack,
     std::vector<int>& indices,
+    std::vector<int64_t>& executing_indices,
     std::vector<at::Tensor>& retained_tensor_list,
     bool is_exception,
     UNUSED bool is_OptimizedLazyEager = false) {
@@ -941,8 +952,6 @@ void PostLaunch(
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
   HABANA_ASSERT(is_exception || (stack.size() == indices.size()));
 
-  std::vector<int64_t> executing_indices;
-  executing_indices.reserve(stack.size());
   if (!is_exception) {
     size_t i = 0;
     for (const torch::IValue& v : stack) {
@@ -954,8 +963,6 @@ void PostLaunch(
   }
 
   context->MarkTensorsExecuted(device, executing_indices);
-  context->MarkTensorsExecuted(device, context->executing_tids);
-  context->executing_tids.clear();
 
   SBSDebug::getInstance().CompareTensors(*tensors);
 
@@ -1085,6 +1092,7 @@ void LaunchSyncTensorsGraph(
       tensors,
       launch_info.stack,
       launch_info.indices,
+      launch_info.executing_tids,
       lazy_eager_info.retained_tensor_list,
       exception);
 
@@ -1321,6 +1329,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     }
   }
 
+  std::vector<int64_t> executing_tids = std::move(context->executing_tids);
+  SetLaunchContextFlags(po_data.inputs, executing_tids);
+
   // Remove any tensor_data held at output, this will reduce the memory
   // pressure
   for (auto idx : indices) {
@@ -1333,7 +1344,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // clear IR values corresponding to unexecuted view outputs
   for (auto& t : context->viewContext.hb_tensors_exclude_out_view) {
     t.SetExecutionInProgress();
-    context->executing_tids.emplace_back(t.getTensorUniqueId());
+    executing_tids.emplace_back(t.getTensorUniqueId());
     ir::Value val = t.createIrValueFromData();
     t.AssignIrValue(val);
   }
@@ -1357,6 +1368,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       *tensors,
       std::move(input_list),
       indices,
+      std::move(executing_tids),
       std::move(po_data),
       hlexec,
       stack,

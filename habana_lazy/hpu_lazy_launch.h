@@ -26,6 +26,8 @@ struct LaunchTensorsInfo {
   std::vector<HbLazyTensor> tensors_ptr;
   std::vector<std::shared_ptr<Data>> input_list;
   std::vector<int> indices;
+  // Tensorids list which is part of current exec thread
+  std::vector<int64_t> executing_tids;
   habana_lazy::ir::PostOrderData po_data;
   exec::HlExec hlexec;
   torch::jit::Stack stack;
