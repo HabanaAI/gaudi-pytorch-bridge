@@ -30,6 +30,7 @@ foreach (FLAVOR abi11)
     pool_allocator/PoolAllocator.cpp
     pool_allocator/CoalescedPoolAllocator.cpp
     pool_allocator/CoalescedStringentPoolAllocator.cpp
+    RealTimeMemoryLogger.cpp
     recipe.cpp
     recipe_handle_cache.cpp
     status_conversion.cpp

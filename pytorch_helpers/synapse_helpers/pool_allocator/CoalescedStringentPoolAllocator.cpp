@@ -104,6 +104,7 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
+  realtime_logger_.reset();
   if (small_allocs_) {
     small_allocs_->Reset();
     small_allocs_ = nullptr;
@@ -248,6 +249,14 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.num_allocs = 0;
   stats.bytes_in_use += SmallAllocs::kSize;
   bytes_in_use += SmallAllocs::kSize;
+
+  static bool is_realtime_logger_enable =
+      GET_ENV_FLAG_NEW(PT_ENABLE_REALTIME_MEMORY_LOGGING);
+  if (is_realtime_logger_enable) {
+    realtime_logger_ =
+        std::make_unique<realtime_logger::RealTimeMeoryLogger>(this);
+  }
+
   return true;
 }
 
@@ -1201,6 +1210,20 @@ std::vector<std::pair<uint64_t, uint64_t>> CoalescedStringentPooling::
   }
 
   return occupied_chunk_map;
+}
+
+void CoalescedStringentPooling::get_memory_mask(
+    std::vector<uint64_t>& mmask) const {
+  std::map<uint64_t, Chunk*> chunks_ordered;
+  std::lock_guard<std::mutex> lock(sp_mutex);
+  for (auto& m : chunks)
+    chunks_ordered.insert(m);
+
+  for (auto& m : chunks_ordered) {
+    auto chunk = m.second;
+    mmask.push_back(chunk->used ? 1 : 0);
+    mmask.push_back(chunk->size);
+  }
 }
 
 void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {

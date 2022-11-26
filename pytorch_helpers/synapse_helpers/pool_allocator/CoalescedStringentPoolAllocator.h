@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include "Chunk.h"
 #include "PoolAllocator.h"
+#include "synapse_helpers/RealTimeMemoryLogger.h"
 #include "synapse_helpers/util.h"
 #include "utils.h"
 
@@ -116,7 +117,11 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void print_pool_stats() const override;
   size_t get_max_cntgs_chunk_size() const override;
 
+  void get_memory_mask(std::vector<uint64_t>& mmask) const;
+
  private:
+  mutable std::unique_ptr<realtime_logger::RealTimeMeoryLogger>
+      realtime_logger_;
   struct chunkcompare {
     bool operator()(const Chunk* a, const Chunk* b) {
       // sort by memptr
