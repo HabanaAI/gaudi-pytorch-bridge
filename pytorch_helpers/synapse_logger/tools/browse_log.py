@@ -814,7 +814,7 @@ class Log:
 
         test_op_list = set(
             [
-                "synStreamCreate",
+                "synStreamCreateGeneric",
                 "synStreamDestroy",
                 # "synStreamSynchronize",
                 # "synWorkspaceGetSize",

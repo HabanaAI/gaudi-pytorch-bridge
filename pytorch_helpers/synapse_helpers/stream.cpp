@@ -32,29 +32,8 @@ using namespace synapse_helpers;
 // stream flags are currently not supported
 constexpr uint32_t STREAM_EMPTY_FLAGS = 0;
 
-namespace {
-synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
-  switch (flavor) {
-    case DMA_D2D:
-      return STREAM_TYPE_COPY_DEVICE_TO_DEVICE;
-    case DMA_H2D:
-      return STREAM_TYPE_COPY_HOST_TO_DEVICE;
-    case DMA_D2H:
-      return STREAM_TYPE_COPY_DEVICE_TO_HOST;
-    case COMPUTE:
-      return STREAM_TYPE_COMPUTE;
-    case COLLECTIVE_0:
-      // TODO: Need to add specifier for secondary stream of the same type
-      return STREAM_TYPE_NETWORK_COLLECTIVE;
-    default:
-      return synapse_error{
-          "Unsupported stream flavor: " + std::to_string(flavor), synFail};
-  }
-}
-} // namespace
-
 namespace synapse_helpers {
-stream::stream(class device& device, stream_flavor flavor)
+stream::stream(class device& device)
     : pending_cleanups_{},
       device_{device},
       mut_{},
@@ -62,13 +41,8 @@ stream::stream(class device& device, stream_flavor flavor)
       handle_{nullptr} {
   pending_cleanups_.push({});
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
-  auto syn_flavor = convertInternalStreamType(flavor);
-  if (!ok(syn_flavor))
-    PT_SYNHELPER_FATAL(
-        "Stream type conversion failed with error: ",
-        get_error(syn_flavor).error);
-  auto status = synStreamCreate(
-      &handle_, device_.id(), get_value(syn_flavor), STREAM_EMPTY_FLAGS);
+  auto status =
+      synStreamCreateGeneric(&handle_, device_.id(), STREAM_EMPTY_FLAGS);
   if (synStatus::synSuccess != status)
     PT_SYNHELPER_FATAL("Stream creation failed with status: ", status);
   PT_SYNHELPER_DEBUG("Stream creation with handle: ", handle_);

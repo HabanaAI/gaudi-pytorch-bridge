@@ -17,7 +17,7 @@
 
 #define SYN_API_SYMBOL_VISIT(visitor)          \
   visitor(synDeviceSynchronize);               \
-  visitor(synStreamCreate);                    \
+  visitor(synStreamCreateGeneric);             \
   visitor(synStreamDestroy);                   \
   visitor(synStreamWaitEvent);                 \
   visitor(synStreamSynchronize);               \

@@ -43,7 +43,7 @@
   CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
 namespace lib_synapse {
 SYN_API_PTR(synDeviceSynchronize);
-SYN_API_PTR(synStreamCreate);
+SYN_API_PTR(synStreamCreateGeneric);
 SYN_API_PTR(synStreamDestroy);
 SYN_API_PTR(synStreamWaitEvent);
 SYN_API_PTR(synStreamSynchronize);
@@ -117,7 +117,7 @@ SYN_API_PTR(synRecipeSectionGetProp);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceSynchronize);
-  SYN_API_INIT_PTR(synStreamCreate);
+  SYN_API_INIT_PTR(synStreamCreateGeneric);
   SYN_API_INIT_PTR(synStreamDestroy);
   SYN_API_INIT_PTR(synStreamWaitEvent);
   SYN_API_INIT_PTR(synStreamSynchronize);
@@ -196,28 +196,6 @@ namespace synapse_logger {
 
 class LogStreamName {
  public:
-  const std::string get(const synStreamType sType) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return streamNameMap.at(sType);
-  }
-  const std::string get(const synStreamHandle sHandle) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_streamNameFromStreamHandleMap.find(sHandle) !=
-        m_streamNameFromStreamHandleMap.end()) {
-      return m_streamNameFromStreamHandleMap.at(sHandle);
-    } else {
-      return "\"NULL\"";
-    }
-  }
-  const std::string get(const synEventHandle eHandle) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_streamNameFromEventHandleMap.find(eHandle) !=
-        m_streamNameFromEventHandleMap.end()) {
-      return m_streamNameFromEventHandleMap.at(eHandle);
-    } else {
-      return "\"NULL\"";
-    }
-  }
   synStreamHandle getHandle(const synEventHandle eHandle) {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_streamHandleFromEventHandleMap.find(eHandle) !=
@@ -227,34 +205,13 @@ class LogStreamName {
       return NULL;
     }
   }
-
-  void link(synStreamHandle sHandle, const std::string streamName) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_streamNameFromStreamHandleMap[sHandle] = streamName;
-  }
-  void link(synEventHandle eHandle, const std::string streamName) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_streamNameFromEventHandleMap[eHandle] = streamName;
-  }
   void link(synEventHandle eHandle, const synStreamHandle sHandle) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_streamHandleFromEventHandleMap[eHandle] = sHandle;
   }
 
  private:
-  std::map<synStreamType, const std::string> streamNameMap = {
-      {STREAM_TYPE_COPY_DEVICE_TO_HOST, "\"STREAM_TYPE_COPY_DEVICE_TO_HOST\""},
-      {STREAM_TYPE_COPY_HOST_TO_DEVICE, "\"STREAM_TYPE_COPY_HOST_TO_DEVICE\""},
-      {STREAM_TYPE_COPY_DEVICE_TO_DEVICE,
-       "\"STREAM_TYPE_COPY_DEVICE_TO_DEVICE\""},
-      {STREAM_TYPE_COMPUTE, "\"STREAM_TYPE_COMPUTE\""},
-      {STREAM_TYPE_NETWORK_COLLECTIVE, "\"STREAM_TYPE_NETWORK_COLLECTIVE\""},
-      {STREAM_TYPE_MAX_USER_TYPES, "\"STREAM_TYPE_RESERVED_1\""},
-      {STREAM_TYPE_MAX, "\"STREAM_TYPE_MAX\""}};
-
   std::mutex m_mutex;
-  std::map<synStreamHandle, std::string> m_streamNameFromStreamHandleMap;
-  std::map<synEventHandle, std::string> m_streamNameFromEventHandleMap;
   std::map<synEventHandle, synStreamHandle> m_streamHandleFromEventHandleMap;
 };
 
@@ -277,32 +234,23 @@ synStatus synDeviceSynchronize(const synDeviceId deviceId) {
   return status;
 }
 
-synStatus SYN_API_CALL synStreamCreate(
+synStatus SYN_API_CALL synStreamCreateGeneric(
     synStreamHandle* pStreamHandle,
     const synDeviceId deviceId,
-    const synStreamType streamType,
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamType);
-  API_LOG_CALL(
-      ARG(pStreamHandle),
-      ARG(deviceId),
-      ARG(streamType),
-      ARG(flags),
-      ARG(streamName));
+  API_LOG_CALL(ARG(pStreamHandle), ARG(deviceId), ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synStreamCreate, pStreamHandle, deviceId, streamType, flags)
+      lib_synapse::synStreamCreateGeneric, pStreamHandle, deviceId, flags)
   API_LOG_RESULT(S_ARG(pStreamHandle));
-  strLog.link(pStreamHandle[0], streamName);
 
   return status;
 }
 
 synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
-  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
+  API_LOG_CALL(ARG(streamHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamDestroy, streamHandle)
   API_LOG_RESULT();
@@ -314,9 +262,7 @@ synStatus SYN_API_CALL synStreamWaitEvent(
     synEventHandle eventHandle,
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
-  API_LOG_CALL(
-      ARG(streamHandle), ARG(eventHandle), ARG(flags), ARG(streamName));
+  API_LOG_CALL(ARG(streamHandle), ARG(eventHandle), ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synStreamWaitEvent, streamHandle, eventHandle, flags)
@@ -327,8 +273,7 @@ synStatus SYN_API_CALL synStreamWaitEvent(
 synStatus SYN_API_CALL
 synStreamSynchronize(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
-  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
+  API_LOG_CALL(ARG(streamHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamSynchronize, streamHandle)
   API_LOG_RESULT();
@@ -338,8 +283,7 @@ synStreamSynchronize(const synStreamHandle streamHandle) {
 
 synStatus SYN_API_CALL synStreamQuery(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
-  API_LOG_CALL(ARG(streamHandle), ARG(streamName));
+  API_LOG_CALL(ARG(streamHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamQuery, streamHandle)
   API_LOG_RESULT();
@@ -392,15 +336,12 @@ synStatus SYN_API_CALL synEventMapTensor(
 synStatus SYN_API_CALL
 synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
-  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle), ARG(streamName));
+  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synEventRecord, eventHandle, streamHandle)
   API_LOG_RESULT();
   synapse_logger::logger.event_recorded(streamHandle, eventHandle);
-  strLog.link(eventHandle, streamName);
   strLog.link(eventHandle, streamHandle);
-
   return status;
 }
 
@@ -415,9 +356,8 @@ synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
 
 synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(eventHandle);
   const synStreamHandle streamHandle = strLog.getHandle(eventHandle);
-  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle), ARG(streamName));
+  API_LOG_CALL(ARG(eventHandle), ARG(streamHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synEventSynchronize, eventHandle)
   API_LOG_RESULT();
@@ -456,7 +396,6 @@ synStatus SYN_API_CALL synLaunchExt(
     const synRecipeHandle pRecipeHandle,
     uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       ARG(launchTensorsInfo),
@@ -464,8 +403,7 @@ synStatus SYN_API_CALL synLaunchExt(
       ARG(numberTensors),
       ARG_X(pWorkspace),
       ARG(pRecipeHandle),
-      ARG(flags),
-      ARG(streamName));
+      ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synLaunchExt,
@@ -489,7 +427,6 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
     const uint32_t numberOfEvents,
     uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  const std::string streamName = strLog.get(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       ARG(launchTensorsInfo),
@@ -498,8 +435,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
       ARG(pRecipeHandle),
       ARG(eventHandleList),
       ARG(numberOfEvents),
-      ARG(flags),
-      ARG(streamName));
+      ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synLaunchWithExternalEventsExt,
@@ -549,14 +485,8 @@ synStatus SYN_API_CALL synMemCopyAsync(
       break;
   }
 
-  const std::string streamName = strLog.get(streamHandle);
   API_LOG_CALL(
-      ARG(streamHandle),
-      ARG_X(src),
-      ARG_X(size),
-      ARG_X(dst),
-      ARG(direction),
-      ARG(streamName));
+      ARG(streamHandle), ARG_X(src), ARG_X(size), ARG_X(dst), ARG(direction));
 
   synStatus status;
   CALL_SYN_FUNC(
@@ -591,15 +521,13 @@ synStatus SYN_API_CALL synMemCopyAsyncMultiple(
       break;
   }
 
-  const std::string streamName = strLog.get(streamHandle);
   API_LOG_CALL(
       ARG(streamHandle),
       M_ARG_X(src, numCopies),
       M_ARG_X(size, numCopies),
       M_ARG_X(dst, numCopies),
       ARG(direction),
-      ARG(numCopies),
-      ARG(streamName));
+      ARG(numCopies));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synMemCopyAsyncMultiple,

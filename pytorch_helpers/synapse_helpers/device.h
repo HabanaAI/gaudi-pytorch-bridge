@@ -219,19 +219,18 @@ class device {
 
   stream& get_or_create_network_collective_stream() {
     if (!stream_network_collective_ptr_) {
-      stream_network_collective_ptr_ =
-          absl::make_unique<stream>(*this, stream_flavor::COLLECTIVE_0);
+      stream_network_collective_ptr_ = absl::make_unique<stream>(*this);
     }
     return *stream_network_collective_ptr_;
   }
   stream& get_host_to_device_stream() {
-    return stream_h2d_;
+    return *stream_h2d_ptr_;
   }
   stream& get_device_to_host_stream() {
-    return stream_d2h_;
+    return *stream_d2h_ptr_;
   }
   stream& get_device_to_device_stream() {
-    return stream_d2d_;
+    return *stream_d2d_ptr_;
   };
 
   /** \brief Returns global workspace buffer
@@ -390,8 +389,7 @@ class device {
   void create_compute_stream(hpuStream_t& hpu_stream) {
     std::unique_lock<std::mutex> lock(stream_mutex_);
     hpu_stream = ++compute_stream_index_;
-    stream_compute_[hpu_stream] =
-        absl::make_unique<stream>(*this, stream_flavor::COMPUTE);
+    stream_compute_[hpu_stream] = absl::make_unique<stream>(*this);
     PT_SYNHELPER_DEBUG(
         "STREAM:: New device stream created with index", compute_stream_index_);
   }
@@ -400,8 +398,7 @@ class device {
     std::unique_lock<std::mutex> lock(stream_mutex_);
     auto it = stream_compute_.find(0);
     HABANA_ASSERT(it == stream_compute_.end());
-    stream_compute_[0] =
-        absl::make_unique<stream>(*this, stream_flavor::COMPUTE);
+    stream_compute_[0] = absl::make_unique<stream>(*this);
   }
 
   int get_compute_stream_count() {
@@ -501,9 +498,9 @@ class device {
   event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
   std::unique_ptr<stream> stream_network_collective_ptr_;
-  stream stream_d2d_;
-  stream stream_h2d_;
-  stream stream_d2h_;
+  std::unique_ptr<stream> stream_d2d_ptr_;
+  std::unique_ptr<stream> stream_h2d_ptr_;
+  std::unique_ptr<stream> stream_d2h_ptr_;
   std::unordered_map<hpuStream_t, std::unique_ptr<stream>> stream_compute_;
   stream_event_manager sem_;
   recipe_handle_cache recipe_handle_cache_;

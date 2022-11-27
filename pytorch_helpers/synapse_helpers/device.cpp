@@ -10,6 +10,7 @@
 #include "pytorch_helpers/synapse_helpers/device.h"
 
 #include <absl/types/variant.h>
+#include <stdlib.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+
 #include <thread>
 #include <vector>
 
@@ -287,9 +289,9 @@ device::device(
       memory_mapper_{*this},
       // Network collective should not be created without hcl
       stream_network_collective_ptr_{nullptr},
-      stream_d2d_{*this, stream_flavor::DMA_D2D},
-      stream_h2d_{*this, stream_flavor::DMA_H2D},
-      stream_d2h_{*this, stream_flavor::DMA_D2H},
+      stream_d2d_ptr_{nullptr},
+      stream_h2d_ptr_{nullptr},
+      stream_d2h_ptr_{nullptr},
       recipe_handle_cache_{*this},
       host_memory_{*this},
       device_memory_{*this} {
@@ -298,6 +300,11 @@ device::device(
   }
   // create default stream
   create_default_compute_stream();
+  // Network collective should not be created without hcl
+  stream_network_collective_ptr_ = nullptr,
+  stream_d2d_ptr_ = absl::make_unique<stream>(*this);
+  stream_h2d_ptr_ = absl::make_unique<stream>(*this);
+  stream_d2h_ptr_ = absl::make_unique<stream>(*this);
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
@@ -388,6 +395,9 @@ synapse_error_v<std::shared_ptr<device>> device::get_by_id(
 synapse_error_v<std::shared_ptr<device>> device::create(
     const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& create_allocator) {
+  // TODO FIXME only for test, remove it later
+  setenv("ENABLE_EXPERIMENTAL_FLAGS", "true", 1);
+  setenv("ENABLE_MULTI_OPERATION_STREAM", "true", 1);
   PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
   synStatus status{synStatus::synSuccess};
@@ -548,8 +558,9 @@ void device::cleanup() {
 
   // Wait for H2D copy tensors if any pending
   std::set<synapse_helpers::device_ptr>::iterator itr;
+  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
   for (itr = copy_tensor_set_.begin(); itr != copy_tensor_set_.end(); itr++) {
-    sem_.enqueue_wait_event(*itr, stream_h2d_);
+    sem_.enqueue_wait_event(*itr, stream_handle);
   }
 
   flush_stream_events();
@@ -585,35 +596,26 @@ device::~device() {
 }
 
 void device::flush_stream_events() {
-  for (int id = (int)stream_flavor::_BEGIN; id < (int)stream_flavor::_END;
-       id += 1) {
-    switch (id) {
-      case stream_flavor::DMA_D2D:
-        stream_d2d_.flush();
-        break;
-      case stream_flavor::DMA_H2D:
-        stream_h2d_.flush();
-        break;
-      case stream_flavor::DMA_D2H:
-        stream_d2h_.flush();
-        break;
-      case stream_flavor::COMPUTE:
-        for (auto& cs : stream_compute_) {
-          auto& stream = *cs.second;
-          stream.flush();
-        }
-        break;
-      case stream_flavor::COLLECTIVE_0:
-        // do not flush collective, if it was not created before
-        if (stream_network_collective_ptr_) {
-          auto& stream = *stream_network_collective_ptr_;
-          stream.flush();
-        }
-        break;
-      default:
-        PT_SYNHELPER_FATAL("Invalid stream id ", id);
-        std::terminate();
-    }
+  if (stream_d2d_ptr_) {
+    auto& stream = *stream_d2d_ptr_;
+    stream.flush();
+  }
+  if (stream_h2d_ptr_) {
+    auto& stream = *stream_h2d_ptr_;
+    stream.flush();
+  }
+  if (stream_d2h_ptr_) {
+    auto& stream = *stream_d2h_ptr_;
+    stream.flush();
+  }
+  for (auto& cs : stream_compute_) {
+    auto& stream = *cs.second;
+    stream.flush();
+  }
+  // do not flush collective, if it was not created before
+  if (stream_network_collective_ptr_) {
+    auto& stream = *stream_network_collective_ptr_;
+    stream.flush();
   }
   auto start = std::chrono::steady_clock::now();
   while (true) {
@@ -676,6 +678,7 @@ inline bool device::copy_data_to_device_(
   synStatus status;
 
   void* mapped_cpu_data = cpu_data;
+  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
   uint8_t* dst_ptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
@@ -692,14 +695,14 @@ inline bool device::copy_data_to_device_(
     PT_SYNHELPER_DEBUG("copy_data_to_device uses Pinned memory");
   }
 
-  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
+  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_handle);
 
   unsigned attempt = 0;
   std::shared_ptr<device_ptr_lock> locked;
   do {
     locked = std::make_shared<device_ptr_lock>(lock_addresses(destination));
     status = synMemCopyAsync(
-        stream_h2d_,
+        stream_handle,
         reinterpret_cast<uint64_t>(mapped_cpu_data),
         total_bytes,
         locked->at(0),
@@ -732,7 +735,7 @@ inline bool device::copy_data_to_device_(
 
   sem_.add_producer(
       {event_addr},
-      stream_h2d_,
+      stream_handle,
       [this, dst_ptr, is_pinned, done_cb, locked]() mutable {
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
@@ -754,7 +757,8 @@ synapse_error device::copy_data_to_device(
    * stream or via DMA. if we have a fill and a copy
    * Need to wait for the fill compute stream to complete
    * before copy, so wait */
-  sem_.enqueue_wait_event(event_addr, stream_h2d_);
+  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
+  sem_.enqueue_wait_event(event_addr, stream_handle);
 
   /*
    * If non-blocking copy and non pinned memory and tensor size >= 1 MB
@@ -789,8 +793,9 @@ synapse_error device::copy_data_to_device(
     event_done_callback unref_cb) {
   synStatus status;
 
+  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
   for (std::size_t i = 0; i < transfers.size(); ++i) {
-    sem_.enqueue_wait_event(transfers[i].dst_event_addr, stream_h2d_);
+    sem_.enqueue_wait_event(transfers[i].dst_event_addr, stream_handle);
   }
 
   std::vector<std::uint64_t> mapped_srcs(transfers.size());
@@ -837,7 +842,7 @@ synapse_error device::copy_data_to_device(
   absl::Span<const device_ptr> locked_dsts{locked->begin(), transfers.size()};
   do {
     status = synMemCopyAsyncMultiple(
-        stream_h2d_,
+        stream_handle,
         mapped_srcs.data(),
         lens.data(),
         locked_dsts.data(),
@@ -869,7 +874,7 @@ synapse_error device::copy_data_to_device(
 
   sem_.add_producer(
       std::move(dsts_event_addr),
-      stream_h2d_,
+      stream_handle,
       [this, host_mem_ptr, unref_cb, locked]() mutable {
         host_memory_.free((void*)host_mem_ptr);
         unref_cb();
@@ -894,8 +899,9 @@ synapse_error device::copy_data_to_host(
       total_bytes);
 
   synStatus status;
-  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
-  sem_.enqueue_wait_event(event_addr, stream_d2h_);
+  synapse_helpers::stream& stream_handle = get_device_to_host_stream();
+  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_handle);
+  sem_.enqueue_wait_event(event_addr, stream_handle);
 
   void* mapped_destination = destination;
   uint8_t* dst_ptr;
@@ -915,7 +921,7 @@ synapse_error device::copy_data_to_host(
   do {
     locked = std::make_shared<device_ptr_lock>(lock_addresses(device_data));
     status = synMemCopyAsync(
-        stream_d2h_,
+        stream_handle,
         locked->at(0),
         total_bytes,
         reinterpret_cast<uint64_t>(mapped_destination),
@@ -946,7 +952,7 @@ synapse_error device::copy_data_to_host(
 
   sem_.add_producer(
       {},
-      stream_d2h_,
+      stream_handle,
       [this,
        done_cb,
        dst_ptr,
@@ -977,11 +983,12 @@ synapse_error device::copy_data_within_device(
     event_done_callback unref_cb) {
   synStatus status;
 
-  sem_.enqueue_wait_event(src_event_addr, stream_d2d_);
+  synapse_helpers::stream& stream_handle = get_device_to_device_stream();
+  sem_.enqueue_wait_event(src_event_addr, stream_handle);
   auto locked =
       std::make_shared<device_ptr_lock>(lock_addresses(source, destination));
   status = synMemCopyAsync(
-      stream_d2d_,
+      stream_handle,
       locked->at(0),
       total_bytes,
       locked->at(1),
@@ -993,7 +1000,7 @@ synapse_error device::copy_data_within_device(
     unref_cb();
     locked = nullptr;
   };
-  sem_.add_producer({dst_event_addr}, stream_d2d_, std::move(done_cb));
+  sem_.add_producer({dst_event_addr}, stream_handle, std::move(done_cb));
 
   return {};
 }
@@ -1009,8 +1016,9 @@ synapse_error device::copy_data_within_device(
   std::vector<std::uint64_t> lens(transfers.size());
   std::vector<std::uint64_t> dsts_event_addr(transfers.size());
 
+  synapse_helpers::stream& stream_handle = get_device_to_device_stream();
   for (std::size_t i = 0; i < transfers.size(); ++i) {
-    sem_.enqueue_wait_event(transfers[i].src_event_addr, stream_d2d_);
+    sem_.enqueue_wait_event(transfers[i].src_event_addr, stream_handle);
     all_addresses[i] = transfers[i].src;
     dsts[i] = all_addresses[i + transfers.size()] = transfers[i].dst;
     lens[i] = transfers[i].bytes_to_transfer;
@@ -1027,7 +1035,7 @@ synapse_error device::copy_data_within_device(
       locked->begin() + transfers.size(), transfers.size()};
 
   status = synMemCopyAsyncMultiple(
-      stream_d2d_,
+      stream_handle,
       locked_srcs.data(),
       lens.data(),
       locked_dsts.data(),
@@ -1043,12 +1051,12 @@ synapse_error device::copy_data_within_device(
 
   if (nullptr == next_operation_stream) {
     sem_.add_producer(
-        std::move(dsts_event_addr), stream_d2d_, std::move(done_cb));
+        std::move(dsts_event_addr), stream_handle, std::move(done_cb));
   } else {
     // If next operation stream is known then user wants us to put event on
     // this stream immediately and not pass it into the SEM.
     record_and_wait_for_event(
-        stream_d2d_, *next_operation_stream, std::move(done_cb));
+        stream_handle, *next_operation_stream, std::move(done_cb));
   }
   return {};
 } // namespace synapse_helpers

@@ -36,12 +36,11 @@ synStatus SYN_API_CALL synDeviceSynchronize(const synDeviceId deviceId) {
   return syn_api->synDeviceSynchronize(deviceId);
 }
 
-synStatus SYN_API_CALL synStreamCreate(
+synStatus SYN_API_CALL synStreamCreateGeneric(
     synStreamHandle* pStreamHandle,
     const synDeviceId deviceId,
-    const synStreamType streamType,
     const uint32_t flags) {
-  return syn_api->synStreamCreate(pStreamHandle, deviceId, streamType, flags);
+  return syn_api->synStreamCreateGeneric(pStreamHandle, deviceId, flags);
 }
 
 synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {

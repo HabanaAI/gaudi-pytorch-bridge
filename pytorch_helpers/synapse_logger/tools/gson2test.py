@@ -889,12 +889,10 @@ class Flow:
                             ),
                         )
                         out(Flow.call(entry, replacements))
-                    elif func_def.name == "synStreamCreate":
+                    elif func_def.name == "synStreamCreateGeneric":
                         v = space.add(entry["result"]["pStreamHandle"], "synStreamHandle", f"stream{no}", local=True)
                         args["pStreamHandle"] = entry["result"]["pStreamHandle"]
                         replacements = space.get_args(entry, ("pStreamHandle",))
-                        streamType = args["streamType"]
-                        replacements["streamType"] = f"(synStreamType) {streamType}"
                         out(Flow.call(entry, replacements))
                     elif func_def.name in ("synStreamDestroy", "synStreamSynchronize"):
                         out(Flow.call(entry, space.get_args(entry, ("streamHandle",))))

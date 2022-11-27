@@ -24,16 +24,6 @@ class event;
 using shared_event = std::shared_ptr<event>;
 class device;
 
-enum stream_flavor {
-  _BEGIN = 0,
-  COMPUTE = 0,
-  DMA_D2D = 1,
-  DMA_H2D = 2,
-  DMA_D2H = 3,
-  COLLECTIVE_0 = 4,
-  _END = 5
-};
-
 /*! Wrapper Class for synStreamHandle
  keeps also cleaning thread (garbage collector thread)
  one instance per synStream
@@ -59,7 +49,7 @@ class stream {
    *  \param id of the device
    *  \param flavor dedicated usage type of the stream
    */
-  explicit stream(device& device, stream_flavor flavor);
+  explicit stream(device& device);
 
   stream(const stream& other)
       : device_(other.device_), handle_(other.handle_) {}

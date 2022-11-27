@@ -243,14 +243,12 @@ class SynapseApi : public StubSynapseApi {
       return synSuccess;
     };
 
-    synapse_api_.synStreamCreate = [this](
-                                       synStreamHandle* pStreamHandle,
-                                       const synDeviceId,
-                                       const synStreamType,
-                                       const uint32_t) {
-      this->AddHandle(pStreamHandle);
-      return synSuccess;
-    };
+    synapse_api_.synStreamCreateGeneric =
+        [this](
+            synStreamHandle* pStreamHandle, const synDeviceId, const uint32_t) {
+          this->AddHandle(pStreamHandle);
+          return synSuccess;
+        };
 
     synapse_api_.synEventCreate =
         [this](
