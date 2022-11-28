@@ -351,7 +351,8 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 
 synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     const HabanaOperatorPtr& habana_op,
-    at::Tensor& pt_tensor) {
+    at::Tensor& pt_tensor,
+    std::string idx) {
   PT_BRIDGE_TRACE;
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
 
@@ -373,8 +374,8 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
       habana_op->set_is_duplicate_input_flag(true);
       habana_op->add_syn_input_tensor_orig(st);
     }
-    auto& syn_tensor =
-        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+    auto& syn_tensor = habana_op->AllocateSynapseInput(
+        *syn_graph_ptr, pt_tensor, true, DATA_TENSOR, nullptr, idx);
 
     if (is_duplicate_syn_tensor) {
       habana_op->set_is_duplicate_input_flag(false);
@@ -392,7 +393,8 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
 void HabanaLaunchOpPT::HandleUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
-    SharedSynTensorOrRefListPtr& tensorList) {
+    SharedSynTensorOrRefListPtr& tensorList,
+    std::string idx) {
   PT_BRIDGE_TRACE;
   std::vector<at::Tensor> pyTensorList;
   const auto& ivalue = value_to_ivalue[value_in];
@@ -411,7 +413,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     if (!pt_tensor.defined()) {
       continue;
     }
-    auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor);
+    auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor, idx);
     PT_BRIDGE_DEBUG(
         "Allocated synpase tensor for input tensor: ", syn_tensor.id());
 
@@ -468,14 +470,15 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
-    SharedSynTensorOrRefListPtr& tensorList) {
+    SharedSynTensorOrRefListPtr& tensorList,
+    std::string idx) {
   auto is_already_mapped =
       pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
       std::end(pt_to_synapse_tensors);
   if (is_already_mapped) {
     HandleMappedTensor(value_in, habana_op, tensorList);
   } else {
-    HandleUnmappedTensor(value_in, habana_op, tensorList);
+    HandleUnmappedTensor(value_in, habana_op, tensorList, idx);
   }
 }
 
@@ -484,6 +487,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     torch::jit::Node* node) {
   auto node_ins = node->inputs();
   int input_idx = 0;
+
   for (const auto value_in : node_ins) {
     auto value_exists = value_to_ivalue.find(value_in);
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
@@ -507,7 +511,10 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
             std::make_shared<SynTensorOrRefList>();
         HandleMappedandUnmappedTensor(
-            value_in, habana_op, tensor_ref_list_ptr_sh);
+            value_in,
+            habana_op,
+            tensor_ref_list_ptr_sh,
+            scope_string + ".placeholder." + std::to_string(input_idx));
       } else {
         // tensorlist
         auto prev_node = value_in->node();
@@ -517,7 +524,10 @@ void HabanaLaunchOpPT::GetSynapseInputs(
               SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
                   std::make_shared<SynTensorOrRefList>();
               HandleMappedandUnmappedTensor(
-                  value_in, habana_op, tensor_ref_list_ptr_sh);
+                  value_in,
+                  habana_op,
+                  tensor_ref_list_ptr_sh,
+                  scope_string + ".placeholder." + std::to_string(input_idx));
             }
           }
         }

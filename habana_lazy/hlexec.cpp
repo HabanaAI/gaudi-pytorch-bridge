@@ -584,9 +584,7 @@ void HlExec::Create(
       });
       HABANA_ASSERT(j == args_vector.size());
       std::shared_ptr<torch::jit::WithCurrentScope> scope_context;
-      auto scope_name = node->GetModuleName().empty()
-          ? (node->GetScope() ? *node->GetScope() : "")
-          : node->GetModuleName();
+      auto scope_name = *node->GetScope();
       if (AccThread::IsAccThreadEnabled() ? !node->GetModuleName().empty()
                                           : node->GetScope() != NULL) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(

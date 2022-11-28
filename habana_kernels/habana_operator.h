@@ -356,7 +356,8 @@ class HabanaOperator {
       const at::Tensor& input,
       bool is_persistent = false,
       synTensorType shape_tensor_type = DATA_TENSOR,
-      void* host_ptr = nullptr);
+      void* host_ptr = nullptr,
+      const std::string& idx = std::string());
 
   //
   // Method to add a single shape tensor to graph builder context, also

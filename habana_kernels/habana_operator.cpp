@@ -250,10 +250,10 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     const at::Tensor& input,
     bool is_persistent,
     synTensorType shape_tensor_type,
-    void* host_ptr) {
+    void* host_ptr,
+    const std::string& idx) {
   PT_BRIDGE_TRACE;
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
-
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {
     if (p_context_->is_duplicate_input_) {
       uint64_t syn_offset = input.storage_offset() * input.itemsize();
@@ -281,7 +281,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
       auto syn_tensor_input = habana_helpers::create_tensor(
-          input, graph, is_persistent, false, c10::nullopt);
+          input, graph, is_persistent, false, c10::nullopt, idx, idx);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     }
   } else {
