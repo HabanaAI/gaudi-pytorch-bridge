@@ -36,6 +36,13 @@ synEventHandle event_handle_cache::get_free_handle() {
   // special case, if max number of events was reached,
   // we need to wait until an event is returned to the cache
   if (events_count_ >= NUM_EVENTS_MAX) {
+    // NUM_EVENTS_MAX limited to 1000000, inline to hard limit in synapse.
+    // Assert if no recipe is being executed.
+    auto& recipe_counter = device_.get_active_recipe_counter();
+    HABANA_ASSERT(
+        recipe_counter.get_count() != 0,
+        "Event handle out of resources. Event count exceeds max allowed limit.");
+
     while (free_handles_.empty()) {
       cond_var_.wait(lock);
     }
