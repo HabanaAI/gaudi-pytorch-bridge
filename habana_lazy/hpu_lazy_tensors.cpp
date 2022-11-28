@@ -83,15 +83,11 @@ void HbContextArena::UnregisterTensor(Data* data) {
     }
   }
 
-  c10::optional<HbLazyTensor> shallowCopyHbTensor;
   c10::optional<at::Tensor> viewEntryTensor;
   StrideParams strideParams;
   {
     // clear the entry in view tables
     LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    shallowCopyHbTensor =
-        context->viewContext.GetShallowCopyMapEntry(unique_id);
-    context->viewContext.DelShallowCopyMapEntry(unique_id);
     viewEntryTensor = context->viewContext.GetOrigTensorMapEntry(unique_id);
     context->viewContext.DelOrigTensorMapEntry(unique_id);
     auto* params_ptr = context->viewContext.GetViewTableEntry(unique_id);
@@ -1502,15 +1498,15 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     }
   }
 
-  auto src_id = this->getTensorUniqueId();
-  auto dst_id = dest->getTensorUniqueId();
-
-  auto hl_opt = context->viewContext.GetShallowCopyMapEntry(src_id);
-  if (hl_opt != c10::nullopt) {
-    hl_t = hl_opt.value();
+  // check for shallow copy in src
+  auto src_tensor_opt = hl_t.getDataPtr()->tensor_shallow_copy;
+  if (src_tensor_opt.has_value()) {
+    hl_t = GetHbLazyTensor(src_tensor_opt.value());
   }
 
-  context->viewContext.AddShallowCopyMapEntry(dst_id, hl_t);
+  auto aten_t = AtenFromHbLazyTensor(
+      hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  dest->getDataPtr()->tensor_shallow_copy = aten_t;
 
   // copy the src memory to dst to avoid double allocation
   auto data_tensor = CurrentTensorData();

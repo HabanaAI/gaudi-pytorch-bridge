@@ -133,10 +133,6 @@ class StridedViewContext {
   void DelOrigTensorMapEntry(int64_t tensor_id);
   c10::optional<at::Tensor> GetOrigTensorMapEntry(int64_t tensor_id);
 
-  void AddShallowCopyMapEntry(int64_t tensor_id, HbLazyTensor hb_t);
-  void DelShallowCopyMapEntry(int64_t tensor_id);
-  c10::optional<HbLazyTensor> GetShallowCopyMapEntry(int64_t tensor_id);
-
   // contains view tensors that are excluded from graph outputs
   std::vector<habana_lazy::HbLazyTensor> hb_tensors_exclude_out_view;
   bool isLazyViewPresent = false;

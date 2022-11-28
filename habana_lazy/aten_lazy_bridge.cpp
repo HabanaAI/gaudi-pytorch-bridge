@@ -215,9 +215,10 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // Try bringing it here
   auto id = hl_t.getTensorUniqueId();
 
-  auto hl_temp = context->viewContext.GetShallowCopyMapEntry(id);
-  if (hl_temp != c10::nullopt) {
-    hl_t = hl_temp.value();
+  auto t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
+  if (t_shallow_copy_opt.has_value()) {
+    impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value());
+    hl_t = impl->tensor();
     id = hl_t.getTensorUniqueId();
   }
 

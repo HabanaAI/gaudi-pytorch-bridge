@@ -312,15 +312,6 @@ struct Value final {
     return m_index;
   }
 
-  void SetNodeForShallowCopy(NodePtr node, size_t index = 0) {
-    if (m_index == 0) {
-      // m_index has been set directly, don't reset to 0
-      // TODO: make m_index private.
-      m_index = index;
-    }
-    mp_node = std::move(node);
-  }
-
   uint64_t get_unique_id() const {
     return unique_id;
   }

@@ -101,31 +101,6 @@ c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
   return c10::nullopt;
 }
 
-void StridedViewContext::AddShallowCopyMapEntry(
-    int64_t tensor_id,
-    HbLazyTensor hb_t) {
-  LOCK_VIEW_TABLE_MUTEX(*this);
-  m_shallow_copy_map[tensor_id] = hb_t;
-}
-
-void StridedViewContext::DelShallowCopyMapEntry(int64_t tensor_id) {
-  LOCK_VIEW_TABLE_MUTEX(*this);
-  auto it = m_shallow_copy_map.find(tensor_id);
-  if (it != m_shallow_copy_map.end()) {
-    m_shallow_copy_map.erase(it);
-  }
-}
-
-c10::optional<HbLazyTensor> StridedViewContext::GetShallowCopyMapEntry(
-    int64_t tensor_id) {
-  LOCK_VIEW_TABLE_MUTEX(*this);
-  auto it = m_shallow_copy_map.find(tensor_id);
-  if (it != m_shallow_copy_map.end()) {
-    return it->second;
-  }
-  return c10::nullopt;
-}
-
 bool IsStridesRatioZero(
     std::vector<int64_t>& self_strides,
     std::vector<int64_t>& stride_sizes) {
