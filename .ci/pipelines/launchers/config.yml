@@ -101,3 +101,10 @@ launchers:
     isStable: true
     files:
     - 'sim_pytorch_tests---t-dg.jenkinsfile'
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite_master_next
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
