@@ -63,14 +63,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       bool descending);
-  static at::Tensor& masked_fill_(
-      at::Tensor& self,
-      const at::Tensor& mask,
-      const at::Tensor& value);
-  static at::Tensor& masked_fill_(
-      at::Tensor& self,
-      const at::Tensor& mask,
-      const at::Scalar& value);
   static at::Tensor masked_select(
       const at::Tensor& self,
       const at::Tensor& mask);

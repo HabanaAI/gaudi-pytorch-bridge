@@ -3825,6 +3825,38 @@ masked_scatter_:
     Greco: [BFloat16, Float, Half, Int]
   override_fn: masked_scatter_hpu_lazy_
 
+masked_fill_.Scalar:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Greco:
+      self: [BFloat16, Float, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Half]
+  override_fn: masked_fill_scalar_hpu_lazy_
+
+masked_fill_.Tensor:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Greco:
+      self: [BFloat16, Float, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Half]
+  override_fn: masked_fill_hpu_lazy_
+
 max:
   custom_output_shape: AllAnyOutputShape
   dtypes:

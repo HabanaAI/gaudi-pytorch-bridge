@@ -382,57 +382,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
         out, input, indices, offsets, valid_count, kernel_mode);
   }
 };
-Tensor& hpu_wrap::masked_fill_(
-    Tensor& self,
-    const Tensor& mask,
-    const Tensor& value) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "masked_fill_ :",
-      " self=",
-      to_string(self),
-      " mask=",
-      to_string(mask),
-      " value=",
-      to_string(value));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      masked_fill_,
-      PARAMS1(self, mask, value),
-      PARAMS2(self, mask, value),
-      Tensor)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_fill_hpu_lazy_(self, mask, value);
-
-  } else {
-    return masked_fill_hpu_(self, mask, value);
-  }
-};
-Tensor& hpu_wrap::masked_fill_(
-    Tensor& self,
-    const Tensor& mask,
-    const Scalar& value) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "masked_fill_ :",
-      " self=",
-      to_string(self),
-      " mask=",
-      to_string(mask),
-      " value=",
-      to_string(value));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      masked_fill_, PARAMS1(self, mask), PARAMS2(self, mask, value), Scalar)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_fill_scalar_hpu_lazy_(self, mask, value);
-
-  } else {
-    return masked_fill_scalar_hpu_(self, mask, value);
-  }
-};
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
