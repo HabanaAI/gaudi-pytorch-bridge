@@ -626,16 +626,10 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto params_ptr_link = params_ptr;
   std::unordered_set<int64_t> dims;
-  int64_t dims_size = recent_orig_t.sizes().size() - 1;
   while (params_ptr_link && params_ptr_link->optype == kStridedOpSlice) {
     back_to_back_slices.push_back(params_ptr_link->params.slice_param);
     // If multiple times same dim exists, use strided insert.
     if (dims.find(params_ptr_link->params.slice_param.dim) != dims.end()) {
-      return std::vector<StridedOpSliceParams>();
-    }
-    // If step size is 1, then use strided_insert
-    if (dims_size == params_ptr_link->params.slice_param.dim &&
-        params_ptr_link->params.slice_param.step == 1) {
       return std::vector<StridedOpSliceParams>();
     }
     dims.insert(params_ptr_link->params.slice_param.dim);
