@@ -5483,6 +5483,31 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(squeeze, self, out, param_setter);
 }
 
+Tensor squeeze_self_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  // using invalid dim size HABANA_DIM_MAX to signal the backend kernel that
+  // squeeze needs to be performed on all applicable axes
+  return squeeze_hpu_lazy(self, HABANA_DIM_MAX /*dim*/);
+}
+
+Tensor squeeze_dim_hpu_lazy(const Tensor& self, int64_t dim) {
+  PT_LAZY_TRACE;
+
+  return at::native::squeeze(self, dim);
+}
+
+Tensor& squeeze_hpu_lazy_(Tensor& self) {
+  PT_LAZY_TRACE;
+
+  return at::native::squeeze_(self);
+}
+
+Tensor& squeeze_dim_hpu_lazy_(Tensor& self, int64_t dim) {
+  PT_LAZY_TRACE;
+
+  return at::native::squeeze_(self, dim);
+}
+
 Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   PT_LAZY_TRACE;
 

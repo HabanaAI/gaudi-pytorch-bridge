@@ -221,10 +221,6 @@ struct hpu_wrap {
   static at::Tensor _unsafe_view(
       const at::Tensor& self,
       c10::SymIntArrayRef size);
-  static at::Tensor squeeze(const at::Tensor& self);
-  static at::Tensor squeeze(const at::Tensor& self, int64_t dim);
-  static at::Tensor& squeeze_(at::Tensor& self);
-  static at::Tensor& squeeze_(at::Tensor& self, int64_t dim);
   static const at::Tensor& as_strided_(
       const at::Tensor& self,
       c10::SymIntArrayRef size,

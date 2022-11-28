@@ -5870,6 +5870,21 @@ sqrt_:
   guid: sqrt_fwd
   inplace_ids: [0]
 
+squeeze:
+  override_fn: squeeze_self_hpu_lazy
+
+squeeze.dim:
+  force_default: False
+  override_fn: squeeze_dim_hpu_lazy
+
+squeeze_:
+  force_default: false
+  override_fn: squeeze_hpu_lazy_
+
+squeeze_.dim:
+  force_default: False
+  override_fn: squeeze_dim_hpu_lazy_
+
 std.correction:
   custom_output_shape: StdVarComputeOutShape
   dtypes: [BFloat16, Float]
