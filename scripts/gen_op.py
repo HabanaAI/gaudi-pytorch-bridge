@@ -271,11 +271,14 @@ class Op(object):
         return self.op.get("synapse_layouts", [])
 
     def get_op_backend_class(self):
-        if self.get_op_template():
+        op_backend_class = self.op.get("op_backend", None)
+        if op_backend_class:
+            return op_backend_class
+        elif self.get_op_template():
             if self.get_op_template() == "reduction":
                 return "ReductionBackendTemplate"
             assert "Unknown template: {}".format(self.get_op_template())
-        return self.op.get("op_backend", "OpBackend")
+        return "OpBackend"
 
     def get_op_frontend_class(self):
         op_frontend_class = self.op.get("op_frontend", None)
@@ -651,16 +654,28 @@ def frontend(
     # https://jira.habana-labs.com/browse/SW-111202
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
+    is_reduction = ctxop.get_op_template() == "reduction"
     safe_cast_check = ctxop.safe_cast_check()
 
-    if promote_to_common_type or promote_int_to_float:
-        assert (not promote_to_common_type) ^ (
-            not promote_int_to_float
-        ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
+    promote_types = promote_to_common_type or promote_int_to_float
+    use_compute_type = promote_types or is_reduction
 
-        promote_inputs = (
-            promote_to_common_type if promote_to_common_type else promote_int_to_float
-        )
+    if use_compute_type:
+        dtype_helper_inputs = []
+        if promote_types:
+            assert (not promote_to_common_type) ^ (
+                not promote_int_to_float
+            ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
+
+            if promote_int_to_float:
+                variant = "PromoteIntToFloat"
+                dtype_helper_inputs = promote_int_to_float
+            else:
+                variant = "PromoteToCommon"
+                dtype_helper_inputs = promote_to_common_type
+        else:
+            variant = "Reduction"
+            dtype_helper_inputs = ["self"]
 
         safe_cast = is_inplace_or_out_op(fname)
         if safe_cast_check is not None:
@@ -674,11 +689,11 @@ def frontend(
 
         code += (
             f"  auto&& compute_type = "
-            f"DTypeHelper::get_compute_dtype({{{', '.join(promote_inputs)}}}, "
+            f"DTypeHelper::get_compute_dtype({{{', '.join(dtype_helper_inputs)}}}, "
             f'{lazyop_call_args if lazyop_call_args else "c10::nullopt"}, '
-            f"true/*promote_to_common_type*/, "
-            f"{str(not not promote_int_to_float).lower()}/*promote_int_to_float*/, "
-            f"{str(safe_cast).lower()}/*safe_cast*/);\n"
+            f"DTypeHelper::DtypePromoteVariant::k{variant}, "
+            f"{str(safe_cast).lower()}/*safe_cast*/"
+            f'{", dtype" if "dtype" in param_vars else ""});\n'
             f"  static_cast<void>(compute_type);\n\n"
         )
 
@@ -686,8 +701,8 @@ def frontend(
     if dtypes:
         code += generate_dtype_macro(dtypes)
 
-        # Check compute_type when type promotion applies
-        if promote_to_common_type or promote_int_to_float:
+        # Check with compute_type when using compute_type
+        if use_compute_type:
             code += (
                 "  FALLBACK_IF_UNSUPPORTED_DTYPE{}(compute_type, {}, {}{})\n".format(
                     "2" if overload else "",
@@ -695,17 +710,6 @@ def frontend(
                     overload + ", " if overload else "",
                     ", ".join(param_vars),
                 )
-            )
-        elif ctxop.get_op_template() == "reduction":
-            # Here, check for self/dtype for fallback
-            has_dtype = "dtype" in param_vars
-            code += "  FALLBACK_IF_UNSUPPORTED_DTYPE{}{}(self, {}{}, {}{})\n".format(
-                "_ARG" if has_dtype else "",
-                "2" if overload else "",
-                "dtype, " if has_dtype else "",
-                opname,
-                overload + ", " if overload else "",
-                ", ".join(param_vars),
             )
         else:
             tinputs = tfetcher.get_tensors()
@@ -744,10 +748,6 @@ def frontend(
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
-        if ctxop.get_op_template() == "reduction":
-            out_fn = "true" if is_out_fn(fname) else "false"
-            safe_cast = "true" if ctxop.safe_cast_check() else "false"
-            code += ", {}, {}".format(out_fn, safe_cast)
 
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -756,17 +756,15 @@ def frontend(
             dim = "dim" if "dim" in param_vars else "{}"
             keepdim = "keepdim" if "keepdim" in param_vars else "false"
             code += ", ReductionOutputShape(self, {}, {})".format(dim, keepdim)
-
         code += "};\n"
 
-        if ctxop.promote_to_common_type() or ctxop.promote_int_to_float():
+        if use_compute_type:
             code += "  hpu_op.set_scalar_type(compute_type);\n"
 
-        if ctxop.get_op_template() == "reduction":
+        if ctxop.get_op_frontend_class() == "ReductionFrontendTemplate":
             code += "  hpu_op.SetReductionVarsIndices({});\n".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))
             )
-            code += "  hpu_op.Validate();\n"
 
         if is_acc_thread_supported(fname, ctxop, rtype, sig):
             if is_inplace_or_out_op(fname):
@@ -943,7 +941,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
 
-    if ctxop.get_op_template() == "reduction":
+    if ctxop.get_op_backend_class() == "ReductionBackendTemplate":
         ctor_extra_calls.append(
             "SetReductionVarsIndices({});".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))

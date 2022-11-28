@@ -151,9 +151,12 @@ void OpBackend::HandleFn(
         habana_helpers::DTypeHelper::get_compute_dtype(
             stack,
             c10::nullopt,
-            true,
-            m_promote_int_to_float,
+            m_promote_int_to_float ? habana_helpers::DTypeHelper::
+                                         DtypePromoteVariant::kPromoteIntToFloat
+                                   : habana_helpers::DTypeHelper::
+                                         DtypePromoteVariant::kPromoteToCommon,
             false,
+            c10::nullopt,
             false,
             false);
   }
@@ -240,9 +243,11 @@ void OpBackend::HandleTypePromotion(
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
       op_inputs,
       c10::nullopt,
-      true,
-      m_promote_int_to_float,
+      m_promote_int_to_float
+          ? habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat
+          : habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false,
+      c10::nullopt,
       false,
       false);
 

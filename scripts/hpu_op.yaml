@@ -4373,14 +4373,24 @@ nan_to_num.out:
 
 nansum:
   custom_output_shape: NanSumIntListOutputShape
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  op_template: reduction
   op_frontend: LazyNansum
   op_backend: NansumList
   out_ids: [0]
 
 nansum.out:
   custom_output_shape: NanSumIntListOutputShape
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  op_template: reduction
   op_backend: NansumList
 
 native_batch_norm:

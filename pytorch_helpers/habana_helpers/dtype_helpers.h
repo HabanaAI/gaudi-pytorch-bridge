@@ -20,6 +20,12 @@ namespace habana_helpers {
 
 class DTypeHelper {
  public:
+  enum class DtypePromoteVariant : uint8_t {
+    kPromoteToCommon,
+    kPromoteIntToFloat,
+    kReduction
+  };
+
   DTypeHelper& add_input(const c10::IValue* v);
   DTypeHelper& add_inputs(std::vector<const c10::IValue*>&& v);
   DTypeHelper& add_output(const c10::IValue* v);
@@ -57,9 +63,9 @@ class DTypeHelper {
   static c10::ScalarType get_compute_dtype(
       const std::vector<at::IValue>& stack,
       c10::optional<at::Tensor> opt_output,
-      bool promote_to_common_type,
-      bool promote_int_to_long,
+      DtypePromoteVariant promote_variant,
       bool safe_cast,
+      c10::optional<c10::ScalarType> dtype = c10::nullopt,
       bool double_support = true,
       bool int64_support = true);
 

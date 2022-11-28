@@ -248,9 +248,9 @@ DTypeHelper DTypeHelper::binary_op_with_int_to_float_promotion(
 c10::ScalarType DTypeHelper::get_compute_dtype(
     const std::vector<at::IValue>& stack,
     c10::optional<at::Tensor> opt_output,
-    bool promote_to_common_type,
-    bool promote_int_to_float,
+    DtypePromoteVariant promote_variant,
     bool safe_cast,
+    c10::optional<c10::ScalarType> dtype,
     bool double_support,
     bool int64_support) {
   std::vector<const at::IValue*> inputs;
@@ -262,11 +262,23 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
     }
   }
 
+  bool promote_to_common_type =
+      promote_variant == DtypePromoteVariant::kPromoteToCommon or
+      promote_variant == DtypePromoteVariant::kPromoteIntToFloat;
+  bool promote_int_to_float =
+      promote_variant == DtypePromoteVariant::kPromoteIntToFloat;
+  bool promote_int_to_long = promote_variant == DtypePromoteVariant::kReduction;
+
   DTypeHelper dtype_helper;
   dtype_helper.add_inputs(std::move(inputs))
       .set_promote_to_common_type(promote_to_common_type)
       .set_promote_int_to_float(promote_int_to_float)
+      .set_promote_int_to_long(promote_int_to_long)
       .set_safe_cast_to_output(safe_cast);
+
+  if (dtype.has_value()) {
+    dtype_helper.set_output_dtype(*dtype);
+  }
 
   at::IValue output;
   if (opt_output.has_value()) {
@@ -275,6 +287,8 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
   }
 
   dtype_helper.build();
-  return dtype_helper.get_common_dtype(double_support, int64_support);
+  return dtype.has_value()
+      ? dtype_helper.get_result_dtype()
+      : dtype_helper.get_common_dtype(double_support, int64_support);
 }
 } // namespace habana_helpers

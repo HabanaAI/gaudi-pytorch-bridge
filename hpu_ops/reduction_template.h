@@ -14,7 +14,7 @@
 
 namespace habana {
 
-static inline at::ScalarType get_dtype_from_self(
+inline at::ScalarType get_dtype_from_self(
     const at::Tensor& self,
     const at::optional<at::ScalarType>& dtype,
     bool promote_integers) {
@@ -38,26 +38,19 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
   at::optional<uint8_t> m_dtype_index;
   at::optional<uint8_t> m_dim_index;
   at::optional<uint8_t> m_keepdim_index;
-  bool is_outfn_;
 
  public:
   ReductionFrontendTemplate(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      bool is_outfn,
-      bool,
       const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-      : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn, -1),
-        is_outfn_(is_outfn) {}
+      : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes_fn, -1) {}
 
   ReductionFrontendTemplate(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      bool is_outfn,
-      bool,
       const sizes_vec& out_shapes)
-      : habana_lazy::LazyOp<T>(qualstring, inputs, {}, out_shapes, -1),
-        is_outfn_(is_outfn) {}
+      : habana_lazy::LazyOp<T>(qualstring, inputs, {}, out_shapes, -1) {}
 
   T get_result_overrideable() override;
 
@@ -69,8 +62,6 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
     m_keepdim_index = keepdim_index;
     m_dtype_index = dtype_index;
   }
-
-  void Validate();
 };
 
 class ReductionBackendTemplate : public OpBackend {
@@ -120,10 +111,9 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     std::function<std::shared_ptr<
         void>(const int64_t, size_t&, int64_t, c10::optional<at::Scalar>)>
         fill_param_fn,
-    c10::optional<at::Scalar> ord = c10::nullopt,
-    c10::optional<at::ScalarType> in_dtype = c10::nullopt);
+    c10::optional<at::Scalar> ord = c10::nullopt);
 
-static inline std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
+std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
@@ -131,52 +121,5 @@ static inline std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr) {
-  return HandleReductionDimAndKeepdim(
-      op,
-      graph,
-      self,
-      inputs,
-      dims,
-      keepdim,
-      guid,
-      output_attr,
-      [](const int ndim, size_t& size, int64_t index, c10::optional<at::Scalar>)
-          -> std::shared_ptr<void> {
-        PARAMS_STUB(ns_Reduction::Params);
-        auto reduction_dim = ndim - 1 - index;
-        params->reductionDimension = reduction_dim;
-        return params;
-      });
-}
-
-static inline std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Tensor& self,
-    std::vector<synTensor> inputs,
-    const at::IntArrayRef dims,
-    bool keepdim,
-    const std::string& guid,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr,
-    c10::optional<at::ScalarType> in_dtype) {
-  return HandleReductionDimAndKeepdim(
-      op,
-      graph,
-      self,
-      inputs,
-      dims,
-      keepdim,
-      guid,
-      output_attr,
-      [](const int ndim, size_t& size, int64_t index, c10::optional<at::Scalar>)
-          -> std::shared_ptr<void> {
-        PARAMS_STUB(ns_Reduction::Params);
-        auto reduction_dim = ndim - 1 - index;
-        params->reductionDimension = reduction_dim;
-        return params;
-      },
-      c10::nullopt,
-      in_dtype);
-}
+    std::vector<NodeAttr::NodeOutputAttr> output_attr);
 } // namespace habana

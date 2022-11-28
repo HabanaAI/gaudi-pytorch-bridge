@@ -258,11 +258,11 @@ static synapse_helpers::tensor NormCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
     synTensor input_tensor,
-    const at::ScalarType& dtype,
+    at::ScalarType dtype,
     const torch::Tensor& self,
-    std::vector<int64_t> dim,
+    const std::vector<int64_t>& dim,
     const bool keepdim,
-    at::Scalar ord,
+    const at::Scalar& ord,
     std::vector<NodeAttr::NodeOutputAttr> output_attr,
     const bool is_vec_norm) {
   auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
@@ -357,6 +357,7 @@ static synapse_helpers::tensor NormCommon(
         torch::kInt8,
         torch::kInt32);
 
+    op->SetScalarType(at::kInt);
     auto isinf_reduced = HandleReductionDimAndKeepdim(
         op,
         graph,
@@ -365,8 +366,7 @@ static synapse_helpers::tensor NormCommon(
         dim,
         keepdim,
         inputs.guid + "i32",
-        {{output_attr[0].sizes, torch::kInt32}},
-        torch::kInt32);
+        {{output_attr[0].sizes, torch::kInt32}});
 
     auto isinf_condition = OpBackend::BuildCast(
         op,
@@ -410,8 +410,7 @@ static synapse_helpers::tensor NormCommon(
         dim,
         keepdim,
         "reduce_max_fwd_i32",
-        {{output_attr[0].sizes, torch::kInt32}},
-        torch::kInt32);
+        {{output_attr[0].sizes, torch::kInt32}});
 
     auto isnan_condition = OpBackend::BuildCast(
         op,

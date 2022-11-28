@@ -10,7 +10,7 @@
 
 #include "supported_dtypes.h"
 #include "habana_kernels/fallback_helper.h"
-#include "reduction_template.h"
+#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 namespace habana {
 SupportedDtypes::SupportedDtypes(
@@ -51,11 +51,5 @@ bool SupportedDtypes::count(const at::Tensor& tensor) const {
 
 bool SupportedDtypes::count(const at::optional<at::Tensor>& tensor) const {
   return tensor.has_value() and count(tensor.value());
-}
-
-bool SupportedDtypes::count(
-    const at::Tensor& tensor,
-    at::optional<at::ScalarType> type) const {
-  return m_dtypes.count(get_dtype_from_self(tensor, type, true));
 }
 } // namespace habana

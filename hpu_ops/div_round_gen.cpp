@@ -43,9 +43,7 @@ static bool DivCommonCheck(
     c10::optional<c10::string_view>&& rounding_mode) {
   auto promote_int_to_float = !rounding_mode;
   auto result_type = GetCommonDtype({self, other}, promote_int_to_float);
-  if (!promote_int_to_float && c10::isIntegralType(result_type, true)) {
-    return true;
-  }
+
   switch (result_type) {
     case torch::kBFloat16:
     case torch::kFloat32:

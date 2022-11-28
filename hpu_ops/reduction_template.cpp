@@ -75,43 +75,16 @@ at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
   const auto& stack = LazyOp<at::Tensor>::get_inputs();
   const torch::Tensor& self = stack_tensor(stack, 0);
 
-  HABANA_ASSERT(!is_outfn_, "Unexpected output op variant");
-  auto dtype_helper =
-      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
-          stack, c10::nullopt, get_dtype(stack, m_dtype_index), true);
-
   return at::native::create_reduction_result(
       self,
       get_dims(stack, m_dim_index),
       get_keepdim(stack, m_keepdim_index),
-      dtype_helper.get_result_dtype());
+      get_scalar_type());
 }
 
 template <>
 at::Tensor& ReductionFrontendTemplate<at::Tensor&>::get_result_overrideable() {
   throw std::invalid_argument("Tensor ref should not be created.");
-}
-
-template <>
-void ReductionFrontendTemplate<at::Tensor>::Validate() {
-  const auto& stack = LazyOp<at::Tensor>::get_inputs();
-  c10::optional<const at::IValue*> output = is_outfn_
-      ? c10::make_optional<const at::IValue*>(&stack.back())
-      : c10::nullopt;
-  auto dtype_helper =
-      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
-          stack, output, get_dtype(stack, m_dtype_index), true);
-}
-
-template <>
-void ReductionFrontendTemplate<at::Tensor&>::Validate() {
-  const auto& stack = LazyOp<at::Tensor&>::get_inputs();
-  c10::optional<const at::IValue*> output =
-      c10::make_optional<const at::IValue*>(
-          is_outfn_ ? &stack.back() : &stack.front());
-  auto dtype_helper =
-      habana_helpers::DTypeHelper::unary_op_with_optional_int_to_long_promotion(
-          stack, output, get_dtype(stack, m_dtype_index), true);
 }
 
 ReductionBackendTemplate::ReductionBackendTemplate(
@@ -267,11 +240,9 @@ static synapse_helpers::tensor FlattenInput(
     OpBackend* op,
     synapse_helpers::graph& graph,
     synTensor syn_in,
-    const std::vector<int64_t>& reshaped_self_sizes,
-    c10::optional<at::ScalarType> dtype) {
-  auto in_dtype = dtype ? *dtype : op->ScalarType();
+    const std::vector<int64_t>& reshaped_self_sizes) {
   return OpBackend::BuildReshape(
-      op, graph, syn_in, reshaped_self_sizes, in_dtype);
+      op, graph, syn_in, reshaped_self_sizes, op->ScalarType());
 }
 
 static void GuidOutCount(
@@ -282,14 +253,14 @@ static void GuidOutCount(
     std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     size_t num_outputs) {
   // TPC guids which returns two outputs
-  std::vector<std::string> multi_output_reduce_ops = {
+  static std::vector<std::string> multi_output_reduce_ops = {
       "reduce_min_fwd",
       "reduce_max_fwd",
       "reduce_Lp_fwd",
       "reduce_log_sum_exp_fwd",
       "reduce_log_sum_fwd"};
-  for (size_t i = 0; i < multi_output_reduce_ops.size(); i++) {
-    if (guid.find(multi_output_reduce_ops[i]) != std::string::npos) {
+  for (const auto& multi_output_reduce_op : multi_output_reduce_ops) {
+    if (guid.find(multi_output_reduce_op) != std::string::npos) {
       num_tpc_outputs = 2;
       // when caller needs only one output but TPC retuns two output
       if (num_outputs == 1)
@@ -307,12 +278,37 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     const at::IntArrayRef dims,
     bool keepdim,
     const std::string& guid,
+    std::vector<NodeAttr::NodeOutputAttr> output_attr) {
+  return HandleReductionDimAndKeepdim(
+      op,
+      graph,
+      self,
+      std::move(inputs),
+      dims,
+      keepdim,
+      guid,
+      output_attr,
+      [](const int ndim, size_t& size, int64_t index, c10::optional<at::Scalar>)
+          -> std::shared_ptr<void> {
+        PARAMS_STUB(ns_Reduction::Params);
+        auto reduction_dim = ndim - 1 - index;
+        params->reductionDimension = reduction_dim;
+        return params;
+      });
+}
+std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Tensor& self,
+    std::vector<synTensor> inputs,
+    const at::IntArrayRef dims,
+    bool keepdim,
+    const std::string& guid,
     std::vector<NodeAttr::NodeOutputAttr> output_attr,
     std::function<std::shared_ptr<
         void>(const int64_t, size_t&, int64_t, c10::optional<at::Scalar>)>
         fill_param_fn,
-    c10::optional<at::Scalar> ord,
-    c10::optional<at::ScalarType> in_dtype) {
+    c10::optional<at::Scalar> ord) {
   struct Reduction_Param {
     std::shared_ptr<void> param;
     size_t size{};
@@ -340,8 +336,7 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     std::vector<int64_t> reshaped_self_sizes;
     CombineDims(self, dim, keepdim, reshaped_self_sizes);
 
-    auto flat_input =
-        FlattenInput(op, graph, inputs[0], reshaped_self_sizes, in_dtype);
+    auto flat_input = FlattenInput(op, graph, inputs[0], reshaped_self_sizes);
     flatten_input.emplace_back(std::move(flat_input));
     orig_shape = reshaped_self_sizes;
     ndims = reshaped_self_sizes.size();
@@ -379,8 +374,8 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
   GuidOutCount(
       op, guid, param_list[0].shape, num_tpc_outputs, output_attr, num_outputs);
 
-  auto reduce_output_attrs =
-      [output_attr, param_list, num_tpc_outputs](std::vector<int64_t> outshape)
+  auto reduce_output_attrs = [output_attr, param_list, num_tpc_outputs](
+                                 const std::vector<int64_t>& outshape)
       -> std::vector<NodeAttr::NodeOutputAttr> {
     std::vector<NodeAttr::NodeOutputAttr> reduce_output_attrs{
         {outshape, output_attr[0].dtype}};

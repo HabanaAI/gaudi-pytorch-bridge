@@ -20,8 +20,6 @@ class SupportedDtypes {
   bool count(at::ScalarType type) const;
   bool count(const at::Tensor& tensor) const;
   bool count(const at::optional<at::Tensor>& tensor) const;
-  // for reduction, promotes integral types to long
-  bool count(const at::Tensor& tensor, at::optional<at::ScalarType> type) const;
 
  private:
   std::unordered_set<at::ScalarType> m_dtypes;
