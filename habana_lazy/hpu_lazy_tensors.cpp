@@ -1179,6 +1179,9 @@ void SetupExecutionFromRunningHash(
     graph_hash_builder.prepareInputs(stack_input_map, po_data.inputs);
     graph_hash_builder.invalidateDeviceTids(device);
     graph_hash_builder.reset();
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH)) {
+      po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+    }
   } else {
     po_data = HbLazyTensor::RunPostOrder(tensors, indices);
     // Prepare Input Stack map from post order for cache Miss case
@@ -1297,7 +1300,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           optimized_lazy_eager_key);
     }
   } else {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
       SetupExecutionFromRunningHash(device, hlexec, *tensors, indices, po_data);
     } else {
       po_data = HbLazyTensor::RunPostOrder(*tensors, indices);

@@ -104,12 +104,9 @@ void GraphHashBuilder::prepareInputsStackMap(
     auto uid = d->unique_id;
     auto itr = std::find(
         graph_input_stack_uids.begin(), graph_input_stack_uids.end(), uid);
-    if (itr != graph_input_stack_uids.end()) {
-      auto indx = itr - graph_input_stack_uids.begin();
-      graph_input_stack_uid_map.emplace_back(indx);
-    } else {
-      HABANA_ASSERT(0);
-    }
+    HABANA_ASSERT(itr != graph_input_stack_uids.end())
+    auto indx = itr - graph_input_stack_uids.begin();
+    graph_input_stack_uid_map.emplace_back(indx);
   }
 }
 

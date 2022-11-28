@@ -258,7 +258,9 @@ void HlExec::GetOrCreate(
   CreateNodeBcastMap(po_data.post_order);
 
   uint64_t unique_cntr = 0;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
     m_g_hash_ = m_fwd_graph_hash_;
   } else {
     m_g_hash_ = habana_lazy::LazyArgumentSpec(
@@ -274,6 +276,11 @@ void HlExec::GetOrCreate(
     unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
     m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
   }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALIDATE_GRAPH_RUNNING_HASH)) {
+    HABANA_ASSERT(m_g_hash_ == m_fwd_graph_hash_);
+  }
+
   auto ConstructJITGraph{
       // Create a JIT graph from the post order graph
       // Optimization is done during Create() itself
