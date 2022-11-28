@@ -1010,7 +1010,7 @@ build_pytorch_lightning_fork()
 {
     SECONDS=0
     local __scriptname=$(__get_func_name)
-    local __env_vars="PACKAGE_NAME=pytorch"
+    local __env_vars="PACKAGE_NAME=\"pytorch\""
     local __configure=""
     local __whl_params=" bdist_wheel"
     local __result
