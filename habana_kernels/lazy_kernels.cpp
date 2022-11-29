@@ -506,7 +506,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
     context->MarkTensorStatus(
         hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 
-    auto internal_tensor = hb_tensor.GetHbLazyTensorData().value();
+    auto internal_tensor = hb_tensor.GetHbLazyTensorData(false).value();
     internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
 
     // Actual Copy is done during JIT graph creation/lowering

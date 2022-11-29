@@ -620,7 +620,8 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   return po_data;
 }
 
-c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
+c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData(
+    bool sync_acc_thread) {
   PT_LAZY_TRACE;
   // Generate the tensor data if its not been generated yet
   // Forced for finishing the pending execution here
@@ -630,6 +631,10 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
   // Check if in-flight execution thread has data, then wait for its completion.
   if (IsExecutionInProgress()) {
     context->JoinPendingLaunchThread();
+  }
+
+  if (sync_acc_thread) {
+    habana_lazy::SyncAccThreadPool();
   }
 
   // If data isn't available then do step marker to get data.
@@ -668,6 +673,9 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   if (CurrentIrValue() && !CurrentTensorData()) {
     context->JoinPendingLaunchThread();
   }
+
+  habana_lazy::SyncAccThreadPool();
+
   if (currentIrValue && !CurrentTensorData()) {
     // Return tensor_data if it is graph input
     if (currentIrValue.mp_node->is_input() == true) {

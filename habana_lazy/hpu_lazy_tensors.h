@@ -230,7 +230,7 @@ class HbLazyTensor {
   void SetExecutionInProgress() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
-  c10::optional<at::Tensor> GetHbLazyTensorData();
+  c10::optional<at::Tensor> GetHbLazyTensorData(bool sync_acc_thread = true);
   c10::optional<at::Tensor> GetHbLazyTensorDataForMedia();
 
   // Static methods
