@@ -86,12 +86,13 @@ class graph(object):
         gc.collect()
 
         self.stream_ctx.__enter__()
-
+        self.capture_stream.is_capture = True
         self.hpu_graph.capture_begin()
 
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.hpu_graph.capture_end()
+        self.capture_stream.is_capture =False
         self.stream_ctx.__exit__(exc_type, exc_value, traceback)
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
@@ -651,3 +652,7 @@ class ModuleCacher(torch.nn.Module):
     def __del__(self):
         if self.verbose:
             self.log_stats()
+
+def is_current_stream_capturing():
+    current_stream = torch.hpu.current_stream()
+    return current_stream.is_capture

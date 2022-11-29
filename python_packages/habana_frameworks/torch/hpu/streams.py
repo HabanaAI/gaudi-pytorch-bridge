@@ -34,6 +34,7 @@ class Stream(object):
             self.device = device
             self.isHighPriorityStream = priority < 0
             self.stream = _hpu_C.get_stream(self.isHighPriorityStream,self.device)
+        self.is_capture = False
 
     def query(self):
         r"""Checks if all the work submitted  on the stream has been completed.
