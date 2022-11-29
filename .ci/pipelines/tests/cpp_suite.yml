@@ -25,7 +25,7 @@ testsMap:
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
     stages:
       Run CPP tests:
-        filter: -t cpp_tests
+        filter: -t cpp_tests --dut gaudi2
         envVars:
           LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
           CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
