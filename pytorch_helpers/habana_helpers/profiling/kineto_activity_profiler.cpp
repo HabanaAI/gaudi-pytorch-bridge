@@ -25,36 +25,26 @@ class GenericTraceActivitySink : public TraceSink {
   ~GenericTraceActivitySink() {}
 
   void addCompleteActivity(
-      const std::string_view& name,
-      const std::string_view&,
-      habana::ActivityType type,
-      int64_t device,
-      int64_t resource,
+      const Activity& activity,
+      const std::optional<RecipeInfo>&,
       uint64_t start,
       uint64_t end) override {
     GenericTraceActivity ev{
         defaultTraceSpan(),
-        mapHabanaTypeToKinetoType(type),
-        static_cast<std::string>(name)};
+        mapHabanaTypeToKinetoType(activity.type),
+        static_cast<std::string>(activity.name)};
     ev.startTime = start;
     ev.endTime = end;
-    ev.device = device;
-    ev.resource = resource;
-    if (type == habana::ActivityType::KERNEL) {
-      ev.addMetadata("device", ev.device);
+    ev.device = activity.device;
+    ev.resource = activity.resource;
+    if (activity.type == habana::ActivityType::KERNEL) {
+      ev.addMetadata("device", activity.device);
     }
     activities_.push_back(ev);
   }
 
-  void addActivity(
-      const std::string_view&,
-      const std::string_view&,
-      const std::unordered_map<std::string, std::string>&,
-      habana::ActivityType,
-      int64_t,
-      int64_t,
-      uint64_t,
-      bool) override {}
+  void addActivity(Activity, const std::optional<RecipeInfo>&, uint64_t, bool)
+      override {}
 
   void addDevice(const std::string_view& name, int64_t device) override {
     GenericTraceActivity name_meta{
@@ -110,6 +100,12 @@ class GenericTraceActivitySink : public TraceSink {
 
   void addDeviceDetails(
       const std::unordered_map<std::string, std::string>&) override {}
+
+  virtual void addFlowEvent(
+      const std::string_view&,
+      const std::string_view&,
+      const Flow&,
+      const Flow&) override {}
 
  private:
   const TraceSpan& defaultTraceSpan() {
