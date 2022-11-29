@@ -2825,7 +2825,6 @@ ge.Tensor:
   promote_to_common_type: [self, other]
 
 gelu:
-  custom_fill_params: FillGeluFwdParams
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -2836,7 +2835,6 @@ gelu:
   out_ids: [0]
 
 gelu_:
-  custom_fill_params: FillGeluFwdParams
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -2847,7 +2845,6 @@ gelu_:
   inplace_ids: [0]
 
 gelu.out:
-  custom_fill_params: FillGeluFwdParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -2856,7 +2853,6 @@ gelu.out:
   op_backend: Gelu
 
 gelu_backward:
-  custom_fill_params: FillGeluBwdParams
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -2867,7 +2863,6 @@ gelu_backward:
   out_ids: [0]
 
 gelu_backward.grad_input:
-  custom_fill_params: FillGeluBwdParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
