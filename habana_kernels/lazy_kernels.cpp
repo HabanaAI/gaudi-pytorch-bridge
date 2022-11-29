@@ -4796,7 +4796,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   metadata_indices = {};
   LazyOp<at::Tensor> k{
       op_name, vector_of_inputs, metadata_indices, {out_shape}};
-  return k.call();
+  RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
