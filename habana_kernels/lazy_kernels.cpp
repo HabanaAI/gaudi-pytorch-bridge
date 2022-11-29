@@ -513,7 +513,9 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
     context->copy_scalar_to_hpu_tensor_list.emplace_back(
         tensor, internal_tensor);
   };
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(append_to_batch_h2d_list, func, t)
+
+  func();
+  return t;
 }
 
 /**
@@ -1537,6 +1539,12 @@ Tensor add_tensor_hpu_lazy(
     const Scalar& alpha) {
   PT_LAZY_TRACE;
 
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+  }
+
   LazyBinaryOp<at::Tensor> k{
       "aten::add",
       {self, other, alpha},
@@ -1599,6 +1607,12 @@ Tensor& add_tensor_hpu_lazy_(
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
+
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+  }
 
   if (habana_lazy::IsAccThreadEnabled()) {
     // try to construct DTypeHelper to make sure,
