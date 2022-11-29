@@ -68,13 +68,11 @@ size_t GetNBytes(at::Tensor& tensor);
 // it, otherwise creates a new HbLazy tensor type with tensor as data.
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::Device& device = c10::kHPU,
-    bool handle_collective = true);
+    const c10::Device& device = c10::kHPU);
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
-    const c10::Device& device,
-    bool handle_collective = true);
+    const c10::Device& device);
 
 // Extracts the HbLazyTensor out of our version of at::Tensor. Throws an
 // exception if tensor is not an HbLazy tensor.
@@ -96,6 +94,8 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     bool get_updated = true,
     bool handle_collective = true,
     bool is_size_strides_update = true);
+
+void MarkTensorAsOutputFromCollectiveOp(const at::Tensor& tensor);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
 

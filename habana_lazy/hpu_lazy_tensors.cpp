@@ -426,6 +426,18 @@ std::string HbLazyTensor::FetchSBSTensorName() const {
   return name;
 }
 
+void HbLazyTensor::SetCollective() {
+  data()->collective = true;
+}
+
+void HbLazyTensor::ClearCollective() {
+  data()->collective = false;
+}
+
+bool HbLazyTensor::IsCollective() const {
+  return data()->collective;
+}
+
 const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
   const auto& tens = data()->cpu_tensor_data;
   if (tens != c10::nullopt) {
@@ -774,6 +786,10 @@ void HbLazyTensor::SyncTensorsGraph(
   for (size_t i = 0; i < tensors->size(); i++) {
     HbLazyTensor& t = (*tensors)[i];
     context->executing_tids.emplace_back(t.getTensorUniqueId());
+
+    // clear collective flag for all tensors so they won't cause insertion of
+    // StepMarker
+    t.ClearCollective();
   }
   SyncTensorsGraphInternal(
       tensors,

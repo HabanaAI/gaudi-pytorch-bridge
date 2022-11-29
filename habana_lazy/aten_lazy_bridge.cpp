@@ -242,17 +242,9 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   }
 
   // if producer is collective, mark step
-  if (handle_collective) {
-    const auto ir_value = hl_t.CurrentIrValue();
-    if (ir_value && ir_value.mp_node) {
-      const auto& ir_op = ir_value.mp_node->op();
-      PT_LAZY_DEBUG(
-          "op: ", ir_op.toQualString(), " ir value: ", ir_value.ToString());
-      if (IsCollective(ir_op)) {
-        PT_LAZY_DEBUG("step marker due to collective op output request");
-        HbLazyTensor::StepMarker({});
-      }
-    }
+  if (handle_collective && hl_t.IsCollective()) {
+    PT_LAZY_DEBUG("step marker due to collective op output request");
+    HbLazyTensor::StepMarker({});
   }
 
   return hl_t;
@@ -302,13 +294,12 @@ size_t GetNBytes(at::Tensor& tensor) {
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::Device& device,
-    bool handle_collective) {
+    const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!tensor.defined()) {
     return HbLazyTensor(device);
   }
-  auto p_hb_tensor = TryGetHbLazyTensor(tensor, true, handle_collective);
+  auto p_hb_tensor = TryGetHbLazyTensor(tensor);
   HbLazyTensor hl_tensor;
   if (p_hb_tensor) {
     hl_tensor = *p_hb_tensor;
@@ -331,25 +322,31 @@ HbLazyTensor GetHbLazyTensor(
   return *hb_tensor;
 }
 
-int64_t GetHbLazyTensorId(const at::Tensor& tensor, bool get_updated, bool) {
+int64_t GetHbLazyTensorId(
+    const at::Tensor& tensor,
+    bool get_updated,
+    bool handle_collective) {
   HABANA_ASSERT(
       tensor.device().type() == at::kHPU,
       "Got a non-HPU tensor, expecting an HPU tensor");
-  auto hb_tensor = TryGetHbLazyTensor(tensor, get_updated, false);
+  auto hb_tensor = TryGetHbLazyTensor(tensor, get_updated, handle_collective);
   HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
   return hb_tensor->getTensorUniqueId();
 }
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
-    const c10::Device& device,
-    bool handle_collective) {
+    const c10::Device& device) {
   PT_LAZY_TRACE;
   if (!IsDefined(tensor)) {
     return HbLazyTensor();
   }
-  auto hb_tensor = TryGetHbLazyTensor(*tensor, true, handle_collective);
+  auto hb_tensor = TryGetHbLazyTensor(*tensor);
   return hb_tensor ? *hb_tensor : HbLazyTensor::Create(*tensor, device);
+}
+
+void MarkTensorAsOutputFromCollectiveOp(const at::Tensor& tensor) {
+  GetHbLazyTensor(tensor).SetCollective();
 }
 
 bool IsHbLazyTensor(const at::Tensor& tensor) {

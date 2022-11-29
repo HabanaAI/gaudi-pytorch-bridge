@@ -134,7 +134,8 @@ class LazyOp {
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
+        m_collective_op(IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
@@ -147,7 +148,8 @@ class LazyOp {
         m_metadata_indices{},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
+        m_collective_op(IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
@@ -161,7 +163,8 @@ class LazyOp {
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
+        m_collective_op(IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     if (out_shapes_fn) {
       m_out_shapes = out_shapes_fn(inputs);
@@ -178,7 +181,8 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(
-            m_node ? m_node->op().toQualString() : "")} {
+            m_node ? m_node->op().toQualString() : "")},
+        m_collective_op(IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -197,7 +201,8 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(
-            m_node ? m_node->op().toQualString() : "")} {
+            m_node ? m_node->op().toQualString() : "")},
+        m_collective_op(IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -212,7 +217,8 @@ class LazyOp {
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_out_index{},
         m_out_meta_tensors{output_meta_tensors},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
+        m_collective_op(IsCollective(m_symbol)) {
     set_inputs(inputs);
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     for (const auto& out : m_out_meta_tensors) {
@@ -230,7 +236,8 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
         m_scalar_type(scalar_type),
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())} {
+        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
+        m_collective_op(IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
@@ -259,10 +266,11 @@ class LazyOp {
     int i = 0;
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
+    bool is_collective = m_collective_op;
     tensors.reserve(std::tuple_size<T>::value);
     habana::for_each_in_tuple(
-        results, [&hl_results, &tensors](const auto& result) {
-          auto hl_result = GetHbLazyTensor(result);
+        results, [&hl_results, &tensors, &is_collective](const auto& result) {
+          auto hl_result = GetHbLazyTensor(result, true, !is_collective);
           tensors.push_back(result);
           hl_results.push_back(hl_result);
         });
@@ -366,7 +374,7 @@ class LazyOp {
         results,
         [&i, &hl_results, &tensors, context, out_shapes, this](
             const auto& result) {
-          auto hl_result = GetHbLazyTensor(result);
+          auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
           tensors.push_back(result);
           hl_results.push_back(hl_result);
           if (!out_shapes.empty()) {
@@ -437,7 +445,7 @@ class LazyOp {
     const auto& t = get_inputs().at(m_out_index).toTensor();
     const auto& result =
         empty_hpu_lazy(1, t.options(), t.suggest_memory_format(), false);
-    auto hl_result = GetHbLazyTensor(result);
+    auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     hl_result.IrSetNode(node);
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
@@ -454,7 +462,7 @@ class LazyOp {
     int i = 0;
 
     for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor);
+      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
       updateDstDependencies(tensor);
       hl_result.IrSetNode(node, i++);
       context->MarkTensorStatus(
@@ -475,7 +483,7 @@ class LazyOp {
     int i = 0;
 
     for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor);
+      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
       updateDstDependencies(tensor);
       hl_result.IrSetNode(node, i++);
       context->MarkTensorStatus(
@@ -495,7 +503,7 @@ class LazyOp {
     int i = 0;
 
     for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor);
+      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
       hl_result.IrSetNode(node, i++);
     }
 
@@ -515,7 +523,7 @@ class LazyOp {
     int i = 0;
 
     for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor);
+      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
       hl_result.IrSetNode(node, i++);
     }
     runSBS(tensors);
@@ -534,7 +542,7 @@ class LazyOp {
     }
 
     const auto& result = get_result();
-    auto hl_result = GetHbLazyTensor(result);
+    auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
       const auto& node = create_node();
@@ -563,7 +571,7 @@ class LazyOp {
           info_to_lazy_backend->get_is_optimized_lazy_eager();
     }
 
-    auto hl_result = GetHbLazyTensor(self);
+    auto hl_result = GetHbLazyTensor(self, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
       const auto& node = create_node();
@@ -609,7 +617,7 @@ class LazyOp {
     bool is_view = false;
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
-      auto hl_t = GetHbLazyTensor(t);
+      auto hl_t = GetHbLazyTensor(t, true, !m_collective_op);
 
       // if it is base tensor, use the most recent version else check if
       // it is a view
@@ -701,7 +709,7 @@ class LazyOp {
     }
 
     const auto& node = create_node();
-    hl_self = GetHbLazyTensor(out_t);
+    hl_self = GetHbLazyTensor(out_t, true, !m_collective_op);
     hl_self.IrSetNode(node);
 
     flush_op(1);
@@ -723,7 +731,7 @@ class LazyOp {
           info_to_lazy_backend->get_is_optimized_lazy_eager();
     }
     auto context = habana_lazy_executor.getDeviceExecutionContext();
-    auto hl_self = GetHbLazyTensor(self);
+    auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
 
     auto id = hl_self.getTensorUniqueId();
     bool is_self_view = false;
@@ -739,7 +747,7 @@ class LazyOp {
     if (is_self_view == false) {
       // use most recent version of the tensor if applicable
       auto self_updated = HbLazyTensorViews::get_recent_base_tensor(self);
-      hl_self = GetHbLazyTensor(self_updated);
+      hl_self = GetHbLazyTensor(self_updated, true, !m_collective_op);
 
       // identify the inplace index and replace it with updated version
       // m_inputs will be used in create_node()
@@ -844,7 +852,7 @@ class LazyOp {
       const at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    auto hl_self = GetHbLazyTensor(self);
+    auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
     updateDstDependencies(self);
     const auto& node = create_node();
     hl_self.IrSetNode(node);
@@ -1101,7 +1109,7 @@ class LazyOp {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
           HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-          auto val = GetHbLazyTensor(t).GetIrValue();
+          auto val = GetHbLazyTensor(t, true, !m_collective_op).GetIrValue();
           if (!is_optimized_lazy_eager) {
             values.emplace_back(val);
             input_pt_vec.emplace_back(t);
@@ -1149,14 +1157,16 @@ class LazyOp {
           } else {
             const auto& t = li.toTensor();
             if (!is_optimized_lazy_eager) {
-              opt_tensors.emplace_back(GetHbLazyTensor(t).GetIrValue());
+              opt_tensors.emplace_back(
+                  GetHbLazyTensor(t, true, !m_collective_op).GetIrValue());
               list_input_pt_vec.emplace_back(t);
             } else {
               // Taking care of duplicate values here itself for optimized
               // lazy eager. In normal flow it is taken care later in the
               // flow. To Do
               // - To make it same for normal flow as well.
-              auto val = GetHbLazyTensor(t).GetIrValue();
+              auto val =
+                  GetHbLazyTensor(t, true, !m_collective_op).GetIrValue();
               auto it = std::find(values.begin(), values.end(), val);
               if (it == values.end()) {
                 values.emplace_back(val);
@@ -1402,9 +1412,10 @@ class LazyOp {
       false; // bool for changed input shape for _out ops (non-tuple input)
   std::vector<bool> m_shape_was_changed_in_tuple =
       {}; // vector of bools for any changed shapes in input tuple for _out ops
-          // (tuple input)
+  // (tuple input)
+  bool m_collective_op = false;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {
-    auto hl_tensor = TryGetHbLazyTensor(t);
+    auto hl_tensor = TryGetHbLazyTensor(t, true, !m_collective_op);
     if (hl_tensor) {
       // To Do - To always use the front end tensor for key calculation as it
       // might be problematic to use backend internal tensor while pipelining.

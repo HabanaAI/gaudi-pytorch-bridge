@@ -586,7 +586,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
-      GetOrCreateHbLazyTensor(src_updated, src_updated.device(), false);
+      GetOrCreateHbLazyTensor(src_updated, src_updated.device());
 
   /* We can't create a long/double target in the device. Even a cast will
   not work as these data types are not available within the device. The
@@ -6690,6 +6690,9 @@ at::Tensor& allreduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(tensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::allreduce_", {tensor, reduce_op, comm_id}, {1, 2}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allreduce_, k, tensor)
@@ -6701,6 +6704,9 @@ at::Tensor& reduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(tensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::reduce_",
       {tensor, dst_rank, reduce_op, comm_id},
@@ -6715,6 +6721,9 @@ at::Tensor& alltoall_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(outputTensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::alltoall_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(alltoall_out, k, outputTensor)
@@ -6725,6 +6734,9 @@ at::Tensor& allgather_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(outputTensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::allgather_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allgather_out, k, outputTensor)
@@ -6736,6 +6748,9 @@ at::Tensor& reduce_scatter_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(outputTensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::reduce_scatter_out",
       {inputTensor, reduce_op, comm_id, outputTensor},
@@ -6751,6 +6766,9 @@ at::Tensor& send_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(tensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::send_", {tensor, dst_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(send_, k, tensor)
@@ -6762,6 +6780,9 @@ at::Tensor& recv_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(tensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::recv_", {tensor, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
