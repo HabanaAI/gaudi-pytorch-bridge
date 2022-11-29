@@ -16,8 +16,8 @@ sizes_vec AddROutshape(const at::Stack& stack) {
   auto vec1 = stack_tensor(stack, 1);
   auto vec2 = stack_tensor(stack, 2);
   TORCH_CHECK(
-      self.dim() == 2 || self.dim() == 1,
-      "addr: Expected self to be 1-D or 2-D, but got ",
+      self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
+      "addr: Expected self to be 0-D, 1-D or 2-D, but got ",
       self.dim(),
       "-D");
   TORCH_CHECK(vec1.dim() == 1, "addr: Expected vec1 to be 1-D");
