@@ -7,6 +7,5 @@ config:
     - repository: pytorch-integration
   osBuild:
     debian10.10: "on"
-    ubuntu22.04: 'off'
   dependantComponents:
     - component: deepspeed_fork
