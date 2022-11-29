@@ -30,12 +30,11 @@ unsigned PermuteTensors::m_permute_counter = 0;
 
 void increasePermuteCount(torch::Tensor& weight) {
   HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
-  if (hb_tensor.GetHbLazyTensorData().has_value()) {
-    auto hb_data = hb_tensor.GetHbLazyTensorData().value();
-    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
-    hb_impl->increasePermutedCounter();
-  }
+  auto hb_data{hb_tensor.EvaluateTensorData()};
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  hb_impl->increasePermutedCounter();
 }
+
 void PermuteTensors::permuteWeight(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   TORCH_CHECK(
@@ -59,17 +58,16 @@ void PermuteTensors::permuteWeight(torch::Tensor& weight) {
 void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
-  if (hb_tensor.GetHbLazyTensorData().has_value()) {
-    auto hb_data = hb_tensor.GetHbLazyTensorData().value();
-    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
-    if (hb_impl->getPermutedCounter() >=
-        GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD)) {
-      PT_LAYOUTS_DEBUG(
-          "Reached threshold permutations of ",
-          GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD));
-      return;
-    }
+  auto hb_data{hb_tensor.EvaluateTensorData()};
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
+  if (hb_impl->getPermutedCounter() >=
+      GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD)) {
+    PT_LAYOUTS_DEBUG(
+        "Reached threshold permutations of ",
+        GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD));
+    return;
   }
+
   auto dim = weight.dim();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE)) {
     if (dim == 4 || dim == 5) {
@@ -162,12 +160,8 @@ MemoryPermutation PermuteTensors::getMemoryPermutation(
       "getMemoryPermutation tensor should be HPU");
 
   HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
-  auto hb_data = hb_tensor.GetHbLazyTensorData();
-  if (!hb_data.has_value()) {
-    return {};
-  }
-  auto hb_data_val = hb_data.value();
-  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data_val);
+  auto hb_data = hb_tensor.EvaluateTensorData();
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
   return hb_impl->GetMemoryPermutation();
 }
 
@@ -180,7 +174,7 @@ void PermuteTensors::setMemoryPermutation(
       "setMemoryPermutation tensor should be HPU");
 
   HbLazyTensor hb_tensor = GetHbLazyTensor(tensor);
-  auto hb_data = hb_tensor.GetHbLazyTensorData().value();
+  auto hb_data = hb_tensor.EvaluateTensorData();
   auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] Setting permute on HbInternal address : ",

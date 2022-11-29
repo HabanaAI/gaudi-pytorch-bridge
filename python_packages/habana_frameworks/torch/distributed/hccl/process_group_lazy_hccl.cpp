@@ -397,8 +397,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
 
 void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
-  auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
-  auto self_internal_tesor = self_hb_tensor_data.value();
+  auto self_internal_tesor = self_hb_tensor.EvaluateTensorData();
   std::vector<uint8_t> permutation;
   auto hb_weight_impl =
       habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);

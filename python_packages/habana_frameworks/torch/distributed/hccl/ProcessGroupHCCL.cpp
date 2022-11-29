@@ -1313,11 +1313,10 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
   std::vector<habana_lazy::HbInternalTensorImpl*> permuted_impls;
   for (auto& tensor : tensors) {
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
-    auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
-    auto self_internal_tesor = self_hb_tensor_data.value();
+    auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
     std::vector<uint8_t> permutation;
     auto hb_weight_impl =
-        habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+        habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
     TORCH_CHECK(
         hb_weight_impl != nullptr,
         "Tensor has to have backend impl before send op");
@@ -1354,10 +1353,9 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
     std::vector<at::Tensor>& tensors) {
   for (auto& tensor : tensors) {
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
-    auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
-    auto self_internal_tesor = self_hb_tensor_data.value();
+    auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
     auto hb_weight_impl =
-        habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+        habana_lazy::GetHbInternalTensorImpl(self_internal_tensor);
     PT_DISTRIBUTED_DEBUG(
         "recieved tensor: ",
         self_hb_tensor.getTensorUniqueId(),

@@ -506,7 +506,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
     context->MarkTensorStatus(
         hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
 
-    auto internal_tensor = hb_tensor.GetHbLazyTensorData(false).value();
+    auto internal_tensor = hb_tensor.EvaluateTensorData(false);
     internal_tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
 
     // Actual Copy is done during JIT graph creation/lowering
@@ -736,7 +736,7 @@ Tensor as_strided_layout_hpu_lazy(
   return result;
 }
 
-c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
+at::Tensor handleWeightTensorLayout(const Tensor& src) {
   PT_LAZY_TRACE;
   print_tensor_debug(src);
   /*  Synapse Layout nomenclature:
@@ -761,8 +761,8 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
   auto sizes = src.sizes().vec();
   auto is_5d_tensor = src.dim() == 5;
   auto hb_tensor = GetHbLazyTensor(src);
-  auto tensor_data = hb_tensor.GetHbLazyTensorData();
-  auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(*tensor_data);
+  auto tensor_data = hb_tensor.EvaluateTensorData();
+  auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(tensor_data);
 
   // weights HWCK -> NCHW
   if ((hl_tensor_data->GetTensorLayout() == habana_lazy::LayoutFormat::kHWCK) &&
@@ -794,7 +794,7 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
            LayoutFormatWithDepthDims::C,
            LayoutFormatWithDepthDims::D});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
-      tensor_data = hb_tensor.GetHbLazyTensorData();
+      tensor_data = hb_tensor.EvaluateTensorData();
     } else {
       auto new_strides =
           CalculateStrides(swapped_sizes, c10::MemoryFormat::Contiguous);
@@ -809,21 +809,10 @@ c10::optional<at::Tensor> handleWeightTensorLayout(const Tensor& src) {
            LayoutFormatDims::N,
            LayoutFormatDims::C});
       HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
-      tensor_data = hb_tensor.GetHbLazyTensorData();
+      tensor_data = hb_tensor.EvaluateTensorData();
     }
   }
   return tensor_data;
-}
-
-void validateHbTensorData(HbLazyTensor& hb_tensor) {
-  auto hb_tensor_data = hb_tensor.GetHbLazyTensorData();
-  if (!hb_tensor_data) {
-    TORCH_CHECK(
-        false, "Habana Lazy: no storage tensor attached to lazy tensor");
-  }
-  if (!hb_tensor_data.value().has_storage()) {
-    TORCH_CHECK(false, "Habana Lazy: lazy tensor doesn't has a storage");
-  }
 }
 
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -853,14 +842,12 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
-  validateHbTensorData(hb_tensor);
+  hb_tensor.EvaluateTensorData();
 
   // If _src is a lazy tensor make sure the execution till the point of _src
   // getting flled has finished before we start copying
   auto tensor_data = handleWeightTensorLayout(_src);
 
-  TORCH_CHECK(
-      tensor_data, "Trying to copy from lazy tensor with no backend memory");
   auto type = hb_tensor.getTensorOriginalType();
   // This path is disabled for now, when we return back from Habana to
   // CPU we can check if the original tensor was long/double , if soe we
@@ -872,7 +859,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // memory format can be incorrecly mapped to ch last or ch last 3d. Refer:
   // LazyBasicKernelTest.noncontiguous. Use backend tensors memory format to
   // correctly identify the memory format
-  self = self.contiguous(tensor_data.value().suggest_memory_format());
+  self = self.contiguous(tensor_data.suggest_memory_format());
   if (type != typeMetaToScalarType(_src.dtype())) {
     // If we need to upscale the CPU tensor using the .to for now
     // It rebinds the self reference to the new tensor
@@ -881,10 +868,10 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     PT_LAZY_DEBUG(
         "WARNING: We are hitting a case in H2D where the PyTorch tensor original data types mismatch.");
     self = self.to(_src.dtype());
-    self = copy_hpu_(self, tensor_data.value(), non_blocking);
+    self = copy_hpu_(self, tensor_data, non_blocking);
     self = self.to(type);
   } else {
-    self = copy_hpu_(self, tensor_data.value(), non_blocking);
+    self = copy_hpu_(self, tensor_data, non_blocking);
   }
   // No need to CreateHbLazyTensor for self as it is on CPU
   habana_lazy::PermuteTensors::handlePermutedTensor(_src, self, non_blocking);
@@ -1025,9 +1012,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // We need to mark this tensor as executed
   // As this will be an input coming from host side, its doesnt need further
   // execution and is ready for consumption as input
-  auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
   // This is the internal tensor, it isn't a lazy tensor
-  auto self_internal_tesor = self_hb_tensor_data.value();
+  auto self_internal_tesor{self_hb_tensor.EvaluateTensorData()};
 
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
@@ -1819,7 +1805,7 @@ Tensor convolution_hpu_lazy(
     HbLazyTensor src_hb_tensor =
         GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
     if (src_hb_tensor.isStorageAttached()) {
-      auto at_internal_tensor = *(src_hb_tensor.GetHbLazyTensorData());
+      auto at_internal_tensor = src_hb_tensor.EvaluateTensorData();
       if (at_internal_tensor.has_storage()) {
         auto hb_tensor =
             habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
@@ -6029,8 +6015,8 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
     // if there is a view, we need to sync before accessing the tensor_data.
     // This is because we skip view outputs in stepmarker
     hb_tensor = GetHbLazyTensor(HbLazyTensorViews::HandleViewsD2H(self));
-    auto tensor_data = hb_tensor.GetHbLazyTensorData();
-    out = habana_helpers::_local_scalar_dense_internal(tensor_data.value());
+    auto tensor_data = hb_tensor.EvaluateTensorData();
+    out = habana_helpers::_local_scalar_dense_internal(tensor_data);
   } else {
     out = habana_helpers::_local_scalar_dense_internal(self);
   }
@@ -6914,7 +6900,7 @@ Tensor linear_non2d_hpu_lazy(
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     auto hb_tensor = GetHbLazyTensor(weight);
     if (hb_tensor.isStorageAttached()) {
-      auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
+      auto at_internal_tensor = hb_tensor.EvaluateTensorData();
       if (at_internal_tensor.has_storage()) {
         auto internal_tensor =
             habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
@@ -6925,7 +6911,7 @@ Tensor linear_non2d_hpu_lazy(
     if (bias.defined()) {
       auto hb_tensor = GetHbLazyTensor(bias);
       if (hb_tensor.isStorageAttached()) {
-        auto at_internal_tensor = *(hb_tensor.GetHbLazyTensorData());
+        auto at_internal_tensor = hb_tensor.EvaluateTensorData();
         if (at_internal_tensor.has_storage()) {
           auto internal_tensor =
               habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);

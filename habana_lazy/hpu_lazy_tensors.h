@@ -230,7 +230,13 @@ class HbLazyTensor {
   void SetExecutionInProgress() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
-  c10::optional<at::Tensor> GetHbLazyTensorData(bool sync_acc_thread = true);
+  /* Produces underlying data Tensor.
+   * If data tensor is currently being evaluated then this function blocks until
+   * this calculation is completed. If this HbLazyTensor is not yet calculated,
+   * this function issues a MarkStep.
+   */
+  at::Tensor EvaluateTensorData(bool sync_acc_thread = true);
+  void ValidateTensorData() const;
   c10::optional<at::Tensor> GetHbLazyTensorDataForMedia();
 
   // Static methods

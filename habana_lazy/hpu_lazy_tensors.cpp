@@ -433,6 +433,8 @@ c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   if (context != nullptr) {
     auto status = context->getTensorExecutionStatus(getDataPtr());
     if (status == kEXECUTION_COMPLETE || status == kINPUT) {
+      // brave assert that when kInput then IR is Input
+      // actually we can assert
       return data()->tensor_data;
     } else {
       return c10::nullopt;
@@ -620,8 +622,16 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   return po_data;
 }
 
-c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData(
-    bool sync_acc_thread) {
+void HbLazyTensor::ValidateTensorData() const {
+  auto tensor_data{data()->tensor_data};
+  TORCH_CHECK(
+      tensor_data, "Habana Lazy: no storage tensor attached to lazy tensor");
+  TORCH_CHECK(
+      tensor_data->has_storage(),
+      "Habana Lazy: lazy tensor doesn't has a storage");
+}
+
+at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   PT_LAZY_TRACE;
   // Generate the tensor data if its not been generated yet
   // Forced for finishing the pending execution here
@@ -649,7 +659,8 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData(
       applyPendingGraph();
     }
   }
-  return data()->tensor_data;
+  ValidateTensorData();
+  return data()->tensor_data.value();
 }
 
 /*

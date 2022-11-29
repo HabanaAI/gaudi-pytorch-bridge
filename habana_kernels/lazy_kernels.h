@@ -45,7 +45,7 @@ at::Tensor empty_as_strided_lazy(
 
 void print_tensor_debug(const torch::Tensor& src);
 
-c10::optional<at::Tensor> handleWeightTensorLayout(const at::Tensor& src);
+at::Tensor handleWeightTensorLayout(const at::Tensor& src);
 
 ir::NodePtr create_as_strided_node(
     const at::Tensor& self,
