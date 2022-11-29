@@ -42,8 +42,8 @@ TEST_F(LazyCustomKernelTest, OptSparseSgdCustomOp) {
   auto I1 = torch::relu(out1);
   auto I2 = torch::relu(out2);
 
-  auto hl_weight = GetHbLazyTensor(out1);
-  auto hl_moment = GetHbLazyTensor(out2);
+  auto hl_weight = SyncAndGetHbLazyTensor(out1);
+  auto hl_moment = SyncAndGetHbLazyTensor(out2);
   std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
   std::vector<int> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
@@ -282,8 +282,8 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto I1 = torch::relu(out1);
   auto I2 = torch::relu(out2);
 
-  auto hl_weight = GetHbLazyTensor(out1);
-  auto hl_moment = GetHbLazyTensor(out2);
+  auto hl_weight = SyncAndGetHbLazyTensor(out1);
+  auto hl_moment = SyncAndGetHbLazyTensor(out2);
   std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
   std::vector<int> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);

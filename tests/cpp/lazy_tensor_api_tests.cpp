@@ -40,7 +40,7 @@ TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
 TEST_F(LazyTensorAPITest, EmptyStorage) {
   auto a = torch::empty(4, "hpu");
   habana_lazy::HbLazyTensor::StepMarker();
-  ASSERT_TRUE(GetHbLazyTensor(a).CurrentTensorData() != nullopt);
+  ASSERT_TRUE(SyncAndGetHbLazyTensor(a).CurrentTensorData() != nullopt);
 }
 
 TEST_F(LazyTensorAPITest, DataPtr) {

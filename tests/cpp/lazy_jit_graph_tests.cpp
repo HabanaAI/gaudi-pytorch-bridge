@@ -36,7 +36,7 @@ TEST_F(LazyJITTest, CreateGraph) {
   Scalar alpha = 1.0f, beta = 1.0f;
   auto result = torch::add(tensor_in1, tensor_in2, alpha);
   auto result2 = torch::add(result, tensor_in2, beta);
-  auto hl_result = GetHbLazyTensor(result2);
+  auto hl_result = SyncAndGetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -116,8 +116,10 @@ TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
 
-  auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
-  auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
+  auto hl_result1 =
+      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out1));
+  auto hl_result2 =
+      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out2));
   std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
@@ -164,8 +166,10 @@ TEST_F(LazyJITTest, ExecuteGraphCustomAdagrad) {
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
 
-  auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
-  auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
+  auto hl_result1 =
+      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out1));
+  auto hl_result2 =
+      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out2));
   std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 

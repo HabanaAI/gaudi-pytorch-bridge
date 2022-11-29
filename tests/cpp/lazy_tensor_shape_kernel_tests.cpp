@@ -175,7 +175,7 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   torch::Tensor hOut = hA.permute({1, 0});
   torch::Tensor Out = A.permute({1, 0});
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -201,7 +201,7 @@ TEST_F(LazyTensorShapeKernelTest, Permute6DTest) {
   torch::Tensor hOut = hA.permute({1, 0, 2, 5, 3, 4});
   torch::Tensor Out = A.permute({1, 0, 2, 5, 3, 4});
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -214,7 +214,7 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest7D) {
   torch::Tensor hOut = hA.permute({2, 0, 1, 6, 3, 4, 5});
   torch::Tensor Out = A.permute({2, 0, 1, 6, 3, 4, 5});
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -227,7 +227,7 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest8D) {
   torch::Tensor hOut = hA.permute({1, 6, 7, 0, 5, 2, 3, 4});
   torch::Tensor Out = A.permute({1, 6, 7, 0, 5, 2, 3, 4});
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -239,7 +239,7 @@ TEST_F(LazyTensorShapeKernelTest, TTest) {
   torch::Tensor hOut = torch::t(hA);
   torch::Tensor Out = torch::t(A);
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -254,7 +254,7 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
 
   Tensor h_out = torch::select(h_a, dim, index);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(h_out)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto h_cout = h_out.to(torch::kCPU);
@@ -338,7 +338,7 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
 
   Tensor h_out = torch::slice(h_a, dim, start_index, end, step);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(h_out)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto h_cout = h_out.to(torch::kCPU);
@@ -361,7 +361,7 @@ TEST_F(LazyTensorShapeKernelTest, SliceTestZeroDimSize) {
   Tensor h_aa = torch::add(h_a, h_a);
   Tensor h_out = torch::slice(h_aa, dim, start_index, end, step);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(h_out)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto h_cout = h_out.to(torch::kCPU);
@@ -377,7 +377,8 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   std::array<int64_t, 2> size_array = {-1, 48};
   c10::IntArrayRef new_size = size_array;
   auto result = torch::_unsafe_view(tHabanain, new_size);
-  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(result));
+  auto hl_result =
+      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(result));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<HbLazyTensor> tensors = {*hl_result};
   HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -531,7 +532,7 @@ TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
   torch::Tensor hOut = hA.expand({3, 4}, false);
   torch::Tensor Out = A.expand({3, 4}, false);
 
-  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  std::vector<HbLazyTensor> hl_tensors = {SyncAndGetHbLazyTensor(hOut)};
   HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);

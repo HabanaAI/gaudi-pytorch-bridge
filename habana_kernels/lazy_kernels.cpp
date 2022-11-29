@@ -672,7 +672,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::NoAccThread no_acc_thread;
   auto dims_vec = dims_in.vec();
   for (unsigned i = 0; i < dims_in.size(); i++) {
     dims_vec[i] = at::maybe_wrap_dim(dims_in[i], self.dim(), true);
@@ -1750,7 +1750,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass() &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
-    habana_lazy::SyncAccThreadPool();
+    habana_lazy::NoAccThread no_acc_thread;
     if (self.dim() == 4 || self.dim() == 5) {
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       auto layout_format = hb_tensor.GetTensorLayout();
@@ -1824,7 +1824,7 @@ Tensor convolution_hpu_lazy(
 
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass()) {
-    habana_lazy::SyncAccThreadPool();
+    habana_lazy::NoAccThread no_acc_thread;
     weight_hpu = weight.to(c10::kHPU, true);
     HbLazyTensor src_hb_tensor =
         GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
@@ -6362,7 +6362,7 @@ Tensor habana_nms_hpu_lazy(
     const Tensor& scores,
     float iou_threshold) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::NoAccThread no_acc_thread;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NMS_USING_BNMS_CGUID)) {
     auto options = scores.options();
@@ -6477,7 +6477,7 @@ Tensor batched_nms_hpu_lazy(
     const Tensor& indexes,
     float iou_threshold) {
   PT_LAZY_TRACE;
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::NoAccThread no_acc_thread;
 
   if (boxes.numel() == 0 && scores.numel() == 0 && indexes.numel() == 0) {
     auto shape = DimVector{0};

@@ -417,7 +417,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SigmoidBwdTest) {
   torch::Tensor tHabanaI = input_tensor.to(torch::kHPU);
   torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
   torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   auto hout_lazy = hout_backward.to(torch::kCPU);
 

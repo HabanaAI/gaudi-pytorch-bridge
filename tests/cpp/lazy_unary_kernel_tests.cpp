@@ -38,7 +38,7 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
 
   auto hresult = at::threshold_backward(hgrad, hself, scal_value);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hresult)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hresult)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout = hresult.to(torch::kCPU);
@@ -121,7 +121,7 @@ TEST_F(LazyUnaryKernelTest, FloorInplaceTest) {
   hA = hA.floor_();
   auto result = torch::floor(hA);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -151,7 +151,7 @@ TEST_F(LazyUnaryKernelTest, LogInplaceTest) {
   hA = hA.log_();
   auto result = torch::log_(hA);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -181,7 +181,7 @@ TEST_F(LazyUnaryKernelTest, Log2InplaceTest) {
   hA = hA.log2_();
   auto result = torch::log2_(hA);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -225,7 +225,7 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
   torch::Tensor tHabanaI = input_tensor.to(torch::kHPU);
   torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
   torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   auto hout_lazy = hout_backward.to(torch::kCPU);
 
@@ -390,7 +390,7 @@ TEST_F(LazyUnaryKernelTest, SignInplaceTest) {
   hA = hA.sign_();
   auto result = torch::sign(hA);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -422,7 +422,7 @@ TEST_F(LazyUnaryKernelTest, SgnInplaceTest) {
   hA = hA.sign_();
   auto result = torch::sgn(hA);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -583,7 +583,7 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hGrad = grad.to(torch::kHPU);
   torch::Tensor hout = torch::tanh_backward(hGrad, hA);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   auto hout_lazy = hout.to(torch::kCPU);
 

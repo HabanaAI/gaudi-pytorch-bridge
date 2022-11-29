@@ -44,7 +44,7 @@ TEST_F(LazyMiscTest, DISABLED_CloneIRTest) {
   tensor_in1 = tensor_in1.relu();
   tensor_in1 = tensor_in1.clone();
   tensor_in1 = tensor_in1.relu();
-  auto hl_result = GetHbLazyTensor(tensor_in1);
+  auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -91,7 +91,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
     tensor_in1 = tensor_in1.add_(1);
     auto tensor_in2 = tensor_in1.relu();
 
-    auto hl_result = GetHbLazyTensor(tensor_in2);
+    auto hl_result = SyncAndGetHbLazyTensor(tensor_in2);
     std::vector<HbLazyTensor> tensors = {hl_result};
     std::vector<int> indices = {0};
 

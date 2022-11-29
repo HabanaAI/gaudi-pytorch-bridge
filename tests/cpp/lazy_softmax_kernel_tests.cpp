@@ -21,7 +21,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
   int dim = 0;
   torch::Tensor hout = torch::log_softmax(hinput, dim);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout1 = hout.to(torch::kCPU);
@@ -89,7 +89,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   auto hout_backward = torch::_log_softmax_backward_data(
       hgrad, houtput, dim, hinput.scalar_type());
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout2_back = hout_backward.to(torch::kCPU);
@@ -106,7 +106,7 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTest) {
   int dim = 0;
   torch::Tensor hout = torch::_softmax(hinput, dim, false);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout1 = hout.to(torch::kCPU);
@@ -129,7 +129,7 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
   auto hout_backward =
       torch::_softmax_backward_data(hgrad, houtput, dim, hinput.scalar_type());
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout2_back = hout_backward.to(torch::kCPU);

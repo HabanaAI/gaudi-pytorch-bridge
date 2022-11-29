@@ -76,7 +76,8 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor hC = hA + hB;
   torch::Tensor hD = torch::clone(hC);
-  // auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
+  // auto hl_result =
+  // std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(hD));
   // std::vector<HbLazyTensor> tensors = {*hl_result};
   // HbLazyTensor::SyncTensorsGraph(&tensors);
   torch::Tensor hC_cpu = hC.to(torch::kCPU);
@@ -502,7 +503,7 @@ TEST_F(LazyBasicKernelTest, d2hsync) {
 
   auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hB)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hB)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hC = hB.add(1.0);

@@ -96,7 +96,7 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   hA = hA.add_(hB);
   auto result = torch::mul(hA, hC);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
@@ -143,7 +143,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
   auto result = torch::div(hA, hB);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   Tensor generated = result.to(kCPU);
 
@@ -175,7 +175,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
   auto result = torch::div(hA, hB);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   Tensor generated = result.to(kCPU);
 
@@ -475,7 +475,7 @@ TEST_F(LazyBinaryKernelTest, MulScalarTest) {
   auto hA = A.to(torch::kHPU);
 
   auto result = torch::mul(hA, s);
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
   Tensor generated = result.to(kCPU);
 

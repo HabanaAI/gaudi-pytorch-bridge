@@ -313,13 +313,20 @@ HbLazyTensor GetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
     bool handle_collective) {
-  habana_lazy::SyncAccThreadPool(); // Synchronize acc thread pool if necessary
   HABANA_ASSERT(
       tensor.device().type() == at::kHPU,
       "Got a non-HPU tensor, expecting an HPU tensor");
   auto hb_tensor = TryGetHbLazyTensor(tensor, get_updated, handle_collective);
   HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
   return *hb_tensor;
+}
+
+HbLazyTensor SyncAndGetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated,
+    bool handle_collective) {
+  habana_lazy::SyncAccThreadPool();
+  return GetHbLazyTensor(tensor, get_updated, handle_collective);
 }
 
 int64_t GetHbLazyTensorId(

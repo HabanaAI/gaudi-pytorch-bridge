@@ -27,7 +27,7 @@ TEST_F(PostOrderTest, poTestAdd) {
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0;
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
-  auto hl_result = GetHbLazyTensor(result);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -55,7 +55,7 @@ TEST_F(PostOrderTest, poTestFill) {
   Scalar alpha = 1.0;
 
   tensor_in1.fill_(alpha);
-  auto hl_result = GetHbLazyTensor(tensor_in1);
+  auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -98,7 +98,7 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
 
   auto result2 = add_tensor_hpu_lazy(result, tensor_in2, beta);
-  auto hl_result = GetHbLazyTensor(result2);
+  auto hl_result = SyncAndGetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -137,7 +137,7 @@ TEST_F(PostOrderTest, poTestAddInplace) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.add_(tensor_in2);
-  auto hl_result = GetHbLazyTensor(tensor_in1);
+  auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -163,7 +163,7 @@ TEST_F(PostOrderTest, poTestReluInplace) {
   // test case for tensor1 = relu(tensor1)
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.relu_();
-  auto hl_result = GetHbLazyTensor(tensor_in1);
+  auto hl_result = SyncAndGetHbLazyTensor(tensor_in1);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};

@@ -39,7 +39,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   auto result_t = torch::t(result);
   auto result_t_t = torch::t(result_t);
   result_t_t = torch::add(result_t_t, 1.0);
-  auto hl_result = GetHbLazyTensor(result_t_t);
+  auto hl_result = SyncAndGetHbLazyTensor(result_t_t);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -137,7 +137,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   torch::Tensor outHabana1 = torch::mm(hA, hB);
   torch::Tensor outHabana = torch::relu(outHabana1);
 
-  auto hl_result = GetHbLazyTensor(outHabana);
+  auto hl_result = SyncAndGetHbLazyTensor(outHabana);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
@@ -192,7 +192,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   auto result_2 = torch::t(result_mm_2);
   auto result = torch::add(result_1, result_2);
 
-  auto hl_result = GetHbLazyTensor(result);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
@@ -248,7 +248,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   auto result_2 = torch::t(result_mm_2);
   auto result = torch::add(result_1, result_2);
 
-  auto hl_result = GetHbLazyTensor(result);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
@@ -920,7 +920,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
   hA_relu += hB_relu;
   auto h_Out = torch::relu(hA_relu);
 
-  auto hl_result = GetHbLazyTensor(h_Out);
+  auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
@@ -952,7 +952,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   hA += hB_relu;
   auto h_Out = torch::relu(hA);
 
-  auto hl_result = GetHbLazyTensor(h_Out);
+  auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
@@ -989,7 +989,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   auto hB_relu = torch::relu(hB);
   h_Out += hB_relu;
 
-  auto hl_result = GetHbLazyTensor(h_Out);
+  auto hl_result = SyncAndGetHbLazyTensor(h_Out);
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);

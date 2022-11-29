@@ -149,7 +149,7 @@ TEST_P(SBSWithParamsTest, AddScalarSBS) {
   auto hpu_res4_cpu = hpu_res4.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_res4 = habana_lazy::GetHbLazyTensor(hpu_res4);
+    auto hl_res4 = habana_lazy::SyncAndGetHbLazyTensor(hpu_res4);
     c10::optional<at::Tensor> pTensor = hl_res4.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
 
@@ -191,7 +191,7 @@ TEST_P(SBSWithParamsTest, AddTensorsSBS) {
   UpdateOpCounters();
   auto hpu_res3_cpu = hpu_res3.to(torch::kCPU);
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_res3 = habana_lazy::GetHbLazyTensor(hpu_res3);
+    auto hl_res3 = habana_lazy::SyncAndGetHbLazyTensor(hpu_res3);
     c10::optional<at::Tensor> pTensor = hl_res3.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
 
@@ -234,7 +234,7 @@ TEST_P(SBSWithParamsTest, MulSBS) {
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(result);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -272,7 +272,7 @@ TEST_P(SBSWithParamsTest, MulAddInplaceSBS) {
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(result);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -312,7 +312,7 @@ TEST_P(SBSWithParamsTest, AddInplaceSBS) {
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(result);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -342,7 +342,7 @@ TEST_P(SBSWithParamsTest, TopkSBSTest) {
   EXPECT_TRUE(allclose(cout, hout, 0.001, 0.001));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hout_hpu);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hout_hpu);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -369,7 +369,7 @@ TEST_P(SBSWithParamsTest, DISABLED_GraphTextDump1SBSTest) {
   std::string string_J;
   if (m_perform_markstep) {
     auto hl_J = std::make_shared<habana_lazy::HbLazyTensor>(
-        habana_lazy::GetHbLazyTensor(J));
+        habana_lazy::SyncAndGetHbLazyTensor(J));
     auto ir_value_J = hl_J->CurrentIrValue();
     if (ir_value_J.mp_node) {
       std::vector<habana_lazy::ir::NodePtr> a_J{ir_value_J.mp_node};
@@ -381,7 +381,7 @@ TEST_P(SBSWithParamsTest, DISABLED_GraphTextDump1SBSTest) {
   auto out = torch::relu(J);
 
   auto hl_result = std::make_shared<habana_lazy::HbLazyTensor>(
-      habana_lazy::GetHbLazyTensor(out));
+      habana_lazy::SyncAndGetHbLazyTensor(out));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<habana_lazy::ir::NodePtr> a{ir_value.mp_node};
   auto out_string = habana_lazy::IrGraphDumpUtil::ToText(a);
@@ -460,7 +460,7 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
   EXPECT_EQ(allclose(out, outcpu, 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(outhpu);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(outhpu);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -525,7 +525,7 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
   EXPECT_EQ(allclose(out, outConv, 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(houtConv);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(houtConv);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -675,7 +675,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
 
     // TODO: add comare tests inside the process
     if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-      auto hl_result = habana_lazy::GetHbLazyTensor(h_out);
+      auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(h_out);
       c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
       ASSERT_NE(pTensor, c10::nullopt);
       auto result_cpu_ref = pTensor.value();
@@ -720,7 +720,7 @@ TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
   EXPECT_EQ(allclose(A, hA.to(torch::kCPU), 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hv1);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hv1);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -757,7 +757,7 @@ TEST_P(SBSWithParamsTest, AddViewSBSTest) {
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
 
     if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-      auto hl_result = habana_lazy::GetHbLazyTensor(out_hpu);
+      auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(out_hpu);
       c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
       ASSERT_NE(pTensor, c10::nullopt);
       auto result_cpu_ref = pTensor.value();
@@ -800,7 +800,7 @@ TEST_P(SBSWithParamsTest, DISABLED_AddInplaceViewSBSTest) {
     EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
 
     if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-      auto hl_result = habana_lazy::GetHbLazyTensor(out_hpu);
+      auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(out_hpu);
       c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
       ASSERT_NE(pTensor, c10::nullopt);
       auto result_cpu_ref = pTensor.value();
@@ -840,13 +840,13 @@ TEST_P(SBSWithParamsTest, ViewsTestSBS) {
       << "out: " << out << " hout: " << hout.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hout);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hout);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
     EXPECT_TRUE(allclose(out, result_cpu_ref, 0.001, 0.001));
 
-    auto hl_B = habana_lazy::GetHbLazyTensor(hB);
+    auto hl_B = habana_lazy::SyncAndGetHbLazyTensor(hB);
     c10::optional<at::Tensor> pTensorB = hl_B.GetCPUTensorData();
     ASSERT_NE(pTensorB, c10::nullopt);
     auto B_cpu_ref = pTensorB.value();
@@ -896,7 +896,7 @@ TEST_P(SBSWithParamsTest, AddTensorsViewsSBS) {
   EXPECT_TRUE(allclose(res3, hpu_res3_cpu));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_res3 = habana_lazy::GetHbLazyTensor(hpu_res3);
+    auto hl_res3 = habana_lazy::SyncAndGetHbLazyTensor(hpu_res3);
     c10::optional<at::Tensor> pTensor = hl_res3.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
 
@@ -931,7 +931,7 @@ TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
       << "out: " << out << " hout: " << hout.to(torch::kCPU);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hout);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hout);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -969,7 +969,7 @@ TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
       hgrad_out, torch::sigmoid(hinput), htarget, hwt, at::Reduction::Mean);
 
   auto hl_result = std::make_shared<habana_lazy::HbLazyTensor>(
-      habana_lazy::GetHbLazyTensor(hboutput));
+      habana_lazy::SyncAndGetHbLazyTensor(hboutput));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<habana_lazy::ir::NodePtr> a{ir_value.mp_node};
   auto out_string = habana_lazy::IrGraphDumpUtil::ToText(a);
@@ -1019,7 +1019,7 @@ TEST_P(SBSWithParamsTest, MaxPoolBWDSBSTest) {
   ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(outHabana);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(outHabana);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -1049,7 +1049,7 @@ TEST_P(SBSWithParamsTest, DISABLED_PermuteSBSTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hOut);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hOut);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -1076,7 +1076,7 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   EXPECT_EQ(allclose(out, hOut_cpu, 0.001, 0.001), true);
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(hOut);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(hOut);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();
@@ -1124,7 +1124,7 @@ TEST_P(SBSWithParamsTest, DISABLED_OnesLikeSBS) {
   EXPECT_TRUE(allclose(out, exp, 0.001, 0.001));
 
   if (m_sbs_mode != habana_lazy::SBS_MODE_DISABLED) {
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::SyncAndGetHbLazyTensor(result);
     c10::optional<at::Tensor> pTensor = hl_result.GetCPUTensorData();
     ASSERT_NE(pTensor, c10::nullopt);
     auto result_cpu_ref = pTensor.value();

@@ -174,7 +174,7 @@ TEST_F(LazyCustomKernelKernelTest, BinaryOp) {
   torch::Tensor input_b = input_b_cpu.to(torch::kHPU);
 
   at::Tensor result = custom_add_execute(input_a, input_b);
-  auto hl_result = GetHbLazyTensor(result);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
@@ -209,7 +209,7 @@ TEST_F(LazyCustomKernelKernelTest, MultipleOutputs) {
   torch::Tensor results_cpu = torch::nn::functional::gelu(input_a);
 
   at::Tensor result = custom_gelu_execute(input_a);
-  auto hl_result = GetHbLazyTensor(result);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};

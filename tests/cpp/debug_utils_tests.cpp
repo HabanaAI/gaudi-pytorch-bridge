@@ -27,7 +27,7 @@ TEST_F(DebugUtilsTest, DISABLED_GraphTextDump1) {
   I = torch::relu(I);
   auto out = torch::relu(I);
 
-  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out));
+  auto hl_result = std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
@@ -53,7 +53,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
   I = torch::relu(I);
   auto out = torch::relu(I);
 
-  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out));
+  auto hl_result = std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToDot(a);

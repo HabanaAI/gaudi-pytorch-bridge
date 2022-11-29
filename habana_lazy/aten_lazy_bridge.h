@@ -81,6 +81,11 @@ HbLazyTensor GetHbLazyTensor(
     bool get_updated = true,
     bool handle_collective = true);
 
+HbLazyTensor SyncAndGetHbLazyTensor(
+    const at::Tensor& tensor,
+    bool get_updated = true,
+    bool handle_collective = true);
+
 int64_t GetHbLazyTensorId(
     const at::Tensor& tensor,
     bool get_updated = true,

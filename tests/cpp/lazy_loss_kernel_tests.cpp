@@ -85,7 +85,7 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
       hgrad_input, hinput, htarget, at::Reduction::None);
 
   std::vector<HbLazyTensor> tensors = {
-      GetHbLazyTensor(hout1), GetHbLazyTensor(hout2)};
+      SyncAndGetHbLazyTensor(hout1), SyncAndGetHbLazyTensor(hout2)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto out1 = hout1.to(torch::kCPU);
