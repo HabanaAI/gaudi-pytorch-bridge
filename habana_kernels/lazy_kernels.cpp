@@ -587,6 +587,12 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
       GetOrCreateHbLazyTensor(src_updated, src_updated.device(), false);
+
+  /* We can't create a long/double target in the device. Even a cast will
+  not work as these data types are not available within the device. The
+  only way to make progress is to just do a normal D2D so that the
+  target will also be the same as source, and when we want to pull this
+  out to CPU, the D2H will handle the type conversion */
   bool no_conversion = (self.scalar_type() == c10::ScalarType::Long) ||
       (self.scalar_type() == c10::ScalarType::Double) ||
       (src_updated.dtype() == self.dtype());
@@ -596,7 +602,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     context->JoinPendingLaunchThread();
   }
 
-  auto op_func = [self, src, non_blocking]() mutable {
+  auto op_func = [self, src, non_blocking, no_conversion]() mutable {
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
     // pick the most recent version of src tensor
@@ -606,19 +612,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
     auto layout_format = hb_tensor.GetTensorLayout();
     hlresult.SetTensorLayout(layout_format);
-    /* We can't create a long/double target in the device. Even a cast will
-      not work as these data types are not available within the device. The
-      only way to make progress is to just do a normal D2D so that the
-      target will also be the same as source, and when we want to pull this
-      out to CPU, the D2H will handle the type conversion*/
-    if ((self.scalar_type() == c10::ScalarType::Long) ||
-        (self.scalar_type() == c10::ScalarType::Double) ||
-        (src_updated.dtype() == self.dtype())) {
-      if (hb_tensor.IsExecutionInProgress()) {
-        auto context =
-            habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-        context->JoinPendingLaunchThread();
-      }
+
+    if (no_conversion) {
       // If both src and dst are already processed ,  go and do the DMA dont
       // wait Else , If we already have storage in dst, add memcopy node to
       // lazy graph and we want to copy to existing tensor and not a new one
@@ -672,7 +667,10 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   };
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+  habana_lazy::SyncAccThreadPool();
+  op_func();
+  return self;
+  // RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
