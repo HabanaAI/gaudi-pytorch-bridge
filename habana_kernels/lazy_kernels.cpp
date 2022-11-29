@@ -1360,6 +1360,16 @@ const Tensor& as_strided_hpu_lazy_(
 }
 
 void AddMemcpy(const Tensor& src, Tensor& dst) {
+  if ((src.numel() < dst.numel()) || (src.dim() < dst.dim())) {
+    // using crude check of numel() to determine broadcast scenario to avoid
+    // increase in host time
+    auto t = dst;
+    auto t_opt = c10::make_optional(t);
+    HbLazyTensorViews::add_expand_lazy(
+        src, dst.sizes().vec(), false /*implicit*/, t_opt);
+    return;
+  }
+
   auto hl_dst = GetOrCreateHbLazyTensor(dst);
   auto hl_src = GetHbLazyTensor(src);
   // add control edge to avoid GC error " writing to already

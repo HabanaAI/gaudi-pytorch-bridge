@@ -624,13 +624,13 @@ std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
 }
 
 bool HbLazyTensorViews::HandleViewsD2D(
-    const at::Tensor& src,
+    const at::Tensor& src_,
     const at::Tensor& dst) {
   PT_LAZY_TRACE;
   bool is_view = false;
 
-  auto hb_src = GetHbLazyTensor(src);
-  HandleViews(src, hb_src);
+  auto hb_src = GetHbLazyTensor(src_);
+  HandleViews(src_, hb_src);
 
   // support for lhs sliced insert ex: a[::] = b. PT lowers this op as
   // as_strided + d2d copy. we replace both these ops by strided insert. This
@@ -649,8 +649,23 @@ bool HbLazyTensorViews::HandleViewsD2D(
       auto orig_t = get_base_tensor(params_ptr->base);
       auto orig_t_id = GetHbLazyTensorId(orig_t);
 
-      auto src_parent = get_base_tensor(src);
+      auto src_parent = get_base_tensor(src_);
       auto src_parent_id = GetHbLazyTensorId(src_parent);
+
+      auto src = src_;
+      if ((src.numel() < c10::multiply_integers(params_ptr->sizes)) ||
+          (static_cast<size_t>(src.dim()) < params_ptr->sizes.size())) {
+        // broadcast needed
+        auto t = empty_hpu_lazy(
+            dst.sizes(),
+            dst.options(),
+            c10::nullopt,
+            false /*storage*/,
+            DATA_TENSOR);
+        auto t_opt = c10::make_optional(t);
+        src = HbLazyTensorViews::add_expand_lazy(
+            src_, dst.sizes().vec(), false /*implicit*/, t_opt);
+      }
 
       // the id check avoids a cycle with strided insert node
       // scenario t1_h[i - 1] += 1. Here the output of the add can be used

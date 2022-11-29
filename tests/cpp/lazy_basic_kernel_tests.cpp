@@ -869,3 +869,31 @@ TEST_F(LazyBasicKernelTest, multilevelview_2) {
 
   EXPECT_EQ(allclose(t4, ht4.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, d2d_broadcast) {
+  auto a = torch::randn({2, 2});
+
+  auto ha = a.to(torch::kHPU);
+  auto b = torch::tensor({1.0});
+
+  auto hb = b.to(torch::kHPU);
+
+  a.copy_(b);
+  ha.copy_(hb);
+
+  EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyBasicKernelTest, viewinsert_broadcast) {
+  auto a = torch::randn({2, 2});
+
+  auto ha = a.to(torch::kHPU);
+  auto b = torch::tensor({1.0});
+
+  auto hb = b.to(torch::kHPU);
+
+  a.view(-1).copy_(b);
+  ha.view(-1).copy_(hb);
+
+  EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
+}
