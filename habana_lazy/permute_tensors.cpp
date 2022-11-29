@@ -239,6 +239,8 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
 bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
   PT_LAZY_TRACE;
   HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
+  habana_lazy::SyncAccThreadPool();
+
   PT_LAYOUTS_DEBUG(
       "shouldPermuteWeight tensor: ", weight_hb_tensor.getTensorUniqueId())
   bool is_input = weight_hb_tensor.CurrentIrValue().IsHpuInputNode();
@@ -272,6 +274,8 @@ bool PermuteTensors::shouldPermuteWeight(const torch::Tensor& weight) {
 bool PermuteTensors::shouldPermutePreCastedWeight(const torch::Tensor& weight) {
   PT_LAZY_TRACE;
   HbLazyTensor weight_hb_tensor = GetHbLazyTensor(weight);
+  habana_lazy::SyncAccThreadPool();
+
   PT_LAYOUTS_DEBUG(
       "shouldPermutePreCastedWeight tensor: ",
       weight_hb_tensor.getTensorUniqueId())

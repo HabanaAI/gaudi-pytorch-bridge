@@ -1742,6 +1742,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass() &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
+    habana_lazy::SyncAccThreadPool();
     if (self.dim() == 4 || self.dim() == 5) {
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       auto layout_format = hb_tensor.GetTensorLayout();
@@ -1815,6 +1816,7 @@ Tensor convolution_hpu_lazy(
 
   if (habana_lazy::exec::OptPassCfg::GetInstance()
           ->IsEnabledWeightPermutePass()) {
+    habana_lazy::SyncAccThreadPool();
     weight_hpu = weight.to(c10::kHPU, true);
     HbLazyTensor src_hb_tensor =
         GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
@@ -1895,7 +1897,8 @@ Tensor convolution_hpu_lazy(
           is_weight_hwck,
           groups)},
       0);
-  return k.call();
+
+  RUN_MAYBE_WITH_ACC_THREAD(convolution, k)
 }
 
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
@@ -1914,16 +1917,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
   // Construct using LazyOp templated with class ir::Convolution
   std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
   ir::NodePtr node = std::make_shared<ir::Convolution>(
-      grad_output,
-      input,
-      weight_hwck,
-      stride,
-      padding,
-      dilation,
-      transposed,
-      output_padding,
-      groups,
-      output_mask_vec);
+      "aten::convolution_backward_overrideable");
 
   using T = std::tuple<at::Tensor, at::Tensor, at::Tensor>;
   using U = ir::Convolution;
@@ -1990,7 +1984,44 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
       output_padding,
       groups,
       output_mask);
-  return k.call();
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [node = std::move(node),
+               out_v = std::move(out_v),
+               op = std::move(k),
+               grad_output,
+               input,
+               weight_hwck,
+               stride_vec = stride.vec(),
+               padding_vec = padding.vec(),
+               dilation_vec = dilation.vec(),
+               transposed,
+               output_padding_vec = output_padding.vec(),
+               groups,
+               output_mask_vec]() mutable {
+    IntArrayRef stride = stride_vec;
+    IntArrayRef padding = padding_vec;
+    IntArrayRef dilation = dilation_vec;
+    IntArrayRef output_padding = output_padding_vec;
+    auto node_derived = std::dynamic_pointer_cast<ir::Convolution>(node);
+    node_derived->Init(
+        grad_output,
+        input,
+        weight_hwck,
+        stride,
+        padding,
+        dilation,
+        transposed,
+        output_padding,
+        groups,
+        output_mask_vec);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(
+      convolution_backward_overrideable, func, out)
 }
 
 Tensor constant_pad_hpu_lazy(
