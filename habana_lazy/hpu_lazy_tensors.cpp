@@ -633,6 +633,8 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData(
     context->JoinPendingLaunchThread();
   }
 
+  // When acc thread is present, IR value may not be available so the next check
+  // may fail and skip StepMarker
   if (sync_acc_thread) {
     habana_lazy::SyncAccThreadPool();
   }
@@ -666,6 +668,10 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData(
  * for output tensors.
  */
 c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
+  // When acc thread is present, IR value may not be available so the next check
+  // may fail and skip StepMarker
+  habana_lazy::SyncAccThreadPool();
+
   auto currentIrValue = CurrentIrValue();
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       GetDevice().index());
@@ -673,8 +679,6 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   if (CurrentIrValue() && !CurrentTensorData()) {
     context->JoinPendingLaunchThread();
   }
-
-  habana_lazy::SyncAccThreadPool();
 
   if (currentIrValue && !CurrentTensorData()) {
     // Return tensor_data if it is graph input
