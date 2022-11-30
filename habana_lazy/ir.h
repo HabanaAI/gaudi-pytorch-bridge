@@ -301,6 +301,9 @@ struct Value final {
   Value& operator=(const Value&) = default;
   Value& operator=(Value&&) = default;
 
+  /* Assigns Node and metadata to Value instance. You should prefer using
+   * IrSetNode api instead of calling this directly
+   */
   void SetNode(
       NodePtr node,
       const c10::Device& device,

@@ -363,19 +363,12 @@ void updateDstDependencies(const Tensor& dst) {
   };
 
   auto hb_result = GetHbLazyTensor(dst);
-  ir::Value val{hb_result.GetIrValue().m_data_ptr.lock()};
   auto node = ir::Node::Create(
       Symbol::fromQualString("hpu::control_edge_"), {hb_result.GetIrValue()});
   node->set_as_control_edge();
   std::vector<at::Tensor> input_pt_vec;
   input_pt_vec.push_back(dst);
-  ir::Value& out = val;
-  out.SetNode(
-      node,
-      hb_result.GetDevice(),
-      hb_result.GetSizes(),
-      hb_result.dtype_optional());
-  hb_result.AssignIrValue(val);
+  hb_result.IrSetNode(node);
   node->AddInputPtTensors(input_pt_vec);
 }
 

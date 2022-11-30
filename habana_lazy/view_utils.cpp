@@ -387,7 +387,6 @@ void HbLazyTensorViews::add_strided_view_node_parallel_impl(
   params.optype = kStridedOpDefault;
 
   auto hb_result = GetHbLazyTensor(out);
-  ir::Value& out_val = hb_result.CurrentIrValue();
 
   if (is_update_view) {
     std::tie(params.sizes, params.strides) =
@@ -400,23 +399,17 @@ void HbLazyTensorViews::add_strided_view_node_parallel_impl(
       HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(
           hb_result.GetDevice());
 
-      auto shared_ptr = out_val.m_data_ptr.lock();
+      auto shared_ptr = hb_result.getDataPtr();
 
       if (shared_ptr) {
         std::lock_guard<std::recursive_mutex> lock(
             habana_lazy::HbContextArena::Get()->GetMutex());
-        devctx->tensors_data_opt[hb_result.getTensorUniqueId()] =
-            out_val.m_data_ptr;
+        devctx->tensors_data_opt[hb_result.getTensorUniqueId()] = shared_ptr;
       }
     }
   } else {
-    ir::NodePtr node = create_as_strided_node(
-        params.base, size_in, stride_in, storage_offset, is_out);
-    out_val.SetNode(
-        node,
-        hb_result.GetDevice(),
-        hb_result.GetSizes(),
-        hb_result.dtype_optional());
+    hb_result.IrSetNode(create_as_strided_node(
+        params.base, size_in, stride_in, storage_offset, is_out));
   }
 }
 
@@ -871,13 +864,7 @@ void HbLazyTensorViews::CustomKernelAddNodeInplace(
     // op. step marker will be used at the end
     strided_insert_hpu_lazy(weight, wt_updated, /*is_flush*/ false);
   } else {
-    ir::Value& out5 = hl_weight.CurrentIrValue();
-    out5.SetNode(
-        node,
-        hl_weight.GetDevice(),
-        hl_weight.GetSizes(),
-        hl_weight.dtype_optional(),
-        out_index++);
+    hl_weight.IrSetNode(node, out_index++);
   }
 }
 
