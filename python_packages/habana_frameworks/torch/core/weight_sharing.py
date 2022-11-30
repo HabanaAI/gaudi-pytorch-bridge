@@ -7,27 +7,23 @@ class HabanaParameterWrapper(torch.nn.Parameter):
     def __init__(self, wrapped):
         HabanaParameterWrapper.db[id(self)] = wrapped
 
-    def __getattribute__(self, name: str) -> Any:
-        if name == '__torch_function__':
-            return HabanaParameterWrapper.__torch_function__
-        return object.__getattribute__(HabanaParameterWrapper.db[id(self)], name)
+    def __getattr__(self, name: str) -> Any:
+        return getattr(HabanaParameterWrapper.db[id(self)], name)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-        args = list(args)
-        for i in range(len(args)):
-            if type(args[i]) == HabanaParameterWrapper:
-                args[i] = HabanaParameterWrapper.db[id(args[i])]
-        for key in kwargs:
-            if type(kwargs[key]) == HabanaParameterWrapper:
-                kwargs[key] = HabanaParameterWrapper.db[id(kwargs[key])]
+        else:
+            for k, v in kwargs.items():
+                if type(v) == HabanaParameterWrapper:
+                    kwargs[k] = HabanaParameterWrapper.db[id(v)]
+        args = [HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg for arg in args]
         if func.__name__ == "__set__":
             if hasattr(args[0], "device") and hasattr(args[1], "device"):
                 if args[0].device != args[1].device:
                     args[0] = args[0].to(args[1].device)
-        return func(*args, **kwargs)
+        return super().__torch_function__(func, types, args, kwargs)
 
 def get_habana_parameter(self, result, name):
     if type(result) == torch.nn.Parameter:
