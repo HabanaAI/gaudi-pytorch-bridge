@@ -71,8 +71,6 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "unsqueeze_",
     "unsqueeze",
     "view"};
-// black list of aut-gen ops that do not support parallel accumulation
-const std::unordered_set<std::string> AccThreadOpsBlacklist = {};
 
 static std::queue<std::function<void()>> cleanup_tasks;
 static std::mutex cleanup_mutex;
@@ -126,10 +124,6 @@ void SyncManualOpIfNeeded(const std::string& op) {
       SyncAccThreadPool();
     }
   }
-}
-
-bool IsAccumulationForAutogenSupported(const std::string& op) {
-  return !AccThreadOpsBlacklist.count(op);
 }
 
 } // namespace habana_lazy

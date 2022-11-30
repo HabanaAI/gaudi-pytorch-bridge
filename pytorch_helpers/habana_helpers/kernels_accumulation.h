@@ -50,6 +50,4 @@ void SyncAccThreadPool();
 // Used only for manual ops, not auto-gen.
 void SyncManualOpIfNeeded(const std::string& op);
 
-bool IsAccumulationForAutogenSupported(const std::string& op);
-
 } // namespace habana_lazy
