@@ -73,6 +73,8 @@ std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 std::unordered_set<std::string> HabanaLaunchOpPT::enabled_jit_ir_ops_ = {};
 //--------------------------------------
 
+void HabanaLaunchOpPT::cleanUp() {}
+
 bool dropCachedRecipe_LRU(size_t& recipe_count) {
   bool dropped{false};
   dropped = RecipeCacheLRU::get_cache().drop_lru(recipe_count);

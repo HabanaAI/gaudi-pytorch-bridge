@@ -9,6 +9,7 @@
  */
 #include <torch/extension.h>
 #include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/memlog.h"
@@ -151,4 +152,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.doc() = "This module registers hpu host debug API";
   m.def(
       "mem_log", [](std::string msg) { habana_lazy::log_dev_mem_stats(msg); });
+  m.def("bridge_cleanup", []() { habana::HabanaLaunchOpPT::cleanUp(); });
 }

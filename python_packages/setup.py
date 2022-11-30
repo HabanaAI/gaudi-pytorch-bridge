@@ -25,6 +25,7 @@ include_dirs = [
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "abseil-cpp"),
     os.path.join(os.environ["PYTORCH_FORK_ROOT"], "third_party", "pybind11", "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "spdlog", "include"),
+    os.path.join(os.environ["THIRD_PARTIES_ROOT"], "json", "single_include"),
     os.environ["SPECS_EXT_ROOT"],
 ]
 

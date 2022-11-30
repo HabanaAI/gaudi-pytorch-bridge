@@ -142,6 +142,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
   void run(torch::jit::Stack& stack);
+  static void cleanUp();
 
   static std::unordered_set<std::string> watchlist_;
 
