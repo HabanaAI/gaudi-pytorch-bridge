@@ -97,7 +97,8 @@ void ExecuteAllCleanupTasks() {
 }
 
 bool IsAccThreadEnabled() {
-  return GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0;
+  return GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0 &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1; // only default lazy
 }
 
 bool CanUseAccThread() {
