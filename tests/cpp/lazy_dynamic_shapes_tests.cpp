@@ -630,10 +630,10 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   const int C = 16;
   // Check org state of env flag
   bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  // unset the env variable if set for this case
+  // set the env variable false if set true for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
   }
   refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
@@ -650,14 +650,13 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   torch::Tensor sum_tensor = torch::add(h_num1, h_num2);
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
-  // Check if env flag restored after execution
+  // Check if env flag is unset after execution
   refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
-  if (org_state) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
-  }
+  // restore the original state
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, org_state, 1);
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
@@ -704,10 +703,10 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   const int C = 16;
   // Check org state of env flag
   bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  // unset the env variable if set for this case
+  // set the env variable false if set true for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
   }
   // Check if dynamic mode is unset
   refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
@@ -727,9 +726,7 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original state
-  if (org_state) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
-  }
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, org_state, 1);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {

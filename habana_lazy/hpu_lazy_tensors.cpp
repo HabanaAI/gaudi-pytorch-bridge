@@ -1588,7 +1588,7 @@ void HbLazyTensor::StepMarker(
   }
   HbLazyTensor::MarkStep(device);
   if (switch_dynamic_mode) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
     switch_dynamic_mode = false;
   }
   if (context->getCapturing()) {
