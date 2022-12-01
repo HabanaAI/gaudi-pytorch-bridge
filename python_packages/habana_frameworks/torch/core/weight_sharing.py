@@ -1,14 +1,24 @@
 import torch
 from typing import Union, Any
 
+def wrapped__new__(cls, data=None, requires_grad=True):
+    if type(data) is HabanaParameterWrapper:
+        return torch.Tensor._make_subclass(cls, data, requires_grad)
+    else:
+        return wrapped__new__.original__new__(cls, data, requires_grad)
+
 class HabanaParameterWrapper(torch.nn.Parameter):
     db = {}
 
-    def __init__(self, wrapped):
-        HabanaParameterWrapper.db[id(self)] = wrapped
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(HabanaParameterWrapper.db[id(self)], name)
+    def __getattribute__(self, name: str) -> Any:
+        try:
+            self_ = HabanaParameterWrapper.db[id(self)]
+        except KeyError:
+            HabanaParameterWrapper.db[id(self)] = self
+            self_ = self
+        if name == '__torch_function__':
+            return HabanaParameterWrapper.__torch_function__
+        return object.__getattribute__(self_, name)
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
@@ -25,24 +35,31 @@ class HabanaParameterWrapper(torch.nn.Parameter):
                     args[0] = args[0].to(args[1].device)
         return super().__torch_function__(func, types, args, kwargs)
 
-def get_habana_parameter(self, result, name):
+    def __del__(self):
+        del HabanaParameterWrapper.db[id(self)]
+
+
+def update_habana_parameter(result):
     if type(result) == torch.nn.Parameter:
-        result = HabanaParameterWrapper(result)
-        self._parameters[name] = result
-    return result
+        result.__class__ = HabanaParameterWrapper
+        HabanaParameterWrapper.db[id(result)] = result
 
 def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     result = self.original__get_attr__(name)
     try:
         if not name in self.checked_parameters:
-            result = get_habana_parameter(self, result, name)
+            update_habana_parameter(result)
             self.checked_parameters.add(name)
     except:
         self.checked_parameters = set(['name'])
-        result = get_habana_parameter(self, result, name)
+        update_habana_parameter(result)
     return result
 
 def wrapped_to(self, *args, **kwargs):
+    device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
+    if device != torch.device('hpu'):
+        return self.original_to(*args, **kwargs)
+
     def for_all_parameters_in_submodules(fn):
         cnt = 0
         def walk(module, fn):
@@ -123,7 +140,7 @@ def wrapped_to(self, *args, **kwargs):
     if len(collected_parameters_before) != len(collected_parameters_after):
         raise weight_sharing_exception
     for i in range(len(collected_parameters_before)):
-        if id(collected_parameters_before[i]) in HabanaParameterWrapper.db:
+        if id(collected_parameters_before[i]) in HabanaParameterWrapper.db and id(collected_parameters_before[i]) != id(collected_parameters_after[i]):
             HabanaParameterWrapper.db[id(collected_parameters_before[i])] = collected_parameters_after[i]
     return result
 
@@ -133,3 +150,5 @@ def enable_weight_sharing():
     torch.nn.modules.Module.original_to = torch.nn.modules.Module.to
     torch.nn.modules.Module.__getattr__ = wrapped__getattr__
     torch.nn.modules.Module.to = wrapped_to
+    wrapped__new__.original__new__ = torch.nn.Parameter.__new__
+    torch.nn.Parameter.__new__ = wrapped__new__
