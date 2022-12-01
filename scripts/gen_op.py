@@ -793,6 +793,12 @@ def frontend(
                     code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
                         fname, param_vars[0]
                     )
+                elif rtype.startswith("const at::Tensor"):
+                    code += (
+                        "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
+                            fname, lazyop_call_args
+                        )
+                    )
                 else:
                     code += (
                         "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
@@ -1033,10 +1039,10 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
     else:
         return (
             rtype.startswith("at::Tensor")  # regular, in-place, _out ops
+            or rtype.startswith("const at::Tensor")  # only resize_ op so far, handled as inplace/out (shape change)
             or rtype.startswith("::std::tuple<at::Tensor")  # tuple ops
-            or "TensorList" in sig
-        )  # TensorList ops
-
+            or "TensorList" in sig  # TensorList ops
+        )
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):
