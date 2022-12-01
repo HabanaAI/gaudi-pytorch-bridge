@@ -40,14 +40,8 @@ void IsNanOperator::AddNode(
         {{outshape, torch::kBool, 0}});
     syn_out(0) = std::move(result[0]);
   } else {
-    auto cast_to_f32 = CastHelper(
-        graph, syn_in(0), outshape, self.scalar_type(), c10::ScalarType::Float);
-    auto result = BuildOp(
-        graph,
-        "isnan_fwd_f32",
-        {cast_to_f32.get()},
-        {{outshape, torch::kBool, 0}});
-    syn_out(0) = std::move(result[0]);
+    auto false_val = ConstantHelper(graph, false, at::kBool, outshape, 0);
+    syn_out(0) = std::move(false_val);
   }
 }
 
