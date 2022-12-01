@@ -2740,7 +2740,7 @@ Tensor& index_add_hpu_lazy_out(
 
   out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_add_, func, out)
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_add_out, func, out)
 }
 
 Tensor& index_add_hpu_lazy_(
@@ -2751,23 +2751,28 @@ Tensor& index_add_hpu_lazy_(
     const Scalar& alpha) {
   PT_LAZY_TRACE;
 
-  // TPC doesn't support inplace index add natively
-  // Implement using out of place index add followed by D2D copy
-  // TODO revisit once strided mem copy feature is mature
-  auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  auto hl_self = GetOrCreateHbLazyTensor(self);
+  auto func = [self, dim, indices, source, alpha]() mutable {
+    // TPC doesn't support inplace index add natively
+    // Implement using out of place index add followed by D2D copy
+    // TODO revisit once strided mem copy feature is mature
+    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+    auto hl_self = GetOrCreateHbLazyTensor(self);
 
-  LazyOp<Tensor> index_add_op(
-      "aten::index_add",
-      {self, dim_, indices, source, alpha},
-      {1}, // metadata_indices
-      {self.sizes().vec()} // out_shapes
-  );
+    LazyOp<Tensor> index_add_op(
+        "aten::index_add",
+        {self, dim_, indices, source, alpha},
+        {1}, // metadata_indices
+        {self.sizes().vec()} // out_shapes
+    );
 
-  Tensor index_add_out = index_add_op.call();
+    Tensor index_add_out = index_add_op.call();
 
-  LazyOp<at::Tensor&> k{"hpu::habana_d2d_memcpy_other", {index_add_out, self}};
-  return k.call(self);
+    LazyOp<at::Tensor&> k{
+        "hpu::habana_d2d_memcpy_other", {index_add_out, self}};
+    return k.call(self);
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_add_, func, self)
 }
 
 Tensor index_put_frontend_impl_hpu_lazy(

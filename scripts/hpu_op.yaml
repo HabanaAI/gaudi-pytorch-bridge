@@ -594,6 +594,7 @@ add_.Scalar:
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_scalar_hpu_lazy_
+  acc_thread: true
   promote_to_common_type: [self, other]
 
 add_.Tensor:
@@ -1799,6 +1800,7 @@ constant_pad_nd:
     Greco: [BFloat16, Float, Int, Half, Short, Char, Byte]
   override_fn: constant_pad_hpu_lazy
   force_default: false
+  acc_thread: true
 
 convolution_overrideable:
   force_default: false
@@ -3183,6 +3185,7 @@ index_add_:
       index: [Int]
       source: [BFloat16, Float, Half]
   override_fn: index_add_hpu_lazy_
+  acc_thread: true
 
 index_select:
   out_ids: [0]
@@ -4760,6 +4763,7 @@ one_hot:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   override_fn: one_hot_hpu_lazy
+  acc_thread: true
 
 permute:
   force_default: false
