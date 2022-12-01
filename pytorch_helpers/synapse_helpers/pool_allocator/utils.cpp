@@ -13,7 +13,6 @@
 #include <synapse_api.h>
 
 #include <habana_helpers/logging.h>
-#include "CoalescedPoolAllocator.h"
 #include "PoolAllocator.h"
 #include "utils.h"
 

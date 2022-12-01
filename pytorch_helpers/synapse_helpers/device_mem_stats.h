@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include <absl/strings/str_format.h>
+#include <synapse_api.h>
 namespace synapse_helpers {
 struct MemoryStats {
   synDeviceId pool_id;

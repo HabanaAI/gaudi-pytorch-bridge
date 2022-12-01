@@ -193,9 +193,8 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
       PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
       status = synFail;
     }
-
+    log_synDeviceMemStats(*this);
     *v_ptr = reinterpret_cast<void*>(ptr);
-    log_synDeviceAlloc(device_, ptr, block_align(size));
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -203,7 +202,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
       PT_DEVMEM_DEBUG("synDeviceMalloc failed, requested size ", size);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
-      log_synDeviceAlloc(device_, ptr, size);
+      log_synDeviceMemStats(*this);
     }
   }
 
@@ -223,7 +222,7 @@ synStatus device_memory::deallocate(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_DEVMEM_DEBUG("SynDeviceFree Failed.", status);
   }
-  log_synDeviceDeallocate(device_, reinterpret_cast<uint64_t>(ptr));
+  log_synDeviceMemStats(*this);
   return status;
 }
 
@@ -322,8 +321,7 @@ void* device_memory::workspace_alloc(
       suballoc_->print_pool_stats();
       log_synDeviceAllocFail(device_, true, req_size);
     }
-    log_synDeviceWorkspace(
-        device_, reinterpret_cast<uint64_t>(v_ptr), req_size);
+    log_synDeviceMemStats(*this);
     return v_ptr;
   } else {
     if ((ws_size >= req_size) && (ptr != nullptr)) {
@@ -377,8 +375,7 @@ void* device_memory::workspace_alloc(
       if (v_ptr != nullptr) {
         workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
         ws_size = block_align(req_size);
-        log_synDeviceWorkspace(
-            device_, reinterpret_cast<uint64_t>(v_ptr), block_align(req_size));
+        log_synDeviceMemStats(*this);
       } else {
         workspace_allocation_ = 0;
         suballoc_->print_pool_stats();

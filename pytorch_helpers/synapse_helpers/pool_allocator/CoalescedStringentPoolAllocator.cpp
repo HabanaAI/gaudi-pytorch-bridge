@@ -11,8 +11,8 @@
 
 #include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "synapse_helpers/devmem_logger.h"
+#include "synapse_helpers/env_flags.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
 
@@ -172,6 +172,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
         "CS_POOL:: Cannot obtain device memory size. Status: ", status);
     return false;
   }
+  log_synDevicePoolCreate(
+      free_mem, GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC), p->basememptr);
 
   // 0x80 bytes left for future use - header maintence in device memory instead
   // of host
@@ -249,7 +251,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.pre_allocate_size += 0x80;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
-  small_allocs_ = absl::make_unique<SmallAllocs>(
+  small_allocs_ = std::make_unique<SmallAllocs>(
       std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
           chunk_ptr, free_chunk));
   stats.num_allocs = 0;
@@ -585,6 +587,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   const std::lock_guard<std::mutex> lock(sp_mutex);
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("CS_POOL:: alloc size exceeds max size !!");
+    log_synDeviceWorkspace(0, size);
     return nullptr;
   }
 
@@ -602,6 +605,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   if (!high_memory_allocated_ && tail_chunk->used) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no space for high memory allocation, already allocated!!");
+    log_synDeviceWorkspace(0, size);
     return nullptr;
   }
 
@@ -613,6 +617,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
         tail_chunk->size,
         " Requested Size::",
         size);
+    log_synDeviceWorkspace(tail_chunk->memptr, size);
     return (void*)tail_chunk->memptr;
   }
 
@@ -630,6 +635,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
         size);
     bin_utils->RemoveFreeChunkFromBin(tail_chunk);
     tail_chunk->used = true;
+    log_synDeviceWorkspace(0, size);
     return nullptr;
   }
 
@@ -660,6 +666,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   stats.UpdateStats((tail_chunk->size - current_ws_size), true);
   bytes_in_use += (tail_chunk->size - current_ws_size);
   stats.scratch_mem_in_use = tail_chunk->size;
+  log_synDeviceWorkspace(tail_chunk->memptr, size);
   return (void*)tail_chunk->memptr;
 }
 
@@ -689,6 +696,7 @@ void* CoalescedStringentPooling::pool_alloc_chunk(
       return ptr;
     }
   }
+  log_synDeviceAlloc(reinterpret_cast<uint64_t>(ptr), size);
   return ptr;
 }
 
@@ -955,6 +963,7 @@ Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c) const {
 void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   PT_DEVMEM_DEBUG("CS_POOL:: pool_free_chunk");
   std::unique_lock<std::mutex> lock(sp_mutex);
+  log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
   delete_chunk(ptr);
   lock.unlock();
   retry_handler.NotifyDealloc();
@@ -979,6 +988,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   auto it = chunks.find((uint64_t)ptr);
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
+  HABANA_ASSERT(chunk->used);
   chunk->used = false;
   chunk->bin_index = kInvalidBinNum;
   chunk->extra_space = 0;

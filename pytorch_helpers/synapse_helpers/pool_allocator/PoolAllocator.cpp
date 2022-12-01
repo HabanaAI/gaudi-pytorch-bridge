@@ -12,6 +12,7 @@
 #include <habana_helpers/logging.h>
 #include <synapse_helpers/device.h>
 #include "PoolAllocator.h"
+#include "synapse_helpers/devmem_logger.h"
 #include "utils.h"
 
 namespace synapse_helpers {
@@ -192,12 +193,14 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
     bytes_in_use += size;
     if (is_workspace)
       stats.scratch_mem_in_use = size;
+    log_synDeviceAlloc(reinterpret_cast<uint64_t>(old_chunk), size);
     return old_chunk;
   }
   if (pool_available(p) < size) {
     // TBD: implement better algorithms
     pool_allocator::print_device_memory_stats(pool_id);
     PT_DEVMEM_DEBUG("POOL:: pool exhausted !! deframgment pool ?");
+    log_synDeviceAlloc(0, size);
     return nullptr;
   }
 
@@ -205,6 +208,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   auto chunk = allocateHostMemory(Poolchunk);
   if (!chunk) {
     PT_DEVMEM_DEBUG("POOL:: Cannot create a chunk");
+    log_synDeviceAlloc(0, size);
     return nullptr;
   }
   chunk->memptr = (uint64_t)p->next;
@@ -226,11 +230,13 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   PT_DEVMEM_DEBUG("POOL:: Allocated block_count :: ", block_count);
   bytes_in_use += size;
   stats.UpdateStats(chunk->size, true, is_workspace);
+  log_synDeviceAlloc(chunk->memptr, size);
   return (void*)chunk->memptr;
 }
 
 void StaticPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
   simple_pool_t* s_pool = prealloc_pool;
   PT_DEVMEM_DEBUG("POOL:: freeing block_count :: ", block_count);
   auto chunk = s_pool->_start;
@@ -473,11 +479,13 @@ void* DynamicPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   auto ptr = allocBlock(size);
   if (ptr && is_workspace)
     stats.scratch_mem_in_use = size;
+  log_synDeviceAlloc(reinterpret_cast<uint64_t>(ptr), size);
   return ptr;
 }
 
 void DynamicPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
+  log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
   freeBlock(ptr);
 }
 

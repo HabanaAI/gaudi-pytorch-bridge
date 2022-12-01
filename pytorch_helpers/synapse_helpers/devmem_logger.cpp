@@ -951,25 +951,28 @@ void log_synDeviceFree(uint64_t ptr, bool failed) {
 }
 
 /*
+ * log creating memory pool
+ */
+void log_synDevicePoolCreate(
+    uint64_t free_mem,
+    uint64_t mem_acquire_perc,
+    uint64_t base_mem_ptr) {
+  auto& dmd = deviceMallocData::singleton();
+  if (dmd.is_recording_enabled()) {
+    dmd.record("CREATE_POOL", free_mem, mem_acquire_perc, base_mem_ptr);
+  }
+}
+
+/*
  * log workspace memory
  */
 void log_synDeviceWorkspace(
-    synapse_helpers::device& device,
     uint64_t ptr,
     size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     dmd.record("WORKSPACE", size, ptr);
   }
-
-  if (dmd.is_mem_stats_log_enabled()) {
-    synapse_helpers::MemoryStats stats;
-    device.get_device_memory().get_memory_stats(&stats);
-    std::string updated_msg = "Workspace Allocation";
-    updated_msg = updated_msg + "\n" + stats.DebugString();
-    synapse_helpers::print_live_allocations(updated_msg.c_str());
-  }
-
   if (dmd.is_fragment_json_enabled()) {
     dmd.update_workspace_record(ptr, ptr + size);
   }
@@ -979,37 +982,34 @@ void log_synDeviceWorkspace(
  * log Alloc device memory
  */
 void log_synDeviceAlloc(
-    synapse_helpers::device& device,
     uint64_t ptr,
     size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     dmd.record("ALLOCATE", size, ptr);
   }
-
-  if (dmd.is_mem_stats_log_enabled()) {
-    synapse_helpers::MemoryStats stats;
-    device.get_device_memory().get_memory_stats(&stats);
-    std::string updated_msg = "Memory Allocation";
-    updated_msg = updated_msg + "\n" + stats.DebugString();
-    synapse_helpers::print_live_allocations(updated_msg.c_str());
-  }
 }
 
 /*
  * log Deallocate device memory
  */
-void log_synDeviceDeallocate(synapse_helpers::device& device, uint64_t ptr) {
+void log_synDeviceDeallocate(uint64_t ptr) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     dmd.record("DEALLOCATE", ptr);
   }
+}
 
+/*
+ * log Mem Stats
+ */
+
+void log_synDeviceMemStats(device_memory& dev_mem) {
+  auto& dmd = deviceMallocData::singleton();
   if (dmd.is_mem_stats_log_enabled()) {
     synapse_helpers::MemoryStats stats;
-    device.get_device_memory().get_memory_stats(&stats);
-    std::string updated_msg = "Memory deallocation";
-    updated_msg = updated_msg + "\n" + stats.DebugString();
+    dev_mem.get_memory_stats(&stats);
+    std::string updated_msg = "Memory stats \n" + stats.DebugString();
     synapse_helpers::print_live_allocations(updated_msg.c_str());
   }
 }

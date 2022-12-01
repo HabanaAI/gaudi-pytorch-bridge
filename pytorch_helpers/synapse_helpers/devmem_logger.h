@@ -155,21 +155,11 @@ class deviceMallocData final {
     }
   }
 
-  template <typename ArgT>
-  void record(const char* operation, const ArgT& arg) {
+  template <typename... ArgT>
+  void record(const char* operation, const ArgT&... args) {
     std::stringstream ss;
     ss << "TRACE " << operation;
-    print(ss, arg);
-    auto lk = lock();
-    print_to_file(ss.str().c_str());
-  }
-
-  template <typename ArgT, typename ResT>
-  void record(const char* operation, const ArgT& arg, const ResT& result) {
-    std::stringstream ss;
-    ss << "TRACE " << operation;
-    print(ss, arg);
-    print(ss, result);
+    (print(ss, args), ...);
     auto lk = lock();
     print_to_file(ss.str().c_str());
   }
@@ -222,21 +212,24 @@ class deviceMallocData final {
 
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed = false);
 void log_synDeviceFree(uint64_t ptr, bool failed = false);
+void log_synDevicePoolCreate(
+    uint64_t free_mem,
+    uint64_t mem_acquire_perc,
+    uint64_t base_mem_ptr);
 void log_synDeviceWorkspace(
-    synapse_helpers::device& device,
     uint64_t ptr,
     size_t size);
 void log_synDeviceAlloc(
-    synapse_helpers::device& device,
     uint64_t ptr,
     size_t size);
-void log_synDeviceDeallocate(synapse_helpers::device& device, uint64_t ptr);
+void log_synDeviceDeallocate(uint64_t ptr);
 void log_synDeviceLockMemory(
     absl::Span<const synapse_helpers::device_ptr> ptrs);
 void log_synDeviceAllocFail(
     synapse_helpers::device& device,
     bool is_workspace,
     size_t size);
+void log_synDeviceMemStats(device_memory& dev_mem);
 
 void log_graph_info(
     synapse_helpers::device& device,

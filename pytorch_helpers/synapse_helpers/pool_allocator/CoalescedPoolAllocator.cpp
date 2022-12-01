@@ -489,6 +489,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
 
   if (size > max_pool_size) {
     PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
+    log_synDeviceAlloc(0, size);
     return nullptr;
   }
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
@@ -521,6 +522,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
     stats.UpdateStats(old_chunk->size, true, is_workspace);
+    log_synDeviceAlloc(old_chunk->memptr, size);
     return (void*)old_chunk->memptr;
   }
 
@@ -538,6 +540,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
       chunks[defrag_chunk->memptr] = defrag_chunk;
       bytes_in_use += defrag_chunk->size;
       stats.UpdateStats(defrag_chunk->size, true, is_workspace);
+      log_synDeviceAlloc(defrag_chunk->memptr, size);
       return (void*)defrag_chunk->memptr;
     }
     auto split_chunk = try_block_splitting(size);
@@ -552,10 +555,12 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
       chunks[split_chunk->memptr] = split_chunk;
       bytes_in_use += split_chunk->size;
       stats.UpdateStats(split_chunk->size, true, is_workspace);
+      log_synDeviceAlloc(split_chunk->memptr, size);
       return (void*)split_chunk->memptr;
     }
     print_device_memory_stats(pool_id);
     PT_DEVMEM_DEBUG("POOL:: pool exhausted !! for size :: ", size);
+    log_synDeviceAlloc(0, size);
     return nullptr;
   }
 
@@ -563,6 +568,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
   Chunk* chunk = new Chunk();
   if (!chunk) {
     PT_DEVMEM_DEBUG("POOL:: Cannot create a chunk");
+    log_synDeviceAlloc(0, size);
     return nullptr;
   }
   chunk->memptr = (uint64_t)p->next;
@@ -605,6 +611,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
   chunks[chunk->memptr] = chunk;
   bytes_in_use += chunk->size;
   stats.UpdateStats(chunk->size, true, is_workspace);
+  log_synDeviceAlloc(chunk->memptr, size);
   return (void*)chunk->memptr;
 }
 
@@ -902,6 +909,7 @@ bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
 
 void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
   if ((uint64_t)ptr == 0) {
     PT_DEVMEM_DEBUG("POOL:: null ptr");
     return;
