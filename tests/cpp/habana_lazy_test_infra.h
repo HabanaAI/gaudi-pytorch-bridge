@@ -37,6 +37,7 @@ class EnvHelper {
   bool m_recipe_cache_enable = true;
   bool m_eager_gc_enable = false;
   bool m_shape_agnostic_enable = false;
+  bool m_acc_par_mode_enable = true;
 
  private:
   uint64_t InitSeed();
@@ -130,6 +131,19 @@ class EnvHelper {
   void RestoreRecipeCache() {
     if (m_recipe_cache_enable) {
       SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, true, 1);
+    }
+  }
+
+  void DisableAccParMode() {
+    m_acc_par_mode_enable = GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE);
+    if (m_acc_par_mode_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE, false, 1);
+    }
+  }
+
+  void RestoreAccParMode() {
+    if (m_acc_par_mode_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE, true, 1);
     }
   }
 

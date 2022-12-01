@@ -29,16 +29,37 @@
 using namespace habana_lazy;
 
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyEagerTest : public HpuOpTestUtil {};
+class LazyEagerTest : public HpuOpTestUtil {
+  void SetUp() override {
+    SetLazyMode(2);
+
+    DisableRecipeCache();
+    EnableEagerGC();
+    DisableAccParMode();
+
+    SetSeed();
+
+    DisableCpuFallback();
+
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+  }
+
+  void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    RestoreRecipeCache();
+    RestoreEagerGC();
+    RestoreAccParMode();
+
+    RestoreMode();
+  }
+};
 
 TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
     auto out = torch::empty(0);
     auto hout = torch::empty(0, c10::kHPU);
     auto buffer = torch::empty(0);
@@ -56,9 +77,6 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
     const int iterations = 10;
     auto out = torch::empty(0);
     auto hout = torch::empty(0, c10::kHPU);
@@ -85,9 +103,6 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
     torch::Tensor A = torch::randn({2, 3});
     torch::Tensor B = torch::randn({2, 3});
     torch::Tensor C = torch::randn({2, 3});
@@ -100,8 +115,8 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
     auto result = torch::add(hA, hC);
     torch::Tensor out = result.to(torch::kCPU);
     EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
-    UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
@@ -138,15 +153,11 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
               .count();
       EXPECT_EQ(allclose(out, hA, 0.001, 0.001), true);
     }
-    UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
   }
+  UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
 TEST_F(LazyEagerTest, optimized_lazy_copy_inplace_1) {
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE, false, 1);
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
