@@ -50,4 +50,35 @@ std::shared_ptr<void> FillsoftshrinkbwdParams(
     size_t& size) {
   return FillshrinkParams(stack, size, ShrinkMode_t::SOFT_SHRINK, 2);
 }
+
+void HardShrinkFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto dtype = ScalarType();
+  const auto outshape = stack_tensor(stack, 0).sizes();
+
+  int index_lambda = 1;
+  float lambda = stack.at(index_lambda).toScalar().to<float>();
+
+  if (lambda < 0.0) {
+    auto out = OpBackend::BuildOp(
+        graph,
+        "memcpy_" + habana_helpers::name_suffix_from_type(dtype),
+        {syn_in(0)},
+        {{outshape, dtype, 0}});
+    syn_out(0) = std::move(out[0]);
+    return;
+  }
+  ns_ShrinkKernel::TrainingParams params{
+      -lambda, lambda, ShrinkMode_t::HARD_SHRINK};
+  auto out = OpBackend::BuildOp(
+      graph,
+      guid_,
+      {syn_in(0)},
+      {{outshape, dtype, 0}},
+      &params,
+      sizeof(params));
+  syn_out(0) = std::move(out[0]);
+  return;
+}
 } // namespace habana

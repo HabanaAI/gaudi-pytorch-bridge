@@ -2928,15 +2928,15 @@ gt.Tensor:
 
 hardshrink:
   force_default: false
-  custom_fill_params: FillhardshrinkfwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_fwd
+  op_backend: HardShrinkFwd
   out_ids: [0]
 
 hardshrink.out:
-  custom_fill_params: FillhardshrinkfwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_fwd
+  op_backend: HardShrinkFwd
 
 hardshrink_backward:
   force_default: false
