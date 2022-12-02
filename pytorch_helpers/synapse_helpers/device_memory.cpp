@@ -662,7 +662,8 @@ bool device_memory::defragment_memory(
       continue;
     }
 
-    movers.emplace_back(it->handle_, it->ptr_, it->size_, it->actual_size_);
+    movers.emplace_back(
+        it->handle_, it->ptr_, it->size_, block_align(it->size_));
   }
 
   if (movers.empty()) {
