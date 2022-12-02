@@ -3132,69 +3132,6 @@ isnan:
   op_frontend: LazyIsNan
   out_ids: [0]
 
-isinf:
-  force_default: false
-  custom_fill_params: FillisinfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-  op_frontend: LazyBoolOutput
-  out_ids: [0]
-
-isinf.out:
-  custom_fill_params: FillisinfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-
-isposinf:
-  force_default: false
-  custom_fill_params: FillisposinfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-  op_frontend: LazyBoolOutput
-  out_ids: [0]
-
-isposinf.out:
-  custom_fill_params: FillisposinfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-
-isneginf:
-  force_default: false
-  custom_fill_params: FillisneginfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-  op_frontend: LazyBoolOutput
-  out_ids: [0]
-
-isneginf.out:
-  custom_fill_params: FillisneginfParamsFwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  guid: isinf_fwd
-
 kl_div:
   force_default: false
   dtypes: [BFloat16, Float]
@@ -3685,7 +3622,7 @@ logical_and:
   force_default: false
   guid: and
   out_ids: [0]
-  op_frontend: LazyBoolOutput
+  op_frontend: LazyLogical
 
 logical_and_:
   broadcast: true
@@ -3716,7 +3653,7 @@ logical_not:
   force_default: false
   guid: not_fwd
   out_ids: [0]
-  op_frontend: LazyBoolOutput
+  op_frontend: LazyLogical
 
 logical_not_:
   dtypes:
@@ -3746,7 +3683,7 @@ logical_or:
   force_default: false
   guid: or
   out_ids: [0]
-  op_frontend: LazyBoolOutput
+  op_frontend: LazyLogical
 
 logical_or_:
   broadcast: true
@@ -3778,7 +3715,7 @@ logical_xor:
   force_default: false
   guid: xor
   out_ids: [0]
-  op_frontend: LazyBoolOutput
+  op_frontend: LazyLogical
 
 logical_xor_:
   broadcast: true
