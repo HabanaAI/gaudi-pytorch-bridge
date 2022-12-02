@@ -1,17 +1,21 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-22 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/clamp.h"
 #include "generated/clamp_max.h"
 #include "habana_helpers/dtype_helpers.h"
 
+namespace habana {
 // Use min/max of self tensor's dtype for clamping instead of
 // blanket float limits. Use min/max of self's dtype as seen
 // at backend(lowering).
@@ -75,18 +79,18 @@ float self_type_min_for_be(c10::ScalarType type) {
   return min;
 }
 
-namespace habana {
-static void convert_params_to_tensors(std::vector<at::IValue>& inputs) {
-  auto self = inputs[0].toTensor();
-  auto type = self.scalar_type();
+static void convert_params_to_tensors(
+    at::Stack& inputs,
+    at::ScalarType compute_dtype) {
+  const auto& self = inputs[0].toTensor();
   float min = inputs[1].isScalar() ? inputs[1].toScalar().to<float>()
-                                   : self_type_min_for_be(type);
+                                   : self_type_min_for_be(compute_dtype);
   float max = inputs[2].isScalar() ? inputs[2].toScalar().to<float>()
-                                   : self_type_max_for_be(type);
-  auto min_tr = habana_lazy::get_tensor_for_scalar(min, self.options());
-  auto max_tr = habana_lazy::get_tensor_for_scalar(max, self.options());
-  inputs[1] = c10::IValue(min_tr);
-  inputs[2] = c10::IValue(max_tr);
+                                   : self_type_max_for_be(compute_dtype);
+  inputs[1] = habana_lazy::get_tensor_for_scalar(
+      min, self.options().dtype(compute_dtype));
+  inputs[2] = habana_lazy::get_tensor_for_scalar(
+      max, self.options().dtype(compute_dtype));
 }
 
 template <>
@@ -94,11 +98,7 @@ LazyClamp<at::Tensor>::LazyClamp(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
-  auto x = get_inputs();
-  convert_params_to_tensors(x);
-  set_inputs(x);
-}
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
 LazyClamp<at::Tensor&>::LazyClamp(
@@ -106,17 +106,20 @@ LazyClamp<at::Tensor&>::LazyClamp(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
-  auto x = get_inputs();
-  convert_params_to_tensors(x);
-  set_inputs(x);
+  convert_params_to_tensors(
+      get_inputs(), inputs.at(0).toTensor().scalar_type());
 }
 
 template <>
 at::Tensor LazyClamp<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+  auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+  convert_params_to_tensors(inputs, get_scalar_type());
   const auto& t = inputs.at(0).toTensor();
   return habana_lazy::empty_hpu_lazy(
-      t.sizes(), t.options(), t.suggest_memory_format(), false);
+      t.sizes(),
+      t.options().dtype(get_scalar_type()),
+      t.suggest_memory_format(),
+      false);
 }
 
 template <>
@@ -195,23 +198,23 @@ void clampTensor::AddNode(
   if (minTensorDefined && maxTensorDefined) {
     auto maxOut = BuildOp(
         graph,
-        "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        "max_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type()}});
+        {{outshape, ScalarType()}});
 
     auto minOut = BuildOp(
         graph,
-        "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        "min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {maxOut[0].get(), syn_in(2)},
-        {{outshape, self.scalar_type(), 0}});
+        {{outshape, ScalarType(), 0}});
 
     syn_out(0) = std::move(minOut[0]);
   } else if (minTensorDefined) {
     auto maxOut = BuildOp(
         graph,
-        "max_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        "max_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), 0}});
+        {{outshape, ScalarType(), 0}});
 
     syn_out(0) = std::move(maxOut[0]);
   } else {
@@ -219,9 +222,9 @@ void clampTensor::AddNode(
         maxTensorDefined, "At least one of 'min' or 'max' must not be None")
     auto minOut = BuildOp(
         graph,
-        "min_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type()),
+        "min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(0), syn_in(1)},
-        {{outshape, self.scalar_type(), 0}});
+        {{outshape, ScalarType(), 0}});
 
     syn_out(0) = std::move(minOut[0]);
   }
