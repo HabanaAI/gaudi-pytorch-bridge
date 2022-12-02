@@ -1162,11 +1162,64 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::_allgather_base(
-    at::Tensor& outputBuffer,
-    at::Tensor& inputBuffer,
+    at::Tensor& output_tensor,
+    at::Tensor& input_tensor,
     const AllgatherOptions& opts) {
-  throw std::runtime_error(
-      "allgather_base is currently not supported with HCCL");
+  PT_DISTRIBUTED_BEGIN;
+
+  if (input_tensor.dtype() != output_tensor.dtype()) {
+    TORCH_CHECK(false, "output tensor must have the same type as input tensor");
+  }
+
+  if (input_tensor.numel() * size_ != output_tensor.numel()) {
+    TORCH_CHECK(
+        false,
+        "output tensor size must be equal to world_size times input tensor size");
+  }
+
+  // just a wrapper to fit the collective interface
+  auto inputs = std::vector<at::Tensor>{input_tensor};
+  auto outputs = std::vector<at::Tensor>{output_tensor};
+
+  auto work = collective(
+      inputs,
+      outputs,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] _allgather_base with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            input.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
+        auto scalar_type = input.scalar_type();
+        auto tensor_data_type = getHCCLDataType(scalar_type);
+        auto numel = input.numel();
+        getCountDatatype(scalar_type, numel, tensor_data_type);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclAllGather(
+              send_buffer,
+              recv_buffer,
+              numel,
+              tensor_data_type,
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
+      });
+
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather_coalesced(
@@ -1266,6 +1319,66 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce_scatter(
         // Wait for event on input
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce_scatter with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            output.numel(),
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclReduceScatter(
+              send_buffer,
+              recv_buffer,
+              output.numel(),
+              getHCCLDataType(input.scalar_type()),
+              getHCCLReduceOp(reduceOp),
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
+      });
+  PT_DISTRIBUTED_END;
+  return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHCCL::_reduce_scatter_base(
+    at::Tensor& output_tensor,
+    at::Tensor& input_tensor,
+    const ReduceScatterOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
+
+  if (input_tensor.dtype() != output_tensor.dtype()) {
+    TORCH_CHECK(
+        false, "input tensor must be the same type as the output tensor.");
+  }
+
+  if (input_tensor.numel() != output_tensor.numel() * size_) {
+    TORCH_CHECK(
+        false,
+        "input tensor must be the same size as output size times world size");
+  }
+
+  // just a wrapper to fit the collective interface
+  auto inputs = std::vector<at::Tensor>{input_tensor};
+  auto outputs = std::vector<at::Tensor>{output_tensor};
+
+  auto work = collective(
+      inputs,
+      outputs,
+      [reduceOp = opts.reduceOp, this](
+          at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
+        // Wait for event on input
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] _reduce_scatter_base with input_address :: ",
             send_buffer,
             " output_address :: ",
             recv_buffer,
