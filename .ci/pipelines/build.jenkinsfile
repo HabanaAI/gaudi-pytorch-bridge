@@ -73,7 +73,7 @@ def requiredArtifact = [
     'TPC_LLVM': ['bin', 'shared'],
     'SCAL': ['test', 'shared'],
     'PYTORCH': ['test', 'data'],
-    'CORAL_SIM': ['bin', 'test', 'shared', 'header'],
+    'CORAL_SIM': ['bin', 'bin_nextgen', 'test', 'shared', 'header'],
     'AEON': ['shared'],
     'ENGINES_FW': ['config', 'data', 'shared', 'test'],
     'HCL': ['shared'],
