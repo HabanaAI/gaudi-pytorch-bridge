@@ -1,6 +1,7 @@
 from typing import List
 import copy
 import collections
+from functools import wraps
 import gc
 import inspect
 import os
@@ -331,6 +332,7 @@ def wrap_in_hpu_graph(module):
     stream = ht.hpu.Stream()
     cache = {}
     orig_fwd = module.forward
+    @wraps(orig_fwd)
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
         h = input_hash(inputs)
