@@ -1642,29 +1642,142 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
   // weights when we already have it in AllocateAndAddSynapseNode
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
   for (auto* node : graph_nodes) {
+    PT_BRIDGE_DEBUG(
+        ": Node is : ",
+        node->kind().toQualString(),
+        " and scope is : ",
+        node->scope()->name().toUnqualString());
+    if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
+      auto cast_uses = node->output(0)->uses();
+      for (auto cast_u : cast_uses) {
+        PT_BRIDGE_DEBUG(
+            ": comsumer of cast: ", cast_u.user->kind().toQualString());
+        if (cast_u.user->kind() == torch::jit::aten::t) {
+          auto uses = cast_u.user->output(0)->uses();
+          for (auto u : uses) {
+            PT_BRIDGE_DEBUG(
+                ": consumer of Transpose: ", u.user->kind().toQualString());
+            auto mm_node = u.user;
+            if (mm_node->scope()->name().toUnqualString() ==
+                    cast_u.user->scope()->name().toUnqualString() &&
+                strcmp(cast_u.user->scope()->name().toUnqualString(), "") !=
+                    0) {
+              // auto bias_idx = 0;
+              if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
+                PT_BRIDGE_DEBUG(
+                    ": Transpose has same scope as : ",
+                    mm_node->kind().toQualString(),
+                    " and scope is : ",
+                    mm_node->scope()->name().toUnqualString());
+                // Setting Transpose input as Constant
+                auto value_in = node->input(0);
+
+                if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+                  PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+                  continue;
+                }
+                auto tensor = value_to_ivalue[value_in]->toTensor();
+                auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+                impl->SetConstTensor(true);
+              }
+              if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
+                PT_BRIDGE_DEBUG(
+                    ": Transpose has same scope as : ",
+                    mm_node->kind().toQualString(),
+                    " and scope is : ",
+                    mm_node->scope()->name().toUnqualString());
+                auto value_in = node->input(0);
+                if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+                  PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+                  continue;
+                }
+                auto tensor = value_to_ivalue[value_in]->toTensor();
+                auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+                impl->SetConstTensor(true);
+              }
+            }
+          }
+        } else if (
+            cast_u.user->kind() == torch::jit::aten::convolution_overrideable) {
+          PT_BRIDGE_DEBUG(
+              ": Conv : ",
+              cast_u.user->kind().toQualString(),
+              " and scope is : ",
+              cast_u.user->scope()->name().toUnqualString());
+          auto value_in = node->input(0);
+          if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+            PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+            continue;
+          }
+          auto tensor = value_to_ivalue[value_in]->toTensor();
+          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+          impl->SetConstTensor(true);
+        } else if (cast_u.user->kind() == torch::jit::aten::linear) {
+          PT_BRIDGE_DEBUG(
+              ": linear : ",
+              cast_u.user->kind().toQualString(),
+              " and scope is : ",
+              cast_u.user->scope()->name().toUnqualString());
+          auto value_in = node->input(0);
+          if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+            PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+            continue;
+          }
+          auto tensor = value_to_ivalue[value_in]->toTensor();
+          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+          impl->SetConstTensor(true);
+        }
+      }
+    }
     if (node->kind() == torch::jit::aten::t) {
       auto uses = node->output(0)->uses();
       for (auto u : uses) {
+        PT_BRIDGE_DEBUG(
+            ": consumer of Transpose: ", u.user->kind().toQualString());
         auto mm_node = u.user;
         if (mm_node->scope()->name().toUnqualString() ==
                 node->scope()->name().toUnqualString() &&
             strcmp(node->scope()->name().toUnqualString(), "") != 0) {
           auto bias_idx = 0;
           if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
+            PT_BRIDGE_DEBUG(
+                ": Transpose has same scope as : ",
+                mm_node->kind().toQualString(),
+                " and scope is : ",
+                mm_node->scope()->name().toUnqualString());
             // Setting Bias
             mm_node->input(0) == node->output(0) ? bias_idx = 1 : bias_idx = 0;
+            PT_BRIDGE_DEBUG(": bias_idx ", bias_idx);
             auto mm_value_in = mm_node->input(bias_idx);
+            if (value_to_ivalue.find(mm_value_in) == value_to_ivalue.end()) {
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              continue;
+            }
             auto mm_tensor = value_to_ivalue[mm_value_in]->toTensor();
             auto mm_impl = habana_lazy::GetHbInternalTensorImpl(mm_tensor);
             mm_impl->SetConstTensor(true);
             // Setting Transpose input as Constant
             auto value_in = node->input(0);
+
+            if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              continue;
+            }
             auto tensor = value_to_ivalue[value_in]->toTensor();
             auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
             impl->SetConstTensor(true);
           }
           if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
+            PT_BRIDGE_DEBUG(
+                ": Transpose has same scope as : ",
+                mm_node->kind().toQualString(),
+                " and scope is : ",
+                mm_node->scope()->name().toUnqualString());
             auto value_in = node->input(0);
+            if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              continue;
+            }
             auto tensor = value_to_ivalue[value_in]->toTensor();
             auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
             impl->SetConstTensor(true);
@@ -1672,12 +1785,30 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
         }
       }
     } else if (node->kind() == torch::jit::aten::convolution_overrideable) {
+      PT_BRIDGE_DEBUG(
+          ": Conv : ",
+          node->kind().toQualString(),
+          " and scope is : ",
+          node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
+      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        continue;
+      }
       auto tensor = value_to_ivalue[value_in]->toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       impl->SetConstTensor(true);
     } else if (node->kind() == torch::jit::aten::linear) {
+      PT_BRIDGE_DEBUG(
+          ": linear : ",
+          node->kind().toQualString(),
+          " and scope is : ",
+          node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
+      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        continue;
+      }
       auto tensor = value_to_ivalue[value_in]->toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       impl->SetConstTensor(true);

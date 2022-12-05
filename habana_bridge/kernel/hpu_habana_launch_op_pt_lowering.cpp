@@ -387,6 +387,10 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
         if (hb_tensor->IsConstTensor()) {
           PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
+          // remove the const marking to avoid copy more than once
+          hb_tensor->SetConstTensor(false);
+          PT_BRIDGE_DEBUG(
+              "tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
           uint64_t section_size = 0, section_data = 0;
           synSectionId tensorSectionId;
           getTensorSectionId(
