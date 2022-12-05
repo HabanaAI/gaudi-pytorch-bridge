@@ -616,6 +616,14 @@ class LazyOp {
         c10::optional<at::Tensor> base_tensor =
             context->viewContext.GetOrigTensorMapEntry(id);
         if (base_tensor != c10::nullopt) {
+          // accumulation thread cannot release tensors as it can cause a
+          // deadlock with GIL
+          if (GetAccThreadPool().inThreadPool()) {
+            auto old_tensor = std::move(m_inputs[idx]);
+            habana_lazy::PushCleanupTask(
+                [old_tensor = std::move(old_tensor)]() {});
+          }
+
           m_inputs[idx] = base_tensor;
         } else {
           if (HbLazyTensorViews::HandleViews(t, hl_t)) {
@@ -631,9 +639,9 @@ class LazyOp {
   bool viewUpdateInputs() {
     size_t idx = 0;
     bool is_view = false;
-    for (auto ival : m_inputs) {
+    for (auto& ival : m_inputs) {
       if (ival.isTensor()) {
-        auto t = ival.toTensor();
+        auto& t = ival.toTensor();
         is_view = viewUpdateInputsProcessSingleTensor(t, idx);
       } else if (ival.isTensorList()) {
         auto tl = ival.toTensorVector();
@@ -663,6 +671,14 @@ class LazyOp {
       for (int idx = (int)m_inputs.size() - 1; idx >= 0; idx--) {
         auto t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
+          // accumulation thread cannot release tensors as it can cause a
+          // deadlock with GIL
+          if (GetAccThreadPool().inThreadPool()) {
+            auto old_tensor = std::move(m_inputs[idx]);
+            habana_lazy::PushCleanupTask(
+                [old_tensor = std::move(old_tensor)]() {});
+          }
+
           m_inputs[idx] = out_t;
           // break after first update because we can cases like torch.ge(a, b,
           // out = a). In this case need to replace only out = a case
@@ -717,6 +733,12 @@ class LazyOp {
       for (size_t idx = 0; idx < m_inputs.size(); idx++) {
         auto& t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
+          // accumulation thread cannot release tensors as it can cause a
+          // deadlock with GIL
+          if (GetAccThreadPool().inThreadPool()) {
+            habana_lazy::PushCleanupTask([t]() {});
+          }
+
           t = self_updated;
         }
       }
@@ -1445,6 +1467,13 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
+
+      // accumulation thread cannot release tensors as it can cause a
+      // deadlock with GIL
+      if (GetAccThreadPool().inThreadPool()) {
+        auto old_tensor = std::move(inputs[i]);
+        habana_lazy::PushCleanupTask([old_tensor = std::move(old_tensor)]() {});
+      }
       inputs[i] = self;
     }
 
@@ -1491,6 +1520,13 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
+
+      // accumulation thread cannot release tensors as it can cause a
+      // deadlock with GIL
+      if (GetAccThreadPool().inThreadPool()) {
+        auto old_tensor = std::move(inputs[i]);
+        habana_lazy::PushCleanupTask([old_tensor = std::move(old_tensor)]() {});
+      }
       inputs[i] = self;
     }
 
@@ -1535,6 +1571,13 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
+
+      // accumulation thread cannot release tensors as it can cause a
+      // deadlock with GIL
+      if (GetAccThreadPool().inThreadPool()) {
+        auto old_tensor = std::move(inputs[i]);
+        habana_lazy::PushCleanupTask([old_tensor = std::move(old_tensor)]() {});
+      }
       inputs[i] = self;
     }
 
