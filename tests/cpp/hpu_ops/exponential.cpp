@@ -8,10 +8,9 @@
  ******************************************************************************
  */
 
-#include <torch/csrc/api/include/torch/version.h>
 #include "util.h"
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #define EXP_FN torch::exponential_functional
 #else
 #define EXP_FN torch::exponential

@@ -34,6 +34,10 @@
 #include "habana_lazy/memlog.h"
 #include "habana_lazy/ops/shape_ops.h"
 
+#if IS_PYTORCH_OLDER_THAN(2, 0)
+#define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
+#endif
+
 namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
 at::Tensor permute_wt_hpu(const at::Tensor& self);

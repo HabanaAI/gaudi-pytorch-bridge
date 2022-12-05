@@ -9,11 +9,11 @@
  */
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
-#include <torch/csrc/api/include/torch/version.h>
 #include "habana_kernels/kernel_utils.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #undef UNUSED // Collision between pytorch_helpers/synapse_helpers/graph.h and
               // c10d::ReduceOp enum from c10d/Types.hpp
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #include <c10d/Types.hpp>
 #else
 #include <torch/csrc/distributed/c10d/Types.hpp>

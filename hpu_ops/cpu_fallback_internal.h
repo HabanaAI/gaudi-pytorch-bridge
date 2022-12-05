@@ -21,7 +21,7 @@
 #include <ATen/ops/result_type.h>
 #include "habana_kernels/op_support_level.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
-#include <torch/csrc/api/include/torch/version.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 // clang-format on
 
 namespace habana {
@@ -153,7 +153,7 @@ struct redispatch_if_any_arg_changed final {
     if (redispatch_to_hpu) {
       return Op::call(args...);
     }
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
@@ -268,7 +268,7 @@ struct _dispatch_fallback<
           return result;
       }
     }
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
@@ -312,7 +312,7 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
       }
     }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(t, args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
@@ -360,7 +360,7 @@ struct _dispatch_fallback<
       }
     }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(t, args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
@@ -458,7 +458,7 @@ struct _dispatch_fallback<
         return std::get<0>(helper::call(arg, args...));
     }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(arg, args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
@@ -499,7 +499,7 @@ struct _dispatch_fallback<
         return helper::call(args...);
     }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
 #else
     return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(

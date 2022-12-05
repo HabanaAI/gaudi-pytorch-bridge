@@ -12,7 +12,6 @@
  */
 #include <torch/library.h>
 
-#include <torch/csrc/api/include/torch/version.h>
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -21,6 +20,7 @@
 #include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "pytorch_helpers/pt_ver/torch_params_shim.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -154,7 +154,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   return copy_hpu_lazy_(self, src, non_blocking);
 };
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     IntArrayRef size,
@@ -239,7 +239,7 @@ Tensor hpu_wrap::_reshape_alias(
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return view_hpu_lazy(self, size);
   } else {
-    return view_hpu(self, asIntArrayRefSlow(size));
+    return view_hpu(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 };
 
@@ -259,8 +259,8 @@ Tensor& hpu_wrap::set_(
       self,
       source,
       storage_offset.expect_int(),
-      asIntArrayRefSlow(size),
-      asIntArrayRefSlow(stride));
+      C10_AS_INTARRAYREF_SLOW(size),
+      C10_AS_INTARRAYREF_SLOW(stride));
 }
 
 Tensor hpu_wrap::_efficientzerotensor(
@@ -527,7 +527,7 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   }
 };
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::kl_div_backward(
     const Tensor& grad,
     const Tensor& self,
@@ -964,7 +964,7 @@ Tensor hpu_wrap::softmax(
   return SoftmaxFunction::apply(self, dim, dtype);
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::empty(
     IntArrayRef size,
     c10::optional<ScalarType> dtype,
@@ -1078,9 +1078,10 @@ Tensor hpu_wrap::empty(
 
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return empty_hpu_lazy(
-        asIntArrayRefSlow(size), options, optional_memory_format);
+        C10_AS_INTARRAYREF_SLOW(size), options, optional_memory_format);
   }
-  return empty_hpu(asIntArrayRefSlow(size), options, optional_memory_format);
+  return empty_hpu(
+      C10_AS_INTARRAYREF_SLOW(size), options, optional_memory_format);
 };
 
 Tensor hpu_wrap::empty_strided(
@@ -1119,13 +1120,17 @@ Tensor hpu_wrap::empty_strided(
                                   .device(std::move(device));
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return empty_strided_hpu_lazy(
-        asIntArrayRefSlow(size), asIntArrayRefSlow(stride), options);
+        C10_AS_INTARRAYREF_SLOW(size),
+        C10_AS_INTARRAYREF_SLOW(stride),
+        options);
   }
   return empty_strided_hpu(
-      asIntArrayRefSlow(size), asIntArrayRefSlow(stride), options);
+      C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride), options);
 }
 
 #endif
+
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     IntArrayRef split_sizes,
@@ -1150,6 +1155,34 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
     return split_with_sizes_hpu(self, split_sizes, dim);
   }
 };
+#else
+std::vector<Tensor> hpu_wrap::split_with_sizes(
+    const Tensor& self,
+    c10::SymIntArrayRef split_sizes,
+    int64_t dim) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "split_with_sizes :",
+      " self=",
+      to_string(self),
+      " split_sizes=",
+      to_string(split_sizes),
+      " dim=",
+      to_string(dim));
+  FALLBACK_IF_UNSUPPORTED_OP(
+      split_with_sizes, PARAMS1(self), PARAMS2(self, split_sizes, dim))
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return split_with_sizes_hpu_lazy(
+        self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
+
+  } else {
+    return split_with_sizes_hpu(
+        self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
+  }
+};
+#endif
 
 std::tuple<Tensor, Tensor> hpu_wrap::sort(
     const Tensor& self,
@@ -1180,7 +1213,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   }
 };
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
@@ -1208,10 +1241,12 @@ Tensor hpu_wrap::_unsafe_view(
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     return view_hpu_lazy(self, size);
   } else {
-    return view_hpu(self, asIntArrayRefSlow(size));
+    return view_hpu(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 }
 #endif
+
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
     int64_t split_size,
@@ -1241,8 +1276,8 @@ std::vector<at::Tensor> hpu_wrap::split(
   int64_t num_splits = 1;
   if (split_size != 0) {
     // ensuring num_splits is at least 1 makes consistent the case where
-    // split_size > dim_size (returns a single split).  We might want to error
-    // here, but keep it for BC.
+    // split_size > dim_size (returns a single split).  We might want to
+    // error here, but keep it for BC.
     num_splits = std::max<int64_t>((dim_size + split_size - 1) / split_size, 1);
   }
 
@@ -1257,6 +1292,54 @@ std::vector<at::Tensor> hpu_wrap::split(
   IntArrayRef split_sizes(splits);
   return hpu_wrap::split_with_sizes(self, split_sizes, dim);
 }
+#else
+std::vector<at::Tensor> hpu_wrap::split(
+    const at::Tensor& self,
+    c10::SymInt split_size_symint,
+    int64_t dim) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "split :",
+      " self=",
+      to_string(self),
+      " split_size=",
+      to_string(split_size_symint),
+      " dim=",
+      to_string(dim));
+  FALLBACK_IF_UNSUPPORTED_OP_O(
+      split, PARAMS1(self), PARAMS2(self, split_size_symint, dim), Tensor)
+
+  // lower aten::split as split_with_sizes using the logic used in Fork
+  int64_t dim_size = self.size(dim);
+  auto split_size = split_size_symint.expect_int();
+  TORCH_CHECK(
+      split_size > 0 || self.size(dim) == 0,
+      "split_size can only be 0 if dimension size is 0, "
+      "but got dimension size of ",
+      dim_size);
+
+  // if split_size is 0 and dimension size is 0, there is 1 split.
+  int64_t num_splits = 1;
+  if (split_size != 0) {
+    // ensuring num_splits is at least 1 makes consistent the case where
+    // split_size > dim_size (returns a single split).  We might want to error
+    // here, but keep it for BC.
+    num_splits = std::max<int64_t>((dim_size + split_size - 1) / split_size, 1);
+  }
+
+  std::vector<c10::SymInt> splits(num_splits);
+  int64_t last_split_size = split_size - (split_size * num_splits - dim_size);
+
+  for (int64_t i = 0; i < num_splits; ++i) {
+    auto length = i < num_splits - 1 ? split_size : last_split_size;
+    splits[i] = c10::SymInt(length);
+  }
+
+  c10::SymIntArrayRef split_sizes(splits);
+  return hpu_wrap::split_with_sizes(self, split_sizes, dim);
+}
+#endif
 
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
@@ -1954,7 +2037,7 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
   }
 };
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR >= 13))
+#if IS_PYTORCH_AT_LEAST(1, 13)
 ::std::tuple<Tensor, Tensor, Tensor> linear_backward(
     const Tensor& self,
     const Tensor& grad_output,
@@ -1996,7 +2079,7 @@ Tensor hpu_wrap::linear(
   }
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2025,7 +2108,6 @@ Tensor hpu_wrap::slice(
   }
 };
 #else
-
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2120,10 +2202,10 @@ at::Tensor roi_align_fwd_wrap(
   int mode = 0;
   // rois from torchvision are of shape {K, 5} where 1st column contain the
   // index of corresponding element in the batch, whereas remaining columns
-  // contain the roi co-ordinates. Since "roi_align" TPC kernels expect these
-  // indices and co-ordinates as separate tensors, therefore split operation is
-  // being done here. TPC kernel expects a 1D Int tensor for num_rois, therefore
-  // a reshape and conversion to Int is also done here.
+  // contain the roi co-ordinates. Since "roi_align" TPC kernels expect
+  // these indices and co-ordinates as separate tensors, therefore split
+  // operation is being done here. TPC kernel expects a 1D Int tensor for
+  // num_rois, therefore a reshape and conversion to Int is also done here.
   auto out = rois.split_with_sizes({1, 4}, 1);
   auto num_rois = out[0].view(-1).to(torch::kInt);
   auto roi = out[1];

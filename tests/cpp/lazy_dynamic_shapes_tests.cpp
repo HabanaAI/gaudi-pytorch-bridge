@@ -23,8 +23,8 @@
 
 #include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
-
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -2258,7 +2258,7 @@ TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
   EXPECT_EQ(allclose(hout.cpu(), out, 0.001, 0.001), true);
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #define EXP_FN torch::exponential_functional
 #else
 #define EXP_FN torch::exponential

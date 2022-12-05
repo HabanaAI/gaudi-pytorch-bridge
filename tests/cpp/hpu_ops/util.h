@@ -12,6 +12,7 @@
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
 #include <random>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
  public:

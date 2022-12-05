@@ -7,8 +7,8 @@
  *
  ******************************************************************************
  */
-#include <torch/version.h>
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #include "generated/l1_loss_backward.h"
 
 namespace habana {

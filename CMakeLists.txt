@@ -285,8 +285,10 @@ endif()
 # REMOVE this in SW-112402
 if (Torch_VERSION VERSION_LESS "1.13.0")
   set(header "wrap_kernels_declarations_12.h")
-else()
+elseif (Torch_VERSION VERSION_LESS "1.14.0")
   set(header "wrap_kernels_declarations_13.h")
+else()
+  set(header "wrap_kernels_declarations_14.h")
 endif()
 execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
     ${CMAKE_SOURCE_DIR}/habana_kernels/${header}

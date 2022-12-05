@@ -1,6 +1,6 @@
 #include <c10/core/DeviceGuard.h>
-#include <torch/csrc/api/include/torch/version.h>
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #include <c10d/reducer_timer.hpp>
 #else
 #include <torch/csrc/distributed/c10d/reducer_timer.hpp>

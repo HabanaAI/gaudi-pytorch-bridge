@@ -13,10 +13,10 @@
 
 // This file will act as shim layer for various torch param conversions in diff
 // torch version, which was impacted due to version upgrades.
-#include <torch/csrc/api/include/torch/version.h>
 #include <torch/library.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #define INTARRAY_PARAM(intArray) (intArray)
 #else
 #define INTARRAY_PARAM(intArray) \

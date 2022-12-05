@@ -7,7 +7,6 @@
  *
  ******************************************************************************
  */
-
 #include "util.h"
 #define TENSOR_TYPE_float torch::kFloat
 
@@ -65,6 +64,7 @@ TEST_F(HpuOpTest, upsample_linear1d_bwd_size) {
   Compare(expected, result);
 }
 
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 TEST_F(HpuOpTest, upsample_linear1d_bwd_scale) {
   GenerateInputs(1, {{2, 3, 8}});
   std::vector<double> scale = {2};
@@ -76,6 +76,20 @@ TEST_F(HpuOpTest, upsample_linear1d_bwd_scale) {
       GetHpuInput(0), c10::nullopt, input_size, /*align_corner*/ false, scale);
   Compare(expected, result);
 }
+#else
+TEST_F(HpuOpTest, upsample_linear1d_bwd_scale) {
+  GenerateInputs(1, {{2, 3, 8}});
+  c10::optional<double> scale(2.0);
+  std::vector<int64_t> output_size = {2, 3, 8};
+  std::vector<int64_t> input_size = {2, 3, 4};
+
+  auto expected = torch::upsample_linear1d_backward(
+      GetCpuInput(0), output_size, input_size, /*align_corner*/ false, scale);
+  auto result = torch::upsample_linear1d_backward(
+      GetHpuInput(0), output_size, input_size, /*align_corner*/ false, scale);
+  Compare(expected, result);
+}
+#endif
 
 TEST_F(HpuOpTest, upsample_linear1d_bwd_out) {
   GenerateInputs(1, {{1, 28, 64}});

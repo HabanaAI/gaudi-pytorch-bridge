@@ -19,6 +19,7 @@
 #include <torch/script.h>
 #include <torch/version.h>
 #include "habana_kernels/habana_operator.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
@@ -32,7 +33,7 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor as_strided_hpu_lazy2(
     const at::Tensor& self,
     at::IntArrayRef size,
@@ -69,7 +70,7 @@ at::Tensor& set_hpu_lazy_(
     int64_t storage_offset,
     at::IntArrayRef size,
     at::IntArrayRef stride);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor view_hpu_lazy(const at::Tensor& self_, at::IntArrayRef size);
 #else
 at::Tensor view_hpu_lazy(const at::Tensor& self, at::SymIntArrayRef size);
@@ -137,17 +138,33 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> convolution_backward_hpu_lazy(
     at::IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask);
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 at::Tensor constant_pad_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef pad,
     const at::Scalar& value);
+#else
+at::Tensor constant_pad_hpu_lazy(
+    const at::Tensor& self,
+    at::SymIntArrayRef pad,
+    const at::Scalar& value);
+#endif
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 at::Tensor embedding_hpu_lazy(
     const at::Tensor& weight,
     const at::Tensor& indices,
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#else
+at::Tensor embedding_hpu_lazy(
+    const at::Tensor& weight,
+    const at::Tensor& indices,
+    c10::SymInt padding_idx_sym,
+    bool scale_grad_by_freq,
+    bool sparse);
+#endif
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor embedding_dense_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& indices,
@@ -258,11 +275,24 @@ at::Tensor slice_hpu_lazy(
     c10::optional<int64_t> start,
     c10::optional<int64_t> end,
     int64_t step);
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 at::Tensor select_hpu_lazy(const at::Tensor& self, int64_t dim, int64_t index);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#else
+at::Tensor select_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::SymInt index);
+#endif
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor select_backward_hpu_lazy(
     const at::Tensor& grad,
     at::IntArrayRef input_sizes,
+    int64_t dim,
+    int64_t index);
+#elif IS_PYTORCH_OLDER_THAN(1, 14)
+at::Tensor select_backward_hpu_lazy(
+    const at::Tensor& grad,
+    at::SymIntArrayRef input_sizes,
     int64_t dim,
     int64_t index);
 #else
@@ -270,7 +300,7 @@ at::Tensor select_backward_hpu_lazy(
     const at::Tensor& grad,
     at::SymIntArrayRef input_sizes,
     int64_t dim,
-    int64_t index);
+    at::SymInt index);
 #endif
 
 at::Tensor masked_select_hpu_lazy(
@@ -352,7 +382,7 @@ batch_norm_backward_reduce_lazy(
     double momentum,
     double eps,
     const at::Tensor& counts);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
     const at::Tensor& input,
     at::IntArrayRef normalized_shape,
@@ -439,7 +469,7 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor sum_dim_IntList_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef dim,
@@ -518,7 +548,7 @@ at::Tensor& unsqueeze_hpu_lazy_(at::Tensor& self, const int64_t dim);
 std::vector<at::Tensor> unbind_hpu_lazy_(const at::Tensor& self, int64_t dim);
 at::Tensor permute_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor permute_cl_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor expand_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef size,
@@ -757,10 +787,12 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
     const c10::optional<at::Tensor>& bias_opt,
     const c10::optional<at::Tensor>& bias_grad_opt = c10::nullopt,
     const c10::optional<at::ScalarType> dtype = c10::nullopt);
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
 at::Tensor habana_cast_to_fp8_lazy(
     const at::Tensor& input,
     bool stochastic_rounding,
     int seed);
+#endif
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& grad_output,

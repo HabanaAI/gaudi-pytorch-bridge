@@ -160,11 +160,15 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
 CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
     c10::ScalarType dst_dtype,
     const bool stochastic_rounding_override) {
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
   if ((stochastic_rounding_override ||
        GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
       dst_dtype == at::kFp8r152) {
     return CAST_ROUND_SR;
   }
+#else
+  (void)stochastic_rounding_override;
+#endif
 
   if (c10::isIntegralType(dst_dtype, true)) {
     return CAST_ROUND_ZERO;

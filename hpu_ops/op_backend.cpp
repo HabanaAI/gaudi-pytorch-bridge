@@ -16,6 +16,7 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_op_helper.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
@@ -633,7 +634,13 @@ synapse_helpers::tensor OpBackend::BuildCast(
 
     c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
 
-    if ((0 != sr_seed) && to == at::kFp8r152) {
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+    bool use_explicit_seed = (0 != sr_seed) && to == at::kFp8r152;
+#else
+    bool use_explicit_seed = false;
+#endif
+
+    if (use_explicit_seed) {
       // Usage of ParamsV2 type induces explicit seed mode in TPC
       params.emplace<ns_CastKernel::ParamsV2>();
       c10::get<ns_CastKernel::ParamsV2>(params).seed = sr_seed;

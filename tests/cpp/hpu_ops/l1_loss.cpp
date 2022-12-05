@@ -7,7 +7,6 @@
  *
  ******************************************************************************
  */
-#include <torch/csrc/api/include/torch/version.h>
 #include "util.h"
 
 class L1lossHpuOpTest : public HpuOpTestUtil,
@@ -21,7 +20,7 @@ TEST_P(L1lossHpuOpTest, l1_loss) {
   Compare(expected, result);
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 
 TEST_P(L1lossHpuOpTest, l1_loss_out) {
   GenerateInputs(3, {torch::kBFloat16});

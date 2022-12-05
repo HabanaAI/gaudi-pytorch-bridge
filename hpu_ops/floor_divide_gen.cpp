@@ -8,9 +8,9 @@
  ******************************************************************************
  */
 
-#include <torch/csrc/api/include/torch/version.h>
 #include "generated/floor_divide.h"
 #include "habana_kernels/binary_kernels.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 // Except bfloat16, all other types are computed in following type
 #define COMMON_COMPUTATION_TYPE_TPC c10::ScalarType::Float
@@ -29,7 +29,7 @@ void FloorDivideOperator::AddNode(
 
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
   const std::string rounding_mode = "trunc";
 #else
   const std::string rounding_mode = "floor";

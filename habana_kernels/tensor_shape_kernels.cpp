@@ -27,6 +27,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace habana;
@@ -604,7 +605,9 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::Short:
     case c10::ScalarType::Bool:
     case c10::ScalarType::Half:
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case c10::ScalarType::Fp8r152:
+#endif
       return true;
     default:
       return false;

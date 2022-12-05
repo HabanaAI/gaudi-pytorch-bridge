@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
-#include <torch/csrc/api/include/torch/version.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -10,6 +9,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -56,7 +56,7 @@ class LazyLossKernelWithParamsTest
 
     EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 
     auto hboutput = torch::binary_cross_entropy_with_logits_backward(
         hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
@@ -124,7 +124,7 @@ TEST_F(LazyLossKernelTest, KLDivLossTest) {
 
     EXPECT_EQ(allclose(out1, exp1), true);
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 
     torch::Tensor hout2 = torch::kl_div_backward(
         hgrad_out, hinput, htarget, reduction, log_target);

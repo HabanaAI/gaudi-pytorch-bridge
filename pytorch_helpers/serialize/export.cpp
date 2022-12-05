@@ -11,10 +11,10 @@
  *******************************************************************************
  */
 #include "export.h"
-#include <torch/csrc/api/include/torch/version.h>
 #include <string>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR == 12))
+#if IS_PYTORCH_EXACTLY(1, 12)
 #include <torch/csrc/onnx/onnx.h>
 #include <map>
 #include <memory>

@@ -45,7 +45,7 @@ TEST_P(BCEWithLogitsParameterizedTestFixture, tests) {
 
   Compare(expected_fwd, result_fwd);
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
   auto result_bwd = torch::binary_cross_entropy_with_logits_backward(
       hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
   auto expected_bwd = torch::binary_cross_entropy_with_logits_backward(

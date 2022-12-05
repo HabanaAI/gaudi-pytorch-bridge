@@ -57,6 +57,7 @@
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "pytorch_helpers/pt_ver/torch_params_shim.h"
 
 using namespace habana;
@@ -1221,7 +1222,7 @@ ir::NodePtr create_as_strided_node(
 // During lazy we set up the as strided tensor meta data
 // when we get a call back from lowering, we attache the tensor from same memory
 // as source
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor as_strided_hpu_lazy2(
     const Tensor& self,
     IntArrayRef size,
@@ -1242,8 +1243,8 @@ Tensor as_strided_hpu_lazy2(
   auto storage_offset_val =
       offset.has_value() ? offset.value().expect_int() : self.storage_offset();
 
-  auto size_in = asIntArrayRefSlow(size);
-  auto stride_in = asIntArrayRefSlow(stride);
+  auto size_in = C10_AS_INTARRAYREF_SLOW(size);
+  auto stride_in = C10_AS_INTARRAYREF_SLOW(stride);
 #endif
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
@@ -1347,8 +1348,8 @@ const Tensor& as_strided_hpu_lazy_(
     SymIntArrayRef _size,
     SymIntArrayRef _stride,
     c10::optional<SymInt> _storage_offset) {
-  auto size = asIntArrayRefSlow(_size);
-  auto stride = asIntArrayRefSlow(_stride);
+  auto size = C10_AS_INTARRAYREF_SLOW(_size);
+  auto stride = C10_AS_INTARRAYREF_SLOW(_stride);
   auto orig_size = self.sizes().vec();
   auto orig_stride = self.strides().vec();
   auto storage_offset = _storage_offset.has_value()
@@ -1465,14 +1466,14 @@ void view_hpu_lazy_parallel_impl(
       });
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   PT_LAZY_TRACE;
   auto size_ = size;
 #else
 Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
   PT_LAZY_TRACE;
-  auto size_ = asIntArrayRefSlow(size);
+  auto size_ = C10_AS_INTARRAYREF_SLOW(size);
 #endif
   auto inferred_size = habana_helpers::infer_size(size_, self_.numel());
   auto stride =
@@ -2026,11 +2027,25 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
       convolution_backward_overrideable, func, out)
 }
 
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     IntArrayRef pad,
     const Scalar& value) {
   PT_LAZY_TRACE;
+#else
+Tensor constant_pad_hpu_lazy(
+    const Tensor& self,
+    at::SymIntArrayRef pad_sym,
+    const Scalar& value) {
+  PT_LAZY_TRACE;
+
+  std::vector<int64_t> pad_int;
+  for (auto& val : pad_sym) {
+    pad_int.push_back(val.expect_int());
+  }
+  IntArrayRef pad = makeArrayRef(pad_int);
+#endif
 
   auto sizes = PadOperator::compute_output_shape(self, pad);
   auto out = empty_hpu_lazy(
@@ -2135,6 +2150,7 @@ Tensor constant_pad_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(constant_pad_nd, func, out)
 }
 
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
     const Tensor& indices,
@@ -2142,6 +2158,17 @@ Tensor embedding_hpu_lazy(
     bool scale_grad_by_freq,
     bool sparse) {
   PT_LAZY_TRACE;
+#else
+Tensor embedding_hpu_lazy(
+    const Tensor& weight,
+    const Tensor& indices,
+    c10::SymInt padding_idx_sym,
+    bool scale_grad_by_freq,
+    bool sparse) {
+  PT_LAZY_TRACE;
+  int64_t padding_idx = padding_idx_sym.expect_int();
+#endif
+
   ir::NodePtr embedding_node = std::make_shared<ir::Embedding_forward>();
 
   // allocate Output storage
@@ -2179,7 +2206,7 @@ Tensor embedding_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding, func, out)
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& indices,
@@ -3323,7 +3350,7 @@ Tensor alias_hpu_lazy(const Tensor& self) {
   };
   RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(alias, self, out, param_setter);
 }
-
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;
   int64_t ndim = self.dim();
@@ -3359,8 +3386,49 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   }
   return out;
 }
+#else
+at::Tensor select_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::SymInt index_sym) {
+  PT_LAZY_TRACE;
+  int64_t ndim = self.dim();
+  int64_t index = index_sym.expect_int();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "select() cannot be applied to a 0-dim tensor.");
+  }
+  dim = c10::maybe_wrap_dim(dim, ndim);
+  auto size = self.size(dim);
+  if (index < -size || index >= size) {
+    TORCH_CHECK_INDEX(
+        false,
+        "select(): index ",
+        index,
+        " out of range for tensor of size ",
+        self.sizes(),
+        " at dimension ",
+        dim);
+  }
+  if (index < 0) {
+    index += size;
+  }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+  c10::optional<int64_t> start_opt = c10::make_optional(index);
+
+  int64_t end = index + 1;
+  c10::optional<int64_t> end_opt = c10::make_optional(end);
+  auto slice_out = slice_hpu_lazy(self, dim, start_opt, end_opt, 1);
+  auto out = squeeze_hpu_lazy(slice_out, dim);
+
+  // single op tests expect 0-D to be preserved at the front end.
+  if (self.dim() == 1) {
+    SET_SIZE_STRIDE_0D(out);
+  }
+  return out;
+}
+#endif
+
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor select_backward_hpu_lazy(
     const Tensor& grad,
     at::IntArrayRef input_sizes,
@@ -3370,7 +3438,7 @@ Tensor select_backward_hpu_lazy(
 
   return at::native::select_backward(grad, input_sizes, dim, index);
 }
-#else
+#elif IS_PYTORCH_OLDER_THAN(1, 14)
 Tensor select_backward_hpu_lazy(
     const Tensor& grad,
     at::SymIntArrayRef input_sizes,
@@ -3379,7 +3447,22 @@ Tensor select_backward_hpu_lazy(
   PT_LAZY_TRACE;
 
   return at::native::select_backward(
-      grad, asIntArrayRefSlow(input_sizes), dim, index);
+      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index);
+}
+#else
+Tensor select_backward_hpu_lazy(
+    const Tensor& grad,
+    at::SymIntArrayRef input_sizes,
+    int64_t dim,
+    c10::SymInt index) {
+  PT_LAZY_TRACE;
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+  return at::native::select_backward(
+      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index.expect_int());
+#else
+  return at::select_backward(
+      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index.expect_int());
+#endif
 }
 #endif
 
@@ -4047,7 +4130,7 @@ Tensor batch_norm_backward_elemt_lazy(
   return std::tie(out1, out2);
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
     IntArrayRef normalized_shape_,
@@ -4239,7 +4322,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   PT_LAZY_TRACE;
   auto weight = weight_opt.value_or(Tensor());
   auto sizes_vec = input.sizes().vec();
-  auto normalized_shape_temp = asIntArrayRefSlow(normalized_shape_);
+  auto normalized_shape_temp = C10_AS_INTARRAYREF_SLOW(normalized_shape_);
   // check whether we can use a perf optimized TPC exec path
   auto use_tpc_affine_path = LayerNormOperator::is_tpc_affine_path(
       input, normalized_shape_temp, weight);
@@ -4310,7 +4393,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_LAZY_TRACE;
-  auto normalized_shape = asIntArrayRefSlow(normalized_shape_);
+  auto normalized_shape = C10_AS_INTARRAYREF_SLOW(normalized_shape_);
   // Get Output Image
   using T = std::tuple<Tensor, Tensor, Tensor>;
   using U = ir::LayerNormBackward;
@@ -4813,7 +4896,7 @@ at::Tensor repeat_hpu_lazy(
     const at::Tensor& self,
     at::SymIntArrayRef _repeats) {
   PT_LAZY_TRACE;
-  auto repeats = c10::asIntArrayRefSlow(_repeats);
+  auto repeats = C10_AS_INTARRAYREF_SLOW(_repeats);
 #endif
   if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR)) {
     return repeat_hpu_lazy_ht(self, repeats);
@@ -4941,7 +5024,7 @@ at::Tensor repeat_inlv_hpu_lazy(
     return k.call();
   }
 }
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
@@ -5717,13 +5800,13 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   }
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   PT_LAZY_TRACE;
 #else
 Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   PT_LAZY_TRACE;
-  auto size_in = c10::asIntArrayRefSlow(size);
+  auto size_in = C10_AS_INTARRAYREF_SLOW(size);
 #endif
   // This ZST output tensor should ideally be handled at Synapse level, but
   // since it is throwing errors in that case we are forced to add this
@@ -6267,7 +6350,7 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     // Index flipping to match the cpu results
     Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
     auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
     inverse_result = view_hpu_lazy(inverse_result, self.sizes());
 #else
     inverse_result =
@@ -7084,6 +7167,7 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res_vec)
 }
 
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
 at::Tensor habana_cast_to_fp8_lazy(
     const at::Tensor& input,
     bool stochastic_rounding,
@@ -7097,6 +7181,7 @@ at::Tensor habana_cast_to_fp8_lazy(
       c10::ScalarType::Fp8r152};
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8, k_)
 }
+#endif
 
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
     const at::Tensor& input,

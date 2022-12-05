@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include <torch/csrc/api/include/torch/version.h>
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #include <c10d/ProcessGroup.hpp>
 #include <c10d/Store.hpp>
 #include <c10d/Types.hpp>
@@ -25,7 +25,7 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 using Work = c10d::ProcessGroup::Work;
 #else
 using Work = c10d::Work;

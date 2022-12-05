@@ -13,8 +13,8 @@
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include <torch/csrc/api/include/torch/version.h>
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 #include <c10d/ProcessGroup.hpp>
 #include <c10d/Store.hpp>
 #include <c10d/Types.hpp>

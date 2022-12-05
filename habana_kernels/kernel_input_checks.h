@@ -20,6 +20,7 @@
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/op_support_level.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 class OpAttributeCheck {
  private:
@@ -869,7 +870,10 @@ static const std::
                   at::ScalarType::Char,
                   at::ScalarType::Float,
                   at::ScalarType::Long,
-                  at::ScalarType::Fp8r152}},
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+                  at::ScalarType::Fp8r152
+#endif
+                }},
             },
             {
                 "matmul",
@@ -882,7 +886,10 @@ static const std::
                   at::ScalarType::Char,
                   at::ScalarType::Float,
                   at::ScalarType::Long,
-                  at::ScalarType::Fp8r152}},
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+                  at::ScalarType::Fp8r152
+#endif
+                }},
             },
             {
                 "index",

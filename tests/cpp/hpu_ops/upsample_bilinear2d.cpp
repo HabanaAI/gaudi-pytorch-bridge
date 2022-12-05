@@ -173,6 +173,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_bwd_size) {
   Compare(expected, result);
 }
 
+#if IS_PYTORCH_OLDER_THAN(1, 14)
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
   std::vector<double> scales = {0.6, 1.7};
@@ -212,6 +213,54 @@ TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale) {
       scales);
   Compare(expected, result);
 }
+#else
+TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale_CL) {
+  GenerateInputs(1, {{2, 7, 1, 6}});
+  c10::optional<double> scales_h(0.6);
+  c10::optional<double> scales_w(1.7);
+  std::vector<int64_t> input_size = {2, 7, 3, 4};
+  std::vector<int64_t> output_size = {2, 7, 1, 6};
+  auto expected = torch::upsample_bilinear2d_backward(
+      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
+      output_size,
+      input_size,
+      /*align_corner*/ true,
+      scales_h,
+      scales_w);
+  auto result = torch::upsample_bilinear2d_backward(
+      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast).to("hpu"),
+      output_size,
+      input_size,
+      /*align_corner*/ true,
+      scales_h,
+      scales_w);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, upsample_bilinear2d_bwd_scale) {
+  GenerateInputs(1, {{2, 7, 1, 6}});
+  c10::optional<double> scales_h(0.6);
+  c10::optional<double> scales_w(1.7);
+  std::vector<int64_t> input_size = {2, 7, 3, 4};
+  std::vector<int64_t> output_size = {2, 7, 1, 6};
+
+  auto expected = torch::upsample_bilinear2d_backward(
+      GetCpuInput(0),
+      output_size,
+      input_size,
+      /*align_corner*/ true,
+      scales_h,
+      scales_w);
+  auto result = torch::upsample_bilinear2d_backward(
+      GetHpuInput(0),
+      output_size,
+      input_size,
+      /*align_corner*/ true,
+      scales_h,
+      scales_w);
+  Compare(expected, result);
+}
+#endif
 
 TEST_F(HpuOpTest, upsample_bilinear2d_bwd_out) {
   GenerateInputs(1, {{1, 5, 28, 64}});

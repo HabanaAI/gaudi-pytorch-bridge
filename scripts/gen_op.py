@@ -8,9 +8,10 @@ import os
 import re
 import sys
 import yaml
+import torch
 from collections import defaultdict
 from yaml import Loader
-
+from packaging.version import Version
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
     ntuple = collections.namedtuple(typename, field_names)
@@ -1320,6 +1321,9 @@ def generate_dtype_macro(dtypes):
                 "by the script."
             )
 
+            # TODO: Workaround for Fp8r152 in upstream. Needs to be fixed elsewhere.
+            if Version(torch.__version__) > Version("1.13") and "Fp8r152" in dtypes:
+                dtypes.remove("Fp8r152")
             if "Float" in dtypes:
                 dtypes.append("Double")
             if "Int" in dtypes:
