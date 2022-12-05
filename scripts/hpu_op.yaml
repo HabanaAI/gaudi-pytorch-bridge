@@ -951,7 +951,11 @@ arange.start_out:
 
 argmax.out:
   custom_output_shape: ArgMinMaxOutputShape
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Char, Byte]
+    Gaudi2: [Float, BFloat16, Int, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Int, Char, Byte, Half]
+    Greco: [Float, BFloat16, Int, Char, Byte, Half, Short]
   guid: argmax_fwd
   op_backend: ArgMinMax
 
