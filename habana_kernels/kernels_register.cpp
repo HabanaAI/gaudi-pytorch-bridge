@@ -421,33 +421,6 @@ Tensor& hpu_wrap::masked_select_out(
   }
 };
 
-Tensor hpu_wrap::scatter_add(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "scatter_add :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim_),
-      " index=",
-      to_string(index),
-      " src=",
-      to_string(src));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      scatter_add, PARAMS1(self, index, src), PARAMS2(self, dim_, index, src))
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return scatter_add_src_hpu_lazy(self, dim_, index, src);
-
-  } else {
-    return scatter_add_src_hpu(self, dim_, index, src);
-  }
-};
 Tensor& hpu_wrap::scatter_add_(
     Tensor& self,
     int64_t dim_,

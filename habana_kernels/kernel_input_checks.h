@@ -1014,12 +1014,6 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
-                "scatter_add",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
                 "scatter_add_",
                 {{at::ScalarType::Float,
                   at::ScalarType::Long,

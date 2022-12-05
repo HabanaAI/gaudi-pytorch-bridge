@@ -5659,6 +5659,16 @@ scatter.value_out:
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
 
+scatter_add:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: scatter_add_src_hpu_lazy
+  acc_thread: true
+
 select.int:
   force_default: false
   dtypes:
