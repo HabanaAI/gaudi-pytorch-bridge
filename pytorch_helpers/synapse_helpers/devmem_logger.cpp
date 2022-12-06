@@ -89,21 +89,13 @@ deviceMallocData::deviceMallocData() {
     // TODO: support .txt and .json, default .json support
     memory_reporter_out.open(
         "memory.reporter.json", std::ofstream::out | std::ofstream::trunc);
-    // Redirect output to logfile
-    auto coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(memory_reporter_out.rdbuf());
-    std::cout << "[\n";
-    std::cout.rdbuf(coutbuf); // reset to standard output again
+    memory_reporter_out << "[\n";
   }
   fragment_json_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
   if (fragment_json_enabled_) {
     memory_json_out.open(
         "memory.log.json", std::ofstream::out | std::ofstream::trunc);
-    // Redirect output to logfile
-    auto coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(memory_json_out.rdbuf());
-    std::cout << "[\n";
-    std::cout.rdbuf(coutbuf); // reset to standard output again
+    memory_json_out << "[\n";
   }
 }
 
@@ -113,10 +105,7 @@ deviceMallocData::~deviceMallocData() {
   }
   if (memory_reporter_out.is_open()) {
     UNSET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
-    auto coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(memory_reporter_out.rdbuf());
-    std::cout << "]\n";
-    std::cout.rdbuf(coutbuf); // reset to standard output again
+    memory_reporter_out << "]\n";
     memory_reporter_out.close();
   }
   if (memory_json_out.is_open()) {
@@ -125,8 +114,8 @@ deviceMallocData::~deviceMallocData() {
 }
 
 deviceMallocData& deviceMallocData::singleton() {
-  static deviceMallocData* instance = new deviceMallocData();
-  return *instance;
+  static deviceMallocData instance;
+  return instance;
 }
 
 bool deviceMallocData::sort_by_size(
@@ -232,14 +221,15 @@ std::string deviceMallocData::get_formatted_func_name(
  * Print an entry from the log
  */
 void deviceMallocData::print_an_entry(
+    Lockedfstream& out_stream,
     const std::pair<uint64_t, size_bt_pair_t>& entry,
     bool print_all_frames) {
   // Print the data pointer
-  std::cout << "ptr = 0x" << std::hex << entry.first << std::flush;
+  out_stream << "ptr = 0x" << std::hex << entry.first;
 
   // Print the allocated size
   const auto& size_bt = entry.second;
-  std::cout << ", size = " << std::dec << size_bt.first << "\n" << std::flush;
+  out_stream << ", size = " << std::dec << size_bt.first << "\n";
 
   // Print the backtrace
   if (take_bt) {
@@ -247,9 +237,8 @@ void deviceMallocData::print_an_entry(
     bool dot_marker_placed = false;
     for (const auto& string : bt_strings) {
       if (string.length()) {
-        std::cout << get_formatted_func_name(
-                         string, print_all_frames, &dot_marker_placed)
-                  << std::flush;
+        out_stream << get_formatted_func_name(
+            string, print_all_frames, &dot_marker_placed);
       }
     }
   }
@@ -293,31 +282,24 @@ void deviceMallocData::collect_backtrace(
     free(strings);
   }
 
+  auto out_stream = get_out_stream();
   if (failure) {
-    std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(out.rdbuf());
-
     std::pair<uint64_t, size_bt_pair_t> entry =
         std::make_pair(ptr, std::make_pair(size, bt_string));
 
-    std::cout << "=========================\n" << std::flush;
+    out_stream << "=========================\n";
     if (alloc) {
-      std::cout << "Allocation failed from\n" << std::flush;
+      out_stream << "Allocation failed from\n";
     } else {
-      std::cout << "Free failed from\n" << std::flush;
+      out_stream << "Free failed from\n";
     }
-    print_an_entry(entry, true);
-    std::cout << "=========================\n" << std::flush;
-
-    std::cout.rdbuf(coutbuf); // reset to standard output again
+    print_an_entry(out_stream, entry, true);
+    out_stream << "=========================\n";
   } else {
     // synDeviceMalloc
     if (alloc) {
       auto existing_it = ptr_bt_map.find(ptr);
       if (existing_it != ptr_bt_map.end()) {
-        std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-        std::cout.rdbuf(out.rdbuf());
-
         std::pair<uint64_t, size_bt_pair_t> existing_entry = std::make_pair(
             existing_it->first,
             std::make_pair(
@@ -325,39 +307,30 @@ void deviceMallocData::collect_backtrace(
 
         duplicate = true;
         duplicate_ptr_bt_map[ptr] = std::make_pair(size, bt_string);
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Duplicate alloc detected - was a free missed?\n"
-                  << std::flush;
-        std::cout
-            << "NOTE: if allocations and free happen from multiple threads, then\n"
-            << std::flush;
-        std::cout
-            << "      it is possible to have a scenario when the free followed by an\n"
-            << std::flush;
-        std::cout
-            << "      allocation is seen by the logger in reverse order and the\n"
-            << std::flush;
-        std::cout
-            << "      freed ptr is returned by alloc. It needs to be checked if a free\n"
-            << std::flush;
-        std::cout
-            << "      follows this message with the same ptr, which then is most likely\n"
-            << std::flush;
-        std::cout
-            << "      due to the logger seeing the free followed by alloc in revsere \n"
-            << std::flush;
-        std::cout << "      order as alloc followed by free.\n" << std::flush;
-        std::cout << "Existing record for the allocated ptr\n" << std::flush;
-        print_an_entry(existing_entry, true);
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Now allocating from \n" << std::flush;
+        out_stream << "=========================\n";
+        out_stream << "Duplicate alloc detected - was a free missed?\n";
+        out_stream
+            << "NOTE: if allocations and free happen from multiple threads, then\n";
+        out_stream
+            << "      it is possible to have a scenario when the free followed by an\n";
+        out_stream
+            << "      allocation is seen by the logger in reverse order and the\n";
+        out_stream
+            << "      freed ptr is returned by alloc. It needs to be checked if a free\n";
+        out_stream
+            << "      follows this message with the same ptr, which then is most likely\n";
+        out_stream
+            << "      due to the logger seeing the free followed by alloc in revsere \n";
+        out_stream << "      order as alloc followed by free.\n";
+        out_stream << "Existing record for the allocated ptr\n";
+        print_an_entry(out_stream, existing_entry, true);
+        out_stream << "=========================\n";
+        out_stream << "Now allocating from \n";
 
         std::pair<uint64_t, size_bt_pair_t> new_entry =
             std::make_pair(ptr, std::make_pair(size, bt_string));
-        print_an_entry(new_entry, true);
-        std::cout << "=========================\n" << std::flush;
-
-        std::cout.rdbuf(coutbuf); // reset to standard output again
+        print_an_entry(out_stream, new_entry, true);
+        out_stream << "=========================\n";
       }
       // Log the entry :
       //   ptr -> (size, backtrace)
@@ -365,18 +338,13 @@ void deviceMallocData::collect_backtrace(
       auto it = ptr_bt_map.find(ptr);
       // If we want a backtrace on each alloc (very verbose!)
       if (print_alloc_bt) {
-        std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-        std::cout.rdbuf(out.rdbuf());
-
         std::pair<uint64_t, size_bt_pair_t> entry = std::make_pair(
             it->first, std::make_pair(it->second.first, bt_string));
 
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Alloc record entry\n" << std::flush;
-        print_an_entry(entry);
-        std::cout << "=========================\n" << std::flush;
-
-        std::cout.rdbuf(coutbuf); // reset to standard output again
+        out_stream << "=========================\n";
+        out_stream << "Alloc record entry\n";
+        print_an_entry(out_stream, entry);
+        out_stream << "=========================\n";
       }
 
       // Stats update
@@ -389,51 +357,38 @@ void deviceMallocData::collect_backtrace(
 
       if (iteration_high_watermark > overall_high_watermark) {
         overall_high_watermark = iteration_high_watermark;
-        std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-        std::cout.rdbuf(out.rdbuf());
-
         std::pair<uint64_t, size_bt_pair_t> entry =
             std::make_pair(ptr, std::make_pair(size, bt_string));
 
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Reached high watermark " << overall_high_watermark
-                  << " from\n"
-                  << std::flush;
-        print_an_entry(entry, false);
-        std::cout << "=========================\n" << std::flush;
-
-        std::cout.rdbuf(coutbuf); // reset to standard output again
+        out_stream << "=========================\n";
+        out_stream << "Reached high watermark " << overall_high_watermark
+                   << " from\n";
+        print_an_entry(out_stream, entry, false);
+        out_stream << "=========================\n";
       }
     } else {
       // synDeviceFree
       auto it = ptr_bt_map.find(ptr);
       if (it == ptr_bt_map.end()) {
-        std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-        std::cout.rdbuf(out.rdbuf());
-
         auto duplicate_it = duplicate_ptr_bt_map.find(ptr);
         if (duplicate_it == duplicate_ptr_bt_map.end()) {
-          std::cout << "=========================\n" << std::flush;
-          std::cout << "Unknwon pointer 0x" << std::hex << ptr << std::dec
-                    << " free detected, not even in duplicates\n"
-                    << std::flush;
-          std::cout << "=========================\n" << std::flush;
-          std::cout << "Now Freeing from \n" << std::flush;
+          out_stream << "=========================\n";
+          out_stream << "Unknwon pointer 0x" << std::hex << ptr << std::dec
+                     << " free detected, not even in duplicates\n";
+          out_stream << "=========================\n";
+          out_stream << "Now Freeing from \n";
 
           std::pair<uint64_t, size_bt_pair_t> new_entry =
               std::make_pair(ptr, std::make_pair(0, bt_string));
-          print_an_entry(new_entry, true);
-          std::cout << "=========================\n" << std::flush;
+          print_an_entry(out_stream, new_entry, true);
+          out_stream << "=========================\n";
         } else {
-          std::cout << "=========================\n" << std::flush;
-          std::cout << "Duplicate pointer 0x" << std::hex << ptr << std::dec
-                    << " free detected\n"
-                    << std::flush;
+          out_stream << "=========================\n";
+          out_stream << "Duplicate pointer 0x" << std::hex << ptr << std::dec
+                     << " free detected\n";
           running_memory -= duplicate_it->second.first;
           duplicate_ptr_bt_map.erase(duplicate_it);
         }
-
-        std::cout.rdbuf(coutbuf); // reset to standard output again
         // Log the entry :
       } else {
         // Update stat
@@ -441,22 +396,17 @@ void deviceMallocData::collect_backtrace(
 
         // If we want a backtrace on each free (very verbose!)
         if (print_free_bt) {
-          std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-          std::cout.rdbuf(out.rdbuf());
-
           std::pair<uint64_t, size_bt_pair_t> entry = std::make_pair(
               it->first, std::make_pair(it->second.first, bt_string));
 
-          std::cout << "=========================\n" << std::flush;
-          std::cout << "Free record entry\n" << std::flush;
-          print_an_entry(entry, true);
-          std::cout << "Free entry was allocated from\n" << std::flush;
+          out_stream << "=========================\n";
+          out_stream << "Free record entry\n";
+          print_an_entry(out_stream, entry, true);
+          out_stream << "Free entry was allocated from\n";
           entry = std::make_pair(
               it->first, std::make_pair(it->second.first, it->second.second));
-          print_an_entry(entry);
-          std::cout << "=========================\n" << std::flush;
-
-          std::cout.rdbuf(coutbuf); // reset to standard output again
+          print_an_entry(out_stream, entry);
+          out_stream << "=========================\n";
         }
 
         // Remove the entry from live allocations list
@@ -471,17 +421,16 @@ void deviceMallocData::report_fragmentation(bool from_free) {
     return;
 
   print_live_allocations(from_free ? "Free failure" : "Allocation failure");
-  // Redirect output to logfile
-  std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-  std::cout.rdbuf(out.rdbuf());
 
-  std::cout << "Fragmentation report\n" << std::flush;
+  auto out_stream = get_out_stream();
+
+  out_stream << "Fragmentation report\n";
 
   if ((dram_size_ == 0) || (dram_start_ == 0)) {
-    std::cout << " No record of DRAM start or size!\n" << std::flush;
+    out_stream << " No record of DRAM start or size!\n";
   } else {
-    std::cout << "dram start" << dram_start_ << std::endl;
-    std::cout << "dram size" << dram_size_ << std::endl;
+    out_stream << "dram start" << dram_start_ << "\n";
+    out_stream << "dram size" << dram_size_ << "\n";
     uint64_t current_head = dram_start_;
 
     std::vector<std::pair<uint64_t, size_bt_pair_t>> sorted_by_ptr_log(
@@ -503,28 +452,22 @@ void deviceMallocData::report_fragmentation(bool from_free) {
       current_head = entry_addr + entry.second.first;
     }
     if (current_head >= dram_start_ + dram_size_) {
-      std::cout << "WARNING: DRAM size data is probably wrong. "
-                   "Last allocation exceeds DRAM size\n"
-                << std::flush;
+      out_stream << "WARNING: DRAM size data is probably wrong. "
+                    "Last allocation exceeds DRAM size\n";
     } else if (current_head != dram_start_ + dram_size_) {
       free_list.emplace_back(std::make_pair(
           current_head, dram_start_ + dram_size_ - current_head));
     }
 
-    std::cout << "Free List\n" << std::flush;
+    out_stream << "Free List\n";
     for (const auto& entry : free_list) {
-      std::cout << "0x" << std::hex << entry.first << ": " << std::dec
-                << entry.second << "\n"
-                << std::flush;
+      out_stream << "0x" << std::hex << entry.first << ": " << std::dec
+                 << entry.second << "\n";
     }
-
-    std::cout.rdbuf(coutbuf); // reset to standard output again
 
     std::ofstream csv_out;
     csv_out.open(fragment_csv_file, std::ofstream::out | std::ofstream::trunc);
     // Redirect output to logfile
-    coutbuf = std::cout.rdbuf(); // save old buf
-    std::cout.rdbuf(csv_out.rdbuf());
     auto ptr_start = dram_start_;
     size_t running_size = 0;
     for (const auto& entry : free_list) {
@@ -532,36 +475,28 @@ void deviceMallocData::report_fragmentation(bool from_free) {
       if (entry.first > ptr_start) {
         auto occupied_size = entry.first - ptr_start - 1;
         // Mark occupied range with 1
-        std::cout << running_size << ", 1\n" << std::flush;
-        std::cout << running_size + occupied_size << ", 1\n" << std::flush;
+        csv_out << running_size << ", 1\n" << std::flush;
+        csv_out << running_size + occupied_size << ", 1\n" << std::flush;
         ptr_start = entry.first;
         running_size += occupied_size + 1;
       }
       assert(ptr_start == entry.first);
       // Mark free range with 0
-      std::cout << running_size << ", 0\n" << std::flush;
-      std::cout << running_size + entry.second << ", 0\n" << std::flush;
+      csv_out << running_size << ", 0\n" << std::flush;
+      csv_out << running_size + entry.second << ", 0\n" << std::flush;
       running_size += entry.second + 1;
     }
     if (ptr_start < dram_start_ + dram_size_) {
       // Mark if the last part is occupied
-      std::cout << dram_start_ + dram_size_ - ptr_start << ", 1\n"
-                << std::flush;
+      csv_out << dram_start_ + dram_size_ - ptr_start << ", 1\n" << std::flush;
     }
-
-    std::cout.rdbuf(coutbuf); // reset to standard output again
     csv_out.close();
   }
 }
 
 void deviceMallocData::print_to_file(const char* msg) {
-  if (!out.is_open())
-    out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
-  std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-  std::cout.rdbuf(out.rdbuf());
-  std::cout << msg << "\n" << std::flush;
-  std::cout.rdbuf(coutbuf); // reset to standard output again
-  return;
+  auto stream = get_out_stream();
+  stream << msg << "\n";
 }
 
 /*
@@ -571,23 +506,18 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   if (!logging_enabled_) {
     return print_to_file(msg);
   }
-  // Redirect output to logfile
-  std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
-  std::cout.rdbuf(out.rdbuf());
 
   std::string record_id_msg = msg;
   if (0 == record_id_msg.size()) {
     record_id_msg = "Instance " + std::to_string(iteration_number);
   }
-
-  std::cout << "\n=========================\n" << std::flush;
-  std::cout << "LIVE ALLOCATIONS DATA " << record_id_msg << "\n" << std::flush;
-  std::cout << "=========================\n" << std::flush;
-  std::cout << "DRAM start: 0x" << std::hex << dram_start_ << "\n"
-            << std::flush;
-  std::cout << "DRAM size: " << std::dec << dram_size_ << " ("
-            << dram_size_ / (1024 * 1024 * 1024.) << " GB)\n"
-            << std::flush;
+  auto out_stream = get_out_stream();
+  out_stream << "\n=========================\n";
+  out_stream << "LIVE ALLOCATIONS DATA " << record_id_msg << "\n";
+  out_stream << "=========================\n";
+  out_stream << "DRAM start: 0x" << std::hex << dram_start_ << "\n";
+  out_stream << "DRAM size: " << std::dec << dram_size_ << " ("
+             << dram_size_ / (1024 * 1024 * 1024.) << " GB)\n";
   std::vector<std::pair<uint64_t, size_bt_pair_t>> sorted_by_size_log(
       ptr_bt_map.begin(), ptr_bt_map.end());
 
@@ -595,26 +525,22 @@ void deviceMallocData::print_live_allocations(const char* msg) {
   std::sort(sorted_by_size_log.begin(), sorted_by_size_log.end(), sort_by_size);
 
   // How many allocations are not freed yet?
-  std::cout << "#Allocations live : " << sorted_by_size_log.size() << "\n"
-            << std::flush;
+  out_stream << "#Allocations live : " << sorted_by_size_log.size() << "\n";
 
   // How much memory is held by our live allocations now?
   size_t total_live_size = 0;
   for (const auto& entry : sorted_by_size_log) {
     total_live_size += entry.second.first;
   }
-  std::cout << "Total memory held : " << total_live_size << " ("
-            << total_live_size / (1024 * 1024.) << " MB)\n"
-            << std::flush;
+  out_stream << "Total memory held : " << total_live_size << " ("
+             << total_live_size / (1024 * 1024.) << " MB)\n";
 
   // Stats on peak memory usage
-  std::cout << "Peak memory usage : " << overall_high_watermark << " ("
-            << overall_high_watermark / (1024 * 1024.) << " MB)\n"
-            << std::flush;
+  out_stream << "Peak memory usage : " << overall_high_watermark << " ("
+             << overall_high_watermark / (1024 * 1024.) << " MB)\n";
 
-  std::cout << "Peak memory usage from last log : " << iteration_high_watermark
-            << " (" << iteration_high_watermark / (1024 * 1024.) << " MB)\n"
-            << std::flush;
+  out_stream << "Peak memory usage from last log : " << iteration_high_watermark
+             << " (" << iteration_high_watermark / (1024 * 1024.) << " MB)\n";
 
   ++iteration_number;
   iteration_high_watermark = 0;
@@ -630,32 +556,28 @@ void deviceMallocData::print_live_allocations(const char* msg) {
     }
   }
 
-  std::cout << "New allocations since last log " << record_id_msg << " : "
-            << new_allocs << "\n"
-            << std::flush;
+  out_stream << "New allocations since last log " << record_id_msg << " : "
+             << new_allocs << "\n";
 
-  std::cout << "New allocations since last log\n" << std::flush;
+  out_stream << "New allocations since last log\n";
   // Find entries that ae new for this log and print them
   if (!ptr_bt_map_last.empty()) {
     for (const auto& entry : sorted_by_size_log) {
       if (ptr_bt_map_last.find(entry.first) == ptr_bt_map_last.end()) {
-        print_an_entry(entry);
+        print_an_entry(out_stream, entry);
       }
     }
   }
 
   if (!mem_statuscheck_running) {
     // Print all entries that are live at this point
-    std::cout << "All live allocations\n" << std::flush;
+    out_stream << "All live allocations\n";
     int cnt = 0;
     for (const auto& entry : sorted_by_size_log) {
-      std::cout << "Entry : " << ++cnt << " " << std::flush;
-      print_an_entry(entry);
+      out_stream << "Entry : " << ++cnt << " ";
+      print_an_entry(out_stream, entry);
     }
   }
-
-  std::cout.rdbuf(coutbuf); // reset to standard output again
-  // Save current log to compare against next time log
   ptr_bt_map_last = ptr_bt_map;
 }
 
@@ -737,9 +659,6 @@ void deviceMallocData::create_fragment_json_entry(
       device.get_device_memory().get_occupied_chunk_map();
   static int stat_idx;
 
-  // Redirect output to logfile
-  auto coutbuf = std::cout.rdbuf(); // save old buf
-
   std::unordered_set<std::string> json_params_printed;
 
   std::string frag_line_header = std::string("{ \"tid\":") +
@@ -747,6 +666,8 @@ void deviceMallocData::create_fragment_json_entry(
       std::to_string(getpid()) + std::string(", ");
 
   bool first_chunk_reported = false;
+
+  auto json_out_stream = get_memory_json_out_stream();
 
   for (auto& chunk : occupied_chunks_map) {
     std::string frag_chunk_begin = frag_line_header;
@@ -764,9 +685,8 @@ void deviceMallocData::create_fragment_json_entry(
           std::string("\", \"args\":{\"graph name\":\"") + graph_name +
           std::string("\"}}\n");
 
-      std::cout.rdbuf(memory_json_out.rdbuf());
-      std::cout << frag_chunk_begin;
-      std::cout << frag_chunk_end;
+      json_out_stream << frag_chunk_begin;
+      json_out_stream << frag_chunk_end;
       first_chunk_reported = true;
     }
 
@@ -785,9 +705,8 @@ void deviceMallocData::create_fragment_json_entry(
             ", \"name\":\"Persistent\", \"ph\":\"E\", \"func\":\"Persistent\", \"args\":{\"Size_in_bytes\":\"") +
         std::to_string(chunk.second / (1024)) + std::string(" KB\"}}\n");
 
-    std::cout.rdbuf(memory_json_out.rdbuf());
-    std::cout << frag_chunk_begin;
-    std::cout << frag_chunk_end;
+    json_out_stream << frag_chunk_begin;
+    json_out_stream << frag_chunk_end;
 
     auto write_model_tensors =
         [&](std::vector<std::tuple<uint64_t, uint64_t, std::string>>
@@ -820,8 +739,8 @@ void deviceMallocData::create_fragment_json_entry(
                   std::to_string(chunk.second / (1024)) +
                   std::string(" KB\"}}\n");
 
-              std::cout << param_begin;
-              std::cout << param_end;
+              json_out_stream << param_begin;
+              json_out_stream << param_end;
               json_params_printed.insert(name);
             }
           }
@@ -854,8 +773,8 @@ void deviceMallocData::create_fragment_json_entry(
           std::to_string((workspace_end - workspace_start) / (1024)) +
           std::string(" KB\"}}\n");
 
-      std::cout << workspace_chunk_begin;
-      std::cout << workspace_chunk_end;
+      json_out_stream << workspace_chunk_begin;
+      json_out_stream << workspace_chunk_end;
     }
   }
 
@@ -864,8 +783,6 @@ void deviceMallocData::create_fragment_json_entry(
 
   graph_input_indices.clear();
   graph_output_indices.clear();
-
-  std::cout.rdbuf(coutbuf); // reset to standard output again
 }
 
 /**
@@ -922,7 +839,6 @@ void log_synDeviceRecordTensorInfo(
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_logging_enabled()) {
-    auto lk = dmd.lock();
     dmd.collect_backtrace(ptr, true, size, failed);
     if (failed) {
       dmd.report_fragmentation();
@@ -939,7 +855,6 @@ void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed) {
 void log_synDeviceFree(uint64_t ptr, bool failed) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_logging_enabled()) {
-    auto lk = dmd.lock();
     dmd.collect_backtrace(ptr, false, 0, failed);
     if (failed) {
       dmd.report_fragmentation(true);
@@ -1091,9 +1006,6 @@ void log_synDeviceAllocFail(
   }
 }
 
-void print_to_file(const char* msg) {
-  deviceMallocData::singleton().print_to_file(msg);
-}
 
 /*
  * Print live allocation data at the given point
@@ -1134,7 +1046,6 @@ void deviceMallocData::create_memory_reporter_event(
     std::string& event_name) {
   // Redirect output to logfile
   static int status_id = 0;
-  auto coutbuf = std::cout.rdbuf(); // save old buf
   int event_ts = status_id++;
   std::string event_line_begin_header = std::string("{ \"tid\":") +
       std::to_string(event_ts) + std::string(", \"pid\":") +
@@ -1153,16 +1064,17 @@ void deviceMallocData::create_memory_reporter_event(
       std::string("\", \"ph\":\"E\", \"cat\":\"ReportEvent\"") +
       std::string("},\n");
 
-  std::cout.rdbuf(memory_reporter_out.rdbuf());
-  std::cout << report_event_begin;
+  auto reporter_out_stream = get_memory_reporter_out_stream();
 
-  std::cout << event_line_begin_header + std::string(", \"name\":\"") +
-          "TotalMemoryAvailable" +
+  reporter_out_stream << report_event_begin;
+
+  reporter_out_stream << event_line_begin_header +
+          std::string(", \"name\":\"") + "TotalMemoryAvailable" +
           std::string("\", \"ph\":\"B\", \"cat\":\"TotalMemoryAvailable\"") +
           std::string(", \"args\": { ") +
           TO_REPORT_EVENT_GB("TotalMemoryAvailable", mem_stats.memory_limit) +
           std::string("}},\n");
-  std::cout << event_line_end_header + std::string(", \"name\":\"") +
+  reporter_out_stream << event_line_end_header + std::string(", \"name\":\"") +
           "TotalMemoryAvailable" +
           std::string("\", \"ph\":\"E\", \"cat\":\"TotalMemoryAvailable\"") +
           std::string("},\n");
@@ -1176,7 +1088,7 @@ void deviceMallocData::create_memory_reporter_event(
   mem_consume.persistent_tensor_size =
       (mem_stats.bytes_in_use - mem_stats.scratch_mem_in_use -
        mem_consume.pre_allocated_bytes);
-  std::cout << mem_consume.toJsonEvent(
+  reporter_out_stream << mem_consume.toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
   // memory allocator stats event create
@@ -1185,7 +1097,7 @@ void deviceMallocData::create_memory_reporter_event(
   mem_alloc_stats.new_num_allocs = mem_stats.num_allocs;
   mem_alloc_stats.total_num_frees = mem_stats.total_frees;
   mem_alloc_stats.new_num_frees = mem_stats.num_frees;
-  std::cout << mem_alloc_stats.toJsonEvent(
+  reporter_out_stream << mem_alloc_stats.toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
   // fragmentation stats event create
@@ -1200,12 +1112,10 @@ void deviceMallocData::create_memory_reporter_event(
   frag_stats.min_chunk_size = mem_stats.min_chunk_size;
   frag_stats.max_chunk_size = mem_stats.max_chunk_size;
   frag_stats.fragmentation_histogram = mem_stats.fragmentation_mask;
-  std::cout << frag_stats.toJsonEvent(
+  reporter_out_stream << frag_stats.toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
-  std::cout << report_event_end;
-
-  std::cout.rdbuf(coutbuf); // reset to standard output again
+  reporter_out_stream << report_event_end;
 }
 
 void memory_reporter_event_create(

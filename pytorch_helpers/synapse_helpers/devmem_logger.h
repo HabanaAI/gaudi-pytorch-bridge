@@ -64,6 +64,39 @@ class deviceMallocData final {
 
   uint64_t dram_start_, dram_size_;
   std::ofstream out;
+  std::mutex out_mut;
+
+  void print_to_file(const char* msg);
+
+  class Lockedfstream {
+   public:
+    Lockedfstream(std::ofstream& fs, std::mutex& mut) : fs_(fs), gl_(mut){};
+    ~Lockedfstream() {
+      fs_.flush();
+    };
+
+    Lockedfstream(const Lockedfstream&) = delete;
+    Lockedfstream& operator=(const Lockedfstream&) = delete;
+
+    template <typename T>
+    Lockedfstream& operator<<(const T& data) {
+      fs_ << data;
+      return *this;
+    }
+
+   private:
+    std::ofstream& fs_;
+    std::lock_guard<std::mutex> gl_;
+  };
+  Lockedfstream get_out_stream() {
+    return Lockedfstream(out, out_mut);
+  }
+  Lockedfstream get_memory_reporter_out_stream() {
+    return Lockedfstream(memory_reporter_out, memory_reporter_out_mut);
+  }
+  Lockedfstream get_memory_json_out_stream() {
+    return Lockedfstream(memory_json_out, memory_json_out_mut);
+  }
 
  public:
   static deviceMallocData& singleton();
@@ -84,6 +117,7 @@ class deviceMallocData final {
       bool print_all_frames,
       bool* dot_marker_placed);
   void print_an_entry(
+      Lockedfstream& out_stream,
       const std::pair<uint64_t, size_bt_pair_t>& entry,
       bool print_all_frames = false);
   void collect_backtrace(
@@ -91,7 +125,7 @@ class deviceMallocData final {
       bool alloc,
       size_t size = 0,
       bool alloc_failure = false);
-  void print_to_file(const char* msg);
+
   void print_live_allocations(const char* msg = "");
   void dump_collected_data(const char* msg = "");
   void report_fragmentation(bool from_free = false);
@@ -139,10 +173,6 @@ class deviceMallocData final {
     return fragment_json_enabled_;
   }
 
-  auto lock() {
-    return std::unique_lock<std::mutex>(m);
-  }
-
   template <typename T>
   static void print(std::stringstream& ss, const T& arg) {
     ss << " " << std::hex << arg;
@@ -160,7 +190,6 @@ class deviceMallocData final {
     std::stringstream ss;
     ss << "TRACE " << operation;
     (print(ss, args), ...);
-    auto lk = lock();
     print_to_file(ss.str().c_str());
   }
 
@@ -192,14 +221,13 @@ class deviceMallocData final {
       synapse_helpers::device& device,
       std::string& graph_name);
 
-  // TBD:: Make it private
-  std::mutex m;
-
  private:
   std::ofstream memory_reporter_out;
+  std::mutex memory_reporter_out_mut;
 
   deviceMallocData();
   std::ofstream memory_json_out;
+  std::mutex memory_json_out_mut;
   uint64_t workspace_start{0}, workspace_end{0};
   std::vector<std::tuple<uint64_t, uint64_t, std::string>> params;
   std::vector<std::tuple<uint64_t, uint64_t, std::string>> grads;
@@ -259,7 +287,6 @@ void log_tensor_info(
     uint64_t index,
     uint64_t v_addr,
     uint64_t d_addr);
-void print_to_file(const char* msg);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);
 void log_DRAM_size(uint64_t dram_size);
