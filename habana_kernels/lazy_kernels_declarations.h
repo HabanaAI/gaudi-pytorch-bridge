@@ -155,21 +155,6 @@ at::Tensor constant_pad_hpu_lazy(
     at::SymIntArrayRef pad,
     const at::Scalar& value);
 #endif
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-at::Tensor embedding_hpu_lazy(
-    const at::Tensor& weight,
-    const at::Tensor& indices,
-    int64_t padding_idx,
-    bool scale_grad_by_freq,
-    bool sparse);
-#else
-at::Tensor embedding_hpu_lazy(
-    const at::Tensor& weight,
-    const at::Tensor& indices,
-    c10::SymInt padding_idx_sym,
-    bool scale_grad_by_freq,
-    bool sparse);
-#endif
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor embedding_dense_backward_hpu_lazy(
     const at::Tensor& grad,

@@ -172,29 +172,6 @@ class PadOperatorHT : public PadOperator {
 
 //
 // Embedding Operator
-class EmbeddingOperator : public HabanaOperator {
- public:
-  EmbeddingOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "embedding_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-};
-
-//
-// Embedding Operator
 class EmbeddingDenseBackwardOperator : public HabanaOperator {
  public:
   EmbeddingDenseBackwardOperator(int device_id, c10::ScalarType scalarType)
