@@ -1169,6 +1169,9 @@ void SetupExecutionFromRunningHash(
 
   if (mp_g_and_meta_data_ != nullptr) {
     PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Hit");
+    if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
+      habana_lazy::GetAccThreadPool().discardPendingTasks();
+    }
     // prepare po_data inputs and outputs
     po_data.outputs.reserve(indices.size());
     for (auto index : indices) {
@@ -1188,6 +1191,7 @@ void SetupExecutionFromRunningHash(
       po_data = HbLazyTensor::RunPostOrder(tensors, indices);
     }
   } else {
+    DisableRunningHashUpdates disable(true);
     PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss");
     po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 

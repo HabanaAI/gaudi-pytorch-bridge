@@ -13,6 +13,7 @@
 #include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 #include <ATen/Parallel.h>
 #include <c10/util/thread_name.h>
+#include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana_lazy {
@@ -91,6 +92,7 @@ void AccThreadPool::executePendingTask() {
 
   // Run the task.
   try {
+    DisableRunningHashUpdates disable;
     task();
   } catch (const std::exception& e) {
     PT_BRIDGE_FATAL("Exception in acc thread pool task: ", e.what());

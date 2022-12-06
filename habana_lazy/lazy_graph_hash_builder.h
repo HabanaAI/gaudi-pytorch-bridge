@@ -14,19 +14,20 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 // [toDO] this should be Independent of ACC thread MACRO
-#define RUN_OP_ACC_HASH(lazy_op)                                  \
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {       \
-    PT_LAZY_TRACE;                                                \
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();   \
-    graph_hash_builder.graph(lazy_op.symbol(), lazy_op.inputs()); \
-    graph_hash_builder.updateRunningHash();                       \
+#define RUN_OP_ACC_HASH(lazy_op)                                    \
+  if (habana_lazy::DisableRunningHashUpdates::IsHashingEnabled()) { \
+    PT_LAZY_TRACE;                                                  \
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();     \
+    graph_hash_builder.graph(lazy_op.symbol(), lazy_op.inputs());   \
+    graph_hash_builder.updateRunningHash();                         \
   }
 
 #define RUN_OP_INPUTS_ACC_HASH(op, inputs)                              \
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {             \
+  if (habana_lazy::DisableRunningHashUpdates::IsHashingEnabled()) {     \
     PT_LAZY_TRACE;                                                      \
     auto& graph_hash_builder = GraphHashBuilder::getInstance();         \
     graph_hash_builder.graph(c10::Symbol::fromQualString(#op), inputs); \

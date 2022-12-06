@@ -162,6 +162,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/custom_op_kernel.cpp
   habana_kernels/lowering_util.cpp
   habana_lazy/aten_lazy_bridge.cpp
+  habana_lazy/lazy_graph_hash_disabler.cpp
   habana_lazy/debug_utils.cpp
   habana_lazy/memlog.cpp
   habana_lazy/hpu_lazy_tensors.cpp
