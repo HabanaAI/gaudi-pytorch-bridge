@@ -73,7 +73,6 @@ typedef enum {
   collectiveReduce = 1,
   collectiveAllGather = 2,
   collectiveReduceScatter = 3,
-  collectiveBroadcast = 4,
   collectiveNone
 } collectiveKind_t;
 
@@ -96,7 +95,6 @@ size_t getHCCLSliceSize(collectiveKind_t kind) {
   switch (kind) {
     case collectiveAllReduce:
     case collectiveReduceScatter:
-    case collectiveBroadcast:
       slice_size = 128;
       break;
     case collectiveReduce:
@@ -774,42 +772,27 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::broadcast(
         auto scalar_type = input.scalar_type();
         auto tensor_data_type = getHCCLDataType(scalar_type);
         auto numel = input.numel();
-        size_t element_size =
-            c10::elementSize(getInternalScalarType(input.scalar_type()));
-        size_t chunk_size =
-            getHCCLSliceSize(collectiveBroadcast) / element_size;
         getCountDatatype(scalar_type, numel, tensor_data_type);
-        size_t data_offset = 0;
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] broadcast with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            numel,
+            " data_type :: ",
+            tensor_data_type);
+
         hcclResult_t hccl_result{hcclSuccess};
-
-        while (numel > 0) {
-          size_t num_elements_in_current_chunk =
-              (numel > chunk_size) ? chunk_size : numel;
-          PT_DISTRIBUTED_DEBUG(
-              "[PYT-DIST] broadcast with input_address :: ",
-              send_buffer + data_offset,
-              " output_address :: ",
-              recv_buffer + data_offset,
-              " elem_cnt :: ",
-              num_elements_in_current_chunk,
-              " data_type :: ",
-              tensor_data_type);
-
-          if (!this->emulate_distributed_) {
-            hccl_result = hcclBroadcast(
-                send_buffer + data_offset,
-                recv_buffer + data_offset,
-                num_elements_in_current_chunk,
-                tensor_data_type,
-                rootRank,
-                hccl_comm,
-                stream);
-          }
-          TORCH_CHECK(
-              hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset =
-              data_offset + (num_elements_in_current_chunk * element_size);
-          numel -= num_elements_in_current_chunk;
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclBroadcast(
+              send_buffer,
+              recv_buffer,
+              numel,
+              tensor_data_type,
+              rootRank,
+              hccl_comm,
+              stream);
         }
         return hccl_result;
       });
