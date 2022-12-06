@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -405,12 +405,6 @@ at::Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     at::IntArrayRef padding,
     at::IntArrayRef dilation,
     bool ceil_mode);
-at::Tensor adaptive_avg_pool2d_hpu_lazy(
-    const at::Tensor& input,
-    at::IntArrayRef output_size);
-at::Tensor adaptive_avg_pool2d_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& input);
 at::Tensor& uniform_hpu_lazy(
     at::Tensor& self,
     double from = 0,

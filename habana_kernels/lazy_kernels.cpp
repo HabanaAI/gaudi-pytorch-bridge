@@ -4623,39 +4623,6 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
       grad_input)
 }
 
-Tensor adaptive_avg_pool2d_hpu_lazy(
-    const Tensor& input,
-    IntArrayRef output_size) {
-  PT_LAZY_TRACE;
-  auto opsize_nhwc =
-      PoolHelper::compute_output_shape(input, output_size, false);
-  std::vector<long int> shape_out = opsize_nhwc;
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    // compute_output_shape return always nhwc. convert to nchw
-    shape_out = {
-        opsize_nhwc.at(0),
-        opsize_nhwc.at(3),
-        opsize_nhwc.at(1),
-        opsize_nhwc.at(2)};
-  }
-
-  LazyOp<Tensor> k{
-      "aten::_adaptive_avg_pool2d", {input, output_size}, {1}, {shape_out}};
-  RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d, k)
-}
-
-Tensor adaptive_avg_pool2d_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& input) {
-  PT_LAZY_TRACE;
-  LazyOp<Tensor> k{
-      "aten::_adaptive_avg_pool2d_backward",
-      {grad_output, input},
-      {},
-      {input.sizes().vec()}};
-  RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d_backward, k)
-}
-
 at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
   PT_LAZY_TRACE;
   auto out_shape = DimVector({n});

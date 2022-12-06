@@ -171,9 +171,6 @@ struct hpu_wrap {
       bool ceil_mode,
       const at::Tensor& indices,
       at::Tensor& grad_input);
-  static at::Tensor adaptive_avg_pool2d(
-      const at::Tensor& self,
-      c10::SymIntArrayRef output_size);
   static at::Tensor dropout(const at::Tensor& input, double p, bool train);
   static at::Tensor repeat_interleave(
       const at::Tensor& self,

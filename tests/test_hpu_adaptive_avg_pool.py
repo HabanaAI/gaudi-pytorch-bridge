@@ -26,7 +26,7 @@ resnet50_test_case_list = [
 adaptive_pool_test_case_list = [
     # N, H, W, C, Ho, Wo
     (8, 27, 27, 3, 1, 1),
-    (64, 7, 7, 20, 3, 3),
+    (64, 15, 10, 8, 5, 4),
     (8, 7, 7, 20, 5, 5)
 ] + mnist_test_case_list + resnet50_test_case_list
 
@@ -36,9 +36,11 @@ data_type_list = [
 
 @pytest.mark.parametrize("N, H, W, C, Ho, Wo", adaptive_pool_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
-def test_hpu_adaptive_avgpool(N, H, W, C, Ho, Wo, dtype, tol):
+@pytest.mark.parametrize("use_batch", [True, False])
+def test_hpu_adaptive_avgpool(N, H, W, C, Ho, Wo, dtype, tol, use_batch):
+    shape = (N, C, H, W) if use_batch else (C, H, W)
     kernel_params = {
-        'input': torch.randn(N, C, H, W).to(dtype),
+        'input': torch.randn(shape).to(dtype),
         'output_size': [Ho, Wo],
     }
 
@@ -51,15 +53,18 @@ def test_hpu_adaptive_avgpool(N, H, W, C, Ho, Wo, dtype, tol):
 
 @pytest.mark.parametrize("N, H, W, C, Ho, Wo", adaptive_pool_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
-def test_hpu_pool_fwd_bwd(N, H, W, C, Ho, Wo, dtype, tol):
+@pytest.mark.parametrize("use_batch", [True, False])
+def test_hpu_pool_fwd_bwd(N, H, W, C, Ho, Wo, dtype, tol, use_batch):
+    shape = (N, C, H, W) if use_batch else (C, H, W)
     kernel_params_fwd = {
-        'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype),
+        'input': torch.randn(shape, requires_grad=True).to(dtype),
         'output_size': [Ho, Wo],
     }
 
     kernel = F.adaptive_avg_pool2d
 
-    bwd_tensors = [torch.randn(N, C, Ho, Wo).to(dtype)]
+    shape = (N, C, Ho, Wo) if use_batch else (C, Ho, Wo)
+    bwd_tensors = [torch.randn(shape).to(dtype)]
     # don't check fwd results because indices can have different values
     (hpu_result_fwd, _), (cpu_result_fwd, _) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                                                                        kernel_params_fwd=kernel_params_fwd, check_results_fwd=False)

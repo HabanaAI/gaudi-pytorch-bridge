@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
@@ -172,51 +175,6 @@ class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-class AdaptiveAvgPool2dOperator : public HabanaOperator {
- public:
-  AdaptiveAvgPool2dOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "adaptive_avg_pool_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-class AdaptiveAvgPool2dBackwardOperator : public HabanaOperator {
- public:
-  AdaptiveAvgPool2dBackwardOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "adaptive_avg_pool_2d_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::NHWC, LayoutFormat::NHWC});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
-    kernel_meta_data_.tpc_input_order = {0};
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 

@@ -1,12 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+#pragma once
 
 #include <ATen/core/TensorBody.h>
 #include <c10/core/ScalarType.h>
@@ -16,8 +20,6 @@
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/op_support_level.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-
-#pragma once
 
 class OpAttributeCheck {
  private:
@@ -1357,18 +1359,6 @@ static const std::
                   at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Bool}},
-            },
-            {
-                "adaptive_avg_pool_2d",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "adaptive_avg_pool_2d_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
             },
             {
                 "and",

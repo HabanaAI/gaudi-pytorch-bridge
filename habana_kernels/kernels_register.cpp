@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -2003,49 +2003,7 @@ Tensor hpu_wrap::linear(
   }
 }
 
-struct AdaptiveAvgPool2DFunction
-    : public torch::autograd::Function<AdaptiveAvgPool2DFunction> {
-  static at::Tensor forward(
-      AutogradContext* ctx,
-      const Tensor& input,
-      IntArrayRef output_size) {
-    ctx->save_for_backward({input});
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      return adaptive_avg_pool2d_hpu_lazy(input, output_size);
-    } else {
-      return adaptive_avg_pool2d_hpu(input, output_size);
-    }
-  }
-  static variable_list backward(
-      AutogradContext* ctx,
-      variable_list grad_output) {
-    variable_list saved_vars = ctx->get_saved_variables();
-    auto& input = saved_vars[0];
-    at::Tensor result;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      result = adaptive_avg_pool2d_backward_hpu_lazy(grad_output[0], input);
-    } else {
-      result = adaptive_avg_pool2d_backward_hpu(grad_output[0], input);
-    }
-    return {result, torch::Tensor()};
-  }
-};
-
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
-Tensor hpu_wrap::adaptive_avg_pool2d(
-    const Tensor& input,
-    IntArrayRef output_size) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " adaptive_avg_pool2d:",
-      " input=",
-      to_string(input),
-      "output_size=",
-      to_string(output_size));
-  return AdaptiveAvgPool2DFunction::apply(input, output_size);
-};
-
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2074,20 +2032,6 @@ Tensor hpu_wrap::slice(
   }
 };
 #else
-Tensor hpu_wrap::adaptive_avg_pool2d(
-    const Tensor& input,
-    SymIntArrayRef output_size) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " adaptive_avg_pool2d:",
-      " input=",
-      to_string(input),
-      "output_size=",
-      to_string(output_size));
-  return AdaptiveAvgPool2DFunction::apply(
-      input, asIntArrayRefSlow(output_size));
-};
 
 Tensor hpu_wrap::slice(
     const at::Tensor& self,

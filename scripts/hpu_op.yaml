@@ -1077,6 +1077,48 @@ atan2.out:
     Greco: [BFloat16, Float, Half]
   guid: atan2_fwd
 
+_adaptive_avg_pool2d:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
+  custom_output_shape: AdaptiveAvgPool2dOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: adaptive_avg_pool_2d_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  force_default: false
+
+adaptive_avg_pool2d.out:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
+  custom_output_shape: AdaptiveAvgPool2dOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: adaptive_avg_pool_2d_fwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+
+_adaptive_avg_pool2d_backward:
+  custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
+  custom_output_shape: AdaptiveAvgPool2dOutputShapeBwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: AdaptiveAvgPool2dBwd
+  synapse_layouts:
+  - [WHCN, WHCN]
+  - [WHCN]
+  out_ids: [0]
+  force_default: false
+
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
   custom_output_shape: Avgpool2dOutputShape
