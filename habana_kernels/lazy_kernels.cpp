@@ -4470,10 +4470,7 @@ Tensor adaptive_avg_pool2d_backward_hpu_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(adaptive_avg_pool2d_backward, k)
 }
 
-void randperm_hpu_lazy_ht(
-    Tensor& output,
-    int64_t n,
-    c10::optional<Generator> gen) {
+at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
   PT_LAZY_TRACE;
   auto out_shape = DimVector({n});
   std::vector<int32_t> params_vec{0 /*start*/, (int32_t)n /*end*/, 1 /*step*/};
@@ -4500,60 +4497,56 @@ void randperm_hpu_lazy_ht(
       SHAPE_TENSOR);
   auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
 
-  auto seed = habana::get_seed_tensor_hpu(gen);
-  LazyOp<Tensor&> op{
+  LazyOp<Tensor&> hpu_op{
       "hpu::randperm_out_ds_ht",
       {params_shape, result_shape, seed, output},
       {},
       {},
       3};
-  op.call(output);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, hpu_op, output);
 }
 
+void setTensorDim(at::Tensor& tensor, int64_t n) {
+  auto hl_result = GetOrCreateHbLazyTensor(tensor, c10::kHPU);
+  auto shape = DimVector({n});
+  auto reshaped = hl_result.getAttachedTensorImpl();
+  THHTensor_resizeNd(reshaped, shape.size(), shape.data(), nullptr);
+  tensor.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
+}
 Tensor& randperm_hpu_lazy(
     int64_t n,
     c10::optional<Generator> gen,
     Tensor& output) {
   PT_LAZY_TRACE;
-  auto func = [output, n, gen = std::move(gen)]() mutable {
-    // resizing the output as it is coming as empty from model
-    auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
-    auto out_shape = DimVector({n});
-    auto out_reshaped = hl_result.getAttachedTensorImpl();
-    THHTensor_resizeNd(
-        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
-    output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  auto seed = habana::get_seed_tensor_hpu(gen);
+  // resizing the output as it is coming as empty from model
+  setTensorDim(output, n);
 
-    // Currently synapse support dynamic shape arange only for int datatypes.
-    // For any other output datatype, will fallback to normal flow.
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-        (output.scalar_type() == c10::ScalarType::Int ||
-         output.scalar_type() == c10::ScalarType::Long)) {
-      if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
-        randperm_hpu_lazy_ht(output, n, gen);
-      } else {
-        auto seed = habana::get_seed_tensor_hpu(gen);
-        std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
-        auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
-        auto params_shape = empty_hpu_lazy(
-            input_size,
-            output.options(),
-            output.suggest_memory_format(),
-            false,
-            INPUT_DESCRIBING_SHAPE_TENSOR);
-        LazyOp<Tensor&> op{
-            "hpu::randperm_out_ds", {params_shape, seed, output}, {}, {}, 2};
-        op.call(output);
-      }
+  // Currently synapse support dynamic shape arange only for int datatypes.
+  // For any other output datatype, will fallback to normal flow.
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      (output.scalar_type() == c10::ScalarType::Int ||
+       output.scalar_type() == c10::ScalarType::Long)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
+      return randperm_hpu_lazy_ht(output, n, seed);
     } else {
-      auto seed = habana::get_seed_tensor_hpu(gen);
+      std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
+      auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
+      auto params_shape = empty_hpu_lazy(
+          input_size,
+          output.options(),
+          output.suggest_memory_format(),
+          false,
+          INPUT_DESCRIBING_SHAPE_TENSOR);
       LazyOp<Tensor&> op{
-          "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {}, {{n}}};
-      op.call(output);
+          "hpu::randperm_out_ds", {params_shape, seed, output}, {}, {}, 2};
+      RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
     }
-  };
-
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(randperm_out, func, output)
+  } else {
+    LazyOp<Tensor&> op{
+        "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {}, {{n}}};
+    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
+  }
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
