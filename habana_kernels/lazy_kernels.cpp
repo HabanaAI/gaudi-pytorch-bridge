@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "habana_kernels/lazy_kernels.h"
@@ -38,6 +41,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
+#include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/ops/cast_ops.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/embedding.h"
@@ -371,12 +375,7 @@ void updateDstDependencies(const Tensor& dst) {
   input_pt_vec.push_back(dst);
   hb_result.IrSetNode(node);
   node->AddInputPtTensors(input_pt_vec);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();
-    graph_hash_builder.graph(
-        Symbol::fromQualString("hpu::control_edge_"), {dst});
-    graph_hash_builder.updateRunningHash();
-  }
+  RUNNING_HASH_COMBINE_OPERATOR(hpu::control_edge_, {dst});
 }
 
 Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
@@ -515,10 +514,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
   };
 
   func();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();
-    graph_hash_builder.updateGraphInputTMap(t);
-  }
+  RUNNING_HASH_COMBINE_TENSOR(t);
   return t;
 }
 
@@ -566,10 +562,7 @@ at::Tensor get_tensor_for_scalar(
         " map size = ",
         context->scalar_to_tensor_map.size());
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();
-    graph_hash_builder.updateGraphInputTMap(alpha_tensor);
-  }
+  RUNNING_HASH_COMBINE_TENSOR(alpha_tensor);
   return alpha_tensor;
 }
 
@@ -608,14 +601,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     context->JoinPendingLaunchThread();
   }
-  // [toDo] this is for gtest we will eventually move to MACRO
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();
-    graph_hash_builder.graph(
-        c10::Symbol::fromQualString("hpu::copy_D2D"),
-        {self, src, no_conversion});
-    graph_hash_builder.updateRunningHash();
-  }
+  RUNNING_HASH_COMBINE_OPERATOR(hpu::copy_D2D, {self, src, no_conversion});
   auto op_func = [self, src, non_blocking, no_conversion]() mutable {
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
@@ -5963,9 +5949,9 @@ Tensor fused_norm_hpu_lazy(
     vector_of_inputs.emplace_back(max_norm);
     vector_of_inputs.emplace_back(norm_type);
     if (is_view_evaluated) {
-      RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::fused_norm_, vector_of_inputs);
+      RUNNING_HASH_COMBINE_OPERATOR(hpu::fused_norm_, vector_of_inputs);
     } else {
-      RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::fused_norm_lazy, vector_of_inputs);
+      RUNNING_HASH_COMBINE_OPERATOR(hpu::fused_norm_lazy, vector_of_inputs);
     }
   }
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(fused_norm, op_func, result);

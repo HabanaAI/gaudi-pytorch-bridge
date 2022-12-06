@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -17,26 +20,21 @@
 #include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "torch/csrc/jit/ir/ir.h"
 
-// [toDO] this should be Independent of ACC thread MACRO
-#define RUN_OP_ACC_HASH(lazy_op)                                    \
+#define RUNNING_HASH_COMBINE_OPERATOR_STR(m_symbol, m_inputs...)    \
+  if (habana_lazy::DisableRunningHashUpdates::IsHashingEnabled()) { \
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();     \
+    graph_hash_builder.updateRunningHash(m_symbol, m_inputs);       \
+  }
+
+#define RUNNING_HASH_COMBINE_OPERATOR(op, inputs...) \
+  RUNNING_HASH_COMBINE_OPERATOR_STR(c10::Symbol::fromQualString(#op), inputs)
+
+#define RUNNING_HASH_COMBINE_TENSOR(tensor)                         \
   if (habana_lazy::DisableRunningHashUpdates::IsHashingEnabled()) { \
     PT_LAZY_TRACE;                                                  \
     auto& graph_hash_builder = GraphHashBuilder::getInstance();     \
-    graph_hash_builder.graph(lazy_op.symbol(), lazy_op.inputs());   \
-    graph_hash_builder.updateRunningHash();                         \
+    graph_hash_builder.addInputTensors(tensor);                     \
   }
-
-#define RUN_OP_INPUTS_ACC_HASH(op, inputs)                              \
-  if (habana_lazy::DisableRunningHashUpdates::IsHashingEnabled()) {     \
-    PT_LAZY_TRACE;                                                      \
-    auto& graph_hash_builder = GraphHashBuilder::getInstance();         \
-    graph_hash_builder.graph(c10::Symbol::fromQualString(#op), inputs); \
-    graph_hash_builder.updateRunningHash();                             \
-  }
-
-#define RUN_MANUAL_OP_ACC_HASH(lazy_op) RUN_OP_ACC_HASH(lazy_op)
-#define RUN_MANUAL_OP_INPUTS_ACC_HASH(op, inputs) \
-  RUN_OP_INPUTS_ACC_HASH(op, inputs)
 
 namespace habana_lazy {
 
@@ -97,27 +95,24 @@ class GraphHashBuilder {
     return *instance;
   }
 
-  void updateRunningHash();
-
   void addNode(const c10::Symbol& node_symbol);
   void addInputTensors(const std::vector<c10::IValue>& input_tensors);
-  size_t addInputTensor(at::Tensor t, size_t hash);
-  void graph(
+  /*
+   * combines a Tensor to the running hash
+   * This is done to include information about auxilary tensor that is not part.
+   * of operator argument list. Do not call this directly, but via
+   * RUNNING_HASH_COMBINE_TENSOR macro.
+   */
+  void addInputTensors(const at::Tensor& tensor);
+  /*
+   * combines an operator to the running hash
+   * This includes input tensors and metatada
+   * Do not call this directly, but via RUNNING_HASH_COMBINE_OPERATOR macro.
+   */
+  void updateRunningHash(
       const c10::Symbol& op_name,
       const std::vector<c10::IValue>& inputs);
-  void reset() {
-    nodes_array.clear();
-
-    graph_input_tensors.clear();
-    graph_input_stack_uids.clear();
-    graph_input_stack_uid_map.clear();
-
-    fwd_running_hash = 0;
-    fwd_inputs_running_hash = 0;
-
-    global_cntr = 0;
-  }
-
+  void reset();
   void prepareInputsStackMap(const std::vector<ir::Value>& inputs);
 
   void prepareInputs(
@@ -141,8 +136,9 @@ class GraphHashBuilder {
   }
 
   void invalidateDeviceTids(c10::Device& device);
-
-  void updateGraphInputTMap(const at::Tensor tensor);
+  int64_t combineSyncData(
+      const std::vector<HbLazyTensor>& tensors,
+      const std::vector<int>& indices);
 
  private:
   GraphHashBuilder() {
@@ -156,6 +152,9 @@ class GraphHashBuilder {
   GraphHashBuilder(const GraphHashBuilder&) = delete;
   GraphHashBuilder& operator=(const GraphHashBuilder&) = delete;
 
+  void hashCombineTensor(const at::Tensor& t, size_t& hash);
+  void rememberIfInput(const at::Tensor& tensor);
+
   OpArrayEntry& getLatestEntry() {
     return nodes_array.back();
   }
@@ -168,12 +167,8 @@ class GraphHashBuilder {
     return nodes_array.size();
   }
 
-  int64_t getTensorRunningId(const at::Tensor& tensor);
-
   // Forward running hash - gets updated with each op accumulation
   uint64_t fwd_running_hash{0};
-  // Running intermediate hash values for the op being added
-  uint64_t node_hash, input_hash;
   uint64_t input_hash_running_cntr;
   // List of nodes, added in the accumulation order
   std::vector<OpArrayEntry> nodes_array;

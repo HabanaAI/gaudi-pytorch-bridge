@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -676,10 +679,7 @@ class LazyOp {
       Now, new_input_tensor needs to be added to Tmap.
     TODO SW-114041: In general HandleViewsInplace() is expected to be run only
     for cache misses.  How do we capture this new input in case of cache hits?*/
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-        auto& graph_hash_builder = GraphHashBuilder::getInstance();
-        graph_hash_builder.updateGraphInputTMap(out_t);
-      }
+      RUNNING_HASH_COMBINE_TENSOR(out_t);
 
       for (int idx = (int)m_inputs.size() - 1; idx >= 0; idx--) {
         auto t = m_inputs[idx];
@@ -1228,11 +1228,7 @@ class LazyOp {
     m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
     // [toDo] this is for gtest we will eventually move to MACRO
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-      auto& graph_hash_builder = GraphHashBuilder::getInstance();
-      graph_hash_builder.graph(m_symbol, m_inputs);
-      graph_hash_builder.updateRunningHash();
-    }
+    RUNNING_HASH_COMBINE_OPERATOR_STR(m_symbol, m_inputs);
   }
 
   virtual ReturnType get_result_overrideable() {

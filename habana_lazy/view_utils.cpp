@@ -506,10 +506,7 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
     /* need to update tmap here for cases like b = add(a); mark_step(). c =
     slice(b). c.to('cpu')
     Here slice is a view op and Tmap needs to have tensor b*/
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
-      auto& graph_hash_builder = GraphHashBuilder::getInstance();
-      graph_hash_builder.updateGraphInputTMap(src);
-    }
+    RUNNING_HASH_COMBINE_TENSOR(src)
 
     hl_t = GetHbLazyTensor(src);
     std::vector<HbLazyTensor> tensors = {hl_t};

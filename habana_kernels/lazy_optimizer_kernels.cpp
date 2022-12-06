@@ -202,7 +202,7 @@ void optimizer_adamw_hpu_lazy(
       beta2,
       epsilon,
       modified_wd};
-  RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::habanaOptimizerAdamW, vector_of_inputs);
+  RUNNING_HASH_COMBINE_OPERATOR(hpu::habanaOptimizerAdamW, vector_of_inputs);
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
 

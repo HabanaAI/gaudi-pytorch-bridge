@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
@@ -1145,23 +1148,9 @@ void SetupExecutionFromRunningHash(
     const std::vector<int>& indices,
     habana_lazy::ir::PostOrderData& po_data) {
   auto& graph_hash_builder = GraphHashBuilder::getInstance();
-  uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+  uint64_t fwd_running_hash =
+      graph_hash_builder.combineSyncData(tensors, indices);
 
-  fwd_running_hash = at::hash_combine(fwd_running_hash, indices.size());
-
-  // special handling for a single view node execution
-  // a.view().to(cpu)
-  if (indices.size() == 1) {
-    fwd_running_hash = HbLazyTensorViews::updateViewHash(
-        tensors[indices[0]].getTensorUniqueId(), fwd_running_hash);
-    for (auto& s : tensors[indices[0]].GetSizes()) {
-      fwd_running_hash = at::hash_combine(fwd_running_hash, s);
-    }
-  }
-
-  for (auto idx : indices)
-    fwd_running_hash = at::hash_combine(fwd_running_hash, idx);
-  PT_IRGRAPH_DEBUG("\nFwd_running_hash : ", fwd_running_hash);
   hlexec.set_fwd_graph_hash(fwd_running_hash);
 
   auto mp_g_and_meta_data_ =
@@ -1169,7 +1158,7 @@ void SetupExecutionFromRunningHash(
           .GetOptimizedJITGraphAndMetaData(fwd_running_hash);
 
   if (mp_g_and_meta_data_ != nullptr) {
-    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Hit");
+    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Hit", fwd_running_hash);
     if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
       habana_lazy::GetAccThreadPool().discardPendingTasks();
     }
@@ -1193,7 +1182,7 @@ void SetupExecutionFromRunningHash(
     }
   } else {
     DisableRunningHashUpdates disable(true);
-    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss");
+    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss ", fwd_running_hash);
     po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
     // Prepare Input Stack map from post order for cache Miss case

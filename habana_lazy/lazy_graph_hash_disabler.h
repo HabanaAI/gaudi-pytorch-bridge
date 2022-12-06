@@ -40,6 +40,11 @@ class DisableRunningHashUpdates {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
       return false;
     }
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) == 0) {
+      // TODO: This is only transiently allowed until acc workitems aren't fixed
+      // for all ops.
+      return true;
+    }
     HABANA_ASSERT(!terminate_on_access_cnt);
     return disable_cnt > 0;
   }
