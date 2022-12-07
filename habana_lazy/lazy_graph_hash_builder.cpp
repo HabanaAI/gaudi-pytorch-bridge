@@ -15,17 +15,6 @@ namespace habana_lazy {
 
 GraphHashBuilder* GraphHashBuilder::instance = nullptr;
 
-// We are working off ir::Node, we would move to a faster implementation later
-// We want the hash code to work based on basics like op and its metadata alone
-// without the input connections
-uint64_t OpArrayEntry::getNodeHash() {
-  // the index for the op
-  uint64_t hash = index;
-  // Hash for op and metadata
-  hash = at::hash_combine(hash, node->get_hash_without_connections());
-  return hash;
-}
-
 uint64_t OpArrayEntry::getNodeOpHash() {
   // the index for the op
   uint64_t hash = index;
@@ -56,6 +45,37 @@ void OpArrayEntry::populateMetaData(
   }
 }
 
+bool OpArrayEntry::isMetadataCandidate(const at::IValue& input) const {
+  return input.isBool() || input.isDevice() || input.isIntList() ||
+      input.isScalar() || input.isDoubleList() || input.isBoolList() ||
+      input.isString() || input.isNone() ||
+      (input.isList() &&
+       !input.toList().elementType()->cast<at::TensorType>() &&
+       !input.toList().elementType()->cast<at::OptionalType>()->ofTensor());
+}
+
+size_t OpArrayEntry::ival_hash(const torch::jit::IValue& v, size_t h) {
+  if (v.isInt()) {
+    return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
+  } else if (v.isString()) {
+    return at::hash_combine(h, at::get_hash(v.toStringView()));
+  } else if (v.isBool()) {
+    return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toBool())));
+  } else if (v.isScalar()) {
+    return at::hash_combine(
+        h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue
+  } else {
+    if (!v.isNone() && !v.isDevice()) {
+      PT_LAZY_WARN(
+          "Metadata of type ",
+          v.type()->str(),
+          " is not hashed. Might get false Lazy IR Cache hits, ",
+          "if the value of the constant metadata changes");
+    }
+  }
+  return h;
+}
+
 void GraphHashBuilder::updateRunningHash() {
   PT_LAZY_TRACE;
   // This must be done after the node and inputs are added to this class
@@ -68,23 +88,6 @@ void GraphHashBuilder::updateRunningHash() {
   fwd_running_hash = at::hash_combine(fwd_running_hash, input_hash);
 }
 
-void GraphHashBuilder::addNode(ir::Node* node) {
-  PT_LAZY_TRACE;
-  OpArrayEntry entry;
-  entry.addNode(node);
-  entry.updateIndex(nodes_array.size());
-  node_hash = entry.getNodeHash();
-  nodes_array.emplace_back(entry);
-}
-
-void GraphHashBuilder::addNode(const c10::Symbol& node_symbol) {
-  PT_LAZY_TRACE;
-  OpArrayEntry entry;
-  entry.addNode(node_symbol);
-  entry.updateIndex(nodes_array.size());
-  nodes_array.emplace_back(entry);
-}
-
 void GraphHashBuilder::prepareInputs(
     const std::vector<uint64_t>& input_map,
     std::vector<ir::Value>& inputs) {
@@ -92,7 +95,7 @@ void GraphHashBuilder::prepareInputs(
   assert(input_map.size());
   inputs.reserve(input_map.size());
   for (auto idx : input_map) {
-    std::shared_ptr<Data> d = graph_input_tensors.at(idx).lock();
+    std::shared_ptr<Data> d = graph_input_tensors[idx].lock();
     inputs.emplace_back(d->ir_value);
   }
 }
@@ -104,7 +107,10 @@ void GraphHashBuilder::prepareInputsStackMap(
     auto uid = d->unique_id;
     auto itr = std::find(
         graph_input_stack_uids.begin(), graph_input_stack_uids.end(), uid);
-    HABANA_ASSERT(itr != graph_input_stack_uids.end())
+    TORCH_CHECK(
+        itr != graph_input_stack_uids.end(),
+        "missing tensor in stack map. id: ",
+        uid);
     auto indx = itr - graph_input_stack_uids.begin();
     graph_input_stack_uid_map.emplace_back(indx);
   }
@@ -121,6 +127,11 @@ int64_t GraphHashBuilder::getTensorRunningId(const at::Tensor& tensor) {
     HbLazyTensor hl_t = hbimpl->tensor();
     if (hl_t.getDataPtr()->running_cntr == -1) {
       hl_t.getDataPtr()->running_cntr = getRunningCntr();
+      // we add dtype and memoryformat, mostly this is going to be pure graph
+      // inputs
+      torch::jit::ArgumentSpec as(1, 0);
+      as.addTensor(tensor, true);
+      input_hash = at::hash_combine(input_hash, as.hashCode());
     }
     input_hash = at::hash_combine(input_hash, hl_t.getDataPtr()->running_cntr);
   } else {
@@ -148,17 +159,118 @@ void GraphHashBuilder::invalidateDeviceTids(c10::Device& device) {
   }
 }
 
+void GraphHashBuilder::addNode(const c10::Symbol& node_symbol) {
+  PT_LAZY_TRACE;
+  OpArrayEntry entry;
+  entry.addNode(node_symbol);
+  entry.updateIndex(nodes_array.size());
+  nodes_array.emplace_back(entry);
+}
+
 void GraphHashBuilder::graph(
     const c10::Symbol& op_name,
-    const std::vector<c10::IValue>& inputs,
-    const std::vector<at::Tensor>& outputs) {
+    const std::vector<c10::IValue>& inputs) {
   PT_LAZY_TRACE;
   addNode(op_name);
   auto node_entry = getLatestEntry();
   node_entry.populateMetaData(inputs);
   node_hash = node_entry.getNodeOpHash();
   addInputTensors(inputs);
-  addOutPutTensors(outputs);
+}
+
+void GraphHashBuilder::updateGraphInputTMap(const at::Tensor tensor) {
+  auto impl = dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
+  if (impl == nullptr) {
+    return;
+  }
+  auto hbo1 = impl->tensor();
+  auto shared_ptr = hbo1.getDataPtr();
+  // this can be further optimized with unorder map -> vector complexityO(1)
+  if (std::find(
+          graph_input_stack_uids.begin(),
+          graph_input_stack_uids.end(),
+          shared_ptr->unique_id) == graph_input_stack_uids.end()) {
+    graph_input_tensors.emplace_back(shared_ptr);
+    graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
+  }
+
+  HbLazyTensor hl_t;
+
+  {
+    auto id = hbo1.getTensorUniqueId();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    // shallow copy tensor map
+    {
+      auto t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
+      if (t_shallow_copy_opt.has_value()) {
+        impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value());
+        hl_t = impl->tensor();
+        auto shared_ptr = hl_t.getDataPtr();
+        // this can be further optimized with unorder map -> vector
+        // complexityO(1)
+        if (std::find(
+                graph_input_stack_uids.begin(),
+                graph_input_stack_uids.end(),
+                shared_ptr->unique_id) == graph_input_stack_uids.end()) {
+          graph_input_tensors.emplace_back(shared_ptr);
+          graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
+        }
+      }
+    }
+
+    {
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      // view or recent base
+
+      auto params_ptr = context->viewContext.GetViewTableEntry(id);
+      if (params_ptr != nullptr) {
+        auto recent_base =
+            HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
+        hl_t = GetHbLazyTensor(recent_base);
+        auto shared_ptr = hl_t.getDataPtr();
+        // this can be further optimized with unorder map -> vector
+        // complexityO(1)
+        if (std::find(
+                graph_input_stack_uids.begin(),
+                graph_input_stack_uids.end(),
+                shared_ptr->unique_id) == graph_input_stack_uids.end()) {
+          graph_input_tensors.emplace_back(shared_ptr);
+          graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
+        }
+      } else {
+        // Recent version map
+        auto recent_base = HbLazyTensorViews::get_recent_base_tensor(tensor);
+        hl_t = GetHbLazyTensor(recent_base);
+        auto shared_ptr = hl_t.getDataPtr();
+        // this can be further optimized with unorder map -> vector
+        // complexityO(1)
+        if (std::find(
+                graph_input_stack_uids.begin(),
+                graph_input_stack_uids.end(),
+                shared_ptr->unique_id) == graph_input_stack_uids.end()) {
+          graph_input_tensors.emplace_back(shared_ptr);
+          graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
+        }
+      }
+    }
+  }
+}
+
+size_t GraphHashBuilder::addInputTensor(at::Tensor t, size_t hash) {
+  // prepare hash using tID
+  auto tid = getTensorRunningId(t);
+  hash = at::hash_combine(hash, tid);
+  auto hbo1 = GetHbLazyTensor(t);
+  hash = HbLazyTensorViews::updateViewHash(hbo1.getTensorUniqueId(), hash);
+
+  // needed to preare InputStack for cache Hit case
+  updateGraphInputTMap(t);
+
+  // add scalar type, dim to hash
+  hash = at::hash_combine(hash, static_cast<size_t>(t.scalar_type()));
+  hash = at::hash_combine(hash, t.dim());
+
+  return hash;
 }
 
 void GraphHashBuilder::addInputTensors(
@@ -168,34 +280,21 @@ void GraphHashBuilder::addInputTensors(
   auto idx = 0;
   for (auto& t : input_tensors) {
     input_hash = at::hash_combine(input_hash, idx);
-    if (t.isTensor() && t.toTensor().defined()) {
-      // prepare hash using tID
-      auto tid = getTensorRunningId(t.toTensor());
-      input_hash = at::hash_combine(input_hash, tid);
-      // needed to preare InputStack for cache Hit case
-      auto hbo1 = GetOrCreateHbLazyTensor(t.toTensor(), t.toTensor().device());
-      auto ir_value = hbo1.CurrentIrValue();
-      if (ir_value) {
-        if (!ir_value.m_data_ptr.expired()) {
-          auto shared_ptr = ir_value.m_data_ptr.lock();
-          graph_input_tensors.emplace_back(shared_ptr);
-          graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
-        }
+
+    if (t.isTensor()) {
+      if (t.toTensor().defined()) {
+        input_hash = addInputTensor(t.toTensor(), input_hash);
       }
     } else if (t.isTensorList()) {
       auto tvec = t.toTensorVector();
       for (auto& tensor : tvec) {
-        // prepare hash using tID
-        auto tid = getTensorRunningId(tensor);
-        input_hash = at::hash_combine(input_hash, tid);
-        // preare InputStack for cache Hit case
-        auto hb_t = GetOrCreateHbLazyTensor(tensor, tensor.device());
-        auto ir_value = hb_t.CurrentIrValue();
-        if (ir_value) {
-          if (!ir_value.m_data_ptr.expired()) {
-            auto shared_ptr = ir_value.m_data_ptr.lock();
-            graph_input_tensors.emplace_back(shared_ptr);
-            graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
+        input_hash = addInputTensor(tensor, input_hash);
+      }
+    } else if (t.isList()) {
+      for (auto& v : t.toListRef()) {
+        if (v.isTensor()) {
+          if (v.toTensor().defined()) {
+            input_hash = addInputTensor(v.toTensor(), input_hash);
           }
         }
       }
@@ -204,24 +303,17 @@ void GraphHashBuilder::addInputTensors(
   }
 }
 
-void GraphHashBuilder::addOutPutTensors(
-    const std::vector<at::Tensor>& output_tensors) {
-  PT_LAZY_TRACE;
-  size_t idx = 0;
-  for (auto& tensor : output_tensors) {
-    input_hash = at::hash_combine(input_hash, idx);
-    getTensorRunningId(tensor);
-  }
-}
-
 void GraphHashBuilder::validateAccumJitOps(
     std::shared_ptr<torch::jit::Graph> mp_g) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH))
     return;
-  /*for (const auto& fwd_op: nodes_array) {
-    auto op = fwd_op.getOp().toQualString();
-    std::cout << " fwd graph buolder Op: " << op << std::endl;
-  }*/
+  {
+    std::set<std::string> fwdOpL;
+    for (const auto& fwd_op : nodes_array) {
+      auto op = fwd_op.getOp().toQualString();
+      fwdOpL.emplace(op);
+    }
+  }
   torch::jit::graph_node_list graph_nodes = mp_g->nodes();
   for (auto* node : graph_nodes) {
     if (node->kind().is_prim()) {
@@ -246,7 +338,7 @@ void GraphHashBuilder::validateAccumJitOps(
                 << std::endl;
     }
   }
-  // mp_g->print(std::cout, false);
+  mp_g->print(std::cout, false);
 }
 
 } // namespace habana_lazy

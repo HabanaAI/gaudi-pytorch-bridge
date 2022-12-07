@@ -76,9 +76,9 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor hC = hA + hB;
   torch::Tensor hD = torch::clone(hC);
-  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
-  std::vector<HbLazyTensor> tensors = {*hl_result};
-  HbLazyTensor::SyncTensorsGraph(&tensors);
+  // auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
+  // std::vector<HbLazyTensor> tensors = {*hl_result};
+  // HbLazyTensor::SyncTensorsGraph(&tensors);
   torch::Tensor hC_cpu = hC.to(torch::kCPU);
   torch::Tensor hd_cpu = hD.to(torch::kCPU);
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
@@ -264,7 +264,7 @@ TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
   c10::IntArrayRef sizes(sz.data(), sz.size());
   c10::IntArrayRef strides(str.data(), str.size());
   int64_t offset = 0;
-  auto hB = as_strided_hpu_lazy(hA, sizes, strides, offset);
+  auto hB = torch::as_strided(hA, sizes, strides, offset);
   Tensor out = hB.to(kCPU);
 }
 

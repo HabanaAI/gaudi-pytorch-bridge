@@ -13,6 +13,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy_test_infra.h"
 
 using json = nlohmannV340::json;
@@ -202,7 +203,12 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   auto stack = torch::jit::Stack(
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
-
+  // if running hash enabled set the hash
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+    hlexec->set_fwd_graph_hash(fwd_running_hash);
+  }
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
@@ -253,7 +259,12 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   auto stack = torch::jit::Stack(
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
-
+  // if running hash enabled set the hash
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+    hlexec->set_fwd_graph_hash(fwd_running_hash);
+  }
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
@@ -951,7 +962,12 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   auto stack = torch::jit::Stack(
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
-
+  // if running hash enabled set the hash
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+    hlexec->set_fwd_graph_hash(fwd_running_hash);
+  }
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
@@ -983,7 +999,12 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   auto stack = torch::jit::Stack(
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
-
+  // if running hash enabled set the hash
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
+    hlexec->set_fwd_graph_hash(fwd_running_hash);
+  }
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()

@@ -191,7 +191,18 @@ void optimizer_adamw_hpu_lazy(
 
     flush_op();
   };
-
+  auto vector_of_inputs = std::vector<c10::IValue>{
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      lr_t,
+      neg_step_t,
+      beta1,
+      beta2,
+      epsilon,
+      modified_wd};
+  RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::habanaOptimizerAdamW, vector_of_inputs);
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
 

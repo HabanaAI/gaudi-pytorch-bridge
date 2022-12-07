@@ -17,13 +17,25 @@
 #include "torch/csrc/jit/ir/ir.h"
 
 // [toDO] this should be Independent of ACC thread MACRO
-#define RUN_LAZY_GRAPH_OP_HASH(op_name, inputs)                 \
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {     \
-    PT_LAZY_TRACE;                                              \
-    auto& graph_hash_builder = GraphHashBuilder::getInstance(); \
-    graph_hash_builder.graph(op_name, inputs);                  \
-    graph_hash_builder.updateRunningHash();                     \
+#define RUN_OP_ACC_HASH(lazy_op)                                  \
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {       \
+    PT_LAZY_TRACE;                                                \
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();   \
+    graph_hash_builder.graph(lazy_op.symbol(), lazy_op.inputs()); \
+    graph_hash_builder.updateRunningHash();                       \
   }
+
+#define RUN_OP_INPUTS_ACC_HASH(op, inputs)                              \
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {             \
+    PT_LAZY_TRACE;                                                      \
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();         \
+    graph_hash_builder.graph(c10::Symbol::fromQualString(#op), inputs); \
+    graph_hash_builder.updateRunningHash();                             \
+  }
+
+#define RUN_MANUAL_OP_ACC_HASH(lazy_op) RUN_OP_ACC_HASH(lazy_op)
+#define RUN_MANUAL_OP_INPUTS_ACC_HASH(op, inputs) \
+  RUN_OP_INPUTS_ACC_HASH(op, inputs)
 
 namespace habana_lazy {
 
@@ -39,23 +51,18 @@ using node_id = size_t;
 
 class OpArrayEntry {
  public:
-  void addNode(ir::Node* node_to_add) {
-    node = node_to_add;
-  }
-
   void addNode(const c10::Symbol& node_symbol) {
     m_op = node_symbol;
   }
 
   const c10::Symbol getOp() const {
-    return node->op();
+    return m_op;
   }
 
   /**
    * We want the hash code to wor-k based on basics like op and its metadata
    * alone without the input connections
    */
-  uint64_t getNodeHash();
   uint64_t getNodeOpHash();
 
   void populateMetaData(const std::vector<c10::IValue>& input_tensors);
@@ -67,48 +74,10 @@ class OpArrayEntry {
   size_t& getIndex() {
     return index;
   }
-  ir::Node* getNode() {
-    return node;
-  }
 
  private:
-  bool isMetadataCandidate(const at::IValue& input) const {
-    return input.isBool() || input.isDevice() || input.isIntList() ||
-        input.isDoubleList() || input.isBoolList() || input.isString() ||
-        input.isNone() ||
-        (input.isList() &&
-         !input.toList().elementType()->cast<at::TensorType>());
-  }
-
-  size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
-    if (v.isInt()) {
-      return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toInt())));
-    } else if (v.isString()) {
-      return at::hash_combine(h, at::get_hash(v.toStringView()));
-    } else if (v.isBool()) {
-      return at::hash_combine(h, at::get_hash(habana::mod_exp(v.toBool())));
-    } else if (v.isScalar()) {
-      return at::hash_combine(
-          h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue
-    } else {
-      if (!v.isNone() && !v.isDevice()) {
-        PT_LAZY_WARN(
-            "Metadata of type ",
-            v.type()->str(),
-            " is not hashed. Might get false Lazy IR Cache hits, ",
-            "if the value of the constant metadata changes");
-      }
-    }
-    return h;
-  }
-
-  /**
-   * TBD: Currently, keeping the ir::Node directly.
-   * Eventually, we want to get aways from creating the ir::Node and have a
-   * simplfied structure here that only need to record the op, metadata
-   *
-   */
-  ir::Node* node;
+  bool isMetadataCandidate(const at::IValue& input) const;
+  size_t ival_hash(const torch::jit::IValue& v, size_t h = 0);
 
   // index of this node in op accumulation
   size_t index;
@@ -129,14 +98,12 @@ class GraphHashBuilder {
 
   void updateRunningHash();
 
-  void addNode(ir::Node* node);
   void addNode(const c10::Symbol& node_symbol);
   void addInputTensors(const std::vector<c10::IValue>& input_tensors);
-  void addOutPutTensors(const std::vector<at::Tensor>& output_tensors);
+  size_t addInputTensor(at::Tensor t, size_t hash);
   void graph(
       const c10::Symbol& op_name,
-      const std::vector<c10::IValue>& inputs,
-      const std::vector<at::Tensor>& outputs);
+      const std::vector<c10::IValue>& inputs);
   void reset() {
     nodes_array.clear();
 
@@ -173,6 +140,8 @@ class GraphHashBuilder {
   }
 
   void invalidateDeviceTids(c10::Device& device);
+
+  void updateGraphInputTMap(const at::Tensor tensor);
 
  private:
   GraphHashBuilder() {

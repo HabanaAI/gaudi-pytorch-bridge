@@ -842,7 +842,6 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
   std::stringstream strbuff;
   std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
-  std::cout << "JIT IR graph\n";
   jit_graph->dump();
   std::string str = strbuff.str();
   std::cout.rdbuf(oldbuff);
@@ -1125,24 +1124,6 @@ void LaunchSyncTensorsGraph(
       launch_info.launch_counter);
 }
 
-void PrepareStackMapFromRunPostOrder(
-    c10::Device& device,
-    exec::HlExec& hlexec,
-    habana_lazy::ir::PostOrderData& po_data) {
-  auto& graph_hash_builder = GraphHashBuilder::getInstance();
-  auto fwd_running_hash = hlexec.get_fwd_graph_hash();
-
-  auto mp_g_and_meta_data_ =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(fwd_running_hash);
-  PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss");
-  graph_hash_builder.prepareInputsStackMap(po_data.inputs);
-  hlexec.set_fwd_graph_stack_map(graph_hash_builder.getInputStackMap());
-
-  graph_hash_builder.invalidateDeviceTids(device);
-  graph_hash_builder.reset();
-}
-
 void SetupExecutionFromRunningHash(
     c10::Device& device,
     exec::HlExec& hlexec,
@@ -1153,10 +1134,20 @@ void SetupExecutionFromRunningHash(
   uint64_t fwd_running_hash = graph_hash_builder.getFwdRunningHash();
 
   fwd_running_hash = at::hash_combine(fwd_running_hash, indices.size());
+
+  // special handling for a single view node execution
+  // a.view().to(cpu)
+  if (indices.size() == 1) {
+    fwd_running_hash = HbLazyTensorViews::updateViewHash(
+        tensors[indices[0]].getTensorUniqueId(), fwd_running_hash);
+    for (auto& s : tensors[indices[0]].GetSizes()) {
+      fwd_running_hash = at::hash_combine(fwd_running_hash, s);
+    }
+  }
+
   for (auto idx : indices)
     fwd_running_hash = at::hash_combine(fwd_running_hash, idx);
   PT_IRGRAPH_DEBUG("\nFwd_running_hash : ", fwd_running_hash);
-
   hlexec.set_fwd_graph_hash(fwd_running_hash);
 
   auto mp_g_and_meta_data_ =
@@ -1184,9 +1175,15 @@ void SetupExecutionFromRunningHash(
       po_data = HbLazyTensor::RunPostOrder(tensors, indices);
     }
   } else {
+    PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Miss");
     po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
     // Prepare Input Stack map from post order for cache Miss case
-    PrepareStackMapFromRunPostOrder(device, hlexec, po_data);
+    graph_hash_builder.prepareInputsStackMap(po_data.inputs);
+    hlexec.set_fwd_graph_stack_map(graph_hash_builder.getInputStackMap());
+
+    graph_hash_builder.invalidateDeviceTids(device);
+    graph_hash_builder.reset();
   }
 }
 

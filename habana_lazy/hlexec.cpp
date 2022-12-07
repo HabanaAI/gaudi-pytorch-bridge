@@ -640,7 +640,6 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
     visualize::DumpOptimizedGraph(
         mp_g_, m_g_hash_, "replace_views_with_reshapes");
   }
-
   visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 

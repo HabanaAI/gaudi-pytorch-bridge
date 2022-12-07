@@ -2560,7 +2560,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "slice(Tensor input, Tensor shape, Tensor step,  Tensor start) -> (Tensor)");
   m.def(
-      "hpu::expand(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
+      "hpu::expand(Tensor(a) self, int[] sizes, *, bool implicit=False) -> Tensor(a)");
+  m.def(
+      "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
   m.def(
       "hpu::constant_pad_nd(Tensor self, Tensor pad_before_tensor, Tensor pad_after_tensor, Scalar value) -> Tensor");

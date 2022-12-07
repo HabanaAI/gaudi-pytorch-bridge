@@ -120,8 +120,8 @@ at::Tensor add_slice_insert_node(
   std::vector<int64_t> paramsvec;
   std::for_each(
       params.begin(), params.end(), [&](const StridedOpSliceParams& n) {
-        auto start = n.start.has_value() ? n.start.value() : 0;
-        auto end = n.end.has_value() ? n.end.value() : INT64_MAX;
+        auto start = n.start;
+        auto end = n.end;
         paramsvec.insert(paramsvec.end(), {n.dim, start, end, n.step});
       });
   auto node = std::make_shared<ir::SliceInsert>(orig_t, insert_t, paramsvec);
@@ -503,6 +503,14 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
   auto is_view = HandleViews(src, hl_t);
 
   if (is_view) {
+    /* need to update tmap here for cases like b = add(a); mark_step(). c =
+    slice(b). c.to('cpu')
+    Here slice is a view op and Tmap needs to have tensor b*/
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+      auto& graph_hash_builder = GraphHashBuilder::getInstance();
+      graph_hash_builder.updateGraphInputTMap(src);
+    }
+
     hl_t = GetHbLazyTensor(src);
     std::vector<HbLazyTensor> tensors = {hl_t};
     HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -769,8 +777,8 @@ Tensor HbLazyTensorViews::add_slice_lazy(
   PT_LAZY_TRACE;
   int64_t dim = params.dim;
   int64_t step = params.step;
-  int64_t start_val = params.start.has_value() ? params.start.value() : 0;
-  int64_t end_val = params.end.has_value() ? params.end.value() : INT64_MAX;
+  int64_t start_val = params.start;
+  int64_t end_val = params.end;
 
   auto node = std::make_shared<ir::Slice>(self, dim, start_val, end_val, step);
   HABANA_ASSERT(out_t.has_value());
@@ -911,12 +919,17 @@ Tensor HbLazyTensorViews::add_expand_lazy(
 
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   hl_self = HandleViewsOrUpdate(self, hl_self);
-  auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
-  auto hl_false = GetIrValueForScalar(implicit);
 
-  ir::NodePtr node = ir::Node::Create(
-      Symbol::fromQualString("hpu::expand"),
-      {hl_self.GetIrValue(), hl_params_shape.GetIrValue(), hl_false});
+  ir::NodePtr node;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == 1) {
+    auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
+    auto hl_false = GetIrValueForScalar(implicit);
+    node = ir::Node::Create(
+        Symbol::fromQualString("hpu::expand_ds"),
+        {hl_self.GetIrValue(), hl_params_shape.GetIrValue(), hl_false});
+  } else {
+    node = std::make_shared<ir::Expand>(self, size, implicit);
+  }
 
   HABANA_ASSERT(out_t.has_value());
   Tensor result = out_t.value();
@@ -1104,6 +1117,69 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
       is_allreduce_bwd,
       bucket_id,
       bucket_recent_id);
+}
+
+/* UpdateviewHash needs to be invoked for every input tensor of every op.
+Written in unrolled form for optimization*/
+size_t HbLazyTensorViews::updateViewHash(int64_t id, size_t hash) {
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+
+  auto params_ptr = context->viewContext.GetViewTableEntry(id);
+
+  if (params_ptr != nullptr) {
+    auto optype = params_ptr->optype;
+    hash = at::hash_combine(hash, optype);
+
+    switch (optype) {
+      case kStridedOpView:
+      case kStridedOpPermute:
+        for (auto& s : params_ptr->sizes) {
+          hash = at::hash_combine(hash, s);
+        }
+        break;
+      case kStridedOpSlice: {
+        auto& slice_params = params_ptr->params.slice_param;
+        hash = at::hash_combine(hash, slice_params.dim);
+        hash = at::hash_combine(hash, slice_params.start);
+        hash = at::hash_combine(hash, slice_params.step);
+        hash = at::hash_combine(hash, slice_params.end);
+      } break;
+      case kStridedOpTranspose: {
+        auto& transpose_params = params_ptr->params.transpose_param;
+        hash = at::hash_combine(hash, transpose_params.dim0_);
+        hash = at::hash_combine(hash, transpose_params.dim1_);
+      } break;
+      case kStridedOpT:
+      case kStridedOpIdentity:
+        break;
+      case kStridedOpSqueeze:
+      case kStridedOpUnsqueeze: {
+        auto& squeeze_params = params_ptr->params.squeeze_param;
+        hash = at::hash_combine(hash, squeeze_params.dim);
+      } break;
+      case kStridedOpExpand: {
+        auto& expand_param = params_ptr->params.expand_param;
+        hash = at::hash_combine(hash, expand_param.implicit);
+      } break;
+      case kStridedOpDefault:
+        for (auto& s : params_ptr->sizes) {
+          hash = at::hash_combine(hash, s);
+        }
+
+        for (auto& s : params_ptr->strides) {
+          hash = at::hash_combine(hash, s);
+        }
+
+        hash = at::hash_combine(hash, params_ptr->offset);
+        hash = at::hash_combine(hash, params_ptr->viewStatus);
+        break;
+      default:
+        TORCH_CHECK("incorrect optype for views ", optype);
+    } // switch (optype)
+  }
+
+  return hash;
 }
 
 } // namespace habana_lazy

@@ -668,6 +668,19 @@ class LazyOp {
       // out variant needs storage as it is a graph input
       out_t = empty_hpu_lazy(
           self.sizes(), self.options(), self.suggest_memory_format(), true);
+
+      /* b = a.view().fill_()
+      This is lowered as follows:
+      new_input_tensor.fill_()
+      updated_a = strided_insert(a, new_tensor)
+      Now, new_input_tensor needs to be added to Tmap.
+    TODO SW-114041: In general HandleViewsInplace() is expected to be run only
+    for cache misses.  How do we capture this new input in case of cache hits?*/
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+        auto& graph_hash_builder = GraphHashBuilder::getInstance();
+        graph_hash_builder.updateGraphInputTMap(out_t);
+      }
+
       for (int idx = (int)m_inputs.size() - 1; idx >= 0; idx--) {
         auto t = m_inputs[idx];
         if (t.isTensor() && t.toTensor().is_same(self)) {
@@ -1212,6 +1225,12 @@ class LazyOp {
     }
     m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
+    // [toDo] this is for gtest we will eventually move to MACRO
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+      auto& graph_hash_builder = GraphHashBuilder::getInstance();
+      graph_hash_builder.graph(m_symbol, m_inputs);
+      graph_hash_builder.updateRunningHash();
+    }
   }
 
   virtual ReturnType get_result_overrideable() {

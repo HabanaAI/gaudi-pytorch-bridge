@@ -34,8 +34,8 @@ enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
 
 struct StridedOpSliceParams {
   int64_t dim;
-  c10::optional<int64_t> start;
-  c10::optional<int64_t> end;
+  int64_t start;
+  int64_t end;
   int64_t step;
 };
 
@@ -244,6 +244,7 @@ class HbLazyTensorViews {
       const at::Tensor& recent_orig_t,
       const at::Tensor& recent_src_t,
       const StrideParams* params_ptr);
+  static size_t updateViewHash(int64_t id, size_t hash);
 };
 
 at::Tensor add_strided_insert_node(

@@ -20,13 +20,6 @@ namespace ir {
 
 class View : public ir::Node {
  public:
-  enum class ViewMeta {
-    WEIGHT_INDEX = 1,
-    BIAS_INDEX,
-    M_INDEX,
-    N_INDEX,
-    EPS_INDEX
-  };
   View() = delete;
   View(const at::Tensor& self, at::IntArrayRef size)
       : Node(
@@ -423,6 +416,30 @@ class StridedView : public ir::Node {
          << m_meta_data.get(static_cast<size_t>(StridedViewMeta::STRIDE_INDEX))
          << ", storage offset = ";
     }
+    return ss.str();
+  }
+};
+
+class Expand : public ir::Node {
+ public:
+  Expand() = delete;
+  Expand(const at::Tensor& self, at::IntArrayRef sizes, bool implicit)
+      : Node(c10::Symbol::fromQualString("hpu::expand")) {
+    auto hl_self = habana_lazy::GetHbLazyTensor(self);
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    m_meta_data.set(sizes, static_cast<size_t>(1));
+    m_meta_data.set(implicit, static_cast<size_t>(2));
+    AddInputPtTensors(input_pt_vec);
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString();
+    ss << ", Expand Size = " << m_meta_data.get(static_cast<size_t>(1));
+    ss << ", implicit = " << m_meta_data.get(static_cast<size_t>(2));
     return ss.str();
   }
 };

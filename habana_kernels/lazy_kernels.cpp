@@ -370,6 +370,12 @@ void updateDstDependencies(const Tensor& dst) {
   input_pt_vec.push_back(dst);
   hb_result.IrSetNode(node);
   node->AddInputPtTensors(input_pt_vec);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    graph_hash_builder.graph(
+        Symbol::fromQualString("hpu::control_edge_"), {dst});
+    graph_hash_builder.updateRunningHash();
+  }
 }
 
 Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
@@ -508,6 +514,10 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
   };
 
   func();
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    graph_hash_builder.updateGraphInputTMap(t);
+  }
   return t;
 }
 
@@ -555,7 +565,10 @@ at::Tensor get_tensor_for_scalar(
         " map size = ",
         context->scalar_to_tensor_map.size());
   }
-
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    graph_hash_builder.updateGraphInputTMap(alpha_tensor);
+  }
   return alpha_tensor;
 }
 
@@ -594,7 +607,14 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     context->JoinPendingLaunchThread();
   }
-
+  // [toDo] this is for gtest we will eventually move to MACRO
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRAPH_RUNNING_HASH)) {
+    auto& graph_hash_builder = GraphHashBuilder::getInstance();
+    graph_hash_builder.graph(
+        c10::Symbol::fromQualString("hpu::copy_D2D"),
+        {self, src, no_conversion});
+    graph_hash_builder.updateRunningHash();
+  }
   auto op_func = [self, src, non_blocking, no_conversion]() mutable {
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
@@ -3242,7 +3262,9 @@ Tensor slice_hpu_lazy(
   auto param_setter = [dim, start, end, step](
                           const Tensor& self_in, StrideParams* strided_param) {
     strided_param->optype = kStridedOpSlice;
-    StridedOpSliceParams slice_param = {dim, start, end, step};
+    int64_t start_ = start.has_value() ? start.value() : 0;
+    int64_t end_ = end.has_value() ? end.value() : INT64_MAX;
+    StridedOpSliceParams slice_param = {dim, start_, end_, step};
     strided_param->params.slice_param = slice_param;
     PT_VIEWTABLE_DEBUG(
         "slice fallback tensor id ",
@@ -3250,9 +3272,9 @@ Tensor slice_hpu_lazy(
         " dim ",
         dim,
         " start ",
-        start.has_value() ? start.value() : 0,
+        start_,
         " end ",
-        end.has_value() ? end.value() : -1,
+        end_,
         " step ",
         step);
   };
@@ -5890,7 +5912,36 @@ Tensor fused_norm_hpu_lazy(
 
     flush_op(1);
   };
+  // running hash
+  {
+    bool is_view_evaluated = true;
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    for (size_t i = 0; i < grad.size(); i++) {
+      auto id = GetHbLazyTensorId(grad[i]);
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
 
+      if (params_ptr != nullptr) {
+        if (params_ptr->viewStatus != kEvaluated) {
+          is_view_evaluated = false;
+          break;
+        }
+      } else {
+        is_view_evaluated = false;
+        break;
+      }
+    }
+    std::vector<at::IValue> vector_of_inputs;
+    for (auto t : grad) {
+      vector_of_inputs.emplace_back(t);
+    }
+    vector_of_inputs.emplace_back(max_norm);
+    vector_of_inputs.emplace_back(norm_type);
+    if (is_view_evaluated) {
+      RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::fused_norm_, vector_of_inputs);
+    } else {
+      RUN_MANUAL_OP_INPUTS_ACC_HASH(hpu::fused_norm_lazy, vector_of_inputs);
+    }
+  }
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(fused_norm, op_func, result);
 }
 
