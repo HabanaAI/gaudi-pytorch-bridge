@@ -5194,31 +5194,24 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   std::vector<Tensor> tensors_copy;
   std::copy(tensors.begin(), tensors.end(), std::back_inserter(tensors_copy));
 
-  // parallel function that will be executed in the accumulation thread
-  auto op_func = [tensors_ = std::move(tensors_copy),
-                  dim_,
-                  output_shape = std::move(output_shape),
-                  out]() mutable {
-    auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors_);
-    t_list = filter(t_list, is_nonempty_tensor);
-    const TensorList view_list{t_list};
+  auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors_copy);
+  t_list = filter(t_list, is_nonempty_tensor);
+  const TensorList view_list{t_list};
+  std::vector<at::IValue> inputs{view_list, dim_};
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-      auto output_shape_tensor = empty_hpu_lazy(
-          IntArrayRef(output_shape),
-          tensors_[0].options().dtype(c10::ScalarType::Int),
-          tensors_[0].suggest_memory_format(),
-          false,
-          SHAPE_TENSOR);
-
-      LazyOp<at::Tensor> k{
-          "hpu::cat", {view_list, dim_, output_shape_tensor}, {1}, {}, 0};
-      k.call(out);
-    } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
-      LazyOp<at::Tensor> k{"aten::cat", {view_list, dim_}, {1}, {}, 0};
-      k.call(out);
-    }
-  };
+  const char* symbol{"aten::cat"};
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    auto output_shape_tensor = empty_hpu_lazy(
+        IntArrayRef(output_shape),
+        tensors_copy[0].options().dtype(c10::ScalarType::Int),
+        tensors_copy[0].suggest_memory_format(),
+        false,
+        SHAPE_TENSOR);
+    inputs.push_back(output_shape_tensor);
+    symbol = "hpu::cat";
+  }
+  LazyOp<at::Tensor> k{symbol, inputs, {1}, {}, 0};
+  auto op_func = [k = std::move(k), out]() mutable { k.call(out); };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat, op_func, out);
 }
