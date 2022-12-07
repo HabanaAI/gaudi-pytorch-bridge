@@ -2365,14 +2365,13 @@ Tensor& masked_fill_hpu_lazy_(
   // TPC doesn't support inplace where natively
   // Implement using out of place where followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
-  auto masked_fill_func_ = [self, mask, value]() mutable {
-    LazyOp<Tensor> where_op(
-        "aten::where",
-        {mask, value, self},
-        {},
-        {},
-        2 /*output metadata is picked from self*/);
-
+  LazyOp<Tensor> where_op(
+      "aten::where",
+      {mask, value, self},
+      {},
+      {},
+      2 /*output metadata is picked from self*/);
+  auto masked_fill_func_ = [self, where_op = std::move(where_op)]() mutable {
     Tensor where_out = where_op.call();
     // add a control edge as we add a loop using d2d copy back to self
     auto hl_self = GetOrCreateHbLazyTensor(self);
