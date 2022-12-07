@@ -1575,10 +1575,12 @@ cat:
   force_default: false
   promote_to_common_type: [tensors]
   override_fn: cat_hpu_lazy
+  acc_thread: true
 
 cat.out:
   promote_to_common_type: [tensors]
   override_fn: cat_hpu_lazy_out
+  acc_thread: true
 
 ceil:
   force_default: false
@@ -3893,6 +3895,7 @@ masked_fill_.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Half]
   override_fn: masked_fill_scalar_hpu_lazy_
+  acc_thread: true
 
 masked_fill_.Tensor:
   dtypes:
@@ -3909,6 +3912,7 @@ masked_fill_.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Half]
   override_fn: masked_fill_hpu_lazy_
+  acc_thread: true
 
 max:
   custom_output_shape: AllAnyOutputShape
@@ -5979,18 +5983,22 @@ sqrt_:
 
 squeeze:
   override_fn: squeeze_self_hpu_lazy
+  acc_thread: true
 
 squeeze.dim:
   force_default: False
   override_fn: squeeze_dim_hpu_lazy
+  acc_thread: true
 
 squeeze_:
   force_default: false
   override_fn: squeeze_hpu_lazy_
+  acc_thread: true
 
 squeeze_.dim:
   force_default: False
   override_fn: squeeze_dim_hpu_lazy_
+  acc_thread: true
 
 std.correction:
   custom_output_shape: StdVarComputeOutShape
@@ -6326,6 +6334,7 @@ trunc_:
 unbind.int:
   force_default: false
   override_fn: unbind_hpu_lazy_
+  acc_thread: true
 
 uniform_:
   custom_fill_params: FillUniformParams
