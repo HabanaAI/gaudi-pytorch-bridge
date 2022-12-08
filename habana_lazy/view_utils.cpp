@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "habana_lazy/view_utils.h"
@@ -488,6 +491,43 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     add_strided_view_node_parallel_impl(
         self, size, stride, storage_offset, is_update_view, result, is_out);
   }
+
+  if (is_0d_tensor) {
+    SET_SIZE_STRIDE_0D(result);
+  }
+
+  return result;
+}
+
+Tensor HbLazyTensorViews::process_strided_view(
+    const Tensor& self,
+    IntArrayRef size_in,
+    IntArrayRef stride_in,
+    int64_t storage_offset,
+    bool create_storage) {
+  PT_LAZY_TRACE;
+  IntArrayRef size = size_in;
+  bool is_0d_tensor = false;
+  std::vector<int64_t> initvec{1};
+  if (size_in.size() == 0) {
+    size = initvec;
+    is_0d_tensor = true;
+  }
+  IntArrayRef stride = stride_in;
+  if (stride_in.size() == 0) {
+    stride = initvec;
+  }
+
+  Tensor result;
+  result = empty_strided_hpu_lazy(
+      size,
+      stride,
+      self.options(),
+      create_storage,
+      DATA_TENSOR,
+      storage_offset,
+      self,
+      true);
 
   if (is_0d_tensor) {
     SET_SIZE_STRIDE_0D(result);

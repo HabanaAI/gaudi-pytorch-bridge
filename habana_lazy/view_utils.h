@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -224,6 +227,12 @@ class HbLazyTensorViews {
       bool is_update_view,
       c10::optional<at::Tensor> out,
       bool is_out = false);
+  static at::Tensor process_strided_view(
+      const at::Tensor& self,
+      at::IntArrayRef size_in,
+      at::IntArrayRef stride_in,
+      int64_t storage_offset,
+      bool create_storage);
   static void updateViewTable(at::Tensor& result, StrideParams& params);
   static StrideParams* getViewTableParams(HbLazyTensor& hl_view_t);
   static StrideParams* getViewTableParams(int64_t id);

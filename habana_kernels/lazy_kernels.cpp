@@ -1248,17 +1248,24 @@ Tensor as_strided_hpu_lazy2(
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
 
-  auto out = HbLazyTensorViews::add_strided_view_node(
-      self,
-      size_in,
-      stride_in,
-      storage_offset_val,
-      true /*is_update_view*/,
-      c10::nullopt);
-  if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
-    flush_op(1);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    auto out = HbLazyTensorViews::process_strided_view(
+        self, size_in, stride_in, storage_offset_val, true);
+    return out;
+  } else {
+    auto out = HbLazyTensorViews::add_strided_view_node(
+        self,
+        size_in,
+        stride_in,
+        storage_offset_val,
+        true /*is_update_view*/,
+        c10::nullopt);
+    if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
+      flush_op(1);
+    }
+    return out;
   }
-  return out;
 };
 
 // THis kernel has two paths, lowering and lazy
@@ -1276,18 +1283,25 @@ Tensor as_strided_hpu_lazy(
   // happens here
   auto storage_offset_val = storage_offset.value_or(self.storage_offset());
 
-  auto out = HbLazyTensorViews::add_strided_view_node(
-      self,
-      size_in,
-      stride_in,
-      storage_offset_val,
-      true /*is_update_view*/,
-      c10::nullopt);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    auto out = HbLazyTensorViews::process_strided_view(
+        self, size_in, stride_in, storage_offset_val, true);
+    return out;
+  } else {
+    auto out = HbLazyTensorViews::add_strided_view_node(
+        self,
+        size_in,
+        stride_in,
+        storage_offset_val,
+        true /*is_update_view*/,
+        c10::nullopt);
 
-  if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
-    flush_op(1);
+    if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
+      flush_op(1);
+    }
+    return out;
   }
-  return out;
 }
 
 void as_strided_hpu_lazy_inplace_parralel_impl(
@@ -1472,6 +1486,12 @@ Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
 
   auto out = as_strided_hpu_lazy(
       self_, inferred_size, stride_value, self_.storage_offset());
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
 
   auto func = std::bind(view_hpu_lazy_parallel_impl, self_, size_.vec(), out);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
@@ -3255,6 +3275,13 @@ Tensor slice_hpu_lazy(
   // Native fork implementation to slice op is introduced to
   // allocate correct autograd gradient function for view tensor.
   auto out = at::native::slice(self_in, dim, start, end, step);
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
+
   auto param_setter = [dim, start, end, step](
                           const Tensor& self_in, StrideParams* strided_param) {
     strided_param->optype = kStridedOpSlice;
@@ -3281,6 +3308,13 @@ Tensor alias_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto out = as_strided_hpu_lazy(
       self, self.sizes(), self.strides(), self.storage_offset());
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
+
   auto param_setter = [](const Tensor& self, StrideParams* strided_param) {
     strided_param->optype = kStridedOpIdentity;
 
@@ -5077,7 +5111,8 @@ Tensor empty_hpu_lazy(
     c10::optional<MemoryFormat> optional_memory_format,
     bool create_storage,
     synTensorType tensor_type,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view) {
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
+    bool is_strided) {
   PT_LAZY_TRACE;
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
@@ -5098,28 +5133,44 @@ Tensor empty_hpu_lazy(
   auto new_dtype = scalarTypeToTypeMeta(type);
 
   if (create_storage || shape_tensor) {
-    int64_t nelements = multiply_integers(size);
-    // we dont create a full storage for shape tensors but we need a backend
-    // impl to get meta data
-    if (shape_tensor) {
-      nelements = (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
+    Tensor at_internal_tensor;
+    int64_t size_bytes = 0;
+
+    if (is_strided && base_view.has_value()) {
+      const auto& base = base_view.value().get();
+      const auto& storage = base.storage();
+      at_internal_tensor = AtenInternalHbTensor(
+          std::move(c10::Storage(storage)),
+          new_dtype,
+          tensor_type,
+          base.sizes(),
+          c10::nullopt,
+          mem_format);
+    } else {
+      int64_t nelements = multiply_integers(size);
+      // we dont create a full storage for shape tensors but we need a backend
+      // impl to get meta data
+      if (shape_tensor) {
+        nelements =
+            (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
+      }
+      int elem_size = new_dtype.itemsize();
+      size_t storage_size_bytes = nelements * elem_size;
+      size_bytes = nelements * original_dtype.itemsize();
+      auto storage_impl = c10::make_intrusive<StorageImpl>(
+          c10::StorageImpl::use_byte_size_t(),
+          size_bytes,
+          allocator->allocate(storage_size_bytes),
+          allocator,
+          /*resizeable=*/true);
+      at_internal_tensor = AtenInternalHbTensor(
+          std::move(storage_impl),
+          new_dtype,
+          tensor_type,
+          size,
+          c10::nullopt,
+          mem_format);
     }
-    int elem_size = new_dtype.itemsize();
-    size_t storage_size_bytes = nelements * elem_size;
-    int64_t size_bytes = nelements * original_dtype.itemsize();
-    auto storage_impl = c10::make_intrusive<StorageImpl>(
-        c10::StorageImpl::use_byte_size_t(),
-        size_bytes,
-        allocator->allocate(storage_size_bytes),
-        allocator,
-        /*resizeable=*/true);
-    Tensor at_internal_tensor = AtenInternalHbTensor(
-        std::move(storage_impl),
-        new_dtype,
-        tensor_type,
-        size,
-        c10::nullopt,
-        mem_format);
 
     // backend tensor should always be contiguous as per view table design
     std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
@@ -5152,6 +5203,8 @@ Tensor empty_hpu_lazy(
     if (!is_in_lowering_mode) {
       HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
           size, 0, options.device(), typeMetaToScalarType(original_dtype));
+
+      hb_tensor.SetIsStrided(is_strided);
 
       // The lazy tensor will have a reference to the internal tensor
       hb_tensor.SetTensorData(at_internal_tensor);
@@ -5188,13 +5241,15 @@ Tensor empty_hpu_lazy(
     if (!is_in_lowering_mode) {
       // Note: storage() api call also sets the front end storage()
       if (create_storage && at_tensor.numel()) {
-        TORCH_CHECK(
-            (at_tensor.storage().data_ptr() &&
-             (at_tensor.data_ptr() != nullptr)),
-            "t_updated tensor is expected to be have storage and valid data_ptr ",
-            at_tensor.storage().data_ptr(),
-            " ",
-            at_tensor.data_ptr());
+        if (!is_strided) {
+          TORCH_CHECK(
+              (at_tensor.storage().data_ptr() &&
+               (at_tensor.data_ptr() != nullptr)),
+              "t_updated tensor is expected to be have storage and valid data_ptr ",
+              at_tensor.storage().data_ptr(),
+              " ",
+              at_tensor.data_ptr());
+        }
       }
 
       return at_tensor;
@@ -5231,14 +5286,29 @@ Tensor empty_strided_hpu_lazy(
     bool create_storage,
     synTensorType tensor_type,
     int64_t storage_offset,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view) {
+    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
+    bool is_strided) {
   PT_LAZY_TRACE;
+
   at::Tensor empty_tensor = empty_hpu_lazy(
-      size, options, c10::nullopt, create_storage, tensor_type, base_view);
+      size,
+      options,
+      c10::nullopt,
+      create_storage,
+      tensor_type,
+      base_view,
+      is_strided);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
 
   if (storage_offset) {
     empty_tensor.unsafeGetTensorImpl()->set_storage_offset(storage_offset);
+  }
+
+  // lazy eager optimized view handling
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true) &&
+      is_strided) {
+    return empty_tensor;
   }
 
   // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
@@ -5390,6 +5460,16 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 
   auto out = at::native::transpose(self, dim0_, dim1_);
 
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
+
+  // To Do - to check if below handling required in lazye eager.
+  // if due to any reason 'out' does not have the storage then we
+  // need to attach the storage of 'self' to 'out'
+
   // at::native::transpose can return back self w/o invoking as_strided under
   // certain cases like 1D/dim0 == dim1. Skip view table access in such cases
   auto additional_predicate = [](const Tensor& self, const Tensor& out) {
@@ -5420,6 +5500,16 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto out = at::native::t(self);
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
+
+  // To Do - To check if any special handling required for
+  // 0-D and 1-D input for lazy eager
+
   auto param_setter = [](const Tensor& self, StrideParams* strided_param) {
     strided_param->optype = kStridedOpT;
 
@@ -5446,6 +5536,12 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
     out = at::native::squeeze(self, dim);
   } else {
     out = at::native::squeeze(self);
+  }
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
   }
 
   auto param_setter = [dim](const Tensor& self, StrideParams* strided_param) {
@@ -5646,6 +5742,12 @@ Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   }
 
   auto out = at::native::expand(self, size_in, implicit);
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
 
   auto additional_predicate = [](const Tensor& self, const Tensor& out) {
     auto self_id = GetHbLazyTensorId(self);

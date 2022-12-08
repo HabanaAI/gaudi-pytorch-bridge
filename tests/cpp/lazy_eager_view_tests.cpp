@@ -1,0 +1,279 @@
+/******************************************************************************
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+#include "habana_lazy_test_infra.h"
+
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+
+#include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
+#include <torch/torch.h>
+
+#include "habana_kernels/lazy_kernels_declarations.h"
+
+#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/tensor_utils.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
+
+#include "hpu_ops/util.h"
+
+using namespace habana_lazy;
+
+// In this class both the pass fallback and compilation fallback are disabled
+class LazyEagerViewOpsTest : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    SetLazyMode(2);
+
+    DisableRecipeCache();
+    EnableEagerGC();
+    EnableEagerViewHandling();
+    // EnableShapeAgnostic();
+    DisableAccParMode();
+
+    SetSeed();
+
+    DisableCpuFallback();
+
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+  }
+
+  void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
+    RestoreRecipeCache();
+    RestoreEagerGC();
+    RestoreEagerViewHandling();
+    // RestoreShapeAgnostic();
+    RestoreAccParMode();
+
+    RestoreMode();
+  }
+};
+
+TEST_F(LazyEagerViewOpsTest, AddOnAsStrided1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3});
+    auto hA = A.to(torch::kHPU);
+    auto B = A.as_strided({2, 2}, {1, 2}, 1);
+    auto C = B.add(1.0);
+
+    auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    auto hC = hB.add(1.0);
+
+    EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnAsStrided2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3});
+    auto hA = A.to(torch::kHPU);
+    auto B = A.as_strided({2, 2}, {1, 2}, 1);
+    auto C = B.add(1.0);
+
+    auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    auto hC = hB.add(1.0);
+
+    EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+
+    auto D = A.as_strided({2, 2}, {1, 2}, 0);
+    auto E = D.add(1.0);
+
+    auto hD = hA.as_strided({2, 2}, {1, 2}, 0);
+    auto hE = hD.add(1.0);
+
+    EXPECT_EQ(allclose(E, hE.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnAsStrided3) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3});
+    auto hA = A.to(torch::kHPU);
+    auto B = A.as_strided({2, 2}, {1, 2}, 1);
+    auto C = B.add(1.0);
+
+    auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    auto hC = hB.add(1.0);
+
+    EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+
+    auto D = A.as_strided({2, 2}, {1, 2}, 0);
+    auto E = D.add(1.0);
+
+    auto hD = hA.as_strided({2, 2}, {1, 2}, 0);
+    auto hE = hD.add(1.0);
+
+    EXPECT_EQ(allclose(E, hE.cpu(), 0.001, 0.001), true);
+
+    D = A.as_strided({2, 2}, {1, 2}, 1);
+    E = D.add(1.0);
+
+    hD = hA.as_strided({2, 2}, {1, 2}, 1);
+    hE = hD.add(1.0);
+
+    EXPECT_EQ(allclose(E, hE.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnView1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({4});
+    auto B = A.view({2, 2});
+    auto C = B.add(1.0);
+    auto hA = A.to(torch::kHPU);
+    auto hB = hA.view({2, 2});
+    auto hC = hB.add(1.0);
+
+    EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnView2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({6});
+    auto B = A.view({2, 3});
+    auto C = torch::transpose(B, 0, 1);
+    auto D = C.add(1.0);
+    auto hA = A.to(torch::kHPU);
+    auto hB = hA.view({2, 3});
+    auto hC = torch::transpose(hB, 0, 1);
+    auto hD = hC.add(1.0);
+
+    EXPECT_EQ(allclose(D, hD.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnView3) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({6});
+    auto B = A.view({2, 3});
+    auto C = torch::transpose(B, 0, 1);
+    auto D = C.add(1.0);
+    auto hA = A.to(torch::kHPU);
+    auto hB = hA.view({2, 3});
+    auto hC = torch::transpose(hB, 0, 1);
+    auto hD = hC.add(1.0);
+
+    EXPECT_EQ(allclose(D, hD.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddMmOnView1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({1000});
+    torch::Tensor B = torch::randn({256, 2048, 1, 1});
+    torch::Tensor C = torch::randn({1000, 2048});
+
+    auto B_view = B.view({256, 2048});
+    auto C_t = torch::t(C);
+
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    auto hB_view = hB.view({256, 2048});
+    auto hC_t = torch::t(hC);
+    torch::Tensor O = torch::addmm(hA, hB_view, hC_t, 1, 1);
+
+    auto computed = O.to(torch::kCPU);
+    auto expected = torch::addmm(A, B_view, C_t, 1, 1);
+
+    EXPECT_TRUE(allclose(expected, computed, 0.001, 0.001));
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, DISABLED_AddMmOnView2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({1000});
+    torch::Tensor B = torch::randn({256, 2048, 1, 1});
+    torch::Tensor C = torch::randn({1000, 2048});
+
+    auto B_view = B.view({256, 2048});
+    auto C_t = torch::t(C);
+
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    auto hB_view = hB.view({256, 2048});
+    auto hC_t = torch::t(hC);
+    torch::Tensor O = torch::addmm(hA, hB_view, hC_t, 1, 1);
+
+    auto computed = O.to(torch::kCPU);
+    auto expected = torch::addmm(A, B_view, C_t, 1, 1);
+
+    EXPECT_TRUE(allclose(expected, computed, 0.001, 0.001));
+
+    O = torch::addmm(hA, hB_view, hC_t, 1, 1);
+    computed = O.to(torch::kCPU);
+    EXPECT_TRUE(allclose(expected, computed, 0.001, 0.001));
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3});
+    auto hA = A.to(torch::kHPU);
+    auto B = A.as_strided({2, 2}, {1, 2}, 1);
+    B = B.add_(1.0);
+
+    auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    hB = hB.add_(1.0);
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+}

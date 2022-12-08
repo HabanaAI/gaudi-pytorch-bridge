@@ -368,6 +368,14 @@ class HbLazyTensor {
     return data()->tensor_layout;
   }
 
+  void SetIsStrided(bool flag) {
+    is_strided = flag;
+  }
+
+  bool GetIsStrided() const {
+    return is_strided;
+  }
+
   bool created_as_zero_size_tensor = false;
 
  private:
@@ -388,6 +396,7 @@ class HbLazyTensor {
       bool event_flag = false);
 
   static bool switch_dynamic_mode;
+  bool is_strided = false;
 };
 
 // The HbContextArena holds per device live information and statistics,

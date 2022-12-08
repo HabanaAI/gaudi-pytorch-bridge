@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+
 #pragma once
 #include <ATen/ExpandUtils.h>
 #include <pthread.h>
@@ -481,7 +482,8 @@ at::Tensor empty_hpu_lazy(
     bool create_storage = true,
     synTensorType tensor_type = DATA_TENSOR,
     c10::optional<std::reference_wrapper<const at::Tensor>> base_view =
-        c10::nullopt);
+        c10::nullopt,
+    bool is_strided = false);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
@@ -490,7 +492,8 @@ at::Tensor empty_strided_hpu_lazy(
     synTensorType tensor_type = DATA_TENSOR,
     int64_t storage_offset = 0,
     c10::optional<std::reference_wrapper<const at::Tensor>> base_view =
-        c10::nullopt);
+        c10::nullopt,
+    bool is_strided = false);
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::MemoryFormat> memory_format);

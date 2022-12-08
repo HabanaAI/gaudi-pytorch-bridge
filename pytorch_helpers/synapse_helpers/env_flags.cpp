@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -484,6 +484,7 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_INTERNAL_OLD_SYNAPI, bool);
 ENV_STRUCT_STATIC_DEFINITION(HABANA_USE_PERSISTENT_TENSOR, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_EAGER_OPTIM_CACHE, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, bool);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_LAZY_EAGER_VIEW_HANDLING, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_RECIPE_CACHE_IGNORE_VERSION, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_RECIPE_CACHE_DUMP_DEBUG, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_COMPILE_THREAD, bool);

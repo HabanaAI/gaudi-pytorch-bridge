@@ -32,6 +32,7 @@
 #include "resize.h"
 
 #include "habana_lazy/memlog.h"
+#include "habana_lazy/ops/shape_ops.h"
 
 namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
@@ -277,6 +278,10 @@ class LazyOp {
 
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        handle_strided_inputs();
+      }
       auto node = create_node();
       for (auto hl_result : hl_results) {
         hl_result.IrSetNode(node, i++);
@@ -299,7 +304,10 @@ class LazyOp {
         "Lazy Call not_Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
     habana_lazy::ir::setCurrentModuleName(module_name);
-    isView = viewUpdateInputs();
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      isView = viewUpdateInputs();
+    }
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
@@ -326,7 +334,10 @@ class LazyOp {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor :: ", m_symbol.toQualString());
     bool isView = false;
     habana_lazy::ir::setCurrentModuleName(module_name);
-    isView = viewUpdateInputs();
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      isView = viewUpdateInputs();
+    }
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
@@ -395,6 +406,10 @@ class LazyOp {
 
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        handle_strided_inputs();
+      }
       i = 0;
       auto node = create_node();
       for (auto hl_result : hl_results) {
@@ -417,7 +432,10 @@ class LazyOp {
     PT_LAZY_DEBUG("Lazy Call Tuple_Of_Tensor_ref :: ", m_symbol.toQualString());
     bool isView = false;
     habana_lazy::ir::setCurrentModuleName(module_name);
-    isView = viewUpdateInputs();
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      isView = viewUpdateInputs();
+    }
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
@@ -545,6 +563,10 @@ class LazyOp {
     auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        handle_strided_inputs();
+      }
       const auto& node = create_node();
       hl_result.IrSetNode(node);
     } else {
@@ -592,7 +614,10 @@ class LazyOp {
     PT_LAZY_DEBUG("Lazy Call :: ", m_symbol.toQualString());
     habana_lazy::ir::setCurrentModuleName(module_name);
     bool isView = false;
-    isView = viewUpdateInputs();
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      isView = viewUpdateInputs();
+    }
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
@@ -672,9 +697,21 @@ class LazyOp {
   void HandleViewsInplace(
       const at::Tensor& self,
       habana_lazy::HbLazyTensor& hl_self) {
+    auto orig_size = self.sizes();
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      auto hb_lazy_self = GetHbLazyTensor(self);
+      auto impl = hb_lazy_self.getAttachedTensorImpl();
+      if (impl) {
+        orig_size = impl->sizes();
+      } else {
+        HABANA_ASSERT("Input tensor doesn't have storage attached!");
+      }
+    }
     auto out_t = empty_hpu_lazy(
-        self.sizes(), self.options(), self.suggest_memory_format(), false);
+        orig_size, self.options(), self.suggest_memory_format(), false);
 
+    // To Do - To check the handling for the lazy eager
     if (!is_inplace(m_symbol)) {
       // out variant needs storage as it is a graph input
       out_t = empty_hpu_lazy(
@@ -708,14 +745,25 @@ class LazyOp {
       }
     }
 
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      handle_strided_inputs();
+    }
+
     const auto& node = create_node();
     hl_self = GetHbLazyTensor(out_t, true, !m_collective_op);
-    hl_self.IrSetNode(node);
 
-    flush_op(1);
-    // add strided insert node and update most recent version of original
-    // tensor
-    strided_insert_hpu_lazy(self, out_t);
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      handle_inplace_strided_output(self, hl_self, node);
+    } else {
+      hl_self.IrSetNode(node);
+
+      flush_op(1);
+      // add strided insert node and update most recent version of original
+      // tensor
+      strided_insert_hpu_lazy(self, out_t);
+    }
   }
 
   // For inplace/out variants
@@ -735,18 +783,40 @@ class LazyOp {
 
     auto id = hl_self.getTensorUniqueId();
     bool is_self_view = false;
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-    if (params_ptr != nullptr) {
-      if (params_ptr->viewStatus != kEvaluated) {
-        is_self_view = true;
+
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      // Checking if any of the inputs is a strided tensor
+      for (size_t idx = 0; idx < m_inputs.size(); idx++) {
+        auto& t = m_inputs[idx];
+        if (t.isTensor()) {
+          auto hl_t = GetHbLazyTensor(t.toTensor());
+          if (hl_t.GetIsStrided()) {
+            is_self_view = hl_t.GetIsStrided();
+            break;
+          }
+        }
+      }
+    } else {
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+      if (params_ptr != nullptr) {
+        if (params_ptr->viewStatus != kEvaluated) {
+          is_self_view = true;
+        }
       }
     }
 
     std::vector<at::IValue> sbs_stack;
     // special handling for self tensor
     if (is_self_view == false) {
-      // use most recent version of the tensor if applicable
-      auto self_updated = HbLazyTensorViews::get_recent_base_tensor(self);
+      at::Tensor self_updated;
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        self_updated = self;
+      } else {
+        // use most recent version of the tensor if applicable
+        self_updated = HbLazyTensorViews::get_recent_base_tensor(self);
+      }
       hl_self = GetHbLazyTensor(self_updated, true, !m_collective_op);
 
       // identify the inplace index and replace it with updated version
@@ -822,8 +892,11 @@ class LazyOp {
         m_symbol.toQualString());
     bool isView = false;
 
-    // Handle views or fetch updated tensor for all the inputs
-    isView = viewUpdateInputs();
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) ||
+        !GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+      // Handle views or fetch updated tensor for all the inputs
+      isView = viewUpdateInputs();
+    }
 
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
@@ -1371,6 +1444,92 @@ class LazyOp {
     return values;
   }
 
+  void handle_strided_input(const at::Tensor& self, size_t idx) {
+    auto impl = self.unsafeGetTensorImpl();
+    auto size = impl->sizes();
+    auto stride = impl->strides();
+    auto offset = impl->storage_offset();
+    auto hl_self = GetHbLazyTensor(self);
+
+    if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER VIEW] strided input (frontend) size : ",
+          size,
+          " strides : ",
+          stride,
+          " offset : ",
+          offset);
+    }
+
+    at::Tensor op_input_tensor = empty_hpu_lazy(
+        size,
+        self.options(),
+        c10::nullopt,
+        false,
+        DATA_TENSOR,
+        c10::nullopt,
+        false);
+
+    auto hl_op_input_tensor = GetHbLazyTensor(op_input_tensor);
+
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER VIEW] op input (frontend) size : ",
+        op_input_tensor.unsafeGetTensorImpl()->sizes(),
+        " strides : ",
+        op_input_tensor.unsafeGetTensorImpl()->strides(),
+        " offset : ",
+        op_input_tensor.unsafeGetTensorImpl()->storage_offset());
+
+    ir::NodePtr node = nullptr;
+
+    node = std::make_shared<habana_lazy::ir::StridedView>(
+        self, size, stride, offset, "hpu::strided_view");
+    hl_op_input_tensor.IrSetNode(node);
+    m_inputs[idx] = op_input_tensor;
+  }
+
+  void handle_strided_inputs() {
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      const at::IValue& input = m_inputs[i];
+      if (input.isTensor()) {
+        const at::Tensor& t = input.toTensor();
+        if (t.defined()) {
+          if (GetHbLazyTensor(t).GetIsStrided()) {
+            at::Tensor strided_tensor = m_inputs[i].toTensor();
+            handle_strided_input(strided_tensor, i);
+          }
+        }
+      }
+    }
+  }
+
+  void handle_inplace_strided_output(
+      const at::Tensor& self,
+      const HbLazyTensor& hl_self,
+      ir::NodePtr node) {
+    auto impl = self.unsafeGetTensorImpl();
+    auto size = impl->sizes();
+    auto stride = impl->strides();
+    auto offset = impl->storage_offset();
+
+    at::Tensor op_output_tensor = empty_hpu_lazy(
+        size,
+        self.options(),
+        c10::nullopt,
+        false,
+        DATA_TENSOR,
+        c10::nullopt,
+        false);
+    auto hl_op_output_tensor = GetHbLazyTensor(op_output_tensor);
+    hl_op_output_tensor.IrSetNode(node);
+
+    std::string node_str = "hpu::strided_insert";
+
+    auto strided_node = std::make_shared<ir::StridedInsert>(
+        self, op_output_tensor, stride, offset, node_str);
+    hl_self.IrSetNode(strided_node);
+  }
+
   // The Side-By-Side (SBS) Debug Tool is a debug capability for comparing
   // between tensors that are calculated by HPU to tensors that are calculated
   // by CPU.
@@ -1442,6 +1601,26 @@ class LazyOp {
           optimized_key, static_cast<size_t>(t.suggest_memory_format()));
       optimized_key =
           at::hash_combine(optimized_key, (size_t)hl_tensor->GetTensorLayout());
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        bool is_strided = hl_tensor->GetIsStrided();
+        optimized_key = at::hash_combine(optimized_key, (size_t)is_strided);
+        // sizes, strides and offset would not be the part of the key
+        // calculation once get/set node params implementation is done
+        if (is_strided) {
+          auto impl = t.unsafeGetTensorImpl();
+          auto size_vec = impl->sizes().vec();
+          auto stride_vec = impl->strides().vec();
+          auto offset = impl->storage_offset();
+          for (size_t k = 0; k < size_vec.size(); k++) {
+            optimized_key =
+                at::hash_combine(optimized_key, (size_t)size_vec.at(k));
+            optimized_key =
+                at::hash_combine(optimized_key, (size_t)stride_vec.at(k));
+            optimized_key = at::hash_combine(optimized_key, (size_t)offset);
+          }
+        }
+      }
       if (val.mp_node && !(val.mp_node->is_input())) {
         optimized_key = 0;
       }

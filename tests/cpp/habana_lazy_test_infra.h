@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -38,6 +41,7 @@ class EnvHelper {
   uint64_t m_seed = InitSeed();
   bool m_recipe_cache_enable = true;
   bool m_eager_gc_enable = false;
+  bool m_eager_view_handling_enable = false;
   bool m_shape_agnostic_enable = false;
   bool m_acc_par_mode_enable = true;
 
@@ -159,6 +163,20 @@ class EnvHelper {
   void RestoreEagerGC() {
     if (!m_eager_gc_enable) {
       SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, false, 1);
+    }
+  }
+
+  void EnableEagerViewHandling() {
+    m_eager_view_handling_enable =
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING);
+    if (!m_eager_view_handling_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, true, 1);
+    }
+  }
+
+  void RestoreEagerViewHandling() {
+    if (!m_eager_view_handling_enable) {
+      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, false, 1);
     }
   }
 
