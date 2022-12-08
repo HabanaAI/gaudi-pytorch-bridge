@@ -487,6 +487,7 @@ void HbLazyTensor::IrInitAsInputNode() const {
 }
 
 void HbLazyTensor::IrReconnectAsInputNode() const {
+  habana_lazy::SyncAccThreadPool();
   ir::Value val = createIrValueFromData();
   ir::NodePtr node = std::make_shared<ir::Input>(*this);
   val.SetNode(node, GetDevice(), GetSizes(), dtype_optional());
