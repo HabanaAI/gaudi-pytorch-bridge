@@ -183,8 +183,8 @@ void GraphHashBuilder::updateGraphInputTMap(const at::Tensor tensor) {
   if (impl == nullptr) {
     return;
   }
-  auto hbo1 = impl->tensor();
-  auto shared_ptr = hbo1.getDataPtr();
+  auto hl_t = impl->tensor();
+  auto shared_ptr = hl_t.getDataPtr();
   // this can be further optimized with unorder map -> vector complexityO(1)
   if (std::find(
           graph_input_stack_uids.begin(),
@@ -194,17 +194,18 @@ void GraphHashBuilder::updateGraphInputTMap(const at::Tensor tensor) {
     graph_input_stack_uids.emplace_back(shared_ptr->unique_id);
   }
 
-  HbLazyTensor hl_t;
-
   {
-    auto id = hbo1.getTensorUniqueId();
+    auto id = hl_t.getTensorUniqueId();
+
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     // shallow copy tensor map
     {
-      auto t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
+      auto t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
       if (t_shallow_copy_opt.has_value()) {
         impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value());
         hl_t = impl->tensor();
+        // update the id
+        id = hl_t.getTensorUniqueId();
         auto shared_ptr = hl_t.getDataPtr();
         // this can be further optimized with unorder map -> vector
         // complexityO(1)
