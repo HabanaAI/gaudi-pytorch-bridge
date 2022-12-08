@@ -77,15 +77,7 @@ inline void _allocate_or_resize_output_with_indices(
 OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   OutputShapeInfRetType out;
-  // this will be cleaned once enabled by default in GC
-  auto env1 = std::getenv("ENABLE_EXPERIMENTAL_FLAGS");
-  bool enable_experimental_flags =
-      (env1 != nullptr) && (absl::string_view{env1} != "0");
-
-  auto env2 = std::getenv("ENABLE_TOPK_IN_CGUID");
-  bool enable_topk_in_cguid =
-      (env2 != nullptr) && (absl::string_view{env2} != "0");
-  if (!(enable_experimental_flags && enable_topk_in_cguid)) {
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_TOPK_USING_CGUID))) {
     out.set_empty(true);
     return out;
   }
@@ -179,17 +171,10 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   */
   synapse_helpers::tensor& syn_in_self = p_context_->syn_inputs_[0];
   std::vector<synTensor> syn_inputs{syn_in_self.get()};
-
-  auto env1 = std::getenv("ENABLE_EXPERIMENTAL_FLAGS");
-  bool enable_experimental_flags =
-      (env1 != nullptr) && (absl::string_view{env1} != "0");
-
-  auto env2 = std::getenv("ENABLE_TOPK_IN_CGUID");
-  bool enable_topk_in_cguid =
-      (env2 != nullptr) && (absl::string_view{env2} != "0");
-
+  auto enable_topk_in_cguid =
+      GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_TOPK_USING_CGUID);
   if (graph.is_dynamic_graph()) {
-    if (enable_experimental_flags && enable_topk_in_cguid) {
+    if (enable_topk_in_cguid) {
       syn_inputs.emplace_back(nullptr);
       syn_inputs.emplace_back(nullptr);
       synapse_helpers::tensor& syn_in_tensor_k = p_context_->syn_inputs_[1];
@@ -295,12 +280,12 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& syn_out1 = p_context_->syn_outputs_[1];
   std::vector<synTensor> syn_outputs{syn_out0.get(), syn_out1.get()};
 
-  if (enable_experimental_flags && enable_topk_in_cguid) {
+  if (enable_topk_in_cguid) {
     ns_TopkNodeV2::ParamsV4 params;
     params.axis = self.dim() - dim - 1;
     params.bottomK = !largest;
+    params.isVcData = false;
     if (graph.is_dynamic_graph()) {
-      params.isVcData = false;
       params.kType = K_TENSOR_SHAPE;
     } else {
       params.bsw = k;
