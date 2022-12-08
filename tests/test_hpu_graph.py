@@ -1,3 +1,4 @@
+import copy
 import torch
 import habana_frameworks.torch as ht
 from test_utils import compare_tensors, _kernel_copy_to_device
@@ -108,8 +109,76 @@ def test_multiple_graph_capture():
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
 
+def test_tensor_packer():
+    x = torch.randn(3, 4).to('hpu')
+    y = torch.randn(3, 4).to('hpu')
+    z = torch.randn(3, 4).to('hpu')
+
+    output = {'x' : x, 'y' : y}, z
+
+    tensor_packer = ht.hpu.TensorPacker()
+    tensors, metadata = tensor_packer.pack(output)
+    output_unpacked = tensor_packer.unpack(tensors, metadata)
+
+    metadata_expected = "({'x': #0, 'y': #1}, #2)"
+    assert str(metadata) == metadata_expected, "Incorrect metadata:\nExpected {0},  but got {1}".format(metadata_expected, metadata)
+
+    return output == output_unpacked
+
+class Net(torch.nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.fc1 = torch.nn.Linear(4, 4)
+        self.fc2 = torch.nn.Linear(4, 4)
+        self.fc3 = torch.nn.Linear(4, 4)
+        self.fc4 = torch.nn.Linear(4, 4)
+
+    def forward(self, x, y, boolean_var=False):
+        x = self.fc1(x)
+        y = self.fc2(y)
+        z = self.fc3(x + y)
+        if boolean_var:
+            x = self.fc4(z)
+        else:
+            y = self.fc4(z)
+        return {'x' : x, 'y' : y}, z
+
+def test_cached_module_training():
+    model = Net().to('hpu')
+    state_dict = copy.deepcopy(model.state_dict())
+    optimizer = torch.optim.SGD(model.parameters(),lr=0.1)
+
+    meta_args = [((3, 4), True), ((5, 4), False), ((11, 4), True)]
+
+    net_input = []
+    net_output = []
+    for i in range(2):
+        for item in meta_args:
+            x = torch.randn(item[0]).to('hpu')
+            y = torch.randn(item[0]).to('hpu')
+            net_input.append({'x' : x, 'y' : y, 'boolean_var' : item[1]})
+            net_output.append(torch.randn(item[0][0]).to('hpu'))
+
+    def train_model():
+        for inp, y in zip(net_input, net_output):
+            output = model(**inp)
+            y_pred = torch.mean(output[1], 1)
+            optimizer.zero_grad(set_to_none=True)
+            loss = torch.nn.functional.mse_loss(y_pred, y)
+            loss.backward()
+            optimizer.step()
+            ht.core.mark_step()
+        return loss.cpu()
+
+    loss_original = train_model()
+    model.load_state_dict(state_dict)
+    ht.hpu.ModuleCacher()(model=model, inplace=True)
+    loss_cached = train_model()
+    return loss_original == loss_cached
 
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_graph_capture_simple()
     test_graph_training()
+    test_tensor_packer()
+    test_cached_module_training()

@@ -1,5 +1,9 @@
 from typing import List
+import copy
+import collections
 import gc
+import inspect
+import os
 import torch
 import warnings
 import habana_frameworks.torch as htorch
@@ -347,3 +351,167 @@ def wrap_in_hpu_graph(module):
         return cached.graph_outputs
     module.forward = forward
     return module
+
+class TensorPacker:
+    class Index:
+        def __init__(self, value):
+            self.value = value
+
+        def __repr__(self):
+            return '#{0:d}'.format(self.value)
+
+    def pack(self, outs, verbose=False):
+        tensor_list = []
+        metadata = self._pack(outs, tensor_list, verbose=verbose)
+        return tuple(tensor_list), metadata
+
+    def _pack(self, outs, tensor_list, verbose=False):
+        if torch.is_tensor(outs):
+            metadata = self.Index(len(tensor_list))
+            tensor_list.append(outs)
+
+        elif isinstance(outs, tuple):
+            metadata = list(copy.copy(outs))
+            for idx, item in enumerate(outs):
+                metadata[idx] = self._pack(item, tensor_list, verbose=verbose)
+            metadata = tuple(metadata)
+
+        elif isinstance(outs, dict):
+            metadata = copy.copy(outs)
+            for key in outs:
+                metadata[key] = self._pack(outs[key], tensor_list, verbose=verbose)
+
+        elif isinstance(outs, list):
+            metadata = copy.copy(outs)
+            for idx, item in enumerate(outs):
+                metadata[idx] = self._pack(item, tensor_list, verbose=verbose)
+
+        else:
+            if verbose:
+                print('[WARNING] Variable of type {0} will not be dynamic'.format(type(outs)))
+            return outs
+
+        return metadata
+
+    def unpack(self, tensors, metadata):
+        output = self._unpack(tensors, metadata)
+        return output
+
+    def _unpack(self, tensors, metadata):
+        if isinstance(metadata, self.Index):
+            data = tensors[metadata.value]
+
+        elif isinstance(metadata, tuple):
+            data = list(copy.copy(metadata))
+            for idx, item in enumerate(metadata):
+                data[idx] = self._unpack(tensors, item)
+            data = tuple(data)
+
+        elif isinstance(metadata, dict):
+            data = copy.copy(metadata)
+            for key in metadata:
+                data[key] = self._unpack(tensors, metadata[key])
+
+        elif isinstance(metadata, list):
+            data = copy.copy(metadata)
+            for idx, item in enumerate(metadata):
+                data[idx] = self._unpack(tensors, item)
+
+        else:
+            return metadata
+
+        return data
+
+class GraphModel(torch.nn.Module):
+    def __init__(self, model):
+        super(GraphModel, self).__init__()
+        self.model = model
+        self.input_packer = TensorPacker()
+        self.input_meta = None
+        self.output_packer = TensorPacker()
+        self.output_meta = None
+        self.func_parameters = self.process_function_signature(self.model.forward)
+
+    def forward(self, *args):
+        full_args = self.input_packer.unpack(args, self.input_meta)
+        outs = self.model(**full_args)
+        out_tensors, self.output_meta = self.output_packer.pack(outs)
+        return out_tensors
+
+    def graph_forward(self, *args, input_id=None, **kwargs):
+        if input_id is not None:
+            assert input_id == self.input_id
+        full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
+        tensor_args, _ = self.input_packer.pack(full_args, verbose=False)
+        out_tensors = self.hpu_graph(*tensor_args)
+        return self.output_packer.unpack(out_tensors, self.output_meta)
+
+    def init_hpu_graph(self, *args, **kwargs):
+        full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
+        self.input_id = input_hash(full_args)
+        tensor_args, self.input_meta = self.input_packer.pack(full_args)
+        self.hpu_graph = make_graphed_callables(self, tensor_args)
+
+    @staticmethod
+    def process_function_signature(function):
+        func_parameters = collections.OrderedDict(inspect.signature(function).parameters)
+
+        UNSUPPORTED = [
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.KEYWORD_ONLY
+        ]
+        for key in list(func_parameters):
+            assert func_parameters[key].kind not in UNSUPPORTED, \
+                "Unsupported argument types : {0}".format(UNSUPPORTED)
+            if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
+                print("[WARNING] Variable keyword arguments will not be supported.")
+                del func_parameters[key]
+            func_parameters[key] = func_parameters[key].default
+        return func_parameters
+
+    @staticmethod
+    def get_full_args(forward_params, *args, **kwargs):
+        args_full = copy.copy(forward_params)
+        for idx, key in enumerate(args_full):
+            if idx == len(args):
+                break
+            args_full[key] = args[idx]
+        args_full.update(kwargs)
+        return args_full
+
+    @staticmethod
+    def full_input_hash(forward_params, *args, **kwargs):
+        return input_hash(GraphModel.get_full_args(forward_params, *args, **kwargs))
+
+class ModuleCacher(torch.nn.Module):
+    def __init__(self, max_graphs=10):
+        super(ModuleCacher, self).__init__()
+        self.model_dict = {}
+        self.max_graphs = max_graphs
+        self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+
+    def forward(self, *args, **kwargs):
+        input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
+        if input_id in self.model_dict:
+            graph_model = self.model_dict[input_id]
+            output = graph_model.graph_forward(*args, input_id=input_id, **kwargs)
+            return output
+
+        elif len(self.model_dict) < self.max_graphs and torch.is_grad_enabled() and self.use_lazy_mode:
+            graph_model = GraphModel(self.orig_model)
+            graph_model.init_hpu_graph(*args, **kwargs)
+            self.model_dict[input_id] = graph_model
+            return self.forward(*args, **kwargs)
+
+        else:
+            return self.orig_model(*args, **kwargs)
+
+    def __call__(self, model, inplace=True):
+        if not inplace:
+            model = copy.copy(model)
+        self.orig_model = copy.copy(model)
+        self.model = model
+        self.model.forward = self.forward
+        self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
+        return self.model
