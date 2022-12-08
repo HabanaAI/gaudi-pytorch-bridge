@@ -3021,6 +3021,9 @@ std::vector<int64_t> IndexOperator::compute_output_shape(
   auto input_shape = input.sizes();
   auto indices_shape = indices_size(indices);
 
+  if (input.dim() == 0 && input.numel() == 1)
+    return {input.sizes().vec()};
+
   auto output_rank = static_cast<int64_t>(
       indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
 
