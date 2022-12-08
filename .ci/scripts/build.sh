@@ -1051,7 +1051,7 @@ build_pytorch_lightning_fork()
     pushd $PYTORCH_LIGHTNING_FORK_ROOT
 
     if [ -n "$__configure" ]; then
-        $__python_cmd setup.py clean
+        eval ${__env_vars} $__python_cmd setup.py clean
         git clean -fd
     fi
 
