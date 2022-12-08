@@ -5,14 +5,14 @@ common:
     testXMLOutputKey: --xml
     releaseFlag: false
   envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
     JOB_SCENARIO: pt_ci_cpp
   preTestStages:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
-testsMap:
-  Test_pytorch_modules_gaudi2_asic_cpp_suite:
-    preTestStages:
-      Update PyTorch module:
+    Update PyTorch module:
         command: |
           __clean_pytorch_dev_py_deps
           pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
@@ -23,10 +23,16 @@ testsMap:
             pip install -U $PYTORCH_LIGHTNING_FORK_BUILD/pkgs/*.whl
           fi
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_cpp_suite:
     stages:
-      Run CPP tests:
+      Run CPP tests gaudi2 asic:
         filter: -t cpp_tests --dut gaudi2
-        envVars:
-          LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
-          CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
-          LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+  Test_pytorch_modules_gaudi_sim_cpp_suite:
+    stages:
+      Run CPP tests gaudi sim:
+        filter: -t cpp_tests
+  Test_pytorch_modules_greco_sim_cpp_suite:
+    stages:
+      Run CPP tests greco sim:
+        filter: --dut greco -t cpp_tests
