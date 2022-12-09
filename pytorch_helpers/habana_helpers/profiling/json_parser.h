@@ -11,24 +11,18 @@ class Parser : public HPUDetailsConsumer {
  public:
   Parser() = default;
 
-  void add_kernel_event(
+  void add_event(
       const std::string_view& name,
+      ActivityType category,
       int64_t pid,
       int64_t tid,
       int64_t ts,
       int64_t dur) {
-    auto event = construct_event(name, "Kernel", pid, tid, ts, dur);
-    event["args"]["device"] = pid;
-    addToEvents(event);
-  }
-
-  void add_runtime_event(
-      const std::string_view& name,
-      int64_t pid,
-      int64_t tid,
-      int64_t ts,
-      int64_t dur) {
-    auto event = construct_event(name, "Runtime", pid, tid, ts, dur);
+    auto event = construct_event(
+        name, mapActivityTypeToString(category), pid, tid, ts, dur);
+    if (category == ActivityType::KERNEL) {
+      event["args"]["device"] = pid;
+    }
     addToEvents(event);
   }
 
@@ -112,7 +106,7 @@ class Parser : public HPUDetailsConsumer {
   void merge(const std::string_view& path) {
     nlohmannV340::json json_file;
     {
-      std::ifstream i((std::string)path);
+      std::ifstream i(static_cast<std::string>(path));
       i >> json_file;
     }
     if (!traceEvents_.empty()) {
@@ -130,7 +124,7 @@ class Parser : public HPUDetailsConsumer {
     }
 
     {
-      std::ofstream o((std::string)path);
+      std::ofstream o(static_cast<std::string>(path));
       o << json_file;
     }
   }
@@ -155,6 +149,19 @@ class Parser : public HPUDetailsConsumer {
     runtime["ts"] = ts;
     runtime["dur"] = dur;
     return runtime;
+  }
+  std::string mapActivityTypeToString(ActivityType type) {
+    switch (type) {
+      case ActivityType::KERNEL:
+        return "Kernel";
+      case ActivityType::RUNTIME:
+        return "Runtime";
+      case ActivityType::MEMCPY:
+        return "Memcpy";
+      case ActivityType::MEMSET:
+        return "Memset";
+    }
+    return "Runtime";
   }
   nlohmannV340::json traceEvents_;
   nlohmannV340::json deviceProperties_;

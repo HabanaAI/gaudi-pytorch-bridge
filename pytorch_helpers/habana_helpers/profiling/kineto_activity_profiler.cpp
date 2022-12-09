@@ -26,20 +26,18 @@ class KinetoActivityProfiler : public SynapseProfiler {
 
   void addActivity(
       const std::string& name,
-      bool isKernel,
+      habana::ActivityType type,
       int64_t device,
       int64_t resource,
       uint64_t start,
       uint64_t end) {
     GenericTraceActivity ev{
-        defaultTraceSpan(),
-        isKernel ? ActivityType::CONCURRENT_KERNEL : ActivityType::HPU_OP,
-        name};
+        defaultTraceSpan(), mapHabanaTypeToKinetoType(type), name};
     ev.startTime = start;
     ev.endTime = end;
     ev.device = device;
     ev.resource = resource;
-    if (isKernel) {
+    if (type == habana::ActivityType::KERNEL) {
       ev.addMetadata("device", ev.device);
     }
     activities_.push_back(ev);
@@ -47,7 +45,7 @@ class KinetoActivityProfiler : public SynapseProfiler {
 
   void addDevice(const std::string& name, int64_t device) {
     GenericTraceActivity name_meta{
-        defaultTraceSpan(), ActivityType::HPU_META_OP, ""};
+        defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     name_meta.startTime = 0;
     name_meta.endTime = 0;
     name_meta.activityName = "process_name";
@@ -57,7 +55,7 @@ class KinetoActivityProfiler : public SynapseProfiler {
     activities_.push_back(name_meta);
 
     GenericTraceActivity sort_meta{
-        defaultTraceSpan(), ActivityType::HPU_META_OP, ""};
+        defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     sort_meta.startTime = 0;
     sort_meta.endTime = 0;
     sort_meta.device = device;
@@ -75,7 +73,7 @@ class KinetoActivityProfiler : public SynapseProfiler {
       int64_t resource,
       int64_t sort_index = -1) {
     GenericTraceActivity name_meta{
-        defaultTraceSpan(), ActivityType::HPU_META_OP, ""};
+        defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     name_meta.startTime = 0;
     name_meta.endTime = 0;
     name_meta.activityName = "thread_name";
@@ -85,7 +83,7 @@ class KinetoActivityProfiler : public SynapseProfiler {
     activities_.push_back(name_meta);
 
     GenericTraceActivity sort_meta{
-        defaultTraceSpan(), ActivityType::HPU_META_OP, ""};
+        defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     sort_meta.startTime = 0;
     sort_meta.endTime = 0;
     sort_meta.device = device;
@@ -99,6 +97,19 @@ class KinetoActivityProfiler : public SynapseProfiler {
   const TraceSpan& defaultTraceSpan() {
     static TraceSpan span(0, 0, "PyTorch Profiler", "");
     return span;
+  }
+  libkineto::ActivityType mapHabanaTypeToKinetoType(habana::ActivityType type) {
+    switch (type) {
+      case habana::ActivityType::KERNEL:
+        return libkineto::ActivityType::CONCURRENT_KERNEL;
+      case habana::ActivityType::RUNTIME:
+        return libkineto::ActivityType::HPU_OP;
+      case habana::ActivityType::MEMCPY:
+        return libkineto::ActivityType::GPU_MEMCPY;
+      case habana::ActivityType::MEMSET:
+        return libkineto::ActivityType::GPU_MEMSET;
+    }
+    return libkineto::ActivityType::HPU_OP;
   }
 
   std::deque<GenericTraceActivity>& activities_;
@@ -152,12 +163,13 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
     return device_name;
   }
 
-  virtual const std::set<ActivityType>& availableActivities() const override {
+  virtual const std::set<libkineto::ActivityType>& availableActivities()
+      const override {
     return supported_activities;
   }
 
   virtual std::unique_ptr<IActivityProfilerSession> configure(
-      const std::set<ActivityType>& activity_types,
+      const std::set<libkineto::ActivityType>& activity_types,
       const KINETO_NAMESPACE::Config& config) override {
     auto start_time_ms =
         duration_cast<milliseconds>(system_clock::now().time_since_epoch())
@@ -168,14 +180,16 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
   virtual std::unique_ptr<IActivityProfilerSession> configure(
       int64_t start_time_ms,
       int64_t duration_ms,
-      const std::set<ActivityType>& activity_types,
+      const std::set<libkineto::ActivityType>& activity_types,
       const KINETO_NAMESPACE::Config&) override {
     auto env = std::getenv("HABANA_PROFILE");
     bool hpu_profiling_available =
         (env != nullptr) && (absl::string_view{env} != "0");
     bool hpu_profiling_requested =
-        activity_types.find(ActivityType::HPU_OP) != activity_types.end() ||
-        activity_types.find(ActivityType::HPU_META_OP) != activity_types.end();
+        activity_types.find(libkineto::ActivityType::HPU_OP) !=
+            activity_types.end() ||
+        activity_types.find(libkineto::ActivityType::HPU_META_OP) !=
+            activity_types.end();
 
     if (hpu_profiling_requested) {
       if (hpu_profiling_available) {
@@ -192,10 +206,10 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
   }
 
  private:
-  const std::set<ActivityType> supported_activities{
-      ActivityType::HPU_OP,
-      ActivityType::CONCURRENT_KERNEL,
-      ActivityType::HPU_META_OP};
+  const std::set<libkineto::ActivityType> supported_activities{
+      libkineto::ActivityType::HPU_OP,
+      libkineto::ActivityType::CONCURRENT_KERNEL,
+      libkineto::ActivityType::HPU_META_OP};
   std::string device_name{"HPU"};
 };
 

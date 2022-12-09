@@ -266,7 +266,7 @@ void HpuTraceParser::convertEventsToActivities(
               trace_output_.addActivity(
                   StringOrFallback(
                       events_ptr->arguments.operation, events_ptr->name),
-                  isEventKernel(events_ptr),
+                  getActivityType(events_ptr),
                   getDevice(events_ptr),
                   engine_type_database_->getLine(events_ptr->engineIndex),
                   start,
@@ -287,7 +287,7 @@ void HpuTraceParser::convertEventsToActivities(
           trace_output_.addActivity(
               StringOrFallback(
                   events_ptr->arguments.operation, events_ptr->name),
-              isEventKernel(events_ptr),
+              getActivityType(events_ptr),
               getDevice(events_ptr),
               engine_type_database_->getLine(events_ptr->engineIndex),
               start,
@@ -311,11 +311,25 @@ int64_t HpuTraceParser::getDevice(const synTraceEvent* events_ptr) {
       ? events_ptr->engineType
       : device_lane_;
 }
+
 bool HpuTraceParser::isEventKernel(const synTraceEvent* events_ptr) {
   return engine_type_database_->isKernelWhitelist(
              events_ptr->arguments.operation) ||
       engine_type_database_->isEngineTypeMME(events_ptr->engineType) ||
       engine_type_database_->isEngineTypeTPC(events_ptr->engineType);
+}
+
+ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
+  std::string name =
+      StringOrFallback(events_ptr->arguments.operation, events_ptr->name);
+
+  if (isEventKernel(events_ptr))
+    return ActivityType::KERNEL;
+  if (name.find("memcpy") == 0)
+    return ActivityType::MEMCPY;
+  if (name.find("memset") == 0)
+    return ActivityType::MEMSET;
+  return ActivityType::RUNTIME;
 }
 
 }; // namespace habana
