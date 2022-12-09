@@ -680,10 +680,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   };
 
-  habana_lazy::SyncAccThreadPool();
-  op_func();
-  return self;
-  // RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
