@@ -850,7 +850,7 @@ class LazyOp {
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()
         : m_out_shapes[0];
-    if (self.sizes() != out_shape) {
+    if (self.sizes() != out_shape || m_shape_was_changed) {
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
@@ -888,19 +888,18 @@ class LazyOp {
     return HandleLazy(self, infoToBackEnd);
   }
 
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
-  get_result(at::Tensor& tensor) {
+  // helper function to inspect inplace/out tensors handled by LazyOp
+  void inspect_result(const at::Tensor& tensor) {
     /* Same check happens in GetHbLazyTensor, but it's in acc thread.*/
     /* Make sure in main thread, that we get HPU tensor .*/
     HABANA_ASSERT(
         tensor.device().type() == at::kHPU,
         "Got a non-HPU tensor, expecting an HPU tensor");
 
-    // In case of _out ops, the output tensor may come with wrong or empty
-    // shape. There is mechanism to handle it at HandleLazy level, but we need
-    // to set the correct shape on at::Tensor so it's propagated to Python in
-    // main thread.
+    // In case of _out ops or resize_, the output tensor may come with wrong or
+    // empty shape. There is mechanism to handle it at HandleLazy level, but we
+    // need to set the correct shape on at::Tensor so it's propagated to Python
+    // in main thread.
     auto out_shape = m_out_shapes.empty()
         ? get_inputs().at(m_out_index).toTensor().sizes().vec()
         : m_out_shapes[0];
@@ -908,7 +907,19 @@ class LazyOp {
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       set_shape_changed();
     }
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type
+  get_result(at::Tensor& tensor) {
+    inspect_result(tensor);
     return tensor;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, void>::type
+  get_result(const at::Tensor& tensor) {
+    inspect_result(tensor);
   }
 
   template <typename T = ReturnType>
