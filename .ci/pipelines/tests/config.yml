@@ -8,3 +8,6 @@ testJobConfig:
       gaudi:
         hwType:
           sim:
+      greco:
+        hwType:
+          sim:
