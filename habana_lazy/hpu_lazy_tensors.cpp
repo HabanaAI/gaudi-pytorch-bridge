@@ -220,6 +220,18 @@ Data::~Data() {
   data_ptr = nullptr;
 }
 
+int64_t Data::GetNextTensorId() {
+  // Tensors are created concurrently in accumulation and main threads.
+  // Tensor ids order is strictly determining the PostOrder graph.
+  // In order to avoid nondeterministic tensor ids list,
+  // tensors created inside acc thread get negative ids
+  // to avoid collisions with tensors created in main thread.
+  static auto id_generator = std::atomic<int64_t>(1);
+  static auto acc_id_generator = std::atomic<int64_t>(-1);
+  return GetAccThreadPool().inThreadPool() ? acc_id_generator.fetch_sub(1)
+                                           : id_generator.fetch_add(1);
+}
+
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
     : mp_data(std::make_shared<Data>(tensor, device)) {}
 HbLazyTensor::HbLazyTensor(const c10::Device& device)

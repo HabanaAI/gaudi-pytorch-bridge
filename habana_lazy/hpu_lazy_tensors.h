@@ -65,10 +65,7 @@ struct Data {
     static_cast<void>(device);
   }
   ~Data();
-  int64_t GetNextTensorId() {
-    static std::atomic<int64_t>* id_generator = new std::atomic<int64_t>(1);
-    return id_generator->fetch_add(1);
-  }
+  int64_t GetNextTensorId();
 
   void* data_ptr;
   ir::Value ir_value;
@@ -99,7 +96,7 @@ struct Data {
   // that particular graph execution.
   int version = 0;
   std::atomic<int64_t> running_cntr = -1; // -1 is invalid tensor ID.
-}; // namespace habana_lazy
+};
 
 struct HbLazyFrontEndInfoToBackend {
   void set_optimized_lazy_eager_key(const size_t key) {
