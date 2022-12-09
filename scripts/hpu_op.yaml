@@ -5795,22 +5795,37 @@ signbit.out:
 
 silu:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+    Greco: [BFloat16, Float]
   guid: silu_fwd
   out_ids: [0]
 
 silu_:
   force_default: false
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+    Greco: [BFloat16, Float]
   guid: silu_fwd
   inplace_ids: [0]
 
 silu.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+    Greco: [BFloat16, Float]
   guid: silu_fwd
 
 silu_backward.grad_input:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
   guid: silu_bwd
 
 sin:
