@@ -164,10 +164,7 @@ void NllLossFwd::AddNode(
   p_context_->syn_outputs_.pop_back();
   // dummy output in place of total_weight
   DummyOutput(
-      graph,
-      p_context_,
-      IsOutputPersistent(1),
-      m_output_metadata.at(1).external);
+      graph, p_context_, IsOutputPersistent(1), GetOutputMetaData(1).external);
 
   size_t size = 0;
   const auto& params = FillParams(stack, size);
@@ -198,10 +195,7 @@ void NllLoss2DFwd::AddNode(
   p_context_->syn_outputs_.pop_back();
   // dummy output in place of total_weight
   DummyOutput(
-      graph,
-      p_context_,
-      IsOutputPersistent(1),
-      m_output_metadata.at(1).external);
+      graph, p_context_, IsOutputPersistent(1), GetOutputMetaData(1).external);
 
   auto input_shape = stack_tensor(stack, 0).sizes();
   size_t size = 0;

@@ -634,7 +634,7 @@ void MaxPool2DWithIndicesOut::AddNode(
         graph,
         p_context_,
         IsOutputPersistent(1),
-        m_output_metadata.at(1).external);
+        GetOutputMetaData(1).external);
     output_attr.push_back({transpose_outshape, ScalarType()});
     maxpool_out_index = 0;
   } else {

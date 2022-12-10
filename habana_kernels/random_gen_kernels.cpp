@@ -578,7 +578,9 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
 
     stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    castOp->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     // Create MemCopy operator

@@ -93,10 +93,10 @@ class CastOutOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::ANY, habana::LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
@@ -118,10 +118,10 @@ class CastOperator : public CastOutOperator {
       : CastOutOperator(device_id, guid) {
     kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY});
   }
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
@@ -137,10 +137,10 @@ class ConstantOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
@@ -152,10 +152,10 @@ class OnesLikeOperator : public ConstantOperator {
  public:
   OnesLikeOperator(int device_id, c10::ScalarType scalarType)
       : ConstantOperator(device_id, scalarType) {}
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) {
+      const habana::OutputMetaDataVector& output_metadata) override {
     TORCH_CHECK(
         inputs.size() == 6,
         "OnesLikeOperator Operation expects 6 arguments as input")
@@ -177,10 +177,10 @@ class ConstantOutOperator : public habana::HabanaOperator {
     kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;

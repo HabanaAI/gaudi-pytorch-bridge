@@ -139,14 +139,12 @@ void CatOperator::AllocateAndAddSynapseNode(
     const auto& tensor = tensors.get(i);
     if (habana_helpers::getInternalDtype(tensor.scalar_type()) !=
         habana_helpers::getInternalDtype(output_dtype)) {
-      std::string cast_guid = "cast_" +
-          habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
-          habana_helpers::name_suffix_from_type(output_dtype);
-      auto cast =
-          make_operator<CastOperator>(p_context_->device_id_, cast_guid);
+      auto cast = make_operator<CastOperator>(p_context_->device_id_, "");
       cast->SetSynapseInput(GetSynInputs()[i]);
       at::Stack stack{tensor, output_dtype};
-      cast->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      OutputMetaData md;
+      md.dtype = output_dtype;
+      cast->AllocateAndAddSynapseNode(graph, stack, {md});
       p_context_->syn_input_orig_.emplace_back(
           std::move(p_context_->syn_inputs_[i]));
       p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);
@@ -329,14 +327,12 @@ void CatOutOperator::AllocateAndAddSynapseNode(
     const auto& tensor = tensors.get(i);
     if (habana_helpers::getInternalDtype(tensor.scalar_type()) !=
         habana_helpers::getInternalDtype(output_dtype)) {
-      std::string cast_guid = "cast_" +
-          habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
-          habana_helpers::name_suffix_from_type(output_dtype);
-      auto cast =
-          make_operator<CastOperator>(p_context_->device_id_, cast_guid);
+      auto cast = make_operator<CastOperator>(p_context_->device_id_, "");
       cast->SetSynapseInput(GetSynInputs()[i]);
       at::Stack stack{tensor, output_dtype};
-      cast->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      OutputMetaData md;
+      md.dtype = output_dtype;
+      cast->AllocateAndAddSynapseNode(graph, stack, {md});
       p_context_->syn_input_orig_.emplace_back(
           std::move(p_context_->syn_inputs_[i]));
       p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);

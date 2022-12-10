@@ -88,7 +88,7 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph,
         p_context_,
         IsOutputPersistent(1),
-        m_output_metadata.at(1).external);
+        GetOutputMetaData(1).external);
   }
   auto reduce_max = HandleReductionDimAndKeepdim(
       this,

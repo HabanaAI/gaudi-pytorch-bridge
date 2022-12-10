@@ -3835,6 +3835,7 @@ logical_and:
   guid: and
   out_ids: [0]
   op_frontend: LazyLogical
+  op_backend: LogicalBackend
 
 logical_and_:
   broadcast: true
@@ -3863,9 +3864,10 @@ logical_not:
     Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
-  guid: not_fwd
+  guid: not
   out_ids: [0]
   op_frontend: LazyLogical
+  op_backend: LogicalNotBackend
 
 logical_not_:
   dtypes:
@@ -3874,7 +3876,7 @@ logical_not_:
     Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   force_default: false
-  guid: not_fwd
+  guid: not
   inplace_ids: [0]
 
 logical_not.out:
@@ -3883,7 +3885,7 @@ logical_not.out:
     Gaudi2: [Half, Byte, Char]
     Gaudi3: [Half, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
-  guid: not_fwd
+  guid: not
 
 logical_or:
   broadcast: true
@@ -3896,6 +3898,7 @@ logical_or:
   guid: or
   out_ids: [0]
   op_frontend: LazyLogical
+  op_backend: LogicalBackend
 
 logical_or_:
   broadcast: true
@@ -3928,6 +3931,7 @@ logical_xor:
   guid: xor
   out_ids: [0]
   op_frontend: LazyLogical
+  op_backend: LogicalBackend
 
 logical_xor_:
   broadcast: true

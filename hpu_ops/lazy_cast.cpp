@@ -17,9 +17,7 @@
 namespace habana {
 
 LazyCast::LazyCast(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "lazy_cast_guid", scalar_type, {0}, {}, {}, false) {
-  SetOutputTypeStackIdx(1);
-}
+    : OpBackend(device_id, "lazy_cast_guid", scalar_type, {0}, {}, {}, false) {}
 
 void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
@@ -72,7 +70,7 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 } // namespace habana
 
-static auto& CastKernelRegistry =
+static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast", KERNEL_FN_GLOBAL(habana::LazyCast))
         .add("hpu::habana_cast_sr_mode", KERNEL_FN_GLOBAL(habana::LazyCast));

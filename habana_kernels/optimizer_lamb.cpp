@@ -455,7 +455,9 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
       cast1->SetSynapseInput(eq1_lp->GetSynOutputs()[0]);
       stack.emplace_back(IValue(eq1_lp->GetOutputs()[0]));
       stack.emplace_back(IValue(c10::ScalarType::Float));
-      cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      auto md = OutputMetaDataVector(1);
+      md[0].dtype = stack[1].toScalarType();
+      cast1->AllocateAndAddSynapseNode(graph, stack, md);
       stack.clear();
 
       // mul1 = mask [* trust_ratio(=1)]
@@ -474,7 +476,8 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
       cast2->SetSynapseInput(eq2_lp->GetSynOutputs()[0]);
       stack.emplace_back(IValue(eq2_lp->GetOutputs()[0]));
       stack.emplace_back(IValue(c10::ScalarType::Float));
-      cast2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      md[0].dtype = stack[1].toScalarType();
+      cast2->AllocateAndAddSynapseNode(graph, stack, md);
       stack.clear();
 
       // mul2 = imask * weight_norm / adam_norm
@@ -706,7 +709,9 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
         habana_helpers::pytorch_to_synapse_type(max_grad_norm.type()));
 
     stack.emplace_back(IValue(scalar_type));
-    cast00->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    cast00->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     global_grad_norm = cast00;
@@ -734,7 +739,9 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   cast1->SetSynapseInput(lt_final->GetSynOutputs()[0]);
   stack.emplace_back(IValue(lt_final->GetOutputs()[0]));
   stack.emplace_back(IValue(scalar_type));
-  cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+  auto md = OutputMetaDataVector(1);
+  md[0].dtype = stack[1].toScalarType();
+  cast1->AllocateAndAddSynapseNode(graph, stack, md);
   stack.clear();
 
   std::shared_ptr<MulOperator> mul1;
@@ -749,7 +756,9 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
     cast01->SetSynapseInput(p_context_->syn_inputs_[num_params]);
     stack.emplace_back(IValue(clip_norm));
     stack.emplace_back(IValue(scalar_type));
-    cast01->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    cast01->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     // mul1 = mask * cast(clip_norm(=1))
@@ -783,7 +792,8 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
   cast2->SetSynapseInput(eq_final->GetSynOutputs()[0]);
   stack.emplace_back(IValue(eq_final->GetOutputs()[0]));
   stack.emplace_back(IValue(scalar_type));
-  cast2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+  md[0].dtype = stack[1].toScalarType();
+  cast2->AllocateAndAddSynapseNode(graph, stack, md);
   stack.clear();
 
   // mul2 = imask * (global_grad_norm / max_grad_norm)

@@ -143,38 +143,16 @@ void OpBackend::HandleFn(
       ") as out_ids is not matching with actual num outputs (",
       m_output_metadata.size());
 
-  auto promoted_dtype = c10::ScalarType::Undefined;
-  if (m_promote_type or m_promote_int_to_float) {
-    m_scalar_type = promoted_dtype =
-        habana_helpers::DTypeHelper::get_compute_dtype(
-            stack,
-            c10::nullopt,
-            m_promote_int_to_float ? habana_helpers::DTypeHelper::
-                                         DtypePromoteVariant::kPromoteIntToFloat
-                                   : habana_helpers::DTypeHelper::
-                                         DtypePromoteVariant::kPromoteToCommon,
-            false,
-            c10::nullopt,
-            false,
-            false);
-  }
-
   int i = 0;
   for (const at::Tensor& t : tensors) {
-    auto dtype = promoted_dtype == c10::ScalarType::Undefined ? t.scalar_type()
-                                                              : promoted_dtype;
+    const auto& metadata = m_output_metadata.at(i);
+    const auto& dtype = metadata.dtype;
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
 
-    if (m_output_type_stack_idx.has_value()) {
-      dtype = stack.at(m_output_type_stack_idx.value()).toScalarType();
-    }
-
     const auto& output = habana_helpers::createPTTensor(
-        t,
-        outshape,
-        t.options().dtype(dtype),
-        m_output_metadata.at(i).persistent);
-    AllocateSynapseOutput(graph, output, m_output_metadata.at(i++));
+        t, outshape, t.options().dtype(dtype), metadata.persistent);
+    AllocateSynapseOutput(graph, output, metadata);
+    i++;
   }
 }
 
@@ -381,12 +359,12 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         const auto& tensors = ival.isTensor()
             ? static_cast<at::List<at::Tensor>>(ival.toTensor())
             : ival.toTensorList();
-        for (auto i = 0u; i < tensors.size(); ++i) {
+        for (const at::Tensor& tensor : tensors) {
           m_meta.AddOutputTensor(TensorMetaData(
-              tensors[i].sizes().vec(),
-              tensors[i].strides().vec(),
-              tensors[i].scalar_type(),
-              tensors[i].suggest_memory_format()));
+              tensor.sizes().vec(),
+              tensor.strides().vec(),
+              tensor.scalar_type(),
+              tensor.suggest_memory_format()));
         }
       }
     } else { // normal fn
@@ -496,7 +474,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
         meta.AddShapeTensor(md);
       }
       // AddShapeTensor call is independent of AddOutputTensor and
-      // AddIntermendiateOutputTensor. That is why no else if.
+      // AddIntermediateOutputTensor. That is why no else if.
       if (attr.final_result_index.has_value()) {
         meta.AddOutputTensor(md);
       } else {
@@ -516,16 +494,23 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   std::vector<synTensor> node_outputs;
 
   for (const auto& attr : node_attr.output_attrs) {
-    if (attr.final_result_index.has_value() and op->IsOutputAvailable()) {
+    bool is_final_result = attr.final_result_index.has_value();
+    if (is_final_result and op->IsOutputAvailable()) {
       // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
       outputs.emplace_back(
           std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
     } else {
-      bool is_persistent = attr.final_result_index.has_value() and
-          op->m_output_metadata[attr.final_result_index.value()].persistent;
+      bool is_persistent = false;
+      bool is_external = false;
+
+      if (is_final_result) {
+        const auto& metadata =
+            op->m_output_metadata.at(*attr.final_result_index);
+        is_persistent = metadata.persistent;
+        is_external = metadata.external;
+      }
+
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
-      bool is_external = attr.final_result_index.has_value() and
-          op->m_output_metadata.at(attr.final_result_index.value()).external;
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
               ? habana_helpers::create_shape_tensor(
@@ -539,7 +524,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
-      } else if (attr.final_result_index.has_value()) {
+      } else if (is_final_result) {
         ctx->pt_outputs_.at(*attr.final_result_index) = t;
       }
     }

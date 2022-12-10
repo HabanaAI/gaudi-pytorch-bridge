@@ -61,10 +61,6 @@ class OpBackend : public HabanaOperator {
     m_scalar_type = dtype;
   }
 
-  void SetOutputTypeStackIdx(int idx) {
-    m_output_type_stack_idx = idx;
-  }
-
   // keeping AllocateAndAddSynapseNode public to help with calling autogen ops
   // from manually written ops
   void AllocateAndAddSynapseNode(
@@ -289,7 +285,6 @@ class OpBackend : public HabanaOperator {
 
   std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_cast_;
 
- protected:
   OutputMetaDataVector m_output_metadata;
 };
 } // namespace habana

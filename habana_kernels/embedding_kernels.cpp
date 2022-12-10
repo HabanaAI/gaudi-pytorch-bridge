@@ -624,8 +624,9 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
   std::vector<c10::IValue> cast_stack{
       IValue(indices_flattened), IValue(cast_scalar_type)};
-  castIndicesToFloatOp->AllocateAndAddSynapseNode(
-      graph, cast_stack, OutputMetaDataVector(1));
+  OutputMetaData md;
+  md.dtype = cast_scalar_type;
+  castIndicesToFloatOp->AllocateAndAddSynapseNode(graph, cast_stack, {md});
 
   // Node: topk_idx = at::topk(cast_indices_pt_tensor, numel);
   auto topkOp =
@@ -650,8 +651,8 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   cast_scalar_type = c10::ScalarType::Int;
   std::vector<c10::IValue> cast_stack1{
       IValue(topkOp->GetOutputs()[0]), IValue(cast_scalar_type)};
-  castTopkValsOp->AllocateAndAddSynapseNode(
-      graph, cast_stack1, OutputMetaDataVector(1));
+  md.dtype = cast_scalar_type;
+  castTopkValsOp->AllocateAndAddSynapseNode(graph, cast_stack1, {md});
 
   synapse_helpers::tensor& syn_updates = reshape_op_grad->GetSynOutputs()[0];
   // Node: reordered_updates = at::gather(updates, 0, topk_indices);

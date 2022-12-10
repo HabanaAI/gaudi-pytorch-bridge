@@ -1275,7 +1275,9 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    castOp1->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     node1_type = "cast_i8_to_i16";
@@ -1284,7 +1286,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(broadcasted_values));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    md[0].dtype = stack[1].toScalarType();
+    castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
@@ -1666,7 +1669,9 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
     castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    castOp1->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     node1_type = "cast_i8_to_i16";
@@ -1675,7 +1680,8 @@ void IndexPutOperator2::AllocateAndAddSynapseNode(
     castOp2->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(broadcasted_values));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    md[0].dtype = stack[1].toScalarType();
+    castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     stack.clear();
 
     auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);

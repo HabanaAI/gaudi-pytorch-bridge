@@ -800,7 +800,10 @@ void NormOperator::AddL0NormNode(
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
   stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
   stack.emplace_back(IValue(scalar_type));
-  cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+
+  OutputMetaData md;
+  md.dtype = scalar_type;
+  cast1->AllocateAndAddSynapseNode(graph, stack, {md});
   stack.clear();
   // Reduction operation - Create the operator
   auto sum_dim_op =
@@ -1195,7 +1198,9 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     cast1->SetSynapseInput(gt_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(gt_op->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    cast1->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    OutputMetaData md;
+    md.dtype = at::kFloat;
+    cast1->AllocateAndAddSynapseNode(graph, stack, {md});
     stack.clear();
 
     // mul1 = mask * clip_coef
@@ -1219,7 +1224,7 @@ std::shared_ptr<SliceOperator> FusedNormOperator::compute_clip_coeff(
     cast2->SetSynapseInput(eq_op->GetSynOutputs()[0]);
     stack.emplace_back(IValue(eq_op->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    cast2->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    cast2->AllocateAndAddSynapseNode(graph, stack, {md});
     stack.clear();
 
     // mask*clip_coef + imask

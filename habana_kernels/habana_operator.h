@@ -246,7 +246,7 @@ class OutputMetaData {
   bool external{false};
   at::ScalarType dtype{at::ScalarType::Undefined};
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
-  OutputMetaData(){};
+  OutputMetaData() = default;
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
@@ -254,7 +254,7 @@ using OutputMetaDataVector = std::vector<OutputMetaData>;
 template <class T>
 std::vector<T> SelectVectorIndices(
     const std::vector<T>& src,
-    const std::vector<unsigned int> indices) {
+    const std::vector<unsigned int>& indices) {
   std::vector<T> result;
   result.reserve(indices.size());
   for (auto index : indices) {

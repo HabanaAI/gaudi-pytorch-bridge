@@ -133,7 +133,9 @@ void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
         make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
     cast_op->SetSynapseInput(p_context_->syn_inputs_[1]);
     std::vector<c10::IValue> stack = {rois, c10::ScalarType::Float};
-    cast_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    cast_op->AllocateAndAddSynapseNode(graph, stack, md);
   }
   auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
       this->p_context_->device_id_, c10::ScalarType::Float);
