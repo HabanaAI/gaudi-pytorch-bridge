@@ -125,6 +125,69 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
     model.to("hpu")
     model.a.data = model.a.data.cpu()
 
+def test_hpu_weight_sharing_in_exported_parameter_cpu_hpu_cpu():
+    class TestModel(torch.nn.Module):
+        def __init__(self):
+            super(TestModel, self).__init__()
+            self.a = torch.nn.Parameter(torch.ones([1]))
+
+    model = TestModel()
+    nadav_list = model.a
+
+    assert model.a.device.type == "cpu"
+    assert nadav_list.device.type == "cpu"
+
+    model.to("hpu")
+    assert model.a.device.type == "hpu"
+    assert nadav_list.device.type == "hpu"
+
+    model.to("cpu")
+    assert model.a.device.type == "cpu"
+    assert nadav_list.device.type == "cpu"
+
+    model.to("hpu")
+    assert model.a.device.type == "hpu"
+    assert nadav_list.device.type == "hpu"
+
+def test_hpu_weight_sharing_in_same_module_cpu_hpu_cpu():
+    class TestModel(torch.nn.Module):
+        def __init__(self):
+            super(TestModel, self).__init__()
+            self.a = torch.nn.Parameter(torch.zeros([1]))
+            self.b = torch.nn.Parameter(torch.ones([1]))
+        def forward(self, input):
+            c = self.a/input + self.b*input
+            return c
+
+    #initial - cpu, no weight sharing
+    model = TestModel()
+    result = model(1)
+    assert model.a.device.type == "cpu"
+    assert model.b.device.type == "cpu"
+    assert np.equal(result.detach(), 1)
+
+    #weight sharing
+    model.a = model.b
+    result = model(2)
+    assert np.equal(result.cpu().detach(), 2.5)
+    assert np.equal(model.a.cpu().detach(), 1)
+    assert np.equal(model.b.cpu().detach(), 1)
+
+    model.to("hpu")
+    assert model.a.device.type == "hpu"
+    assert model.b.device.type == "hpu"
+
+    model.to("cpu")
+    result = model(2)
+    loss = result.sum()
+    loss.backward()
+    assert model.a.device.type == "cpu"
+    assert model.b.device.type == "cpu"
+    assert np.equal(model.a.grad.cpu().detach(), model.b.grad.cpu().detach())
+    assert np.equal(result.cpu().detach(), 2.5)
+    assert np.equal(model.a.cpu().detach(), 1)
+    assert np.equal(model.b.cpu().detach(), 1)
+
 def test_hpu_multiple_weight_sharing_in_same_module():
     class TestModel(torch.nn.Module):
         def __init__(self):

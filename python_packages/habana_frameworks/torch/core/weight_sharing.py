@@ -56,10 +56,6 @@ def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     return result
 
 def wrapped_to(self, *args, **kwargs):
-    device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
-    if device != torch.device('hpu'):
-        return self.original_to(*args, **kwargs)
-
     def for_all_parameters_in_submodules(fn):
         cnt = 0
         def walk(module, fn):
@@ -143,6 +139,14 @@ def wrapped_to(self, *args, **kwargs):
     for i in range(len(collected_parameters_before)):
         if id(collected_parameters_before[i]) in HabanaParameterWrapper.db and id(collected_parameters_before[i]) != id(collected_parameters_after[i]):
             HabanaParameterWrapper.db[id(collected_parameters_before[i])] = collected_parameters_after[i]
+
+    for key, value in HabanaParameterWrapper.db.items():
+        def get_value(value):
+            if id(value) in HabanaParameterWrapper.db and id(HabanaParameterWrapper.db[id(value)]) != id(value):
+                return get_value(HabanaParameterWrapper.db[id(value)])
+            else:
+                return value
+        HabanaParameterWrapper.db[key] = get_value(value)
     return result
 
 
