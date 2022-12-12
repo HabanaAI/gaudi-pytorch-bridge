@@ -4469,14 +4469,22 @@ multinomial.out:
 mv:
   force_default: false
   custom_output_shape: MvOpsOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half]
   op_backend: MvOp
   out_ids: [0]
 
 mv.out:
   force_default: false
   custom_output_shape: MvOpsOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Greco: [BFloat16, Float, Short, Int, Half]
   op_backend: MvOp
 
 nan_to_num:
