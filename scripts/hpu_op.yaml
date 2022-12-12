@@ -739,7 +739,11 @@ addcmul.out:
 addmm:
   force_default: false
   custom_output_shape: AddMMOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
   guid: gemm
   op_backend: AddMM
   out_ids: [0]
@@ -747,14 +751,22 @@ addmm:
 addmm_:
   force_default: false
   custom_output_shape: AddMMOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
   guid: gemm
   op_backend: AddMM
   inplace_ids: [0]
 
 addmm.out:
   custom_output_shape: AddMMOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half, Char]
   guid: gemm
   op_backend: AddMM
 
@@ -796,6 +808,11 @@ addr.out:
   dtypes: [BFloat16, Float]
   force_default: false
   op_backend: AddR
+
+alias:
+  force_default: false
+  override_fn: alias_hpu_lazy
+  acc_thread: true
 
 all:
   force_default: false

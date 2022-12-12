@@ -1304,13 +1304,6 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
   }
 }
 
-Tensor hpu_wrap::alias(const at::Tensor& self) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("alias :", " self=", to_string(self));
-  return alias_hpu_lazy(self);
-}
-
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   PT_OP_TRACE;
