@@ -1254,7 +1254,8 @@ run_pytorch_modules_tests()
         (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
-		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16)
+        echo "Running tests on Gaudi2"
+		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:LazyInferencePassTest.linear:logical_or_/LogicalInplaceHpuOpTest:SBS/SBSWithParamsTest.DynamicShapeSBSTest:SBS/SBSWithParamsTest.ConvolutionSBSTest_const_Contiguous:TypePromotion/BinaryIntToFloatPromotion.div/IntxFloatxFloat:SBS/SBSWithParamsTest.MaxPoolBWDSBSTest/7:SBS/SBSWithParamsTest.AddInplaceSBS/0)
     		__test_status=$?
         elif [ "$__dut" == "greco" ]; then
         echo "Running greco tests"
