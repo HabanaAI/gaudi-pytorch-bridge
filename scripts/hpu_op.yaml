@@ -490,6 +490,11 @@ as_strided:
   override_fn: as_strided_hpu_lazy2
   acc_thread: true
 
+as_strided_:
+  force_default: false
+  override_fn: as_strided_hpu_lazy_
+  acc_thread: true
+
 select_backward:
   force_default: false
   override_fn: select_backward_hpu_lazy
@@ -817,27 +822,43 @@ alias:
 all:
   force_default: false
   custom_output_shape: AllAnyOutputShape
-  dtypes: [Char]
+  dtypes:
+    Gaudi: [Char]
+    Gaudi2: [Char]
+    Gaudi3: [Char]
+    Greco: [Char]
   out_ids: [0]
   op_frontend: AllAnyOutputType
   op_backend: All
 
 all.all_out:
   custom_output_shape: AllAnyOutputShape
-  dtypes: [Char]
+  dtypes:
+    Gaudi: [Char]
+    Gaudi2: [Char]
+    Gaudi3: [Char]
+    Greco: [Char]
   op_backend: All
 
 all.dim:
   force_default: false
   custom_output_shape: AllAnyDimOutputShape
-  dtypes: [Char]
+  dtypes:
+    Gaudi: [Char]
+    Gaudi2: [Char]
+    Gaudi3: [Char]
+    Greco: [Char]
   op_frontend: AllAnyOutputType
   op_backend: AllDim
   out_ids: [0]
 
 all.out:
   custom_output_shape: AllAnyDimOutputShape
-  dtypes: [Char]
+  dtypes:
+    Gaudi: [Char]
+    Gaudi2: [Char]
+    Gaudi3: [Char]
+    Greco: [Char]
   op_backend: AllDim
 
 amax:

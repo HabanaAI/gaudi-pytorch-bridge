@@ -1345,7 +1345,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
         "as_strided_ called with strides creating non-contiguous output tensor not supported");
   }
 };
-
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 const Tensor& as_strided_hpu_lazy_(
     const Tensor& self,
     IntArrayRef size,
@@ -1353,6 +1353,20 @@ const Tensor& as_strided_hpu_lazy_(
     c10::optional<int64_t> storage_offset) {
   auto orig_size = self.sizes().vec();
   auto orig_stride = self.strides().vec();
+#else
+const Tensor& as_strided_hpu_lazy_(
+    const Tensor& self,
+    SymIntArrayRef _size,
+    SymIntArrayRef _stride,
+    c10::optional<SymInt> _storage_offset) {
+  auto size = asIntArrayRefSlow(_size);
+  auto stride = asIntArrayRefSlow(_stride);
+  auto orig_size = self.sizes().vec();
+  auto orig_stride = self.strides().vec();
+  auto storage_offset = _storage_offset.has_value()
+      ? _storage_offset.value().expect_int()
+      : self.storage_offset();
+#endif
   self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   auto func = [self,
                size = size.vec(),

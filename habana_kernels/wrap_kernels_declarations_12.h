@@ -208,12 +208,6 @@ struct hpu_wrap {
       c10::optional<at::ScalarType> dtype);
   static at::Tensor matmul(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
-  static const at::Tensor& as_strided_(
-      const at::Tensor& self,
-      at::IntArrayRef size,
-      at::IntArrayRef stride,
-      c10::optional<int64_t> storage_offset);
-
   static ::std::vector<at::Tensor> split(
       const at::Tensor& self,
       int64_t split_size,

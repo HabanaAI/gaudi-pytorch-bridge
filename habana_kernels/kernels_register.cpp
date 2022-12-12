@@ -1336,62 +1336,6 @@ Tensor hpu_wrap::_unsafe_view(
   }
 }
 #endif
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
-const at::Tensor& hpu_wrap::as_strided_(
-    const at::Tensor& self,
-    at::IntArrayRef size,
-    at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
-  // No CPU fallback for as_strided_ since H2D & D2H DMA support only contiguous
-  // tensor transfers
-  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self)
-  //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
-  //  storage_offset);
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "as_strided_ :",
-      " self=",
-      to_string(self),
-      " size=",
-      to_string(size),
-      " stride=",
-      to_string(stride),
-      " storage_offset=",
-      to_string(storage_offset));
-  return as_strided_hpu_lazy_(self, size, stride, storage_offset);
-}
-#else
-const at::Tensor& hpu_wrap::as_strided_(
-    const at::Tensor& self,
-    at::SymIntArrayRef size,
-    at::SymIntArrayRef stride,
-    c10::optional<SymInt> storage_offset) {
-  // No CPU fallback for as_strided_ since H2D & D2H DMA support only contiguous
-  // tensor transfers
-  // FALLBACK_IF_UNSUPPORTED_OP(__func__, PARAMS1(self)
-  //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
-  //  storage_offset);
-  auto temp_offset = storage_offset.has_value()
-      ? storage_offset.value().expect_int()
-      : self.storage_offset();
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "as_strided_ :",
-      " self=",
-      to_string(self),
-      " size=",
-      to_string(size),
-      " stride=",
-      to_string(stride),
-      " storage_offset=",
-      to_string(storage_offset));
-  return as_strided_hpu_lazy_(
-      self, asIntArrayRefSlow(size), asIntArrayRefSlow(stride), temp_offset);
-}
-#endif
-
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
     int64_t split_size,

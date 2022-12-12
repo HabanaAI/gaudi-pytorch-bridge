@@ -205,12 +205,6 @@ struct hpu_wrap {
   static at::Tensor _unsafe_view(
       const at::Tensor& self,
       c10::SymIntArrayRef size);
-  static const at::Tensor& as_strided_(
-      const at::Tensor& self,
-      c10::SymIntArrayRef size,
-      c10::SymIntArrayRef stride,
-      c10::optional<c10::SymInt> storage_offset);
-
   static ::std::vector<at::Tensor> split(
       const at::Tensor& self,
       int64_t split_size,

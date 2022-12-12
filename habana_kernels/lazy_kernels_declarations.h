@@ -46,11 +46,19 @@ void strided_insert_hpu_lazy(
     const at::Tensor&,
     const at::Tensor&,
     bool is_flush = true);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 const at::Tensor& as_strided_hpu_lazy_(
     const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
+#else
+const at::Tensor& as_strided_hpu_lazy_(
+    const at::Tensor& self,
+    at::SymIntArrayRef size,
+    at::SymIntArrayRef stride,
+    c10::optional<c10::SymInt> storage_offset);
+#endif
 at::Tensor& set_hpu_lazy_(
     at::Tensor& self,
     at::Storage source,
