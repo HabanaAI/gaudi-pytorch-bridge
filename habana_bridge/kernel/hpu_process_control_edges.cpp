@@ -1,15 +1,3 @@
-/*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
- * All Rights Reserved.
- *
- * Unauthorized copying of this file or any element(s) within it, via any medium
- * is strictly prohibited.
- * This file contains Habana Labs, Ltd. proprietary and confidential information
- * and is subject to the confidentiality and license agreements under which it
- * was provided.
- *
- *******************************************************************************
- */
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
 #include <habana_device/hpu_cached_devices.h>
@@ -42,9 +30,8 @@ ControlEdgeType HabanaLaunchOpPT::nodeRequiresControlEdge(
     return ControlEdgeType::kCONTROL_EDGE_OTHER_;
   } else if (isControlEdge(node)) {
     return ControlEdgeType::kCONTROL_EDGE_;
-  } else if (int inputId = inplaceInputId(node); inputId >= 0) {
-    return (inputId == 0) ? ControlEdgeType::kCONTROL_EDGE_INPLACE_INPUT_0
-                          : ControlEdgeType::kCONTROL_EDGE_INPLACE_INPUT_1;
+  } else if (isInplace(node)) {
+    return ControlEdgeType::kCONTROL_EDGE_INPLACE;
   } else {
     return ControlEdgeType::kCONTROL_EDGE_NONE;
   }
@@ -158,28 +145,19 @@ bool isListNode(torch::jit::Node* node) {
 void HabanaLaunchOpPT::PrepareBlockingNodeList(
     Node* node,
     ControlEdgeType control_type) {
-  const int first_input =
-      control_type == ControlEdgeType::kCONTROL_EDGE_INPLACE_INPUT_1 ? 1 : 0;
-  const int num_inputs =
+  int num_inputs =
       control_type == ControlEdgeType::kCONTROL_EDGE_OTHER_ ? 2 : 1;
-  const int behind_last_input = first_input + num_inputs;
 
-  for (int i = first_input; i < behind_last_input; i++) {
+  for (int i = 0; i < num_inputs; i++) {
     auto src_val = node->input(i);
     auto src_node_uses = src_val->uses();
     for (auto& u : src_node_uses) {
       auto blocking_node = u.user;
+
       // exclude current use in control_edge as well as parent node
       if (IsValidNode(blocking_node)) {
         // uses() api will include current node as well. Exclude it
         if (blocking_node != node) {
-          if (isListNode(blocking_node)) {
-            auto* out_val = blocking_node->output(0);
-            const auto& out_val_uses = out_val->uses();
-            if (!out_val_uses.empty()) {
-              blocking_node = out_val_uses[0].user;
-            }
-          }
           blocking_nodes_vec.emplace_back(blocking_node);
           HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
         }
@@ -196,7 +174,7 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
   it comes b.copy_(a) b.add_(1.0) Here there is no need for control edges a is
   the parent of b
   */
-  if (!IsControlEdgeTypeInplace(control_type)) {
+  if (control_type != ControlEdgeType::kCONTROL_EDGE_INPLACE) {
     // Add the parent node as well
     auto parent_node = node->input(0)->node();
 
@@ -320,7 +298,7 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
 
       if (blocking_syn_nodes_vec.size()) {
         // prepare blocked nodes list
-        if (IsControlEdgeTypeInplace(c_edge)) {
+        if (c_edge == ControlEdgeType::kCONTROL_EDGE_INPLACE) {
           // if the current node is an inplace op, it becomes the blocked node
           HabanaLaunchOpPT::addSynNodes(blocked_syn_nodes_vec, node);
         } else {
@@ -363,7 +341,7 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
               }
             }
           } // for (auto& u : dst_node_uses)
-        } // if (IsControlEdgeTypeInplace(c_edge))
+        } // if (c_edge == ControlEdgeType::kCONTROL_EDGE_INPLACE)
 
         if (blocked_syn_nodes_vec.size()) {
           syn_graph_ptr->set_synapse_control_edges_pt(
