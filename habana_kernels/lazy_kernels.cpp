@@ -2018,11 +2018,35 @@ Tensor& baddbmm_hpu_lazy_(
   return self;
 }
 
-Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
+at::Tensor prepare_hpu_tensor(const at::Tensor& t) {
+  if (t.defined() && t.device().type() != c10::DeviceType::HPU) {
+    // If the CPU tensor is a wrapped number, then use
+    // get_tensor_for_scalar method to retrieve cached HPU tensors for
+    // the scalar value
+    if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
+      // is_wrapped_number: True if a tensor was auto-wrapped from a
+      // C++ or Python number.
+      auto dtype = t.scalar_type();
+      return get_tensor_for_scalar(
+          t.item().toDouble(), at::TensorOptions().dtype(dtype));
+    } else {
+      // Use non_blocking .to()
+      return t.to(c10::kHPU, true);
+    }
+  }
+  return t;
+}
+
+Tensor& mul_out_hpu_lazy(
+    const Tensor& self,
+    const Tensor& raw_other,
+    Tensor& out) {
   PT_LAZY_TRACE;
   // 8x all reduce optimization to avoid out variant that requires tensor with
   // storage. //TODO enhance lazy op framework to convert out variant to out
   // of place variant
+  auto other{prepare_hpu_tensor(raw_other)};
+  RUNNING_HASH_COMBINE_OPERATOR(hpu::mul_out, {self, raw_other, out});
   auto shape_changed = self.sizes() != out.sizes();
   if (shape_changed) {
     out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
