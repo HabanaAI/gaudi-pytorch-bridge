@@ -325,7 +325,7 @@ HbLazyTensor SyncAndGetHbLazyTensor(
     const at::Tensor& tensor,
     bool get_updated,
     bool handle_collective) {
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::AccThread::Get().SyncAccThreadPool();
   return GetHbLazyTensor(tensor, get_updated, handle_collective);
 }
 

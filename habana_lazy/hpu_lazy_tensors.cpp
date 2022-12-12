@@ -232,8 +232,8 @@ int64_t Data::GetNextTensorId() {
   static auto id_generator = std::atomic<int64_t>(1);
   static auto acc_id_generator =
       std::atomic<int64_t>(std::numeric_limits<int64_t>::max() / 2);
-  return GetAccThreadPool().inThreadPool() ? acc_id_generator.fetch_add(1)
-                                           : id_generator.fetch_add(1);
+  return AccThread::Get().inThreadPool() ? acc_id_generator.fetch_add(1)
+                                         : id_generator.fetch_add(1);
 }
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
@@ -674,7 +674,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   // When acc thread is present, IR value may not be available so the next check
   // may fail and skip StepMarker
   if (sync_acc_thread) {
-    habana_lazy::SyncAccThreadPool();
+    habana_lazy::AccThread::Get().SyncAccThreadPool();
   }
 
   // If data isn't available then do step marker to get data.
@@ -709,7 +709,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
 c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   // When acc thread is present, IR value may not be available so the next check
   // may fail and skip StepMarker
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::AccThread::Get().SyncAccThreadPool();
 
   auto currentIrValue = CurrentIrValue();
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
@@ -1175,7 +1175,7 @@ void SetupExecutionFromRunningHash(
   if (mp_g_and_meta_data_ != nullptr) {
     PT_IRGRAPH_DEBUG("Fwd Graph Hash Cache Hit", fwd_running_hash);
     if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
-      habana_lazy::GetAccThreadPool().discardPendingTasks();
+      habana_lazy::AccThread::Get().discardPendingTasks();
     }
     // prepare po_data inputs and outputs
     po_data.outputs.reserve(indices.size());
@@ -1596,7 +1596,7 @@ void HbLazyTensor::StepMarker(
 
   // Sync accumulation thread if needed and clean up all accumulation resources
   habana_lazy::NoAccThread no_acc_thread;
-  habana_lazy::ExecuteAllCleanupTasks();
+  habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
 
   c10::Device device = GetDeviceOrCurrent(device_str);
   if (!device.is_hpu()) {

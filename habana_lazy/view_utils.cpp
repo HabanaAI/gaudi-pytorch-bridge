@@ -466,22 +466,23 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     }
   }
 
-  if (habana_lazy::CanUseAccThread() &&
+  if (habana_lazy::AccThread::Get().CanUseAccThread() &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {
-    habana_lazy::GetAccThreadPool().run([self,
-                                         storage_offset,
-                                         is_update_view,
-                                         result,
-                                         size = size.vec(),
-                                         stride = stride.vec(),
-                                         is_out]() mutable {
+    habana_lazy::AccThread::Get().run([self,
+                                       storage_offset,
+                                       is_update_view,
+                                       result,
+                                       size = size.vec(),
+                                       stride = stride.vec(),
+                                       is_out]() mutable {
       add_strided_view_node_parallel_impl(
           self, size, stride, storage_offset, is_update_view, result, is_out);
-      habana_lazy::PushCleanupTask([self = std::move(self),
-                                    result = std::move(result),
-                                    size = std::move(size),
-                                    stride = std::move(stride),
-                                    is_out = std::move(is_out)]() {});
+      habana_lazy::AccThread::Get().PushCleanupTask(
+          [self = std::move(self),
+           result = std::move(result),
+           size = std::move(size),
+           stride = std::move(stride),
+           is_out = std::move(is_out)]() {});
     });
   } else {
     add_strided_view_node_parallel_impl(

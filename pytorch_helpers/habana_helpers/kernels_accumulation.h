@@ -13,42 +13,61 @@
 #pragma once
 
 #include <string>
+#include <unordered_set>
 #include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 
 namespace habana_lazy {
 
-// returns main accumulation thread pool
-AccThreadPool& GetAccThreadPool();
+class AccThread {
+ public:
+  // returns main accumulation thread pool
+  static AccThread& Get();
 
-// store cleanup tasks that are holding any resources used by accumulation
-// thread pool Its purpose is to avoid deadlock on GIL.
-//
-// Deadlock in GIL happens when main thread is calling C++ code from Python
-// (that acquires GIL by default) and accumulation thread is finishing a
-// previous task, which at the end can release Python resources - in this case
-// at::Tensors. Main thread is trying to synchronize accumulation thread (due to
-// unsupported op) and accumulation thread is trying to acquire GIL to release
-// resources. It is avoided by moving any resource from accumulation to cleanup
-// thread. Cleanup thread is not synchronized by main thread and can safely wait
-// for GIL release.
-void PushCleanupTask(std::function<void()>&& task);
+  bool inThreadPool() const;
+  void run(std::function<void()>&& func);
+  void discardPendingTasks();
 
-// In order to avoid non-deterministic order of resource deallocation, this is
-// called only in one place in StepMarker together with AccThread
-// synchronization before execution.
-void ExecuteAllCleanupTasks();
+  // store cleanup tasks that are holding any resources used by accumulation
+  // thread pool Its purpose is to avoid deadlock on GIL.
+  //
+  // Deadlock in GIL happens when main thread is calling C++ code from Python
+  // (that acquires GIL by default) and accumulation thread is finishing a
+  // previous task, which at the end can release Python resources - in this case
+  // at::Tensors. Main thread is trying to synchronize accumulation thread (due
+  // to unsupported op) and accumulation thread is trying to acquire GIL to
+  // release resources. It is avoided by moving any resource from accumulation
+  // to cleanup thread. Cleanup thread is not synchronized by main thread and
+  // can safely wait for GIL release.
+  void PushCleanupTask(std::function<void()>&& task);
 
-// checks if accumulation thread is enabled
-bool IsAccThreadEnabled();
-// checks if accumulation thread can be used
-bool CanUseAccThread();
-// synchronizes acc thread pool, if parallel accumulation is enabled
-void SyncAccThreadPool();
-// synchronizes acc thread pool if the input manual 'op' is not supported
-// for parallel accumulation.
-//
-// Used only for manual ops, not auto-gen.
-void SyncManualOpIfNeeded(const std::string& op);
+  // In order to avoid non-deterministic order of resource deallocation, this is
+  // called only in one place in StepMarker together with AccThread
+  // synchronization before execution.
+  void ExecuteAllCleanupTasks();
+
+  // checks if accumulation thread is enabled
+  static bool IsAccThreadEnabled();
+  // checks if accumulation thread can be used
+  bool CanUseAccThread();
+  // synchronizes acc thread pool, if parallel accumulation is enabled
+  void SyncAccThreadPool();
+  // synchronizes acc thread pool if the input manual 'op' is not supported
+  // for parallel accumulation.
+  //
+  // Used only for manual ops, not auto-gen.
+  void SyncManualOpIfNeeded(const std::string& op);
+
+  static thread_local bool acc_thread_allowed;
+
+ private:
+  AccThread() = default;
+  std::queue<std::function<void()>> cleanup_tasks;
+  std::mutex cleanup_mutex;
+  static const std::unordered_set<std::string> SupportedNonAutogenOps;
+  AccThreadPool thread_pool;
+
+  bool CanUseAccThreadInternal();
+};
 
 // Class to manage global state to disable the accumulation thread in some
 // context i.e. complex ops mixing acc enabled ops with non-enabled. Once all
@@ -61,7 +80,6 @@ class NoAccThread {
   ~NoAccThread();
 
  private:
-  bool previous_state_ = false;
   // set to true when state of accumulation thread was updated
   bool update_state_ = false;
 };

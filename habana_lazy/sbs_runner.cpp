@@ -201,7 +201,8 @@ void SBSRunner::handleTensorForCPUInput(
   if (input.device().type() != c10::DeviceType::HPU) {
     // a special case when tensor is still on CPU - see set_inputs()
     inputs_modified.push_back(std::move(input.detach().to(c10::kHPU)));
-    if (!habana_lazy::IsAccThreadEnabled() || habana_lazy::CanUseAccThread()) {
+    if (!habana_lazy::AccThread::IsAccThreadEnabled() ||
+        habana_lazy::AccThread::Get().CanUseAccThread()) {
       ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
       // validate sbs run in test
     }
@@ -212,7 +213,8 @@ void SBSRunner::handleTensorForCPUInput(
   if ((pTensor != c10::nullopt) && hl_input.GetSBSLiveTensorIndication()) {
     inputs_modified.push_back(
         std::move(pTensor.value().detach().to(c10::kHPU)));
-    if (!habana_lazy::IsAccThreadEnabled() || habana_lazy::CanUseAccThread()) {
+    if (!habana_lazy::AccThread::IsAccThreadEnabled() ||
+        habana_lazy::AccThread::Get().CanUseAccThread()) {
       ++m_number_of_tensor_copies; // we'll increase number of tensor copies to
       // validate sbs run in test
     }

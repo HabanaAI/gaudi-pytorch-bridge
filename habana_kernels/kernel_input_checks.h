@@ -3633,7 +3633,7 @@ OpSupportLevel hpu_check_inputs_impl(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {
   // Synchronize acc thread, if Op is not supported for parallel acc yet.
-  habana_lazy::SyncManualOpIfNeeded(op);
+  habana_lazy::AccThread::Get().SyncManualOpIfNeeded(op);
 
   const auto& supported_types = op_info.at(op);
   size_t i = 0;

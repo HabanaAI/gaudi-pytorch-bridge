@@ -175,8 +175,8 @@ void flush_op(
   // This is not accurate number of ops. The accurate number of ops can be taken
   // from accumulated ops (incrementAccumulatedOps).
   StageSubmission::getInstance().incrementOpCount();
-  if (habana_lazy::IsAccThreadEnabled() &&
-      habana_lazy::GetAccThreadPool().inThreadPool()) {
+  if (habana_lazy::AccThread::IsAccThreadEnabled() &&
+      habana_lazy::AccThread::Get().inThreadPool()) {
     // Early exit. Ensure that StepMarker is not called from the accumulation
     // thread. StepMarker can deallocate tensors and it can cause deadlock.
     return;
@@ -1624,7 +1624,7 @@ Tensor& add_tensor_hpu_lazy_(
         get_tensor_for_scalar(alpha_double, other.options());
   }
 
-  if (habana_lazy::IsAccThreadEnabled()) {
+  if (habana_lazy::AccThread::IsAccThreadEnabled()) {
     // try to construct DTypeHelper to make sure,
     // that type promotion does not throw due to incompatible dtypes
     at::IValue ivalue(self);

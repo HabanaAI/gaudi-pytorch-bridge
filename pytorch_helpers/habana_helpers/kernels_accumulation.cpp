@@ -20,7 +20,7 @@
 namespace habana_lazy {
 
 // list of manual ops that support parallel accumulation
-const std::unordered_set<std::string> SupportedNonAutogenOps = {
+const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
     "_masked_scale",
     "_reshape_alias",
     "_unsafe_view",
@@ -72,37 +72,46 @@ const std::unordered_set<std::string> SupportedNonAutogenOps = {
     "unsqueeze",
     "view"};
 
-static std::queue<std::function<void()>> cleanup_tasks;
-static std::mutex cleanup_mutex;
-static bool acc_thread_allowed = true;
+thread_local bool AccThread::acc_thread_allowed = true;
 
-AccThreadPool& GetAccThreadPool() {
-  static AccThreadPool thread_pool; // single thread only
-  return thread_pool;
+AccThread& AccThread::Get() {
+  static AccThread acc_thread; // single thread only
+  return acc_thread;
 }
 
-void PushCleanupTask(std::function<void()>&& task) {
+bool AccThread::inThreadPool() const {
+  return thread_pool.inThreadPool();
+}
+void AccThread::run(std::function<void()>&& func) {
+  thread_pool.run(std::move(func));
+}
+
+void AccThread::discardPendingTasks() {
+  thread_pool.discardPendingTasks();
+}
+
+void AccThread::PushCleanupTask(std::function<void()>&& task) {
   std::unique_lock<std::mutex> lock(cleanup_mutex);
   cleanup_tasks.emplace(std::move(task));
 }
 
-bool IsAccThreadEnabled() {
+bool AccThread::IsAccThreadEnabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) != 0 &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1; // only default lazy
 }
 
-bool CanUseAccThreadInternal() {
-  return IsAccThreadEnabled() && !GetAccThreadPool().inThreadPool() &&
+bool AccThread::CanUseAccThreadInternal() {
+  return IsAccThreadEnabled() && !inThreadPool() &&
       !(SingleTonExecThreadPool::getInstance().inThreadPool() ||
         habana_lazy_executor.getDeviceExecutionContext(0)
             ->m_launch_thread_context);
 }
 
-bool CanUseAccThread() {
+bool AccThread::CanUseAccThread() {
   return acc_thread_allowed && CanUseAccThreadInternal();
 }
 
-void ExecuteAllCleanupTasks() {
+void AccThread::ExecuteAllCleanupTasks() {
   if (!CanUseAccThreadInternal()) {
     return;
   }
@@ -116,16 +125,16 @@ void ExecuteAllCleanupTasks() {
   }
 }
 
-void SyncAccThreadPool() {
+void AccThread::SyncAccThreadPool() {
   if (CanUseAccThreadInternal()) { // avoid syncing from acc and launch thread
                                    // pools
     PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
-    GetAccThreadPool().waitWorkComplete();
+    thread_pool.waitWorkComplete();
   }
 }
 
-void SyncManualOpIfNeeded(const std::string& op) {
+void AccThread::SyncManualOpIfNeeded(const std::string& op) {
   if (IsAccThreadEnabled()) {
     if (!SupportedNonAutogenOps.count(op)) {
       PT_LAZY_PARALLEL_ACC_DEBUG(
@@ -136,22 +145,17 @@ void SyncManualOpIfNeeded(const std::string& op) {
 }
 
 NoAccThread::NoAccThread() {
-  update_state_ = CanUseAccThread();
-  if (!update_state_) {
-    return;
+  update_state_ = AccThread::Get().CanUseAccThread();
+  if (update_state_) {
+    AccThread::Get().SyncAccThreadPool();
+    AccThread::acc_thread_allowed = false;
   }
-
-  SyncAccThreadPool();
-  previous_state_ = acc_thread_allowed;
-  acc_thread_allowed = false;
 }
 
 NoAccThread::~NoAccThread() {
-  if (!update_state_) {
-    return;
+  if (update_state_) {
+    AccThread::acc_thread_allowed = true;
   }
-
-  acc_thread_allowed = previous_state_;
 }
 
 } // namespace habana_lazy

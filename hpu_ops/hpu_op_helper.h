@@ -33,11 +33,11 @@ void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
 
 template <class T, class InputType>
 void scheduleAccTask(T&& lazy_op, InputType tensor) {
-  habana_lazy::GetAccThreadPool().run(
+  habana_lazy::AccThread::Get().run(
       [op = std::move(lazy_op), tensor = std::move(tensor)]() mutable {
         PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(tensor);
-        habana_lazy::PushCleanupTask(
+        habana_lazy::AccThread::Get().PushCleanupTask(
             [op = std::move(op), tensor = std::move(tensor)]() {});
       });
 }
@@ -47,11 +47,11 @@ void scheduleAccTask(
     T&& lazy_op,
     std::vector<at::Tensor> result // pass explicit as copy to keep alive
 ) {
-  habana_lazy::GetAccThreadPool().run(
+  habana_lazy::AccThread::Get().run(
       [op = std::move(lazy_op), result = std::move(result)]() mutable {
         PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(result);
-        habana_lazy::PushCleanupTask(
+        habana_lazy::AccThread::Get().PushCleanupTask(
             [op = std::move(op), result = std::move(result)]() {});
       });
 }
@@ -61,13 +61,13 @@ void scheduleAccTask(
     T&& lazy_op,
     std::vector<at::Tensor> result, // pass explicit as copy to keep alive
     std::vector<at::Tensor>&& tensor_list_copy) {
-  habana_lazy::GetAccThreadPool().run(
+  habana_lazy::AccThread::Get().run(
       [op = std::move(lazy_op),
        result = std::move(result),
        tensor_list_copy = std::move(tensor_list_copy)]() mutable {
         PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(result);
-        habana_lazy::PushCleanupTask(
+        habana_lazy::AccThread::Get().PushCleanupTask(
             [op = std::move(op),
              result = std::move(result),
              tensor_list_copy = std::move(tensor_list_copy)]() {});
@@ -82,7 +82,7 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
   HABANA_ASSERT(
       tensors.size() <= 3 || tensors.size() == 5,
       "Only tuples up to 3 and with size 5 are supported");
-  habana_lazy::GetAccThreadPool().run(
+  habana_lazy::AccThread::Get().run(
       [op = std::move(lazy_op), tensors = std::move(tensors)]() mutable {
         PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         if (tensors.size() == 2) {
@@ -93,7 +93,7 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
           op.call(std::tie(
               tensors[0], tensors[1], tensors[2], tensors[3], tensors[4]));
         }
-        habana_lazy::PushCleanupTask(
+        habana_lazy::AccThread::Get().PushCleanupTask(
             [op = std::move(op), tensors = std::move(tensors)]() {});
       });
 }
@@ -216,7 +216,7 @@ inline float& get<float>(fint_t& u) {
 #define MAYBE_FLUSH_OP(out_tensor_count) habana_lazy::flush_op(out_tensor_count)
 
 #define RUN_MAYBE_WITH_ACC_THREAD(op, lazy_op)                              \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto result = lazy_op.get_result();                                     \
     scheduleAccTask(std::move(lazy_op), result);                            \
@@ -226,7 +226,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(op, lazy_op, result_func)   \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto result = lazy_op.get_result();                                     \
     result_func(result);                                                    \
@@ -239,7 +239,7 @@ inline float& get<float>(fint_t& u) {
   return result;
 
 #define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     self = lazy_op.get_result(self);                                        \
     scheduleAccTask(std::move(lazy_op), self);                              \
@@ -249,7 +249,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call(self);
 
 #define RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)          \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     lazy_op.get_result(self);                                               \
     scheduleAccTask(std::move(lazy_op), self);                              \
@@ -259,7 +259,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call(self);
 
 #define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                        \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto tuple = lazy_op.get_result();                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
@@ -269,7 +269,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op, tuple)         \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     tuple = lazy_op.get_result(tuple);                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
@@ -278,60 +278,63 @@ inline float& get<float>(fint_t& u) {
   }                                                                         \
   return lazy_op.call(tuple);
 
-#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(op, func, out)                   \
-  if (habana_lazy::CanUseAccThread()) {                                      \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
-    habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
-      func();                                                                \
-      habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
-    });                                                                      \
-    MAYBE_FLUSH_OP(1);                                                       \
-  } else {                                                                   \
-    func();                                                                  \
-  }                                                                          \
+#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(op, func, out)                  \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::AccThread::Get().run([func = std::move(func)]() mutable {  \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                         \
+      func();                                                               \
+      habana_lazy::AccThread::Get().PushCleanupTask(                        \
+          [func = std::move(func)]() {});                                   \
+    });                                                                     \
+    MAYBE_FLUSH_OP(1);                                                      \
+  } else {                                                                  \
+    func();                                                                 \
+  }                                                                         \
   return out;
 
-#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(                   \
-    op, func, out, result_func)                                              \
-  if (habana_lazy::CanUseAccThread()) {                                      \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
-    habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
-      func();                                                                \
-      habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
-    });                                                                      \
-    result_func(out);                                                        \
-    MAYBE_FLUSH_OP(1);                                                       \
-  } else {                                                                   \
-    func();                                                                  \
-    result_func(out);                                                        \
-  }                                                                          \
+#define RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(                  \
+    op, func, out, result_func)                                             \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::AccThread::Get().run([func = std::move(func)]() mutable {  \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                         \
+      func();                                                               \
+      habana_lazy::AccThread::Get().PushCleanupTask(                        \
+          [func = std::move(func)]() {});                                   \
+    });                                                                     \
+    result_func(out);                                                       \
+    MAYBE_FLUSH_OP(1);                                                      \
+  } else {                                                                  \
+    func();                                                                 \
+    result_func(out);                                                       \
+  }                                                                         \
   return out;
 
-#define RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func)                    \
-  if (habana_lazy::CanUseAccThread()) {                                      \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
-    habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
-      func();                                                                \
-      habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
-    });                                                                      \
-    MAYBE_FLUSH_OP();                                                        \
-  } else {                                                                   \
-    func();                                                                  \
+#define RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(op, func)                   \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::AccThread::Get().run([func = std::move(func)]() mutable {  \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                         \
+      func();                                                               \
+      habana_lazy::AccThread::Get().PushCleanupTask(                        \
+          [func = std::move(func)]() {});                                   \
+    });                                                                     \
+    MAYBE_FLUSH_OP();                                                       \
+  } else {                                                                  \
+    func();                                                                 \
   }
 
 #define RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(                     \
     op, self, out, param_setter, additional_predicate)                        \
-  if (habana_lazy::CanUseAccThread() &&                                       \
+  if (habana_lazy::AccThread::Get().CanUseAccThread() &&                      \
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {                 \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");   \
-    habana_lazy::GetAccThreadPool().run(                                      \
+    habana_lazy::AccThread::Get().run(                                        \
         [self, out, param_setter, additional_predicate]() {                   \
           lazy_view_fallback_handle(                                          \
               self, out, param_setter, additional_predicate);                 \
-          habana_lazy::PushCleanupTask(                                       \
+          habana_lazy::AccThread::Get().PushCleanupTask(                      \
               [self = std::move(self),                                        \
                out = std::move(out),                                          \
                param_setter = std::move(param_setter),                        \
@@ -344,12 +347,12 @@ inline float& get<float>(fint_t& u) {
   return out;
 
 #define RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(op, self, out, param_setter)      \
-  if (habana_lazy::CanUseAccThread() &&                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread() &&                    \
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {               \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    habana_lazy::GetAccThreadPool().run([self, out, param_setter]() {       \
+    habana_lazy::AccThread::Get().run([self, out, param_setter]() {         \
       lazy_view_fallback_handle(self, out, param_setter);                   \
-      habana_lazy::PushCleanupTask(                                         \
+      habana_lazy::AccThread::Get().PushCleanupTask(                        \
           [self_in = std::move(self),                                       \
            out = std::move(out),                                            \
            param_setter = std::move(param_setter)]() {});                   \
@@ -361,7 +364,7 @@ inline float& get<float>(fint_t& u) {
   return out;
 
 #define RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1)             \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     std::vector<at::Tensor> tensors_copy;                                   \
     std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
@@ -373,7 +376,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_TENSOR_LIST2_MAYBE_WITH_ACC_THREAD(op, lazy_op, tl1, tl2)       \
-  if (habana_lazy::CanUseAccThread()) {                                     \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     std::vector<at::Tensor> tensors_copy;                                   \
     std::copy(tl1.begin(), tl1.end(), std::back_inserter(tensors_copy));    \
@@ -386,7 +389,7 @@ inline float& get<float>(fint_t& u) {
   return lazy_op.call();
 
 #define RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, result)     \
-  if (habana_lazy::CanUseAccThread()) {                                        \
+  if (habana_lazy::AccThread::Get().CanUseAccThread()) {                       \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");    \
     std::vector<at::Tensor> tensors_copy;                                      \
     std::copy(result.begin(), result.end(), std::back_inserter(tensors_copy)); \

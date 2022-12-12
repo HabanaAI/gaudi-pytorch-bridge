@@ -14,6 +14,7 @@
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
 #include "HPUGuardImpl.h"
+#include "habana_helpers/kernels_accumulation.h"
 #include "hpu_cached_devices.h"
 
 #include "habana_lazy/memlog.h"
@@ -382,6 +383,8 @@ HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
   // This ensures synapse devices are removed before thread_local synapse
   // objects (Ex: KernelDB) are gone.
   if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
+    habana_lazy::AccThread::Get().SyncAccThreadPool();
+    habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
     HPURegistrar::deleteDevices();
     habana::HPUDeviceAllocator::allocator_active_device_id = -1;
     habana::PinnedMemoryAllocator::allocator_active_device_id = -1;

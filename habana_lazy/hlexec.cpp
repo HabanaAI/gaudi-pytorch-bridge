@@ -500,8 +500,8 @@ void HlExec::Create(
       auto scope_name = node->GetModuleName().empty()
           ? (node->GetScope() ? *node->GetScope() : "")
           : node->GetModuleName();
-      if (IsAccThreadEnabled() ? !node->GetModuleName().empty()
-                               : node->GetScope() != NULL) {
+      if (AccThread::IsAccThreadEnabled() ? !node->GetModuleName().empty()
+                                          : node->GetScope() != NULL) {
         scope_context = std::make_shared<torch::jit::WithCurrentScope>(
             *mp_g_,
             c10::make_intrusive<torch::jit::Scope>(
@@ -510,7 +510,7 @@ void HlExec::Create(
       }
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
-      if (IsAccThreadEnabled()) {
+      if (AccThread::IsAccThreadEnabled()) {
         jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
             torch::jit::ScopePtr(),
             c10::Symbol::fromQualString("debug::" + scope_name)));
