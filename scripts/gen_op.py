@@ -1043,7 +1043,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
     tfetcher = TensorFetcher("metatens")
     rtype = get_return_type_str(rwxtree, rwsig)
     if not is_acc_thread_supported(fname, ctxop, rtype, sig):
-        op_frontend += "  habana_lazy::SyncAccThreadPool();\n"
+        op_frontend += "  habana_lazy::NoAccThread no_acc_thread;\n"
     param_vars = []
     meta_param_vars = []
     call_args = []

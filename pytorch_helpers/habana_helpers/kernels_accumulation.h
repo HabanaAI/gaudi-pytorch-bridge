@@ -50,4 +50,20 @@ void SyncAccThreadPool();
 // Used only for manual ops, not auto-gen.
 void SyncManualOpIfNeeded(const std::string& op);
 
+// Class to manage global state to disable the accumulation thread in some
+// context i.e. complex ops mixing acc enabled ops with non-enabled. Once all
+// ops are moved to the acc thread infrastructure, this class can be removed.
+class NoAccThread {
+ public:
+  NoAccThread();
+  NoAccThread(const NoAccThread&) = delete;
+  NoAccThread(NoAccThread&&) = delete;
+  ~NoAccThread();
+
+ private:
+  bool previous_state_ = false;
+  // set to true when state of accumulation thread was updated
+  bool update_state_ = false;
+};
+
 } // namespace habana_lazy

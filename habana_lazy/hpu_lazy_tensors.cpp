@@ -1591,7 +1591,8 @@ void HbLazyTensor::StepMarker(
   }
 
   // Sync accumulation thread if needed and clean up all accumulation resources
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::NoAccThread no_acc_thread;
+  habana_lazy::ExecuteAllCleanupTasks();
 
   c10::Device device = GetDeviceOrCurrent(device_str);
   if (!device.is_hpu()) {

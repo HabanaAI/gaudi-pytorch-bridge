@@ -833,6 +833,8 @@ class LazyOp {
       infoToBackEnd->set_is_optimized_lazy_eager(IsOptimizedLazyEagerCached);
     }
 
+    context->viewContext.isLazyViewPresent = false;
+
     return HandleLazy(self, infoToBackEnd);
   }
 

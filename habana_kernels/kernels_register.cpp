@@ -963,6 +963,7 @@ at::Tensor hpu_wrap::repeat(
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
     c10::optional<int64_t> output_size) {
+  habana_lazy::NoAccThread no_acc_thread;
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(

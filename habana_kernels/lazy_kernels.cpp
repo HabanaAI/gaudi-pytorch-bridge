@@ -172,7 +172,8 @@ void flush_op(
   // This is not accurate number of ops. The accurate number of ops can be taken
   // from accumulated ops (incrementAccumulatedOps).
   StageSubmission::getInstance().incrementOpCount();
-  if (habana_lazy::IsAccThreadEnabled() && !habana_lazy::CanUseAccThread()) {
+  if (habana_lazy::IsAccThreadEnabled() &&
+      habana_lazy::GetAccThreadPool().inThreadPool()) {
     // Early exit. Ensure that StepMarker is not called from the accumulation
     // thread. StepMarker can deallocate tensors and it can cause deadlock.
     return;
@@ -828,7 +829,7 @@ at::Tensor handleWeightTensorLayout(const Tensor& src) {
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
 
-  habana_lazy::SyncAccThreadPool();
+  habana_lazy::NoAccThread no_acc_thread;
 
   // This situation should not occur
   // Throwing an exception here for now to catch any cases that arise
@@ -945,6 +946,8 @@ static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
 
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   PT_LAZY_TRACE;
+
+  habana_lazy::NoAccThread no_acc_thread;
 
   bool processed = false;
   auto src = src_.contiguous(src_.suggest_memory_format());
@@ -2448,6 +2451,7 @@ Tensor& _index_put_impl_hpu_lazy_(
     bool accumulate,
     UNUSED const bool unsafe) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
   return index_put_hpu_lazy_(self, indices, value, accumulate);
@@ -2482,6 +2486,8 @@ Tensor slice_shape_tensor(const Tensor& shape_tensor) {
 
 Tensor nonzero_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   int elements = self.numel();
@@ -2565,6 +2571,8 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
 
 Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   int elements = self.numel();
@@ -2652,6 +2660,8 @@ std::vector<at::Tensor> unbind_hpu_lazy_(const Tensor& self, int64_t dim) {
 
 Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   Tensor reshape_mask = mask;
   if (mask.dim() == 0) {
     reshape_mask = mask.unsqueeze(0);
@@ -2685,6 +2695,8 @@ Tensor& masked_select_out_hpu_lazy(
     const Tensor& mask,
     Tensor& out) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   Tensor reshape_mask = mask;
   if (mask.dim() == 0) {
     reshape_mask = mask.unsqueeze(0);
@@ -3024,6 +3036,8 @@ Tensor index_put_hpu_lazy(
     const Tensor& value_in,
     bool accumulate) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   std::vector<at::Tensor> indices_vec;
   for (c10::optional<Tensor> input : indices_list) {
     indices_vec.push_back(input.value());
@@ -3124,6 +3138,8 @@ Tensor& index_put_hpu_lazy_(
     const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   std::vector<at::Tensor> indices_in;
   for (c10::optional<Tensor> input : indices) {
     indices_in.push_back(input.value());
@@ -3234,6 +3250,8 @@ Tensor& masked_scatter_hpu_lazy_(
     const Tensor& mask,
     const Tensor& source) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
   auto broadcasted_mask = mask.broadcast_to(self.sizes().vec());
   auto flattened_size = std::accumulate(
       std::begin(source.sizes()),
@@ -5139,11 +5157,18 @@ Tensor clone_hpu_lazy(
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> k{"hpu::identity", {self}};
+  auto result = k.get_result();
+  auto func = [k = std::move(k), result]() mutable {
+    k.set_shape_changed();
+    k.call(result);
+  };
+
   auto result_func = [](at::Tensor& result) {
     result.unsafeGetTensorImpl()->set_sizes_contiguous(
         IntArrayRef(result.sizes()));
   };
-  RUN_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(clone, k, result_func);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(
+      clone, func, result, result_func);
 }
 
 Tensor& zero_hpu_lazy(Tensor& self) {
@@ -5952,6 +5977,8 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     bool return_inverse) {
   PT_LAZY_TRACE;
 
+  habana_lazy::NoAccThread no_acc_thread;
+
   if (self.numel() == 0) {
     auto shape = DimVector{0};
     auto output = empty_hpu_lazy(
@@ -6053,6 +6080,9 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
     bool return_inverse,
     bool return_counts) {
   PT_LAZY_TRACE;
+
+  habana_lazy::NoAccThread no_acc_thread;
+
   if (self.numel() == 0) {
     auto result_ = empty_hpu_lazy(
         self.sizes(), self.options(), self.suggest_memory_format(), true);
@@ -6127,6 +6157,8 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
     bool return_inverse,
     bool return_counts) {
   PT_LAZY_TRACE;
+
+  habana_lazy::NoAccThread no_acc_thread;
 
   if (dim < 0) {
     dim = self.dim() + dim;
