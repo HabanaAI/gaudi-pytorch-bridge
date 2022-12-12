@@ -600,6 +600,28 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
   return out_vec;
 }
 
+/* API to handle views for all inplace lazy collective kernels. Inplace Lazy
+ * collectives on views in general will require a stepmarker prior to execution
+ * of the collective. This is to ensure that the strided insert op invoked
+ * subsequent to the collective will pick up the updated tensor.
+ * TODO this can be optimized when the tensor is a contiguous view on a base.*/
+void HbLazyTensorViews::HandleViewsLazyCollective(at::Tensor& tensor) {
+  PT_LAZY_TRACE;
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto id = GetHbLazyTensorId(tensor);
+  StrideParams* params_ptr = nullptr;
+  {
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    params_ptr = context->viewContext.GetViewTableEntry(id);
+    if ((params_ptr != nullptr) && (params_ptr->viewStatus != kEvaluated)) {
+      PT_LAZY_DEBUG(
+          "stepmarker triggered to handle lazy inplace before collectives");
+      HbLazyTensor::StepMarker({});
+    }
+  }
+}
+
 std::vector<StridedOpSliceParams> HbLazyTensorViews::getSliceInsertParams(
     const at::Tensor& recent_orig_t,
     const at::Tensor& recent_src_t,

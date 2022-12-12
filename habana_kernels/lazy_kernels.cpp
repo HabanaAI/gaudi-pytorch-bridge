@@ -6793,7 +6793,7 @@ at::Tensor& broadcast_hpu_lazy_(
     int64_t root_rank,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-
+  HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
 
   LazyOp<at::Tensor&> k(
@@ -6806,9 +6806,8 @@ at::Tensor& allreduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-
+  HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::allreduce_", {tensor, reduce_op, comm_id}, {1, 2}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allreduce_, k, tensor)
@@ -6820,9 +6819,8 @@ at::Tensor& reduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-
+  HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::reduce_",
       {tensor, dst_rank, reduce_op, comm_id},
@@ -6883,6 +6881,7 @@ at::Tensor& send_hpu_lazy_(
     int64_t comm_id) {
   PT_LAZY_TRACE;
 
+  HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
 
   LazyOp<at::Tensor&> k(
@@ -6897,8 +6896,8 @@ at::Tensor& recv_hpu_lazy_(
     int64_t comm_id) {
   PT_LAZY_TRACE;
 
+  HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::recv_", {tensor, src_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
