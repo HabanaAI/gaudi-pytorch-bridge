@@ -1905,10 +1905,19 @@ void RecipeCacheLRU::InitDiskCache() {
   const bool is_ds_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) ||
-      (is_ds_enabled))
+  // "" is valid method to unset path
+  auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
+  if (recipe_cache_path == NULL) {
+    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
+  }
+
+  bool is_path_set =
+      (recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "");
+  if ((!is_path_set) || (is_ds_enabled)) {
+    PT_BRIDGE_DEBUG("Cannot cache to disk on Init ");
     return;
+  }
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
@@ -1917,10 +1926,17 @@ void RecipeCacheLRU::ResetDiskCache() {
   const bool is_ds_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   // Reset disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) ||
-      (is_ds_enabled))
+  auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
+  if (recipe_cache_path == NULL) {
+    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
+  }
+  bool is_path_set =
+      (recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "");
+  if ((!is_path_set) || (is_ds_enabled)) {
+    PT_BRIDGE_DEBUG("Cannot cache to disk on reset");
     return;
+  }
 
   if (disk_cache_) {
     disk_cache_.reset();
@@ -1979,8 +1995,13 @@ void DynamicBucketInfoMap::save_ds_checkpoint(const char* checkpoint_path) {
 
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if ((recipe_cache_path[0] != '\0') && (is_ds_cache_enabled)) {
+  const char* recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
+  if (recipe_cache_path == NULL) {
+    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
+  }
+  if ((recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "") &&
+      (is_ds_cache_enabled)) {
     RecipeCacheLRU::get_cache().Serialize(recipe_cache_path);
   }
 }
@@ -1999,8 +2020,13 @@ void DynamicBucketInfoMap::load_ds_checkpoint(const char* checkpoint_path) {
 
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if ((recipe_cache_path[0] != '\0') && (is_ds_cache_enabled)) {
+  const char* recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
+  if (recipe_cache_path == NULL) {
+    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
+  }
+  if ((recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "") &&
+      (is_ds_cache_enabled)) {
     RecipeCacheLRU::get_cache().Deserialize(recipe_cache_path);
   }
 }

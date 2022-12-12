@@ -241,8 +241,13 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK) << "\n";
     std::clog << " PT_HPU_FORCE_USE_DEFAULT_STREAM = "
               << GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM) << "\n";
-    std::clog << " PT_RECIPE_CACHE_PATH = "
-              << GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH) << "\n";
+    auto cpath = std::getenv("PT_RECIPE_CACHE_PATH");
+    if (cpath) {
+      std::clog << " PT_RECIPE_CACHE_PATH = " << cpath << "\n";
+    } else {
+      std::clog << " PT_RECIPE_CACHE_PATH = "
+                << GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH) << "\n";
+    }
     std::clog << " PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = "
               << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) << "\n";
     std::clog << " PT_HPU_DYNAMIC_MIN_POLICY_ORDER = "
