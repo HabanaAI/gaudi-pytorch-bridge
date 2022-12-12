@@ -224,11 +224,12 @@ int64_t Data::GetNextTensorId() {
   // Tensors are created concurrently in accumulation and main threads.
   // Tensor ids order is strictly determining the PostOrder graph.
   // In order to avoid nondeterministic tensor ids list,
-  // tensors created inside acc thread get negative ids
-  // to avoid collisions with tensors created in main thread.
+  // tensors created inside acc thread get ids starting in the middle of (0,max)
+  // of int64 range to avoid collisions with tensors created in main thread.
   static auto id_generator = std::atomic<int64_t>(1);
-  static auto acc_id_generator = std::atomic<int64_t>(-1);
-  return GetAccThreadPool().inThreadPool() ? acc_id_generator.fetch_sub(1)
+  static auto acc_id_generator =
+      std::atomic<int64_t>(std::numeric_limits<int64_t>::max() / 2);
+  return GetAccThreadPool().inThreadPool() ? acc_id_generator.fetch_add(1)
                                            : id_generator.fetch_add(1);
 }
 
