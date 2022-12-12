@@ -4,6 +4,7 @@
 #include <torch/torch.h>
 #include <stdexcept>
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -70,12 +71,14 @@ TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
       at::TensorOptions().dtype(dtype).device(hb_device);
 
   torch::manual_seed(0);
+  habana::getDefaultHPUGenerator().set_current_seed(0);
   auto eager = torch::randperm(n, hb_options);
   auto eager_cpu = eager.to(torch::kCPU);
 
   SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 1, 0);
 
   torch::manual_seed(0);
+  habana::getDefaultHPUGenerator().set_current_seed(0);
   auto lazy = torch::randperm(n, hb_options);
   auto lazy_cpu = lazy.to(torch::kCPU);
 

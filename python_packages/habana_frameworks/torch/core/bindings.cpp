@@ -11,6 +11,7 @@
 #include <torch/extension.h>
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 
@@ -29,6 +30,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         habana_lazy::HbLazyTensor::StepMarkerBind(device_str);
       },
       py::arg("device_str") = "");
-
+  m.def("_get_default_generator", []() {
+    return habana::getDefaultHPUGenerator();
+  });
   m.doc() = "This module registers hpu lazy api.";
 }

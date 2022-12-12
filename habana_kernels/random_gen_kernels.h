@@ -11,6 +11,8 @@
 #include "habana_kernels/habana_operator.h"
 namespace habana {
 
+at::Generator& getDefaultHPUGenerator();
+at::Generator createHPUGenerator();
 uint32_t get_seed_hpu(const c10::optional<torch::Generator>& gen);
 at::Tensor get_seed_tensor_hpu(const c10::optional<torch::Generator>& gen);
 

@@ -8,6 +8,7 @@ from typing import Union
 import datetime
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
+import habana_frameworks.torch.hpu.random as rand_hpu
 from habana_frameworks.torch.utils import _experimental_C
 from torch.fx import symbolic_trace
 
@@ -103,6 +104,15 @@ def post_fwd_hook(module, input, output):
                     o.register_hook(gen_grad_hook(grad_name))
     except:
         pass
+
+manual_seed_orig = torch.manual_seed
+
+@wraps(torch.manual_seed)
+def wrap_manual_seed(seed_):
+    rand_hpu.manual_seed_all(seed_)
+    return manual_seed_orig(seed_)
+
+torch.manual_seed = wrap_manual_seed
 
 add_module_orig = torch.nn.modules.Module.add_module
 

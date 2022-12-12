@@ -15,6 +15,7 @@
 
 #include <sstream>
 
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
@@ -25,7 +26,7 @@ void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
   auto gen = torch::get_generator_or_default<torch::CPUGeneratorImpl>(
-      c10::nullopt, at::detail::getDefaultCPUGenerator());
+      c10::nullopt, habana::getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;

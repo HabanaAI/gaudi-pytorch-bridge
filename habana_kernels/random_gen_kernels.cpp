@@ -29,9 +29,23 @@
 using namespace torch;
 
 namespace habana {
+
+// Getting the HPU worker generator instance
+Generator& getDefaultHPUGenerator() {
+  static auto default_gen_hpu = createHPUGenerator();
+  return default_gen_hpu;
+}
+
+// Utility to create a CPUGeneratorImpl. Returns a shared_ptr
+Generator createHPUGenerator() {
+  auto default_cpu_gen = at::detail::getDefaultCPUGenerator();
+  auto gen = make_generator<CPUGeneratorImpl>(default_cpu_gen.current_seed());
+  return gen;
+}
+
 uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
-  CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(
-      gen, at::detail::getDefaultCPUGenerator());
+  CPUGeneratorImpl* generator =
+      get_generator_or_default<CPUGeneratorImpl>(gen, getDefaultHPUGenerator());
 
   // Acquire lock when using random generators
   std::lock_guard<std::mutex> lock(generator->mutex_);

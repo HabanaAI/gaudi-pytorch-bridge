@@ -1,23 +1,19 @@
 import torch
 from typing import Iterable, List, Union
 import habana_frameworks.torch.hpu as hpu
+import habana_frameworks.torch._core_C as htcore
 from ._utils import _get_device_index
 from . import device_count, current_device
-from torch._C import default_generator
 from torch import Tensor
 
 default_generators: List[torch._C.Generator] = []
 for i in range(device_count()):
-    default_generators.append(default_generator)
+    default_generators.append(htcore._get_default_generator())
 
 __all__ = ['get_rng_state', 'get_rng_state_all',
            'set_rng_state', 'set_rng_state_all',
            'manual_seed', 'manual_seed_all',
            'seed', 'seed_all', 'initial_seed']
-
-def get_rng_state(device: Union[int, str, torch.device] = 'hpu') -> Tensor:
-    device_index = _get_device_index(device)
-    return default_generators[device_index].get_state()
 
 def get_rng_state(device: Union[int, str, torch.device] = 'hpu') -> Tensor:
     device_index = _get_device_index(device)
