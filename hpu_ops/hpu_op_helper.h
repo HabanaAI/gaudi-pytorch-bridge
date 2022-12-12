@@ -248,6 +248,16 @@ inline float& get<float>(fint_t& u) {
   }                                                                         \
   return lazy_op.call(self);
 
+#define RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)          \
+  if (habana_lazy::CanUseAccThread()) {                                     \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    lazy_op.get_result(self);                                               \
+    scheduleAccTask(std::move(lazy_op), self);                              \
+    MAYBE_FLUSH_OP(1);                                                      \
+    return self;                                                            \
+  }                                                                         \
+  return lazy_op.call(self);
+
 #define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                        \
   if (habana_lazy::CanUseAccThread()) {                                     \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
