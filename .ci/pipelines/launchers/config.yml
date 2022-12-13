@@ -20,7 +20,7 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: sim_gaudi_pytorch_single_op_tests---t-dg
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
@@ -49,27 +49,19 @@ launchers:
     isStable: true
     files:
       - "gaudi_pytorch_distributed_tests---t-dg.jenkinsfile"
-- testToLaunch: Test_pytorch_gaudi_sim_single_op_dynamic_tests
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-  - repository: jenkins_files
-    isStable: true
-    files:
-    - 'sim_pytorch_single_op_tests---t-dg.jenkinsfile'
-- testToLaunch: Test_pytorch_gaudi2_sim_single_op_dynamic_tests
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-  - repository: jenkins_files
-    isStable: true
-    files:
-    - 'sim_pytorch_single_op_tests---t-dg.jenkinsfile'
-- testToLaunch: Test_pytorch_gaudi2_sim_single_op
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork

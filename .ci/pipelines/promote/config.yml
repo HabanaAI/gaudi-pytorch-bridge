@@ -9,13 +9,18 @@ orchestratorConfig:
   - testToLaunch: Test_pytorch_gaudi2_asic_smoke_topology
   - testToLaunch: Test_pytorch_gaudi2_asic_perf
   - testToLaunch: gaudi_pytorch_distributed_tests---t-dg
-# PyTorch features and Operator validation
-  - testToLaunch: sim_gaudi_pytorch_single_op_tests---t-dg
-  - testToLaunch: Test_pytorch_gaudi2_sim_single_op
-  - testToLaunch: Test_pytorch_gaudi_sim_single_op_dynamic_tests
-  - testToLaunch: Test_pytorch_gaudi2_sim_single_op_dynamic_tests
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_master_next
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite_master_next
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_master_next
+# PyTorch Operators and feature validation <Start>
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite
+# Dtype validation <Start>
+  - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
+    silentMode: true
+  - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite_dtype
+    silentMode: true
+# Dtype validation <End>
+# PyTorch Operators and feature validation <End>
 stepConfig:
   jobTimeout: '300'
