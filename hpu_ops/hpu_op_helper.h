@@ -35,7 +35,7 @@ template <class T, class InputType>
 void scheduleAccTask(T&& lazy_op, InputType tensor) {
   habana_lazy::GetAccThreadPool().run(
       [op = std::move(lazy_op), tensor = std::move(tensor)]() mutable {
-        PT_LAZY_TRACE;
+        PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(tensor);
         habana_lazy::PushCleanupTask(
             [op = std::move(op), tensor = std::move(tensor)]() {});
@@ -49,7 +49,7 @@ void scheduleAccTask(
 ) {
   habana_lazy::GetAccThreadPool().run(
       [op = std::move(lazy_op), result = std::move(result)]() mutable {
-        PT_LAZY_TRACE;
+        PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(result);
         habana_lazy::PushCleanupTask(
             [op = std::move(op), result = std::move(result)]() {});
@@ -65,7 +65,7 @@ void scheduleAccTask(
       [op = std::move(lazy_op),
        result = std::move(result),
        tensor_list_copy = std::move(tensor_list_copy)]() mutable {
-        PT_LAZY_TRACE;
+        PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         op.call(result);
         habana_lazy::PushCleanupTask(
             [op = std::move(op),
@@ -84,7 +84,7 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
       "Only tuples up to 3 and with size 5 are supported");
   habana_lazy::GetAccThreadPool().run(
       [op = std::move(lazy_op), tensors = std::move(tensors)]() mutable {
-        PT_LAZY_TRACE;
+        PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
         if (tensors.size() == 2) {
           op.call(std::tie(tensors[0], tensors[1]));
         } else if (tensors.size() == 3) {
@@ -282,7 +282,7 @@ inline float& get<float>(fint_t& u) {
   if (habana_lazy::CanUseAccThread()) {                                      \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
     habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE;                                                         \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
       func();                                                                \
       habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
     });                                                                      \
@@ -297,7 +297,7 @@ inline float& get<float>(fint_t& u) {
   if (habana_lazy::CanUseAccThread()) {                                      \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
     habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE;                                                         \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
       func();                                                                \
       habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
     });                                                                      \
@@ -313,7 +313,7 @@ inline float& get<float>(fint_t& u) {
   if (habana_lazy::CanUseAccThread()) {                                      \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");  \
     habana_lazy::GetAccThreadPool().run([func = std::move(func)]() mutable { \
-      PT_LAZY_TRACE;                                                         \
+      PT_LAZY_TRACE_WITH_NAME(#op);                                          \
       func();                                                                \
       habana_lazy::PushCleanupTask([func = std::move(func)]() {});           \
     });                                                                      \
