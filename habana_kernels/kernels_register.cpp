@@ -906,36 +906,6 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
   }
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
-at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "bernoulli_:", "self=", to_string(self), " repeats=", to_string(repeats));
-  FALLBACK_IF_UNSUPPORTED_OP(repeat, PARAMS1(self), PARAMS2(self, repeats))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return repeat_hpu_lazy(self, repeats);
-  } else {
-    return repeat_hpu(self, repeats);
-  }
-}
-#else
-at::Tensor hpu_wrap::repeat(
-    const at::Tensor& self,
-    c10::SymIntArrayRef repeats) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "repeat:", "self=", to_string(self), " repeats=", to_string(repeats));
-  FALLBACK_IF_UNSUPPORTED_OP(repeat, PARAMS1(self), PARAMS2(self, repeats))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return repeat_hpu_lazy(self, asIntArrayRefSlow(repeats));
-  } else {
-    return repeat_hpu(self, asIntArrayRefSlow(repeats));
-  }
-}
-#endif
-
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
     c10::optional<int64_t> output_size) {

@@ -5358,6 +5358,16 @@ remainder.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
 
+repeat:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Int, Half, Char]
+    Gaudi3: [BFloat16, Float, Int, Half, Char]
+    Greco: [BFloat16, Float, Int, Half, Char]
+  override_fn: repeat_hpu_lazy
+  acc_thread: true
+
 replication_pad1d:
   force_default: false
   custom_output_shape: ReplicationPad1dOutputShape

@@ -4823,9 +4823,16 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
-
+#else
+at::Tensor repeat_hpu_lazy(
+    const at::Tensor& self,
+    at::SymIntArrayRef _repeats) {
+  PT_LAZY_TRACE;
+  auto repeats = c10::asIntArrayRefSlow(_repeats);
+#endif
   if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR)) {
     return repeat_hpu_lazy_ht(self, repeats);
   }

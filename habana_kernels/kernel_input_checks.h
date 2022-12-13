@@ -1345,18 +1345,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "repeat",
-                {{at::ScalarType::Short,
-                  at::ScalarType::Int,
-                  at::ScalarType::Long,
-                  at::ScalarType::Char,
-                  at::ScalarType::Double,
-                  at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Bool}},
-            },
-            {
                 "repeat_interleave",
                 {{at::ScalarType::Long, at::ScalarType::Int}},
             },

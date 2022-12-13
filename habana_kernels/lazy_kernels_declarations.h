@@ -436,7 +436,11 @@ std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu_lazy(
     const at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats);
+#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::IntArrayRef repeats);
+#else
+at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
+#endif
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
