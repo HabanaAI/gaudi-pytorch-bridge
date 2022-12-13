@@ -355,6 +355,10 @@ def wrap_in_hpu_graph(module):
     return module
 
 class TensorPacker:
+    def __init__(self, is_out_pack=False, verbose=False):
+        self._is_out_pack = is_out_pack #Whether the pack/unpack is for output of graph forward
+        self._verbose = verbose
+
     class Index:
         def __init__(self, value):
             self.value = value
@@ -362,34 +366,39 @@ class TensorPacker:
         def __repr__(self):
             return '#{0:d}'.format(self.value)
 
-    def pack(self, outs, verbose=False):
+    def pack(self, outs):
         tensor_list = []
-        metadata = self._pack(outs, tensor_list, verbose=verbose)
+        metadata = self._pack(outs, tensor_list)
         return tuple(tensor_list), metadata
 
-    def _pack(self, outs, tensor_list, verbose=False):
+    def _pack(self, outs, tensor_list):
         if torch.is_tensor(outs):
-            metadata = self.Index(len(tensor_list))
-            tensor_list.append(outs)
+            if self._is_out_pack and (not outs.requires_grad):
+                if self._verbose:
+                    print('[WARNING] Tensor with requires_grad=False added to pack')
+                return outs
+            else:
+                metadata = self.Index(len(tensor_list))
+                tensor_list.append(outs)
 
         elif isinstance(outs, tuple):
             metadata = list(copy.copy(outs))
             for idx, item in enumerate(outs):
-                metadata[idx] = self._pack(item, tensor_list, verbose=verbose)
+                metadata[idx] = self._pack(item, tensor_list)
             metadata = tuple(metadata)
 
         elif isinstance(outs, dict):
             metadata = copy.copy(outs)
             for key in outs:
-                metadata[key] = self._pack(outs[key], tensor_list, verbose=verbose)
+                metadata[key] = self._pack(outs[key], tensor_list)
 
         elif isinstance(outs, list):
             metadata = copy.copy(outs)
             for idx, item in enumerate(outs):
-                metadata[idx] = self._pack(item, tensor_list, verbose=verbose)
+                metadata[idx] = self._pack(item, tensor_list)
 
         else:
-            if verbose:
+            if self._verbose:
                 print('[WARNING] Variable of type {0} will not be dynamic'.format(type(outs)))
             return outs
 
@@ -430,7 +439,7 @@ class GraphModel(torch.nn.Module):
         self.model = model
         self.input_packer = TensorPacker()
         self.input_meta = None
-        self.output_packer = TensorPacker()
+        self.output_packer = TensorPacker(is_out_pack=True)
         self.output_meta = None
         self.func_parameters = self.process_function_signature(self.model.forward)
 
@@ -444,7 +453,7 @@ class GraphModel(torch.nn.Module):
         if input_id is not None:
             assert input_id == self.input_id
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
-        tensor_args, _ = self.input_packer.pack(full_args, verbose=False)
+        tensor_args, _ = self.input_packer.pack(full_args)
         out_tensors = self.hpu_graph(*tensor_args)
         return self.output_packer.unpack(out_tensors, self.output_meta)
 
