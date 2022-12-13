@@ -148,6 +148,19 @@ struct HbLazyFrontEndInfoToBackend {
     is_hccl_send_mark_step = flag;
   }
 
+  std::vector<uint64_t> get_lazy_eager_op_input_uids() {
+    return lazy_eager_op_input_uids;
+  }
+
+  size_t get_lazy_eager_op_num_of_uids() {
+    return lazy_eager_op_num_of_uids;
+  }
+
+  void set_lazy_eager_op_input_uids(std::vector<uint64_t>&& uids) {
+    lazy_eager_op_input_uids = std::move(uids);
+    lazy_eager_op_num_of_uids = lazy_eager_op_input_uids.size();
+  }
+
  private:
   // The value 0 of optimized_lazy_eager_key is used to indicate the unhandled
   // cases in optimized lazy eager so that no cache entry is prepared in
@@ -158,6 +171,8 @@ struct HbLazyFrontEndInfoToBackend {
   std::vector<ir::Value> input_values{};
   bool is_hccl_send_mark_step = false;
   bool is_broadcastable = false;
+  std::vector<uint64_t> lazy_eager_op_input_uids{};
+  size_t lazy_eager_op_num_of_uids = 0;
 };
 
 class HbLazyTensor {

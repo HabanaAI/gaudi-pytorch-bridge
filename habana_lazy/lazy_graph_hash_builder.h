@@ -143,6 +143,14 @@ class GraphHashBuilder {
       const std::vector<HbLazyTensor>& tensors,
       const std::vector<int>& indices);
 
+  void set_graph_input_stack_uids(std::vector<uint64_t>&& uids) {
+    graph_input_stack_uids = std::move(uids);
+  }
+
+  std::vector<uint64_t>& get_input_stack_uid_map() {
+    return graph_input_stack_uid_map;
+  }
+
  private:
   GraphHashBuilder() {
     // TBD: Use absl InlinedVector

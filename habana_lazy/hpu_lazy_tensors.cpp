@@ -1182,6 +1182,36 @@ void SetupExecutionFromRunningHash(
   }
 }
 
+void CorrectInputOrder(
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
+    const std::vector<uint64_t>& input_map) {
+  std::vector<ir::Value>& input_values_in_orig_order =
+      lazyFrontEndInfo->get_input_values();
+  assert(input_map.size());
+  std::vector<ir::Value> input_values_in_post_order{};
+  input_values_in_post_order.reserve(input_map.size());
+  for (auto idx : input_map) {
+    input_values_in_post_order.emplace_back(input_values_in_orig_order.at(idx));
+  }
+  lazyFrontEndInfo->set_input_values(std::move(input_values_in_post_order));
+}
+
+void PrepareInputOrderMap(
+    std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
+    const std::vector<ir::Value>& inputs,
+    exec::HlExec& hlexec) {
+  auto graph_input_stack_uids =
+      lazyFrontEndInfo->get_lazy_eager_op_input_uids();
+  HABANA_ASSERT(
+      graph_input_stack_uids.size() > 0, " Input uids not prepared! ");
+  auto& graph_hash_builder = GraphHashBuilder::getInstance();
+  graph_hash_builder.set_graph_input_stack_uids(
+      std::move(graph_input_stack_uids));
+  graph_hash_builder.prepareInputsStackMap(inputs);
+  hlexec.set_fwd_graph_stack_map(graph_hash_builder.getInputStackMap());
+  graph_hash_builder.reset();
+}
+
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
@@ -1282,6 +1312,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       // Setting output shapes for the lazy eager shape agnostic graph
       optimized_path_jit_ir_and_mdata->set_output_shapes(out_shapes);
     }
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      auto input_map =
+          optimized_path_jit_ir_and_mdata->get_fwd_graph_builder_stack_map();
+      if (input_map.size() > 1) {
+        CorrectInputOrder(lazyFrontEndInfo, input_map);
+      }
+    }
+
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) ||
         !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
       context->JoinPendingLaunchThread();
@@ -1313,6 +1352,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           " scalar_to_hpu_tensor_list size:",
           context->copy_scalar_to_hpu_tensor_list.size());
       context->JoinPendingLaunchThread();
+
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) && lazyFrontEndInfo) {
+        auto num_of_input_uids =
+            lazyFrontEndInfo->get_lazy_eager_op_num_of_uids();
+        if (num_of_input_uids > 1) {
+          PrepareInputOrderMap(lazyFrontEndInfo, po_data.inputs, hlexec);
+        }
+      }
+
       // ValidateSyncInputTensors(po_data.inputs);
       stack = PrepareInputStack(
           tensors, indices, po_data.inputs, false, &po_data.post_order);

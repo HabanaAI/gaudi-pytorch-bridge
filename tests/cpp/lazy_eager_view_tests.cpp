@@ -227,7 +227,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmOnView1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, DISABLED_AddMmOnView2) {
+TEST_F(LazyEagerViewOpsTest, AddMmOnView2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -254,6 +254,74 @@ TEST_F(LazyEagerViewOpsTest, DISABLED_AddMmOnView2) {
     O = torch::addmm(hA, hB_view, hC_t, 1, 1);
     computed = O.to(torch::kCPU);
     EXPECT_TRUE(allclose(expected, computed, 0.001, 0.001));
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddMmInPlace1) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({256, 1000});
+    torch::Tensor B = torch::randn({256, 2048, 1, 1});
+    torch::Tensor C = torch::randn({1000, 2048});
+
+    auto B_view = B.view({256, 2048});
+    auto C_t = torch::t(C);
+
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    auto hB_view = hB.view({256, 2048});
+    auto hC_t = torch::t(hC);
+    hA.addmm_(hB_view, hC_t, 1, 1);
+
+    A.addmm_(B_view, C_t, 1, 1);
+
+    EXPECT_TRUE(allclose(A, hA.cpu(), 0.001, 0.001));
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, DISABLED_AddMmInPlace2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({256, 1000});
+    torch::Tensor B = torch::randn({256, 2048, 1, 1});
+    torch::Tensor C = torch::randn({1000, 2048});
+
+    auto B_view = B.view({256, 2048});
+    auto C_t = torch::t(C);
+
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    auto hB_view = hB.view({256, 2048});
+    auto hC_t = torch::t(hC);
+    hA.addmm_(hB_view, hC_t, 1, 1);
+
+    A.addmm_(B_view, C_t, 1, 1);
+
+    EXPECT_TRUE(allclose(A, hA.cpu(), 0.001, 0.001));
+
+    torch::Tensor A_2 = torch::randn({256, 1000});
+    torch::Tensor B_2 = torch::randn({256, 2048, 1, 1});
+    torch::Tensor C_2 = torch::randn({1000, 2048});
+
+    auto B_2_view = B_2.view({256, 2048});
+    auto C_2_t = torch::t(C_2);
+
+    torch::Tensor hA_2 = A_2.to(torch::kHPU);
+    torch::Tensor hB_2 = B_2.to(torch::kHPU);
+    torch::Tensor hC_2 = C_2.to(torch::kHPU);
+    auto hB_2_view = hB_2.view({256, 2048});
+    auto hC_2_t = torch::t(hC_2);
+    hA_2.addmm_(hB_2_view, hC_2_t, 1, 1);
+
+    A_2.addmm_(B_2_view, C_2_t, 1, 1);
+
+    EXPECT_TRUE(allclose(A_2, hA_2.cpu(), 0.001, 0.001));
   }
 }
 

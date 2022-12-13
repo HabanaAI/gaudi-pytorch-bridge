@@ -303,8 +303,13 @@ class LazyOp {
 
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+          info_to_lazy_backend) {
+        // lazy eager - preparing the input tensor uids
+        prepare_lazy_eager_input_uids(info_to_lazy_backend);
+
         handle_strided_inputs();
       }
       auto node = create_node();
@@ -431,8 +436,13 @@ class LazyOp {
 
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+          info_to_lazy_backend) {
+        // lazy eager - preparing the input tensor uids
+        prepare_lazy_eager_input_uids(info_to_lazy_backend);
+
         handle_strided_inputs();
       }
       i = 0;
@@ -588,8 +598,13 @@ class LazyOp {
     auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+          info_to_lazy_backend) {
+        // lazy eager - preparing the input tensor uids
+        prepare_lazy_eager_input_uids(info_to_lazy_backend);
+
         handle_strided_inputs();
       }
       const auto& node = create_node();
@@ -621,6 +636,14 @@ class LazyOp {
     auto hl_result = GetHbLazyTensor(self, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
       PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
+
+      // lazy eager - preparing the input tensor uids
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+          info_to_lazy_backend) {
+        prepare_lazy_eager_input_uids(info_to_lazy_backend);
+      }
+
       const auto& node = create_node();
       hl_result.IrSetNode(node);
     } else {
@@ -721,7 +744,9 @@ class LazyOp {
 
   void HandleViewsInplace(
       const at::Tensor& self,
-      habana_lazy::HbLazyTensor& hl_self) {
+      habana_lazy::HbLazyTensor& hl_self,
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
+          nullptr) {
     auto orig_size = self.sizes();
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
@@ -771,7 +796,11 @@ class LazyOp {
     }
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+        info_to_lazy_backend) {
+      // lazy eager - preparing the input tensor uids
+      prepare_lazy_eager_input_uids(info_to_lazy_backend);
+
       handle_strided_inputs();
     }
 
@@ -866,6 +895,14 @@ class LazyOp {
       }
       if (isOptimizedLazyEager == false) {
         PT_LAZY_DEBUG("Normal Lazy Eager Inplace Path Chosen");
+
+        // lazy eager - preparing the input tensor uids
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+            info_to_lazy_backend) {
+          prepare_lazy_eager_input_uids(info_to_lazy_backend);
+        }
+
         const auto& node = create_node();
         hl_self.IrSetNode(node);
         // Special handling for SBS in inplace, before the inplace op will
@@ -880,7 +917,7 @@ class LazyOp {
         info_to_lazy_backend->set_input_values(std::move(input_vals));
       }
     } else {
-      HandleViewsInplace(self, hl_self);
+      HandleViewsInplace(self, hl_self, info_to_lazy_backend);
     }
 
     // numel == 0 is the correct check, need the size check until pytorch
@@ -1455,6 +1492,17 @@ class LazyOp {
 
     create_inputs(values, input_pt_vec, metadata, true);
     return values;
+  }
+
+  void prepare_lazy_eager_input_uids(
+      std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend) {
+    std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+    std::vector<uint64_t> uids{};
+    for (auto in : input_vals) {
+      std::shared_ptr<Data> d = in.m_data_ptr.lock();
+      uids.emplace_back(d->unique_id);
+    }
+    info_to_lazy_backend->set_lazy_eager_op_input_uids(std::move(uids));
   }
 
   void handle_strided_input(const at::Tensor& self, size_t idx) {
