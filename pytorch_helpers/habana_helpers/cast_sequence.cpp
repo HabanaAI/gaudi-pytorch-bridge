@@ -219,6 +219,7 @@ std::ostream& operator<<(std::ostream& os, const CastType& obj) {
 
 CastType DataTypeToCastType(const at::ScalarType& dt) {
   switch (dt) {
+    case at::ScalarType::Double:
     case at::ScalarType::Float:
       return CastType::f32;
     case at::ScalarType::BFloat16:
@@ -235,9 +236,8 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
     case at::ScalarType::Short:
       return CastType::i16;
     case at::ScalarType::Int:
-      return CastType::i32;
     case at::ScalarType::Long:
-      return CastType::i64;
+      return CastType::i32;
     case at::ScalarType::Byte:
       return CastType::u8;
     default:
