@@ -81,9 +81,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
   {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
-    if (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION)) {
-      devctx->tensors_data_opt.erase(unique_id);
-    }
+    devctx->tensors_data_opt.erase(unique_id);
   }
 
   c10::optional<at::Tensor> viewEntryTensor;
@@ -121,7 +119,6 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION)) {
     for (auto& uid_wptr : devctx->tensors_data_opt) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
       HABANA_ASSERT(data);
@@ -146,34 +143,6 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
       std::lock_guard<std::recursive_mutex> lock(GetMutex());
       devctx->tensors_data_opt.clear();
     }
-  } else {
-    for (auto& uid_wptr : devctx->tensors_data) {
-      std::shared_ptr<Data> data = uid_wptr.second.lock();
-      if (data != nullptr) {
-        auto id = data->unique_id;
-        if (data->ir_value && data->ir_value.mp_node->is_input() == false) {
-          auto hl_t = HbLazyTensor(std::move(data));
-
-          auto params_ptr = context->viewContext.GetViewTableEntry(id);
-          auto is_view = (params_ptr != nullptr);
-
-          if (bucket_recent_id.count(id)) {
-            context->viewContext.updated_bucket_list.emplace_back(hl_t);
-          }
-          auto is_view_out = context->viewContext.view_outputs.count(id);
-
-          if (is_view_out ||
-              ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-               (context->viewContext.GetOrigTensorMapEntry(id) ==
-                c10::nullopt))) {
-            tensors.emplace_back(hl_t);
-          }
-        } else { // if (data != nullptr)
-          data->execution_status = kEXECUTION_COMPLETE;
-        }
-      } // for (auto& uid_wptr : devctx->tensors_data)
-    }
-  }
   return tensors;
 }
 
@@ -760,23 +729,22 @@ void HbLazyTensor::SyncTensorsGraph(
     synEventHandle event_handle,
     synapse_helpers::hpuStream_t event_stream,
     bool event_flag) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION)) {
-    HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(
-        GetDeviceOrCurrent(""));
-    // If we reach here with anything in tensors_data_opt, it means its a direct
-    // call to SyncTensorsGraph and partial execution may happen => clear data
-    // for tensors that will be evaluated as part of current execution. For all
-    // other cases tensors_data_opt is already completely cleared in
-    // GetLiveTensors.
-    if (devctx->tensors_data_opt.size()) {
-      for (auto& t : *tensors) {
-        if (devctx->tensors_data_opt.find(t.getTensorUniqueId()) !=
-            devctx->tensors_data_opt.end()) {
-          devctx->tensors_data_opt.erase(t.getTensorUniqueId());
-        }
+  HbContext* devctx =
+      habana_lazy::HbContextArena::Get()->GetHbContext(GetDeviceOrCurrent(""));
+  // If we reach here with anything in tensors_data_opt, it means its a direct
+  // call to SyncTensorsGraph and partial execution may happen => clear data
+  // for tensors that will be evaluated as part of current execution. For all
+  // other cases tensors_data_opt is already completely cleared in
+  // GetLiveTensors.
+  if (devctx->tensors_data_opt.size()) {
+    for (auto& t : *tensors) {
+      if (devctx->tensors_data_opt.find(t.getTensorUniqueId()) !=
+          devctx->tensors_data_opt.end()) {
+        devctx->tensors_data_opt.erase(t.getTensorUniqueId());
       }
     }
   }
+
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   context->executing_tids.clear();
   context->executing_tids.reserve(tensors->size());

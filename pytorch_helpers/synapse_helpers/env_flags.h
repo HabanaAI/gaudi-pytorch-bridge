@@ -392,9 +392,6 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING, bool, false);
 // Allow stitching together of ops in PT Bridge Lowering
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool, true);
 
-// Host processing optimizations
-ENV_STRUCT_DEFINITION(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION, bool, true);
-
 // matmul 3d,2d case handling with reshape
 ENV_STRUCT_DEFINITION(PT_HPU_MATMUL3D_2D_RESHAPE, bool, false);
 

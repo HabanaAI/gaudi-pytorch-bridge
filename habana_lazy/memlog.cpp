@@ -51,9 +51,6 @@ void log_dev_mem_stats(
   if (!s_mem_log_enabled) {
     return;
   }
-  TORCH_CHECK(
-      !GET_ENV_FLAG_NEW(PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION),
-      "The flag PT_ENABLE_GET_LIVE_TENSORS_OPTIMIZATION must be set to false whe using the memory logger.");
 
   std::stringstream ss;
   ss.precision(2);
@@ -92,34 +89,33 @@ void log_dev_mem_stats(
         context->m_launch_thread_context == false &&
         !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
       auto aten_device = SynapseDeviceToAtenDevice(device);
-      auto live_tensors = HbContextArena::Get()->GetLiveTensors(&aten_device);
 
-      uint32_t ghost = 0;
-      uint64_t ghost_bytes = 0;
       uint32_t future = 0;
       uint64_t future_bytes = 0;
-      ghost_bytes = size;
-      for (auto& t : live_tensors) {
-        auto device_ptr = reinterpret_cast<synapse_helpers::device_ptr>(
-            get_hb_lazy_data_ptr(t));
-        bool is_allocated = false;
+      HbContext* devctx =
+          habana_lazy::HbContextArena::Get()->GetHbContext(aten_device);
 
-        if (device_ptr) {
-          is_allocated = device_memory.is_allocated(device_ptr);
-        }
+      for (auto& uid_wptr : devctx->tensors_data_opt) {
+        std::shared_ptr<Data> data = uid_wptr.second.lock();
 
-        if (is_allocated and t.ToTensor(false).use_count() == 1) {
-          // Potentially ghost tensors
-          ++ghost;
-          ghost_bytes += compute_size(t);
-        } else if (not is_allocated) {
-          // Future, not yet allocated tensors
-          ++future;
-          future_bytes += compute_size(t);
+        if (data != nullptr) {
+          auto t = HbLazyTensor(std::move(data));
+          auto device_ptr = reinterpret_cast<synapse_helpers::device_ptr>(
+              get_hb_lazy_data_ptr(t));
+          bool is_allocated = false;
+
+          if (device_ptr) {
+            is_allocated = device_memory.is_allocated(device_ptr);
+          }
+
+          if (not is_allocated) {
+            // Future, not yet allocated tensors
+            ++future;
+            future_bytes += compute_size(t);
+          }
         }
       }
-      ss << ", ghost " << ghost_bytes / GB << "gb (" << ghost << "), future "
-         << future_bytes / GB << "gb (" << future << ")";
+      ss << " future " << future_bytes / GB << "gb (" << future << ")";
     }
 
     ss << ", last workspace " << device.get_real_workspace_size() / GB << "gb";
