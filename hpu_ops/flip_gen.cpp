@@ -28,6 +28,16 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   const auto outshape = stack_tensor(stack, 0).sizes();
 
+  if (dim_list_size == 0) {
+    auto out = OpBackend::BuildOp(
+        graph,
+        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0)},
+        {{outshape, ScalarType(), 0}});
+    syn_out(0) = std::move(out[0]);
+    return;
+  }
+
   std::vector<synTensor> intermediate_output_itr;
   std::vector<synapse_helpers::tensor> intermediate_output;
 
