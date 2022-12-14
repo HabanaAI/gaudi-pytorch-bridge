@@ -211,12 +211,11 @@ def make_graphed_callables(callables, sample_args, warmups=0):
         class Graphed(torch.autograd.Function):
             @staticmethod
             def forward(ctx, *inputs):
-                #for i in range(len_user_args):
+                for i in range(len_user_args):
                     # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
                     #     static_input_surface[i].copy_(inputs[i])
-                #    static_input_surface[i].copy_(inputs[i])
-                #fwd_graph.replay()
-                fwd_graph.replayV2(static_input_surface, inputs)
+                    static_input_surface[i].copy_(inputs[i])
+                fwd_graph.replay()
                 assert isinstance(static_outputs, tuple)
                 return tuple(o.detach() for o in static_outputs)
 
@@ -226,12 +225,11 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                 for g, grad in zip(static_grad_outputs, grads):
                     if g is None:
                         assert grad is None
-                    #else:
+                    else:
                         # if g.data_ptr() != grad.data_ptr():
                         #     g.copy_(grad)
-                        #g.copy_(grad)
-                #bwd_graph.replay()
-                bwd_graph.replayV2(static_grad_outputs, grads)
+                        g.copy_(grad)
+                bwd_graph.replay()
 
                 # Input args that didn't require grad expect a None gradient.
                 assert isinstance(static_grad_inputs, tuple)
@@ -441,6 +439,7 @@ class GraphModel(torch.nn.Module):
         self.input_meta = None
         self.output_packer = TensorPacker(is_out_pack=True)
         self.output_meta = None
+        self.assert_not_dataparallel()
         self.func_parameters = self.process_function_signature(self.model.forward)
 
     def forward(self, *args):
@@ -449,9 +448,7 @@ class GraphModel(torch.nn.Module):
         out_tensors, self.output_meta = self.output_packer.pack(outs)
         return out_tensors
 
-    def graph_forward(self, *args, input_id=None, **kwargs):
-        if input_id is not None:
-            assert input_id == self.input_id
+    def graph_forward(self, *args, **kwargs):
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
         tensor_args, _ = self.input_packer.pack(full_args)
         out_tensors = self.hpu_graph(*tensor_args)
@@ -462,6 +459,12 @@ class GraphModel(torch.nn.Module):
         self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
         self.hpu_graph = make_graphed_callables(self, tensor_args)
+
+    def assert_not_dataparallel(self):
+        assert not isinstance(self.model, torch.nn.parallel.DataParallel) and \
+            not isinstance(self.model, torch.nn.parallel.DistributedDataParallel), (
+            "Use DataParallel/DistributedDataParallel only after wrapping with ModuleCacher"
+        )
 
     @staticmethod
     def process_function_signature(function):
@@ -506,7 +509,7 @@ class ModuleCacher(torch.nn.Module):
         input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
         if input_id in self.model_dict:
             graph_model = self.model_dict[input_id]
-            output = graph_model.graph_forward(*args, input_id=input_id, **kwargs)
+            output = graph_model.graph_forward(*args, **kwargs)
             return output
 
         elif len(self.model_dict) < self.max_graphs and torch.is_grad_enabled() and self.use_lazy_mode:

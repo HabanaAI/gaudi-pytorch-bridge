@@ -2,6 +2,7 @@ import copy
 import torch
 import habana_frameworks.torch as ht
 from test_utils import compare_tensors, _kernel_copy_to_device
+
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()
 def warp_func(first):
@@ -123,7 +124,7 @@ def test_tensor_packer():
     metadata_expected = "({'x': #0, 'y': #1}, #2)"
     assert str(metadata) == metadata_expected, "Incorrect metadata:\nExpected {0},  but got {1}".format(metadata_expected, metadata)
 
-    return output == output_unpacked
+    assert output == output_unpacked
 
 class Net(torch.nn.Module):
     def __init__(self):
@@ -174,7 +175,7 @@ def test_cached_module_training():
     model.load_state_dict(state_dict)
     ht.hpu.ModuleCacher()(model=model, inplace=True)
     loss_cached = train_model()
-    return loss_original == loss_cached
+    assert loss_original == loss_cached
 
 if __name__ == "__main__":
     test_multiple_graph_capture()
