@@ -503,6 +503,16 @@ select_backward:
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu_lazy
 
+_unique2:
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
+    Greco: [Float, Int]
+  override_fn: unique2_hpu_lazy
+  fallback_check: [Unique2FallbackCheck, self, sorted, return_inverse, return_counts]
+  acc_thread: true
+
 abs:
   force_default: false
   dtypes:

@@ -3516,13 +3516,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "_unique2",
-                {{at::ScalarType::Float,
-                  at::ScalarType::Int,
-                  at::ScalarType::Long,
-                  at::ScalarType::Double}},
-            },
-            {
                 "unique_",
                 {{at::ScalarType::Float,
                   at::ScalarType::Int,

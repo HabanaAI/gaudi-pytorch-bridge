@@ -1238,48 +1238,6 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   }
 };
 
-std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
-    const at::Tensor& self,
-    bool sorted,
-    bool return_inverse,
-    bool return_counts) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "_unique2 :",
-      " self=",
-      to_string(self),
-      " sorted=",
-      to_string(sorted),
-      " return_inverse=",
-      to_string(return_inverse),
-      " return_counts=",
-      to_string(return_counts));
-  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
-  std::vector<c10::IValue> op_stack = {
-      IValue(self),
-      IValue(sorted),
-      IValue(return_inverse),
-      IValue(return_counts)};
-  check_handle->hpu_check_ivalues("unique", op_stack);
-
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      _unique2,
-      PARAMS1(self),
-      PARAMS2(self, sorted, return_inverse, return_counts))
-
-  if (sorted && self.dim() != 1) {
-    FALLBACK_IF_UNSUPPORTED_OP2(
-        _unique2, PARAMS2(self, sorted, return_inverse, return_counts))
-  }
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
-  } else {
-    return unique2_hpu(self, sorted, return_inverse, return_counts);
-  }
-}
-
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   PT_OP_TRACE;
