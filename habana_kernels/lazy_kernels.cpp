@@ -5892,7 +5892,7 @@ Tensor squeeze_self_hpu_lazy(const Tensor& self) {
 Tensor squeeze_dim_hpu_lazy(const Tensor& self, int64_t dim) {
   PT_LAZY_TRACE;
 
-  return at::native::squeeze(self, dim);
+  return squeeze_hpu_lazy(self, dim);
 }
 
 Tensor& squeeze_hpu_lazy_(Tensor& self) {
