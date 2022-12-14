@@ -228,8 +228,11 @@ void Bucket::UpdateRunTime(uint64_t elapsed_time) {
     DynamicBucketInfo::inc_refined_syn_runtime(elapsed_time);
   }
   if (base_time_ > 0) {
+    uint32_t time_improve_threshold =
+        GET_ENV_FLAG_NEW(PT_HPU_DS_TIME_IMPROVE_THRESHOLD_PERCENT);
+    double time_improve_factor = (100.0 - time_improve_threshold) / 100.0;
     uint64_t time_to_beat = static_cast<uint64_t>(
-        static_cast<double>(base_time_) * time_improve_factor_);
+        static_cast<double>(base_time_) * time_improve_factor);
 
     auto cur_avg_time{run_time_stat_.GetAvgTime()};
     time_improvement_met_ = (cur_avg_time < time_to_beat);

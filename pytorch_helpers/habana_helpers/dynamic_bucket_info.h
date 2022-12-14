@@ -388,7 +388,6 @@ class Bucket {
   static constexpr uint64_t uninitialized_token = 1000000006;
 
  private:
-  static constexpr double time_improve_factor_ = 0.90;
   static constexpr double polarization_factor_ = 0.75;
 
   uint64_t score_{0};
