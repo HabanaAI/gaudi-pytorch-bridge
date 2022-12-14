@@ -2750,7 +2750,11 @@ gather.out:
   op_backend: GatherHabanaOperator
 
 ge.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -2758,14 +2762,22 @@ ge.Scalar_out:
 
 ge.Tensor_out:
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
 ge_.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
@@ -2774,7 +2786,11 @@ ge_.Scalar:
 
 ge_.Tensor:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -2782,7 +2798,11 @@ ge_.Tensor:
 
 ge.Scalar:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   op_frontend: LazyCmp
   scalar_ids: [1]
@@ -2793,7 +2813,11 @@ ge.Scalar:
 ge.Tensor:
   force_default: false
   custom_output_shape: BinaryOutputShape
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Short, Half]
   guid: greater_equal_fwd
   op_frontend: LazyCmp
   out_ids: [0]
