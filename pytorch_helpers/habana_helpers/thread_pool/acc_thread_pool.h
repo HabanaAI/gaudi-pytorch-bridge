@@ -13,6 +13,7 @@
 #pragma once
 
 #include <atomic>
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -39,7 +40,11 @@ class AccThreadPool {
   mutable std::mutex mutex_;
   std::atomic_bool running_;
   std::atomic<std::size_t> task_count_;
+  std::exception_ptr ex_ptr_;
 
+  // Check if no exception has been thrown by any task_. If excpetion occured
+  // then rethrow it in the main thread.
+  void checkNoException();
   void main_loop();
   void executePendingTask();
 };

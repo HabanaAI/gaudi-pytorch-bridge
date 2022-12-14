@@ -10,15 +10,17 @@
  *
  *******************************************************************************
  */
-#include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 #include <ATen/Parallel.h>
 #include <c10/util/thread_name.h>
+
 #include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 
 namespace habana_lazy {
 
-AccThreadPool::AccThreadPool() : threads_(1), running_(true), task_count_(0) {
+AccThreadPool::AccThreadPool()
+    : threads_(1), running_(true), task_count_(0), ex_ptr_(nullptr) {
   auto init_thread = []() {
     c10::setThreadName("AccThreadPool");
     at::init_num_threads();
@@ -43,7 +45,8 @@ AccThreadPool::~AccThreadPool() {
   for (auto& t : threads_) {
     try {
       t.join();
-    } catch (const std::exception&) {
+    } catch (const std::exception& ex) {
+      PT_BRIDGE_WARN("Exception in acc thread pool desctructor: ", ex.what());
     }
   }
 }
@@ -62,6 +65,7 @@ void AccThreadPool::run(std::function<void()>&& func) {
   if (threads_.size() == 0) {
     throw std::runtime_error("No threads to run a task");
   }
+  checkNoException();
 
   {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -77,6 +81,8 @@ void AccThreadPool::waitWorkComplete() {
       executePendingTask();
     }
   }
+
+  checkNoException();
 }
 
 void AccThreadPool::executePendingTask() {
@@ -94,10 +100,11 @@ void AccThreadPool::executePendingTask() {
   try {
     DisableRunningHashUpdates disable;
     task();
-  } catch (const std::exception& e) {
-    PT_BRIDGE_FATAL("Exception in acc thread pool task: ", e.what());
   } catch (...) {
-    PT_BRIDGE_FATAL("Exception in acc thread pool task: unknown");
+    ex_ptr_ = std::current_exception();
+    running_ = false;
+    this->discardPendingTasks();
+    return;
   }
 
   --task_count_;
@@ -127,6 +134,20 @@ void AccThreadPool::main_loop() {
 
     executePendingTask();
   } // while running_
+  checkNoException();
+}
+
+void AccThreadPool::checkNoException() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  try {
+    if (ex_ptr_) {
+      std::rethrow_exception(ex_ptr_);
+    }
+  } catch (const std::exception& ex) {
+    ex_ptr_ = nullptr;
+    PT_BRIDGE_FATAL(
+        "Exception in acc thread pool task has been thrown: ", ex.what());
+  }
 }
 
 } // namespace habana_lazy
