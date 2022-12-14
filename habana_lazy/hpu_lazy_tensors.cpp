@@ -1093,9 +1093,10 @@ void LaunchSyncTensorsGraph(
         LazyGraphCache::GetLazyCache().RemoveGraph(
             launch_info.hlexec.GetGraphHash());
       }
-    } catch (...) {
+    } catch (const std::exception& e) {
       launch_except = std::current_exception();
       exception = true;
+      PT_LAZY_FATAL("Exception in Launch recipe from queue..\n", e.what());
     }
   }
 
