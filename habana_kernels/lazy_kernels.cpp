@@ -568,21 +568,6 @@ at::Tensor get_tensor_for_scalar(
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
 
-  if (!habana_helpers::is_supported_type(self.scalar_type())) {
-    // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
-    // would fallback to cpu for unsupported dtypes
-    // also note that since the dst is an unsupported dtype, we will move
-    // the dst back to cpu with this copy
-    PT_LAZY_WARN(
-        "Falling back to CPU - Unsupported dst type in D2D copy: src : ",
-        src.scalar_type(),
-        ", dst: ",
-        self.scalar_type());
-    auto fb_self = self.cpu();
-    auto fb_src = src.cpu();
-    return fb_self.copy_(fb_src);
-  }
-
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
       GetOrCreateHbLazyTensor(src_updated, src_updated.device());
@@ -950,16 +935,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
     // executed
     auto isStorageAttached = self_hb_tensor.isStorageAttached();
     if (!isStorageAttached) {
-      if (!habana_helpers::is_supported_type(src.scalar_type()) or
-          !habana_helpers::is_supported_type(self.scalar_type())) {
-        PT_LAZY_WARN(
-            "Falling back to CPU - Unsupported src or dst types in H2D copy: src: ",
-            src.scalar_type(),
-            ", dst: ",
-            self.scalar_type());
-        auto fb_src = at::empty_like(src);
-        return fb_src.copy_(src);
-      }
       c10 ::Allocator* allocator;
       allocator = habana::getHABANADeviceAllocator();
       int64_t nelements = multiply_integers(self.sizes());
