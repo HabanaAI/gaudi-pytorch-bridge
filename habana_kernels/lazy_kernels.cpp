@@ -6810,6 +6810,9 @@ at::Tensor& broadcast_hpu_lazy_(
     int64_t root_rank,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+
+  MarkTensorAsOutputFromCollectiveOp(tensor);
+
   LazyOp<at::Tensor&> k(
       "hccl::broadcast_", {tensor, root_rank, comm_id}, {1, 2}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(broadcast_, k, tensor)

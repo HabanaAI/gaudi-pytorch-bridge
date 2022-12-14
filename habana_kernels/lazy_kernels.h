@@ -1212,6 +1212,19 @@ class LazyOp {
     m_bcast_details = std::move(bcast_vec);
   }
 
+  void handle_collective(const at::IValue& value) const {
+    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) || m_collective_op ||
+        !value.isTensor() ||
+        (habana_lazy::AccThread::IsAccThreadEnabled() &&
+         habana_lazy::AccThread::Get().inThreadPool())) {
+      return;
+    }
+
+    // call GetHbLazyTensor to trigger StepMarker in the main thread for
+    // outputs from lazy collective operations
+    auto hb_t = GetHbLazyTensor(value.toTensor());
+  }
+
   void set_inputs(const std::vector<at::IValue>& inputs) {
     auto inputsHpu = inputs;
     for (auto& t : inputsHpu) { // Any tensor on CPU needs to be moved to HPU
@@ -1234,6 +1247,8 @@ class LazyOp {
         }
         t = c10::IValue(tinput);
       }
+
+      handle_collective(t);
     }
     m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
