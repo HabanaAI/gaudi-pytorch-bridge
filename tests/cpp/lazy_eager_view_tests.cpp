@@ -282,7 +282,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmInPlace1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, DISABLED_AddMmInPlace2) {
+TEST_F(LazyEagerViewOpsTest, AddMmInPlace2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -343,5 +343,41 @@ TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace1) {
     hB = hB.add_(1.0);
 
     EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+}
+
+TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace2) {
+  SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, false, 1);
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3});
+    auto hA = A.to(torch::kHPU);
+    auto B = A.as_strided({2, 2}, {1, 2}, 1);
+    B = B.add_(1.0);
+
+    auto hB = hA.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    hB = hB.add_(1.0);
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+
+    torch::Tensor C = torch::randn({3, 3});
+    auto hC = C.to(torch::kHPU);
+    auto D = C.as_strided({2, 2}, {1, 2}, 1);
+    D = D.add_(1.0);
+
+    auto hD = hC.as_strided({2, 2}, {1, 2}, 1);
+
+    // To support only as_strided, either we lower it from copy or do it on cpu
+    // EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+
+    hD = hD.add_(1.0);
+
+    EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
   }
 }

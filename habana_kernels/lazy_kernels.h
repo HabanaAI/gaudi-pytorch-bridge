@@ -747,6 +747,15 @@ class LazyOp {
       habana_lazy::HbLazyTensor& hl_self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
+    bool isOptimizedLazyEager = false;
+    if (info_to_lazy_backend) {
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        isOptimizedLazyEager =
+            info_to_lazy_backend->get_is_optimized_lazy_eager();
+      }
+    }
+
     auto orig_size = self.sizes();
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
@@ -795,28 +804,36 @@ class LazyOp {
       }
     }
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
-        info_to_lazy_backend) {
-      // lazy eager - preparing the input tensor uids
-      prepare_lazy_eager_input_uids(info_to_lazy_backend);
+    if (isOptimizedLazyEager == false) {
+      PT_LAZY_DEBUG("Normal Lazy Eager Inplace (with Views) Path Chosen");
 
-      handle_strided_inputs();
-    }
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
+          info_to_lazy_backend) {
+        // lazy eager - preparing the input tensor uids
+        prepare_lazy_eager_input_uids(info_to_lazy_backend);
 
-    const auto& node = create_node();
-    hl_self = GetHbLazyTensor(out_t, true, !m_collective_op);
+        handle_strided_inputs();
+      }
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
-      handle_inplace_strided_output(self, hl_self, node);
+      const auto& node = create_node();
+      hl_self = GetHbLazyTensor(out_t);
+
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+        handle_inplace_strided_output(self, hl_self, node);
+      } else {
+        hl_self.IrSetNode(node);
+
+        flush_op(1);
+        // add strided insert node and update most recent version of original
+        // tensor
+        strided_insert_hpu_lazy(self, out_t);
+      }
     } else {
-      hl_self.IrSetNode(node);
-
-      flush_op(1);
-      // add strided insert node and update most recent version of original
-      // tensor
-      strided_insert_hpu_lazy(self, out_t);
+      PT_LAZY_DEBUG("Optimized Lazy Eager Inplace (with Views) Path Chosen");
+      std::vector<ir::Value> input_vals = prepare_lazy_eager_input_values();
+      info_to_lazy_backend->set_input_values(std::move(input_vals));
     }
   }
 
