@@ -33,7 +33,7 @@ std::optional<std::string> direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key);
 
 CastF32RoundMode_t get_cast_rounding_mode(
-    const std::string& guid,
+    c10::ScalarType dst_dtype,
     const bool stochastic_rounding_override = false);
 
 void type_promotion_for_two_tensor_inputs(
@@ -101,8 +101,10 @@ class CastOutOperator : public habana::HabanaOperator {
 
  protected:
   ns_CastKernel::Params synapse_cast_params_builder(
+      c10::ScalarType dst_dtype,
       bool stochastic_rounding_override);
   ns_CastKernel::ParamsV2 synapse_cast_params_v2_builder(
+      c10::ScalarType dst_dtype,
       bool stochastic_rounding_override,
       int seed);
 };

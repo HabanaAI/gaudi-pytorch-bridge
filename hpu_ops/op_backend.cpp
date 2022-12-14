@@ -639,7 +639,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
 
     c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
 
-    if ((0 != sr_seed) && (guid.find("to_f8") != std::string::npos)) {
+    if ((0 != sr_seed) && to == at::kFp8r152) {
       // Usage of ParamsV2 type induces explicit seed mode in TPC
       params.emplace<ns_CastKernel::ParamsV2>();
       c10::get<ns_CastKernel::ParamsV2>(params).seed = sr_seed;
@@ -648,9 +648,9 @@ synapse_helpers::tensor OpBackend::BuildCast(
     }
 
     void* params_ptr = c10::visit(
-        [cast_guid, stochastic_rounding_override](auto& var) {
+        [to, stochastic_rounding_override](auto& var) {
           var.round_mode = habana_helpers::get_cast_rounding_mode(
-              cast_guid, stochastic_rounding_override);
+              to, stochastic_rounding_override);
           return reinterpret_cast<void*>(&var);
         },
         params);

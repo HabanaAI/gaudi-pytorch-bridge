@@ -132,16 +132,6 @@ get_platform_cast_map() {
   return cast_map;
 }
 
-// TODO Implement it with less hardcoded way
-static std::vector<std::string> get_round_half_casts() {
-  return {
-      "cast_f32_to_bf16",
-      "cast_f32_to_f16",
-      "cast_f32_to_f8",
-      "cast_f16_to_bf16",
-      "cast_bf16_to_f8"};
-}
-
 std::optional<std::string> habana_helpers::direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key) {
   if (type_key.first == type_key.second)
@@ -155,22 +145,19 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
 }
 
 CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
-    const std::string& guid,
+    c10::ScalarType dst_dtype,
     const bool stochastic_rounding_override) {
   if ((stochastic_rounding_override ||
        GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
-      guid.find("to_f8") != std::string::npos) {
+      dst_dtype == at::kFp8r152) {
     return CAST_ROUND_SR;
   }
-  static auto round_half_casts{get_round_half_casts()};
-  // Floating point casting from higher to lower precision
-  // requires CAST_ROUND_HALF_NE mode, e.g. f32 to bf16.
-  // Otherwise it should truncate with CAST_ROUND_ZERO, like pytorch does.
-  if (std::find(round_half_casts.begin(), round_half_casts.end(), guid) !=
-      round_half_casts.end()) {
-    return CAST_ROUND_HALF_NE;
+
+  if (c10::isIntegralType(dst_dtype, true)) {
+    return CAST_ROUND_ZERO;
   }
-  return CAST_ROUND_ZERO;
+
+  return CAST_ROUND_HALF_NE;
 }
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get
@@ -413,21 +400,23 @@ size_t habana_helpers::getRecipeKey(
  * @brief CastKernel params structure
  */
 ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder(
+    c10::ScalarType dst_dtype,
     bool stochastic_rounding_override = false) {
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding_override
       ? CAST_ROUND_SR
-      : habana_helpers::get_cast_rounding_mode(GetGuid());
+      : habana_helpers::get_cast_rounding_mode(dst_dtype);
   return params;
 }
 
 ns_CastKernel::ParamsV2 CastOutOperator::synapse_cast_params_v2_builder(
+    c10::ScalarType dst_dtype,
     bool stochastic_rounding_override = false,
     int seed = 0) {
   ns_CastKernel::ParamsV2 params{};
   params.round_mode = stochastic_rounding_override
       ? CAST_ROUND_SR
-      : habana_helpers::get_cast_rounding_mode(GetGuid());
+      : habana_helpers::get_cast_rounding_mode(dst_dtype);
   params.seed = seed;
   return params;
 }
@@ -511,14 +500,14 @@ void CastOperator::AllocateAndAddSynapseNode(
     if (seed != 0) {
       // Usage of ParamsV2 type induces explicit seed mode in TPC
       ns_CastKernel::ParamsV2 params_v2 =
-          synapse_cast_params_v2_builder(stochastic_rounding, seed);
+          synapse_cast_params_v2_builder(type, stochastic_rounding, seed);
       p_context_->params_.emplace<ns_CastKernel::ParamsV2>(params_v2);
       p_context_->params_size_ = sizeof(params_v2);
       params = &params_v2;
     } else {
       // Usage of Params type induces LFSR-based seed mode in TPC
       ns_CastKernel::Params params_v1 =
-          synapse_cast_params_builder(stochastic_rounding);
+          synapse_cast_params_builder(type, stochastic_rounding);
       p_context_->params_.emplace<ns_CastKernel::Params>(params_v1);
       p_context_->params_size_ = sizeof(params_v1);
       params = &params_v1;
@@ -560,7 +549,8 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto output = inputs[1].toTensor();
 
-  ns_CastKernel::Params params = synapse_cast_params_builder();
+  ns_CastKernel::Params params =
+      synapse_cast_params_builder(output.scalar_type());
   p_context_->params_.emplace<ns_CastKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
   p_context_->syn_outputs_.emplace_back(
@@ -605,7 +595,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   auto output = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
 
-  ns_ConstantKernel::Params params;
+  ns_ConstantKernel::Params params{};
   if (output.scalar_type() == c10::ScalarType::Int) {
     params.constant.i = value.to<int32_t>();
   } else {
@@ -671,7 +661,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
 
-  ns_ConstantKernel::Params params;
+  ns_ConstantKernel::Params params{};
   if (input.scalar_type() == c10::ScalarType::Int) {
     params.constant.i = value.to<int32_t>();
   } else {
@@ -702,7 +692,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-static auto& KernelUtilsKernelRegistry = habana::KernelRegistry().add(
+static const auto& KernelUtilsKernelRegistry = habana::KernelRegistry().add(
     "aten::ones_like",
     [](const int device_id, c10::ScalarType node_type) {
       return std::make_shared<OnesLikeOperator>(device_id, node_type);
