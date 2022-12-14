@@ -36,6 +36,9 @@
     graph_hash_builder.addInputTensors(tensor);                     \
   }
 
+#define RUNNING_HASH_COMBINE_OUTPUT_TENSOR(tensor) \
+  RUNNING_HASH_COMBINE_TENSOR(tensor)
+
 namespace habana_lazy {
 
 #define HPU_FWD_GRAPH_MAX_NODES_IN_GRAPH (std::numeric_limits<size_t>::max())

@@ -3706,6 +3706,11 @@ std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> _batch_norm_fwd_training(
           running_var.options(),
           input.suggest_memory_format(),
           false);
+      RUNNING_HASH_COMBINE_OUTPUT_TENSOR(result_img);
+      RUNNING_HASH_COMBINE_OUTPUT_TENSOR(result_mean);
+      RUNNING_HASH_COMBINE_OUTPUT_TENSOR(result_var);
+      RUNNING_HASH_COMBINE_OUTPUT_TENSOR(running_mean);
+      RUNNING_HASH_COMBINE_OUTPUT_TENSOR(running_var);
       return {result_img, result_mean, result_var, running_mean, running_var};
     }
   };
