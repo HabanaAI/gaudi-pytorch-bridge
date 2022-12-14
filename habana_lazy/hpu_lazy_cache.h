@@ -151,7 +151,7 @@ struct OptimizedJITGraphAndMetaData {
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
       const at::ArrayRef<torch::jit::IValue>& input_refs);
 
-  std::shared_ptr<torch::jit::Graph> get_cached_graph() {
+  std::shared_ptr<torch::jit::Graph> get_cached_graph() const {
     return jit_graph_to_lowering;
   }
 

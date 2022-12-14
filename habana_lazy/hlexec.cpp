@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/passes/peephole.h>
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_bridge/program/executor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "hlexec.h"
@@ -35,6 +36,82 @@
 
 namespace habana_lazy {
 namespace exec {
+
+namespace {
+
+/*
+ * Launcher represents underlying execution mechanism used by HlExec class.
+ */
+struct Launcher {
+  virtual ~Launcher() = default;
+
+  virtual void Run(torch::jit::Stack& stack) = 0;
+};
+
+/*
+ * Launcher for HabanaLaunchOpPT
+ */
+struct HabanaLaunchOpLauncher : Launcher {
+  HabanaLaunchOpLauncher(
+      const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
+          graph_meta,
+      const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
+      std::vector<bool>& bcast_map)
+      : habana_launch_op_(graph_meta) {
+    if (info) {
+      habana_launch_op_.set_lazy_front_end_info(info);
+    }
+    habana_launch_op_.set_node_bcast_map(bcast_map);
+  }
+
+  void Run(torch::jit::Stack& stack) override {
+    return habana_launch_op_.run(stack);
+  }
+
+  habana::HabanaLaunchOpPT habana_launch_op_;
+};
+
+/*
+ * Launcher for clustered programs
+ */
+struct ClusteredProgramLauncher : Launcher {
+  ClusteredProgramLauncher(
+      const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
+          graph_meta) {
+    executor_ = habana::program::CreateExecutor(graph_meta);
+    TORCH_CHECK(executor_ != nullptr);
+  }
+
+  void Run(torch::jit::Stack& stack) override {
+    executor_->Run(stack);
+  }
+
+  std::unique_ptr<habana::program::Executor> executor_;
+};
+
+/*
+ * Creates launcher.
+ *
+ * When PT_HPU_CLUSTERED_PROGRAM is set then launcher for clustered programs
+ * is created, ohterwise launcher for HabanaLaunchOpPT is used.
+ */
+std::unique_ptr<Launcher> CreateLauncher(
+    const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
+        graph_meta,
+    const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
+    std::vector<bool>& bcast_map) {
+  static bool is_clustered_program_enabled =
+      GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM);
+
+  if (is_clustered_program_enabled) {
+    PT_BRIDGE_WARN("creating clustered program launcher");
+    return std::make_unique<ClusteredProgramLauncher>(graph_meta);
+  }
+  return std::make_unique<HabanaLaunchOpLauncher>(graph_meta, info, bcast_map);
+}
+
+} // namespace
+
 OptPassCfg* OptPassCfg::p_instance_ = nullptr;
 
 std::unordered_map<size_t, size_t> HlExec::s_graphIndexMap;
@@ -92,11 +169,10 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetEventHandle(event_handle);
   mp_g_and_meta_data_->SetEventRecordStream(event_stream);
   mp_g_and_meta_data_->SetEventFlag(event_flag);
-  habana::HabanaLaunchOpPT habanaLoweringOp{mp_g_and_meta_data_};
-  habanaLoweringOp.set_lazy_front_end_info(lazyInfo);
-  habanaLoweringOp.set_node_bcast_map(node_bcast_map_);
+  auto launcher =
+      CreateLauncher(mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
   try {
-    habanaLoweringOp.run(stack);
+    launcher->Run(stack);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);

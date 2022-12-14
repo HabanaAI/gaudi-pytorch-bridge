@@ -96,6 +96,13 @@ add_library(habana_pytorch_plugin SHARED
   habana_bridge/passes/habana_fuser.cpp
   habana_bridge/passes/remove_inplace_ops.cpp
   habana_bridge/passes/hpu_habana_persistence_marker_pass.cpp
+  habana_bridge/program/cache.cpp
+  habana_bridge/program/splitter.cpp
+  habana_bridge/program/program.cpp
+  habana_bridge/program/strategy.cpp
+  habana_bridge/program/executor.cpp
+  habana_bridge/program/eager_splitting_strategy.cpp
+  habana_bridge/program/naive_rpo_scheduling_strategy.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
   pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp
