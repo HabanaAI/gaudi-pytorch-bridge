@@ -6931,29 +6931,6 @@ Tensor linear_non2d_hpu_lazy(
     return output;
   */
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    auto hb_tensor = GetHbLazyTensor(weight);
-    if (hb_tensor.isStorageAttached()) {
-      auto at_internal_tensor = hb_tensor.EvaluateTensorData();
-      if (at_internal_tensor.has_storage()) {
-        auto internal_tensor =
-            habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-        internal_tensor->SetConstTensor(true);
-      }
-    }
-    const auto& bias = bias_opt.value_or(Tensor());
-    if (bias.defined()) {
-      auto hb_tensor = GetHbLazyTensor(bias);
-      if (hb_tensor.isStorageAttached()) {
-        auto at_internal_tensor = hb_tensor.EvaluateTensorData();
-        if (at_internal_tensor.has_storage()) {
-          auto internal_tensor =
-              habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-          internal_tensor->SetConstTensor(true);
-        }
-      }
-    }
-  }
   auto sizes = habana::MatMulOperator::compute_output_shape(
       input, weight, true /*weight transposed*/);
   LazyOp<at::Tensor> k("aten::linear", {input, weight, bias_opt}, {}, {sizes});
