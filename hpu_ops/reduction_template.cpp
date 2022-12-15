@@ -148,20 +148,8 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     dtype_val = at::kInt;
   }
 
-  auto get_internal_dtype = [](at::ScalarType dtype) {
-    switch (dtype) {
-      case at::kLong:
-        return at::kInt;
-      case at::kDouble:
-        return at::kFloat;
-      case at::kBool:
-        return at::kChar;
-      default:
-        return dtype;
-    }
-  };
-
-  if (get_internal_dtype(dtype_val) == get_internal_dtype(self.scalar_type())) {
+  if (habana_helpers::getInternalDtype(dtype_val) ==
+      habana_helpers::getInternalDtype(self.scalar_type())) {
     return c10::nullopt;
   }
 

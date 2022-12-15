@@ -136,7 +136,8 @@ void CatOperator::AllocateAndAddSynapseNode(
   auto output_dtype = out.scalar_type();
   for (unsigned i = 0; i < tensors.size(); i++) {
     const auto& tensor = tensors.get(i);
-    if (tensor.scalar_type() != output_dtype) {
+    if (habana_helpers::getInternalDtype(tensor.scalar_type()) !=
+        habana_helpers::getInternalDtype(output_dtype)) {
       std::string cast_guid = "cast_" +
           habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
           habana_helpers::name_suffix_from_type(output_dtype);
@@ -325,7 +326,8 @@ void CatOutOperator::AllocateAndAddSynapseNode(
 
   for (int i = 0; i < (numTensors - 1); i++) {
     const auto& tensor = tensors.get(i);
-    if (tensor.scalar_type() != output_dtype) {
+    if (habana_helpers::getInternalDtype(tensor.scalar_type()) !=
+        habana_helpers::getInternalDtype(output_dtype)) {
       std::string cast_guid = "cast_" +
           habana_helpers::name_suffix_from_type(tensor.scalar_type()) + "_to_" +
           habana_helpers::name_suffix_from_type(output_dtype);

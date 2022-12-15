@@ -159,9 +159,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
       return hl_t;
     }
 
-    auto type = c10::typeMetaToScalarType(tensor.dtype());
-    type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
-    type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
+    auto type = habana_helpers::getInternalDtype(tensor.scalar_type());
     auto new_dtype = scalarTypeToTypeMeta(type);
 
     auto at_internal_tensor = AtenInternalHbTensor(

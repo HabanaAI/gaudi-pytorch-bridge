@@ -19,12 +19,25 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_recipe_signature.h"
+#include "hpu_ops/lazy_cast.h"
 #include "kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
 
+at::ScalarType habana_helpers::getInternalDtype(at::ScalarType dtype) {
+  switch (dtype) {
+    case at::kLong:
+      return at::kInt;
+    case at::kDouble:
+      return at::kFloat;
+    case at::kBool:
+      return at::kChar;
+    default:
+      return dtype;
+  }
+}
 /**
  * @brief Prepare cast map for current platform
  **/
@@ -189,19 +202,10 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
 
     // Temporary W/A. The result dtype is converted from double to float and
     // from int64 to int32.
-    auto type1 = tensor1.scalar_type();
-    auto type2 = tensor2.scalar_type();
-    type1 = (type1 == c10::ScalarType::Long) ? c10::ScalarType::Int : type1;
-    type2 = (type2 == c10::ScalarType::Long) ? c10::ScalarType::Int : type2;
-    type1 = (type1 == c10::ScalarType::Double) ? c10::ScalarType::Float : type1;
-    type2 = (type2 == c10::ScalarType::Double) ? c10::ScalarType::Float : type2;
+    auto type1 = getInternalDtype(tensor1.scalar_type());
+    auto type2 = getInternalDtype(tensor2.scalar_type());
 
-    compute_dtype = (compute_dtype == c10::ScalarType::Long)
-        ? c10::ScalarType::Int
-        : compute_dtype;
-    compute_dtype = (compute_dtype == c10::ScalarType::Double)
-        ? c10::ScalarType::Float
-        : compute_dtype;
+    compute_dtype = getInternalDtype(compute_dtype);
 
     // pos = position of tensor to be promoted (smaller dtype)
     if (type1 != compute_dtype) {
@@ -423,99 +427,21 @@ ns_CastKernel::ParamsV2 CastOutOperator::synapse_cast_params_v2_builder(
 
 habana::OutputShapeInfRetType CastOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
-  auto self = inputs[0].toTensor();
-  auto type = inputs[1].toScalarType();
-  habana::OutputShapeInfRetType out;
-  if (self.scalar_type() == c10::ScalarType::Byte &&
-      type == c10::ScalarType::Bool) {
-    // cast doesn't handle Byte->Bool: So, use gt op.
-    torch::jit::Stack stack;
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(0));
-    auto gtOp = make_operator<habana::GtOperator>(
-        self.device().index(), self.scalar_type());
-    auto gtOp_out = out.call_ComputeOutputShape(gtOp, stack);
-    auto out_tensor = gtOp_out.GetOutputTensor(0);
-    out.MoveToOutput(std::move(out_tensor));
-  } else {
-    out.AddOutputTensor(habana::TensorMetaData(
-        self.sizes().vec(),
-        HabanaOperator::CalculateStrides(
-            self.sizes(), self.suggest_memory_format()),
-        type,
-        self.suggest_memory_format()));
-  }
-  return out;
+  auto castOp = make_operator<habana::LazyCast>(
+      p_context_->device_id_, inputs[1].toScalarType());
+  return castOp->ComputeOutputShape(inputs);
 }
 
 void CastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() >= 2 && inputs.size() <= 4,
-      "Incorrect size of inputs expected for cast operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for cast operator");
-  auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
-  auto stochastic_rounding = false;
-  int seed{0};
-  if (inputs.size() > 2) {
-    TORCH_CHECK(
-        inputs[2].isBool(), "Input arg2 expected to be Bool for cast operator");
-    stochastic_rounding = inputs[2].toBool();
-  }
-  if (inputs.size() > 3) {
-    TORCH_CHECK(
-        inputs[3].isInt(), "Input arg3 expected to be Int for cast operator");
-    seed = inputs[3].toInt();
-  }
-
-  if (self.scalar_type() == c10::ScalarType::Byte &&
-      type == c10::ScalarType::Bool) {
-    // cast doesn't handle Byte->Bool: So, use gt op.
-    torch::jit::Stack stack;
-    auto device_id = self.device().index();
-    auto scalar_type = self.scalar_type();
-    auto gt_op = make_operator<habana::GtOperator>(device_id, scalar_type);
-    gt_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(0));
-    gt_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    stack.clear();
-    p_context_->syn_outputs_.emplace_back(std::move(gt_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(gt_op->GetOutputs()[0]);
-  } else {
-    auto output = habana_helpers::createPTTensor(
-        self,
-        self.sizes(),
-        self.options(),
-        self.suggest_memory_format(),
-        type,
-        output_metadata.at(0).persistent);
-
-    void* params{nullptr};
-    if (seed != 0) {
-      // Usage of ParamsV2 type induces explicit seed mode in TPC
-      ns_CastKernel::ParamsV2 params_v2 =
-          synapse_cast_params_v2_builder(type, stochastic_rounding, seed);
-      p_context_->params_.emplace<ns_CastKernel::ParamsV2>(params_v2);
-      p_context_->params_size_ = sizeof(params_v2);
-      params = &params_v2;
-    } else {
-      // Usage of Params type induces LFSR-based seed mode in TPC
-      ns_CastKernel::Params params_v1 =
-          synapse_cast_params_builder(type, stochastic_rounding);
-      p_context_->params_.emplace<ns_CastKernel::Params>(params_v1);
-      p_context_->params_size_ = sizeof(params_v1);
-      params = &params_v1;
-    }
-
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
-    AddNodeToSynapseGraph(graph, params, p_context_->params_size_);
-  }
+  auto castOp = make_operator<habana::LazyCast>(p_context_->device_id_, type);
+  castOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  castOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+  p_context_->syn_outputs_.emplace_back(std::move(castOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(castOp->GetOutputs()[0]));
 }
 
 habana::OutputShapeInfRetType CastOutOperator::ComputeOutputShape(

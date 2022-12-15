@@ -130,7 +130,7 @@ TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   EXPECT_EQ(allclose(result2, result2_eager), true);
 }
 
-TEST_F(LazyJITTest, ExecuteGraphCustomAdagrad) {
+TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomAdagrad) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
   auto moments = torch::randn({2, 2}, torch::requires_grad(false));

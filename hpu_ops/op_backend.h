@@ -221,9 +221,9 @@ class OpBackend : public HabanaOperator {
 
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
+ public:
   OutputShapeInfRetType ComputeOutputShape(at::Stack&) override;
 
- public:
   static std::vector<synapse_helpers::tensor> BuildNode(
       OpBackend* op,
       synapse_helpers::graph& graph,

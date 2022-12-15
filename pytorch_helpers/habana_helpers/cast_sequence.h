@@ -19,27 +19,19 @@
 namespace habana_helpers {
 
 // clang-format off
-#define CAST_TYPE_DATA                                     \
-  /* 1. TPC kernel infix / enum class entry */             \
-  /* 2. synDataType suffix */                              \
-  /* 3. C++ type for type_traits (is_floating_point<T>) */ \
-  /* 4. type to which identity node is possible */         \
-  /*      1.       2.        3.    4.*/                    \
-  ENTRY( f32,   float,    float,  f32)                     \
-  ENTRY(bf16,    bf16,    float, bf16)                     \
-  ENTRY(  i8,    int8,      int,   u8)                     \
-  ENTRY( i16,   int16,      int,  u16)                     \
-  ENTRY( i32,   int32,      int,  u32)                     \
-  ENTRY( i64,   int64,      int,  u64)                     \
-  ENTRY(  u8,   uint8, unsigned,   i8)                     \
-  ENTRY( u16,  uint16, unsigned,  i16)                     \
-  ENTRY( u32,  uint32, unsigned,  i32)                     \
-  ENTRY( u64,  uint64, unsigned,  i64)                     \
-  ENTRY(  f8, fp8_152,    float,   f8)                     \
-  ENTRY(fp16,    fp16,    float, fp16)
+#define CAST_TYPE_DATA                        \
+  /* TPC kernel infix / enum class entry */   \
+  ENTRY( f32)                                 \
+  ENTRY(bf16)                                 \
+  ENTRY(  i8)                                 \
+  ENTRY( i16)                                 \
+  ENTRY( i32)                                 \
+  ENTRY(  u8)                                 \
+  ENTRY(  f8)                                 \
+  ENTRY(fp16)
 // clang-format on
 
-#define ENTRY(TPC_T, SYN_T, T, I) TPC_T,
+#define ENTRY(TPC_T) TPC_T,
 enum class CastType : uint8_t { CAST_TYPE_DATA __count };
 #undef ENTRY
 

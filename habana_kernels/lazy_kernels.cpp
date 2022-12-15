@@ -530,20 +530,19 @@ at::Tensor get_tensor_for_scalar(
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   static uint64_t hit_count, miss_count;
+  auto dtype = habana_helpers::getInternalDtype(options.dtype().toScalarType());
 
-  auto map_it = context->scalar_to_tensor_map.find(
-      std::make_pair(alpha, options.dtype().toScalarType()));
+  auto map_it =
+      context->scalar_to_tensor_map.find(std::make_pair(alpha, dtype));
   if (map_it == context->scalar_to_tensor_map.end()) {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_SCALAR_H2D_COPY_MULTIPLE)) {
-      alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
+      alpha_tensor = at::tensor(alpha).to(dtype).to(c10::kHPU, true);
     } else {
-      alpha_tensor =
-          append_to_batch_h2d_list(at::tensor(alpha).to(options.dtype()));
+      alpha_tensor = append_to_batch_h2d_list(at::tensor(alpha).to(dtype));
     }
 
     // Add to scalar value to device tensor cache
-    context->scalar_to_tensor_map[std::make_pair(
-        alpha, options.dtype().toScalarType())] = alpha_tensor;
+    context->scalar_to_tensor_map[std::make_pair(alpha, dtype)] = alpha_tensor;
     PT_LAZY_DEBUG(
         "scalar_to_tensor_map #miss: ",
         ++miss_count,
@@ -579,7 +578,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   out to CPU, the D2H will handle the type conversion */
   bool no_conversion = (self.scalar_type() == c10::ScalarType::Long) ||
       (self.scalar_type() == c10::ScalarType::Double) ||
-      (src_updated.dtype() == self.dtype());
+      src_updated.scalar_type() == self.scalar_type();
+
   if (no_conversion && hb_tensor.IsExecutionInProgress()) {
     auto context =
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);

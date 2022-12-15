@@ -22,14 +22,8 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   const auto& ival = stack.at(index);
   auto type =
       ival.isTensor() ? ival.toTensor().scalar_type() : ival.toScalar().type();
-  if (type == at::ScalarType::Long) {
-    return at::ScalarType::Int;
-  } else if (type == at::ScalarType::Double) {
-    return at::ScalarType::Float;
-  } else if (type == at::ScalarType::Bool) {
-    return at::ScalarType::Char;
-  }
-  return type;
+
+  return habana_helpers::getInternalDtype(type);
 }
 
 static at::Tensor GetProxyTensor(at::ScalarType dtype, at::IntArrayRef sizes) {

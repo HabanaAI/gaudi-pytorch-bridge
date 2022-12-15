@@ -11,10 +11,15 @@
 #include "util.h"
 
 const std::array DtypesList{
+    torch::kDouble,
     torch::kFloat,
     torch::kBFloat16,
+    torch::kLong,
     torch::kInt,
-    // torch::kShort, Similar to issue in SW-112252
+    torch::kShort,
+    torch::kByte,
+    torch::kChar,
+    torch::kBool,
 };
 
 const std::array DefaultDtypesList{
@@ -68,6 +73,20 @@ TEST_P(BinaryTypePromotion, mul) {
 
   auto exp = torch::mul(GetCpuInput(0), GetCpuInput(1));
   auto res = torch::mul(GetHpuInput(0), GetHpuInput(1));
+
+  switch (exp.scalar_type()) {
+    case at::kByte:
+    case at::kChar:
+      // HPU results saturate while CPU results wrap around when overflow
+      // occurs, so skip value comparison but check the scalar type of the
+      // output and run the operation.
+
+      EXPECT_EQ(exp.scalar_type(), res.scalar_type());
+      res.cpu();
+      return;
+    default:
+      break;
+  }
   Compare(exp, res);
 }
 

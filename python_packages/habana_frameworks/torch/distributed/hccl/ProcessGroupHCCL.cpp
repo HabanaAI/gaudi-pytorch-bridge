@@ -105,14 +105,8 @@ size_t getHCCLSliceSize(collectiveKind_t kind) {
   return slice_size * 1024 * 1024;
 }
 
-at::ScalarType getInternalScalarType(at::ScalarType type) {
-  type = (type == c10::ScalarType::Long) ? c10::ScalarType::Int : type;
-  type = (type == c10::ScalarType::Double) ? c10::ScalarType::Float : type;
-  return type;
-}
-
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
-  type = getInternalScalarType(type);
+  type = habana_helpers::getInternalDtype(type);
   auto it = hcclDataType.find(type);
   TORCH_CHECK(
       it != hcclDataType.end(),
@@ -830,8 +824,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
         NW_STREAM_SYNC()
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
-        size_t element_size =
-            c10::elementSize(getInternalScalarType(input.scalar_type()));
+        size_t element_size = c10::elementSize(
+            habana_helpers::getInternalDtype(input.scalar_type()));
         size_t chunk_size =
             getHCCLSliceSize(collectiveAllReduce) / element_size;
         size_t data_offset = 0;
@@ -925,8 +919,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
             getHCCLDataType(input.scalar_type()));
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
-        size_t element_size =
-            c10::elementSize(getInternalScalarType(input.scalar_type()));
+        size_t element_size = c10::elementSize(
+            habana_helpers::getInternalDtype(input.scalar_type()));
         size_t chunk_size = getHCCLSliceSize(collectiveReduce) / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
@@ -1009,7 +1003,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
           synStreamHandle stream) {
         size_t count = input.numel() / numRanks;
         size_t rank_offset = count *
-            c10::elementSize(getInternalScalarType(input.scalar_type()));
+            c10::elementSize(habana_helpers::getInternalDtype(
+                input.scalar_type()));
         auto type = getHCCLDataType(input.scalar_type());
         HOST_SYNC()
         NW_STREAM_SYNC()

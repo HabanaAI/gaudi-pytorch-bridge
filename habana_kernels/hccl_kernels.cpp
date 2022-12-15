@@ -10,6 +10,7 @@
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
 #include <torch/csrc/api/include/torch/version.h>
+#include "habana_kernels/kernel_utils.h"
 #undef UNUSED // Collision between pytorch_helpers/synapse_helpers/graph.h and
               // c10d::ReduceOp enum from c10d/Types.hpp
 #if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
@@ -47,14 +48,8 @@ std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
     {at::kBFloat16, hcclBfloat16},
 };
 
-at::ScalarType getInternalScalarType(at::ScalarType type) {
-  type = (type == c10::ScalarType::Long) ? c10::ScalarType::Int : type;
-  type = (type == c10::ScalarType::Double) ? c10::ScalarType::Float : type;
-  return type;
-}
-
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
-  type = getInternalScalarType(type);
+  type = habana_helpers::getInternalDtype(type);
   auto it = hcclDataType.find(type);
   TORCH_CHECK(
       it != hcclDataType.end(),
@@ -467,7 +462,7 @@ void HcclAllreduceOperator::RunCollective(
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
-            c10::elementSize(getInternalScalarType(scalar_type));
+            c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
         size_t chunk_size = getHCCLSliceSizeMB() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
@@ -550,7 +545,7 @@ void HcclReduceOperator::RunCollective(
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input->get_numel();
         size_t element_size =
-            c10::elementSize(getInternalScalarType(scalar_type));
+            c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
         size_t chunk_size = getHCCLSliceSizeMB() / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
@@ -623,8 +618,8 @@ void HcclAllToAllOutOperator::RunCollective(
           synStreamHandle stream) {
         int numRanks = comm->GetSize();
         size_t count = input->get_numel() / numRanks;
-        size_t rank_offset =
-            count * c10::elementSize(getInternalScalarType(scalar_type));
+        size_t rank_offset = count *
+            c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
         auto type = getHCCLDataType(scalar_type);
         hcclGroupStart();
         hcclResult_t hccl_result{hcclSuccess};

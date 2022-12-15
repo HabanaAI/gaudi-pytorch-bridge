@@ -29,6 +29,8 @@
 #include "habana_kernels/habana_operator.h"
 
 namespace habana_helpers {
+at::ScalarType getInternalDtype(at::ScalarType dtype);
+
 std::optional<std::string> direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key);
 

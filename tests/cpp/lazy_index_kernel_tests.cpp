@@ -522,7 +522,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
   c10::List<c10::optional<at::Tensor>> indices_cpu{};
   // auto tensorlist = indices.vec();
   indices_cpu.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_cpu.push_back(c10::make_optional(t));
   }
 
@@ -531,7 +531,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
   c10::List<c10::optional<at::Tensor>> indices_list{};
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
-  for (auto t : vec_cpu) {
+  for (const auto& t : vec_cpu) {
     indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu);
