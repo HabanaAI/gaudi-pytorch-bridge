@@ -6,6 +6,20 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+  silentMode: false
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
 - testToLaunch: asic_gaudi_pytorch_perf_tests---t-dg
   silentMode: false
   gerritTriggerMap:
@@ -97,7 +111,7 @@ launchers:
     isStable: true
     files:
     - 'sim_pytorch_tests---t-dg.jenkinsfile'
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite_master_next
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
   silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
