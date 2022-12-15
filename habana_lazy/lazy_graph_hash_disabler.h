@@ -46,7 +46,7 @@ class DisableRunningHashUpdates {
       return true;
     }
     HABANA_ASSERT(!terminate_on_access_cnt);
-    return disable_cnt > 0;
+    return disable_cnt == 0;
   }
 
  private:
