@@ -1005,27 +1005,27 @@ TEST_F(LazyNormKernelTest, LayerNormFwdBwdExecute) {
 }
 
 TEST_F(LazyNormKernelTest, GroupNormFwdBwdExecute) {
-  int64_t N = 1;
-  int64_t C = 2;
-  int64_t H = 2;
-  int64_t G = 1;
+  int64_t N = 4;
+  int64_t C = 8;
+  int64_t H = 8;
+  int64_t G = 4;
   double eps = 0.0001;
   auto input_tensor =
-      torch::arange(N * C * H, torch::dtype(torch::kFloat).requires_grad(false))
+      torch::arange(N * C * H, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({N, C, H}); // nchw
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
-      torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false))
+      torch::ones(C, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({C}); // nchw;
   torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
-      torch::zeros(C, torch::dtype(torch::kFloat).requires_grad(false))
+      torch::zeros(C, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({C}); // nchw;
   torch::Tensor tBias = bias.to(torch::kHPU);
   auto results =
       torch::native_group_norm(tHabanaX, tWeight, tBias, N, C, H, G, eps);
 
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+  at::Tensor result_lazy = std::get<0>(results);
   at::Tensor mean_lazy = std::get<1>(results);
   at::Tensor rstd_lazy = std::get<2>(results);
   auto results_cpu =
@@ -1033,9 +1033,11 @@ TEST_F(LazyNormKernelTest, GroupNormFwdBwdExecute) {
   at::Tensor result_cpu = std::get<0>(results_cpu);
   at::Tensor mean_cpu = std::get<1>(results_cpu);
   at::Tensor rstd_cpu = std::get<2>(results_cpu);
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
-  EXPECT_EQ(allclose(mean_lazy, mean_cpu, 0.01, 0.01), true);
-  EXPECT_EQ(allclose(rstd_lazy, rstd_cpu, 0.01, 0.01), true);
+
+  EXPECT_EQ(
+      allclose(result_lazy.to(torch::kCPU), result_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(mean_lazy.to(torch::kCPU), mean_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(rstd_lazy.to(torch::kCPU), rstd_cpu, 0.01, 0.01), true);
 
   // Backward
 

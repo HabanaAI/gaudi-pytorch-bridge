@@ -1995,8 +1995,7 @@ std::vector<std::vector<int64_t>> GroupNormForwardOperator::getOutputSizes(
     int64_t num_groups) {
   auto output_sizes = input.sizes().vec();
   const auto input_shape = input.sizes();
-  int64_t m = input_shape[0] * num_groups;
-  std::vector<int64_t> shape_mean{m};
+  std::vector<int64_t> shape_mean{input_shape[0], num_groups}; //[N, C]
   return std::vector<std::vector<int64_t>>{
       output_sizes, shape_mean, shape_mean};
 }
@@ -2157,11 +2156,13 @@ void GroupNormForwardOperator::AllocateAndAddSynapseNode(
     ln_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(3));
     // Cat LN outputs
     cat_input.emplace_back(ln_op->GetOutputs()[0]);
-    cat_ln_out_op->SetSynapseInput(ln_op->GetSynOutputs()[0]);
+    cat_ln_out_op->SetSynapseInput(ln_op->GetSynOutputs()[0]); // Shape [N,C/G]
     cat_mean.emplace_back(ln_op->GetOutputs()[1]);
-    cat_ln_mean_op->SetSynapseInput(ln_op->GetSynOutputs()[1]);
+    cat_ln_mean_op->SetSynapseInput(
+        ln_op->GetSynOutputs()[1]); // Shape [1,1,N,1]
     cat_istd.emplace_back(ln_op->GetOutputs()[2]);
-    cat_ln_istd_op->SetSynapseInput(ln_op->GetSynOutputs()[2]);
+    cat_ln_istd_op->SetSynapseInput(
+        ln_op->GetSynOutputs()[2]); // Shape [1,1,N,1]
   }
 
   torch::jit::Stack stack3 = {IValue(cat_input), IValue(axis)};
@@ -2184,12 +2185,19 @@ void GroupNormForwardOperator::AllocateAndAddSynapseNode(
   torch::jit::Stack stack_mean_reshape = {
       c10::IValue(cat_ln_mean_op->GetOutputs()[0]), c10::IValue(sizes[1])};
   reshape_op_mean->AllocateAndAddSynapseNode(
-      graph, stack_mean_reshape, output_metadata);
+      graph, stack_mean_reshape, OutputMetaDataVector(1));
   auto mean_reshaped = reshape_op_mean->GetOutputs()[0];
+  auto mean_t_op = make_operator<TransposeOperator>(
+      input.device().index(), input.scalar_type());
+  torch::jit::Stack mean_t_stack = {
+      IValue(mean_reshaped), IValue(-1), IValue(-2)};
+  mean_t_op->SetSynapseInput(reshape_op_mean->GetSynOutputs()[0]);
+  mean_t_op->AllocateAndAddSynapseNode(graph, mean_t_stack, output_metadata);
 
   p_context_->syn_outputs_.emplace_back(
-      std::move(reshape_op_mean->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(mean_reshaped);
+      std::move(mean_t_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(mean_t_op->GetOutputs()[0]);
+
   torch::jit::Stack stack5 = {IValue(cat_istd), IValue(axis)};
   cat_ln_istd_op->AllocateAndAddSynapseNode(
       graph, stack5, OutputMetaDataVector(1));
@@ -2202,11 +2210,18 @@ void GroupNormForwardOperator::AllocateAndAddSynapseNode(
   torch::jit::Stack stack_istd_reshape = {
       c10::IValue(cat_ln_istd_op->GetOutputs()[0]), c10::IValue(sizes[2])};
   reshape_op_istd->AllocateAndAddSynapseNode(
-      graph, stack_istd_reshape, output_metadata);
+      graph, stack_istd_reshape, OutputMetaDataVector(1));
   auto istd_reshaped = reshape_op_istd->GetOutputs()[0];
+  auto istd_t_op = make_operator<TransposeOperator>(
+      input.device().index(), input.scalar_type());
+  torch::jit::Stack istd_t_stack = {
+      IValue(istd_reshaped), IValue(-1), IValue(-2)};
+  istd_t_op->SetSynapseInput(reshape_op_istd->GetSynOutputs()[0]);
+  istd_t_op->AllocateAndAddSynapseNode(graph, istd_t_stack, output_metadata);
+
   p_context_->syn_outputs_.emplace_back(
-      std::move(reshape_op_istd->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(istd_reshaped);
+      std::move(istd_t_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(istd_t_op->GetOutputs()[0]);
 }
 
 std::vector<std::vector<int64_t>> GroupNormBackwardOperator::getOutputSizes(
@@ -2281,7 +2296,7 @@ void GroupNormBackwardOperator::AllocateAndAddSynapseNode(
       mean.device().index(), mean.scalar_type());
   split_mean_op->SetSynapseInput(p_context_->syn_inputs_[2]);
   torch::jit::Stack stack1 = {
-      IValue(mean), IValue(mean_rstd_split_size), IValue(0)};
+      IValue(mean), IValue(mean_rstd_split_size), IValue(1)};
   split_mean_op->AllocateAndAddSynapseNode(
       graph, stack1, split_output_metadata);
 
@@ -2289,7 +2304,7 @@ void GroupNormBackwardOperator::AllocateAndAddSynapseNode(
       rstd.device().index(), rstd.scalar_type());
   split_rstd_op->SetSynapseInput(p_context_->syn_inputs_[3]);
   torch::jit::Stack stack2 = {
-      IValue(rstd), IValue(mean_rstd_split_size), IValue(0)};
+      IValue(rstd), IValue(mean_rstd_split_size), IValue(1)};
   split_rstd_op->AllocateAndAddSynapseNode(
       graph, stack2, split_output_metadata);
 
