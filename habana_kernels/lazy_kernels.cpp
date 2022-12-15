@@ -5785,7 +5785,9 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
     T get_result_overrideable() override {
       auto shape_out = self.sizes().vec();
       int64_t dim_ = c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-      shape_out[dim_] = k;
+      if (shape_out.size() > (uint64_t)(dim_)) {
+        shape_out[dim_] = k;
+      }
       auto type = kLong; // PyTorch expects returned indices dtype to be Long
 
       auto result_0 = empty_hpu_lazy(
