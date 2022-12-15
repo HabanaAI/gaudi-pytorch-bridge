@@ -25,3 +25,7 @@ tox==3.24.4
 scipy==1.9.1
 mpi4py
 jsonpickle
+
+# Below are the pip packages from FSI tools
+--extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana-pypi-dev-local/simple
+hl-elbe==0.1.1
