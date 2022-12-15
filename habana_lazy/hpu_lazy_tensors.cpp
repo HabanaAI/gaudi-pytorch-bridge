@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "hpu_lazy_tensors.h"
+#include <ATen/ExpandUtils.h>
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
@@ -31,6 +32,7 @@
 #include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
+#include "habana_kernels/random_gen_kernels.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -1493,6 +1495,8 @@ void HbLazyTensor::ExecuteCachedGraph(
     ir::ValueList& input_vals,
     ir::ValueList& output_vals,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+    std::unordered_map<int64_t, c10::optional<at::Generator>>&
+        seed_tensors_generator_map,
     bool is_cached) {
   PT_LAZY_TRACE;
   exec::HlExec hlexec{};
@@ -1512,6 +1516,15 @@ void HbLazyTensor::ExecuteCachedGraph(
       PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
     }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    if (d->is_random_seed_tensor) {
+      auto seed_map = seed_tensors_generator_map.find(d->unique_id);
+      if (seed_map == seed_tensors_generator_map.end()) {
+        PT_LAZY_FATAL("Failed to find seed tensorid:", d->unique_id);
+      }
+      int seed = habana::get_seed_hpu(seed_map->second);
+      // Update the tensor data with new seed value tensor
+      d->tensor_data = at::tensor(seed).to(c10::kHPU, true);
+    }
     stack.emplace_back(d->tensor_data);
   }
 

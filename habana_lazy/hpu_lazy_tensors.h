@@ -70,6 +70,7 @@ struct Data {
   ~Data();
   int64_t GetNextTensorId();
 
+  bool is_random_seed_tensor = false;
   void* data_ptr;
   ir::Value ir_value;
   LayoutFormat tensor_layout = kNCHW;
@@ -337,6 +338,8 @@ class HbLazyTensor {
       ir::ValueList& input_vals,
       ir::ValueList& output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+      std::unordered_map<int64_t, c10::optional<at::Generator>>&
+          seed_tensors_generator_map,
       bool is_cached);
 
   static void* lazyTensorDataPtr(const at::Tensor& t);

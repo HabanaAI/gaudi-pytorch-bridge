@@ -93,12 +93,13 @@ void HPUGraph::mark_step() {
       context->getInputs(),
       context->getOutputs(),
       context->getHbLazyTensors(),
+      context->getSeedTensorMap(),
       context->getHash(),
       context->getGraphKey(),
       context->getOpStrs());
   captured_graphs.push_back(captured_graph);
-  PT_DEVICE_DEBUG("GRAPH:: captured graph ");
-  PT_DEVICE_DEBUG(
+  PT_IRGRAPH_DEBUG("GRAPH:: captured graph ");
+  PT_IRGRAPH_DEBUG(
       (captured_graph->graph_ ? (captured_graph->graph_->dump(), "")
                               : "null graph"));
   PT_DEVICE_DEBUG(
@@ -108,6 +109,7 @@ void HPUGraph::mark_step() {
   PT_DEVICE_DEBUG(
       "GRAPH:: captured hblazy_tensors_ size ",
       captured_graph->hblazy_tensors_.size());
+  context->getSeedTensorMap().clear();
 }
 
 void HPUGraph::replay(bool async) {
@@ -172,6 +174,7 @@ SingleHPUGraph::~SingleHPUGraph() {
   input_vals_.clear();
   output_vals_.clear();
   hblazy_tensors_.clear();
+  seed_tensors_generator_.clear();
 }
 
 void SingleHPUGraph::replayGraph(
@@ -195,6 +198,7 @@ void SingleHPUGraph::replayGraph(
             input_vals,
             output_vals_,
             hblazy_tensors_,
+            seed_tensors_generator_,
             true /*is_cached*/);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
@@ -205,6 +209,7 @@ void SingleHPUGraph::replayGraph(
         input_vals,
         output_vals_,
         hblazy_tensors_,
+        seed_tensors_generator_,
         true /*is_cached*/);
   }
 }

@@ -237,6 +237,10 @@ class HbExecutionContext {
     return m_output_vals;
   }
 
+  std::unordered_map<int64_t, c10::optional<at::Generator>>& getSeedTensorMap() {
+    return m_seed_tensor_generator_map;
+  }
+
   std::vector<habana_lazy::HbLazyTensor> getHbLazyTensors() {
     return m_hblazy_tensors;
   }
@@ -317,6 +321,8 @@ class HbExecutionContext {
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
   bool m_capturing_graph{false};
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
+  std::unordered_map<int64_t, c10::optional<at::Generator>>
+      m_seed_tensor_generator_map;
 };
 
 class HbExecutionContextArena {

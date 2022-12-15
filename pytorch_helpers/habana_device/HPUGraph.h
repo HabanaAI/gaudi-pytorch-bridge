@@ -21,6 +21,8 @@ struct SingleHPUGraph {
       habana_lazy::ir::ValueList input_vals,
       habana_lazy::ir::ValueList output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+      std::unordered_map<int64_t, c10::optional<at::Generator>>
+          seed_tensors_generator,
       size_t hash,
       size_t graphKey,
       std::string opStrs)
@@ -28,6 +30,7 @@ struct SingleHPUGraph {
         input_vals_{input_vals},
         output_vals_{output_vals},
         hblazy_tensors_{hblazy_tensors},
+        seed_tensors_generator_{seed_tensors_generator},
         hash_{hash},
         graphKey_{graphKey},
         opStrs_{opStrs} {}
@@ -44,6 +47,8 @@ struct SingleHPUGraph {
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_;
+  std::unordered_map<int64_t, c10::optional<at::Generator>>
+      seed_tensors_generator_;
   size_t hash_{0};
   size_t graphKey_{0};
   std::string opStrs_ = "";
