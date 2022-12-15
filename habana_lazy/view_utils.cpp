@@ -1081,8 +1081,9 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
 }
 
 void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
-  std::set<int64_t> bucket_id, bucket_recent_id;
+  habana_lazy::NoAccThread no_acc_thread;
 
+  std::set<int64_t> bucket_id, bucket_recent_id;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
     for (auto t : inputs) {
       auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
