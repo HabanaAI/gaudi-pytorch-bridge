@@ -16,20 +16,25 @@ sizes_vec AddMVOutshape(const at::Stack& stack) {
   auto mat = stack_tensor(stack, 1);
   auto vec = stack_tensor(stack, 2);
   TORCH_CHECK(
-      self.dim() == 1,
-      "addmv: Expected self to be 1-D, but got ",
+      (mat.dim() == 2 && vec.dim() == 1 && self.dim() <= 1),
+      "vector + matrix @ vector expected, got ",
       self.dim(),
-      "-D");
-  TORCH_CHECK(
-      mat.dim() == 2,
-      "addmv: Expected mat to be 2-D, but got ",
+      ", ",
       mat.dim(),
-      "-D");
+      ", ",
+      vec.dim());
+
   TORCH_CHECK(
-      vec.dim() == 1,
-      "addmv: Expected vec to be 1-D, but got ",
-      vec.dim(),
-      "-D");
+      mat.size(1) == vec.size(0) &&
+          (mat.size(0) == self.numel() || self.numel() == 1),
+      "size mismatch, got ",
+      self.size(0),
+      ", ",
+      mat.size(0),
+      "x",
+      mat.size(1),
+      ",",
+      vec.size(0));
   std::vector<int64_t> outshape{mat.sizes()[0]}; // (n, m)@(m, 1) -> (n, 1)
   return {outshape};
 }

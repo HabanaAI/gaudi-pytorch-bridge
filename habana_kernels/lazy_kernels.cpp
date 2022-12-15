@@ -2636,6 +2636,12 @@ Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
+  // return input if the dimension of the mask is greater than the dimension of
+  // input tensor.
+  if (mask.dim() > self.dim()) {
+    return self;
+  }
+
   Tensor reshape_mask = mask;
   if (mask.dim() == 0) {
     reshape_mask = mask.unsqueeze(0);
