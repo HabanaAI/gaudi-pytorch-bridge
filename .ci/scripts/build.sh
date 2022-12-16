@@ -1455,8 +1455,9 @@ run_pytorch_qa_tests()
             test_path="topologies_tests"
        elif [ "$__pytest_marks" == "-m=smoke_dist" ] && [ "$__suite_type" == "distributed" ]; then
           #run distributed tests other than topology
-            (set -x; LOCK_GAUDI_SYNAPSE_API=1 PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $opts ${__pytorch_qa_test_path}"dist_operations" "--junit-xml=${__xml}_"distributed_ci.xml"")
-            test_path="topology"
+            (set -x; LOCK_GAUDI_SYNAPSE_API=1 PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $opts ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"distributed_ci.xml"")
+            __test_status=$?
+            return ${__test_status}
        fi
 
        if [[ $_not_set_testpath -ne 1 ]]; then
