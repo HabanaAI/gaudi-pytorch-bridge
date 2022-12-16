@@ -2776,8 +2776,17 @@ Tensor& index_add_hpu_lazy_out(
   auto func = [self, dim, indices, source, alpha, out]() mutable {
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
 
+    std::string op_name = "aten::index_add";
+    if (indices.numel() > self.sizes().vec()[dim_]) {
+      // Implementation to take care of duplicate entries in index tensor and
+      // also the case where index tensor size can be greater than the self
+      // tensor size at the relevant dim. For now enable this only in the large
+      // index tensor condition. This will later be enabled as default after
+      // watching for perf impacts.
+      op_name = "hpu::index_add";
+    }
     LazyOp<Tensor> index_add_op(
-        "aten::index_add",
+        op_name,
         {self, dim_, indices, source, alpha},
         {1}, // metadata_indices
         {self.sizes().vec()} // out_shapes
@@ -2814,8 +2823,17 @@ Tensor& index_add_hpu_lazy_(
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
     auto hl_self = GetOrCreateHbLazyTensor(self);
 
+    std::string op_name = "aten::index_add";
+    if (indices.numel() > self.sizes().vec()[dim_]) {
+      // Implementation to take care of duplicate entries in index tensor and
+      // also the case where index tensor size can be greater than the self
+      // tensor size at the relevant dim. For now enable this only in the large
+      // index tensor condition. This will later be enabled as default after
+      // watching for perf impacts.
+      op_name = "hpu::index_add";
+    }
     LazyOp<Tensor> index_add_op(
-        "aten::index_add",
+        op_name,
         {self, dim_, indices, source, alpha},
         {1}, // metadata_indices
         {self.sizes().vec()} // out_shapes

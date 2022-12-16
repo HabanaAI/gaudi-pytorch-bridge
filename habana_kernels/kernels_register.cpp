@@ -2424,6 +2424,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::identity(Tensor self) -> (Tensor)");
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
+  m.def(
+      "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
