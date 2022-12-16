@@ -1,12 +1,9 @@
 orchestratorConfig:
   cron: "H H/3 * * *"
   testConfig:
-  - testToLaunch: Test_pytorch_gaudi_sim_cpp
-  - testToLaunch: Test_pytorch_greco_sim_cpp
-    silentMode: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
     silentMode: true
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite 
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
     silentMode: true
 # PyTorch full graph tests
