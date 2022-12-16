@@ -1767,7 +1767,7 @@ void habana::LinearForwardOperator::AllocateAndAddSynapseNode(
     if (bias.defined() &&
         !bias_in_batch_gemm) { // bias tensor not handled by batch_gemm
       auto add_op =
-          make_operator<habana::AddOperator>(device_id, input.scalar_type());
+          make_operator<habana::AddOperator>(device_id, bias.scalar_type());
       add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
       add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
       torch::jit::Stack stack = {
@@ -1806,7 +1806,7 @@ void habana::LinearForwardOperator::AllocateAndAddSynapseNode(
   }
   if (bias.defined()) { // bias tensor available
     auto add_op =
-        make_operator<habana::AddOperator>(device_id, input.scalar_type());
+        make_operator<habana::AddOperator>(device_id, bias.scalar_type());
     add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
     add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
     torch::jit::Stack stack = {
@@ -1829,7 +1829,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 4,
+      inputs.size() >= 4 && inputs.size() <= 5,
       "Incorrect size of inputs expected for LinearBackwarddOperator operator");
 
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
@@ -1839,6 +1839,18 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
   auto input = inputs[1].toTensor();
   auto weight = inputs[2].toTensor();
   auto bias_grad_required = inputs[3].toBool();
+  Tensor bias_grad_out{};
+  if (inputs.size() == 5) {
+    bias_grad_out = inputs[4].toOptional<Tensor>().value_or(Tensor());
+    if (bias_grad_out.defined()) {
+      // Because bias_grad_required is a bool not mapped as a tensor, we expect
+      // 4 syn_inputs_
+      TORCH_CHECK(
+          p_context_->syn_inputs_.size() == 4,
+          "Input bias_grad_out not properly mapped!");
+    }
+  }
+
   auto device_id = p_context_->device_id_;
 
   // Note: grad_self = matmul_bwd(grad_out, w.T())
@@ -1865,7 +1877,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
       std::move(matmul_op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(matmul_op->GetOutputs()[0]));
   auto t_op1 = make_operator<TransposeOperator>(
-      weight.device().index(), weight.scalar_type());
+      weight.device().index(), matmul_op->GetOutputs()[1].scalar_type());
   {
     torch::jit::Stack stack = {
         IValue(matmul_op->GetOutputs()[1]), IValue(-1), IValue(-2)};
@@ -1878,17 +1890,23 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(std::move(t_op1->GetOutputs()[0]));
   }
   if (bias_grad_required) { // bias grad required
+    auto bias_grad_out_selected = bias_grad_out.defined()
+        ? std::make_pair(
+              std::ref(bias_grad_out), std::ref(p_context_->syn_inputs_[3]))
+        : std::make_pair(
+              std::ref(grad_out), std::ref(p_context_->syn_inputs_[0]));
     auto sumOp = make_operator<SumDimOperator>(
-        this->p_context_->device_id_, grad_out.scalar_type());
+        this->p_context_->device_id_,
+        bias_grad_out_selected.first.scalar_type());
     std::vector<int64_t> dim_arr_vec;
     for (int64_t i = 0; i < (input.dim() - 1); i++)
       dim_arr_vec.emplace_back(i);
-    sumOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    sumOp->SetSynapseInput(bias_grad_out_selected.second);
     torch::jit::Stack stack = {
-        c10::IValue(grad_out),
+        c10::IValue(bias_grad_out_selected.first),
         c10::IValue(dim_arr_vec),
         c10::IValue(false),
-        c10::IValue(grad_out.scalar_type())};
+        c10::IValue(bias_grad_out_selected.first.scalar_type())};
     habana::OutputMetaDataVector sumop_metadata_vec;
     sumop_metadata_vec.emplace_back(output_metadata.at(2));
     sumOp->AllocateAndAddSynapseNode(graph, stack, sumop_metadata_vec);
@@ -1903,6 +1921,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
         {0},
         weight.options(),
         memory_format,
+        output_metadata.at(2).dtype,
         output_metadata.at(2).persistent);
     AllocateSynapseOutput(graph, {bias_output}, output_metadata.at(2));
   }
@@ -1920,4 +1939,5 @@ static auto& LinearKernelsKernelRegistry =
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
         .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator))
         .add("aten::linear", KERNEL_FN_DROP_ARG2(LinearForwardOperator))
-        .add("hpu::linear_bwd", KERNEL_FN_DROP_ARG2(LinearBackwardOperator));
+        .add("hpu::linear_bwd", KERNEL_FN_DROP_ARG2(LinearBackwardOperator))
+        .add("hpu::linear_ex_bwd", KERNEL_FN_DROP_ARG2(LinearBackwardOperator));

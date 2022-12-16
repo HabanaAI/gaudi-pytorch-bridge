@@ -359,6 +359,18 @@ std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
     at::ScalarType dtype);
+at::Tensor linear_ex_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const at::ScalarType dtype);
+std::vector<at::Tensor> linear_ex_backward_wrap(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const c10::optional<at::Tensor>& bias_grad_opt,
+    const at::ScalarType dtype);
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(

@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 import numpy as np
 import pytest
 from habana_frameworks.torch.hpex.kernels.CastToFp8 import cast_to_fp8
@@ -46,6 +47,66 @@ for input, expected in input_and_expected:
     expected_data.append(expected)
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+@pytest.mark.parametrize("size", [2, 4, 8, 16])
+@pytest.mark.parametrize("bias_add", [True, False])
+def test_linear_fp8(device, dtype, size, bias_add):
+    # calculate cpu reference
+    quantized_data = torch.tensor(expected_data, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+    t1 = quantized_data.reshape([-1, size])
+    t2 = quantized_data.reshape([-1, size])
+    t1.retain_grad()
+    t2.retain_grad()
+
+    if bias_add:
+        bias_size = int(len(expected_data)/size)
+        bias = torch.full((bias_size, 1), 0.01, dtype=dtype, device=torch.device("cpu"), requires_grad = True).reshape([bias_size])
+        bias.retain_grad()
+
+    # CPU linear with bias has worse precission
+    out = nn.functional.linear(t1, t2)
+    if bias_add:
+        out = out + bias
+
+    loss = out.sum()
+    loss.backward()
+    grad_t1_cpu = t1.grad.clone().to(torch.float).detach()
+    grad_t2_cpu = t2.grad.clone().to(torch.float).detach()
+    if bias_add:
+        grad_bias_cpu = bias.grad.clone().to(torch.float).detach()
+    out = out.to(torch.float).detach()
+
+    # quantize and calculate hpu result
+    input_data = torch.tensor(data, dtype=dtype, device=device, requires_grad = True)
+    t1_h = input_data.reshape([-1, size])
+    t2_h = input_data.reshape([-1, size])
+    if bias_add:
+        bias_h = torch.full((bias_size, 1), 0.01, dtype=dtype, device=device, requires_grad = True).reshape([bias_size])
+        bias_h.retain_grad()
+    else:
+        bias_h = None
+
+    t1_h.retain_grad()
+    t2_h.retain_grad()
+
+    with fp8_autocast(mode="no_sr"):
+        out_h = nn.functional.linear(t1_h, t2_h, bias_h).to(dtype)
+
+    loss_h = out_h.sum()
+    loss_h.backward()
+    grad_t1_hpu = t1_h.grad.clone().to(torch.float).cpu().detach()
+    grad_t2_hpu = t2_h.grad.clone().to(torch.float).cpu().detach()
+    if bias_add:
+        grad_bias_hpu = bias_h.grad.clone().to(torch.float).cpu().detach()
+    out_h = out_h.to(torch.float).cpu().detach()
+
+    assert np.array_equal(out_h, out, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_t1_hpu, grad_t1_cpu, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_t2_hpu, grad_t2_cpu, equal_nan=True), f"Data mismatch"
+    if bias_add:
+        assert np.array_equal(grad_bias_hpu, grad_bias_cpu, equal_nan=True), f"Data mismatch"
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("size", [2, 4, 8, 16])
 @pytest.mark.parametrize("batched", [True, False])
@@ -55,7 +116,7 @@ def test_matmul_fp8(device, dtype, size, batched):
     t1 = quantized_data.reshape([-1, size])
     t2 = quantized_data.reshape([size, -1])
     if batched:
-        t1 =torch.unsqueeze(t1, 0)
+        t1 = torch.unsqueeze(t1, 0)
         t2 = torch.unsqueeze(t2, 0)
         t1 = t1.expand(2, -1, size)
         t2 = t2.expand(2, size, -1)
@@ -79,9 +140,6 @@ def test_matmul_fp8(device, dtype, size, batched):
         t2_h = torch.unsqueeze(t2_h, 0)
         t1_h = t1_h.expand(2, -1, size)
         t2_h = t2_h.expand(2, size, -1)
-        out_h = torch.zeros([2, dataset_size, dataset_size], dtype=dtype, device=device)
-    else:
-        out_h = torch.zeros([dataset_size, dataset_size], dtype=dtype, device=device)
     t1_h.retain_grad()
     t2_h.retain_grad()
 

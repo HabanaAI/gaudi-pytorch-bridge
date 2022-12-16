@@ -6907,7 +6907,8 @@ at::Tensor& recv_hpu_lazy_(
 Tensor linear_non2d_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
-    const c10::optional<Tensor>& bias_opt) {
+    const c10::optional<Tensor>& bias_opt,
+    const c10::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
   /* Implements:
     auto output = at::matmul(input, weight.t());
@@ -6917,17 +6918,22 @@ Tensor linear_non2d_hpu_lazy(
     return output;
   */
 
+  c10::ScalarType out_dtype =
+      dtype.has_value() ? dtype.value() : input.dtype().toScalarType();
   auto sizes = habana::MatMulOperator::compute_output_shape(
       input, weight, true /*weight transposed*/);
-  LazyOp<at::Tensor> k("aten::linear", {input, weight, bias_opt}, {}, {sizes});
+  LazyOp<at::Tensor> k(
+      "aten::linear", {input, weight, bias_opt}, {sizes}, out_dtype);
   RUN_MAYBE_WITH_ACC_THREAD(linear, k)
 }
 
 std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
-    const at::Tensor grad_output,
+    const at::Tensor& grad_output,
     const at::Tensor& input,
     const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt) {
+    const c10::optional<at::Tensor>& bias_opt,
+    const c10::optional<at::Tensor>& bias_grad_opt,
+    const c10::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
   /*
   Implements:
@@ -6948,14 +6954,16 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
     return {std::get<0>(result), weight_grad, bias_grad};
   */
 
+  c10::ScalarType out_dtype =
+      dtype.has_value() ? dtype.value() : input.dtype().toScalarType();
   auto bias_elem_count =
       bias_opt.value_or(Tensor()).defined() ? weight.sizes().vec()[0] : 0;
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
-      "hpu::linear_bwd",
-      {grad_output, input, weight, bias_opt.has_value()},
-      {},
-      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
+      "hpu::linear_ex_bwd",
+      {grad_output, input, weight, bias_opt.has_value(), bias_grad_opt},
+      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes},
+      out_dtype);
   std::vector<at::Tensor> out_v;
   auto out = k.get_result();
   for_each_in_tuple(

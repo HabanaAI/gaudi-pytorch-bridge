@@ -1883,6 +1883,27 @@ std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
   PT_LAZY_TRACE;
   return matmul_backward_hpu_lazy(grad_output, self, other, dtype);
 }
+at::Tensor linear_ex_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const at::ScalarType dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  return linear_non2d_hpu_lazy(input, weight, bias_opt, dtype);
+}
+std::vector<at::Tensor> linear_ex_backward_wrap(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const c10::optional<at::Tensor>& bias_grad_opt,
+    const at::ScalarType dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  return linear_non2d_bwd_hpu_lazy(
+      grad_output, input, weight, bias_opt, bias_grad_opt, dtype);
+}
 
 /***********************************************************************************
  * Kernels requiring autograd override
@@ -2340,6 +2361,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
   m.def(
       "hpu::linear_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::linear_ex_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False, Tensor? bias_grad_out=None) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::identity(Tensor self) -> (Tensor)");
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
