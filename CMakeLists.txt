@@ -281,3 +281,14 @@ if (BUILD_PKGS)
     add_custom_target(${name} ALL DEPENDS ${OUTPUT})
   endforeach()
 endif()
+
+# REMOVE this in SW-112402
+if (Torch_VERSION VERSION_LESS "1.13.0")
+  set(header "wrap_kernels_declarations_12.h")
+else()
+  set(header "wrap_kernels_declarations_13.h")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+    ${CMAKE_SOURCE_DIR}/habana_kernels/${header}
+    ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
+)

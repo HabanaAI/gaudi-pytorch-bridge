@@ -19,17 +19,13 @@
 #include <torch/torch.h>
 
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
 
 #include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
-#include "habana_kernels/wrap_kernels_declarations_12.h"
-#else
-#include "habana_kernels/wrap_kernels_declarations_13.h"
-#endif
 
 using namespace habana_lazy;
 

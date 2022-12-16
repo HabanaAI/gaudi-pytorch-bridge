@@ -1786,16 +1786,4 @@ if __name__ == "__main__":
         help="The path to the native_functions.yaml file",
     )
     args, files = arg_parser.parse_known_args()
-
-    import torch
-    import shutil
-
-    path = args.hputype
-    path = path[:-2]
-    if torch.__version__.startswith("1.12"):
-        path = path + "_12.h"
-        shutil.copyfile(path, args.hputype)
-    else:
-        path = path + "_13.h"
-        shutil.copyfile(path, args.hputype)
     generate(args)

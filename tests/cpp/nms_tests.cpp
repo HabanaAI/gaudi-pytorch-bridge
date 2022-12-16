@@ -4,12 +4,8 @@
 #include <stdexcept>
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
 #include "synapse_helpers/env_flags.h"
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
-#include "habana_kernels/wrap_kernels_declarations_12.h"
-#else
-#include "habana_kernels/wrap_kernels_declarations_13.h"
-#endif
 
 using namespace habana_lazy;
 
