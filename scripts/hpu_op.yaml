@@ -789,22 +789,19 @@ addmv:
   custom_output_shape: AddMVOutshape
   dtypes: [BFloat16, Float]
   force_default: false
-  out_ids: [0]
-  guid: addmv
   op_backend: AddMV
+  out_ids: [0]
 
 addmv_:
   custom_output_shape: AddMVOutshape
   dtypes: [BFloat16, Float]
   force_default: false
-  inplace_ids: [0]
-  guid: addmv
   op_backend: AddMV
+  inplace_ids: [0]
 
 addmv.out:
   custom_output_shape: AddMVOutshape
   dtypes: [BFloat16, Float]
-  guid: addmv
   op_backend: AddMV
 
 addr:
