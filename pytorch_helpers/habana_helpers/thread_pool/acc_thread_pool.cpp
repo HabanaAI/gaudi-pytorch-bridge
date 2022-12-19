@@ -19,6 +19,8 @@
 
 namespace habana_lazy {
 
+thread_local bool AccThreadPool::task_in_progress_{false};
+
 AccThreadPool::AccThreadPool()
     : threads_(1), running_(true), task_count_(0), ex_ptr_(nullptr) {
   auto init_thread = []() {
@@ -61,6 +63,10 @@ bool AccThreadPool::inThreadPool() const {
   return false;
 }
 
+bool AccThreadPool::inAccThreadContext() const {
+  return inThreadPool() || task_in_progress_;
+}
+
 void AccThreadPool::run(std::function<void()>&& func) {
   if (threads_.size() == 0) {
     throw std::runtime_error("No threads to run a task");
@@ -96,6 +102,11 @@ void AccThreadPool::executePendingTask() {
   tasks_.pop();
   lock.unlock();
 
+  // If task_in_progress_ is true then we reentered AccThread - this is
+  // situation we want to avoid
+  HABANA_ASSERT(task_in_progress_ == false);
+  task_in_progress_ = true;
+
   // Run the task.
   try {
     DisableRunningHashUpdates disable;
@@ -107,6 +118,7 @@ void AccThreadPool::executePendingTask() {
     return;
   }
 
+  task_in_progress_ = false;
   --task_count_;
 }
 

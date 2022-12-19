@@ -176,7 +176,7 @@ void flush_op(
   // from accumulated ops (incrementAccumulatedOps).
   StageSubmission::getInstance().incrementOpCount();
   if (habana_lazy::AccThread::IsAccThreadEnabled() &&
-      habana_lazy::AccThread::Get().inThreadPool()) {
+      habana_lazy::AccThread::Get().inAccThreadContext()) {
     // Early exit. Ensure that StepMarker is not called from the accumulation
     // thread. StepMarker can deallocate tensors and it can cause deadlock.
     return;

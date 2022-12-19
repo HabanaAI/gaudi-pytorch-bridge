@@ -23,7 +23,7 @@ class AccThread {
   // returns main accumulation thread pool
   static AccThread& Get();
 
-  bool inThreadPool() const;
+  bool inAccThreadContext() const;
   void run(std::function<void()>&& func);
   void discardPendingTasks();
 

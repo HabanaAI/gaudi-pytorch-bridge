@@ -29,16 +29,18 @@ class AccThreadPool {
   AccThreadPool();
   ~AccThreadPool();
 
-  bool inThreadPool() const;
   void run(std::function<void()>&& func);
   void waitWorkComplete();
   void discardPendingTasks();
+  bool inAccThreadContext() const;
 
  private:
+  bool inThreadPool() const;
   std::queue<AccTask> tasks_;
   std::vector<std::thread> threads_;
   mutable std::mutex mutex_;
   std::atomic_bool running_;
+  static thread_local bool task_in_progress_;
   std::atomic<std::size_t> task_count_;
   std::exception_ptr ex_ptr_;
 

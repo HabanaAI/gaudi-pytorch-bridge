@@ -79,9 +79,10 @@ AccThread& AccThread::Get() {
   return acc_thread;
 }
 
-bool AccThread::inThreadPool() const {
-  return thread_pool.inThreadPool();
+bool AccThread::inAccThreadContext() const {
+  return thread_pool.inAccThreadContext();
 }
+
 void AccThread::run(std::function<void()>&& func) {
   thread_pool.run(std::move(func));
 }
@@ -101,7 +102,7 @@ bool AccThread::IsAccThreadEnabled() {
 }
 
 bool AccThread::CanUseAccThreadInternal() {
-  return IsAccThreadEnabled() && !inThreadPool() &&
+  return IsAccThreadEnabled() && !inAccThreadContext() &&
       !(SingleTonExecThreadPool::getInstance().inThreadPool() ||
         habana_lazy_executor.getDeviceExecutionContext(0)
             ->m_launch_thread_context);

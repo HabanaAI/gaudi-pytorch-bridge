@@ -201,8 +201,8 @@ int64_t Data::GetNextTensorId() {
   static auto id_generator = std::atomic<int64_t>(1);
   static auto acc_id_generator =
       std::atomic<int64_t>(std::numeric_limits<int64_t>::max() / 2);
-  return AccThread::Get().inThreadPool() ? acc_id_generator.fetch_add(1)
-                                         : id_generator.fetch_add(1);
+  return AccThread::Get().inAccThreadContext() ? acc_id_generator.fetch_add(1)
+                                               : id_generator.fetch_add(1);
 }
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)

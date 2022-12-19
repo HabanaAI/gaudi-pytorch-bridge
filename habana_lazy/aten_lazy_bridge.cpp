@@ -242,7 +242,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // if producer is collective, mark step
   if (handle_collective && hl_t.IsCollective() &&
       (!habana_lazy::AccThread::IsAccThreadEnabled() ||
-       !habana_lazy::AccThread::Get().inThreadPool())) {
+       !habana_lazy::AccThread::Get().inAccThreadContext())) {
     PT_LAZY_DEBUG("step marker due to collective op output request");
     HbLazyTensor::StepMarker({});
   }
