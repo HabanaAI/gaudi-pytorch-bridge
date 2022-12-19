@@ -746,6 +746,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
@@ -799,6 +800,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   std::vector<at::Tensor> allreduce_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());
@@ -884,6 +886,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   std::vector<at::Tensor> reduction_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto data_type = getHCCLDataType(tensors[i].scalar_type());
@@ -965,6 +968,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
 
   // This is a workaround to support alltoall using hcclSend and hcclRecv
   // because HCCL library does support alltoall yet.
@@ -1076,6 +1080,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   bool change = false;
   size_t tensor_size = outputTensors[0].size();
   std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
@@ -1161,6 +1166,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::_allgather_base(
     at::Tensor& input_tensor,
     const AllgatherOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
 
   if (input_tensor.dtype() != output_tensor.dtype()) {
     TORCH_CHECK(false, "output tensor must have the same type as input tensor");
@@ -1229,6 +1235,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
+  habana_lazy::NoAccThread no_acc_thread;
   static auto invalidArgument = [](const std::string& msg) {
     TORCH_CHECK(false, "ProcessGroupHCCL::gather: " + msg);
   };
@@ -1292,6 +1299,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce_scatter(
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   auto inputFlattened =
       flatten_for_scatter_gather(inputTensors, outputTensors, size_);
   for (size_t i = 0; i < inputTensors.size(); ++i) {
@@ -1343,6 +1351,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::_reduce_scatter_base(
     at::Tensor& input_tensor,
     const ReduceScatterOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
 
   if (input_tensor.dtype() != output_tensor.dtype()) {
     TORCH_CHECK(
@@ -1404,6 +1413,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::_reduce_scatter_base(
 // if we can send metadata too via send mechanism to provide this info.
 void ProcessGroupHCCL::permutedSendTensorsToDense(
     std::vector<at::Tensor>& tensors) {
+  habana_lazy::NoAccThread no_acc_thread;
   bool has_tensors_to_dense = false;
   std::vector<habana_lazy::HbInternalTensorImpl*> permuted_impls;
   for (auto& tensor : tensors) {
@@ -1464,6 +1474,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::send(
     int dstRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
@@ -1507,6 +1518,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::recv(
     int srcRank,
     int tag) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
@@ -1579,6 +1591,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::recvAnysource(
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
   std::vector<int> devices;
   for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
        it++) {

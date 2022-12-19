@@ -729,6 +729,7 @@ void HbLazyTensor::SyncTensorsGraph(
     synEventHandle event_handle,
     synapse_helpers::hpuStream_t event_stream,
     bool event_flag) {
+  habana_lazy::NoAccThread no_acc_thread;
   HbContext* devctx =
       habana_lazy::HbContextArena::Get()->GetHbContext(GetDeviceOrCurrent(""));
   // If we reach here with anything in tensors_data_opt, it means its a direct
