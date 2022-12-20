@@ -116,6 +116,41 @@ def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
         copy_kernel=True,
     )
 
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_batch_norm_2d_fwd_only(N, H, W, C):
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+    class bn(torch.nn.Module):
+        def __init__(self):
+            super(bn, self).__init__()
+            self.bn2 = torch.nn.BatchNorm2d(C)
+            self.train(False)
+            self.eval()
+        def _forward_impl(self, x):
+            x = self.bn2(x)
+            return x
+        def forward(self, x):
+            return self._forward_impl(x)
+
+    model = bn()
+    x = torch.randn(N, C, H, W, dtype=torch.float32, requires_grad=False)
+
+    model.eval()
+    output = model(x)
+    model.eval()
+
+    model_hpu = model.to(hpu)
+    model_hpu.eval()
+    x_hpu = x.to(hpu)
+    output_hpu = model_hpu(x_hpu)
+    model_hpu.eval()
+    output_hpu_cpu = output_hpu.to(cpu)
+
+    numpy.testing.assert_allclose(
+        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
+    )
+
+
 
 @pytest.mark.parametrize("N, C, D, H, W", batch_norm_test_case_list_3d)
 def test_hpu_batch_norm_3d_fwd_bwd(N, C, D, H, W):
