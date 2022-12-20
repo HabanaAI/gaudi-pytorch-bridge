@@ -222,6 +222,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     m_is_h2d_fe_shape_tensor = true;
   }
 
+  bool peekH2DDataForBucketing() {
+    return m_is_h2d_bucketing;
+  }
+
+  void setH2DDataForBucketing() {
+    m_is_h2d_bucketing = true;
+  }
+
   synTensorType getTensorType() {
     return m_tensor_type;
   }
@@ -263,6 +271,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   bool m_dont_allow_permutation = false;
   unsigned m_permuted_counter = 0;
   bool m_is_h2d_fe_shape_tensor = false;
+  bool m_is_h2d_bucketing = false;
 
   void* host_ptr_ = nullptr;
   void* compile_host_ptr_ = nullptr;

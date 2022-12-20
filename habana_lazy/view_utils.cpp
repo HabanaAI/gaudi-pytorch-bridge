@@ -136,6 +136,82 @@ at::Tensor add_slice_insert_node(
   return result;
 }
 
+std::vector<uint64_t> get_strided_insert_stride_data(
+    std::vector<int64_t>& stride,
+    int64_t& offset) {
+  std::vector<uint64_t> stride_data_vec;
+
+  stride_data_vec.push_back(static_cast<uint64_t>(stride.size()));
+  stride_data_vec.push_back(static_cast<uint64_t>(offset));
+  for (auto it = stride.rbegin(); it != stride.rend(); ++it) {
+    stride_data_vec.push_back(static_cast<uint64_t>(*it));
+  }
+  size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - stride.size();
+  for (size_t i = 0; i < fill_dim; i++) {
+    stride_data_vec.push_back(static_cast<uint64_t>(0));
+  }
+
+  return stride_data_vec;
+}
+
+ir::NodePtr strided_insert_h2d(
+    const Tensor& orig_t,
+    const Tensor& insert_t,
+    Tensor& offset_st,
+    IntArrayRef strides,
+    int64_t& offset,
+    std::string& node_str) {
+  ir::NodePtr node;
+  auto self_strides = orig_t.strides().vec();
+  auto stride_sizes = strides.vec();
+
+  std::vector<uint64_t> stride_data_vec =
+      get_strided_insert_stride_data(stride_sizes, offset);
+
+  auto stride_st = empty_hpu_lazy(
+      stride_data_vec.size() * 2,
+      orig_t.options(),
+      orig_t.suggest_memory_format(),
+      false,
+      HOST_TO_DEVICE_TENSOR);
+  auto hl_stride_st = GetOrCreateHbLazyTensor(stride_st, c10::kHPU);
+  auto hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
+  habana_lazy::HbInternalTensorImpl* impl =
+      habana_lazy::GetHbInternalTensorImpl(hl_stride_internal);
+  HABANA_ASSERT(impl);
+
+  impl->set_host_data(
+      stride_data_vec.data(),
+      stride_data_vec.size(),
+      sizeof(uint64_t),
+      HostDataType::UINT64_T);
+
+  if (orig_t.sizes().size() != strides.size() ||
+      IsStridesRatioZero(self_strides, stride_sizes)) {
+    impl->setH2DDataForBucketing();
+    node_str = "hpu::strided_insert_orig_ds_h2d";
+    node = std::make_shared<ir::StridedInsert>(
+        orig_t, insert_t, stride_st, node_str);
+  } else {
+    auto lazy_ten = GetHbLazyTensor(offset_st);
+    auto tensor_offset = lazy_ten.CurrentTensorAttached().value();
+    auto impl_offset = habana_lazy::GetHbInternalTensorImpl(tensor_offset);
+    HABANA_ASSERT(impl_offset, "impl_offset is invalid");
+    std::vector<int64_t> stride_ratios;
+    auto len = stride_sizes.size();
+    for (uint64_t i = 0; i < len; i++) {
+      stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
+    }
+    impl_offset->get_shape_struct().set_strides_tensor_shape(strides.vec());
+    impl_offset->get_shape_struct().set_stride_ratio(stride_ratios);
+    node_str = "hpu::strided_insert_orig_ds";
+    node = std::make_shared<ir::StridedInsert>(
+        orig_t, insert_t, stride_st, offset_st, node_str);
+  }
+
+  return node;
+}
+
 Tensor add_strided_insert_node(
     const Tensor& orig_t,
     const Tensor& insert_t,
@@ -169,32 +245,37 @@ Tensor add_strided_insert_node(
         SHAPE_TENSOR);
     auto self_strides = orig_t.strides().vec();
     auto stride_sizes = strides.vec();
-    if (orig_t.sizes().size() != strides.size() ||
-        IsStridesRatioZero(self_strides, stride_sizes)) {
-      node_str = "hpu::strided_insert_orig_ds";
-      auto out_stride_st = empty_hpu_lazy(
-          strides,
-          orig_t.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      node = std::make_shared<ir::StridedInsert>(
-          orig_t, insert_t, out_stride_st, offset_st, node_str);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+      node = strided_insert_h2d(
+          orig_t, insert_t, offset_st, strides, offset, node_str);
     } else {
-      auto lazy_ten = GetHbLazyTensor(offset_st);
-      auto tensor_offset_st = lazy_ten.CurrentTensorAttached().value();
-      auto impl_st = habana_lazy::GetHbInternalTensorImpl(tensor_offset_st);
-      HABANA_ASSERT(impl_st, "impl_st is invalid");
+      if (orig_t.sizes().size() != strides.size() ||
+          IsStridesRatioZero(self_strides, stride_sizes)) {
+        node_str = "hpu::strided_insert_orig_ds";
+        auto out_stride_st = empty_hpu_lazy(
+            strides,
+            orig_t.options(),
+            c10::MemoryFormat::Contiguous,
+            false,
+            SHAPE_TENSOR);
+        node = std::make_shared<ir::StridedInsert>(
+            orig_t, insert_t, out_stride_st, offset_st, node_str);
+      } else {
+        auto lazy_ten = GetHbLazyTensor(offset_st);
+        auto tensor_offset_st = lazy_ten.CurrentTensorAttached().value();
+        auto impl_st = habana_lazy::GetHbInternalTensorImpl(tensor_offset_st);
+        HABANA_ASSERT(impl_st, "impl_st is invalid");
 
-      std::vector<int64_t> stride_ratios;
-      auto len = stride_sizes.size();
-      for (uint64_t i = 0; i < len; i++) {
-        stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
+        std::vector<int64_t> stride_ratios;
+        auto len = stride_sizes.size();
+        for (uint64_t i = 0; i < len; i++) {
+          stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
+        }
+        impl_st->get_shape_struct().set_strides_tensor_shape(strides.vec());
+        impl_st->get_shape_struct().set_stride_ratio(stride_ratios);
+        node = std::make_shared<ir::StridedInsert>(
+            orig_t, insert_t, offset_st, node_str);
       }
-      impl_st->get_shape_struct().set_strides_tensor_shape(strides.vec());
-      impl_st->get_shape_struct().set_stride_ratio(stride_ratios);
-      node = std::make_shared<ir::StridedInsert>(
-          orig_t, insert_t, offset_st, node_str);
     }
   } else {
     std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||

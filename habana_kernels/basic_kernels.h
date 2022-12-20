@@ -209,6 +209,10 @@ class StridedInsertOperator : public habana::HabanaOperator {
       synStridedOpParams&,
       torch::jit::Stack& inputs,
       synapse_helpers::graph& graph);
+  void compute_params_h2d(
+      synStridedOpParams&,
+      torch::jit::Stack& inputs,
+      synapse_helpers::graph& graph);
   bool verifyViewMemoryAccess(
       at::Tensor& real,
       at::Tensor& view,
@@ -248,6 +252,13 @@ class StridedViewOperator : public habana::HabanaOperator {
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
   void compute_params(
+      synStridedOpParams& params,
+      torch::jit::Stack& inputs,
+      synapse_helpers::graph& graph,
+      std::vector<int64_t>& size,
+      std::vector<int64_t>& strides,
+      int64_t& offset);
+  void compute_params_h2d(
       synStridedOpParams& params,
       torch::jit::Stack& inputs,
       synapse_helpers::graph& graph,

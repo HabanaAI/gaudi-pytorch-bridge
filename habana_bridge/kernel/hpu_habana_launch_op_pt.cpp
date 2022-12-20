@@ -2443,12 +2443,95 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
   }
 }
 
+void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
+    habana_helpers::InpTensorShapes& shape_map) {
+  for (size_t i = 0; i < input_refs.size(); i++) {
+    auto input = input_refs[i];
+    if (input.isTensor()) {
+      at::Tensor pt_tensor = input.toTensor();
+
+      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+      HABANA_ASSERT(impl);
+      if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
+          impl->peekH2DDataForBucketing()) {
+        size_t h2d_size = impl->get_host_size();
+
+        std::vector<int64_t> h2d_vec;
+        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
+        if (h2d_dt_type == habana_lazy::HostDataType::INT32_T) {
+          int32_t* h2d_data = static_cast<int32_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
+          }
+        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT32_T) {
+          uint32_t* h2d_data = static_cast<uint32_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
+          }
+        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
+          uint64_t* h2d_data = static_cast<uint64_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            uint64_t h2d_elem = *h2d_data++;
+            TORCH_CHECK(
+                h2d_elem < LONG_MAX,
+                "H2D data ",
+                h2d_elem,
+                " exceeds the int64 limit ");
+            h2d_vec.push_back(static_cast<int64_t>(h2d_elem));
+          }
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Host datatype Not Supported while processing host data from bucketing");
+        }
+
+        habana_helpers::TensorShape shape(h2d_vec, pt_tensor.scalar_type());
+        shape.set_tensor_type(impl->getTensorType());
+        shape_map[i] = shape;
+      }
+    }
+  }
+}
+
 void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
   PT_BRIDGE_BEGIN;
   for (size_t j = 0; j < pt_stack_sh.size(); j++) {
     auto value_input = jit_ir_graph->inputs().at(j);
     auto ivpsh = pt_stack_sh[j];
     value_to_ivalue[value_input] = ivpsh;
+  }
+  PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::SetH2DMinMaxData(
+    const torch::jit::Stack& stack,
+    habana_helpers::InpTensorShapes& dynamic_shapes,
+    const ShapeInfo::InferencePass& pass) {
+  PT_BRIDGE_BEGIN;
+  for (size_t i = 0; i < stack.size(); ++i) {
+    if (dynamic_shapes.count(i)) {
+      auto& tensor = stack[i].toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      HABANA_ASSERT(impl);
+      if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
+          impl->peekH2DDataForBucketing()) {
+        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
+        if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
+          std::vector<uint64_t> stride_data_vec;
+          std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
+          for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
+            stride_data_vec.push_back(static_cast<uint64_t>(*it));
+          }
+          if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
+            impl->set_min<uint64_t>(stride_data_vec);
+          } else {
+            impl->set_max<uint64_t>(stride_data_vec);
+          }
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Host datatype Not Supported while setting Min/Max data");
+        }
+      }
+    }
   }
   PT_BRIDGE_END;
 }
@@ -2472,26 +2555,47 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
         tensor_type = impl->getTensorType();
       }
 
-      auto new_tensor = habana_lazy::empty_hpu_lazy(
-          dynamic_shapes.at(i).get_dims(),
-          tensor.options(),
-          tensor.suggest_memory_format(),
-          true,
-          tensor_type);
+      at::Tensor new_tensor;
+      if (tensor_type == HOST_TO_DEVICE_TENSOR &&
+          impl->peekH2DDataForBucketing()) {
+        new_tensor = habana_lazy::empty_hpu_lazy(
+            tensor.sizes(),
+            tensor.options(),
+            tensor.suggest_memory_format(),
+            true,
+            tensor_type);
+      } else {
+        new_tensor = habana_lazy::empty_hpu_lazy(
+            dynamic_shapes.at(i).get_dims(),
+            tensor.options(),
+            tensor.suggest_memory_format(),
+            true,
+            tensor_type);
+      }
       /*
        * Every new tensor is created using Habana Tensor Implementer.
        * Ensure propogation of shape tensor information for the new
        * tensor created for the stack.
        */
       auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
+      HABANA_ASSERT(new_impl);
       new_impl->set_compile_host_ptr(impl);
       if (impl->get_shape_struct().has_shape_tensor_data()) {
         new_impl->get_shape_struct() = impl->get_shape_struct();
       }
-      HABANA_ASSERT(new_impl);
+
       if (impl) {
         new_impl->setTensorType(impl->getTensorType());
       }
+      if (tensor_type == HOST_TO_DEVICE_TENSOR &&
+          new_impl->peekH2DDataForBucketing()) {
+        new_impl->set_host_data(
+            impl->get_host_ptr(),
+            impl->get_host_size(),
+            impl->get_host_el_size(),
+            impl->get_host_dt_type());
+      }
+
       new_stack.push_back(torch::jit::IValue(new_tensor));
     } else {
       new_stack.push_back(stack[i]);
@@ -2583,6 +2687,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
+  ProcessDynamicBucketInputShapesWithH2D(graph_input_info.act_input_tshapes);
   PT_DYNAMIC_SHAPE_DEBUG(
       "Input shapes::",
       graph_input_info.act_input_tshapes,
@@ -3288,6 +3393,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
+  ProcessDynamicBucketInputShapesWithH2D(graph_input_info.act_input_tshapes);
 
   graph_input_info.min_input_tshapes.insert(
       input_ranges.min_shapes.begin(), input_ranges.min_shapes.end());
@@ -3314,6 +3420,10 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     pt_stack_sh.clear();
 
     new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
+    SetH2DMinMaxData(
+        new_stack,
+        graph_input_info.min_input_tshapes,
+        ShapeInfo::InferencePass::MIN_SHAPE);
     pt_stack = &new_stack;
 
     for (size_t j{0}; j < new_stack.size(); j++) {
@@ -3361,6 +3471,10 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     pt_stack_sh.clear();
 
     new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
+    SetH2DMinMaxData(
+        new_stack,
+        graph_input_info.max_input_tshapes,
+        ShapeInfo::InferencePass::MAX_SHAPE);
     pt_stack = &new_stack;
 
     for (size_t j{0}; j < new_stack.size(); j++) {
@@ -3510,8 +3624,16 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack_sh.clear();
     if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
       new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
+      SetH2DMinMaxData(
+          new_stack,
+          graph_input_info.min_input_tshapes,
+          ShapeInfo::InferencePass::MIN_SHAPE);
     } else {
       new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
+      SetH2DMinMaxData(
+          new_stack,
+          graph_input_info.max_input_tshapes,
+          ShapeInfo::InferencePass::MAX_SHAPE);
     }
     pt_stack = &new_stack;
 

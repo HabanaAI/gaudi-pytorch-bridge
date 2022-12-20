@@ -513,6 +513,9 @@ class HabanaLaunchOpPT {
   void CreateDynamicBucketInputShapes(
       habana_helpers::InpTensorShapes& shape_map);
 
+  void ProcessDynamicBucketInputShapesWithH2D(
+      habana_helpers::InpTensorShapes& shape_map);
+
   synapse_helpers::tensor& AllocateSynapseTensor(
       const HabanaOperatorPtr& habana_op,
       at::Tensor& pt_tensor);
@@ -528,6 +531,10 @@ class HabanaLaunchOpPT {
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,
       habana_helpers::InpTensorShapes& dynamic_shapes);
+  void SetH2DMinMaxData(
+      const torch::jit::Stack& stack,
+      habana_helpers::InpTensorShapes& dynamic_shapes,
+      const ShapeInfo::InferencePass& pass);
   inline void try_run_shape_inference(
       const ShapeInfo::InferencePass& pass,
       DynamicShapeInfo& graph_input_info) {

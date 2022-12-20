@@ -2279,3 +2279,98 @@ TEST_F(LazyDynamicShapesTest, ExponentialDynTest) {
     EXPECT_FALSE(torch::equal(result0.cpu(), result1.cpu()));
   }
 }
+
+TEST_F(LazyDynamicShapesTest, AsStridedH2DTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
+  }
+
+  std::vector<int64_t> in_sizes{6144, 24576, 98304};
+  std::vector<std::vector<int64_t>> out_sizes{
+      {2, 2, 32, 32}, {2, 2, 64, 64}, {2, 2, 128, 128}};
+  std::vector<std::vector<int64_t>> strides{
+      {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
+  std::vector<int64_t> offsets{1024, 4096, 16384};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    auto in_s = in_sizes[i];
+    c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
+    auto stride = strides[i];
+    auto offset = offsets[i];
+
+    PT_TEST_DEBUG("\n PTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({in_s});
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::as_strided(hA, out_s, stride, offset);
+    torch::Tensor out = torch::as_strided(A, out_s, stride, offset);
+    hOut = hOut.add_(1.0);
+    out = out.add_(1.0);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
+}
+
+TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
+  }
+
+  std::vector<std::vector<int64_t>> in_sizes{
+      {2, 3, 32, 32}, {2, 3, 64, 64}, {2, 3, 128, 128}};
+  std::vector<std::vector<int64_t>> out_sizes{
+      {2, 2, 32, 32}, {2, 2, 64, 64}, {2, 2, 128, 128}};
+  std::vector<std::vector<int64_t>> strides{
+      {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
+  std::vector<int64_t> offsets{1024, 4096, 16384};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    c10::IntArrayRef in_s(in_sizes[i].data(), in_sizes[i].size());
+    c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
+    auto stride = strides[i];
+    auto offset = offsets[i];
+
+    PT_TEST_DEBUG("\n PTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn(in_s);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::as_strided(hA, out_s, stride, offset);
+    torch::Tensor out = torch::as_strided(A, out_s, stride, offset);
+    hOut = hOut.add_(1.0);
+    out = out.add_(1.0);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
+}
+
+// Reproducer for https://jira.habana-labs.com/browse/SW-117082
+TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
+  std::vector<std::vector<int64_t>> in_sizes{
+      {1, 3, 32, 32, 32}, {1, 3, 64, 64, 64}, {1, 3, 128, 128, 128}};
+  std::vector<std::vector<int64_t>> out_sizes{
+      {1, 3, 32, 32, 32}, {1, 3, 64, 64, 64}, {1, 3, 128, 128, 128}};
+  std::vector<std::vector<int64_t>> strides{
+      {98304, 32768, 1024, 32, 1},
+      {786432, 262144, 4096, 64, 1},
+      {6291456, 2097152, 16384, 128, 1}};
+  std::vector<int64_t> offsets{0, 0, 0};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    c10::IntArrayRef in_s(in_sizes[i].data(), in_sizes[i].size());
+    c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
+    auto stride = strides[i];
+    auto offset = offsets[i];
+
+    PT_TEST_DEBUG("\n PTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn(in_s);
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::as_strided(hA, out_s, stride, offset);
+    torch::Tensor out = torch::as_strided(A, out_s, stride, offset);
+    hOut = hOut.add_(1.0);
+    out = out.add_(1.0);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+}

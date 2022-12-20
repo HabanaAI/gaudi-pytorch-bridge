@@ -320,6 +320,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_RUN_HYBRID_SIF, bool, false);
 // Option to select JIT IR ops for Hybrid Shape Inference
 ENV_STRING_STRUCT_DEFINITION(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE, "");
+// H2D support for view ops
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, bool, false);
 
 // Options to enable/disable std::copy to async thread for non blocking copy
 // and minimum tensor size limit for non blocking copy, Default 1 MB.
