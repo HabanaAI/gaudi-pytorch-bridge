@@ -74,6 +74,8 @@ def wrapped_to(self, *args, **kwargs):
     def collect_shared_parameters(module, name, param, cnt):
         nonlocal shared_parameters
         if isinstance(param, HabanaParameterWrapper):
+            if id(param) not in HabanaParameterWrapper.db:
+                raise weight_sharing_exception
             param_id = id(HabanaParameterWrapper.db[id(param)])
         else:
             param_id = id(param)
@@ -91,14 +93,17 @@ def wrapped_to(self, *args, **kwargs):
         nonlocal shared_parameters
         nonlocal collected_parameters
         if cnt in shared_parameters:
-            for cnt_other in shared_parameters[cnt]:
-                module._parameters[name] = collected_parameters[cnt_other]
+            if len(collected_parameters) <= shared_parameters[cnt]:
+                raise weight_sharing_exception
+            module._parameters[name] = collected_parameters[shared_parameters[cnt]]
 
     def rearrange_shared_parameters(shared_parameters):
-        return {shared_parameters[k][0] : shared_parameters[k][1:] for k,v in shared_parameters.items() if len(v) > 1}
+        return {shared_param:params[0] for params in shared_parameters.values() for shared_param in params[1:]}
 
     shared_parameters = {}
     collected_parameters = []
+    weight_sharing_exception =  Exception("Weight sharing unsuccessful. "
+    "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
 
     # Collect all parameters
     for_all_parameters_in_submodules(collect_parameters)
@@ -120,10 +125,6 @@ def wrapped_to(self, *args, **kwargs):
     for_all_parameters_in_submodules(share_parameters)
 
     # Validate shared parameters
-    weight_sharing_exception =  Exception("Weight sharing unsuccessful."
-    "You can proceed without weight sharing by removing:\n"
-    "\timport habana_frameworks.torch.core as ht\n"
-    "\tht.enable_experimental_weight_sharing()")
     shared_parameters_before = shared_parameters.copy()
     shared_parameters = {}
     for_all_parameters_in_submodules(collect_shared_parameters)
