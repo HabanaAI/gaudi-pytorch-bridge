@@ -10,12 +10,19 @@ from habana_frameworks.torch import _hpex_C
 class FusedLars(Optimizer):
 
     def __init__(self, optimizer, skip_mask, eeta=0.001, eps=1e-8):
-        self.param_groups = optimizer.param_groups
         self.optim = optimizer
         self.eeta = eeta
         self.eps = eps
-        self.state = self.optim.__getstate__()['state']
         self.skip_mask = skip_mask
+
+        defaults = optimizer.defaults
+        defaults.update(dict(
+            skip_mask=skip_mask,
+            eeta=eeta,
+            eps=eps,
+        ))
+        super().__init__(optimizer.param_groups, defaults)
+        self.state = self.optim.__getstate__()['state']
 
     def zero_grad(self, set_to_none=False):
         self.optim.zero_grad(set_to_none)
