@@ -45,17 +45,13 @@ launchers:
     isStable: true
     files:
       - "asic_gaudi_pytorch_topology_tests---t-dg.jenkinsfile"
-- testToLaunch: gaudi_pytorch_distributed_tests---t-dg
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-  - repository: jenkins_files
-    isStable: true
-    files:
-      - "gaudi_pytorch_distributed_tests---t-dg.jenkinsfile"
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
   gerritTriggerMap:
   - repository: pytorch-fork
