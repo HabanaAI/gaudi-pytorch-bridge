@@ -136,7 +136,6 @@ void AccThreadPool::main_loop() {
 
     executePendingTask();
   } // while running_
-  checkNoException();
 }
 
 void AccThreadPool::checkNoException() {
