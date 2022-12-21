@@ -4922,6 +4922,113 @@ std::tuple<Tensor, Tensor, Tensor> native_group_norm_hpu_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm, k)
 }
 
+#if 1 // BatchNorm based implementation
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+native_group_norm_backward_hpu_lazy(
+    const at::Tensor& grad_out,
+    const at::Tensor& input_,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    [[maybe_unused]] c10::SymInt N,
+    [[maybe_unused]] c10::SymInt C,
+    [[maybe_unused]] c10::SymInt HxW,
+    int64_t num_groups,
+    [[maybe_unused]] std::array<bool, 3> output_mask) {
+  int64_t Nmod = N.expect_int() * num_groups;
+  // ================= BEGIN :Re create BN FWD output from BN FWD input
+  // ================== This can be avoided only if autograd override is done
+  // and BN FWD o/p is stored for use in BWD
+  bool use_bn_fwd_in_gn_bwd = GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
+  Tensor bn_fwd_out;
+  auto input_shape = input_.sizes().vec();
+  int64_t rszarr_bn_in[input_.dim()];
+  int64_t rszarr_bn_fwd_mean[input_.dim()];
+  int64_t m = input_.numel() / Nmod;
+  for (int i = 0; i < input_.dim(); i++) {
+    rszarr_bn_in[i] = 1;
+    rszarr_bn_fwd_mean[i] = 1;
+  }
+  rszarr_bn_in[1] = Nmod;
+  rszarr_bn_in[input_.dim() - 1] = m;
+  rszarr_bn_fwd_mean[1] = Nmod;
+  c10::IntArrayRef bn_in_view_shape(rszarr_bn_in, input_.dim());
+  auto bn_fwd_in = at::reshape(
+      input_, bn_in_view_shape); // view_hpu_lazy(input, bn_in_view_shape);
+  if (use_bn_fwd_in_gn_bwd) {
+    Tensor bn_wt1, bn_bt1, bn_rm1, bn_rv1;
+    auto x = batch_norm_hpu_lazy(
+        bn_fwd_in, bn_wt1, bn_bt1, bn_rm1, bn_rv1, true, 0.001, 1e-5);
+    auto bn_fwd_out_tmp = std::get<0>(x);
+    bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
+  } else {
+    c10::IntArrayRef mean_for_bn_fwd_shape(rszarr_bn_fwd_mean, input_.dim());
+    auto mean_for_bn_fwd = at::reshape(mean, mean_for_bn_fwd_shape);
+    auto rstd_for_bn_fwd = at::reshape(rstd, mean_for_bn_fwd_shape);
+    auto bn_fwd_out_tmp =
+        at::mul(at::sub(bn_fwd_in, mean_for_bn_fwd), rstd_for_bn_fwd);
+    bn_fwd_out = at::reshape(bn_fwd_out_tmp, input_shape);
+  }
+
+  int64_t dimarr[input_.dim() - 1];
+  for (int i = 0; i < (input_.dim() - 1); i++)
+    dimarr[i] = i + 1;
+  dimarr[0] = 0;
+  c10::IntArrayRef reduce_dims(dimarr, input_.dim() - 1);
+
+  auto grad_beta = at::sum(grad_out, reduce_dims, false);
+
+  auto t1 = at::mul(grad_out, bn_fwd_out);
+  auto grad_gamma = at::sum(t1, reduce_dims, false);
+
+  int64_t rszarr1[input_.dim()];
+  for (int i = 0; i < input_.dim(); i++)
+    rszarr1[i] = 1;
+  rszarr1[1] = C.expect_int();
+  c10::IntArrayRef wt_view_shape(rszarr1, input_.dim());
+  auto weight = weight_opt.value_or(Tensor());
+  if (!weight.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(c10::ScalarType::Float)
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(wt_view_shape.vec(), options);
+  }
+
+  auto weight_view = at::reshape(weight, wt_view_shape);
+  auto t2 = at::mul(grad_out, weight_view);
+
+  auto t3 = at::reshape(t2, bn_in_view_shape);
+  Tensor bn_gout;
+  if (grad_out.scalar_type() != input_.scalar_type()) {
+    bn_gout = t3.to(input_.scalar_type());
+  } else {
+    bn_gout = t3;
+  }
+  auto bn_in = at::reshape(input_, bn_in_view_shape);
+
+  std::vector<int64_t> view_mean_shape{Nmod};
+  auto mean_reshaped = at::reshape(mean, view_mean_shape);
+  auto rstd_reshaped = at::reshape(rstd, view_mean_shape);
+
+  Tensor bn_wt, bn_rm, bn_rv; // Undefined
+  std::array<bool, 3> bn_output_mask = {true, false, false};
+  auto g = batch_norm_bwd_hpu_lazy(
+      bn_gout,
+      bn_in,
+      bn_wt,
+      bn_rm,
+      bn_rv,
+      mean_reshaped,
+      rstd_reshaped,
+      true,
+      1e-05,
+      bn_output_mask);
+  auto gin = at::reshape(std::get<0>(g), grad_out.sizes());
+
+  return std::make_tuple(gin, grad_gamma, grad_beta);
+}
+#else // LayerNorm based implementation
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
@@ -5009,6 +5116,7 @@ native_group_norm_backward_hpu_lazy(
       output_mask);
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm_backward, op)
 }
+#endif
 
 Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
   std::vector<int64_t> size = {};

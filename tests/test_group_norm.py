@@ -19,7 +19,7 @@ from copy import deepcopy
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 import habana_frameworks.torch.core as htcore
 N = 8#2
-C = 128#4
+C = 320#4
 H = 256#3
 W = 256#4
 G = 32#2
