@@ -128,6 +128,11 @@ void optimizer_adamw_hpu_lazy(
   std::copy(
       exp_avg_sq.begin(), exp_avg_sq.end(), std::back_inserter(exp_avg_sq_v));
 
+  handle_collective(gradients_v);
+  handle_collective(weights_v);
+  handle_collective(exp_avg_v);
+  handle_collective(exp_avg_sq_v);
+
   auto func = [gradients_v = std::move(gradients_v),
                weights_v = std::move(weights_v),
                exp_avg_v = std::move(exp_avg_v),
@@ -471,6 +476,9 @@ void optimizer_lars_hpu_lazy(
   std::vector<at::Tensor> grads_copy;
   std::copy(grads.begin(), grads.end(), std::back_inserter(grads_copy));
 
+  handle_collective(params);
+  handle_collective(grads);
+
   auto func = [grads_copy = std::move(grads_copy),
                params_copy = std::move(params_copy),
                skipMasks,
@@ -492,6 +500,9 @@ void optimizer_ResourceApplyMomentum_hpu_lazy(
     at::TensorList& params_momentum_buffer_list,
     const at::TensorList& d_p_list,
     const float momentum) {
+  handle_collective(params_momentum_buffer_list);
+  handle_collective(d_p_list);
+
   std::vector<at::Tensor> params_momentum_buffer_list_copy;
   std::copy(
       params_momentum_buffer_list.begin(),

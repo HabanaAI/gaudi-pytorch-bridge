@@ -142,6 +142,11 @@ struct is_tuple_of_tensors<std::tuple<Ts...>>
 // TODO: Ideally we want a variant of HABANA_ASSERT like
 // TORCH_INTERNAL_ASSERT_DEBUG_ONLY
 
+void handle_collective(const at::IValue& value);
+void handle_collective(const at::Tensor& tensor);
+void handle_collective(const at::TensorList& list);
+void handle_collective(const std::vector<at::Tensor>& vec);
+
 template <typename ReturnType, typename NodeConstruct = void>
 class LazyOp {
  public:
@@ -1305,19 +1310,6 @@ class LazyOp {
     m_bcast_details = std::move(bcast_vec);
   }
 
-  void handle_collective(const at::IValue& value) const {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) || m_collective_op ||
-        !value.isTensor() ||
-        (habana_lazy::AccThread::IsAccThreadEnabled() &&
-         habana_lazy::AccThread::Get().inAccThreadContext())) {
-      return;
-    }
-
-    // call GetHbLazyTensor to trigger StepMarker in the main thread for
-    // outputs from lazy collective operations
-    auto hb_t = GetHbLazyTensor(value.toTensor());
-  }
-
   void set_inputs(const std::vector<at::IValue>& inputs) {
     auto inputsHpu = inputs;
     for (auto& t : inputsHpu) { // Any tensor on CPU needs to be moved to HPU
@@ -1341,7 +1333,8 @@ class LazyOp {
         t = c10::IValue(tinput);
       }
 
-      handle_collective(t);
+      if (!m_collective_op)
+        handle_collective(t);
     }
     m_sbs_runner->setCPUInputs(inputsHpu);
     m_inputs = inputsHpu;
@@ -1605,7 +1598,8 @@ class LazyOp {
   bool m_shape_was_changed =
       false; // bool for changed input shape for _out ops (non-tuple input)
   std::vector<bool> m_shape_was_changed_in_tuple =
-      {}; // vector of bools for any changed shapes in input tuple for _out ops
+      {}; // vector of bools for any changed shapes in input tuple for _out
+          // ops
   // (tuple input)
   bool m_collective_op = false;
   void update_hash_key_for_tensor(const at::Tensor& t, size_t& optimized_key) {

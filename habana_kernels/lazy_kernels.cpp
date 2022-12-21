@@ -551,6 +551,8 @@ at::Tensor get_tensor_for_scalar(
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
 
+  handle_collective(src);
+
   Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
   HbLazyTensor hb_tensor =
       GetOrCreateHbLazyTensor(src_updated, src_updated.device());
@@ -1343,6 +1345,7 @@ const Tensor& as_strided_hpu_lazy_(
       : self.storage_offset();
 #endif
   self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  handle_collective(self);
   auto func = [self,
                size = size.vec(),
                stride = stride.vec(),
@@ -1471,6 +1474,7 @@ Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
       " spans across two contiguous subspaces). Use .reshape(...) instead.");
   auto stride_value = *stride;
 
+  handle_collective(self_);
   auto out = as_strided_hpu_lazy(
       self_, inferred_size, stride_value, self_.storage_offset());
 
@@ -1780,6 +1784,8 @@ Tensor& add_tensor_hpu_lazy_(
             {self, other}, output, true);
   }
 
+  handle_collective(self);
+  handle_collective(other);
   auto op_func = [self, other, alpha]() mutable {
     add_tensor_hpu_lazy_inplace_parallel_impl(self, other, alpha);
   };
@@ -1848,6 +1854,10 @@ Tensor& mul_out_hpu_lazy(const Tensor& self, const Tensor& other, Tensor& out) {
   if (shape_changed) {
     out.unsafeGetTensorImpl()->set_sizes_contiguous(self.sizes());
   }
+
+  handle_collective(self);
+  handle_collective(other);
+  handle_collective(out);
 
   auto func = [self, other, out, shape_changed]() mutable {
     auto context =
@@ -2602,6 +2612,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     const Tensor& src) {
   PT_LAZY_TRACE;
 
+  handle_collective(self);
   auto func = [self, dim_, index, src]() mutable {
     auto node =
         std::make_shared<habana_lazy::ir::ScatterAdd>(self, dim_, index, src);
@@ -2923,6 +2934,11 @@ Tensor& index_add_hpu_lazy_out(
     Tensor& out) {
   PT_LAZY_TRACE;
 
+  handle_collective(self);
+  handle_collective(indices);
+  handle_collective(source);
+  handle_collective(out);
+
   auto func = [self, dim, indices, source, alpha, out]() mutable {
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
 
@@ -2965,6 +2981,10 @@ Tensor& index_add_hpu_lazy_(
     const Tensor& source,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
+
+  handle_collective(self);
+  handle_collective(indices);
+  handle_collective(source);
 
   auto func = [self, dim, indices, source, alpha]() mutable {
     // TPC doesn't support inplace index add natively
@@ -3369,6 +3389,11 @@ Tensor& index_fill_hpu_lazy_(
     int64_t dim,
     const Tensor& index,
     const Scalar& value) {
+  PT_LAZY_TRACE;
+
+  handle_collective(self);
+  handle_collective(index);
+
   auto func = [self, dim, index, value]() mutable {
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
     if (dim_ == 0) {
@@ -3417,6 +3442,11 @@ Tensor& index_copy_hpu_lazy_(
     const Tensor& indices,
     const Tensor& source) {
   PT_LAZY_TRACE;
+
+  handle_collective(self);
+  handle_collective(indices);
+  handle_collective(source);
+
   // TPC doesn't support inplace index add natively
   // Implement using out of place index add followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
@@ -5609,6 +5639,7 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   PT_LAZY_TRACE;
   TORCH_CHECK(_tensors.size() > 0, "Empty tensors list!");
 
+  handle_collective(_tensors);
   TensorList tensors = _tensors.toUnboxed();
   auto non_empty_list = filter(tensors, is_nonempty_tensor);
   auto first_tensor = tensors[0];
@@ -5681,6 +5712,7 @@ Tensor& cat_hpu_lazy_out(
   auto out_size = CatOutOperator::compute_output_shape(non_empty_list, dim_);
   auto out_shape_change = result.sizes() != out_size;
 
+  handle_collective(_tensors);
   auto func = [result,
                tensors = std::move(tensors_copy),
                dim_,
@@ -6336,6 +6368,9 @@ Tensor fused_norm_hpu_lazy(
 
   auto result = empty_hpu_lazy(
       {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
+
+  handle_collective(grad);
+  handle_collective(max_norm);
 
   auto op_func = [grad, max_norm, norm_type, result]() mutable {
     bool is_view_evaluated = true;
@@ -7389,6 +7424,61 @@ at::Tensor habana_cast_to_fp8_lazy(
   std::tuple<at::Tensor, at::Tensor, at::Tensor> res(
       res_vec[0], res_vec[1], res_vec[2]);
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res)
+}
+
+inline bool is_main_thread_and_lazy_collectives_enabled() {
+  return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
+      not(habana_lazy::AccThread::IsAccThreadEnabled() &&
+          habana_lazy::AccThread::Get().inAccThreadContext());
+}
+
+inline bool is_hpu_tensor(const at::Tensor& tensor) {
+  return tensor.defined() && tensor.device().type() == c10::DeviceType::HPU;
+}
+
+void handle_collective(const at::IValue& value) {
+  // call GetHbLazyTensor to trigger StepMarker in the main thread for
+  // outputs from lazy collective operations
+  if (value.isTensor()) {
+    handle_collective(value.toTensor());
+  } else if (value.isTensorList()) {
+    handle_collective(value.toTensorVector());
+  }
+  // else do nothing
+}
+
+void handle_collective(const at::TensorList& list) {
+  if (!is_main_thread_and_lazy_collectives_enabled())
+    return;
+
+  for (const auto& tensor : list) {
+    if (!is_hpu_tensor(tensor))
+      continue;
+
+    GetHbLazyTensor(tensor);
+  }
+}
+
+void handle_collective(const at::Tensor& tensor) {
+  if (!is_main_thread_and_lazy_collectives_enabled())
+    return;
+
+  if (!is_hpu_tensor(tensor))
+    return;
+
+  GetHbLazyTensor(tensor);
+}
+
+void handle_collective(const std::vector<at::Tensor>& vec) {
+  if (!is_main_thread_and_lazy_collectives_enabled())
+    return;
+
+  for (const auto& tensor : vec) {
+    if (!is_hpu_tensor(tensor))
+      continue;
+
+    GetHbLazyTensor(tensor);
+  }
 }
 
 } // namespace habana_lazy
