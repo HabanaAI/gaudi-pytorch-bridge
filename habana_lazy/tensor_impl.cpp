@@ -15,9 +15,27 @@
 #include "aten_lazy_bridge.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_executor.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
+
+// helper class to maintain ownership on 'this' in case of
+// working on separate thread (acc thread)
+struct intrusive_raii_t {
+  HbLazyTensorImpl* ptr_;
+  intrusive_raii_t(HbLazyTensorImpl* ptr) : ptr_(ptr) {
+    if (ptr_)
+      c10::raw::weak_intrusive_ptr::incref(ptr_);
+  }
+  ~intrusive_raii_t() {
+    if (ptr_)
+      c10::raw::weak_intrusive_ptr::decref(ptr_);
+  }
+  // not copyable
+  intrusive_raii_t(const intrusive_raii_t&) = delete;
+  intrusive_raii_t& operator=(const intrusive_raii_t&) = delete;
+};
 
 caffe2::TypeMeta HbLazyTensorImpl::GetTypeMeta(const HbLazyTensor& hb_tensor) {
   return c10::scalarTypeToTypeMeta(hb_tensor.dtype());
@@ -97,11 +115,19 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/version_counter,
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  this->m_tensor.ShallowCopyTo(&impl->m_tensor);
   impl.get()->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
-  return impl;
+
+  MaybeSyncLaunchBeforeShallowCopy(&this->m_tensor, &impl->m_tensor);
+
+  // increase this refcount to preserve it alive till lambda execution
+  auto this_ref =
+      std::make_shared<intrusive_raii_t>(const_cast<HbLazyTensorImpl*>(this));
+  auto func = [impl, this, this_ref]() mutable {
+    this->m_tensor.ShallowCopyTo(&impl->m_tensor);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func, impl);
 }
 
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
@@ -117,11 +143,19 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
       /*dest_impl=*/impl.get(),
       /*version_counter=*/std::move(version_counter),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
-  this->m_tensor.ShallowCopyTo(&impl->m_tensor);
   impl.get()->SetupSizeProperties();
   impl->refresh_numel();
   impl->refresh_contiguous();
-  return impl;
+
+  MaybeSyncLaunchBeforeShallowCopy(&this->m_tensor, &impl->m_tensor);
+
+  // increase this refcount to preserve it alive till lambda execution
+  auto this_ref =
+      std::make_shared<intrusive_raii_t>(const_cast<HbLazyTensorImpl*>(this));
+  auto func = [impl, this, this_ref]() mutable {
+    this->m_tensor.ShallowCopyTo(&impl->m_tensor);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func, impl);
 }
 
 void HbLazyTensorImpl::shallow_copy_from(
@@ -133,10 +167,20 @@ void HbLazyTensorImpl::shallow_copy_from(
       /*dest_impl=*/this,
       /*version_counter=*/version_counter(),
       /*allow_tensor_metadata_change=*/allow_tensor_metadata_change());
-  hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
+
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
   const_cast<HbLazyTensorImpl*>(this)->refresh_numel();
   const_cast<HbLazyTensorImpl*>(this)->refresh_contiguous();
+
+  MaybeSyncLaunchBeforeShallowCopy(&hl_impl->m_tensor, &this->m_tensor);
+
+  // increase this refcount to preserve it alive till lambda execution
+  auto this_ref = std::make_shared<intrusive_raii_t>(this);
+  auto func = [impl, this, this_ref]() mutable {
+    HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+    hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
+  };
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func);
 }
 
 at::IntArrayRef HbLazyTensorImpl::sizes_custom() const {

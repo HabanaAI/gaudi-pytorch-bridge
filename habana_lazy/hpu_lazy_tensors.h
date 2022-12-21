@@ -455,4 +455,10 @@ inline std::string GetCurrentThreadDevice() {
       .str();
 }
 
+// check to be performed in main thread before
+// scheduling ShallowCopy to acc thread
+void MaybeSyncLaunchBeforeShallowCopy(
+    const HbLazyTensor* dest,
+    const HbLazyTensor* src);
+
 } // namespace habana_lazy

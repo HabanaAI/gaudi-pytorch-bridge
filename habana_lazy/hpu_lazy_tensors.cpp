@@ -1490,21 +1490,8 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   PT_LAZY_TRACE;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto hl_t = *this;
-  if (dest->IsExecutionInProgress() || hl_t.IsExecutionInProgress()) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-        context->JoinPendingLaunchThread();
-        PT_LAZY_EAGER_DEBUG(
-            "[LAZY EAGER MT] JoinPendingLaunchThread in ShallowCopyTo");
-      }
-    } else {
-      context->JoinPendingLaunchThread();
-    }
-  }
-
   // check for shallow copy in src
+  auto hl_t = *this;
   auto src_tensor_opt = hl_t.getDataPtr()->tensor_shallow_copy;
   if (src_tensor_opt.has_value()) {
     hl_t = GetHbLazyTensor(src_tensor_opt.value());
@@ -1611,4 +1598,21 @@ void HbLazyTensor::SetDynamicMode() {
 
 void* HbLazyTensor::lazyTensorDataPtr(const at::Tensor& t) {
   return GetLazyTensorDataPtr(t);
+}
+
+void habana_lazy::MaybeSyncLaunchBeforeShallowCopy(
+    const HbLazyTensor* dest,
+    const HbLazyTensor* src) {
+  if (src->IsExecutionInProgress() || dest->IsExecutionInProgress()) {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+        context->JoinPendingLaunchThread();
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] JoinPendingLaunchThread before ShallowCopyTo");
+      }
+    } else {
+      context->JoinPendingLaunchThread();
+    }
+  }
 }

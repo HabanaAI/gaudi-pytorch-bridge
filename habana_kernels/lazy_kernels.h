@@ -28,6 +28,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "lazy_kernels_declarations.h"
+#include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "resize.h"
 
@@ -37,6 +38,21 @@
 #if IS_PYTORCH_OLDER_THAN(2, 0)
 #define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
 #endif
+
+namespace habana {
+
+template <class F, class... Ts, std::size_t... Is>
+void for_each_in_tuple(
+    std::tuple<Ts...>& tuple,
+    F func,
+    std::index_sequence<Is...>) {
+  (void)(int[]){0, ((void)func(std::get<Is>(tuple)), 0)...};
+}
+template <class F, class... Ts>
+void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
+  for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
+}
+} // namespace habana
 
 namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
