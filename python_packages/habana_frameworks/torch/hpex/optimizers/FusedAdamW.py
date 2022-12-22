@@ -39,7 +39,6 @@ class FusedAdamW(Optimizer):
         super().__init__(params, defaults)
 
         self.neg_step_list = []
-        self.device = self.param_groups[0]["params"][0].device
 
 
     def step_wrap(step_func):
@@ -84,9 +83,9 @@ class FusedAdamW(Optimizer):
                 if len(state) == 0:
                     state["step"] = 0
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(self.device)
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(self.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -95,50 +94,52 @@ class FusedAdamW(Optimizer):
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
 
-            beta1, beta2 = group["betas"]
-            if "step" in group:
-                group["step"] += 1
-            else:
-                group["step"] = 1
+            if len(wt_list) > 0:
 
-            bias_correction_key = None
-            if "bias_correction" in group.keys():
-                bias_correction_key = "bias_correction"
-            else:
-                print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
-                print("This might occur when loading old checkpoints.")
-                bias_correction_key = "correct_bias"
+                beta1, beta2 = group["betas"]
+                if "step" in group:
+                    group["step"] += 1
+                else:
+                    group["step"] = 1
 
-            bias_correction = 1 if group[bias_correction_key] else 0
+                bias_correction_key = None
+                if "bias_correction" in group.keys():
+                    bias_correction_key = "bias_correction"
+                else:
+                    print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
+                    print("This might occur when loading old checkpoints.")
+                    bias_correction_key = "correct_bias"
 
-            step_size = group["lr"]
-            if bias_correction:
-                bias_correction1 = 1.0 - pow(beta1, group["step"])
-                bias_correction2 = 1.0 - pow(beta2, group["step"])
-                step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
+                bias_correction = 1 if group[bias_correction_key] else 0
 
-            neg_step = -step_size
-            neg_step_t = torch.tensor(
-                [neg_step], dtype=torch.float, requires_grad=False
-            ).to(wt_list[0].dtype).to(self.device, non_blocking=True)
-            self.neg_step_list.append(neg_step_t)
+                step_size = group["lr"]
+                if bias_correction:
+                    bias_correction1 = 1.0 - pow(beta1, group["step"])
+                    bias_correction2 = 1.0 - pow(beta2, group["step"])
+                    step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
 
-            # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
-            # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
-            # perform weight decay unconditonally.
-            modified_wd = 1.0 -group["weight_decay"]*group["lr"]
+                neg_step = -step_size
+                neg_step_t = torch.tensor(
+                    [neg_step], dtype=torch.float, requires_grad=False
+                ).to(wt_list[0].dtype).to(wt_list[0].device, non_blocking=True)
+                self.neg_step_list.append(neg_step_t)
 
-            _hpex_C.fused_adamw(
-                grad_list,
-                wt_list,
-                exp_avg_list,
-                exp_avg_sq_list,
-                group["lr"],
-                neg_step_t,
-                beta1,
-                beta2,
-                group["eps"],
-                modified_wd,
-            )
+                # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
+                # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
+                # perform weight decay unconditonally.
+                modified_wd = 1.0 -group["weight_decay"]*group["lr"]
+
+                _hpex_C.fused_adamw(
+                    grad_list,
+                    wt_list,
+                    exp_avg_list,
+                    exp_avg_sq_list,
+                    group["lr"],
+                    neg_step_t,
+                    beta1,
+                    beta2,
+                    group["eps"],
+                    modified_wd,
+                )
 
         return loss
