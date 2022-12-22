@@ -531,7 +531,7 @@ at::Tensor get_tensor_for_scalar(
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   static uint64_t hit_count, miss_count;
-  auto dtype = habana_helpers::getInternalDtype(options.dtype().toScalarType());
+  auto dtype = options.dtype().toScalarType();
 
   auto map_it =
       context->scalar_to_tensor_map.find(std::make_pair(alpha, dtype));
