@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -4775,6 +4775,35 @@ neg:
   guid: neg_fwd
   force_default: false
   out_ids: [0]
+
+nextafter:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: nextafter
+  broadcast: true
+  out_ids: [0]
+
+nextafter_:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: nextafter
+  broadcast: true
+  out_ids: [0]
+
+nextafter.out:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  guid: nextafter
+  broadcast: true
 
 nll_loss_backward:
   force_default: false
