@@ -1275,22 +1275,28 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   std::vector<std::vector<int64_t>> out_shapes{};
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-    for (auto idx : indices) {
-      auto& out_tensor = (*tensors)[idx];
-      // conversion from smallvector to std::vector, impact on lazy eager perf
-      // should be negligible since graphs in lazy eager are small with only few
-      // outputs. This conversion can be removed if synapse lowering code also
-      // starts using SmallSizeVec in future.
-      auto& t = out_tensor.GetSizes();
-      std::vector<int64_t> outtensor{};
-      outtensor.reserve(t.size());
-      outtensor.insert(outtensor.begin(), t.begin(), t.end());
-      out_shapes.push_back(std::move(outtensor));
+    if (lazyFrontEndInfo && lazyFrontEndInfo->get_out_shapes().size()) {
+      out_shapes = lazyFrontEndInfo->get_out_shapes();
       PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER SHAPE AGNOSTIC] output idx : ",
-          idx,
-          " shape : ",
-          out_tensor.GetSizes());
+          "[LAZY EAGER SHAPE AGNOSTIC] output shapes : ", out_shapes);
+    } else {
+      for (auto idx : indices) {
+        auto& out_tensor = (*tensors)[idx];
+        // conversion from smallvector to std::vector, impact on lazy eager perf
+        // should be negligible since graphs in lazy eager are small with only
+        // few outputs. This conversion can be removed if synapse lowering code
+        // also starts using SmallSizeVec in future.
+        auto& t = out_tensor.GetSizes();
+        std::vector<int64_t> outtensor{};
+        outtensor.reserve(t.size());
+        outtensor.insert(outtensor.begin(), t.begin(), t.end());
+        out_shapes.push_back(std::move(outtensor));
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] output idx : ",
+            idx,
+            " shape : ",
+            out_tensor.GetSizes());
+      }
     }
   }
 

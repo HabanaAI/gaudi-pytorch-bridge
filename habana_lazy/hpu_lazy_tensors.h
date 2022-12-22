@@ -161,6 +161,14 @@ struct HbLazyFrontEndInfoToBackend {
     lazy_eager_op_num_of_uids = lazy_eager_op_input_uids.size();
   }
 
+  std::vector<std::vector<int64_t>> get_out_shapes() {
+    return out_shapes;
+  }
+
+  void set_out_shapes(std::vector<std::vector<int64_t>> shapes) {
+    out_shapes = shapes;
+  }
+
  private:
   // The value 0 of optimized_lazy_eager_key is used to indicate the unhandled
   // cases in optimized lazy eager so that no cache entry is prepared in
@@ -173,6 +181,7 @@ struct HbLazyFrontEndInfoToBackend {
   bool is_broadcastable = false;
   std::vector<uint64_t> lazy_eager_op_input_uids{};
   size_t lazy_eager_op_num_of_uids = 0;
+  std::vector<std::vector<int64_t>> out_shapes{};
 };
 
 class HbLazyTensor {
