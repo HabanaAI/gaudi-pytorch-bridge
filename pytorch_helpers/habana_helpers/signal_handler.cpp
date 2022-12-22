@@ -153,18 +153,10 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
 
     std::cerr << ss.str();
 
-    // Cleanup device related data
-    // Within a try::catch, we have added masked all signals within
-    // signal handler.
-    try {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
-      device.cleanup();
-      device.release();
-    } catch (...) {
-    }
-
     // Exit immediately
-    _exit(-1);
+    if ((signum == SIGINT) || (signum == SIGTERM)) {
+      _exit(signum);
+    }
   };
 }
 
