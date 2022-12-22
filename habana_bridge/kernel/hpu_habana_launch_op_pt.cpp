@@ -1705,6 +1705,17 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
               " and scope is : ",
               cast_u.user->scope()->name().toUnqualString());
           auto value_in = node->input(0);
+          if (node->output(0) == cast_u.user->input(0)) {
+            PT_BRIDGE_DEBUG(" Input to conv: dont set to const section");
+            continue;
+          } else if (node->output(0) == cast_u.user->input(1)) {
+            PT_BRIDGE_DEBUG(" wt of conv: ")
+          } else if (node->output(0) == cast_u.user->input(2)) {
+            PT_BRIDGE_DEBUG(" bias of conv: ");
+          } else {
+            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor: ");
+            continue;
+          }
           if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
             PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
             continue;
@@ -1719,6 +1730,17 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
               " and scope is : ",
               cast_u.user->scope()->name().toUnqualString());
           auto value_in = node->input(0);
+          if (node->output(0) == cast_u.user->input(0)) {
+            PT_BRIDGE_DEBUG(" Input to linear: dont set to const section");
+            continue;
+          } else if (node->output(0) == cast_u.user->input(1)) {
+            PT_BRIDGE_DEBUG(" wt of linear: ")
+          } else if (node->output(0) == cast_u.user->input(2)) {
+            PT_BRIDGE_DEBUG(" bias of linear: ");
+          } else {
+            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor: ");
+            continue;
+          }
           if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
             PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
             continue;

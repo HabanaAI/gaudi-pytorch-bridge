@@ -409,6 +409,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               " , size (bridge) :: ",
               tensor.get_host_ptr_size());
           if (section_size) {
+            auto old_size = tensor.get_host_ptr_size();
             if (section_size != tensor.get_host_ptr_size()) {
               void* host_ptr{nullptr};
               auto device_id = tensor.device_id();
@@ -434,6 +435,19 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             auto device_id = tensor.device_id();
             auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
             auto& dst = iter->first->toTensor();
+            if (old_size < section_size) {
+              PT_BRIDGE_DEBUG(
+                  "Needed reallocation (bridge) old_size ",
+                  old_size,
+                  " < ",
+                  section_size);
+              at::DataPtr data =
+                  dst.storage().allocator()->allocate(section_size);
+              dst.storage().set_data_ptr(std::move(data));
+              dst.storage().set_nbytes(section_size);
+              ivalue_to_tensor_info_map[iter->first]->set_buffer(
+                  (void*)(dst.storage().data_ptr().get()));
+            }
             std::atomic<bool> copyDone{false};
             auto syn_error = device.copy_data_to_device(
                 (void*)tensor.get_host_ptr(),

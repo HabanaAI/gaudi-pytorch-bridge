@@ -2007,6 +2007,7 @@ Tensor convolution_hpu_lazy(
   PT_LAZY_TRACE;
   const auto& bias = bias_opt.value_or(Tensor());
   Tensor weight_hpu = weight;
+  Tensor bias_dummy = {};
   if (weight.device().type() == c10::DeviceType::CPU &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
     weight_hpu = weight.to(c10::kHPU, true);
@@ -2035,6 +2036,38 @@ Tensor convolution_hpu_lazy(
   }
 
   auto weight_hwck = permute_wt_hpu(weight_hpu);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    print_tensor_debug(weight_hwck);
+    if (!bias.defined()) {
+      IntArrayRef rm_size;
+      if (weight_hwck.suggest_memory_format() ==
+          c10::MemoryFormat::ChannelsLast) {
+        rm_size = weight_hwck.sizes()[3];
+      } else if (
+          weight_hwck.suggest_memory_format() ==
+          c10::MemoryFormat::ChannelsLast3d) {
+        rm_size = weight_hwck.sizes()[4];
+      } else {
+        rm_size = weight_hwck.sizes()[0];
+      }
+      auto options = torch::TensorOptions()
+                         .dtype(c10::ScalarType::Float)
+                         .device(torch::kCPU)
+                         .requires_grad(false);
+      Tensor bias_temp = torch::zeros(rm_size, options);
+      bias_temp = bias_temp.to(c10::kHPU, true);
+      bias_dummy = bias_temp;
+      if (weight_hwck.scalar_type() == c10::ScalarType::BFloat16) {
+        LazyOp<Tensor> k_{
+            "hpu::cast",
+            {bias_temp, c10::ScalarType::BFloat16},
+            {bias_temp.sizes().vec()},
+            {c10::ScalarType::BFloat16}};
+        bias_dummy = k_.call();
+      }
+    }
+  }
 
   bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
                              ->IsEnabledWeightPermutePass())
@@ -2073,7 +2106,7 @@ Tensor convolution_hpu_lazy(
       "aten::convolution_overrideable",
       {input,
        weight_hwck,
-       bias,
+       bias_dummy.defined() ? bias_dummy : bias,
        stride,
        padding,
        dilation,
