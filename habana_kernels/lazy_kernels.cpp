@@ -1356,7 +1356,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
         "as_strided_ called with strides creating non-contiguous output tensor not supported");
   }
 };
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 const Tensor& as_strided_hpu_lazy_(
     const Tensor& self,
     IntArrayRef size,
@@ -5163,7 +5163,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
 #else

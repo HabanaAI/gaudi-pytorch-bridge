@@ -51,7 +51,7 @@ void strided_insert_hpu_lazy(
     const at::Tensor&,
     const at::Tensor&,
     bool is_flush = true);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 const at::Tensor& as_strided_hpu_lazy_(
     const at::Tensor& self,
     at::IntArrayRef size,
@@ -462,7 +462,7 @@ std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu_lazy(
     const at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-#if ((TORCH_VERSION_MAJOR == 1) && (TORCH_VERSION_MINOR < 13))
+#if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::IntArrayRef repeats);
 #else
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
