@@ -128,6 +128,7 @@ function pytorch_usage()
         echo -e "options:\n"
         echo -e "  -l,  --list-tests                   List the available tests"
         echo -e "  -s,  --specific-test TEST           Run TEST"
+        echo -e "  -d,  --debug                        Use debug test binary"
         echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
         echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
         echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
@@ -1237,7 +1238,8 @@ run_pytorch_modules_tests()
     local __xml=""
     local __ld_lib="$BUILD_ROOT_RELEASE"
     local __print_tests=""
-    local __filter=""
+    local __py_filter=""
+    local __cpp_filter=""
     local __failures=""
     local __marker=""
     local __verbose=""
@@ -1258,7 +1260,8 @@ run_pytorch_modules_tests()
             ;;
         -s  | --specific-test )
             shift
-            __filter="-k $1"
+            __py_filter="-k $1"
+            __cpp_filter="--gtest_filter=$1"
             ;;
         -m  | --maxfail )
             shift
@@ -1321,15 +1324,15 @@ run_pytorch_modules_tests()
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
     	if [ "$__dut" == "gaudi" ]; then
-        (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml)
+        (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
         echo "Running tests on Gaudi2"
-	(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest*)
+	(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
     		__test_status=$?
         elif [ "$__dut" == "greco" ]; then
         echo "Running greco tests"
-		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool*)
+		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
     		__test_status=$?
 	fi
     fi
@@ -1348,7 +1351,7 @@ run_pytorch_modules_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-        (set -x; eval ${__pytorch_modules_tests_exe} -v $__failures $__filter --junit-xml=$__xml ${__marker})
+        (set -x; eval ${__pytorch_modules_tests_exe} -v $__failures $__py_filter --junit-xml=$__xml ${__marker})
         __test_status=$?
         popd
     fi
