@@ -1025,6 +1025,12 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetEventHandle(stream_info.event_handle);
     optimized_path_jit_ir_and_mdata->SetEventRecordStream(
         stream_info.event_stream);
+    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+      // Setting output shapes for the lazy eager shape agnostic graph
+      optimized_path_jit_ir_and_mdata->set_output_shapes(
+          lazy_eager_info.out_shapes);
+    }
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
       auto& input_values = lazy_eager_info.lazyFrontEndInfo->get_input_values();
@@ -1308,10 +1314,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);
     PT_IRGRAPH_DEBUG(
         DumpGraph(optimized_path_jit_ir_and_mdata->get_cached_graph()));
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-      // Setting output shapes for the lazy eager shape agnostic graph
-      optimized_path_jit_ir_and_mdata->set_output_shapes(out_shapes);
-    }
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
       auto input_map =
