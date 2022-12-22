@@ -815,8 +815,11 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // and on inplace ops that triggers this mark step, which leads to graph
   // evaluation and we end up losing input tensor.
   if (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED) {
-    PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
-    HbLazyTensor::StepMarker({});
+    auto hl_t = GetHbLazyTensor(src);
+    if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
+      PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
+      HbLazyTensor::StepMarker({});
+    }
   }
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
@@ -5352,7 +5355,6 @@ Tensor empty_hpu_lazy(
               at_tensor.data_ptr());
         }
       }
-
       return at_tensor;
     } else {
       // else return the internal tensor with storage
