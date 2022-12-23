@@ -37,12 +37,6 @@ static auto BuildErfc(
        {{outshape, dtype, out_index}}});
 }
 
-void Erfc::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto erfc = BuildErfc(this, graph, syn_in(0), ScalarType(), outshape, 0);
-  syn_out(0) = std::move(erfc[0]);
-}
-
 void ForeachErfc::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
