@@ -4072,6 +4072,7 @@ masked_scatter_:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
   override_fn: masked_scatter_hpu_lazy_
 
@@ -4082,6 +4083,10 @@ masked_fill_.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Gaudi3:
       self: [BFloat16, Float, Int, Char, Half]
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char, Half]
@@ -4099,6 +4104,10 @@ masked_fill_.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Gaudi3:
       self: [BFloat16, Float, Int, Char, Half]
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char, Half]
