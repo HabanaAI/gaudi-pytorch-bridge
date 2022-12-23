@@ -1777,6 +1777,7 @@ clamp_max:
 
 clamp_max.Tensor:
   force_default: false
+  broadcast: True
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -1842,6 +1843,7 @@ clamp_min:
 
 clamp_min.Tensor:
   force_default: false
+  broadcast: True
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
