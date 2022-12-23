@@ -1,3 +1,14 @@
+# ******************************************************************************
+# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ******************************************************************************
 from __future__ import print_function
 
 import argparse
@@ -341,6 +352,8 @@ class Op(object):
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
 
+    def get_out_dtype(self):
+        return self.op.get("out_dtype", None)
 
 class Context(object):
     def __init__(self, functions, yamlfile):
@@ -745,6 +758,12 @@ def frontend(
             ctxop.get_override_fn(), ", ".join(param_vars)
         )
     else:
+        out_dtype = ctxop.get_out_dtype()
+        if out_dtype:
+            code += '  TORCH_CHECK(out.scalar_type() == at::k{}, "{} does not support non-{} outputs")\n'.format(
+                out_dtype, aten_opname, out_dtype
+            )
+
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )

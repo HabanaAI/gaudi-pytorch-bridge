@@ -61,11 +61,13 @@ unary_op_0d_list = [
 ]
 
 unary_special_op_list = [
-    torch.isfinite,
-    torch.isinf,
-    torch.isposinf,
-    torch.isneginf,
-    torch.isnan,
+    [torch.isfinite, None],
+    [torch.isinf, None],
+    [torch.isposinf, None],
+    [torch.isneginf, None],
+    [torch.isnan, None],
+    [torch.isposinf, "out"],
+    [torch.isneginf, "out"],
 ]
 
 unary_inplace_op_list = [
@@ -126,14 +128,18 @@ def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
     )
 
 
-@pytest.mark.parametrize("unary_op", unary_special_op_list)
+@pytest.mark.parametrize("unary_op, out", unary_special_op_list)
 @pytest.mark.parametrize("dtype, tol", full_type_list)
-def test_hpu_special_unary_op(unary_op, dtype, tol):
+def test_hpu_special_unary_op(unary_op, out, dtype, tol):
     kernel_params = {
         "input": torch.tensor(
             [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
         ).to(dtype)
     }
+    if out is not None:
+        kernel_params[out] = torch.empty(
+            kernel_params["input"].size(), dtype=torch.bool
+        )
     evaluate_fwd_kernel(
         kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol
     )
