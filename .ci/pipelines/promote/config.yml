@@ -6,6 +6,7 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
     runInSanitizer: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
+    silentMode: true
 # PyTorch full graph tests
   - testToLaunch: asic_gaudi_pytorch_perf_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_sbs_tests---t-dg
