@@ -596,7 +596,6 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
       IntArrayRef(padding),
       IntArrayRef(dilation),
       transposed,
-      IntArrayRef(output_padding),
       groups,
       INPUT_3D_C_IDX, /*input_channel*/
       weight_channel,
@@ -761,7 +760,6 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       IntArrayRef(padding),
       IntArrayRef(dilation),
       transposed,
-      IntArrayRef(output_padding),
       groups,
       INPUT_C_IDX, /*input_channel*/
       weight_channel);

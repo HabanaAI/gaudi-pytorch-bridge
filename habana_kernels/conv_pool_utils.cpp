@@ -74,19 +74,12 @@ void check_convolution_params(
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
     const bool transposed,
-    const at::IntArrayRef output_padding,
     const int64_t groups,
     const int input_channel,
     const int weight_channel,
     const bool is_conv_3d) {
   at::Tensor input = inputs[0];
   at::Tensor weight = inputs[1];
-  TORCH_CHECK(
-      std::all_of(
-          output_padding.cbegin(),
-          output_padding.cend(),
-          [](int64_t x) { return x == 0; }),
-      "convolution_hpu doesn't support output padding");
   TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HPU,
       "weight is not habana at::Tensor");

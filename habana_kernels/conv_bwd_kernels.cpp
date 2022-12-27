@@ -1113,7 +1113,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
       padding,
       dilation,
       transposed,
-      output_padding,
       groups,
       input_channel_index,
       weight_channel_index,
