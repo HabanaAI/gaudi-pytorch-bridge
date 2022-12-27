@@ -177,7 +177,6 @@ class ScatterWrapperOperator : public HabanaOperator {
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 
- private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
       const OutputMetaData& output_metadata);
@@ -247,6 +246,19 @@ class ScatterAddOperator : public ScatterWrapperOperator {
  public:
   ScatterAddOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(device_id, scalarType, "scatter_add_fwd_") {}
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+class UnsortedScatterAddOperator : public ScatterWrapperOperator {
+ public:
+  UnsortedScatterAddOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(
+            device_id,
+            scalarType,
+            "unsorted_scatter_add_fwd_") {}
 };
 
 //

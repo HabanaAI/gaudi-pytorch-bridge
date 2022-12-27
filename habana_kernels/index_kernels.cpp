@@ -465,6 +465,99 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void ScatterAddOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of input expected for Scatter Add operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be Tensor for Scatter Add operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input type expected to be Int for Scatter Add operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input type expected to be Tensor for Scatter Add operator");
+  TORCH_CHECK(
+      inputs[3].isTensor(),
+      "Input type expected to be Int for Scatter Add operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim_ = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  auto src = inputs[3].toTensor();
+
+  if (index.dim() == 0) {
+    SET_SIZE_STRIDE_1D(index);
+  }
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  if (!inplace) {
+    auto output = AllocateOutput(inputs, output_metadata.at(0));
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  } else {
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
+    p_context_->pt_outputs_.emplace_back(self);
+  }
+
+  ns_ScatterKernel::Params params;
+  params.axis = self.dim() - dim - 1;
+  p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  if (synapse_helpers::HPURegistrar::get_device().type() !=
+      synDeviceType::synDeviceGaudi) {
+    if (self.scalar_type() == c10::ScalarType::BFloat16) {
+      auto cast_op1 = make_operator<CastOperator>(
+          self.device().index(), "cast_bf16_to_f32");
+      auto cast_op2 = make_operator<CastOperator>(
+          self.device().index(), "cast_bf16_to_f32");
+      c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
+      auto md = OutputMetaDataVector(1);
+      md[0].dtype = cast_scalar_type;
+
+      std::vector<c10::IValue> cast_stack1{
+          IValue(self), IValue(cast_scalar_type)};
+      cast_op1->SetSynapseInput(p_context_->syn_inputs_[0]);
+      cast_op1->AllocateAndAddSynapseNode(graph, cast_stack1, md);
+      std::vector<c10::IValue> cast_stack2{
+          IValue(src), IValue(cast_scalar_type)};
+      cast_op2->SetSynapseInput(p_context_->syn_inputs_[2]);
+      cast_op2->AllocateAndAddSynapseNode(graph, cast_stack2, md);
+      auto unsorted_scatter_add_op = make_operator<UnsortedScatterAddOperator>(
+          self.device().index(), c10::ScalarType::Float);
+      std::vector<c10::IValue> stack{
+          IValue(cast_op1->GetOutputs()[0]),
+          IValue(dim),
+          IValue(index),
+          IValue(cast_op2->GetOutputs()[0])};
+      unsorted_scatter_add_op->SetSynapseInput(cast_op1->GetSynOutputs()[0]);
+      unsorted_scatter_add_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+      unsorted_scatter_add_op->SetSynapseInput(cast_op2->GetSynOutputs()[0]);
+      unsorted_scatter_add_op->AllocateAndAddSynapseNode(graph, stack, md);
+
+      cast_scalar_type = c10::ScalarType::BFloat16;
+      auto cast_op3 = make_operator<CastOperator>(
+          self.device().index(), "cast_f32_to_bf16");
+      std::vector<c10::IValue> cast_stack3{
+          IValue(unsorted_scatter_add_op->GetOutputs()[0]),
+          IValue(cast_scalar_type)};
+      cast_op3->SetSynapseInput(unsorted_scatter_add_op->GetSynOutputs()[0]);
+      cast_op3->AllocateAndAddSynapseNode(graph, cast_stack3, output_metadata);
+      p_context_->syn_outputs_[0] = std::move(cast_op3->GetSynOutputs()[0]);
+      p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
+      return;
+    }
+    SetGuid("unsorted_scatter_add_fwd_f32");
+  }
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.scatter
  * @param self - Input tensor 1-4D bf16/fp32
