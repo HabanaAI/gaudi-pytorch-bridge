@@ -167,7 +167,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/rrelu_with_noise_gen.cpp
           backend/scatter_gen.cpp
           backend/shrink_gen.cpp
-          backend/signbit_gen.cpp
           backend/smooth_l1_loss_gen.cpp
           backend/softmax_gen.cpp
           backend/softplus_gen.cpp

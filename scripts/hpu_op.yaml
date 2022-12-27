@@ -6080,14 +6080,22 @@ sign_:
 
 signbit:
   force_default: false
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_backend: SignBit
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Char, Byte, Half, Short]
+  guid: signbit_fwd
   out_dtypes: [Bool]
   out_ids: [0]
 
 signbit.out:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
-  op_backend: SignBit
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Char, Byte, Half, Short]
+  guid: signbit_fwd
 
 silu:
   force_default: false
