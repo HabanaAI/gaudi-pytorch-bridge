@@ -4798,7 +4798,7 @@ ne.Scalar_out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   scalar_ids: [1]
-  op_backend: NE
+  guid: not_equal_fwd
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -4809,7 +4809,7 @@ ne_.Scalar:
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
-  op_backend: NE
+  guid: not_equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -4822,7 +4822,7 @@ ne_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
-  op_backend: NE
+  guid: not_equal_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
@@ -4835,7 +4835,7 @@ ne.Scalar:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
-  op_backend: NE
+  guid: not_equal_fwd
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -4849,7 +4849,7 @@ ne.Tensor:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Byte, Char, Half]
   op_frontend: LazyCmp
-  op_backend: NE
+  guid: not_equal_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
 
