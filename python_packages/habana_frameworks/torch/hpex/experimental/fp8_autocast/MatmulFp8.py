@@ -23,8 +23,10 @@ class MatmulFp8NoSr(torch.autograd.Function):
     @classmethod
     def forward(cls, ctx, input: torch.Tensor, other: torch.Tensor, out: torch.Tensor = None) -> torch.Tensor:
         """MatmulFp8NoSr fwd"""
-        ctx.save_for_backward(input, other)
-        return _HPU_MATMUL(cls.cast_to_fp8_fwd(input), cls.cast_to_fp8_fwd(other), torch.bfloat16).to(torch.bfloat16)
+        input_fp8 = cls.cast_to_fp8_fwd(input)
+        other_fp8 = cls.cast_to_fp8_fwd(other)
+        ctx.save_for_backward(input_fp8, other_fp8)
+        return _HPU_MATMUL(input_fp8, other_fp8, torch.bfloat16).to(torch.bfloat16)
 
 
     @classmethod
@@ -32,8 +34,8 @@ class MatmulFp8NoSr(torch.autograd.Function):
         ctx, output_grads: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """MatmulFp8NoSr bwd"""
-        input, other = ctx.saved_tensors
-        grad_0, grad_1 = _HPU_MATMUL_BACKWARD(cls.cast_to_fp8_bwd(output_grads), cls.cast_to_fp8_bwd(input), cls.cast_to_fp8_bwd(other), torch.bfloat16)
+        input_fp8, other_fp8 = ctx.saved_tensors
+        grad_0, grad_1 = _HPU_MATMUL_BACKWARD(cls.cast_to_fp8_bwd(output_grads), input_fp8, other_fp8, torch.bfloat16)
         return grad_0.to(torch.bfloat16), grad_1.to(torch.bfloat16), None
 
 class MatmulFp8SrBwdOnly(MatmulFp8NoSr):

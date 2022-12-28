@@ -25,19 +25,21 @@ class LinearFp8NoSr(torch.autograd.Function):
     def forward(cls, ctx, input: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor = None) -> torch.Tensor:
         """LinearFp8NoSr fwd"""
         bias_bf16 = bias.to(torch.bfloat16) if bias is not None else None
-        ctx.save_for_backward(input, weight, bias_bf16)
-        return _HPU_LINEAR(cls.cast_to_fp8_fwd(input), cls.cast_to_fp8_fwd(weight), bias_bf16, torch.bfloat16).to(torch.bfloat16)
+        input_fp8 = cls.cast_to_fp8_fwd(input)
+        weight_fp8 = cls.cast_to_fp8_fwd(weight)
+        ctx.save_for_backward(input_fp8, weight_fp8, bias_bf16)
+        return _HPU_LINEAR(input_fp8, weight_fp8, bias_bf16, torch.bfloat16).to(torch.bfloat16)
 
     @classmethod
     def backward(cls,
         ctx, output_grads: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """LinearFp8NoSr bwd"""
-        input, weight, bias_bf16 = ctx.saved_tensors
+        input_fp8, weight_fp8, bias_bf16 = ctx.saved_tensors
         grad_0, grad_1, grad_2 = _HPU_LINEAR_BACKWARD(
             cls.cast_to_fp8_bwd(output_grads),
-            cls.cast_to_fp8_bwd(input),
-            cls.cast_to_fp8_bwd(weight),
+            input_fp8,
+            weight_fp8,
             bias_bf16,
             output_grads.to(torch.bfloat16),
             torch.bfloat16)
