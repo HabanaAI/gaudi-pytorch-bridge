@@ -43,7 +43,7 @@ static std::shared_ptr<void> FillAvgpool2dParams(
   params->includePadding = include_pad ? 1 : 0;
   params->divisorOverride = divOverride;
   params->pooling_convention = ceil_mode
-      ? EPoolingConvention::POOLING_CONVENTION_FULL
+      ? EPoolingConvention::POOLING_CONVENTION_FULL_PYTORCH
       : EPoolingConvention::POOLING_CONVENTION_VALID;
   return params;
 }
@@ -52,8 +52,10 @@ std::shared_ptr<void> Fillavgpool2dParamsFwd(
     size_t& size) {
   std::vector<long int> padding = {0, 0};
   auto kernel_size = stack.at(1).toIntVector();
-  auto stride = stack.at(2).isNone() ? kernel_size : stack.at(2).toIntVector();
-  auto pad = stack.at(3).isNone() ? padding : stack.at(3).toIntVector();
+  auto stride =
+      stack.at(2).toListRef().empty() ? kernel_size : stack.at(2).toIntVector();
+  auto pad =
+      stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
   const bool include_pad = stack.at(5).toBool();
   int64_t divOverride = stack.at(6).isNone() ? 0 : stack.at(6).toInt();
@@ -65,8 +67,10 @@ std::shared_ptr<void> Fillavgpool2dParamsBwd(
     size_t& size) {
   std::vector<long int> padding = {0, 0};
   auto kernel_size = stack.at(2).toIntVector();
-  auto stride = stack.at(3).isNone() ? kernel_size : stack.at(3).toIntVector();
-  auto pad = stack.at(4).isNone() ? padding : stack.at(4).toIntVector();
+  auto stride =
+      stack.at(3).toListRef().empty() ? kernel_size : stack.at(3).toIntVector();
+  auto pad =
+      stack.at(4).toListRef().empty() ? padding : stack.at(4).toIntVector();
   const bool ceil_mode = stack.at(5).toBool();
   const bool include_pad = stack.at(6).toBool();
   int64_t divOverride = stack.at(7).isNone() ? 0 : stack.at(7).toInt();
@@ -80,8 +84,10 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   std::vector<long int> padding = {0, 0};
   std::vector<int64_t> dilation = {1, 1};
   auto kernel_size = stack.at(1).toIntVector();
-  auto stride = stack.at(2).isNone() ? kernel_size : stack.at(2).toIntVector();
-  auto pad = stack.at(3).isNone() ? padding : stack.at(3).toIntVector();
+  auto stride =
+      stack.at(2).toListRef().empty() ? kernel_size : stack.at(2).toIntVector();
+  auto pad =
+      stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
   auto outshape = PoolHelper::compute_output_shape(
       self, kernel_size, stride, pad, dilation, ceil_mode, false);
