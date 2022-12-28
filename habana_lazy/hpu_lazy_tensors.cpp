@@ -998,6 +998,7 @@ void LaunchSyncTensorsGraph(
     LaunchEagerInfo lazy_eager_info,
     LaunchStreamInfo stream_info) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread; // disable acc thread during launch
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = true;
   std::vector<HbLazyTensor>* tensors = &launch_info.tensors_ptr;

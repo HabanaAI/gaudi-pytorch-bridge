@@ -102,10 +102,8 @@ bool AccThread::IsAccThreadEnabled() {
 }
 
 bool AccThread::CanUseAccThreadInternal() {
-  return IsAccThreadEnabled() && !inAccThreadContext() &&
-      !(SingleTonExecThreadPool::getInstance().inThreadPool() ||
-        habana_lazy_executor.getDeviceExecutionContext(0)
-            ->m_launch_thread_context);
+  return IsAccThreadEnabled() &&
+      !inAccThreadContext(); // avoid using acc thread pool inside the pool
 }
 
 bool AccThread::CanUseAccThread() {
@@ -127,8 +125,7 @@ void AccThread::ExecuteAllCleanupTasks() {
 }
 
 void AccThread::SyncAccThreadPool() {
-  if (CanUseAccThreadInternal()) { // avoid syncing from acc and launch thread
-                                   // pools
+  if (CanUseAccThreadInternal()) {
     PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
     thread_pool.waitWorkComplete();
