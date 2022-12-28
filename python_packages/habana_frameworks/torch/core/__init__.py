@@ -108,9 +108,9 @@ def post_fwd_hook(module, input, output):
 manual_seed_orig = torch.manual_seed
 
 @wraps(torch.manual_seed)
-def wrap_manual_seed(seed_):
-    rand_hpu.manual_seed_all(seed_)
-    return manual_seed_orig(seed_)
+def wrap_manual_seed(seed):
+    rand_hpu.manual_seed_all(seed)
+    return manual_seed_orig(seed)
 
 torch.manual_seed = wrap_manual_seed
 
