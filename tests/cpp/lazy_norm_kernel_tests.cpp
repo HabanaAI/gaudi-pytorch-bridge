@@ -682,15 +682,6 @@ TEST_F(LazyNormKernelTest, FusedNormViewTest) {
       allclose(total_norm_hpu.to(torch::kCPU), total_norm_cpu, 0.001), true);
 }
 
-TEST_F(LazyNormKernelTest, FrobNormTest) {
-  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHPU);
-  torch::Tensor hOut = torch::frobenius_norm(hA);
-  torch::Tensor Out = torch::frobenius_norm(A);
-
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
-}
-
 TEST_F(LazyNormKernelTest, BatchNormBackwardAdd) {
   auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
   auto tHabanaGrad = grad_tensor.to(torch::kHPU);
