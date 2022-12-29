@@ -488,6 +488,14 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     auto value_exists = value_to_ivalue.find(value_in);
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
     auto ivalue = value_exists->second;
+    std::string scope_string;
+    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+      auto scope_string = std::string(node->scope()->name().toUnqualString());
+      scope_string = !scope_string.empty()
+          ? scope_string.substr(1, scope_string.length() - 1)
+          : scope_string;
+      std::replace(scope_string.begin(), scope_string.end(), '/', '.');
+    }
     if ((ivalue->isTensor() || ivalue->isTensorList())) {
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
@@ -2009,7 +2017,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     outputs_metadata_index++;
     std::string module_name = node->scope()->name().toUnqualString();
     if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && module_name.size() > 0) {
-      auto string_pos = module_name.find('/', 1);
+      if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0))
+        // if (module_name.find("conv") != std::string::npos) {
+        module_name = std::string(node->scope()->name().toUnqualString()) +
+            ".placeholder";
+      // }
+      auto string_pos = module_name.find('/');
       string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
       module_name =
           module_name.substr(string_pos, module_name.length() - string_pos);

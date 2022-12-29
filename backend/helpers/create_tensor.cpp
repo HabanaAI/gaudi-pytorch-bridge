@@ -223,7 +223,8 @@ synapse_helpers::tensor create_tensor(
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
     PtTensorInferenceData::InferenceRangePair inference_range;
-    if (name.size() > 0) {
+    if (name.size() > 0 &&
+        inference_name.find("placeholder") == std::string::npos) {
       auto string_pos = name.find('/', 1);
       string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
       auto module_name = name.substr(string_pos, name.length() - string_pos);
@@ -352,7 +353,8 @@ synapse_helpers::tensor create_tensor(
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
     PtTensorInferenceData::InferenceRangePair inference_range;
-    if (name.size() > 0) {
+    if (name.size() > 0 &&
+        inference_name.find("placeholder") == std::string::npos) {
       auto string_pos = name.find('/', 1);
       string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
       auto module_name = name.substr(string_pos, name.length() - string_pos);

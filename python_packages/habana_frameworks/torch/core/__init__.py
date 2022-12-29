@@ -41,8 +41,10 @@ def handle_quant_stats(model=None):
         for node in gm.graph.nodes:
             for i in range(len(node.all_input_nodes)):
                 if node.all_input_nodes[i].op == "placeholder":
-                   name = '.'.join([node.all_input_nodes[i].target, node.target, "placeholder",str(i)])
+                   name = '.'.join([node.target, "placeholder",str(i)])
                    placeholder_dict[node.all_input_nodes[i].target] = name
+                   short_name = '.'.join([node.all_input_nodes[i].target, str(i)])
+                   placeholder_dict[short_name] = name
         for name, param in model.state_dict().items():
             if name.endswith('.min_val'):
                 min_calibration_data[name.replace(".min_val","")] = param.item()
@@ -61,8 +63,13 @@ def handle_quant_stats(model=None):
             except:
                 pass
         for submodule_name, submodule in model.named_modules():
+            #if set_hook is "x", module.custom_name will be x
+            #What will be the Quantization record will be? layer1/x/conv1
+            #Without set_hook, submodule_name is layer1.0, Scope should be layer1/0/conv1
             if isinstance(submodule, torch.nn.Module) and not names_hook_already_registered(submodule):
                try:
+                   dot_index = submodule_name.rfind(".")
+                   submodule_name = dot_index == -1 and submodule_name or submodule_name[dot_index+1:]
                    submodule.custom_name = submodule_name
                    submodule.register_forward_pre_hook(pre_fwd_hook)
                    submodule.register_forward_hook(post_fwd_hook)
