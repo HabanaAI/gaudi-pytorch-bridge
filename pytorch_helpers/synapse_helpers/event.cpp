@@ -49,7 +49,8 @@ event::event(
       done_cb_{std::move(done_cb)},
       device_ptrs_{std::move(device_ptrs)},
       event_ids_{},
-      stream_recorded_{stream} {
+      stream_recorded_{stream},
+      handle_owner{false} {
   if (!event_id.empty()) {
     event_ids_.emplace_back(std::move(event_id));
   }
@@ -75,7 +76,8 @@ void event::complete() {
   if (done_cb_)
     done_cb_();
   if (handle_) {
-    event_handle_cache_.release_handle(handle_);
+    if (handle_owner)
+      event_handle_cache_.release_handle(handle_);
     handle_ = nullptr;
   }
   done_cb_ = nullptr; // explicit destruction of cb to release any internally
@@ -116,7 +118,7 @@ event::~event() {
           "Destroying event ", this, " that is not synchronized yet");
     }
   }
-  if (handle_) {
+  if (handle_ && handle_owner) {
     event_handle_cache_.release_handle(handle_);
   }
 }

@@ -50,6 +50,7 @@ class event {
   stream& stream_recorded_; // used to avoid waiting on the same stream which is
                             // forbidden by synapse
   bool is_partial_{};
+  bool handle_owner = true;
 
  public:
   /*! \brief Constructor        Requests event from event handle cache
