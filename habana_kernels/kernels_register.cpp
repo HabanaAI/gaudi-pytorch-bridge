@@ -2115,7 +2115,7 @@ Tensor hpu_wrap::slice(
     c10::optional<c10::SymInt> end,
     c10::SymInt step) {
   auto temp_start = start.has_value() ? start.value().expect_int() : 0;
-  auto temp_end = end.has_value() ? end.value().expect_int() : -1;
+  auto temp_end = end.has_value() ? end.value().expect_int() : INT64_MAX;
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
