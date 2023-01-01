@@ -565,14 +565,15 @@ at::Tensor get_tensor_for_scalar(
   return alpha_tensor;
 }
 
-Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& copy_hpu_lazy_D2D(
+    Tensor& self_,
+    const Tensor& src_,
+    bool non_blocking) {
   PT_LAZY_TRACE;
 
-  handle_collective(src);
-
-  Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
-  HbLazyTensor hb_tensor =
-      GetOrCreateHbLazyTensor(src_updated, src_updated.device());
+  auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
+  auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
+  HbLazyTensor hb_tensor = GetHbLazyTensor(src);
 
   /* We can't create a long/double target in the device. Even a cast will
   not work as these data types are not available within the device. The
@@ -581,7 +582,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   out to CPU, the D2H will handle the type conversion */
   bool no_conversion = (self.scalar_type() == c10::ScalarType::Long) ||
       (self.scalar_type() == c10::ScalarType::Double) ||
-      src_updated.scalar_type() == self.scalar_type();
+      src.scalar_type() == self.scalar_type();
 
   if (no_conversion && hb_tensor.IsExecutionInProgress()) {
     auto context =
@@ -589,14 +590,14 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     context->JoinPendingLaunchThread();
   }
   RUNNING_HASH_COMBINE_OPERATOR(hpu::copy_D2D, {self, src, no_conversion});
-  auto op_func = [self, src, non_blocking, no_conversion]() mutable {
+  auto op_func = [self_, src_, non_blocking, no_conversion]() mutable {
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
     // pick the most recent version of src tensor
-    Tensor src_updated = HbLazyTensorViews::get_recent_base_tensor(src);
-    HbLazyTensor hb_tensor =
-        GetOrCreateHbLazyTensor(src_updated, src_updated.device());
-    auto hlresult = GetOrCreateHbLazyTensor(self, src_updated.device());
+    auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
+    auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
+    HbLazyTensor hb_tensor = GetHbLazyTensor(src);
+    auto hlresult = GetHbLazyTensor(self);
     auto layout_format = hb_tensor.GetTensorLayout();
     hlresult.SetTensorLayout(layout_format);
 
@@ -614,7 +615,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // graph cycle happens in squad 8x with view table mechanism
       // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
       // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
-      auto src_parent = HbLazyTensorViews::get_base_tensor(src_updated);
+      auto src_parent = HbLazyTensorViews::get_base_tensor(src);
       auto src_parent_id = GetHbLazyTensorId(src_parent);
 
       if (src_parent_id == dst_id) {
@@ -624,7 +625,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // Handle views and lhs slice
       auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
       if (is_view == false) {
-        AddMemcpy(src_updated, self);
+        AddMemcpy(src, self);
       }
     } else {
       node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
@@ -654,7 +655,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     }
   };
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self);
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self_);
 }
 
 Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {

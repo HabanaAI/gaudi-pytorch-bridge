@@ -211,6 +211,24 @@ TEST_F(LazyBasicKernelTest, ViewCopy) {
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
 }
 
+TEST_F(LazyBasicKernelTest, ViewCopy2) {
+  auto A = torch::randn({4});
+  auto hA = A.to(torch::kHPU);
+
+  auto B = torch::randn({4});
+  auto hB = B.to(torch::kHPU);
+
+  A.view(-1).add_(1.0);
+  A.view(-1).mul_(2.0);
+  A.copy_(B.view(-1));
+
+  hA.view(-1).add_(1.0);
+  hA.view(-1).mul_(2.0);
+  hA.copy_(hB.view(-1));
+
+  EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+}
+
 TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
