@@ -95,7 +95,7 @@ void log_dev_mem_stats(
       HbContext* devctx =
           habana_lazy::HbContextArena::Get()->GetHbContext(aten_device);
 
-      for (auto& uid_wptr : devctx->tensors_data_opt) {
+      for (auto& uid_wptr : devctx->tensors_data) {
         std::shared_ptr<Data> data = uid_wptr.second.lock();
 
         if (data != nullptr) {
