@@ -78,6 +78,9 @@ void GeluBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<synapse_helpers::tensor> t_retain;
   size_t size = 0;
   auto params = FillGeluBwdParams(stack, size);
+  auto Gelu = GeluCommonFunc(this, graph, {syn_in(1)}, outshape, params, size);
+
+#if 0
   bool force_tanh_path;
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_TANH_FOR_GELU)) {
     force_tanh_path = true;
@@ -140,10 +143,11 @@ void GeluBwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {div[0].get()},
         {{outshape, ScalarType()}});
   }
+#endif
   auto Gelu_bwd = BuildOp(
       graph,
       "gelu_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0), syn_in(1), t_retain[0].get()},
+      {syn_in(0), syn_in(1), Gelu[1].get()},
       {{outshape, ScalarType(), 0}},
       params.get(),
       size);
