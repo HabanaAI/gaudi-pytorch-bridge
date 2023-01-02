@@ -152,6 +152,8 @@ HbLazyTensor CheckAndUpdateSizeStride(
       } else {
         hl_tensor_size_zero = false;
       }
+    } else {
+      hl_tensor_size_zero = false;
     }
 
     if (!hl_tensor_size_zero) {
