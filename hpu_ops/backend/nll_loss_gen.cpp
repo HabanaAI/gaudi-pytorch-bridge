@@ -160,44 +160,6 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
        &reduce_params,
        sizeof(reduce_params)});
 }
-
-void NllLossFwd::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  if (!isMetaMode()) {
-    // remove total_weight from output as it is unsupported
-    // JIRA https://jira.habana-labs.com/browse/SW-73520
-    p_context_->syn_outputs_.pop_back();
-    // dummy output in place of total_weight
-    DummyOutput(
-        graph,
-        p_context_,
-        IsOutputPersistent(1),
-        GetOutputMetaData(1).external);
-  }
-
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack)[0];
-
-  if (stack.at(2).isNone()) { // weight is none
-    auto nll_loss =
-        NllLoss(this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
-    syn_out(0) = std::move(nll_loss[0]);
-  } else { // weight is not none
-    auto weight_sum = ReduceWeight(this, graph, {syn_in(2)});
-    auto nll_loss = NllLoss(
-        this,
-        graph,
-        {syn_in(0), syn_in(1), syn_in(2), weight_sum[0].get()},
-        outshape,
-        params,
-        size,
-        0);
-    syn_out(0) = std::move(nll_loss[0]);
-  }
-}
-
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -269,34 +231,6 @@ void NllLoss2DFwd::AddNode(
     }
   }
   syn_out(0) = std::move(nll_loss[0]);
-}
-
-void NllLossBwd::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack)[0];
-  auto dtype = stack.at(0).toTensor().scalar_type();
-  // A JIRA is created for self input tensor not used
-  // https://jira.habana-labs.com/browse/SW-73878
-  if (stack.at(3).isNone()) { // weight is none
-    auto nll_loss = NllLossBwdFunc(
-        this, graph, {syn_in(0), syn_in(2)}, dtype, outshape, params, size, 0);
-    syn_out(0) = std::move(nll_loss[0]);
-  } else { // weight is not none
-    auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
-
-    auto nll_loss = NllLoss(
-        this,
-        graph,
-        {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
-        outshape,
-        params,
-        size,
-        0);
-    syn_out(0) = std::move(nll_loss[0]);
-  }
 }
 
 void NllLoss2DBwd::AddNode(

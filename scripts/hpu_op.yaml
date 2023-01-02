@@ -4845,8 +4845,7 @@ nll_loss_backward:
       target: [Int]
       weight: [BFloat16, Float, Half]
       total_weight: [BFloat16, Float, Half]
-  guid: nll_loss_bwd
-  op_backend: NllLossBwd
+  guid: cnll_loss_bwd
   out_ids: [0]
 
 nll_loss_forward:
@@ -4870,8 +4869,7 @@ nll_loss_forward:
       self: [BFloat16, Float]
       target: [Int]
       weight: [BFloat16, Float]
-  guid: nll_loss_fwd
-  op_backend: NllLossFwd
+  guid: cnll_loss_fwd
   out_ids: [0, 0]
 
 nll_loss2d_backward:
@@ -4939,8 +4937,7 @@ nll_loss_backward.grad_input:
     target: [Int]
     weight: [BFloat16, Float]
     total_weight: [BFloat16, Float]
-  guid: nll_loss_bwd
-  op_backend: NllLossBwd
+  guid: cnll_loss_bwd
 
 nll_loss_forward.output:
   custom_fill_params: FillNllLossFwdParams
@@ -4950,8 +4947,7 @@ nll_loss_forward.output:
     target: [Int]
     weight: [BFloat16, Float]
     output: [BFloat16, Float]
-  guid: nll_loss_fwd
-  op_backend: NllLossFwd
+  guid: cnll_loss_fwd
 
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
