@@ -27,6 +27,10 @@ orchestratorConfig:
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite_dtype
 # Dtype validation <End>
+# Forward hashing feature <Start>
+  - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_fwd_hashing
+    silentMode: true
+# Forward hashing feature <End>
 # PyTorch Operators and feature validation <End>
 # Run only in sanitizer
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
