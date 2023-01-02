@@ -77,6 +77,8 @@ class PoolingStrategy {
       UNUSED size_t new_ws_size) const {
     return true;
   }
+
+  virtual void set_defragmenter_state(UNUSED bool running) const {}
 };
 
 class SubAllocator {
@@ -171,6 +173,10 @@ class SubAllocator {
 
   size_t get_max_cntgs_chunk_size() const {
     return this->strategy_->get_max_cntgs_chunk_size();
+  }
+
+  void set_defragmenter_state(bool started) const {
+    this->strategy_->set_defragmenter_state(started);
   }
 };
 

@@ -362,7 +362,7 @@ void* device_memory::workspace_alloc(
       if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
         MemoryStats stats;
         get_memory_stats(&stats);
-        PT_DEVMEM_WARN(
+        PT_DEVMEM_DEBUG(
             "Workspace extension failed. Attempt to defragment memory.");
         PT_DEVMEM_DEBUG(
             "Memory Stats in case workspace failure", stats.DebugString());
@@ -670,6 +670,7 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_WARN("No defragemtantion was done");
   } else {
     PT_DEVMEM_DEBUG("Moving ", movers.size(), " resources");
+    suballoc_->set_defragmenter_state(true);
     std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address;
     for (auto& mover : movers)
       mover.Deallocate(*suballoc_);
@@ -725,6 +726,7 @@ bool device_memory::defragment_memory(
     MoveData(device_, move_address);
     PT_DEVMEM_DEBUG(
         "Move of resources completed no of resources::", movers.size());
+    suballoc_->set_defragmenter_state(false);
   }
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {

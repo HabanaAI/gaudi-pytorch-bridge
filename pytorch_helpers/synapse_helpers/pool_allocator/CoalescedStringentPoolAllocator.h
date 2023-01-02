@@ -116,6 +116,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
       size_t new_ws_size) const override;
   void print_pool_stats() const override;
   size_t get_max_cntgs_chunk_size() const override;
+  void set_defragmenter_state(bool started) const override;
 
   void get_memory_mask(std::vector<uint64_t>& mmask) const;
 
@@ -139,21 +140,18 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable simple_coalesced_pool_t* prealloc_pool;
   mutable BinUtils* bin_utils;
   mutable bool high_memory_allocated_ = false;
+  mutable bool defragmenter_state_started_ = false;
   mutable MemoryStats stats;
   mutable RetryHandler retry_handler;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;
   Chunk* reuse_chunks(uint64_t size) const;
-  Chunk* get_free_chunk(uint64_t size) const;
-  Chunk* get_any_available_free_chunk(uint64_t size) const;
   void try_splitting_chunks(Chunk* chunk, uint64_t size) const;
   Chunk* try_to_merge(Chunk* c) const;
-  bool defragment_chunks(uint64_t size) const;
   void merge(Chunk* c1, Chunk* c2) const;
   Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
-  Chunk* try_defragmenting(uint64_t size) const;
   bool isChunkContigous(Chunk* chunk1, Chunk* chunk2) const;
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   mutable std::mutex sp_mutex;

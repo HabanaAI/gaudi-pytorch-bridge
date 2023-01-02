@@ -101,6 +101,7 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
   prealloc_pool = nullptr;
   bin_utils = new BinUtils();
   small_allocs_ = nullptr;
+  defragmenter_state_started_ = 0;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -111,6 +112,11 @@ CoalescedStringentPooling::~CoalescedStringentPooling() {
   }
   delete bin_utils;
   bin_utils = nullptr;
+}
+
+void CoalescedStringentPooling::set_defragmenter_state(bool started) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  defragmenter_state_started_ = started;
 }
 
 bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
@@ -380,7 +386,8 @@ void* CoalescedStringentPooling::FindChunkPtr(
             (chunk->size >= num_bytes * 2 ||
              static_cast<int64_t>(chunk->size) - num_bytes >=
                  kMaxInternalFragmentation ||
-             (num_bytes < DEFRAGMENT_TH(chunk->size)))) {
+             (num_bytes < DEFRAGMENT_TH(chunk->size)) ||
+             defragmenter_state_started_)) {
           try_splitting_chunks(chunk, num_bytes);
         }
         bin_utils->InsertFreeChunkIntoBin(chunk);
@@ -513,39 +520,6 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
   }
 
   return max_cntgs_free_chunks_size;
-}
-
-Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
-    uint64_t size) const {
-  uint64_t bin_index = bin_utils->BinIndexForSize(size);
-  for (; bin_index < kNumBins; bin_index++) {
-    Bin* b = bin_utils->BinFromIndex(bin_index);
-    for (auto citer = b->free_chunks.begin(); citer != b->free_chunks.end();
-         ++citer) {
-      Chunk* chunk = *citer;
-      HABANA_ASSERT(!chunk->used);
-
-      if (chunk->size >= size) {
-        PT_DEVMEM_DEBUG(
-            "CS_POOL:: Return bigger chunk :: ",
-            chunk,
-            " chunk size :: ",
-            chunk->size,
-            " requested size :: ",
-            size);
-
-        return chunk;
-      }
-    }
-  }
-  PT_DEVMEM_DEBUG("CS_POOL:: no bigger chunks !!");
-  return nullptr;
-}
-
-Chunk* CoalescedStringentPooling::get_free_chunk(uint64_t size) const {
-  int bin_index = bin_utils->BinIndexForSize(size);
-  Chunk* new_chunk = (Chunk*)FindChunkPtr(bin_index, size);
-  return new_chunk;
 }
 
 bool CoalescedStringentPooling::isChunkContigous(Chunk* chunk1, Chunk* chunk2)
