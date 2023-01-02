@@ -5394,7 +5394,7 @@ remainder.Tensor:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
@@ -5406,7 +5406,7 @@ remainder.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -5418,7 +5418,7 @@ remainder_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
@@ -5430,7 +5430,7 @@ remainder_.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -5442,7 +5442,7 @@ remainder.Scalar_Tensor:
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
   op_frontend: RemainderScalarTensor
-  op_backend: RemainderOp
+  guid: rem_fwd
   out_ids: [1]
   scalar_ids: [0]
   promote_to_common_type: [self, other]
@@ -5453,7 +5453,7 @@ remainder.Tensor_out:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   promote_to_common_type: [self, other]
   broadcast: true
 
@@ -5464,7 +5464,7 @@ remainder.Scalar_out:
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
     Greco: [BFloat16, Float, Int, Char, Short, Byte]
-  op_backend: RemainderOp
+  guid: rem_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
 

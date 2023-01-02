@@ -147,7 +147,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/reduction_template.cpp
           common/reduction_template.cpp
           backend/reflection_pad_gen.cpp
-          backend/remainder_gen.cpp
           backend/replication_pad_bwd_gen.cpp
           backend/replication_pad_gen.cpp
           backend/resize_gen.cpp
