@@ -5041,6 +5041,11 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   std::string op_name;
   std::set<size_t> metadata_indices;
 
+  // Handle 0D tensor
+  if (self.sizes().empty() && self.numel() == 1) {
+    return self;
+  }
+
   auto rpt_vec = repeats.vec();
   std::vector<int32_t> params_vec;
   for_each(rpt_vec.rbegin(), rpt_vec.rend(), [&](const int64_t& n) {
