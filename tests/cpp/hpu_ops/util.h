@@ -19,8 +19,8 @@ class HpuOpTestUtilBase : public habana_lazy_test::EnvHelper {
   void Compare(
       const torch::Tensor& cpu_result,
       const torch::Tensor& hpu_result,
-      double rtol = 1e-03,
-      double atol = 1e-03) const;
+      c10::optional<double> rtol = c10::nullopt,
+      c10::optional<double> atol = c10::nullopt) const;
 
   torch::Tensor& GetCpuInput(int index) {
     return m_cpu_inputs.at(index);

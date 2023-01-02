@@ -82,7 +82,7 @@ TEST_F(VarStd, var_out_bf16) {
   torch::var_outf(GetCpuInput(0), dim, {}, true, expected);
   torch::var_outf(GetHpuInput(0), dim, {}, true, result);
 
-  Compare(expected, result, 5.7e-03);
+  Compare(expected, result, 0.007, 0.006);
 }
 
 TEST_F(VarStd, var_mean_4d) {

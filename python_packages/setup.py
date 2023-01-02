@@ -69,6 +69,7 @@ def get_version():
             sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
             return HABANA_DEFAULT_VERSION + "+" + sha
         except Exception as e:
+            import sys
             print("Error getting version: {}".format(e), file=sys.stderr)
             return f"{HABANA_DEFAULT_VERSION}+unknown"
 
