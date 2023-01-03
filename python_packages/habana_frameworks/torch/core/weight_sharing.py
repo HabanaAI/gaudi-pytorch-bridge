@@ -85,6 +85,12 @@ def wrapped_to(self, *args, **kwargs):
         nonlocal collected_parameters
         collected_parameters.append(param)
 
+    def convert_to_habana_parameters(module, name, param, cnt):
+        if not isinstance(param, HabanaParameterWrapper) and param is not None:
+            module._parameters[name].__class__ = HabanaParameterWrapper
+            HabanaParameterWrapper.db[id(param)] = param
+
+
     def share_parameters(module, name, param, cnt):
         nonlocal shared_parameters
         nonlocal collected_parameters
@@ -100,6 +106,9 @@ def wrapped_to(self, *args, **kwargs):
     collected_parameters = []
     weight_sharing_exception =  Exception("Weight sharing unsuccessful. "
     "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
+
+    # Convert all parameters to habana parameters
+    for_all_parameters_in_submodules(convert_to_habana_parameters)
 
     # Collect all parameters
     for_all_parameters_in_submodules(collect_parameters)
