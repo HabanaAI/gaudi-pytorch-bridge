@@ -153,6 +153,32 @@ hcclResult_t device_context::lock_address(
 }
 
 hcclResult_t device_context::lock_address(
+    std::vector<void*> addresses,
+    std::unique_ptr<synapse_helpers::device_ptr_lock>& locked) {
+  std::lock_guard<std::mutex> guard{access_mutex_};
+  PT_DISTRIBUTED_DEBUG("Calling device_context::lock_address");
+
+  synapse_helpers::device_handle device = device_;
+
+  if (device == nullptr) {
+    PT_DISTRIBUTED_FATAL(
+        "Device need to be opened and chosen before allocating memory.");
+    return hcclInvalidUsage;
+  }
+
+  std::vector<synapse_helpers::device_ptr> dev_addresses;
+  for (auto& address : addresses)
+    dev_addresses.push_back(
+        reinterpret_cast<synapse_helpers::device_ptr>(address));
+
+  locked = absl::make_unique<synapse_helpers::device_ptr_lock>(
+      device->lock_addresses(
+          absl::Span<const synapse_helpers::device_ptr>(dev_addresses)));
+
+  return hcclSuccess;
+}
+
+hcclResult_t device_context::lock_address(
     void* const address,
     void** device_address,
     std::unique_ptr<synapse_helpers::device_ptr_lock>& locked) {

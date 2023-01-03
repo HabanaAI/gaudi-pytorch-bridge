@@ -679,8 +679,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
 
       struct ResourceHolder {
         std::vector<at::Tensor> tensors_;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> input_address_lock;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> output_address_lock;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
       };
       auto resource_holder = std::make_shared<ResourceHolder>();
       resource_holder->tensors_ = {input, output};
@@ -688,13 +687,14 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
       void* input_address;
       void* output_address;
       deviceCtxt->lock_address(
-          input.data_ptr(),
-          &input_address,
-          resource_holder->input_address_lock);
-      deviceCtxt->lock_address(
-          output.data_ptr(),
-          &output_address,
-          resource_holder->output_address_lock);
+          {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
+      input_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+      HABANA_ASSERT(input_address != nullptr, "input_address is null");
+      output_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+      HABANA_ASSERT(output_address != nullptr, "output_address is null");
+
       hccl_result =
           fn(input,
              output,

@@ -589,7 +589,7 @@ bool device_memory::defragment_memory(
       std::hex,
       std::this_thread::get_id());
   if (!threads_in_defragmenter_critical_section_->wait_for(2s)) {
-    PT_DEVMEM_WARN(
+    PT_DEVMEM_FATAL(
         "Defragmentation cannot be started. Some allocated buffers are in use.",
         "It may be caused by device memory leak");
     return false;

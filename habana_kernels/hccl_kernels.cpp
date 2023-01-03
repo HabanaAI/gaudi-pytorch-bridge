@@ -158,8 +158,8 @@ void collective(
     auto func = [fn = fn,
                  input = inputs.at(i),
                  output = outputs.at(i),
-                 pt_inputs = pt_inputs,
-                 pt_outputs = pt_outputs,
+                 pt_input = pt_inputs[i],
+                 pt_output = pt_outputs[i],
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
@@ -182,27 +182,22 @@ void collective(
 
       struct ResourceHolder {
         std::vector<at::Tensor> pt_tensor;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> input_address_lock;
-        std::unique_ptr<synapse_helpers::device_ptr_lock> output_address_lock;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
       };
       auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->pt_tensor = {pt_input, pt_output};
+
       void* input_address;
       void* output_address;
       deviceCtxt->lock_address(
-          input->get_buffer(),
-          &input_address,
-          resource_holder->input_address_lock);
-      deviceCtxt->lock_address(
-          output->get_buffer(),
-          &output_address,
-          resource_holder->output_address_lock);
-      resource_holder->pt_tensor = {pt_inputs};
-      if (pt_outputs.size() > 0) {
-        resource_holder->pt_tensor.insert(
-            resource_holder->pt_tensor.end(),
-            pt_outputs.begin(),
-            pt_outputs.end());
-      }
+          {input->get_buffer(), output->get_buffer()},
+          resource_holder->address_lock);
+      input_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+      HABANA_ASSERT(input_address != nullptr, "input_address is null");
+      output_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+      HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
       hcclResult_t hccl_result =
           fn(input,
