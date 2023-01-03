@@ -957,6 +957,7 @@ arange.start_out:
   dtypes:
     Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
     Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
     Greco: [Float, BFloat16, Int, Short, Char, Byte, Half]
   custom_output_shape: ArangeOutputShape
   custom_fill_params: FillArangeParams
@@ -1777,7 +1778,7 @@ clamp_max:
 
 clamp_max.Tensor:
   force_default: false
-  broadcast: True
+  broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -1843,7 +1844,7 @@ clamp_min:
 
 clamp_min.Tensor:
   force_default: false
-  broadcast: True
+  broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -2975,12 +2976,14 @@ native_group_norm:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
   override_fn: native_group_norm_hpu_lazy
 
 native_group_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
   override_fn: native_group_norm_backward_hpu_lazy
 
 gt.Scalar_out:
@@ -4734,6 +4737,7 @@ neg.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: neg_fwd
 
@@ -4943,6 +4947,7 @@ norm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithOutDtype
 
@@ -4951,6 +4956,7 @@ norm.dtype_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
 
@@ -4971,6 +4977,7 @@ norm.ScalarOpt_dim_dtype:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
   op_frontend: LazyNormOp
@@ -4982,6 +4989,7 @@ norm.ScalarOpt_dim:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormOpWithOutDtype
   out_ids: [0]
@@ -4992,6 +5000,7 @@ norm.ScalarOpt_dtype:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: NormHabanaOperator
   out_ids: [0]
@@ -5024,6 +5033,7 @@ pow_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
@@ -5037,6 +5047,7 @@ pow_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
@@ -5048,6 +5059,7 @@ pow.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   op_frontend: PowScalar
@@ -5061,6 +5073,7 @@ pow.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   scalar_ids: [0]
@@ -5071,6 +5084,7 @@ pow.Tensor_Scalar:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
@@ -5084,6 +5098,7 @@ pow.Tensor_Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   op_backend: PowOp
@@ -5095,6 +5110,7 @@ pow.Tensor_Tensor:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   force_default: false
   guid: pow_fwd
@@ -5106,6 +5122,7 @@ pow.Tensor_Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: pow_fwd
   promote_to_common_type: [self, exponent]
@@ -5119,6 +5136,7 @@ prod:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   out_ids: [0]
@@ -5129,6 +5147,7 @@ prod.dim_int:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   out_ids: [0]
@@ -5138,6 +5157,7 @@ prod.int_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reduce_prod_fwd
   op_template: reduction
@@ -5184,6 +5204,7 @@ reciprocal:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   out_ids: [0]
@@ -5194,6 +5215,7 @@ reciprocal_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   inplace_ids: [0]
@@ -5203,6 +5225,7 @@ reciprocal.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: reciprocal_fwd
 
@@ -5511,6 +5534,7 @@ round:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: round_fwd
   out_ids: [0]
@@ -5521,6 +5545,7 @@ round_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: round_fwd
   inplace_ids: [0]
@@ -5530,6 +5555,7 @@ round.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: round_fwd
 
@@ -5538,6 +5564,7 @@ round.decimals:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: RoundDecimal
   out_ids: [0]
@@ -5547,6 +5574,7 @@ round_.decimals:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: RoundDecimal
   inplace_ids: [0]
@@ -5555,6 +5583,7 @@ round.decimals_out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_backend: RoundDecimal
 
@@ -5590,6 +5619,7 @@ rsqrt:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   out_ids: [0]
@@ -5600,6 +5630,7 @@ rsqrt_:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   inplace_ids: [0]
@@ -5609,6 +5640,7 @@ rsqrt.out:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: rsqrt_fwd
 
@@ -5617,6 +5649,7 @@ rsub.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   promote_to_common_type: [self, other]
   guid: sub_fwd
@@ -6233,7 +6266,7 @@ squeeze:
   acc_thread: true
 
 squeeze.dim:
-  force_default: False
+  force_default: false
   override_fn: squeeze_dim_hpu_lazy
   acc_thread: true
 
@@ -6243,7 +6276,7 @@ squeeze_:
   acc_thread: true
 
 squeeze_.dim:
-  force_default: False
+  force_default: false
   override_fn: squeeze_dim_hpu_lazy_
   acc_thread: true
 
