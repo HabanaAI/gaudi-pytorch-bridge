@@ -335,6 +335,13 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   auto aten_t = AtenFromHbLazyTensor(
       m_tensor, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
 
+  // ensure proper order of locking StridedViewContext and HbContextArena
+  // mutexes always first mutex is StridedViewContext to be locked inside
+  // TryGetHbLazyTensor there is StridedViewContext mutex lock temporarily so it
+  // needs to be locked in outer scope, since this function is re-called from
+  // the scope below with HbContextArena mutex taken
+  LOCK_VIEW_TABLE_MUTEX(
+      habana_lazy_executor.getDeviceExecutionContext(0)->viewContext);
   auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
   auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
 

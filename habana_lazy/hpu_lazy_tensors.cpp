@@ -119,30 +119,30 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
-    for (auto& uid_wptr : devctx->tensors_data_opt) {
-      std::shared_ptr<Data> data = uid_wptr.second.lock();
-      HABANA_ASSERT(data);
-      auto id = data->unique_id;
-      auto hl_t = HbLazyTensor(std::move(data));
+  for (auto& uid_wptr : devctx->tensors_data_opt) {
+    std::shared_ptr<Data> data = uid_wptr.second.lock();
+    HABANA_ASSERT(data);
+    auto id = data->unique_id;
+    auto hl_t = HbLazyTensor(std::move(data));
 
-      auto params_ptr = context->viewContext.GetViewTableEntry(id);
-      auto is_view = (params_ptr != nullptr);
+    auto params_ptr = context->viewContext.GetViewTableEntry(id);
+    auto is_view = (params_ptr != nullptr);
 
-      if (bucket_recent_id.count(id)) {
-        context->viewContext.updated_bucket_list.emplace_back(hl_t);
-      }
-      auto is_view_out = context->viewContext.view_outputs.count(id);
-
-      if (is_view_out ||
-          ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-           (context->viewContext.GetOrigTensorMapEntry(id) == c10::nullopt))) {
-        tensors.emplace_back(hl_t);
-      }
+    if (bucket_recent_id.count(id)) {
+      context->viewContext.updated_bucket_list.emplace_back(hl_t);
     }
-    {
-      std::lock_guard<std::recursive_mutex> lock(GetMutex());
-      devctx->tensors_data_opt.clear();
+    auto is_view_out = context->viewContext.view_outputs.count(id);
+
+    if (is_view_out ||
+        ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+         (context->viewContext.GetOrigTensorMapEntry(id) == c10::nullopt))) {
+      tensors.emplace_back(hl_t);
     }
+  }
+  {
+    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    devctx->tensors_data_opt.clear();
+  }
   return tensors;
 }
 
@@ -1550,6 +1550,7 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   PT_LAZY_TRACE;
+  std::vector<at::Tensor> cleanup_tensors;
   // check for shallow copy in src
   auto hl_t = *this;
   auto src_tensor_opt = hl_t.getDataPtr()->tensor_shallow_copy;
@@ -1559,12 +1560,24 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
 
   auto aten_t = AtenFromHbLazyTensor(
       hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+  if (dest->getDataPtr()->tensor_shallow_copy) {
+    cleanup_tensors.push_back(dest->getDataPtr()->tensor_shallow_copy.value());
+  }
+
   dest->getDataPtr()->tensor_shallow_copy = aten_t;
 
   // copy the src memory to dst to avoid double allocation
   auto data_tensor = CurrentTensorData();
   if (data_tensor.has_value()) {
+    if (dest->getDataPtr()->tensor_data) {
+      cleanup_tensors.push_back(dest->getDataPtr()->tensor_data.value());
+    }
     dest->SetTensorData(*data_tensor);
+  }
+  if (habana_lazy::AccThread::IsAccThreadEnabled() &&
+      habana_lazy::AccThread::Get().inAccThreadContext()) {
+    habana_lazy::AccThread::Get().PushCleanupTask(
+        [cleanup_tensors = std::move(cleanup_tensors)]() {});
   }
 }
 
