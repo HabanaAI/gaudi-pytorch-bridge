@@ -14,9 +14,16 @@
 from __future__ import annotations
 import sys
 from typing import Any, Optional, Type, Union
+from pkginfo import Wheel
 
 import packaging.version
-from pkg_resources import get_platform
+
+import tempfile
+import logging
+import requests
+import os
+
+log = logging.getLogger(__file__)
 
 
 class Version(packaging.version.Version):
@@ -25,16 +32,23 @@ class Version(packaging.version.Version):
 
     PyPA reference for PEP-440: https://packaging.pypa.io/en/stable/version.html
     """
+    tmp_dir = tempfile.TemporaryDirectory()
 
     def __init__(
-        self, version: Union[str, Type(sys.version_info)], label: Optional[str] = None
+        self, version: Union[str, Type[sys.version_info]], label: Optional[str] = None
     ) -> None:
         """
         :param version a string in PEP-440 format or a Python system version
         :param label   optional custom symbolic label of the version. Used to generate @see Version.label.
         """
         self._label = label
+        self.wheel_path = None
+        self.wheel_url = None
         if isinstance(version, str):
+            if version.startswith("file://"):
+                version = self._handle_wheel(version.split("file://")[-1])
+            if version.startswith("https://"):
+                version = self._handle_url(version)
             super().__init__(version)
         elif isinstance(version, type(sys.version_info)):
             version = f"{version.major}.{version.minor}.{version.micro}"
@@ -53,6 +67,36 @@ class Version(packaging.version.Version):
 
     def __hash__(self):
         return hash(str(self))
+
+    def __repr__(self):
+        if self.wheel_url:
+            return f"<Version('{self}', source={self.wheel_url})>"
+        elif self.wheel_path:
+            return f"<Version('{self}', source=file://{self.wheel_path})>"
+        else:
+            return super().__repr__()
+
+    def _handle_wheel(self, path):
+        self.wheel_path = path
+        w = Wheel(path)
+        return w.version
+
+    def _handle_url(self, url):
+        self.wheel_url = url
+        log.info(f"Trying to download wheel from {url} to {Version.tmp_dir.name}")
+        r = requests.get(url, stream=True)
+        if r.ok:
+            filename = url.split('/')[-1]
+            wheel_path = os.path.join(Version.tmp_dir.name, filename)
+            with open(wheel_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024 * 8):
+                    if chunk:
+                        f.write(chunk)
+                        f.flush()
+                        os.fsync(f.fileno())
+            return self._handle_wheel(wheel_path)
+        else:
+            raise ConnectionError("Download failed: status code {}\n{}".format(r.status_code, r.text))
 
     @property
     def label(self):
@@ -111,3 +155,7 @@ def is_official_nightly_cpu_version(pt_ver: Version) -> bool:
 
 def is_pt_fork_version(pt_ver: Version) -> bool:
     return pt_ver.pre == ("a", 0) and pt_ver.local.startswith("git")
+
+
+def is_wheel_version(pt_ver: Version) -> bool:
+    return pt_ver.wheel_path

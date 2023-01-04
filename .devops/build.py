@@ -25,12 +25,14 @@ from contextlib import contextmanager
 from build_profiles import profile_getter
 from build_profiles.version import (
     Version,
-    is_official_nightly_cpu_version,
     is_official_stable_cpu_version,
     is_pt_fork_version,
+    is_wheel_version,
 )
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, Any
 from io import StringIO
+
+import inspect
 
 log = logging.getLogger(__file__)
 
@@ -218,6 +220,7 @@ def prepare_env(venv_dir):
 
 def run(*args, venv=".") -> None:
     log.info(f"In venv {venv} calling `{' '.join(args)}`")
+    log.debug(f"^^^ called by {inspect.stack()[1].function} at {inspect.stack()[1].filename}:{inspect.stack()[1].lineno}")
     # must run through shell because otherwise changing PATH has no effect
     sp.check_call(
         " ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash"
@@ -281,25 +284,47 @@ def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Versio
 
 
 # TODO: support RC builds
-def resolve_pip_args(pt_ver: Union[str, Version]) -> Tuple[str, str]:
+def resolve_pip_args(pt_ver: Union[str, Version]) -> Tuple[str, ...]:
     """Returns a tuple with pip arguments required for installing the PT wheel."""
     if pt_ver == "nightly":
-        pip_args = (
-            "--pre",
-            "--extra-index-url",
-            "https://download.pytorch.org/whl/nightly/cpu",
-        )
-        return pip_args
+        return "--pre", "--extra-index-url", "https://download.pytorch.org/whl/nightly/cpu"
 
-    if is_official_stable_cpu_version(pt_ver):
-        pip_args = ("--extra-index-url", "https://download.pytorch.org/whl/cpu")
-    elif is_pt_fork_version(pt_ver):
-        pip_args = tuple()
+    if is_wheel_version(pt_ver) or is_pt_fork_version(pt_ver):
+        return tuple()
+    elif is_official_stable_cpu_version(pt_ver):
+        return "--extra-index-url", "https://download.pytorch.org/whl/cpu"
     else:
         raise ValueError(
             f"Unable to deduce a supported build type from PT version: {pt_ver}"
         )
-    return pip_args
+
+
+def install_pt(pt_ver, venv_python, venv_dir, user):
+    if is_wheel_version(pt_ver):
+        required_pt = pt_ver.wheel_path
+    else:
+        required_pt = profile_getter.get_required_pt(
+            pt_ver, profile_getter.RequirementPurpose.BUILD
+        )  # e.g. 'torch==1.12.0'
+        # TODO: if PT from fork: fetch it from artifactory or build_pt_fork(venv_python)
+        if is_pt_fork_version(pt_ver):
+            from os.path import expanduser
+            home = expanduser("~")
+            required_pt = os.path.join(home, "wheelhouse", "torch", "torch-1.12.0a0+git314b0ed-cp38-cp38-linux_x86_64.whl")
+            if not os.path.isfile(required_pt):
+                raise FileNotFoundError("Please download or compile PT-fork so you have it at: " + required_pt)
+    version_specific_pip_args = resolve_pip_args(pt_ver)
+    run(
+        venv_python,
+        "-m",
+        "pip",
+        "install",
+        "-U",
+        *user,
+        required_pt,
+        *version_specific_pip_args,
+        venv=venv_dir,
+    )
 
 
 def install_requirements(pt_modules_root, pt_ver, venv_dir, venv_python, label=None):
@@ -319,22 +344,7 @@ def install_requirements(pt_modules_root, pt_ver, venv_dir, venv_python, label=N
         venv=venv_dir,
     )
 
-    required_pt = profile_getter.get_required_pt(
-        pt_ver, profile_getter.RequirementPurpose.BUILD
-    )  # e.g. 'torch==1.12.0'
-    version_specific_pip_args = resolve_pip_args(pt_ver)
-    # TODO: if PT from fork: fetch it from artifactory or build_pt_fork(venv_python)
-    run(
-        venv_python,
-        "-m",
-        "pip",
-        "install",
-        "-U",
-        *user,
-        required_pt,
-        *version_specific_pip_args,
-        venv=venv_dir,
-    )
+    install_pt(pt_ver, venv_python, venv_dir, user)
 
     # TODO: support parallel builds with different kinetos/pybinds
 
@@ -364,23 +374,6 @@ def install_requirements(pt_modules_root, pt_ver, venv_dir, venv_python, label=N
     )
 
     return query_installed_pt_ver(venv_dir, venv_python, label=label)
-
-
-def ensure_packaging_is_installed(venv_python, venv_dir) -> None:
-    try:
-        run(venv_python, "-c", '"import packaging"', venv=venv_dir)
-    except sp.CalledProcessError:
-        log.debug("Installing packaging module")
-        user = ("--user",) if venv_dir is None else tuple()
-        run(
-            venv_python,
-            "-m",
-            "pip",
-            "install",
-            "packaging",
-            *user,
-            venv=venv_dir,
-        )
 
 
 def prepare_venv(
@@ -419,6 +412,7 @@ def prepare_venv(
         f"pt{pt_ver}",
     )
     log.debug(f"Working on {venv_dir}")
+    update = False
     if recreate_venv == RecreateVenv.FORCE:
         remove_venv(venv_dir)
     if not os.path.isdir(venv_dir):
@@ -433,6 +427,7 @@ def prepare_venv(
         #  PT installation.
         run(f"python{python_ver}", "-m", "venv", "--copies", venv_dir, venv=None)
         log.info(f"Created virtualenv at {venv_dir}")
+        update = True
     else:
         log.debug(f"Virtual env at {venv_dir} already exists")
     venv_python = os.path.join(venv_dir, "bin", f"python{python_ver}")
@@ -459,15 +454,15 @@ def prepare_venv(
             log.error(
                 "Insufficient pip version in virtual env that I was forbidden to update"
             )
-    update = False
     label = None
-    if pt_ver in ("nightly",):
-        update = True
-        label = pt_ver
-    ensure_packaging_is_installed(venv_python, venv_dir)
-    installed_pt_ver = query_installed_pt_ver(venv_dir, venv_python, label=label)
-    if installed_pt_ver is None:
-        update = True
+    if not update:
+        if pt_ver in ("nightly",):
+            update = True
+            label = pt_ver
+        installed_pt_ver = query_installed_pt_ver(venv_dir, venv_python, label=label)
+        if installed_pt_ver is None:
+            update = True
+
     if recreate_venv == RecreateVenv.NEVER:
         update = False
 
@@ -479,6 +474,9 @@ def prepare_venv(
             venv_python,
             label=label,
         )
+    else:
+        installed_pt_ver = query_installed_pt_ver(venv_dir, venv_python, label=label)
+
     if installed_pt_ver is None or not get_supported_version(
         installed_pt_ver, (pt_ver,)
     ):
@@ -888,7 +886,7 @@ def create_wheel_targets(
     return wheel_configs
 
 
-def create_wheel_finalization_target(wheel_configs: WheelConfig, pmake) -> str:
+def create_wheel_finalization_target(wheel_configs: List[WheelConfig], pmake) -> str:
     """Puts wheels in wheelhouse and repairs them for manylinux"""
 
     wheelhouse = "wheelhouse"
@@ -906,7 +904,7 @@ def add_target_for_moving_wheels_to_wheelhouse(wheel_configs, pmake, wheelhouse)
 
     moving_target = "wheel/put_in_wheelhouse"
     pmake(f".PHONY: {moving_target}")
-    pmake(f"{moving_target}: {''.join(linux_targets)}")
+    pmake(f"{moving_target}: {' '.join(linux_targets)}")
     pmake(f"\tmkdir -p {wheelhouse} && \\")
     pmake(f"\tfind {wheelhouse} -type f -delete && \\")
     pmake(f"\tmv {wheel_files} {wheelhouse}")
@@ -1039,7 +1037,7 @@ def run_cmake_build_generation(
 
 def collect_build_combinations(
     wheels_per_build_envs, cmake_configurations
-) -> List[Tuple[str, str]]:
+) -> List[Tuple[list, Any]]:
     """Returns a list of pairs: venv path and CMake flags"""
     build_envs_by_venv = defaultdict(list)
     for e in wheels_per_build_envs.keys():
@@ -1315,7 +1313,7 @@ def parse_args():
     # Original --pt-version dropped as it's broken in master - likely unused
     version_args.add_argument(
         "--pt-versions",
-        choices=supported_pt_versions + ("all", "current", "nightly"),
+        # choices=supported_pt_versions + ("all", "current", "nightly"),
         nargs="+",
         default="current",
         help="pt versions to include. By default this option is set to "
@@ -1584,15 +1582,7 @@ def gather_wheel_targets(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, L
         selected_wheel_configs.extend(wheel_configs)
         for config in wheel_configs:
             wheel_targets.add(f"{config.target}/" + platform)
-        ensure_wheel_is_installed()
     return wheel_targets, selected_wheel_configs
-
-
-def ensure_wheel_is_installed():
-    try:
-        import wheel
-    except:
-        install_wheel()
 
 
 def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConfig]):
@@ -1766,9 +1756,15 @@ def main():
 
         current_pt_version, wheel_specs = prepare_wheel_specs(args, current_pt_version)
 
+        selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
         log.debug(
-            f"Selected PyTorch versions: {set([item for sublist in wheel_specs for item in sublist.pt_versions])}"
+            f"Selected PyTorch versions: {selected_pt_versions}"
         )
+        unsupported_pt_versions = selected_pt_versions.difference(supported_pt_versions)
+        if unsupported_pt_versions:
+            log.fatal(f"Selected unsupported PyTorch versions: {unsupported_pt_versions}")
+            sys.exit(1)
+
         wheels_per_build_envs = prepare_build_envs(
             selected_python_versions,
             wheel_specs,
@@ -1796,7 +1792,7 @@ def main():
             jobs=args.jobs,
             targets=wheel_targets,
             verbose=args.verbose,
-            extra_make_flags={"--no-print-directory"},
+            extra_make_flags=("--no-print-directory",),
             use_icecc=args.use_icecc,
         )
         if args.run_ctest:

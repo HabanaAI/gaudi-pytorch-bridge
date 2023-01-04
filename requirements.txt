@@ -5,3 +5,7 @@ numpy>=1.21
 pyyaml
 cython
 yamllint
+pkginfo
+requests
+packaging
+wheel==0.38.4
