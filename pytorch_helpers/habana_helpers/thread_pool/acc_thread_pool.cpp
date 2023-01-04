@@ -22,45 +22,38 @@ namespace habana_lazy {
 thread_local bool AccThreadPool::task_in_progress_{false};
 
 AccThreadPool::AccThreadPool()
-    : threads_(1), running_(true), task_count_(0), ex_ptr_(nullptr) {
+    : running_(true), task_count_(0), ex_ptr_(nullptr) {
   auto init_thread = []() {
     c10::setThreadName("AccThreadPool");
     at::init_num_threads();
   };
 
   if (!GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
-    for (std::size_t i = 0; i < threads_.size(); ++i) {
-      threads_[i] = std::thread([this, init_thread]() {
-        init_thread();
-        this->main_loop();
-      });
-    }
+    thread_ = std::thread([this, init_thread]() {
+      init_thread();
+      this->main_loop();
+    });
   } else {
     running_ = false;
   }
 }
 
 AccThreadPool::~AccThreadPool() {
+  if (!thread_.joinable())
+    return;
+
   // set flag to false to break main loop in the acc thread
   running_ = false;
 
-  for (auto& t : threads_) {
-    try {
-      t.join();
-    } catch (const std::exception& ex) {
-      PT_BRIDGE_WARN("Exception in acc thread pool desctructor: ", ex.what());
-    }
+  try {
+    thread_.join();
+  } catch (const std::exception& ex) {
+    PT_BRIDGE_WARN("Exception in acc thread pool desctructor: ", ex.what());
   }
 }
 
 bool AccThreadPool::inThreadPool() const {
-  static thread_local std::thread::id tid = std::this_thread::get_id();
-  for (auto& thread : threads_) {
-    if (thread.get_id() == tid) {
-      return true;
-    }
-  }
-  return false;
+  return thread_.get_id() == std::this_thread::get_id();
 }
 
 bool AccThreadPool::inAccThreadContext() const {
@@ -68,9 +61,6 @@ bool AccThreadPool::inAccThreadContext() const {
 }
 
 void AccThreadPool::run(std::function<void()>&& func) {
-  if (threads_.size() == 0) {
-    throw std::runtime_error("No threads to run a task");
-  }
   checkNoException();
 
   {

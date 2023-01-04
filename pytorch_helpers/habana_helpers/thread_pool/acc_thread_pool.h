@@ -37,7 +37,7 @@ class AccThreadPool {
  private:
   bool inThreadPool() const;
   std::queue<AccTask> tasks_;
-  std::vector<std::thread> threads_;
+  std::thread thread_;
   mutable std::mutex mutex_;
   std::atomic_bool running_;
   static thread_local bool task_in_progress_;
