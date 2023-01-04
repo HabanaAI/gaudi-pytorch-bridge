@@ -12,10 +12,9 @@
 #include <perf_lib_layer_params.h>
 #include "habana_kernels/lazy_kernels.h"
 #include "op_backend.h"
+#include "op_logger.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
-
 #include "supported_dtypes.h"
 
 namespace habana {
@@ -118,8 +117,6 @@ inline bool is_Greco_device() {
       synapse_helpers::HPURegistrar::get_device().type() ==
       synDeviceType::synDeviceGreco);
 }
-
-std::string to_string(const at::IValue& ival);
 
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors);
