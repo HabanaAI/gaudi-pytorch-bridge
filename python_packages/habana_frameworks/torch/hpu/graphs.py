@@ -33,13 +33,13 @@ class HPUGraph(object):
         """
         _hpu_C.capture_end(self.hpu_graph)
 
-    def replay(self):
+    def replay(self, asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
         """
-        _hpu_C.replay(self.hpu_graph)
+        _hpu_C.replay(self.hpu_graph, asynchronous)
 
-    def replayV2(self, static_tlist: List[torch.Tensor], tlist: List[torch.Tensor]):
+    def replayV2(self, static_tlist: List[torch.Tensor], tlist: List[torch.Tensor], asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
 
@@ -49,7 +49,7 @@ class HPUGraph(object):
         .. warning::
             This API is in beta and may change in future releases.
         """
-        _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist)
+        _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist, asynchronous)
 
 class graph(object):
     r"""
@@ -95,7 +95,7 @@ class graph(object):
         self.stream_ctx.__exit__(exc_type, exc_value, traceback)
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
-def make_graphed_callables(callables, sample_args, warmups=0):
+def make_graphed_callables(callables, sample_args, warmups=0, asynchronous=False):
 
     '''
     callables (torch.nn.Module or Python function, or tuple of these) – Callable or callables to graph.
@@ -107,7 +107,6 @@ def make_graphed_callables(callables, sample_args, warmups=0):
 
     warmups (Int) -  number warmups run needed.
     '''
-
     just_one_callable = False
 
     if not isinstance(callables, tuple):
@@ -207,15 +206,16 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                                        static_input_surface,
                                        static_outputs,
                                        static_grad_outputs,
-                                       static_grad_inputs):
+                                       static_grad_inputs,
+                                       asynchronous):
         class Graphed(torch.autograd.Function):
             @staticmethod
             def forward(ctx, *inputs):
                 for i in range(len_user_args):
                     # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
                     #     static_input_surface[i].copy_(inputs[i])
-                    static_input_surface[i].copy_(inputs[i])
-                fwd_graph.replay()
+                   static_input_surface[i].copy_(inputs[i])
+                fwd_graph.replay(asynchronous)
                 assert isinstance(static_outputs, tuple)
                 return tuple(o.detach() for o in static_outputs)
 
@@ -229,7 +229,7 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                         # if g.data_ptr() != grad.data_ptr():
                         #     g.copy_(grad)
                         g.copy_(grad)
-                bwd_graph.replay()
+                bwd_graph.replay(asynchronous)
 
                 # Input args that didn't require grad expect a None gradient.
                 assert isinstance(static_grad_inputs, tuple)
@@ -251,7 +251,8 @@ def make_graphed_callables(callables, sample_args, warmups=0):
                                                  per_callable_static_input_surfaces[i],
                                                  per_callable_static_outputs[i],
                                                  per_callable_static_grad_outputs[i],
-                                                 per_callable_static_grad_inputs[i])
+                                                 per_callable_static_grad_inputs[i],
+                                                 asynchronous)
 
         if isinstance(func, torch.nn.Module):
             def make_graphed_forward(func, graph_training_state, graphed, orig_fwd):
@@ -272,10 +273,11 @@ def make_graphed_callables(callables, sample_args, warmups=0):
     return tuple(ret)
 
 class CachedParams:
-    def __init__(self, graph_inputs, graph_outputs, graph):
+    def __init__(self, graph_inputs, graph_outputs, graph, asynchronous=False):
         self.graph_inputs = graph_inputs
         self.graph_outputs = graph_outputs
         self.graph = graph
+        self.asynchronous = asynchronous
 
 
 def input_hash(obj):
@@ -301,7 +303,7 @@ def copy_to(dst, src):
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
-def wrap_in_hpu_graph_func(func):
+def wrap_in_hpu_graph_func(func, asynchronous=False):
     import habana_frameworks.torch as ht
     stream = ht.hpu.Stream()
     cache = {}
@@ -318,14 +320,14 @@ def wrap_in_hpu_graph_func(func):
                 graph.capture_end()
                 graph_inputs = inputs
                 graph_outputs = outputs
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph)
+                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
             return outputs
         copy_to(cached.graph_inputs, inputs)
-        cached.graph.replay()
+        cached.graph.replay(cached.asynchronous)
         return cached.graph_outputs
     return forward
 
-def wrap_in_hpu_graph(module):
+def wrap_in_hpu_graph(module, asynchronous=False):
     import habana_frameworks.torch as ht
     stream = ht.hpu.Stream()
     cache = {}
@@ -343,11 +345,11 @@ def wrap_in_hpu_graph(module):
                 graph.capture_end()
                 graph_inputs = inputs
                 graph_outputs = outputs
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph)
+                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
             return outputs
 
         copy_to(cached.graph_inputs, inputs)
-        cached.graph.replay()
+        cached.graph.replay(cached.asynchronous)
         return cached.graph_outputs
     module.forward = forward
     return module
@@ -432,7 +434,7 @@ class TensorPacker:
         return data
 
 class GraphModel(torch.nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, asynchronous=False):
         super(GraphModel, self).__init__()
         self.model = model
         self.input_packer = TensorPacker()
@@ -441,7 +443,7 @@ class GraphModel(torch.nn.Module):
         self.output_meta = None
         self.assert_not_dataparallel()
         self.func_parameters = self.process_function_signature(self.model.forward)
-
+        self.asynchronous = asynchronous
     def forward(self, *args):
         full_args = self.input_packer.unpack(args, self.input_meta)
         outs = self.model(**full_args)
@@ -458,7 +460,7 @@ class GraphModel(torch.nn.Module):
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
         self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
-        self.hpu_graph = make_graphed_callables(self, tensor_args)
+        self.hpu_graph = make_graphed_callables(self, tensor_args, asynchronous=self.asynchronous)
 
     def assert_not_dataparallel(self):
         assert not isinstance(self.model, torch.nn.parallel.DataParallel) and \
@@ -513,7 +515,7 @@ class ModuleCacher(torch.nn.Module):
             return output
 
         elif len(self.model_dict) < self.max_graphs and torch.is_grad_enabled() and self.use_lazy_mode:
-            graph_model = GraphModel(self.orig_model)
+            graph_model = GraphModel(self.orig_model, self.asynchronous)
             graph_model.init_hpu_graph(*args, **kwargs)
             self.model_dict[input_id] = graph_model
             return self.forward(*args, **kwargs)
@@ -521,11 +523,12 @@ class ModuleCacher(torch.nn.Module):
         else:
             return self.orig_model(*args, **kwargs)
 
-    def __call__(self, model, inplace=True):
+    def __call__(self, model, inplace=True, asynchronous=False):
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
         self.model = model
         self.model.forward = self.forward
         self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
+        self.asynchronous = asynchronous
         return self.model

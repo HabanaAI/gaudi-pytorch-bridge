@@ -110,7 +110,8 @@ void HPUGraph::mark_step() {
       captured_graph->hblazy_tensors_.size());
 }
 
-void HPUGraph::replay() {
+void HPUGraph::replay(bool async) {
+  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
@@ -118,16 +119,21 @@ void HPUGraph::replay() {
     return;
   }
 
-  habana_lazy::HbLazyTensor::StepMarker({});
-
+  if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
+  } else {
+    habana_lazy::HbLazyTensor::StepMarker({});
+  }
   for (size_t i = 0; i < captured_graphs.size(); i++) {
-    captured_graphs[i]->replay();
+    captured_graphs[i]->replay(async);
   }
 }
 
 void HPUGraph::replayV2(
     std::vector<at::Tensor>& static_inputs,
-    std::vector<at::Tensor>& inputs) {
+    std::vector<at::Tensor>& inputs,
+    bool async) {
+  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
@@ -135,16 +141,20 @@ void HPUGraph::replayV2(
     return;
   }
 
-  habana_lazy::HbLazyTensor::StepMarker({});
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
+  } else {
+    habana_lazy::HbLazyTensor::StepMarker({});
+  }
 
   // Use replaytV2 for the first captured graph, as the user input is
   // for the first captured graph
   if (captured_graphs.size() == 0)
     return;
-  captured_graphs[0]->replayV2(static_inputs, inputs);
+  captured_graphs[0]->replayV2(static_inputs, inputs, async);
 
   for (size_t i = 1; i < captured_graphs.size(); i++) {
-    captured_graphs[i]->replay();
+    captured_graphs[i]->replay(async);
   }
 }
 HPUGraph::~HPUGraph() {
@@ -164,23 +174,51 @@ SingleHPUGraph::~SingleHPUGraph() {
   hblazy_tensors_.clear();
 }
 
-void SingleHPUGraph::replay() {
-  if (graph_) {
+void SingleHPUGraph::replayGraph(
+    habana_lazy::ir::ValueList& input_vals,
+    bool async) {
+  if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
+      GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    habana_lazy::HbExecutionContext* context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+            device.id());
+
+    context->m_launch_thread_handle =
+        habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
+            habana_lazy::HbLazyTensor::ExecuteCachedGraph,
+            graph_,
+            hash_,
+            graphKey_,
+            opStrs_,
+            input_vals,
+            output_vals_,
+            hblazy_tensors_,
+            true /*is_cached*/);
+  } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         graph_,
         hash_,
         graphKey_,
         opStrs_,
-        input_vals_,
+        input_vals,
         output_vals_,
         hblazy_tensors_,
         true /*is_cached*/);
   }
 }
 
+void SingleHPUGraph::replay(bool async) {
+  if (graph_) {
+    return replayGraph(input_vals_, async);
+  }
+}
+
 void SingleHPUGraph::replayV2(
     std::vector<at::Tensor>& static_inputs,
-    std::vector<at::Tensor>& inputs) {
+    std::vector<at::Tensor>& inputs,
+    bool async) {
   PT_DEVICE_DEBUG(
       "In HPUGraph::replayV2 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
@@ -216,16 +254,7 @@ void SingleHPUGraph::replayV2(
           }
           return saved_ir_v_;
         });
-
-    habana_lazy::HbLazyTensor::ExecuteCachedGraph(
-        graph_,
-        hash_,
-        graphKey_,
-        opStrs_,
-        input_val_list,
-        output_vals_,
-        hblazy_tensors_,
-        true /*is_cached*/);
+    return replayGraph(input_val_list, async);
   }
 }
 } // namespace hpu
