@@ -54,6 +54,10 @@ void CumsumHabanaOperator::AddNode(
     dtype = at::ScalarType::Int;
   }
 
+  if (dtype == at::ScalarType::Double) {
+    dtype = at::ScalarType::Float;
+  }
+
   if (dtype == ScalarType()) {
     return OpBackend::AddNode(graph, stack);
   }
