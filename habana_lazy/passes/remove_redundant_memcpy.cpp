@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "remove_redundant_memcpy.h"
 #include "pytorch_helpers/util/jitgraph_utils.h"
@@ -43,10 +46,15 @@ static bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
   return false;
 }
 
-static bool isInplaceOp(const Value* v) {
+// skipNode parameter:
+// When considering inputs of node N, one of its 'uses' is node N.
+// If we don't want to include itself in the condition check it has
+// to be provided as skipNode.
+// See use of this helper function in 'remove_redundant_memcpy' below.
+static bool isInplaceOp(const Value* v, const Node* skipNode = nullptr) {
   for (auto& u : v->uses()) {
     auto n = u.user;
-    if (n && isInplace(n)) {
+    if (n && (n != skipNode) && isInplace(n)) {
       return true;
     }
   }
@@ -78,8 +86,8 @@ void remove_redundant_memcpy(std::shared_ptr<Graph>& graph) {
     if (isRedundantMemcpyCandidate(node) &&
         !isInList(graph->inputs().vec(), node->input(0)) &&
         !isInList(graph->outputs().vec(), node->input(0)) &&
-        node->output(0)->uses().size() == 1 && !isInplaceOp(node->input(0)) &&
-        !isInplaceOp(node->output(0))) {
+        node->output(0)->uses().size() == 1 &&
+        !isInplaceOp(node->input(0), node) && !isInplaceOp(node->output(0))) {
       redundant_memcpy_nodes.emplace_back(node);
     }
   }

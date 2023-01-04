@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-
 #pragma once
 #include <torch/csrc/jit/ir/ir.h>
 
@@ -27,5 +26,9 @@ torch::jit::Node* GetUnpackNodeFromTensorList(const torch::jit::Value* val);
 bool isInGraphOutputs(const torch::jit::Node* node, size_t index);
 bool isInGraphOutputs(const torch::jit::Value* value);
 bool isListNode(const torch::jit::Node* node);
-bool isInplace(const torch::jit::Node* node);
+int inplaceInputId(const torch::jit::Node* node);
+
+inline bool isInplace(const torch::jit::Node* node) {
+  return inplaceInputId(node) >= 0;
+}
 } // namespace jitgraph_utils

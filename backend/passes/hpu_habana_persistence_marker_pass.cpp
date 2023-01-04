@@ -1,13 +1,15 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
@@ -43,8 +45,10 @@ using namespace torch::jit;
 using namespace jitgraph_utils;
 using namespace habana;
 
-void PersistenceMarkerPass::set_persistence_input(torch::jit::Node* node) {
-  auto val = node->input(0);
+void PersistenceMarkerPass::set_persistence_input(
+    torch::jit::Node* node,
+    int inputId) {
+  auto val = node->input(inputId);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
     valptr_to_persistent_map_[val] = true;
@@ -63,8 +67,10 @@ void PersistenceMarkerPass::set_persistence_input(torch::jit::Node* node) {
   }
 }
 
-void PersistenceMarkerPass::set_persistence_output(torch::jit::Node* node) {
-  auto val = node->output(0);
+void PersistenceMarkerPass::set_persistence_output(
+    torch::jit::Node* node,
+    int outputId) {
+  auto val = node->output(outputId);
 
   if (val->type()->kind() == c10::TypeKind::TensorType) {
     valptr_to_persistent_map_[val] = true;
@@ -94,15 +100,21 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     }
 
     // override the persistence logic if any kernel sets it as persistent
-    // We assume that first index for input and output will be the persistent
+    // We assume that first index for output will be the persistent.
+    // We used to assume it also for input but it caused difficult to debug bugs
+    // when assumption was incorrect. So we no longer assume anything but
+    // take right persistent input id.
     // GC doesnt recommend using workspace tensors for intermediate inplace ops.
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
-    if (HabanaLaunchOpPT::isControlEdge(node) || isInplace(node) ||
-        habana_lazy::IsCollective(node->kind())) {
-      set_persistence_input(node);
-      set_persistence_output(node);
+    int inputId = 0;
+    if (HabanaLaunchOpPT::isControlEdge(node) ||
+        habana_lazy::IsCollective(node->kind()) ||
+        // must the be last condition as it can change inputId
+        ((inputId = inplaceInputId(node)) >= 0)) {
+      set_persistence_input(node, inputId);
+      set_persistence_output(node, 0);
     }
   } // for (auto* node : graph_nodes)
 } // function end

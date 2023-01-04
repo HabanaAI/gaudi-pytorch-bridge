@@ -1,13 +1,15 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-
 #pragma once
 
 #include <sys/stat.h>
@@ -95,8 +97,8 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
 
   /* Guideline: Accessors and mutators (get and set functions) may be named like
    * variables. */
-  void set_persistence_input(torch::jit::Node*);
-  void set_persistence_output(torch::jit::Node*);
+  void set_persistence_input(torch::jit::Node*, int inputId);
+  void set_persistence_output(torch::jit::Node*, int outputId);
   void set_external_input(torch::jit::Node*);
 
   void MarkPersistenceNodes(torch::jit::graph_node_list graph_nodes);
