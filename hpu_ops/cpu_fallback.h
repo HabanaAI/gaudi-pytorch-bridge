@@ -12,6 +12,7 @@
  */
 #pragma once
 #include <ATen/native/CPUFallback.h>
+#include "habana_kernels/kernel_input_checks.h"
 #include "hpu_ops/cpu_fallback_internal.h"
 
 #define PARAMS1(...) __VA_ARGS__
