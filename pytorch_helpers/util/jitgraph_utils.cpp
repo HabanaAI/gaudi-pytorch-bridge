@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-
 #include "jitgraph_utils.h"
 
 namespace jitgraph_utils {
@@ -125,15 +124,21 @@ bool isListNode(const torch::jit::Node* node) {
   return is_list_node;
 }
 
-bool isInplace(const torch::jit::Node* node) {
+int inplaceInputId(const torch::jit::Node* node) {
   auto node_name = node->kind().toQualString();
-  bool is_inplace = false;
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
+  int inputId = -1;
   if (endch == '_') {
-    is_inplace = true;
+    inputId = 0;
+  } else if (
+      (strcmp(node_name, "hpu::habana_d2d_memcpy") == 0) ||
+      (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0)) {
+    // Matching how MemCopyOperator::AllocateAndAddSynapseNode() calls
+    // habana_helpers::duplicate_tensor_in_memory_section()
+    inputId = (node->inputs().size() == 2) ? 1 : -1;
   }
-  return is_inplace;
+  return inputId;
 }
 
 } // namespace jitgraph_utils
