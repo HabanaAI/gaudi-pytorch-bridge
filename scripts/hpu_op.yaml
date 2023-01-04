@@ -5720,7 +5720,8 @@ round.decimals:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
-  op_backend: RoundDecimal
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
   out_ids: [0]
 
 round_.decimals:
@@ -5730,7 +5731,8 @@ round_.decimals:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
-  op_backend: RoundDecimal
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
   inplace_ids: [0]
 
 round.decimals_out:
@@ -5739,7 +5741,8 @@ round.decimals_out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
-  op_backend: RoundDecimal
+  guid: round_fwd
+  custom_fill_params: FillRoundDecimalParams
 
 rrelu_with_noise:
   dtypes: [BFloat16, Float]
