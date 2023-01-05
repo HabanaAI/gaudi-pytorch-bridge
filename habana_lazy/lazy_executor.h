@@ -80,33 +80,49 @@ class HbExecutionContext {
   void UnregisterTensor(Data* data);
   void MarkTensorsExecuted() {
     HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext();
-    std::lock_guard<std::recursive_mutex> lock(
-        habana_lazy::HbContextArena::Get()->GetMutex());
-    std::for_each(
-        devctx->tensors_data.begin(),
-        devctx->tensors_data.end(),
-        [](std::pair<int64_t, std::weak_ptr<Data>> p) {
-          std::shared_ptr<Data> data = p.second.lock();
-          if ((data != nullptr) && (data->execution_status == kEXECUTING)) {
-            data->execution_status = kEXECUTION_COMPLETE;
-            data->is_executing = false;
-          }
-        });
+    // ensure that Data is destroyed outside of HbContextArena mutex
+    // to avoid deadlock with StridedViewContext mutex that can be
+    // acquired during Data d'tors
+    std::vector<std::shared_ptr<Data>> data_tensors;
+    data_tensors.reserve(devctx->tensors_data.size());
+    {
+      std::lock_guard<std::recursive_mutex> lock(
+          habana_lazy::HbContextArena::Get()->GetMutex());
+      std::for_each(
+          devctx->tensors_data.begin(),
+          devctx->tensors_data.end(),
+          [&data_tensors](std::pair<int64_t, std::weak_ptr<Data>> p) {
+            std::shared_ptr<Data> data = p.second.lock();
+            data_tensors.push_back(data);
+            if ((data != nullptr) && (data->execution_status == kEXECUTING)) {
+              data->execution_status = kEXECUTION_COMPLETE;
+              data->is_executing = false;
+            }
+          });
+    }
   }
 
   void MarkTensorsExecuted(
       const c10::Device& device,
       const std::vector<int64_t>& indices) {
-    std::lock_guard<std::recursive_mutex> lock(
-        habana_lazy::HbContextArena::Get()->GetMutex());
-    HbContext* devctx =
-        habana_lazy::HbContextArena::Get()->GetHbContext(device);
-    for (const auto& k : indices) {
-      if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
-        std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
-        if (data != nullptr) {
-          data->execution_status = kEXECUTION_COMPLETE;
-          data->is_executing = false;
+    // ensure that Data is destroyed outside of HbContextArena mutex
+    // to avoid deadlock with StridedViewContext mutex that can be
+    // acquired during Data d'tors
+    std::vector<std::shared_ptr<Data>> data_tensors;
+    data_tensors.reserve(indices.size());
+    {
+      std::lock_guard<std::recursive_mutex> lock(
+          habana_lazy::HbContextArena::Get()->GetMutex());
+      HbContext* devctx =
+          habana_lazy::HbContextArena::Get()->GetHbContext(device);
+      for (const auto& k : indices) {
+        if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
+          std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
+          data_tensors.push_back(data);
+          if (data != nullptr) {
+            data->execution_status = kEXECUTION_COMPLETE;
+            data->is_executing = false;
+          }
         }
       }
     }
@@ -115,17 +131,25 @@ class HbExecutionContext {
   void MarkAllTensorsExecuted(const c10::Device& device) {
     HbContext* devctx =
         habana_lazy::HbContextArena::Get()->GetHbContext(device);
-    std::lock_guard<std::recursive_mutex> lock(
-        habana_lazy::HbContextArena::Get()->GetMutex());
-    std::for_each(
-        devctx->tensors_data.begin(),
-        devctx->tensors_data.end(),
-        [](std::pair<int64_t, std::weak_ptr<Data>> p) {
-          std::shared_ptr<Data> data = p.second.lock();
-          if (data != nullptr) {
-            data->execution_status = kEXECUTION_COMPLETE;
-          }
-        });
+    // ensure that Data is destroyed outside of HbContextArena mutex
+    // to avoid deadlock with StridedViewContext mutex that can be
+    // acquired during Data d'tors
+    std::vector<std::shared_ptr<Data>> data_tensors;
+    data_tensors.reserve(devctx->tensors_data.size());
+    {
+      std::lock_guard<std::recursive_mutex> lock(
+          habana_lazy::HbContextArena::Get()->GetMutex());
+      std::for_each(
+          devctx->tensors_data.begin(),
+          devctx->tensors_data.end(),
+          [&data_tensors](std::pair<int64_t, std::weak_ptr<Data>> p) {
+            std::shared_ptr<Data> data = p.second.lock();
+            data_tensors.push_back(data);
+            if (data != nullptr) {
+              data->execution_status = kEXECUTION_COMPLETE;
+            }
+          });
+    }
   }
   void MarkTensorExecuting(std::shared_ptr<Data> data);
   void MarkTensorExecuted(std::shared_ptr<Data> data);
