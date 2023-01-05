@@ -124,6 +124,7 @@ conj                                   Yes      Yes      Yes       No       No  
 copysign                               Yes      Yes      No        No       No     torch
 cos                                    Yes      Yes      No        No       No     torch
 cosh                                   Yes      No       No        No       No     torch
+count_nonzero                          Yes      Yes      Yes       Yes      Yes    torch
 cross                                  Yes      Yes      Yes       No       No     torch
 cumsum                                 Yes      Yes      Yes       No       No     torch
 cumprod                                Yes      Yes      Yes       No       No     torch
@@ -400,6 +401,7 @@ copysign\_                             Yes      Yes      No        No       No  
 cos                                    Yes      Yes      No        No       No     torch.Tensor
 cos\_                                  Yes      Yes      No        No       No     torch.Tensor
 cosh\_                                 Yes      Yes      No        No       No     torch.Tensor
+count_nonzero                          Yes      Yes      Yes       Yes      Yes    torch.Tensor
 cross                                  Yes      Yes      Yes       No       No     torch.Tensor
 cumprod                                Yes      Yes      Yes       No       No     torch.Tensor
 cumsum                                 Yes      Yes      Yes       No       No     torch.Tensor

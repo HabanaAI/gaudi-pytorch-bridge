@@ -51,6 +51,7 @@ add_executable(
   hpu_ops/compute_shapes_hpu_ops.cpp
   hpu_ops/copysign.cpp
   hpu_ops/cosine.cpp
+  hpu_ops/count_nonzero.cpp
   hpu_ops/cross.cpp
   hpu_ops/cumprod.cpp
   hpu_ops/cumsum.cpp

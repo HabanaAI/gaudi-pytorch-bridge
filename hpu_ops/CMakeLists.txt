@@ -86,6 +86,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/channelshuffle_gen.cpp
           backend/clamp_gen.cpp
           backend/compare_gen.cpp
+          backend/count_nonzero_gen.cpp
           backend/cumsum_gen.cpp
           backend/diag_gen.cpp
           backend/div_mod_util.cpp

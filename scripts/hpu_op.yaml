@@ -2154,6 +2154,29 @@ cosh_:
   guid: cosh_fwd
   inplace_ids: [0]
 
+count_nonzero.dim_IntList:
+  custom_fill_params: FillCountNonzeroParams
+  custom_output_shape: CountNonzeroShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Short, Char, Half]
+  guid: count_non_zero_fwd
+  out_dtypes: [Long]
+  out_ids: [0]
+
+count_nonzero:
+  force_default: false
+  custom_fill_params: FillCountNonzeroParams
+  custom_output_shape: CountNonzeroShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Short, Char, Half]
+  guid: count_non_zero_fwd
+  out_dtypes: [Long]
+  out_ids: [0]
+
 cumprod:
   force_default: false
   custom_fill_params: FillCumsumParams
