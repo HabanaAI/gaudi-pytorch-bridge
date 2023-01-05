@@ -1,5 +1,7 @@
 import os
 import torch
+import logging
+
 from habana_frameworks.torch.distributed._hccl_C import *
 from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled
 
@@ -8,8 +10,13 @@ distributed_emulation_apply_if_enabled()
 
 def checkVisibleDevices(local_rank):
     HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
-    HABANA_VISIBLE_DEVICES_VAR = "HABANA_VISIBLE_DEVICES"
     HABANA_DEVICE_ID_VAR = "ID"
+
+    if local_rank is None:
+        # In case local rank is not available in env Module ID should be established by other means.
+        logging.warning(
+            "No specific Module ID is requested. First free device will be used!")
+        return
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
@@ -18,13 +25,9 @@ def checkVisibleDevices(local_rank):
         is set correctly."""
         os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[local_rank]
         return
-    elif HABANA_VISIBLE_DEVICES_VAR in os.environ.keys():
-        visible_modules = os.environ[HABANA_VISIBLE_DEVICES_VAR].split(",")
-        assert local_rank < len(visible_modules), f"""There is not enough devices
-        available for training. Please verify if {HABANA_VISIBLE_DEVICES_VAR}
-        is set correctly."""
-        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[local_rank]
-        return
+
+    # In all other cases strict mapping of local_rank -> module_id allows easier NUMA or MPI binding.
+    os.environ[HABANA_DEVICE_ID_VAR] = str(local_rank)
 
 
 def initialize_distributed_hpu() -> None:
