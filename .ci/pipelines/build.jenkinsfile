@@ -56,7 +56,10 @@ if(env.GERRIT_PROJECT == 'pytorch-lightning-fork' && !env.isPromote) {
 }
 def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
-    'Pytorch modules': 'build_pytorch_modules'
+    'Pytorch modules': 'build_pytorch_modules',
+    'deepspeed': [
+        'command': 'build_deepspeed_fork'
+    ]
 ]
 def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'FUNC_SIM5']
 def requiredArtifact = [
