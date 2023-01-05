@@ -1853,6 +1853,32 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
             impl->SetConstTensor(true);
         }
       }
+    } else if (
+        strcmp(node->kind().toQualString(), "hpu::native_batch_norm_inf") ==
+        0) {
+      PT_BRIDGE_DEBUG(
+          ": BatchNorm : ",
+          node->kind().toQualString(),
+          " and scope is : ",
+          node->scope()->name().toUnqualString());
+      auto value_in = node->input(1);
+      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        continue;
+      }
+      auto tensor = value_to_ivalue[value_in]->toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      impl->SetConstTensor(true);
+      if (node->inputs().size() > 2) {
+        value_in = node->input(2);
+        auto value_exists = value_to_ivalue.find(value_in);
+        if (value_exists != std::end(value_to_ivalue)) {
+          tensor = value_to_ivalue[value_in]->toTensor();
+          impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+          if (impl)
+            impl->SetConstTensor(true);
+        }
+      }
     }
   }
 }
