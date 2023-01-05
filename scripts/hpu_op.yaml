@@ -3294,7 +3294,6 @@ isnan:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half]
   guid: isnan_fwd
-  op_backend: IsNanOperator
   op_frontend: LazyIsNan
   out_ids: [0]
 
