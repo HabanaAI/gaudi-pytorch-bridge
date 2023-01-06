@@ -97,6 +97,9 @@ class OptPassCfg {
   void SetReplaceViews(const bool flag) {
     pass.enable_replace_views = flag;
   }
+  void SetBnParamRecalc(const bool flag) {
+    pass.enable_bn_param_recalculation = flag;
+  }
 
   bool IsEnabledDeadCodeElimination() const {
     return pass.enable_eliminate_dead_code;
@@ -137,6 +140,11 @@ class OptPassCfg {
   bool IsEnabledReplaceViews() const {
     return pass.enable_replace_views;
   }
+  bool IsEnabledBnParamRecalc() const {
+    bool flag = GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) ||
+        pass.enable_bn_param_recalculation;
+    return flag;
+  }
 
   void SetDefaultOptFlags() {
     pass.enable_eliminate_dead_code = true;
@@ -149,6 +157,7 @@ class OptPassCfg {
     pass.enable_permute_pass = true;
     pass.enable_replace_inplace_ops = true;
     pass.enable_replace_views = true;
+    pass.enable_bn_param_recalculation = false;
     pass.enable_weight_permute_pass = false;
   }
 
@@ -170,6 +179,7 @@ class OptPassCfg {
       pass.enable_permute_pass = false;
       pass.enable_replace_inplace_ops = false;
       pass.enable_replace_views = false;
+      pass.enable_bn_param_recalculation = false;
       pass.enable_weight_permute_pass = false;
     }
   }
@@ -194,6 +204,7 @@ class OptPassCfg {
     bool enable_weight_permute_pass;
     bool enable_replace_inplace_ops;
     bool enable_replace_views;
+    bool enable_bn_param_recalculation;
   };
 
   struct PassCfg pass;

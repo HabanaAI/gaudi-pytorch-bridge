@@ -176,6 +176,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/hlexec.cpp
   habana_lazy/habana_custom_op.cpp
   habana_lazy/passes/pass_utils.cpp
+  habana_lazy/passes/recalculate_batchnorm_params.cpp
   habana_lazy/passes/fuse_mm_transpose.cpp
   habana_lazy/passes/fuse_bn_relu_residual_add.cpp
   habana_lazy/passes/permute_graph.cpp

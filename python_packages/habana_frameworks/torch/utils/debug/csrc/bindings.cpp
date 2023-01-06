@@ -67,6 +67,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       },
       py::arg("flag"));
   m.def(
+      "enable_bn_param_recalculation",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetBnParamRecalc(flag);
+      },
+      py::arg("flag"));
+  m.def(
       "enable_permute_pass",
       [](const bool flag) {
         habana_lazy::exec::OptPassCfg::GetInstance()->SetPermutePass(flag);

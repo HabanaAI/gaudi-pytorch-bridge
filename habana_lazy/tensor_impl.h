@@ -174,6 +174,13 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
 
+  c10::IntArrayRef GetTensorSize() const {
+    return sizes;
+  }
+  void SetTensorSize(c10::IntArrayRef s) {
+    sizes = s;
+  }
+
   LayoutFormat GetTensorLayout() const {
     return tensor_layout;
   }
@@ -262,6 +269,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   ShapeTensorStruct& get_shape_struct();
 
  private:
+  c10::IntArrayRef sizes;
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
   bool is_const_tensor_ = false;

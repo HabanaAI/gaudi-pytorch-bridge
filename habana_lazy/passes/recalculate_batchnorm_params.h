@@ -10,14 +10,15 @@
 
 #pragma once
 
+#include <c10/core/TensorImpl.h>
 #include <torch/csrc/jit/ir/ir.h>
-#include "habana_kernels/habana_operator.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/passes/weight_permute_graph.h"
+#include "habana_lazy/tensor_impl.h"
+
 namespace habana_lazy {
 using Graph = torch::jit::Graph;
-size_t getValuePosInStack(
+void RecalculateBatchnormParams(
     std::shared_ptr<Graph>& graph,
-    const torch::jit::Value* value);
-void InsertWeightPermute_graph(
-    std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack);
 }; // namespace habana_lazy

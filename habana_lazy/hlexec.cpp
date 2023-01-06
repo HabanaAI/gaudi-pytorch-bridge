@@ -23,6 +23,7 @@
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
 #include "passes/permute_graph.h"
+#include "passes/recalculate_batchnorm_params.h"
 #include "passes/remove_redundant_memcpy.h"
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
@@ -640,6 +641,14 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
     visualize::DumpOptimizedGraph(
         mp_g_, m_g_hash_, "replace_views_with_reshapes");
   }
+
+  if (OptPassCfg::GetInstance()->IsEnabledBnParamRecalc()) {
+    PT_LAZY_DEBUG("[Inference] RecalculateBatchnormParams called!");
+    RecalculateBatchnormParams(mp_g_, stack);
+    PT_LAZY_DEBUG("[Inference] RecalculateBatchnormParams applied!");
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "recalculate_bn_params");
+  }
+
   visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 
