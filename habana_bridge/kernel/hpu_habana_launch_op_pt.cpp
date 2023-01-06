@@ -1792,11 +1792,20 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        PT_BRIDGE_DEBUG(": conv wt not present is it bf16 test ? ");
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      impl->SetConstTensor(true);
+      // assumption is conv will always have bias in inference
+      value_in = node->input(2);
+      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+        PT_BRIDGE_DEBUG(": conv bias not present is it bf16 test ? ");
+        continue;
+      }
+      tensor = value_to_ivalue[value_in]->toTensor();
+      impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       impl->SetConstTensor(true);
     } else if (node->kind() == torch::jit::aten::linear) {
       PT_BRIDGE_DEBUG(
