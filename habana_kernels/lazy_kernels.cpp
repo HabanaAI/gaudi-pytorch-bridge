@@ -955,19 +955,22 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
     // executed
     auto isStorageAttached = self_hb_tensor.isStorageAttached();
     if (!isStorageAttached) {
-      c10 ::Allocator* allocator;
-      allocator = habana::getHABANADeviceAllocator();
-      int64_t nelements = multiply_integers(self.sizes());
-      int elem_size = self.dtype().itemsize();
-      int64_t size_bytes = nelements * elem_size;
-      auto storage_impl = c10::make_intrusive<StorageImpl>(
-          c10::StorageImpl::use_byte_size_t(),
-          size_bytes,
-          allocator->allocate(nelements * elem_size),
-          allocator,
-          /*resizeable=*/true);
+      auto storage = self.storage();
+      if (storage.data_ptr() == nullptr) {
+        c10 ::Allocator* allocator;
+        allocator = habana::getHABANADeviceAllocator();
+        int64_t nelements = multiply_integers(self.sizes());
+        int elem_size = self.dtype().itemsize();
+        int64_t size_bytes = nelements * elem_size;
+        storage = c10::make_intrusive<StorageImpl>(
+            c10::StorageImpl::use_byte_size_t(),
+            size_bytes,
+            allocator->allocate(nelements * elem_size),
+            allocator,
+            /*resizeable=*/true);
+      }
       Tensor at_internal_tensor = AtenInternalHbTensor(
-          std::move(storage_impl),
+          std::move(storage),
           self.dtype(),
           c10::nullopt,
           src.sizes(),
