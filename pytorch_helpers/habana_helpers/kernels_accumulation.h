@@ -74,7 +74,7 @@ class AccThread {
 // ops are moved to the acc thread infrastructure, this class can be removed.
 class NoAccThread {
  public:
-  NoAccThread();
+  NoAccThread(bool sync_acc_thread = true);
   NoAccThread(const NoAccThread&) = delete;
   NoAccThread(NoAccThread&&) = delete;
   ~NoAccThread();

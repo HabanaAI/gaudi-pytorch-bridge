@@ -142,10 +142,12 @@ void AccThread::SyncManualOpIfNeeded(const std::string& op) {
   }
 }
 
-NoAccThread::NoAccThread() {
+NoAccThread::NoAccThread(bool sync_acc_thread) {
   update_state_ = AccThread::Get().CanUseAccThread();
   if (update_state_) {
-    AccThread::Get().SyncAccThreadPool();
+    if (sync_acc_thread) {
+      AccThread::Get().SyncAccThreadPool();
+    }
     AccThread::acc_thread_allowed = false;
   }
 }
