@@ -2312,10 +2312,10 @@ embedding:
       weight: [BFloat16, Float, Int, Char, Short, Byte]
       indices: [Int]
     Gaudi2:
-      weight: [BFloat16, Float, Int, Char, Short, Byte]
+      weight: [BFloat16, Float, Half, Int, Char, Short, Byte]
       indices: [Int]
     Gaudi3:
-      weight: [BFloat16, Float, Int, Char, Short, Byte]
+      weight: [BFloat16, Float, Half, Int, Char, Short, Byte]
       indices: [Int]
     Greco:
       weight: [BFloat16, Float, Half, Int]
