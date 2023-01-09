@@ -1,26 +1,228 @@
-###############################################################################
-# Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+# ##############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited.
-# This file contains Habana Labs, Ltd. proprietary and confidential information
-# and is subject to the confidentiality and license agreements under which it
-# was provided.
+# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
+# confidential information and is subject to the confidentiality and license
+# agreements under which it was provided.
 #
-################################################################################
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+# ##############################################################################
 
 include(ExternalProject)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-file(GLOB_RECURSE PT_INTEGRATION_TEST_SOURCES *.cpp)
-#list(FILTER PT_INTEGRATION_TEST_SOURCES EXCLUDE REGEX
-#   ".*testfile.cpp" example to exclude file from compilation
-#)
-
-add_executable(test_pt_integration ${PT_INTEGRATION_TEST_SOURCES})
+add_executable(test_pt_integration
+  acc_thread_pool_tests.cpp
+  compute_shapes.cpp
+  debug_utils_tests.cpp
+  ds_bucket_tests.cpp
+  ds_cache_tests.cpp
+  eager_kernel_tests.cpp
+  env_flags_test.cpp
+  fallback_tests.cpp
+  gen_ops.cpp
+  graph_optimize_passes.cpp
+  habana_lazy_test_infra.cpp
+  hpu_ops/_masked_scale.cpp
+  hpu_ops/adaptive_avg_pool2d.cpp
+  hpu_ops/addbmm.cpp
+  hpu_ops/addmm.cpp
+  hpu_ops/addmv.cpp
+  hpu_ops/addr.cpp
+  hpu_ops/all.cpp
+  hpu_ops/amax_amin.cpp
+  hpu_ops/any.cpp
+  hpu_ops/arange.cpp
+  hpu_ops/argmin_max.cpp
+  hpu_ops/avgpool_2d.cpp
+  hpu_ops/binary_op.cpp
+  hpu_ops/binarycrossentropy_with_logits.cpp
+  hpu_ops/binarycrossentropy.cpp
+  hpu_ops/bitwise_op.cpp
+  hpu_ops/bitwise_shift.cpp
+  hpu_ops/bmm.cpp
+  hpu_ops/cat.cpp
+  hpu_ops/channelshuffle.cpp
+  hpu_ops/compare.cpp
+  hpu_ops/compute_shapes_hpu_ops.cpp
+  hpu_ops/copysign.cpp
+  hpu_ops/cosine.cpp
+  hpu_ops/cross.cpp
+  hpu_ops/cumprod.cpp
+  hpu_ops/cumsum.cpp
+  hpu_ops/div_out.cpp
+  hpu_ops/div_roundoption.cpp
+  hpu_ops/div.cpp
+  hpu_ops/dot.cpp
+  hpu_ops/elu.cpp
+  hpu_ops/entr.cpp
+  hpu_ops/eq.cpp
+  hpu_ops/erfc.cpp
+  hpu_ops/erfinv.cpp
+  hpu_ops/exponential.cpp
+  hpu_ops/eye.cpp
+  hpu_ops/fill.cpp
+  hpu_ops/flatten_dense_tensors.cpp
+  hpu_ops/flip.cpp
+  hpu_ops/floor_divide.cpp
+  hpu_ops/fmod.cpp
+  hpu_ops/foreach_binary.cpp
+  hpu_ops/foreach.cpp
+  hpu_ops/frac.cpp
+  hpu_ops/frexp.cpp
+  hpu_ops/gather.cpp
+  hpu_ops/ge.cpp
+  hpu_ops/gelu.cpp
+  hpu_ops/geometric.cpp
+  hpu_ops/glu.cpp
+  hpu_ops/gt.cpp
+  hpu_ops/hardswish.cpp
+  hpu_ops/hardtanh.cpp
+  hpu_ops/heaviside.cpp
+  hpu_ops/huber_loss.cpp
+  hpu_ops/hypot.cpp
+  hpu_ops/index_select.cpp
+  hpu_ops/l1_loss.cpp
+  hpu_ops/le.cpp
+  hpu_ops/leakyrelu.cpp
+  hpu_ops/lerp.cpp
+  hpu_ops/linear.cpp
+  hpu_ops/linspace.cpp
+  hpu_ops/log_softmax.cpp
+  hpu_ops/log10.cpp
+  hpu_ops/log1p.cpp
+  hpu_ops/logaddexp.cpp
+  hpu_ops/logaddexp2.cpp
+  hpu_ops/logcumsumexp.cpp
+  hpu_ops/logical_op.cpp
+  hpu_ops/logit.cpp
+  hpu_ops/logsigmoid.cpp
+  hpu_ops/logsoftmax.cpp
+  hpu_ops/logspace.cpp
+  hpu_ops/logsumexp.cpp
+  hpu_ops/lt.cpp
+  hpu_ops/masked_select.cpp
+  hpu_ops/matmul.cpp
+  hpu_ops/max_dim.cpp
+  hpu_ops/max.cpp
+  hpu_ops/maxpool2d.cpp
+  hpu_ops/maxpool3d.cpp
+  hpu_ops/mean.cpp
+  hpu_ops/median.cpp
+  hpu_ops/min.cpp
+  hpu_ops/mish.cpp
+  hpu_ops/mm.cpp
+  hpu_ops/mse_loss.cpp
+  hpu_ops/nan_to_num.cpp
+  hpu_ops/nansum.cpp
+  hpu_ops/ne.cpp
+  hpu_ops/nll_loss.cpp
+  hpu_ops/norm.cpp
+  hpu_ops/poisson.cpp
+  hpu_ops/pow.cpp
+  hpu_ops/prod.cpp
+  hpu_ops/random.cpp
+  hpu_ops/reflection_pad.cpp
+  hpu_ops/relu.cpp
+  hpu_ops/remainder.cpp
+  hpu_ops/replication_pad.cpp
+  hpu_ops/roll.cpp
+  hpu_ops/round.cpp
+  hpu_ops/rrelu_with_noise.cpp
+  hpu_ops/scatter.cpp
+  hpu_ops/sgn_sign.cpp
+  hpu_ops/shrink.cpp
+  hpu_ops/sigmoid.cpp
+  hpu_ops/signbit.cpp
+  hpu_ops/silu.cpp
+  hpu_ops/sinc.cpp
+  hpu_ops/smooth_l1_loss.cpp
+  hpu_ops/softmax.cpp
+  hpu_ops/softplus.cpp
+  hpu_ops/square.cpp
+  hpu_ops/sum.cpp
+  hpu_ops/take.cpp
+  hpu_ops/tanh.cpp
+  hpu_ops/tensor_shape.cpp
+  hpu_ops/threshold.cpp
+  hpu_ops/trace.cpp
+  hpu_ops/type_promotion.cpp
+  hpu_ops/unary_op.cpp
+  hpu_ops/upsample_bicubic2d.cpp
+  hpu_ops/upsample_bilinear2d.cpp
+  hpu_ops/upsample_linear1d.cpp
+  hpu_ops/upsample_nearest1d.cpp
+  hpu_ops/upsample_nearest2d.cpp
+  hpu_ops/upsample_nearest3d.cpp
+  hpu_ops/util.cpp
+  hpu_ops/var_std.cpp
+  hpu_ops/vdot.cpp
+  hpu_ops/vec_norm.cpp
+  hpu_ops/view.cpp
+  hpu_ops/where.cpp
+  hpu_ops/xlogy.cpp
+  inference_pass_tests.cpp
+  jit_test.cpp
+  lazy_add_composite_tests.cpp
+  lazy_basic_kernel_tests.cpp
+  lazy_binary_composite_kernel_tests.cpp
+  lazy_binary_inplace_kernel_tests.cpp
+  lazy_binary_kernel_tests.cpp
+  lazy_bitwise_kernel_tests.cpp
+  lazy_cache_tests.cpp
+  lazy_compare_kernel_tests.cpp
+  lazy_control_edge_tests.cpp
+  lazy_conv_kernel_tests.cpp
+  lazy_custom_kernel_tests.cpp
+  lazy_custom_op_kernel_test.cpp
+  lazy_dynamic_compute_output_shapes_tests.cpp
+  lazy_dynamic_fallback_tests.cpp
+  lazy_dynamic_launch_fallback_test.cpp
+  lazy_dynamic_shapes_bucket_refine.cpp
+  lazy_dynamic_shapes_serialize_tests.cpp
+  lazy_dynamic_shapes_tests.cpp
+  lazy_dynamic_shapes_tests2.cpp
+  lazy_eager_tests.cpp
+  lazy_eager_view_tests.cpp
+  lazy_embedding_kernel_tests.cpp
+  lazy_execution_test.cpp
+  lazy_fill_kernel_tests.cpp
+  lazy_forward_running_hash_tests.cpp
+  lazy_index_kernel_tests.cpp
+  lazy_jit_graph_tests.cpp
+  lazy_linear_kernel_tests.cpp
+  lazy_loss_kernel_tests.cpp
+  lazy_mask_scalar_kernel_test.cpp
+  lazy_misc_tests.cpp
+  lazy_norm_kernel_tests.cpp
+  lazy_pool_kernel_tests.cpp
+  lazy_random_gen_kernel_tests.cpp
+  lazy_reduction_kernel_tests.cpp
+  lazy_shape_agnostic_tests.cpp
+  lazy_softmax_kernel_tests.cpp
+  lazy_special_kernel_tests.cpp
+  lazy_stride_tests.cpp
+  lazy_tensor_api_tests.cpp
+  lazy_tensor_shape_kernel_tests.cpp
+  lazy_unary_kernel_tests.cpp
+  lazy_upsample_kernel_tests.cpp
+  lazy_where_kernel_tests.cpp
+  linear_test.cpp
+  main.cpp
+  misc_utils_tests.cpp
+  nms_tests.cpp
+  post_order_tests.cpp
+  sbs_tests.cpp
+  serialization/habana_serialization_tests.cpp
+  sif_tests.cpp
+  synapse_helpers_memory_test.cpp
+  synapse_helpers_tensor_test.cpp
+  tensor_usage.cpp
+  type_promotion_tests.cpp
+  user_stream_tests.cpp
+  view_utils_tests.cpp)
 
 target_include_directories(
   test_pt_integration
@@ -32,15 +234,9 @@ target_include_directories(
   "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
   "$ENV{SYNAPSE_ROOT}/include"
 )
-#add_compile_definitions(MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 
-#find_library(PTPY_LIB "libtorch_python.so"
-#  HINTS "${TORCH_DIR}/lib/")
-#message("Pytorch Python Path: ${PTPY_LIB}")
 find_package(Python COMPONENTS Interpreter Development)
-
-file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
 
 find_library(PYTHON3_LIB python3)
 if(NOT PYTHON3_LIB)
@@ -60,7 +256,7 @@ if(NOT PYTHON3_LIB)
   message(FATAL_ERROR  "This ENV does not have python3, python3.8 or python3.10 lib, which is essential!!!")
 endif()
 
-execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
+configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(test_pt_integration PRIVATE
   "${PYTHON3_LIB}"

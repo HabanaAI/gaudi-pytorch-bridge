@@ -1,23 +1,144 @@
-###############################################################################
-# Copyright (C) 2021 HabanaLabs Ltd.
+# ##############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
+# confidential information and is subject to the confidentiality and license
+# agreements under which it was provided.
 #
-###############################################################################
+# ##############################################################################
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
-file(GLOB HPU_OP_SOURCES *.cpp)
-list(APPEND HPU_OP_SOURCES
-  ${CMAKE_BINARY_DIR}/generated/hpu_op0.cpp
-  ${CMAKE_BINARY_DIR}/generated/hpu_op1.cpp
-  ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
-  ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
-  ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
-  ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
-  ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp
-)
-target_sources(habana_pytorch_plugin PRIVATE ${HPU_OP_SOURCES})
+target_sources(
+  habana_pytorch_plugin
+  PRIVATE hpu_ops/_masked_scale_gen.cpp
+          hpu_ops/adaptive_avg_pool2d_gen.cpp
+          hpu_ops/add_composite_gen.cpp
+          hpu_ops/addmm_gen.cpp
+          hpu_ops/addmv_gen.cpp
+          hpu_ops/addr_gen.cpp
+          hpu_ops/all_gen.cpp
+          hpu_ops/amax_amin_gen.cpp
+          hpu_ops/any_gen.cpp
+          hpu_ops/arange_gen.cpp
+          hpu_ops/argmin_max_gen.cpp
+          hpu_ops/avg_pool2d_gen.cpp
+          hpu_ops/bernoulli_gen.cpp
+          hpu_ops/binary_gen.cpp
+          hpu_ops/binarycrossentropy_gen.cpp
+          hpu_ops/bitwise_gen.cpp
+          hpu_ops/bitwise_shift_gen.cpp
+          hpu_ops/bmm_gen.cpp
+          hpu_ops/channelshuffle_gen.cpp
+          hpu_ops/clamp_gen.cpp
+          hpu_ops/compare_gen.cpp
+          hpu_ops/cpu_fallback.cpp
+          hpu_ops/cumsum_gen.cpp
+          hpu_ops/diag_gen.cpp
+          hpu_ops/div_mod_util.cpp
+          hpu_ops/div_round_gen.cpp
+          hpu_ops/dot_gen.cpp
+          hpu_ops/elu_backward_gen.cpp
+          hpu_ops/embedding_gen.cpp
+          hpu_ops/entr_gen.cpp
+          hpu_ops/equal_gen.cpp
+          hpu_ops/erfc_gen.cpp
+          hpu_ops/exponential_gen.cpp
+          hpu_ops/eye_gen.cpp
+          hpu_ops/fill_gen.cpp
+          hpu_ops/flip_gen.cpp
+          hpu_ops/floor_divide_gen.cpp
+          hpu_ops/fmod_gen.cpp
+          hpu_ops/foreach_gen.cpp
+          hpu_ops/frac_gen.cpp
+          hpu_ops/frexp_gen.cpp
+          hpu_ops/gather_gen.cpp
+          hpu_ops/gelu_gen.cpp
+          hpu_ops/geometric_gen.cpp
+          hpu_ops/glu_gen.cpp
+          hpu_ops/grid_sampler_gen.cpp
+          hpu_ops/hardsigmoid_gen.cpp
+          hpu_ops/hardtanh_gen.cpp
+          hpu_ops/heaviside_gen.cpp
+          hpu_ops/hpu_op_helper.cpp
+          hpu_ops/huber_loss_gen.cpp
+          hpu_ops/index_gen.cpp
+          hpu_ops/index_select_gen.cpp
+          hpu_ops/isfinite_isinf_gen.cpp
+          hpu_ops/isnan_gen.cpp
+          hpu_ops/isposneginf_gen.cpp
+          hpu_ops/l1_loss_backward_gen.cpp
+          hpu_ops/l1_loss_gen.cpp
+          hpu_ops/lazy_cast.cpp
+          hpu_ops/leakyrelu_gen.cpp
+          hpu_ops/lerp_gen.cpp
+          hpu_ops/linalg_cross_gen.cpp
+          hpu_ops/linspace_gen.cpp
+          hpu_ops/log10_gen.cpp
+          hpu_ops/logcumsumexp_gen.cpp
+          hpu_ops/logical_gen.cpp
+          hpu_ops/logit_gen.cpp
+          hpu_ops/logsigmoid_gen.cpp
+          hpu_ops/logsoftmax_gen.cpp
+          hpu_ops/logspace_gen.cpp
+          hpu_ops/max_min_gen.cpp
+          hpu_ops/maxpool_gen.cpp
+          hpu_ops/median_gen.cpp
+          hpu_ops/median_slice_util.cpp
+          hpu_ops/mish_gen.cpp
+          hpu_ops/mm_gen.cpp
+          hpu_ops/mseloss_gen.cpp
+          hpu_ops/multinomial_gen.cpp
+          hpu_ops/mv_gen.cpp
+          hpu_ops/nansum_gen.cpp
+          hpu_ops/nantonum_gen.cpp
+          hpu_ops/ne_gen.cpp
+          hpu_ops/nll_loss_gen.cpp
+          hpu_ops/norm_gen.cpp
+          hpu_ops/normal_gen.cpp
+          hpu_ops/op_backend.cpp
+          hpu_ops/poission_gen.cpp
+          hpu_ops/pow_gen.cpp
+          hpu_ops/prelu_gen.cpp
+          hpu_ops/random_gen.cpp
+          hpu_ops/reduce_std_var_gen.cpp
+          hpu_ops/reduction_template.cpp
+          hpu_ops/reflection_pad_gen.cpp
+          hpu_ops/remainder_gen.cpp
+          hpu_ops/replication_pad_bwd_gen.cpp
+          hpu_ops/replication_pad_gen.cpp
+          hpu_ops/resize_gen.cpp
+          hpu_ops/roll_gen.cpp
+          hpu_ops/round_gen.cpp
+          hpu_ops/rrelu_with_noise_gen.cpp
+          hpu_ops/rsub_gen.cpp
+          hpu_ops/scatter_gen.cpp
+          hpu_ops/shrink_gen.cpp
+          hpu_ops/signbit_gen.cpp
+          hpu_ops/sinc_gen.cpp
+          hpu_ops/smooth_l1_loss_gen.cpp
+          hpu_ops/softmax_gen.cpp
+          hpu_ops/softplus_gen.cpp
+          hpu_ops/supported_dtypes.cpp
+          hpu_ops/take_gen.cpp
+          hpu_ops/threshold_gen.cpp
+          hpu_ops/topk_util.cpp
+          hpu_ops/trace_gen.cpp
+          hpu_ops/triangular_gen.cpp
+          hpu_ops/unique_gen.cpp
+          hpu_ops/unique2_gen.cpp
+          hpu_ops/upsample_gen.cpp
+          hpu_ops/vdot_gen.cpp
+          hpu_ops/where_gen.cpp
+          hpu_ops/xlogy_gen.cpp
+          # autogenerated files:
+          ${CMAKE_BINARY_DIR}/generated/hpu_op0.cpp
+          ${CMAKE_BINARY_DIR}/generated/hpu_op1.cpp
+          ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
+          ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
+          ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
+          ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
+          ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp)

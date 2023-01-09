@@ -1,11 +1,14 @@
-###############################################################################
-# Copyright (C) 2021 HabanaLabs, Ltd.
+# ##############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
+# confidential information and is subject to the confidentiality and license
+# agreements under which it was provided.
 #
-################################################################################
+# ##############################################################################
+
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 if(POLICY CMP0076)
   cmake_policy(SET CMP0076 OLD)
@@ -25,9 +28,9 @@ else()
   message("Building without shim layer")
 endif()
 
-IF(UPSTREAM_COMPILE)
-    ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
-ENDIF(UPSTREAM_COMPILE)
+if(UPSTREAM_COMPILE)
+  ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
+endif(UPSTREAM_COMPILE)
 
 if(SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr -fsanitize-address-use-after-scope -O0")
@@ -259,29 +262,128 @@ endif()
 
 option(BUILD_PKGS "Build python packages" ON)
 option(INSTALL_PKGS "Install python packages" OFF)
-if (BUILD_PKGS)
-  set(PIP ${PYTHON_EXECUTABLE} -m pip)
-  set(PKGS
-    ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
-    ${CMAKE_SOURCE_DIR}/python_packages
-  )
 
-  foreach(PKG ${PKGS})
-    file(GLOB_RECURSE DEPS ${PKG}/*)
-    get_filename_component(name ${PKG} NAME)
-    set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
-    if (INSTALL_PKGS)
-      set(PIPARGS install -U ${PKG}/)
-    else()
-      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${PKG})
-    endif()
-    add_custom_command(OUTPUT ${OUTPUT}
-                       COMMAND ${PIP} ${PIPARGS}
-                       COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
-                       DEPENDS habana_pytorch_plugin
-                       DEPENDS ${DEPS})
-    add_custom_target(${name} ALL DEPENDS ${OUTPUT})
-  endforeach()
+# additional args will be treated as dependencies - relative to the PACKAGE location
+function(build_or_install_wheel PACKAGE)
+  get_filename_component(name ${PACKAGE} NAME)
+  set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
+
+  set(PIP ${PYTHON_EXECUTABLE} -m pip)
+  if (INSTALL_PKGS)
+    set(PIPARGS install -U ${PACKAGE}/)
+  else()
+    set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${PACKAGE})
+  endif()
+
+  list(TRANSFORM ARGN PREPEND "${PACKAGE}/" OUTPUT_VARIABLE DEPS)
+  add_custom_command(OUTPUT ${OUTPUT}
+                    COMMAND ${PIP} ${PIPARGS}
+                    COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
+                    DEPENDS habana_pytorch_plugin
+                    DEPENDS ${DEPS})
+  add_custom_target(${name} ALL DEPENDS ${OUTPUT})
+endfunction()
+
+if (BUILD_PKGS)
+  build_or_install_wheel(${PROJECT_SOURCE_DIR}/pytorch_helpers/dataloader/habana_dataloader
+    __init__.py
+    habana_dataloader/__init__.py
+    habana_dataloader/aeon_config.py
+    habana_dataloader/aeon_manifest.py
+    habana_dataloader/aeon_ssd_configurator.py
+    habana_dataloader/aeon_transformers.py
+    habana_dataloader/habana_dataset.py
+    include/blocking_queue.h
+    include/data_loader.h
+    include/pybind11_json.hpp
+    LICENSE.txt
+    main.cpp
+    setup.py
+  )
+  build_or_install_wheel(${PROJECT_SOURCE_DIR}/python_packages
+    habana_frameworks/torch/__init__.py
+    habana_frameworks/torch/activity_profiler/__init__.py
+    habana_frameworks/torch/activity_profiler/activity_profiler.py
+    habana_frameworks/torch/activity_profiler/csrc/bindings.cpp
+    habana_frameworks/torch/core/__init__.py
+    habana_frameworks/torch/core/bindings.cpp
+    habana_frameworks/torch/core/hccl/__init__.py
+    habana_frameworks/torch/core/step_closure.py
+    habana_frameworks/torch/core/weight_sharing.py
+    habana_frameworks/torch/distributed/__init__.py
+    habana_frameworks/torch/distributed/hccl/__init__.py
+    habana_frameworks/torch/distributed/hccl/process_group_lazy_hccl.cpp
+    habana_frameworks/torch/distributed/hccl/process_group_lazy_hccl.hpp
+    habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.cpp
+    habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.hpp
+    habana_frameworks/torch/distributed/hccl/reducer_timer.cpp
+    habana_frameworks/torch/hpex/__init__.py
+    habana_frameworks/torch/hpex/csrc/bindings.cpp
+    habana_frameworks/torch/hpex/csrc/bindings.h
+    habana_frameworks/torch/hpex/csrc/embedding_bag_preproc_main.cpp
+    habana_frameworks/torch/hpex/csrc/embedding_bag_preproc.cpp
+    habana_frameworks/torch/hpex/csrc/radix_sort.h
+    habana_frameworks/torch/hpex/experimental/fp8_autocast/__init__.py
+    habana_frameworks/torch/hpex/experimental/fp8_autocast/Fp8Autocast.py
+    habana_frameworks/torch/hpex/experimental/fp8_autocast/LinearFp8.py
+    habana_frameworks/torch/hpex/experimental/fp8_autocast/MatmulFp8.py
+    habana_frameworks/torch/hpex/hmp/__init__.py
+    habana_frameworks/torch/hpex/hmp/config.py
+    habana_frameworks/torch/hpex/hmp/hmp.py
+    habana_frameworks/torch/hpex/hmp/ops_bf16.txt
+    habana_frameworks/torch/hpex/hmp/ops_dict.py
+    habana_frameworks/torch/hpex/hmp/ops_fp16.txt
+    habana_frameworks/torch/hpex/hmp/ops_fp32_for_bf16.txt
+    habana_frameworks/torch/hpex/hmp/ops_fp32_for_fp16.txt
+    habana_frameworks/torch/hpex/hmp/ops_multi_inputs.txt
+    habana_frameworks/torch/hpex/hmp/utils.py
+    habana_frameworks/torch/hpex/kernels/__init__.py
+    habana_frameworks/torch/hpex/kernels/CastToFp8.py
+    habana_frameworks/torch/hpex/kernels/CustomNms.py
+    habana_frameworks/torch/hpex/kernels/CustomRoiAlign.py
+    habana_frameworks/torch/hpex/kernels/EmbeddingBag.py
+    habana_frameworks/torch/hpex/kernels/EmbeddingBagPreproc.py
+    habana_frameworks/torch/hpex/movingavrg/__init__.py
+    habana_frameworks/torch/hpex/movingavrg/FusedEMA.py
+    habana_frameworks/torch/hpex/normalization/__init__.py
+    habana_frameworks/torch/hpex/normalization/FusedClipNorm.py
+    habana_frameworks/torch/hpex/optimizers/__init__.py
+    habana_frameworks/torch/hpex/optimizers/distributed/__init__.py
+    habana_frameworks/torch/hpex/optimizers/distributed/FusedAdamW.py
+    habana_frameworks/torch/hpex/optimizers/FusedAdagrad.py
+    habana_frameworks/torch/hpex/optimizers/FusedAdamW.py
+    habana_frameworks/torch/hpex/optimizers/FusedLamb.py
+    habana_frameworks/torch/hpex/optimizers/FusedLars.py
+    habana_frameworks/torch/hpex/optimizers/FusedResourceApplyMomentum.py
+    habana_frameworks/torch/hpex/optimizers/FusedSGD.py
+    habana_frameworks/torch/hpex/optimizers/SparseAdagrad.py
+    habana_frameworks/torch/hpex/optimizers/SparseSGD.py
+    habana_frameworks/torch/hpu/__init__.py
+    habana_frameworks/torch/hpu/_utils.py
+    habana_frameworks/torch/hpu/csrc/bindings.cpp
+    habana_frameworks/torch/hpu/events.py
+    habana_frameworks/torch/hpu/graphs.py
+    habana_frameworks/torch/hpu/memory.py
+    habana_frameworks/torch/hpu/random.py
+    habana_frameworks/torch/hpu/streams.py
+    habana_frameworks/torch/profiler/__init__.py
+    habana_frameworks/torch/profiler/ProfilerApi.py
+    habana_frameworks/torch/utils/__init__.py
+    habana_frameworks/torch/utils/debug/__init__.py
+    habana_frameworks/torch/utils/debug/csrc/bindings.cpp
+    habana_frameworks/torch/utils/debug/README.txt
+    habana_frameworks/torch/utils/distributed_utils.py
+    habana_frameworks/torch/utils/experimental/__init__.py
+    habana_frameworks/torch/utils/experimental/csrc/bindings.cpp
+    habana_frameworks/torch/utils/experimental/distributed_emulation.py
+    habana_frameworks/torch/utils/lib_utils.py
+    habana_frameworks/torch/utils/library_loader.py
+    habana_frameworks/torch/utils/profiler/__init__.py
+    habana_frameworks/torch/utils/profiler/csrc/bindings.cpp
+    LICENSE.txt
+    setup.py
+    torch_hpu/__init__.py
+  )
 endif()
 
 # REMOVE this in SW-112402
