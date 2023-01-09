@@ -62,6 +62,9 @@ using namespace jitgraph_utils;
 
 namespace habana {
 
+std::future<void> Singleton_CompileThreadPool::m_compile_thread_handle;
+std::future<void> Singleton_ExecThreadPool::m_exec_thread_handle;
+
 // static initializations
 const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     // Add aten string here for ops to support
@@ -3128,6 +3131,92 @@ void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
   }
 }
 
+void habana::HabanaLaunchOpPT::CompileSynapse(
+    HabanaLaunchOpPT* hbLaunchOp,
+    synapse_helpers::graph* syn_graph,
+    synapse_helpers::graph* syn_graph_ptr,
+    std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+    bool is_shape_agnostic_cache_miss) {
+  PT_BRIDGE_BEGIN;
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER MT] syn graph compile thread ",
+      syn_graph,
+      "syn_graph_ptr: ",
+      syn_graph_ptr);
+  if (hbLaunchOp->enable_shape_agnostic_caching_ &&
+      hbLaunchOp->jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
+    if (is_shape_agnostic_cache_miss) {
+      hbLaunchOp->CompileSynapseGraph();
+      hbLaunchOp->StoreShapeAgnosticGraph();
+      hbLaunchOp->ConstructPatchingTable();
+      hbLaunchOp->UpdateSynapsePermutations();
+    } else {
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      hbLaunchOp->CompileSynapseGraph(false);
+      if (hbLaunchOp->enable_tensor_dump_) {
+        hbLaunchOp->DumpTensors_pre(rv);
+      }
+    }
+  } else {
+    hbLaunchOp->CompileSynapseGraph();
+    hbLaunchOp->ConstructPatchingTable();
+    hbLaunchOp->UpdateSynapsePermutations();
+  }
+  PT_BRIDGE_END;
+}
+
+void habana::HabanaLaunchOpPT::ExecuteSynapse(
+    synapse_helpers::hpuStream_t hpu_stream,
+    synEventHandle event_handle,
+    synapse_helpers::hpuStream_t event_stream,
+    bool event_flag,
+    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+        jit_graph_and_meta_data,
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+    std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
+    HabanaLaunchOpPT* hbLaunchOp,
+    std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+    bool is_shape_agnostic_cache_miss) {
+  PT_BRIDGE_BEGIN;
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER MT] event handle for launch thread", event_handle);
+  if (hbLaunchOp->enable_shape_agnostic_caching_ &&
+      hbLaunchOp->jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
+    if (is_shape_agnostic_cache_miss) {
+      jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
+      hbLaunchOp->ExecuteSynapseGraph(
+          hpu_stream, event_handle, event_stream, event_flag);
+    } else {
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      rv.update_output_permutation();
+      rv.launch(
+          hpu_stream,
+          event_handle,
+          event_stream,
+          event_flag,
+          input_refs,
+          intermediate_tensors_ptr,
+          dma_inputs_ptr);
+
+      if (hbLaunchOp->enable_tensor_dump_) {
+        hbLaunchOp->DumpTensors(rv);
+      }
+    }
+  } else {
+    hbLaunchOp->ExecuteSynapseGraph(
+        hpu_stream, event_handle, event_stream, event_flag);
+
+    auto is_jit_cached_graph_info_available =
+        jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+    if (is_jit_cached_graph_info_available == false) {
+      jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
+    }
+    hbLaunchOp->ClearStatics();
+  }
+  PT_BRIDGE_END;
+}
+
 void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   PT_BRIDGE_BEGIN;
   static int idx{1};
@@ -3276,12 +3365,47 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             "number of nodes : ",
             syn_graph_ptr->get_num_of_nodes());
       }
-      CompileSynapseGraph();
-      StoreShapeAgnosticGraph();
-      ConstructPatchingTable();
-      UpdateSynapsePermutations();
-      jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
-      ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+        Singleton_CompileThreadPool::m_compile_thread_handle =
+            Singleton_CompileThreadPool::getInstance().enqueue(
+                CompileSynapse,
+                this,
+                nullptr,
+                syn_graph_ptr,
+                cur_rvalpsh,
+                true);
+
+        Singleton_CompileThreadPool::JoinPendingExecuteThread();
+
+        Singleton_ExecThreadPool::m_exec_thread_handle =
+            Singleton_ExecThreadPool::getInstance().enqueue(
+                ExecuteSynapse,
+                hpu_stream,
+                event_handle,
+                event_stream,
+                event_flag,
+                jit_graph_and_meta_data,
+                input_refs,
+                nullptr,
+                nullptr,
+                this,
+                cur_rvalpsh,
+                true);
+        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+      } else {
+        CompileSynapseGraph();
+        StoreShapeAgnosticGraph();
+        ConstructPatchingTable();
+        UpdateSynapsePermutations();
+        jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
+        ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+      }
+
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (end)");
@@ -3349,25 +3473,59 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       }
 
       syn_graph_ptr->set_build_phase(true);
-      CompileSynapseGraph(false);
 
-      if (enable_tensor_dump_) {
-        DumpTensors_pre(rv);
-      }
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+        Singleton_CompileThreadPool::m_compile_thread_handle =
+            Singleton_CompileThreadPool::getInstance().enqueue(
+                CompileSynapse,
+                this,
+                nullptr,
+                syn_graph_ptr,
+                cur_rvalpsh,
+                false);
 
-      rv.update_output_permutation();
+        Singleton_CompileThreadPool::JoinPendingExecuteThread();
 
-      rv.launch(
-          hpu_stream,
-          event_handle,
-          event_stream,
-          event_flag,
-          input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr);
+        Singleton_ExecThreadPool::m_exec_thread_handle =
+            Singleton_ExecThreadPool::getInstance().enqueue(
+                ExecuteSynapse,
+                hpu_stream,
+                event_handle,
+                event_stream,
+                event_flag,
+                jit_graph_and_meta_data,
+                input_refs,
+                intermediate_tensors_ptr,
+                dma_inputs_ptr,
+                this,
+                cur_rvalpsh,
+                false);
+        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+      } else {
+        CompileSynapseGraph(false);
 
-      if (enable_tensor_dump_) {
-        DumpTensors(rv);
+        if (enable_tensor_dump_) {
+          DumpTensors_pre(rv);
+        }
+
+        rv.update_output_permutation();
+
+        rv.launch(
+            hpu_stream,
+            event_handle,
+            event_stream,
+            event_flag,
+            input_refs,
+            intermediate_tensors_ptr,
+            dma_inputs_ptr);
+
+        if (enable_tensor_dump_) {
+          DumpTensors(rv);
+        }
       }
 
       // Update the stack from the recipe itself
@@ -3399,18 +3557,45 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
     syn_graph_ptr->copy_graph_handle_to_duplicate();
   }
-  CompileSynapseGraph();
-  ConstructPatchingTable();
-  UpdateSynapsePermutations();
-  ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+    Singleton_CompileThreadPool::m_compile_thread_handle =
+        Singleton_CompileThreadPool::getInstance().enqueue(
+            CompileSynapse, this, &syn_graph, syn_graph_ptr, nullptr, false);
+    Singleton_CompileThreadPool::JoinPendingExecuteThread();
 
-  is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
-  if (is_jit_cached_graph_info_available == false) {
-    jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
+    Singleton_ExecThreadPool::m_exec_thread_handle =
+        Singleton_ExecThreadPool::getInstance().enqueue(
+            ExecuteSynapse,
+            hpu_stream,
+            event_handle,
+            event_stream,
+            event_flag,
+            jit_graph_and_meta_data,
+            input_refs,
+            nullptr,
+            nullptr,
+            this,
+            nullptr,
+            false);
+    Singleton_ExecThreadPool::JoinPendingExecuteThread();
+  } else {
+    CompileSynapseGraph();
+    ConstructPatchingTable();
+    UpdateSynapsePermutations();
+    ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+
+    is_jit_cached_graph_info_available =
+        jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+    if (is_jit_cached_graph_info_available == false) {
+      jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(true);
+    }
+
+    ClearStatics();
   }
-
-  ClearStatics();
 
   PT_BRIDGE_END;
 }

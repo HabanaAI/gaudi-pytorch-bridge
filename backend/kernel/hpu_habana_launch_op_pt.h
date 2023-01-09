@@ -42,6 +42,7 @@
 #include "backend/habana_operator.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/jit_graph_cache.h"
+#include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_arg_spec.h"
 #include "habana_lazy/visualize.h"
@@ -53,6 +54,8 @@ using SynTensorOrRefList = std::vector<tensor_or_ref>;
 using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, PtTensorInfoShared>;
+
+extern synapse_helpers::graph* global_graph_ptr;
 
 struct habanaTensorLayoutInfo {
   LayoutFormat layout;
@@ -143,6 +146,10 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
   void run(torch::jit::Stack& stack);
+
+  HabanaLaunchOpPT& getInstance() {
+    return *this;
+  };
   static void cleanUp();
 
   static std::unordered_set<std::string> watchlist_;
@@ -155,6 +162,35 @@ class HabanaLaunchOpPT {
   void set_node_bcast_map(std::vector<bool>& map) {
     node_bcast_map_ = map;
   }
+  void CompileSynapseGraph(bool allocate_rval = true);
+  static void CompileSynapse(
+      HabanaLaunchOpPT* hbLaunchOp,
+      synapse_helpers::graph* syn_graph,
+      synapse_helpers::graph* syn_graph_ptr,
+      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+      bool is_shape_agnostic_cache_miss);
+  void ConstructPatchingTable();
+  void UpdateSynapsePermutations();
+  void ExecuteSynapseGraph(
+      synapse_helpers::hpuStream_t hpu_stream,
+      synEventHandle event_handle,
+      synapse_helpers::hpuStream_t event_stream,
+      bool event_flag);
+  static void ExecuteSynapse(
+      synapse_helpers::hpuStream_t hpu_stream,
+      synEventHandle event_handle,
+      synapse_helpers::hpuStream_t event_stream,
+      bool event_flag,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+          jit_graph_and_meta_data,
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
+      HabanaLaunchOpPT* hbLaunchOp,
+      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+      bool is_shape_agnostic_cache_miss);
+  // To clear the static variables
+  void ClearStatics(bool is_shape_inference = false);
 
  private:
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
@@ -472,8 +508,6 @@ class HabanaLaunchOpPT {
   // Member functions related to lowering IR to Synapse
   // To clear the non static members
   void ClearMembers(bool is_shape_inference = false);
-  // To clear the static variables
-  void ClearStatics(bool is_shape_inference = false);
   void CopyInputStack(torch::jit::Stack& input_st);
 
   // TODO: Check whether the swap destruct paradigm provides any performance
@@ -485,19 +519,11 @@ class HabanaLaunchOpPT {
   }
 
   // No need to allocate for lazy eager shape agnostic cache hit scenario
-  void CompileSynapseGraph(bool allocate_rval = true);
   void PreCompilationStepForConstTensors();
   void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
-  void UpdateSynapsePermutations();
-  void ConstructPatchingTable();
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
-  void ExecuteSynapseGraph(
-      synapse_helpers::hpuStream_t hpu_stream,
-      synEventHandle event_handle,
-      synapse_helpers::hpuStream_t event_stream,
-      bool event_flag);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
@@ -624,6 +650,109 @@ class HabanaLaunchOpPT {
   void RunHybridSif(
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
   // --------------------
+};
+
+class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
+ public:
+  static std::future<void> m_compile_thread_handle;
+  static habana_helpers::ThreadPool& getInstance() {
+    static habana_helpers::ThreadPool thread_pool_obj(1);
+    return thread_pool_obj;
+  }
+
+  static void work() {
+    while (getInstance().has_work.load()) {
+      if (getInstance().m_stop || !getInstance().has_work.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+  static void queueStatus() {
+    while (getInstance().has_queued_items.load()) {
+      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+  static void JoinPendingExecuteThread() {
+    if (m_compile_thread_handle.valid()) {
+      PT_LAZY_EXEC_THREAD("Waiting for compile thread to finish");
+      // If the future is already ready when below line executes, it can
+      // create an exception. Ignore the exception as the wait is already
+      // over.
+      try {
+        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+          queueStatus();
+          m_compile_thread_handle.get();
+        } else {
+          m_compile_thread_handle.get();
+        }
+      } catch (std::exception& e) {
+      }
+    }
+  }
+
+ private:
+  Singleton_CompileThreadPool() = default;
+  Singleton_CompileThreadPool(const Singleton_CompileThreadPool&) = delete;
+  Singleton_CompileThreadPool& operator=(const Singleton_CompileThreadPool&) =
+      delete;
+};
+
+class Singleton_ExecThreadPool : public HabanaLaunchOpPT {
+ public:
+  static std::future<void> m_exec_thread_handle;
+  static habana_helpers::ThreadPool& getInstance() {
+    static habana_helpers::ThreadPool thread_pool_obj(1);
+    return thread_pool_obj;
+  }
+
+  static void work() {
+    while (getInstance().has_work.load()) {
+      if (getInstance().m_stop || !getInstance().has_work.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+  static void queueStatus() {
+    while (getInstance().has_queued_items.load()) {
+      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+  static void JoinPendingExecuteThread() {
+    if (m_exec_thread_handle.valid()) {
+      PT_LAZY_EXEC_THREAD("Waiting for compile thread to finish");
+      // If the future is already ready when below line executes, it can
+      // create an exception. Ignore the exception as the wait is already
+      // over.
+      try {
+        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+          queueStatus();
+          m_exec_thread_handle.get();
+        } else {
+          m_exec_thread_handle.get();
+        }
+      } catch (std::exception& e) {
+      }
+    }
+  }
+
+ private:
+  Singleton_ExecThreadPool() = default;
+  Singleton_ExecThreadPool(const Singleton_ExecThreadPool&) = delete;
+  Singleton_ExecThreadPool& operator=(const Singleton_ExecThreadPool&) = delete;
 };
 
 } // namespace habana

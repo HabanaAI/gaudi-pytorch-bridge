@@ -485,7 +485,6 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
     // Process control edges
     HabanaLaunchOpPT::ProcessControlEdges();
   }
-
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   if (syn_graph_ptr->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
