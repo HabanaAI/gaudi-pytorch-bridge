@@ -484,11 +484,6 @@ std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu(
     const at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-at::Tensor sum_dim_IntList_hpu(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu(
     const at::Tensor& self,
     bool sorted,

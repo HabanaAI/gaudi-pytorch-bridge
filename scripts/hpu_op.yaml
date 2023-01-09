@@ -6389,9 +6389,9 @@ sum.dim_IntList:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
-    Greco: [BFloat16, Float, Half, Short, Char, Byte]
-  override_fn: sum_dim_IntList_hpu_lazy
-  acc_thread: true
+    Greco: [BFloat16, Float, Half]
+  guid: reduce_sum_fwd
+  out_ids: [0]
 
 sum.IntList_out:
   dtypes:

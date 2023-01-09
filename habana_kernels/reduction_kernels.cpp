@@ -614,43 +614,6 @@ void SumDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-Tensor sum_dim_IntList_hpu(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
-  // Create the operator
-  SumDimOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 OutputShapeInfRetType SumDimOutOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
@@ -1321,6 +1284,4 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
 static auto& ReductionKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
-        .add("hpu::sum_dim_IntList", KERNEL_FN(SumDimOperator))
-        .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))
         .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator));
