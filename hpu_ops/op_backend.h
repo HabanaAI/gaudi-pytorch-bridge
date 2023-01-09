@@ -31,6 +31,7 @@ struct NodeAttr {
   std::vector<NodeOutputAttr> output_attrs;
   void* params = nullptr;
   size_t param_size = 0;
+  std::string inf_name = std::string();
 };
 
 class OpBackend : public HabanaOperator {
@@ -178,7 +179,8 @@ class OpBackend : public HabanaOperator {
       std::vector<synTensor> node_inputs,
       const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
       void* params = nullptr,
-      size_t param_size = 0);
+      size_t param_size = 0,
+      std::string name = std::string());
 
   synTensor syn_in(int index);
   synapse_helpers::tensor& syn_out(int index);

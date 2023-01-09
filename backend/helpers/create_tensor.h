@@ -27,7 +27,7 @@ c10::ScalarType synapse_to_pytorch_type(const synDataType type);
 synDataType pytorch_to_synapse_type(const c10::Scalar& s);
 
 c10::ScalarType scalar_type(const c10::Scalar& s);
-
+std::string get_tensor_range(synTensor tensor_, synapse_helpers::graph& graph_);
 /**
 @brief This function can be used to create an intermediate
        synapse_helper tensor of required shape (which is

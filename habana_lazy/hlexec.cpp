@@ -595,11 +595,11 @@ void HlExec::Create(
       }
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
-      if (AccThread::IsAccThreadEnabled()) {
-        jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
-            torch::jit::ScopePtr(),
-            c10::Symbol::fromQualString("debug::" + scope_name)));
-      }
+      // if (AccThread::IsAccThreadEnabled()) {
+      //   jit_node->setScope(c10::make_intrusive<torch::jit::Scope>(
+      //       torch::jit::ScopePtr(),
+      //       c10::Symbol::fromQualString("debug::" + scope_name)));
+      // }
       if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
         auto one = torch::jit::attr::alpha;
         jit_node->i_(one, node->getDeterministic());

@@ -305,11 +305,17 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
     std::vector<synTensor> node_inputs,
     const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
     void* params,
-    size_t param_size) {
+    size_t param_size,
+    std::string name) {
   return OpBackend::BuildNode(
       this,
       graph,
-      {guid, std::move(node_inputs), node_output_attr, params, param_size});
+      {guid,
+       std::move(node_inputs),
+       node_output_attr,
+       params,
+       param_size,
+       name});
 }
 
 synapse_helpers::tensor OpBackend::CastHelper(
@@ -541,7 +547,13 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
               ? habana_helpers::create_shape_tensor(
                     t, graph, is_persistent, attr.tensor_type)
               : habana_helpers::create_tensor(
-                    t, graph, is_persistent, is_external, attr.dtype));
+                    t,
+                    graph,
+                    is_persistent,
+                    is_external,
+                    attr.dtype,
+                    node_attr.inf_name,
+                    node_attr.inf_name));
 
       if (is_persistent) {
         const auto& impl =

@@ -361,7 +361,8 @@ static std::vector<synapse_helpers::tensor> ShapeTranspose(
     at::ScalarType scalar_type,
     synTransposeParams trans_params,
 
-    c10::optional<int> is_final_node = c10::nullopt) {
+    c10::optional<int> is_final_node = c10::nullopt,
+    std::string name = std::string()) {
   return OpBackend::BuildNode(
       op,
       graph,
@@ -369,7 +370,8 @@ static std::vector<synapse_helpers::tensor> ShapeTranspose(
        {input.at(0)},
        {{output_shape, scalar_type, is_final_node}},
        &trans_params,
-       sizeof(trans_params)});
+       sizeof(trans_params),
+       name});
 }
 
 static synTransposeParams GenerateTransposePermutation(int dim) {
@@ -588,13 +590,19 @@ void MaxPool2DWithIndicesOut::AddNode(
   trans_params = ChangeTransposePermutation(
       trans_params, permutation_order[0], self.dim());
   auto index_type = FindIndexType(self.scalar_type());
+  std::string name = std::string();
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
+    name = habana_helpers::get_tensor_range(syn_in(0), graph);
+
   auto input_transpose = ShapeTranspose(
       this,
       graph,
       {syn_in(0)},
       transpose_inputshape,
       ScalarType(),
-      trans_params);
+      trans_params,
+      c10::nullopt,
+      name);
 
   // maxpool2d guid will return tuple of tensors except greco device
   // (indices tensor, output tensor)
@@ -626,7 +634,8 @@ void MaxPool2DWithIndicesOut::AddNode(
       {input_transpose[0].get()},
       output_attr,
       params.get(),
-      size);
+      size,
+      name);
 
   // After aplying maxpool2d, need to change the order of both indices and
   // output tensor to N C H W or C H W format
@@ -640,7 +649,8 @@ void MaxPool2DWithIndicesOut::AddNode(
       out_shape[maxpool_out_index],
       ScalarType(),
       trans_params,
-      0);
+      0,
+      name);
   syn_out(0) = std::move(output.at(0));
 
   if (!greco_device) {
@@ -651,7 +661,8 @@ void MaxPool2DWithIndicesOut::AddNode(
         out_shape[0],
         index_type,
         trans_params,
-        1);
+        1,
+        name);
     syn_out(1) = std::move(output_indx.at(0));
   }
 }
