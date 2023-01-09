@@ -135,20 +135,21 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
     // Build Params for the graph
     std::shared_ptr<HabanaOperator> castOp1;
     std::vector<c10::IValue> stack;
+    auto md = OutputMetaDataVector(1);
+    md[0].dtype = at::kInt;
+
     if (arg1.scalar_type() != c10::ScalarType::Int) {
       castOp1 =
           make_operator<CastOperator>(this->p_context_->device_id_, node1_type);
       castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
       stack = {arg1, c10::ScalarType::Int};
-      castOp1->AllocateAndAddSynapseNode(
-          graph, stack, habana::OutputMetaDataVector(1));
+      castOp1->AllocateAndAddSynapseNode(graph, stack, md);
     } else {
       castOp1 = make_operator<IdentityOperator>(
           this->p_context_->device_id_, c10::ScalarType::Int);
       castOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
       stack = {arg1};
-      castOp1->AllocateAndAddSynapseNode(
-          graph, stack, habana::OutputMetaDataVector(1));
+      castOp1->AllocateAndAddSynapseNode(graph, stack, md);
     }
     std::string node2_type = (arg2.scalar_type() == c10::ScalarType::Int)
         ? "cast_identity"
@@ -162,15 +163,13 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
           make_operator<CastOperator>(this->p_context_->device_id_, node2_type);
       castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
       stack = {arg2, c10::ScalarType::Int};
-      castOp2->AllocateAndAddSynapseNode(
-          graph, stack, habana::OutputMetaDataVector(1));
+      castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     } else {
       castOp2 = make_operator<IdentityOperator>(
           this->p_context_->device_id_, c10::ScalarType::Int);
       castOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
       stack = {arg2};
-      castOp2->AllocateAndAddSynapseNode(
-          graph, stack, habana::OutputMetaDataVector(1));
+      castOp2->AllocateAndAddSynapseNode(graph, stack, md);
     }
 
     // Add the Mult node
@@ -220,7 +219,9 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
       finalCastOp->SetSynapseInput(p_context_->syn_outputs_[0]);
       // Build Params for the graph
       stack = {output_mult, final_out_dtype};
-      finalCastOp->AllocateAndAddSynapseNode(graph, stack, {output_metadata});
+      auto md = output_metadata;
+      md.dtype = final_out_dtype;
+      finalCastOp->AllocateAndAddSynapseNode(graph, stack, {md});
       p_context_->syn_outputs_.pop_back();
       p_context_->pt_outputs_.pop_back();
 
@@ -278,8 +279,9 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     castOp->SetSynapseInput(arg2_syn_tensor);
     torch::jit::Stack stack = {IValue(arg2), IValue(c10::ScalarType::BFloat16)};
-    castOp->AllocateAndAddSynapseNode(
-        graph, stack, habana::OutputMetaDataVector(1));
+    auto md = habana::OutputMetaDataVector(1);
+    md[0].dtype = stack[1].toScalarType();
+    castOp->AllocateAndAddSynapseNode(graph, stack, md);
     synapse_helpers::tensor& syn_tensor = std::move(castOp->GetSynOutputs()[0]);
     syn_inputs.push_back(syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
