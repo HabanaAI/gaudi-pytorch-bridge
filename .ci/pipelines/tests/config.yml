@@ -11,3 +11,8 @@ testJobConfig:
       greco:
         hwType:
           sim:
+  topology:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
