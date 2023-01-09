@@ -1086,6 +1086,4 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
 static auto& ReductionKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
-        .add("hpu::sum_dim_IntList", KERNEL_FN(SumDimOperator))
-        .add("aten::sum.dim_IntList", KERNEL_FN(SumDimOperator))
         .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator));

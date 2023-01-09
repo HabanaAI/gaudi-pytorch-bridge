@@ -49,7 +49,6 @@ struct CommonReductionFrontendTemplate {
     m_dtype_index = dtype_index;
   }
 
-  T CreateResult(const at::Stack& stack, at::ScalarType dtype);
 };
 
 #define HPU_REDUCTION_TEMPLATE_FRONTEND(OpClass)                         \

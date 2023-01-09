@@ -17,8 +17,12 @@ namespace habana {
 
 template <>
 at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
-  return CommonReductionFrontendTemplate::CreateResult(
-      get_inputs(), get_scalar_types()[0]);
+  auto inputs = get_inputs();
+  auto self = inputs[0].toTensor();
+  auto dim = get_dims(inputs, m_dim_index);
+  auto keepdim = get_keepdim(inputs, m_keepdim_index);
+  return at::native::create_reduction_result(
+      self, dim, keepdim, self.scalar_type());
 }
 
 template <>
