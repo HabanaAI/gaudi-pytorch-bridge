@@ -12,6 +12,11 @@
  */
 #pragma once
 
+// clang-format off
+// PT 1.12 requires ArrayRef.h to come before IListRef.h because of implicit
+// dependency of the latter on the former in PT sources
+#include <c10/util/ArrayRef.h>
+// clang-format on
 #include <ATen/core/IListRef.h>
 #include <ATen/core/TensorBody.h>
 #include <c10/util/OptionalArrayRef.h>

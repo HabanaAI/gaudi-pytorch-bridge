@@ -6,10 +6,6 @@
 # Proprietary and confidential.
 #
 ################################################################################
-cmake_minimum_required(VERSION 3.10)
-
-find_package(Torch REQUIRED)
-set(CMAKE_CXX_STANDARD 17)
 
 add_library(habana_serialization STATIC
     cache_file_handler.cpp
@@ -26,9 +22,11 @@ add_library(habana_serialization STATIC
     include/habana_serialization/cache_version.h
 )
 
+target_compile_features(habana_serialization PUBLIC cxx_std_17)
+
 target_include_directories(habana_serialization
     PRIVATE include/habana_serialization/
     PUBLIC  include/
 )
 
-target_link_libraries(habana_serialization PUBLIC "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)
+target_link_libraries(habana_serialization PUBLIC torch c10 pytorch_synapse_helpers_abi11)

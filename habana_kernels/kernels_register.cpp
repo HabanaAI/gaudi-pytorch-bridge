@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,12 +16,12 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "pytorch_helpers/pt_ver/torch_params_shim.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch;
@@ -1007,13 +1007,7 @@ Tensor hpu_wrap::empty_strided(
       at::dtype_or_default(dtype),
       empty_strided,
       PARAMS1(),
-      PARAMS2(
-          INTARRAY_PARAM(size),
-          INTARRAY_PARAM(stride),
-          dtype,
-          layout,
-          device,
-          pin_memory))
+      PARAMS2(size, stride, dtype, layout, device, pin_memory))
 
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))

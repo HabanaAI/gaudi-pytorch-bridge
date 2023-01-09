@@ -1,9 +1,22 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <torch/extension.h>
 
 #include "bindings.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_kernels_ver/wrap_kernels_declarations.h"
 
-// Wrappers to match singatures
+// Wrappers to match signatures
 static void optimizer_ResourceApplyMomentum(
     std::vector<at::Tensor>& params_momentum_buffer_vec,
     const std::vector<at::Tensor>& d_p_vec,

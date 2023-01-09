@@ -260,7 +260,7 @@ configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(test_pt_integration PRIVATE
   "${PYTHON3_LIB}"
-  "${TORCH_LIBRARIES}"
+  torch
   habana_pytorch_plugin
   habana_serialization
   pytorch_synapse_helpers_abi11

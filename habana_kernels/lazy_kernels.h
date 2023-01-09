@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,6 +15,7 @@
 #include <tuple>
 #include <utility>
 
+#include <c10_ver/core/SymIntArrayRef.h>
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -34,10 +35,6 @@
 
 #include "habana_lazy/memlog.h"
 #include "habana_lazy/ops/shape_ops.h"
-
-#if IS_PYTORCH_OLDER_THAN(2, 0)
-#define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
-#endif
 
 namespace habana {
 
@@ -146,6 +143,7 @@ void handle_collective(const at::IValue& value);
 void handle_collective(const at::Tensor& tensor);
 void handle_collective(const at::TensorList& list);
 void handle_collective(const std::vector<at::Tensor>& vec);
+void handle_collective(const at::ITensorListRef& list);
 
 template <typename ReturnType, typename NodeConstruct = void>
 class LazyOp {

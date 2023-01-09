@@ -19,6 +19,7 @@
 #include <ATen/autocast_mode.h>
 #include <ATen/native/CPUFallback.h>
 #include <ATen/ops/result_type.h>
+#include <ATen_ver/native/CPUFallback.h>
 #include "habana_kernels/op_support_level.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
@@ -153,12 +154,8 @@ struct redispatch_if_any_arg_changed final {
     if (redispatch_to_hpu) {
       return Op::call(args...);
     }
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
-#endif
   }
 };
 
@@ -268,12 +265,9 @@ struct _dispatch_fallback<
           return result;
       }
     }
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
-#endif
   }
 };
 
@@ -312,12 +306,8 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
       }
     }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(t, args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
-#endif
   }
 };
 
@@ -360,12 +350,8 @@ struct _dispatch_fallback<
       }
     }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(t, args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
-#endif
   }
 }; // namespace habana
 
@@ -458,12 +444,8 @@ struct _dispatch_fallback<
         return std::get<0>(helper::call(arg, args...));
     }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(arg, args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         arg, args...);
-#endif
   }
 };
 
@@ -499,12 +481,8 @@ struct _dispatch_fallback<
         return helper::call(args...);
     }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    return at::native::call_fallback_fn<&cpu_fallback, Op>::call(args...);
-#else
-    return at::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
+    return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         args...);
-#endif
   }
 };
 

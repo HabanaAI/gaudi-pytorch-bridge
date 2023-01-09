@@ -1,12 +1,24 @@
 #!/usr/bin/env python
+# ##############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ##############################################################################
 
 from setuptools import setup, find_namespace_packages
 from distutils.file_util import copy_file
 from torch.utils import cpp_extension
 
-import os
-import glob
 import copy
+import glob
+import os
+import torch
 
 
 def _check_env_flag(name, default=""):
@@ -16,10 +28,12 @@ def _check_env_flag(name, default=""):
 root = os.environ["PYTORCH_MODULES_ROOT_PATH"]
 
 DEBUG = _check_env_flag("DEBUG")
+PT_VER = '.'.join(torch.version.__version__.split('.')[:2])
 
 include_dirs = [
     root,
     os.path.join(root, "pytorch_helpers"),
+    os.path.join(root, "pt_ver", PT_VER),
     os.path.join(os.environ["SYNAPSE_ROOT"], "include"),
     os.path.join(os.environ["HCL_ROOT"], "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "abseil-cpp"),

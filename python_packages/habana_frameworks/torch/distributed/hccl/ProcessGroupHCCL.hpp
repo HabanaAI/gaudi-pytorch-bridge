@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -13,25 +16,20 @@
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-#include <c10d/ProcessGroup.hpp>
-#include <c10d/Store.hpp>
-#include <c10d/Types.hpp>
-#include <c10d/Utils.hpp>
-#else
-#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
-#include <torch/csrc/distributed/c10d/Store.hpp>
-#include <torch/csrc/distributed/c10d/Types.hpp>
-#include <torch/csrc/distributed/c10d/Utils.hpp>
-#endif
 #include <torch/extension.h>
+#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch_ver/csrc/distributed/c10d/Store.hpp>
+#include <torch_ver/csrc/distributed/c10d/Types.hpp>
+#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include <chrono>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
 #include "process_group_lazy_hccl.hpp"
 #include "pytorch_helpers/synapse_helpers/device_context.h"
+
+using Work = c10d_ver::Work;
+
 namespace c10d {
 
 // Now continue on other work in the current stream.

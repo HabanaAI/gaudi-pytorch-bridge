@@ -28,11 +28,14 @@ class HpuOpTest : public HpuOpTestUtil {
       atol = 1e-02;
     }
     if (is_out) {
+#if IS_PYTORCH_AT_LEAST(1, 13)
+      // op flavor not existent in 1.12
       auto expected = torch::empty(0);
       auto result = torch::empty(0, "hpu");
       torch::_adaptive_avg_pool2d_outf(GetCpuInput(0), output_size, expected);
       torch::_adaptive_avg_pool2d_outf(GetHpuInput(0), output_size, result);
       Compare(expected, result, rtol, atol);
+#endif
     } else {
       auto expected = torch::_adaptive_avg_pool2d(GetCpuInput(0), output_size);
       auto result = torch::_adaptive_avg_pool2d(GetHpuInput(0), output_size);
@@ -54,11 +57,14 @@ class HpuOpTest : public HpuOpTestUtil {
     if (is_out) {
       auto expected = torch::empty(0);
       auto result = torch::empty(0, "hpu");
+#if IS_PYTORCH_AT_LEAST(1, 13)
+      // op flavor not existent in 1.12
       torch::_adaptive_avg_pool2d_backward_outf(
           GetCpuInput(0), GetCpuInput(1), expected);
       torch::_adaptive_avg_pool2d_backward_outf(
           GetHpuInput(0), GetHpuInput(1), result);
       Compare(expected, result, rtol, atol);
+#endif
     } else {
       auto expected =
           torch::_adaptive_avg_pool2d_backward(GetCpuInput(0), GetCpuInput(1));

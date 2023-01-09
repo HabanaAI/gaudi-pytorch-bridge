@@ -1,32 +1,31 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
-#include "habana_kernels/kernel_utils.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-#include <c10d/Types.hpp>
-#else
-#include <torch/csrc/distributed/c10d/Types.hpp>
-#endif
+#include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
-#include "pytorch_helpers/pt_ver/torch_reduce_op_shim.h"
 #include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 #include <hccl.h>
 #include <hccl_types.h>
+
+using RedOpType = c10d_ver::ReduceOp::RedOpType;
 
 using namespace torch;
 namespace habana {

@@ -67,6 +67,10 @@ endif()
 
 add_subdirectory(cmake/json)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
+include(pt_ver)
+set_up_pt_ver_mechanism()
+
 include(AddNPUStackDependencies)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -195,6 +199,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
   habana_lazy/hpu_stage_submission.cpp
+  ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
@@ -205,7 +210,7 @@ target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-
 target_link_libraries(habana_pytorch_plugin
   PRIVATE
     habana_serialization
-    "${TORCH_LIBRARIES}"
+    torch
     pytorch_synapse_helpers_abi11
     json
     tensor_comparator_core
@@ -233,6 +238,7 @@ add_custom_command(OUTPUT
                      --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
+                     ${PT_VER_DIR}/habana_kernels_ver/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
                      ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml
@@ -240,6 +246,7 @@ add_custom_command(OUTPUT
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
+                     ${PT_VER_DIR}/habana_kernels_ver/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
 )
@@ -386,16 +393,3 @@ if (BUILD_PKGS)
     torch_hpu/__init__.py
   )
 endif()
-
-# REMOVE this in SW-112402
-if (Torch_VERSION VERSION_LESS "1.13.0")
-  set(header "wrap_kernels_declarations_12.h")
-elseif (Torch_VERSION VERSION_LESS "1.14.0")
-  set(header "wrap_kernels_declarations_13.h")
-else()
-  set(header "wrap_kernels_declarations_14.h")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-    ${CMAKE_SOURCE_DIR}/habana_kernels/${header}
-    ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
-)

@@ -14,6 +14,7 @@
 #include <ATen/InferSize.h>
 #include <ATen/native/TypeProperties.h>
 #include <c10/core/SymIntArrayRef.h>
+#include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <cstdlib>
 #include <ctime>
 #include <utility>
@@ -58,7 +59,6 @@
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "pytorch_helpers/pt_ver/torch_params_shim.h"
 
 using namespace habana;
 using namespace at;
@@ -83,10 +83,6 @@ void print_tensor_debug(const torch::Tensor& src) {
       src.sizes(),
       "\n",
       marker);
-}
-
-static bool is_nonempty_tensor(const at::Tensor& tensor) {
-  return tensor.dim() != 1 || tensor.size(0) != 0;
 }
 
 bool is_inplace(at::Symbol symbol) {
@@ -5775,6 +5771,12 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   return fill_hpu_lazy_(self, 0);
 }
 
+namespace {
+bool is_nonempty_tensor(const at::Tensor& tensor) {
+  return tensor.dim() != 1 || tensor.size(0) != 0;
+}
+} // namespace
+
 Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   PT_LAZY_TRACE;
   TORCH_CHECK(_tensors.size() > 0, "Empty tensors list!");
@@ -7549,18 +7551,6 @@ void handle_collective(const at::IValue& value) {
   // else do nothing
 }
 
-void handle_collective(const at::TensorList& list) {
-  if (!is_main_thread_and_lazy_collectives_enabled())
-    return;
-
-  for (const auto& tensor : list) {
-    if (!is_hpu_tensor(tensor))
-      continue;
-
-    GetHbLazyTensor(tensor);
-  }
-}
-
 void handle_collective(const at::Tensor& tensor) {
   if (!is_main_thread_and_lazy_collectives_enabled())
     return;
@@ -7571,16 +7561,29 @@ void handle_collective(const at::Tensor& tensor) {
   GetHbLazyTensor(tensor);
 }
 
-void handle_collective(const std::vector<at::Tensor>& vec) {
+template <typename It, typename Sentinel>
+void handle_collective(It iter, Sentinel end) {
   if (!is_main_thread_and_lazy_collectives_enabled())
     return;
 
-  for (const auto& tensor : vec) {
-    if (!is_hpu_tensor(tensor))
+  for (; iter != end; ++iter) {
+    if (!is_hpu_tensor(*iter))
       continue;
 
-    GetHbLazyTensor(tensor);
+    GetHbLazyTensor(*iter);
   }
+}
+
+void handle_collective(const at::TensorList& list) {
+  handle_collective(std::begin(list), std::end(list));
+}
+
+void handle_collective(const std::vector<at::Tensor>& vec) {
+  handle_collective(std::begin(vec), std::end(vec));
+}
+
+void handle_collective(const at::ITensorListRef& list) {
+  handle_collective(std::begin(list), std::end(list));
 }
 
 at::Tensor habana_random_seed_lazy(const at::Tensor& input) {

@@ -1,10 +1,17 @@
+/*******************************************************************************
+ * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <c10/core/DeviceGuard.h>
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-#include <c10d/reducer_timer.hpp>
-#else
-#include <torch/csrc/distributed/c10d/reducer_timer.hpp>
-#endif
+#include <torch_ver/csrc/distributed/c10d/reducer_timer.hpp>
 #include "habana_helpers/logging.h"
 
 namespace c10d {
