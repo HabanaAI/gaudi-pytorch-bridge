@@ -901,7 +901,7 @@ torch::jit::Stack PrepareInputStack(
     std::vector<HbLazyTensor>* tensors,
     std::vector<int>& indices,
     ir::ValueList& inputs,
-    bool is_OptimizedLazyEager UNUSED,
+    bool is_OptimizedLazyEager [[maybe_unused]],
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
     bool copy_scalar_to_hpu = true) {
   auto device = (*tensors)[0].GetDevice();
@@ -957,7 +957,7 @@ void PostLaunch(
     std::vector<int64_t>& executing_indices,
     std::vector<at::Tensor>& retained_tensor_list,
     bool is_exception,
-    UNUSED bool is_OptimizedLazyEager = false) {
+    [[maybe_unused]] bool is_OptimizedLazyEager = false) {
   auto device = (*tensors)[0].GetDevice();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.index());
 

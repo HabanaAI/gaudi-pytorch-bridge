@@ -11,8 +11,6 @@
 #include <ATen/ATen.h>
 #include "habana_kernels/kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#undef UNUSED // Collision between pytorch_helpers/synapse_helpers/graph.h and
-              // c10d::ReduceOp enum from c10d/Types.hpp
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 #include <c10d/Types.hpp>
 #else

@@ -64,7 +64,7 @@ void Reduce2Operator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   Tensor self = inputs[0].toTensor();
   auto dim_ = inputs[1].toInt();
-  UNUSED bool keepdim = inputs[2].toBool();
+  [[maybe_unused]] bool keepdim = inputs[2].toBool();
 
   // wrap dim to positive value
   auto dim = c10::maybe_wrap_dim(dim_, self.dim(), true);
@@ -153,7 +153,7 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
 
   Tensor self = inputs[0].toTensor();
   auto dim_ = inputs[1].toInt();
-  UNUSED bool keepdim = inputs[2].toBool();
+  [[maybe_unused]] bool keepdim = inputs[2].toBool();
   auto dim = c10::maybe_wrap_dim(dim_, self.dim(), true);
 
   auto reduce_op =

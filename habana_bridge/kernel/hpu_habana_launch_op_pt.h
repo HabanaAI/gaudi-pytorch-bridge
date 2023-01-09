@@ -411,7 +411,7 @@ class HabanaLaunchOpPT {
   void PrintDuplicateGraphInformation(
       synapse_helpers::graph* graph_ptr,
       std::vector<synTensorHandleMap>& tensors_map,
-      std::vector<synNodeHandleMap>& nodes_map UNUSED,
+      std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
       std::string cache_hit_or_miss);
 
   void create_duplicate_syn_tensor(

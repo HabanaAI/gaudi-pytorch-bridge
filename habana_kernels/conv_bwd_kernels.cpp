@@ -17,7 +17,6 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/conv_bwd_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
@@ -1050,9 +1049,9 @@ void ConvBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto stride = inputs[3].toIntList().vec();
   const auto padding = inputs[4].toIntList().vec();
   const auto dilation = inputs[5].toIntList().vec();
-  UNUSED auto transposed = inputs[6].toBool();
+  [[maybe_unused]] auto transposed = inputs[6].toBool();
   auto output_padding = inputs[7].toIntList();
-  UNUSED auto groups = inputs[8].toInt();
+  [[maybe_unused]] auto groups = inputs[8].toInt();
   auto output_mask_in = inputs[9].toBoolList();
 
   std::vector<at::Tensor> temp_inputs{input_nhwc, weight_hwck};

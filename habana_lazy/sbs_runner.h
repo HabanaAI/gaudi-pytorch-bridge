@@ -70,17 +70,18 @@ class SBSInterface {
 class SBSDisabledOp : public SBSInterface {
  public:
   void populateInputForCPUOp(
-      UNUSED const std::vector<at::IValue>& inputs,
-      UNUSED const ir::MetaData& metadata,
-      UNUSED std::vector<at::IValue>& stack) override {}
+      [[maybe_unused]] const std::vector<at::IValue>& inputs,
+      [[maybe_unused]] const ir::MetaData& metadata,
+      [[maybe_unused]] std::vector<at::IValue>& stack) override {}
 
-  void setCPUInputs(UNUSED const std::vector<at::IValue>& inputs) override {}
+  void setCPUInputs([
+      [maybe_unused]] const std::vector<at::IValue>& inputs) override {}
 
   void run(
       at::TensorList results,
-      UNUSED const std::vector<at::IValue>& inputs,
-      UNUSED const std::vector<at::IValue>& prealloc_stack,
-      UNUSED const ir::NodePtr& node) override;
+      [[maybe_unused]] const std::vector<at::IValue>& inputs,
+      [[maybe_unused]] const std::vector<at::IValue>& prealloc_stack,
+      [[maybe_unused]] const ir::NodePtr& node) override;
 };
 
 class SBSRunner : public SBSInterface {

@@ -51,7 +51,7 @@ class PoolingStrategy {
       const = 0;
   virtual void clear_stats() const = 0;
   virtual void reset_peak_mem_stats() const = 0;
-  virtual size_t allocated_size(UNUSED const void* p) const {
+  virtual size_t allocated_size([[maybe_unused]] const void* p) const {
     return 0;
   }
   virtual std::vector<std::pair<void*, size_t>> get_memory_info() const {
@@ -63,7 +63,7 @@ class PoolingStrategy {
   virtual std::tuple<void*, size_t, size_t> get_small_alloc_info() const {
     return {};
   }
-  virtual bool is_memory_available(UNUSED size_t size) const {
+  virtual bool is_memory_available([[maybe_unused]] size_t size) const {
     return true;
   }
   virtual void print_pool_stats() const {};
@@ -72,9 +72,9 @@ class PoolingStrategy {
   };
 
   virtual bool is_memory_available(
-      UNUSED size_t persistant_size,
-      UNUSED size_t curr_ws_size,
-      UNUSED size_t new_ws_size) const {
+      [[maybe_unused]] size_t persistant_size,
+      [[maybe_unused]] size_t curr_ws_size,
+      [[maybe_unused]] size_t new_ws_size) const {
     return true;
   }
 

@@ -13,7 +13,7 @@
 
 namespace synapse_logger {
 enum class data_dump_category : unsigned {};
-bool logger_is_enabled(UNUSED data_dump_category cat) {
+bool logger_is_enabled([[maybe_unused]] data_dump_category cat) {
   return false;
 }
 

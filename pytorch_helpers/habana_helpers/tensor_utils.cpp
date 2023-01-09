@@ -657,7 +657,7 @@ void habana_helpers::copy_scalars_to_device(
 
 synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::IntArrayRef& shape,
-    UNUSED const c10::IntArrayRef& stride,
+    [[maybe_unused]] const c10::IntArrayRef& stride,
     synapse_helpers::graph& graph,
     bool persistent,
     bool external,

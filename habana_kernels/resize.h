@@ -16,7 +16,6 @@
 #include <ATen/native/Resize.h>
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
@@ -115,7 +114,7 @@ inline TensorImpl* resize_impl_hpu_(
     TensorImpl* self,
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
-    UNUSED bool device_guard = true) {
+    [[maybe_unused]] bool device_guard = true) {
   HABANA_ASSERT(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
   if (self->sizes() == size && (!stride || self->strides() == stride)) {

@@ -139,7 +139,7 @@ static void initGlobalStreamState() {
 
 // Creates the low and high priority stream pools for the specified device
 // Warning: only call once per device!
-static void initDeviceStreamState(UNUSED DeviceIndex device_index) {
+static void initDeviceStreamState([[maybe_unused]] DeviceIndex device_index) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -275,7 +275,7 @@ synapse_helpers::hpuStream_t HPUStream::stream() const {
 // Note: when called the first time on a device, this will create the
 // stream pools for that device.
 HPUStream getStreamFromPool(
-    UNUSED const bool isHighPriority,
+    [[maybe_unused]] const bool isHighPriority,
     DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {

@@ -89,9 +89,9 @@ bool SBSInterface::LogError(
 
 void SBSDisabledOp::run(
     at::TensorList results,
-    UNUSED const std::vector<at::IValue>& inputs,
-    UNUSED const std::vector<at::IValue>& prealloc_stack,
-    UNUSED const ir::NodePtr& prealloc_node) {
+    [[maybe_unused]] const std::vector<at::IValue>& inputs,
+    [[maybe_unused]] const std::vector<at::IValue>& prealloc_stack,
+    [[maybe_unused]] const ir::NodePtr& prealloc_node) {
   auto hl_result = GetHbLazyTensor(results[0]);
   LogError(hl_result.FetchSBSTensorName(), "SBS is disabled for op");
 }
@@ -441,7 +441,7 @@ c10::Symbol SBSPermutable::buildCPUOpSymbol(const c10::Symbol& hpu_op) {
 
 at::Tensor SBSRunner::prepareTensorToCPU(
     const at::Tensor& tensor,
-    UNUSED size_t index) {
+    [[maybe_unused]] size_t index) {
   PT_LAZY_DEBUG("SBSRunner::", __FUNCTION__, " index=", index);
   auto hb_tensor = GetHbLazyTensor(tensor);
   // if we are moving a tensor to CPU, it means that it has valid storage
@@ -604,8 +604,8 @@ bool SBSRunner::getNodeInfo(
 // logic taken from strided_insert_hpu_lazy()
 bool SBSViews::getNodeInfo(
     const at::Tensor& result,
-    UNUSED ir::NodePtr& node,
-    UNUSED std::string& ir_name) {
+    [[maybe_unused]] ir::NodePtr& node,
+    [[maybe_unused]] std::string& ir_name) {
   auto hl_result = GetHbLazyTensor(result);
   auto id = hl_result.getTensorUniqueId();
   PT_LAZY_DEBUG(

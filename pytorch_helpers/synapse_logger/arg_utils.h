@@ -51,11 +51,11 @@ inline std::ostream& operator<<(
   return stream;
 }
 template <typename... Args>
-inline void comma_maybe(std::ostream& out, UNUSED Args&&... args) {
+inline void comma_maybe(std::ostream& out, [[maybe_unused]] Args&&... args) {
   out << ", ";
 }
 
-inline void comma_maybe(UNUSED std::ostream& out) {}
+inline void comma_maybe([[maybe_unused]] std::ostream& out) {}
 
 enum arg_print_way {
   print_direct,
@@ -229,7 +229,7 @@ inline void concat_args(std::ostream& out, Arg&& arg) {
   out << std::forward<Arg>(arg);
 }
 
-inline void concat_args(UNUSED std::ostream& out) {}
+inline void concat_args([[maybe_unused]] std::ostream& out) {}
 
 #define API_LOG_RESULT(...)                                                  \
   do {                                                                       \

@@ -716,10 +716,10 @@ Tensor hpu_wrap::instance_norm(
     const c10::optional<Tensor>& bias_opt,
     const c10::optional<Tensor>& running_mean_opt,
     const c10::optional<Tensor>& running_var_opt,
-    UNUSED bool use_input_stats,
-    UNUSED double momentum,
+    [[maybe_unused]] bool use_input_stats,
+    [[maybe_unused]] double momentum,
     double eps,
-    UNUSED bool cudnn_enabled) {
+    [[maybe_unused]] bool cudnn_enabled) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -2042,7 +2042,7 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
     const Tensor& self,
     const Tensor& grad_output,
     const Tensor& weight,
-    UNUSED ::std::array<bool, 3> output_mask) {
+    [[maybe_unused]] ::std::array<bool, 3> output_mask) {
   auto result =
       linear_non2d_bwd_hpu_lazy(grad_output, self, weight, c10::nullopt);
   return std::tie(result[0], result[1], result[2]);

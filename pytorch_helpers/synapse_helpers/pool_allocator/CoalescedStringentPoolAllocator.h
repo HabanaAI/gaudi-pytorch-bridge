@@ -94,7 +94,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   ~CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
-  void* pool_alloc_chunk(uint64_t size, UNUSED bool is_workspace)
+  void* pool_alloc_chunk(uint64_t size, [[maybe_unused]] bool is_workspace)
       const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;

@@ -197,7 +197,7 @@ struct HPUEvent {
   synEventHandle handle_{nullptr};
   synapse_helpers::hpuStream_t recorded_stream_;
 
-  void createEvent(UNUSED DeviceIndex device_index) {
+  void createEvent([[maybe_unused]] DeviceIndex device_index) {
     // get device
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     device_index_ = dev.id();

@@ -665,7 +665,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
 
 void* CoalescedStringentPooling::pool_alloc_chunk(
     uint64_t size,
-    UNUSED bool is_workspace) const {
+    [[maybe_unused]] bool is_workspace) const {
   std::unique_lock<std::mutex> lock(sp_mutex);
   // for perf mode, the retry_on_failure has to disabled.
   bool retry_on_failure = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_ENABLE_RETRY);

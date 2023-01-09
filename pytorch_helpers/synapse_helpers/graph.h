@@ -28,8 +28,6 @@
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/synapse_error.h"
 
-#define UNUSED __attribute__((unused))
-
 namespace synapse_helpers {
 
 class graph {

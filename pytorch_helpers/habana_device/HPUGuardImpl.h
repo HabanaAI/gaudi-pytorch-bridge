@@ -21,7 +21,6 @@
 #include "HPUCheck.h"
 #include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
-#include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
 
 using namespace c10::hpu;
@@ -210,7 +209,9 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     dev.add_user_event(handle, hpu_flag);
   }
 
-  void destroyEvent(void* event, UNUSED const at::DeviceIndex device_index)
+  void destroyEvent(
+      void* event,
+      [[maybe_unused]] const at::DeviceIndex device_index)
       const noexcept override {
     if (!event)
       return;

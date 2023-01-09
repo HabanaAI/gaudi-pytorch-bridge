@@ -55,7 +55,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList& tList1,
-      UNUSED OPTIMIZER optimizer = OTHER) {
+      [[maybe_unused]] OPTIMIZER optimizer = OTHER) {
     LazyOp<T>::viewUpdateInputs();
     const auto& node = LazyOp<T>::create_node();
 

@@ -22,7 +22,6 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -197,7 +196,7 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     IntArrayRef normalized_shape,
     const Tensor& bias,
     const Tensor& weight,
-    UNUSED int64_t m,
+    [[maybe_unused]] int64_t m,
     std::array<bool, 3> is_persistent) {
   auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
   auto output = habana_helpers::createPTTensor(
@@ -1996,7 +1995,7 @@ OutputShapeInfRetType BatchNormBackwardOperator::ComputeOutputShape(
 
 std::vector<std::vector<int64_t>> GroupNormForwardOperator::getOutputSizes(
     const at::Tensor& input,
-    UNUSED IntArrayRef normalized_shape,
+    [[maybe_unused]] IntArrayRef normalized_shape,
     int64_t num_groups) {
   auto output_sizes = input.sizes().vec();
   const auto input_shape = input.sizes();
@@ -2037,9 +2036,9 @@ std::tuple<Tensor, Tensor, Tensor> GroupNormForwardOperator::AllocatePTOutputs(
 }
 
 void GroupNormForwardOperator::AllocateAndAddSynapseNode(
-    UNUSED synapse_helpers::graph& graph,
+    [[maybe_unused]] synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    UNUSED const OutputMetaDataVector& output_metadata) {
+    [[maybe_unused]] const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
       inputs.size() == 6,
       "GroupNormForwardOperator::AllocateAndAddSynapseNode expected 6 args but got ",

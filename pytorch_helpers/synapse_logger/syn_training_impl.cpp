@@ -882,7 +882,7 @@ namespace synapse_logger {
 template <>
 inline void dump_object<std::vector<TransposePermutationDim>>(
     const std::vector<TransposePermutationDim>* obj,
-    UNUSED unsigned count) {
+    [[maybe_unused]] unsigned count) {
   if (!logger_is_enabled(data_dump_category::SYNAPSE_API_CALL) ||
       obj == nullptr) {
     return;

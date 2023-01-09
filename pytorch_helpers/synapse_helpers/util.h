@@ -13,23 +13,13 @@
 #include <ostream>
 #include <unordered_map>
 
-#if __cplusplus > 201703L
-#define NODISCARD [[nodiscard]]
-#define UNUSED [[maybe_unused]]
-#else
-#if defined(__clang__) || defined(__GNUC__)
-#define NODISCARD __attribute__((warn_unused_result))
-#define UNUSED __attribute__((unused))
-#endif
-#endif
-
 namespace synapse_helpers {
 
 /* END: These will be removed when all lazy kernels use shape function. */
 
 class ostream_flag_guard {
  public:
-  static NODISCARD ostream_flag_guard create(std::ostream& stream) {
+  [[nodiscard]] static ostream_flag_guard create(std::ostream& stream) {
     return ostream_flag_guard{stream};
   }
 

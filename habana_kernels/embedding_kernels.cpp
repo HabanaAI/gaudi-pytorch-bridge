@@ -18,7 +18,6 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/index_kernels.h"
@@ -569,7 +568,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   auto grad = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
   auto num_weights = inputs[2].toInt();
-  UNUSED auto padding_idx = inputs[3].toInt();
+  [[maybe_unused]] auto padding_idx = inputs[3].toInt();
   auto scale_grad_by_freq = inputs[4].toBool();
   int64_t numel = indices.numel();
   TORCH_CHECK(
@@ -768,8 +767,9 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
  * embedding vector at padding_idx (initialized to zeros) whenever it encounters
  * the index. NOTE: Currently not supported (not used in cpu implementation
  * also)
- * @param scale_grad_by_freq (boolean, optional) UNUSED: If given, this will
- * scale gradients by the inverse of frequency of the words in the mini-batch
+ * @param scale_grad_by_freq (boolean, optional) [[maybe_unused]]: If given,
+ * this will scale gradients by the inverse of frequency of the words in the
+ * mini-batch
  */
 Tensor embedding_dense_backward_hpu(
     const Tensor& grad,

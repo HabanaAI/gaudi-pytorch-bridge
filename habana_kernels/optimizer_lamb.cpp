@@ -13,7 +13,6 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/compare_kernels.h"

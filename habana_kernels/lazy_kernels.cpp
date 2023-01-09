@@ -2698,7 +2698,7 @@ Tensor& _index_put_impl_hpu_lazy_(
     const c10::List<c10::optional<at::Tensor>>& indices,
     const Tensor& value,
     bool accumulate,
-    UNUSED const bool unsafe) {
+    [[maybe_unused]] const bool unsafe) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
   // index backward is not supported on hpu, indices needs to be
@@ -4164,7 +4164,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const c10::optional<at::Tensor>& save_invstd,
     bool train,
     double eps,
-    UNUSED std::array<bool, 3> output_mask) {
+    [[maybe_unused]] std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
   auto in_sizes = input_.sizes().vec();
   auto running_tensor_mean = running_mean_.value_or(Tensor());
@@ -4771,9 +4771,9 @@ std::tuple<Tensor, Tensor, Tensor> native_group_norm_hpu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt,
-    UNUSED c10::SymInt N,
-    UNUSED c10::SymInt C,
-    UNUSED c10::SymInt HxW,
+    [[maybe_unused]] c10::SymInt N,
+    [[maybe_unused]] c10::SymInt C,
+    [[maybe_unused]] c10::SymInt HxW,
     int64_t num_groups,
     double eps) {
   auto normalized_shape_ = input.sizes();
@@ -4833,9 +4833,9 @@ native_group_norm_backward_hpu_lazy(
     const at::Tensor& mean,
     const at::Tensor& rstd,
     const c10::optional<at::Tensor>& weight_opt,
-    UNUSED c10::SymInt N,
-    UNUSED c10::SymInt C,
-    UNUSED c10::SymInt HxW,
+    [[maybe_unused]] c10::SymInt N,
+    [[maybe_unused]] c10::SymInt C,
+    [[maybe_unused]] c10::SymInt HxW,
     int64_t num_groups,
     std::array<bool, 3> output_mask) {
   std::vector<int64_t> normalized_shape = input.sizes().vec();

@@ -33,7 +33,6 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"

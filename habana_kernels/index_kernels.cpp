@@ -2669,7 +2669,7 @@ void SelectOperator::AllocateAndAddSynapseNode(
     // Add Reshape node to graph
     auto reshape_op = make_operator<ReshapeOperator>(
         self.device().index(), self.scalar_type());
-    UNUSED auto& syn_in_reshape =
+    [[maybe_unused]] auto& syn_in_reshape =
         reshape_op->SetSynapseInput(slice_op->GetSynOutputs()[0]);
 
     auto slice_out_tensor = slice_op->GetOutputs()[0];

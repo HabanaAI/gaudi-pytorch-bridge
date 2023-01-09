@@ -16,7 +16,6 @@
 
 struct synTensorDescriptor;
 namespace synapse_logger {
-#define UNUSED __attribute__((unused))
 
 /// Specifies types of data dumped to log file
 enum class data_dump_category : unsigned {

@@ -636,7 +636,7 @@ class UnsqueezeOperator : public HabanaOperator {
 //
 class OneHotOperator : public HabanaOperator {
  public:
-  OneHotOperator(int device_id, UNUSED c10::ScalarType scalarType)
+  OneHotOperator(int device_id, [[maybe_unused]] c10::ScalarType scalarType)
       : HabanaOperator(
             "one_hot_fwd_" +
             habana_helpers::name_suffix_from_type(c10::ScalarType::Float)) {

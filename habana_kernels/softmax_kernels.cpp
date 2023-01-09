@@ -13,7 +13,6 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/softmax_kernels.h"
@@ -211,9 +210,9 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[1].toInt();
   if (!inputs[2].isNone()) {
     if (inputs[2].isScalar()) {
-      UNUSED auto dtype = inputs[2].toScalar();
+      [[maybe_unused]] auto dtype = inputs[2].toScalar();
     } else if (inputs[2].isInt()) {
-      UNUSED auto dtype = inputs[2].toInt();
+      [[maybe_unused]] auto dtype = inputs[2].toInt();
     }
   }
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);

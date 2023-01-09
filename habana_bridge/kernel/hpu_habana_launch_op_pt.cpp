@@ -40,7 +40,6 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
 
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -2957,7 +2956,7 @@ void HabanaLaunchOpPT::PrepareTensorIdToTensorHandleMap() {
 void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
     synapse_helpers::graph* graph_ptr,
     std::vector<synTensorHandleMap>& tensors_map,
-    std::vector<synNodeHandleMap>& nodes_map UNUSED,
+    std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
     std::string cache_hit_or_miss) {
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] === ",
