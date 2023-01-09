@@ -1927,6 +1927,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // Collect intermediate shape tensors accross all nodes for not supporting
   // ComputeOutputShape
   std::vector<size_t> intermediate_shape_tensors_vec;
+  int inx = 0;
   for (auto* node : graph_nodes) {
     std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
     watch_tensor_flag_ = false;
@@ -2026,12 +2027,22 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
     std::string module_name = node->scope()->name().toUnqualString();
+    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+        (strcmp(node->kind().toQualString(), "aten::view") == 0)) {
+      auto val_ins = node->inputs();
+      module_name = val_ins[0]->node()->scope()->name().toUnqualString();
+    }
     if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && module_name.size() > 0) {
+      if ((strcmp(node->kind().toQualString(), "aten::add") == 0) &&
+          std::string(node->scope()->name().toUnqualString()).find("add") ==
+              std::string::npos) {
+        module_name = inx == 0 ? std::string(".add")
+                               : std::string(".add_") + std::to_string(inx);
+        inx++;
+      }
       if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0))
-        // if (module_name.find("conv") != std::string::npos) {
         module_name = std::string(node->scope()->name().toUnqualString()) +
             ".placeholder";
-      // }
       auto string_pos = module_name.find('/');
       string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
       module_name =
