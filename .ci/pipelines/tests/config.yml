@@ -16,3 +16,8 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
+  perf:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
