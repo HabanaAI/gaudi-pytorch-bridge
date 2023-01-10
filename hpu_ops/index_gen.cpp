@@ -23,7 +23,7 @@ FALLBACK_CHECK(
   c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
   for (auto input : indices_in) {
     auto o1 = input.toOptional<at::Tensor>();
-    if (!(o1.has_value() && !o1->defined())) {
+    if (o1.has_value() && o1.value().defined()) {
       continue;
     } else {
       return false; // advanced indexing is currently unsupported on HPU -
