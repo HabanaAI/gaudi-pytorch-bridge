@@ -11,12 +11,8 @@ orchestratorConfig:
   - testToLaunch: asic_gaudi_pytorch_perf_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_sbs_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
-  - testToLaunch: Test_pytorch_gaudi2_asic_smoke_topology
-  - testToLaunch: Test_pytorch_gaudi2_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
-    silentMode: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
-    silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
