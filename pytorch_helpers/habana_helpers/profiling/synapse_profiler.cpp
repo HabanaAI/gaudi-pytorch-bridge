@@ -79,10 +79,10 @@ void SynapseProfiler::convertLogs() {
     std::cerr << "No profiler entries" << std::endl;
     return;
   }
-  std::vector<synTraceEvent> events;
-  // size is not divisible by sizeof(synTraceEvent)
+  std::vector<synTraceEvent2> events;
+  // size is not divisible by sizeof(synTraceEvent2)
   // investigate and remove it (SW-102567)
-  events.resize(size / sizeof(synTraceEvent) + 1);
+  events.resize(size / sizeof(synTraceEvent2) + 1);
   if (!getEntries(size, count, events.data())) {
     return;
   }
@@ -90,18 +90,18 @@ void SynapseProfiler::convertLogs() {
 }
 
 void SynapseProfiler::getLogsSize(size_t& size, size_t& count) {
-  auto status = synProfilerGetTrace(
+  auto status = synProfilerGetTrace2(
       synTraceAll, 0, synTraceFormatTEF, nullptr, &size, &count);
   if (status != synSuccess) {
-    std::cerr << "synProfilerGetTrace failed" << std::endl;
+    std::cerr << "synProfilerGetTrace2 failed" << std::endl;
   }
 }
 
 bool SynapseProfiler::getEntries(size_t& size, size_t& count, void* out) {
-  auto status = synProfilerGetTrace(
+  auto status = synProfilerGetTrace2(
       synTraceAll, 0, synTraceFormatTEF, out, &size, &count);
   if (status != synSuccess) {
-    std::cerr << "synProfilerGetTrace failed" << std::endl;
+    std::cerr << "synProfilerGetTrace2 failed" << std::endl;
     return false;
   }
   return true;

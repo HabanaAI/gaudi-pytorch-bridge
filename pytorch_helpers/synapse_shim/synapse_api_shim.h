@@ -67,7 +67,7 @@
   visitor(synDeviceGetInfo);                   \
   visitor(synProfilerStart);                   \
   visitor(synProfilerStop);                    \
-  visitor(synProfilerGetTrace);                \
+  visitor(synProfilerGetTrace2);               \
   visitor(synConfigurationSet);                \
   visitor(synConfigurationGet);                \
   visitor(synSectionCreate);                   \

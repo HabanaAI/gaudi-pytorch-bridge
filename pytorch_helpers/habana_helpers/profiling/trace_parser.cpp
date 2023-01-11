@@ -131,13 +131,13 @@ struct EngineDatabase {
     return whitelisted_events.find(operatorString) != whitelisted_events.end();
   }
   static std::unique_ptr<EngineDatabase> buildDatabase(
-      synTraceEvent* events_ptr,
+      synTraceEvent2* events_ptr,
       size_t num_events) {
     std::unique_ptr<EngineDatabase> result = std::make_unique<EngineDatabase>();
     auto& engine_types = result->engine_types_;
 
     // Create host engine type first
-    synTraceEvent* host_meta_event_ptr = events_ptr;
+    synTraceEvent2* host_meta_event_ptr = events_ptr;
     for (uint64_t i = 0; i < num_events; i++, host_meta_event_ptr++) {
       if (host_meta_event_ptr->type != EventType::metadata)
         break;
@@ -184,7 +184,7 @@ HpuTraceParser::HpuTraceParser(
 HpuTraceParser::~HpuTraceParser() {}
 
 void HpuTraceParser::Export(
-    synTraceEvent* events_ptr,
+    synTraceEvent2* events_ptr,
     size_t num_events,
     long double wall_stop_time) {
   engine_type_database_ = EngineDatabase::buildDatabase(events_ptr, num_events);
@@ -192,7 +192,7 @@ void HpuTraceParser::Export(
   convertEventsToActivities(events_ptr, num_events, wall_stop_time);
 }
 
-bool HpuTraceParser::skipEvent(const synTraceEvent* events_ptr) {
+bool HpuTraceParser::skipEvent(const synTraceEvent2* events_ptr) {
   if (events_ptr->type == EventType::metadata)
     return true;
 
@@ -240,12 +240,12 @@ bool HpuTraceParser::isEventInTime(
 }
 
 void HpuTraceParser::convertEventsToActivities(
-    synTraceEvent* events_ptr,
+    synTraceEvent2* events_ptr,
     size_t num_events,
     long double wall_stop_time) {
   std::unordered_map<
       uint32_t,
-      std::unordered_map<uint32_t, std::list<const synTraceEvent*>>>
+      std::unordered_map<uint32_t, std::list<const synTraceEvent2*>>>
       activeEvents;
   for (size_t i{}; i < num_events; i++, events_ptr++) {
     if (!skipEvent(events_ptr)) {
@@ -306,20 +306,20 @@ int64_t HpuTraceParser::timeStampHpuToTB(long double t) {
   }
 }
 
-int64_t HpuTraceParser::getDevice(const synTraceEvent* events_ptr) {
+int64_t HpuTraceParser::getDevice(const synTraceEvent2* events_ptr) {
   return engine_type_database_->isEngineTypeHost(events_ptr->engineType)
       ? events_ptr->engineType
       : device_lane_;
 }
 
-bool HpuTraceParser::isEventKernel(const synTraceEvent* events_ptr) {
+bool HpuTraceParser::isEventKernel(const synTraceEvent2* events_ptr) {
   return engine_type_database_->isKernelWhitelist(
              events_ptr->arguments.operation) ||
       engine_type_database_->isEngineTypeMME(events_ptr->engineType) ||
       engine_type_database_->isEngineTypeTPC(events_ptr->engineType);
 }
 
-ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
+ActivityType HpuTraceParser::getActivityType(const synTraceEvent2* events_ptr) {
   std::string name =
       StringOrFallback(events_ptr->arguments.operation, events_ptr->name);
 

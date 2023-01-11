@@ -94,7 +94,7 @@ SYN_API_PTR(synDeviceGetMemoryInfo);
 SYN_API_PTR(synDeviceGetInfo);
 SYN_API_PTR(synProfilerStart);
 SYN_API_PTR(synProfilerStop);
-SYN_API_PTR(synProfilerGetTrace);
+SYN_API_PTR(synProfilerGetTrace2);
 SYN_API_PTR(synConfigurationSet);
 SYN_API_PTR(synConfigurationGet);
 SYN_API_PTR(synSectionCreate);
@@ -168,7 +168,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceGetInfo);
   SYN_API_INIT_PTR(synProfilerStart);
   SYN_API_INIT_PTR(synProfilerStop);
-  SYN_API_INIT_PTR(synProfilerGetTrace);
+  SYN_API_INIT_PTR(synProfilerGetTrace2);
   SYN_API_INIT_PTR(synConfigurationSet);
   SYN_API_INIT_PTR(synConfigurationGet);
   SYN_API_INIT_PTR(synSectionCreate);
@@ -1260,7 +1260,7 @@ synProfilerStop(const synTraceType type, const synDeviceId deviceId) {
   return status;
 }
 
-synStatus SYN_API_CALL synProfilerGetTrace(
+synStatus SYN_API_CALL synProfilerGetTrace2(
     const synTraceType type,
     const synDeviceId deviceId,
     const synTraceFormat format,
@@ -1276,7 +1276,7 @@ synStatus SYN_API_CALL synProfilerGetTrace(
       ARG(buffer),
       ARG(size),
       ARG(numEntries));
-  synStatus status = lib_synapse::synProfilerGetTrace(
+  synStatus status = lib_synapse::synProfilerGetTrace2(
       type, deviceId, format, buffer, size, numEntries);
   API_LOG_RESULT();
   return status;
