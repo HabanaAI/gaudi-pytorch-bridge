@@ -78,7 +78,7 @@ class PoolingStrategy {
     return true;
   }
 
-  virtual void set_defragmenter_state(UNUSED bool running) const {}
+  virtual void set_defragmenter_state([[maybe_unused]] bool running) const {}
 };
 
 class SubAllocator {
