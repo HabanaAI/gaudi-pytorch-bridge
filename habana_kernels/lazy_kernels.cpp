@@ -1289,7 +1289,7 @@ Tensor as_strided_hpu_lazy2(
     }
     return out;
   }
-};
+}; // namespace habana_lazy
 
 // THis kernel has two paths, lowering and lazy
 // During lazy we set up the as strided tensor meta data
@@ -7257,6 +7257,7 @@ at::Tensor& broadcast_hpu_lazy_(
     int64_t root_rank,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
   HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
 
@@ -7270,6 +7271,7 @@ at::Tensor& allreduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
   HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
   LazyOp<at::Tensor&> k(
@@ -7283,6 +7285,7 @@ at::Tensor& reduce_hpu_lazy_(
     uint8_t reduce_op,
     int64_t comm_id) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
   HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
   LazyOp<at::Tensor&> k(
@@ -7299,9 +7302,8 @@ at::Tensor& alltoall_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-
+  habana_lazy::NoAccThread no_acc_thread;
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::alltoall_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(alltoall_out, k, outputTensor)
@@ -7312,9 +7314,8 @@ at::Tensor& allgather_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-
+  habana_lazy::NoAccThread no_acc_thread;
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::allgather_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allgather_out, k, outputTensor)
@@ -7326,9 +7327,8 @@ at::Tensor& reduce_scatter_hpu_lazy_out(
     int64_t comm_id,
     at::Tensor& outputTensor) {
   PT_LAZY_TRACE;
-
+  habana_lazy::NoAccThread no_acc_thread;
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::reduce_scatter_out",
       {inputTensor, reduce_op, comm_id, outputTensor},
@@ -7344,10 +7344,9 @@ at::Tensor& send_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-
+  habana_lazy::NoAccThread no_acc_thread;
   HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
-
   LazyOp<at::Tensor&> k(
       "hccl::send_", {tensor, dst_rank, tag, comm_id}, {1, 2, 3}, {}, 0);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(send_, k, tensor)
@@ -7359,7 +7358,7 @@ at::Tensor& recv_hpu_lazy_(
     int64_t tag,
     int64_t comm_id) {
   PT_LAZY_TRACE;
-
+  habana_lazy::NoAccThread no_acc_thread;
   HbLazyTensorViews::HandleViewsLazyCollective(tensor);
   MarkTensorAsOutputFromCollectiveOp(tensor);
   LazyOp<at::Tensor&> k(
