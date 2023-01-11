@@ -27,6 +27,12 @@ def pytorchLightningFork = [
         util.runBuildShell('build_pytorch_lightning_fork')
     }
 ]
+def habanaLightningPlugins = [
+    'Build Habana lightning Plugins': { util ->
+        util.runShellCommandWrapper('rm -rf ${HABANA_LIGHTNING_PLUGINS_BUILD}/dist/*.whl')
+        util.runBuildShell('build_habana_lightning_plugins')
+    }
+]
 def preBuildStages = [
     'Install Python test dependencies': { util ->
         util.runShellCommandWrapper("""
@@ -38,6 +44,7 @@ def preBuildStages = [
         util.runShellCommandWrapper('rm -rf ${PYTORCH_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${PYTORCH_VISION_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${PYTORCH_MODULES_ROOT_PATH}/dist/*.whl')
+        util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
     },
     'Build Pytorchfork modules': { util ->
         util.runBuildShell('build_pytorch_fork --dist')
@@ -51,8 +58,11 @@ def preBuildStages = [
 if(env.GERRIT_PROJECT == 'pytorch-integration' && !env.isPromote) {
     preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
 }
-if(env.GERRIT_PROJECT == 'pytorch-lightning-fork' && !env.isPromote) {
+if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Habana-Lightning-Plugins' ) && !env.isPromote) {
     preBuildStages =  preBuildStages + pytorchLightningFork
+}
+if(env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Habana-Lightning-Plugins') {
+    preBuildStages =  preBuildStages + habanaLightningPlugins
 }
 def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
