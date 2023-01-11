@@ -2954,30 +2954,30 @@ geometric.out:
 glu:
   force_default: false
   dtypes: [Float]
-  op_backend: Glu
+  guid: glu_fwd
+  custom_fill_params: FillGluFwdParams
   custom_output_shape: GluOutputShape
   out_ids: [0]
-  scalar_ids: [1]
 
 glu.out:
-  op_backend: Glu
+  guid: glu_fwd
+  custom_fill_params: FillGluFwdParams
   custom_output_shape: GluOutputShape
   dtypes: [Float]
-  scalar_ids: [1]
 
 glu_backward:
   custom_output_shape: GluBwdOutputShape
   dtypes: [Float]
-  op_backend: GluBwd
-  scalar_ids: [2]
+  custom_fill_params: FillGluBwdParams
+  guid: glu_bwd
   out_ids: [0]
   safe_cast_check: false
 
 glu_backward.grad_input:
   custom_output_shape: GluBwdOutputShape
+  custom_fill_params: FillGluBwdParams
   dtypes: [Float]
-  op_backend: GluBwd
-  scalar_ids: [2]
+  guid: glu_bwd
 
 grid_sampler_2d:
   custom_fill_params: FillGridSamplerParams
