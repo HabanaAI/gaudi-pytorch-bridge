@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -840,6 +840,17 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
+  if (!hb_tensor.isStorageAttached() && _src.storage().data_ptr() != nullptr) {
+    auto storage = _src.storage();
+    auto at_internal_tensor = AtenInternalHbTensor(
+        c10::Storage(storage),
+        _src.dtype(),
+        DATA_TENSOR,
+        _src.sizes(),
+        _src.strides(),
+        _src.options().memory_format_opt());
+    hb_tensor.SetTensorData(at_internal_tensor);
+  }
   hb_tensor.EvaluateTensorData();
 
   // If _src is a lazy tensor make sure the execution till the point of _src
