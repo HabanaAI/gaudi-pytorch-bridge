@@ -3111,8 +3111,14 @@ Tensor& index_add_hpu_lazy_out(
   auto func = [self, dim, indices, source, alpha, out]() mutable {
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), true);
 
+    auto dim_size = self.numel(); // for scalar tensor case
+    if (!self.sizes().vec().empty()) {
+      // for non-scalar tensor case
+      dim_size = self.sizes().vec()[dim_];
+    }
+
     std::string op_name = "aten::index_add";
-    if (indices.numel() > self.sizes().vec()[dim_]) {
+    if (indices.numel() > dim_size) {
       // Implementation to take care of duplicate entries in index tensor and
       // also the case where index tensor size can be greater than the self
       // tensor size at the relevant dim. For now enable this only in the large
@@ -3162,8 +3168,14 @@ Tensor& index_add_hpu_lazy_(
     auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
     auto hl_self = GetOrCreateHbLazyTensor(self);
 
+    auto dim_size = self.numel(); // for scalar tensor case
+    if (!self.sizes().vec().empty()) {
+      // for non-scalar tensor case
+      dim_size = self.sizes().vec()[dim_];
+    }
+
     std::string op_name = "aten::index_add";
-    if (indices.numel() > self.sizes().vec()[dim_]) {
+    if (indices.numel() > dim_size) {
       // Implementation to take care of duplicate entries in index tensor and
       // also the case where index tensor size can be greater than the self
       // tensor size at the relevant dim. For now enable this only in the large
