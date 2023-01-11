@@ -378,6 +378,7 @@ std::vector<at::Tensor> linear_ex_backward_wrap(
     const c10::optional<at::Tensor>& bias_opt,
     const c10::optional<at::Tensor>& bias_grad_opt,
     const at::ScalarType dtype);
+at::Tensor habana_random_seed_wrap(const at::Tensor& input);
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
