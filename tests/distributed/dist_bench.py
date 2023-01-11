@@ -38,7 +38,7 @@ def setup_HCL(sim=True,size=2):
 
     os.environ["MASTER_ADDR"] = str(MASTER_ADDR)
     os.environ["MASTER_PORT"] = str(MASTER_PORT)
-    os.environ["ID"] = os.environ["RANK"]
+    os.environ["HLS_MODULE_ID"] = os.environ["RANK"]
 
 def dummy_bcast():
     group, group_id, rank = _init_global_test()

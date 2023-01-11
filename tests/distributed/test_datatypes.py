@@ -237,7 +237,9 @@ myhost = os.uname()[1]
 
 
 os.environ["WORLD_SIZE"] = str(world_size)
+# Bridge is using "HLS_MODULE_ID", but "ID" is still needed for internal synapse logging.
 os.environ["ID"] = str(rank)
+os.environ["HLS_MODULE_ID"] = str(rank)
 os.environ["MASTER_ADDR"] = "localhost"
 os.environ["MASTER_PORT"] = "12345"
 os.environ["RANK"]=str(rank)

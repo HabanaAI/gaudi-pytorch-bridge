@@ -17,7 +17,6 @@ import time
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
-    os.environ["ID"] = str(rank)
     BACKEND = os.environ["BACKEND"]
     TEMP_DIR = os.environ["TEMP_DIR"]
     dist.init_process_group(BACKEND, rank=rank, world_size=world_size)

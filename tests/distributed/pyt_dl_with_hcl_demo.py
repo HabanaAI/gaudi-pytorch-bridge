@@ -526,8 +526,8 @@ def main():
     if len(module_ids) != 0 and len(module_ids) != num_processes:
         print(f'Error: {num_processes} HCL Ranks configured with unmatched {len(module_ids)} module_ids arg')
         sys.exit(1)
-    # Module ID from 'ID' env var required to set for single process
-    module_id = int(os.getenv("ID", -1))
+    # Module ID from 'HLS_MODULE_ID' env var required to set for single process
+    module_id = int(os.getenv("HLS_MODULE_ID", -1))
     if module_id != -1 and num_processes != 1:
         print(f"Error: setting 'ID' env var is valid only when run on one rank, for multiple ranks use --module_ids option")
         sys.exit(1)

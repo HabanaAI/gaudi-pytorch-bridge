@@ -1,21 +1,23 @@
 import os
 import torch
 import logging
+from typing import Tuple
 
+from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.distributed._hccl_C import *
 from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled
 
 distributed_emulation_apply_if_enabled()
 
 
-def checkVisibleDevices(local_rank):
-    HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
-    HABANA_DEVICE_ID_VAR = "ID"
+def _setup_module_id(local_rank):
+    if HLS_MODULE_ID_VAR in os.environ.keys():
+        # Module id already set, exiting.
+        return
 
-    if local_rank is None:
-        # In case local rank is not available in env Module ID should be established by other means.
-        logging.warning(
-            "No specific Module ID is requested. First free device will be used!")
+    if local_rank != -1:
+        # In case local rank is not available in env we do net set HLS_MODULE_ID
+        # PT_BRIDGE will acquire device by type.
         return
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
@@ -23,48 +25,69 @@ def checkVisibleDevices(local_rank):
         assert local_rank < len(visible_modules), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
         is set correctly."""
-        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[local_rank]
+        os.environ[HLS_MODULE_ID_VAR] = visible_modules[local_rank]
+        return
+    # In all other cases strict mapping of local_rank -> module_id allows easier NUMA or MPI binding.
+    os.environ[HLS_MODULE_ID_VAR] = str(local_rank)
+
+
+def _setup_user_overrides(world_size=None, rank=None, local_rank=None):
+    # Handle override provided by user (if any):
+    os.environ["WORLD_SIZE"] = str(world_size)
+    os.environ["RANK"] = str(rank)
+    os.environ["LOCAL_RANK"] = str(local_rank)
+
+
+def _setup_environment_from_mpi():
+    OMPI_VARIABLES_MAPPING = {
+        'OMPI_COMM_WORLD_LOCAL_RANK': 'LOCAL_RANK',
+        'OMPI_COMM_WORLD_SIZE': 'WORLD_SIZE',
+        'OMPI_COMM_WORLD_RANK': 'RANK'
+    }
+
+    if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.values()):
+        # All environment variables are already set. We will not override it.
         return
 
-    # In all other cases strict mapping of local_rank -> module_id allows easier NUMA or MPI binding.
-    os.environ[HABANA_DEVICE_ID_VAR] = str(local_rank)
+    if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.keys()):
+        for mpi_env_var_name in OMPI_VARIABLES_MAPPING.keys():
+            env_var_name = OMPI_VARIABLES_MAPPING[mpi_env_var_name]
+            os.environ[env_var_name] = os.environ[mpi_env_var_name]
+
+    # This generally should be set outside but in case they are not,
+    # we at least be still able to run in single node (ScaleUp) scenarios
+    if os.getenv('MASTER_ADDR') is None:
+        os.environ['MASTER_ADDR'] = "localhost"
+    if os.getenv('MASTER_PORT') is None:
+        os.environ['MASTER_PORT'] = "12345"
 
 
-def initialize_distributed_hpu() -> None:
+def _read_values_from_env():
+    world_size = int(os.getenv('WORLD_SIZE', 1))
+    rank = int(os.getenv('RANK', -1))
+    local_rank = int(os.environ.get('LOCAL_RANK', -1))
+    return world_size, rank, local_rank
+
+
+def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> Tuple[int, int, int]:
     r"""Initializes and returns distributed configuration
     Returns world_size, rank and local_rank if the processes
     are launched using either MPI or torchrun related APIS
     """
-    world_size = 1
-    rank = -1
-    local_rank = -1
-    if ('WORLD_SIZE' in os.environ and
-        'RANK' in os.environ and
-        'LOCAL_RANK' in os.environ):
-        world_size = int(os.environ["WORLD_SIZE"])
-        rank = int(os.environ["RANK"])
-        local_rank = int(os.environ["LOCAL_RANK"])
-    elif ('OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and
-          'OMPI_COMM_WORLD_SIZE' in os.environ and
-          'OMPI_COMM_WORLD_RANK' in os.environ):
-        world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
-        rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
-        local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+    if all(v is not None for v in [world_size, rank, local_rank]):
+        _setup_user_overrides(world_size, rank, local_rank)
     else:
-        try:
-            global mpi_comm
-            from mpi4py import MPI
-            mpi_comm = MPI.COMM_WORLD
-            world_size = mpi_comm.Get_size()
-            if world_size > 1:
-                rank = mpi_comm.Get_rank()
-                local_rank = rank
-            else:
-                raise("Single MPI process")
-        except Exception as e:
-            pass
+        _setup_environment_from_mpi()
 
-    if world_size > 1 and local_rank != -1:
-        os.environ["ID"] = str(local_rank)
-        checkVisibleDevices(local_rank)
+    world_size, rank, local_rank = _read_values_from_env()
+    _setup_module_id(local_rank)
+
+    # setup id for synapse logging
+    if rank != -1:
+        os.environ["ID"] = str(rank)
+    os.environ["WORLD_SIZE"] = str(world_size)
+
     return world_size, rank, local_rank
+
+
+initialize_distributed_hpu()

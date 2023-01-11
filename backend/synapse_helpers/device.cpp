@@ -313,7 +313,7 @@ device::device(
   // if each rank uses the same address for the recv/intermediate addresses;
   // then we can use the same address and it will save the address resolution
   // (since the address is known)
-  if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
+  if (is_hcl_same_addr_enabled_ && (std::getenv("HLS_MODULE_ID") != nullptr)) {
     size_t prealloc_size = 2ULL * 1024 * 1024 * 1024; // 2GByte
     void* v_ptr{nullptr};
     device_memory_.malloc(&v_ptr, prealloc_size);
@@ -416,10 +416,10 @@ synapse_error_v<std::shared_ptr<device>> device::create(
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
   synDeviceType acquired_device_type = synDeviceGaudi;
-  if (std::getenv("ID") != nullptr) {
+  if (std::getenv("HLS_MODULE_ID") != nullptr) {
     // Required for  multi chip configuration
     status = synDeviceAcquireByModuleId(
-        &new_device_id, std::stoll(std::getenv("ID")));
+        &new_device_id, std::stoll(std::getenv("HLS_MODULE_ID")));
     if (status == synSuccess) {
       synDeviceInfo dinfo;
       auto status_info = synDeviceGetInfo(new_device_id, &dinfo);
@@ -525,7 +525,7 @@ void device::cleanup() {
 
   flush_stream_events();
 
-  if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
+  if (is_hcl_same_addr_enabled_ && (std::getenv("HLS_MODULE_ID") != nullptr)) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
     allocator_->free((void*)prealloc_addr);
   }

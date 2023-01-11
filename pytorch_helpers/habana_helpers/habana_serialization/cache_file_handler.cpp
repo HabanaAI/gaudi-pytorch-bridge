@@ -44,7 +44,7 @@ CacheFileHandler::CacheFileHandler() : curFolderSize{0} {
   maxFolderSize = GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB);
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
-  const char* s_id = getenv("ID") ? getenv("ID") : "0";
+  const char* s_id = getenv("HLS_MODULE_ID") ? getenv("HLS_MODULE_ID") : "0";
   id = std::atoi(s_id);
 
   const char* s_rank = getenv("RANK")

@@ -306,10 +306,7 @@ def init_distributed_mode(args):
             print("HCL_CONFIG_PATH is not set")
             exit(0)
         args.dist_backend = 'hccl'
-        os.environ["ID"] = str(args.rank % args.process_per_node )
-        #not used currently
-        os.environ["LOCAL_RANK"] = str(args.rank % args.process_per_node )
-        import habana_frameworks.torch.core.hccl
+        import habana_frameworks.torch.distributed.hccl
         dist.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     else:
         torch.cuda.set_device(args.gpu)

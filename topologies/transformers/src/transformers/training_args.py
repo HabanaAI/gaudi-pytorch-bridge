@@ -214,7 +214,7 @@ class TrainingArguments:
             )
         },
     )
-    
+
     hmp: bool = field(
         default=False,
         metadata={"help": "Enable Habana 16-bit(mixed) precision mode through HMP library"},
@@ -312,9 +312,9 @@ class TrainingArguments:
                     print("HCL_CONFIG_PATH is not set")
                     exit(0)
                 self.dist_backend = 'hccl'
-                os.environ["ID"] = str(self.local_rank)
+                import habana_frameworks.torch.distributed.hccl
                 self.world_size = int(os.environ['WORLD_SIZE'])
-                import habana_frameworks.torch.core.hccl
+                self.local_rank = int(os.environ['LOCAL_RANK'])
                 torch.distributed.init_process_group(self.dist_backend, rank=self.local_rank, world_size=self.world_size)
                 n_gpu = 1
         elif self.no_cuda:

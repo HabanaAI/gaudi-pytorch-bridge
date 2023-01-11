@@ -2,6 +2,7 @@ import torch
 from typing import Optional, Any
 import os
 
+
 def _get_device_index(device: Any) -> int:
     r"""Gets the device index from :attr:`device`, which can be a torch.device
     object, a Python integer, or ``None``.
@@ -28,14 +29,21 @@ def _get_device_index(device: Any) -> int:
 
     return device_idx
 
-def _get_device_id_from_environ():
-    device_id = os.getenv("ID")
-    if not device_id:
-        device_id = os.getenv("LOCAL_RANK")
-    if not device_id:
-        device_id = os.getenv("OMPI_COMM_WORLD_LOCAL_RANK")
+def _get_module_id_from_environ():
+    device_id = os.getenv(HLS_MODULE_ID_VAR, -1)
     if device_id:
         device_index = int(device_id)
     else:
         device_index = -1
     return device_index
+
+def _get_available_modules_from_environ():
+    visible_modules_str = os.getenv(HABANA_VISIBLE_MODULES_VAR, default="0,1,2,3,4,5,6,7")
+    visible_modules = visible_modules_str.split(",")
+    if not visible_modules:
+        # For handling situation when {HABANA_VISIBLE_MODULES_VAR}
+        # is set, but empty
+        return [0,1,2,3,4,5,6,7]
+    assert len(visible_modules) > 0 and len(visible_modules) <= 8, \
+        f"{HABANA_VISIBLE_MODULES_VAR} does not have valid value."
+    return visible_modules

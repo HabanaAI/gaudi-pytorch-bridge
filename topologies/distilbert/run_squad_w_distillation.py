@@ -402,7 +402,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
 
             trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
             trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
-            trainMetaData.increment_train_step() 
+            trainMetaData.increment_train_step()
 
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
@@ -410,7 +410,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
         if args.max_steps > 0 and global_step > args.max_steps:
             train_iterator.close()
             break
-            
+
 
     if args.local_rank in [-1, 0]:
         tb_writer.close()
@@ -905,7 +905,6 @@ def main():
                 import habana_frameworks.torch.core.hccl
             except:
                 assert False, "Could not import habana_frameworks.torch.core"
-            os.environ["ID"] = str(args.local_rank)
             torch.distributed.init_process_group(backend="hccl", rank=args.local_rank, world_size=world_size)
             if args.local_rank in [-1, 0]:
                 logger.info("Enable distributed run")

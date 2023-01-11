@@ -1013,8 +1013,7 @@ def main():
                 print("HCL_CONFIG_PATH is not set")
                 exit(0)
             args.dist_backend = 'hccl'
-            os.environ["ID"] = str(args.local_rank)
-            import habana_frameworks.torch.core.hccl
+            import habana_frameworks.torch.distributed.hccl
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
 

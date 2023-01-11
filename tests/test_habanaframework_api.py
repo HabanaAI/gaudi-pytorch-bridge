@@ -17,12 +17,12 @@ def test_basic_apis():
     print("hpu get_gencode_flags", htorch.hpu.get_gencode_flags())
     if (htorch.hpu.device_count() >= 2):
         print("hpu can_device_access_peer", htorch.hpu.can_device_access_peer(0, 1))
-        os.environ["ID"] = "1"
+        os.environ["HLS_MODULE_ID"] = "1"
         htorch.hpu.set_device(1)
-        print (os.getenv("ID"))
-        os.environ["ID"] = "0"
+        print (os.getenv("HLS_MODULE_ID"))
+        os.environ["HLS_MODULE_ID"] = "0"
         with htorch.hpu.device(0):
-            print (os.getenv("ID"))
+            print (os.getenv("HLS_MODULE_ID"))
 
     htorch.core.mark_step()
 

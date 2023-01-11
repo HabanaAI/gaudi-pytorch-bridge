@@ -64,9 +64,12 @@ def world_size():
 
 @pytest.fixture
 def set_env(rank, world_size):
-  os.environ["ID"] = str(rank % GAUDI_PER_HLS)
   os.environ["RANK"] = str(rank)
-  os.environ["LOCAL_RANK"] = str(rank % GAUDI_PER_HLS)
+  local_rank_s = str(rank % GAUDI_PER_HLS)
+  # Bridge is using "HLS_MODULE_ID", but "ID" is still needed for internal synapse logging.
+  os.environ["ID"] = str(rank)
+  os.environ["HLS_MODULE_ID"] = local_rank_s
+  os.environ["LOCAL_RANK"] = local_rank_s
 
   distSetup(rank, world_size)
   yield
@@ -164,4 +167,3 @@ def test_eviction_basic(rank, world_size, network, optimizer):
 
   files_count = len(list(os.scandir(os.environ['PT_RECIPE_CACHE_PATH'])))
   assert(files_count < world_size * _ITER * 2)
-  

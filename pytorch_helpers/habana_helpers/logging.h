@@ -170,10 +170,9 @@ class PtLogger {
     unsigned long node_id_mask = GET_ENV_FLAG_NEW(PT_HPU_LOG_NODE_MASK);
 
     if (node_id_mask) {
-      // multinode can be either rank or id
-      char* node_id_ptr = std::getenv("ID");
+      char* node_id_ptr = std::getenv("RANK");
       if (node_id_ptr != nullptr) {
-        node_id = std::stoul(node_id_ptr, nullptr, 16);
+        node_id = std::stoul(node_id_ptr, nullptr, 10);
       }
     }
 

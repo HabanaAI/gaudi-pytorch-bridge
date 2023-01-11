@@ -35,7 +35,7 @@ deviceMallocData::deviceMallocData() {
   iteration_number = 0;
   running_memory = iteration_high_watermark = overall_high_watermark = 0;
   bt_depth = 40;
-  std::string node_id = std::getenv("ID") ? std::getenv("ID") : "0";
+  std::string node_id = std::getenv("RANK") ? std::getenv("RANK") : "0";
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_FILENAME), node_id);
   auto log_level = (mem_log_level)GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL);
@@ -884,9 +884,7 @@ void log_synDevicePoolCreate(
 /*
  * log workspace memory
  */
-void log_synDeviceWorkspace(
-    uint64_t ptr,
-    size_t size) {
+void log_synDeviceWorkspace(uint64_t ptr, size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     dmd.record("WORKSPACE", size, ptr);
@@ -899,9 +897,7 @@ void log_synDeviceWorkspace(
 /*
  * log Alloc device memory
  */
-void log_synDeviceAlloc(
-    uint64_t ptr,
-    size_t size) {
+void log_synDeviceAlloc(uint64_t ptr, size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     dmd.record("ALLOCATE", size, ptr);
@@ -1008,7 +1004,6 @@ void log_synDeviceAllocFail(
     synapse_helpers::print_live_allocations(msg.str().c_str());
   }
 }
-
 
 /*
  * Print live allocation data at the given point

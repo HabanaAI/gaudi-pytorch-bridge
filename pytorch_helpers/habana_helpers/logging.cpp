@@ -30,9 +30,9 @@ uint64_t get_tid_internal() {
 
 uint64_t get_rank_internal() {
   uint64_t node_id = 0;
-  char* node_id_ptr = std::getenv("ID");
+  char* node_id_ptr = std::getenv("RANK");
   if (node_id_ptr != nullptr) {
-    node_id = std::stoul(node_id_ptr, nullptr, 16);
+    node_id = std::stoul(node_id_ptr, nullptr, 10);
   }
   return node_id;
 }

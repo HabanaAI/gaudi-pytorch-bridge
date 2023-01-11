@@ -419,8 +419,7 @@ def setup_training(args):
             if os.getenv('HCL_CONFIG_PATH') is None:
                 print("HCL_CONFIG_PATH is not set")
                 exit(0)
-            os.environ["ID"] = str(args.local_rank)
-            import habana_frameworks.torch.core.hccl
+            import habana_frameworks.torch.distributed.hccl
             torch.distributed.init_process_group('hccl',
                     rank=args.rank, world_size=args.world_size)
         if args.use_lazy_mode and args.local_rank != -1:
@@ -553,8 +552,8 @@ def prepare_model_and_optimizer(args, device):
                         optimizer_grouped_parameters,
                         lr=args.learning_rate)
 
-    lr_scheduler = PolyWarmUpScheduler(optimizer, 
-                                       warmup=args.warmup_proportion, 
+    lr_scheduler = PolyWarmUpScheduler(optimizer,
+                                       warmup=args.warmup_proportion,
                                        total_steps=args.max_steps)
     if args.fp16:
 
@@ -579,7 +578,7 @@ def prepare_model_and_optimizer(args, device):
                 checkpoint['optimizer']['param_groups'][iter]['lr'] = args.learning_rate
         optimizer.load_state_dict(checkpoint['optimizer'])  # , strict=False)
 
-        # Restore AMP master parameters          
+        # Restore AMP master parameters
         if args.fp16:
             optimizer._lazy_init_maybe_master_weights()
             optimizer._amp_stash.lazy_init_called = True
@@ -1025,7 +1024,7 @@ def main():
 
                         trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
                         trainMetaData.increment_train_step()
-                        # Exiting the training due to hitting max steps, or being sent a 
+                        # Exiting the training due to hitting max steps, or being sent a
                         # timeout from the cluster scheduler
                         if global_step >= args.steps_this_run or timeout_sent:
                             del train_dataloader

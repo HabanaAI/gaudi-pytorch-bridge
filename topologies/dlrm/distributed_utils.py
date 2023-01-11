@@ -70,16 +70,14 @@ def init_distributed_mode(args):
     use_hpu = not args.no_habana
     if use_hpu == True and 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
         args.dist_backend = 'hccl'
-        os.environ["ID"] = str(args.rank)
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12355'
-        import habana_frameworks.torch.core.hccl
+        import habana_frameworks.torch.distributed.hccl
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.dist_backend = 'hccl'
         if 'TP_DATA_DUMP_PATH' in os.environ:
             os.environ['TP_DATA_DUMP_PATH'] = os.environ['TP_DATA_DUMP_PATH'] + '_' + str(args.rank)
-        os.environ["ID"] = os.environ['LOCAL_RANK']
         import habana_frameworks.torch.core.hccl
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif args.use_gpu == False:

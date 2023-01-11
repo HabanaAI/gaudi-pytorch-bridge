@@ -141,7 +141,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     // Some memory needs to be left for intermediate buffer for collective
     // inside HCCL.
     std::size_t hccl_allowance_bytes = 0;
-    if (std::getenv("ID") != nullptr) {
+    const char* world_size_s = std::getenv("WORLD_SIZE");
+    if (world_size_s != nullptr && atoi(world_size_s) > 1) {
       const std::size_t HCCL_MEMORY_ALLOWANCE_MB{
           GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB)};
       hccl_allowance_bytes = 1048576 * HCCL_MEMORY_ALLOWANCE_MB;

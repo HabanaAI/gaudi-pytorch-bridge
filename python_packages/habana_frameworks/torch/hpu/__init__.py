@@ -1,10 +1,11 @@
+import os
 import collections
 import torch
 import warnings
 import threading
 from habana_frameworks.torch import _hpu_C
 from typing import Optional, Union, List, Any
-from ._utils import _get_device_index, _get_device_id_from_environ
+from ._utils import _get_device_index, _get_module_id_from_environ, _get_available_modules_from_environ
 from .memory import *
 from .metrics import *
 from .streams import *
@@ -14,7 +15,9 @@ _device_t = Union[torch.device, str, int, None]
 _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
-import os
+
+HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
+HLS_MODULE_ID_VAR = "HLS_MODULE_ID"
 
 def init() -> None:
     r"""Initialize PyTorch's HPU state.  You may need to call
@@ -45,9 +48,11 @@ def init() -> None:
         # process all the queud calls and then set the _tls.is_initializing = false
         _initialized = True
 
+
 def is_initialized() -> bool:
     r"""Returns whether PyTorch's HPU state has been initialized."""
     return _initialized
+
 
 def is_available() -> bool:
     r"""Returns a bool indicating if HPU is currently available."""
@@ -57,12 +62,14 @@ def is_available() -> bool:
     # be initialized
     return _hpu_C.device_count() > 0
 
+
 def device_count() -> int:
     r"""Returns the number of HPUs available."""
     if is_available():
         return _hpu_C.device_count()
     else:
         return 0
+
 
 def get_device_name(device: Optional[_device_t] = None) -> str:
     r"""Gets the name of a device.
@@ -87,15 +94,18 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_name(device)
 
+
 def current_device() -> int:
     r"""Returns the index of a currently selected device."""
     init()
     return _hpu_C.current_device()
 
+
 def synchronize() -> None:
     r"""Waits for all kernels in all streams on a HPU device to complete."""
     init()
     return _hpu_C.synchronize_device()
+
 
 def set_sync_debug_mode(debug_mode) -> None:
     r"""Enable/Disable Asynchronous Streams for debug.
@@ -104,25 +114,31 @@ def set_sync_debug_mode(debug_mode) -> None:
     ."""
     os.environ['PT_ENABLE_HABANA_STREAMASYNC'] = str(debug_mode)
 
+
 def get_sync_debug_mode() -> int:
     r"""Returns current value of debug mode for Asynchronous Streams."""
 
     import os
     return int(os.environ['PT_ENABLE_HABANA_STREAMASYNC'])
 
+
 def setDeterministic(val: bool) -> None:
     if not is_initialized():
-       init()
+        init()
     _hpu_C.setDeterministic(val)
+
 
 def set_autocast_hpu_enabled(enabled) -> None:
     _hpu_C.set_autocast_hpu_enabled(enabled)
 
+
 def is_autocast_hpu_enabled() -> bool:
     return _hpu_C.is_autocast_hpu_enabled()
 
+
 def set_autocast_hpu_dtype(dtype) -> None:
     _hpu_C.set_autocast_hpu_dtype(dtype)
+
 
 def get_autocast_hpu_dtype() -> Any:
     return _hpu_C.get_autocast_hpu_dtype()
@@ -140,6 +156,7 @@ def is_bf16_supported():
     else:
         return False
 
+
 def get_device_capability(device: Optional[_device_t] = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
@@ -151,6 +168,7 @@ def get_device_capability(device: Optional[_device_t] = None) -> str:
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_capability()
 
+
 def get_device_properties(device: Optional[_device_t] = None) -> str:
     if not is_available():
         warnings.warn("Device not available")
@@ -161,6 +179,7 @@ def get_device_properties(device: Optional[_device_t] = None) -> str:
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_properties(device)
+
 
 def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
     if not is_available():
@@ -181,9 +200,11 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
     else:
         return False
 
+
 def get_gencode_flags() -> str:
     r""" Returns the gencode flags the library is compiled with."""
     return ""
+
 
 def get_arch_list() -> List[str]:
     r""" Returns the architecture the library is compiled with"""
@@ -193,25 +214,36 @@ def get_arch_list() -> List[str]:
     arch_list.append(device_name)
     return arch_list
 
+
 def set_device(device: _device_t) -> None:
     r"""Sets the current device"""
     device_idx = _get_device_index(device)
     # hack to match torch.cuda API
-    device_id = _get_device_id_from_environ()
-    if device_id >= 0:
-        if device_idx != device_id:
-            raise AssertionError("Device index passed {} is different from " + \
-                                        "device_id from environment variables {}".format(device_idx, device_id))
-    os.environ["ID"] = str(device_idx)
+    available_modules = _get_available_modules_from_environ()
+    if device_idx > len(available_modules):
+        raise AssertionError(
+            f"Trying to open device with idx={device_idx} when only {len(available_modules)} are avaliable)")
+
+    requested_module_id = available_modules[device_idx]
+    current_module_id = _get_module_id_from_environ()
+
+    if current_module_id >= 0:
+        if current_module_id != requested_module_id:
+            raise AssertionError(f"Requested module_id={requested_module_id} is different from module id {requested_module_id}"
+                                 f" which was different from module_id previously set {current_module_id}")
+
+    os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
+
 
 class device(object):
     r"""Context manager that changes the selected device."""
+
     def __init__(self, device: Any):
         self.idx = _get_device_index(device)
         self.prev_idx = -1
 
     def __enter__(self):
-        ## hack to match the behavior of torch.cuda APIs
+        # hack to match the behavior of torch.cuda APIs
         self.prev_idx = _get_device_id_from_environ()
         if self.idx == -1:
             return
@@ -223,8 +255,10 @@ class device(object):
             set_device(self.idx)
         return False
 
+
 class device_of(device):
     r"""Context manager that changes the current device of the given object"""
+
     def __init__(self, obj):
         idx = obj.get_device() if obj.is_hpu else -1
         super(device_of, self).__init__(idx)
