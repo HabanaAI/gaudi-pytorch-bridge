@@ -234,8 +234,8 @@ Tensor hpu_wrap::_reshape_alias(
   if (mode == 2) {
     return as_strided_hpu_lazy(
         self,
-        asIntArrayRefSlow(size),
-        asIntArrayRefSlow(stride),
+        C10_AS_INTARRAYREF_SLOW(size),
+        C10_AS_INTARRAYREF_SLOW(stride),
         self.storage_offset());
   }
 
