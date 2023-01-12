@@ -1,9 +1,9 @@
 HPU:
-1.13.0a0+git8b882a2
+1.13.1+cpu
 
 CPU, CUDA (GPU):
 1.13.0+cu117
 
 pytorch-integration
-BIN: -v 1.8.0 -b 320
-SRC: 58aeea2b1a4427c4b695b9faab22037a16390677
+BIN: -v 1.9.0 -b 163
+SRC: 807ba49aa8d9bfabf6e8c8459958cc78d351cc9c

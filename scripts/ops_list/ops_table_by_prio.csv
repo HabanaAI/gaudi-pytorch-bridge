@@ -1,6 +1,4 @@
 OP;                                                              CPU; GPU; HPU; COMPOUND; DI_DE; MISSING; TERT; IN_TOPOS; COUNT; TOPOS_LIST
-aten::_adaptive_avg_pool2d;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::_adaptive_avg_pool2d_backward;                             YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_adaptive_avg_pool3d;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_adaptive_avg_pool3d_backward;                             YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_addmm_activation;                                         YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
@@ -160,7 +158,6 @@ aten::_upsample_nearest_exact3d_backward.vec;                    YES; YES; NO;  
 aten::_use_cudnn_ctc_loss;                                       NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_use_cudnn_ctc_loss.Tensor;                                NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_validate_compressed_sparse_indices;                       YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::adaptive_avg_pool2d.out;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::adaptive_avg_pool3d.out;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::adaptive_avg_pool3d_backward.grad_input;                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::adaptive_max_pool2d;                                       YES; YES; NO;  NO;       DT_DT; YES;     YES;  NO;           0;
@@ -266,10 +263,6 @@ aten::isin.Tensor_Scalar;                                        YES; YES; NO;  
 aten::isin.Tensor_Scalar_out;                                    YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::isin.Tensor_Tensor;                                        YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::isin.Tensor_Tensor_out;                                    YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::isneginf;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::isneginf.out;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::isposinf;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::isposinf.out;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::kthvalue.values;                                           YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::lcm;                                                       YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::lcm.out;                                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
@@ -336,8 +329,6 @@ aten::nanmedian.dim_values;                                      YES; YES; NO;  
 aten::native_batch_norm.out;                                     NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::native_dropout;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::native_dropout_backward;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::native_group_norm;                                         YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::native_group_norm_backward;                                YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::nextafter;                                                 YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::nextafter.out;                                             YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::nextafter_;                                                YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
@@ -507,6 +498,7 @@ aten::slow_conv3d_forward.output;                                YES; NO;  NO;  
 aten::to_mkldnn;                                                 YES; NO;  NO;  NO;       DT_DF; NO;      NO;   NO;           0;
 aten::silu_backward;                                             YES; YES; NO;  YES;      DF_DT; YES;     NO;   NO;           0;
 aten::conv2d;                                                    NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   YES;         13; alexnet, densenet161, googlenet, inception_v3, mnasnet1_0, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, shufflenet_v2_x1_0, squeezenet1_0, vgg16, wide_resnet50_2
+aten::adaptive_avg_pool2d;                                       NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  YES;         11; alexnet, densenet161, googlenet, inception_v3, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, squeezenet1_0, vgg16, wide_resnet50_2
 aten::flatten;                                                   NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   YES;         11; alexnet, densenet161, googlenet, inception_v3, r3d_18, resnet18, resnet50, resnext50_32x4d, squeezenet1_0, vgg16, wide_resnet50_2
 aten::max_pool2d;                                                NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  YES;         11; alexnet, densenet161, googlenet, inception_v3, resnet18, resnet50, resnext50_32x4d, shufflenet_v2_x1_0, squeezenet1_0, vgg16, wide_resnet50_2
 aten::conv3d;                                                    NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   YES;          2; r3d_18, unet3d
@@ -626,6 +618,8 @@ aten::__rshift__.Scalar;                                         YES; YES; YES; 
 aten::__rshift__.Scalar_out;                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::__rshift__.Tensor;                                         YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::__rshift__.Tensor_out;                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::_adaptive_avg_pool2d;                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::_adaptive_avg_pool2d_backward;                             YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_copy_from_and_resize;                                     NO;  NO;  YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_efficientzerotensor;                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_foreach_abs;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -715,6 +709,7 @@ aten::acos_;                                                     YES; YES; YES; 
 aten::acosh;                                                     YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::acosh.out;                                                 YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::acosh_;                                                    YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::adaptive_avg_pool2d.out;                                   YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::add.Scalar;                                                NO;  NO;  YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::add.Scalar_out;                                            NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::add.out;                                                   YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -1012,7 +1007,12 @@ aten::index_fill_.int_Scalar;                                    YES; YES; YES; 
 aten::index_select;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::index_select.out;                                          YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::is_pinned;                                                 NO;  YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::isinf;                                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::isnan;                                                     YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::isneginf;                                                  YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::isneginf.out;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::isposinf;                                                  YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::isposinf.out;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::le.Scalar;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::le.Scalar_out;                                             YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::le.Tensor;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
@@ -1132,6 +1132,8 @@ aten::nansum;                                                    YES; YES; YES; 
 aten::nansum.out;                                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::native_batch_norm;                                         YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::native_batch_norm_backward;                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::native_group_norm;                                         YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::native_group_norm_backward;                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::native_layer_norm;                                         YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::native_layer_norm_backward;                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::ne.Scalar;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
@@ -1385,6 +1387,7 @@ aten::var.correction_out;                                        YES; YES; YES; 
 aten::var_mean.correction;                                       YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::vdot;                                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::vdot.out;                                                  NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::view.dtype;                                                NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::where.self;                                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::where.self_out;                                            YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::xlogy.OutScalar_Other;                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
@@ -1396,7 +1399,6 @@ aten::xlogy.Tensor;                                              YES; YES; YES; 
 aten::xlogy_.Scalar_Other;                                       NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::xlogy_.Tensor;                                             YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::zero_;                                                     YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
-aten::adaptive_avg_pool2d;                                       NO;  NO;  YES; YES;      DF_DT; NO;      YES;  YES;         11; alexnet, densenet161, googlenet, inception_v3, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, squeezenet1_0, vgg16, wide_resnet50_2
 aten::dropout;                                                   NO;  NO;  YES; YES;      DF_DT; NO;      NO;   YES;          7; alexnet, googlenet, inception_v3, mnasnet1_0, mobilenet_v2, squeezenet1_0, vgg16
 aten::instance_norm;                                             NO;  NO;  YES; YES;      DF_DT; NO;      YES;  NO;           0;
 aten::isfinite;                                                  NO;  NO;  YES; YES;      DF_DT; NO;      NO;   NO;           0;

@@ -58,6 +58,7 @@ aten::hardtanh_backward.grad_input
 aten::prod.dim_int
 aten::bernoulli_.Tensor
 aten::replication_pad3d.out
+aten::isposinf.out
 aten::fmod_.Scalar
 aten::_foreach_log2_
 aten::mse_loss
@@ -117,7 +118,6 @@ aten::bitwise_not_
 aten::asinh_
 aten::log_sigmoid_forward
 aten::diag.out
-aten::adaptive_avg_pool2d
 aten::add_.Tensor
 aten::upsample_nearest1d.vec
 aten::_foreach_acos_
@@ -164,6 +164,7 @@ aten::tanh.out
 aten::clamp.Tensor
 aten::median
 aten::logical_and
+aten::_adaptive_avg_pool2d
 aten::_foreach_log10
 aten::triu.out
 aten::add.Tensor
@@ -289,6 +290,7 @@ aten::__irshift__.Tensor
 aten::sqrt.out
 aten::reciprocal_
 aten::nll_loss2d_forward.output
+aten::isinf
 aten::sin_
 aten::any
 aten::mean
@@ -322,6 +324,7 @@ aten::amin
 aten::index_copy_
 aten::special_entr
 aten::upsample_nearest3d.out
+aten::_adaptive_avg_pool2d_backward
 aten::_masked_scale
 aten::mul.Tensor
 aten::dot
@@ -453,9 +456,11 @@ aten::_log_softmax.out
 aten::nonzero.out
 aten::exp2
 aten::bitwise_and.Scalar_Tensor
+aten::isneginf.out
 aten::_foreach_neg
 aten::upsample_nearest3d
 aten::_foreach_erf_
+aten::isneginf
 aten::scatter_.value
 aten::gt.Tensor
 aten::amin.out
@@ -499,6 +504,7 @@ aten::upsample_bicubic2d_backward.grad_input
 aten::copysign.Scalar_out
 aten::copy_
 aten::ne_.Tensor
+aten::native_group_norm
 aten::mul.Scalar
 aten::unique_dim
 aten::silu_
@@ -726,6 +732,7 @@ aten::vdot.out
 aten::_weight_norm_interface_backward
 aten::hardtanh_
 aten::bitwise_not
+aten::isposinf
 aten::smooth_l1_loss.out
 aten::sigmoid.out
 aten::le_.Scalar
@@ -742,6 +749,7 @@ aten::_softmax_backward_data.out
 aten::mm
 aten::xlogy.Scalar_Other
 aten::threshold_backward.grad_input
+aten::adaptive_avg_pool2d.out
 aten::batch_norm_gather_stats_with_counts
 aten::bitwise_left_shift_.Tensor
 aten::_foreach_expm1_
@@ -782,6 +790,7 @@ aten::sigmoid_
 aten::expm1
 aten::squeeze_
 aten::add_.Scalar
+aten::view.dtype
 aten::addbmm
 aten::binary_cross_entropy_backward.grad_input
 aten::div.out_mode
@@ -797,6 +806,7 @@ aten::mm.out
 aten::bmm.out
 aten::bmm
 aten::abs_
+aten::native_group_norm_backward
 aten::bitwise_or_.Tensor
 aten::hypot.out
 aten::_copy_from_and_resize

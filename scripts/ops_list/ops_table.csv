@@ -14,8 +14,8 @@ aten::__rshift__.Scalar;                                         YES; YES; YES; 
 aten::__rshift__.Scalar_out;                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::__rshift__.Tensor;                                         YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::__rshift__.Tensor_out;                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
-aten::_adaptive_avg_pool2d;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::_adaptive_avg_pool2d_backward;                             YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_adaptive_avg_pool2d;                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::_adaptive_avg_pool2d_backward;                             YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_adaptive_avg_pool3d;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_adaptive_avg_pool3d_backward;                             YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_add_relu.Scalar;                                          YES; NO;  NO;  NO;       DT_DF; NO;      NO;   NO;           0;
@@ -281,8 +281,7 @@ aten::acos_;                                                     YES; YES; YES; 
 aten::acosh;                                                     YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::acosh.out;                                                 YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::acosh_;                                                    YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
-aten::adaptive_avg_pool2d;                                       NO;  NO;  YES; YES;      DF_DT; NO;      YES;  YES;         11; alexnet, densenet161, googlenet, inception_v3, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, squeezenet1_0, vgg16, wide_resnet50_2
-aten::adaptive_avg_pool2d.out;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::adaptive_avg_pool2d.out;                                   YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::adaptive_avg_pool3d.out;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::adaptive_avg_pool3d_backward.grad_input;                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::adaptive_max_pool2d;                                       YES; YES; NO;  NO;       DT_DT; YES;     YES;  NO;           0;
@@ -700,11 +699,12 @@ aten::isin.Tensor_Scalar;                                        YES; YES; NO;  
 aten::isin.Tensor_Scalar_out;                                    YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::isin.Tensor_Tensor;                                        YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::isin.Tensor_Tensor_out;                                    YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::isinf;                                                     NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::isnan;                                                     YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
-aten::isneginf;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::isneginf.out;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::isposinf;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::isposinf.out;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::isneginf;                                                  YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::isneginf.out;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::isposinf;                                                  YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::isposinf.out;                                              YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::kl_div;                                                    NO;  NO;  YES; YES;      DF_DT; NO;      NO;   NO;           0;
 aten::kthvalue.values;                                           YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::l1_loss;                                                   NO;  NO;  YES; YES;      DF_DT; NO;      NO;   NO;           0;
@@ -899,8 +899,8 @@ aten::native_batch_norm_backward;                                YES; YES; YES; 
 aten::native_channel_shuffle;                                    YES; NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::native_dropout;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::native_dropout_backward;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::native_group_norm;                                         YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::native_group_norm_backward;                                YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::native_group_norm;                                         YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
+aten::native_group_norm_backward;                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::native_layer_norm;                                         YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::native_layer_norm_backward;                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::ne.Scalar;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
@@ -1309,6 +1309,7 @@ aten::var_mean.correction;                                       YES; YES; YES; 
 aten::vdot;                                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::vdot.out;                                                  NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::view;                                                      YES; YES; YES; NO;       DT_DF; NO;      YES;  YES;          2; dlrm_a, dlrm_github
+aten::view.dtype;                                                NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::view_as_complex;                                           YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::view_as_real;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::where.self;                                                YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -1374,6 +1375,7 @@ sparse::qlinear_relu_dynamic;                                    YES; NO;  NO;  
 torchvision::_roi_align_backward;                                NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::nms;                                                NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::roi_align;                                          NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
+aten::adaptive_avg_pool2d;                                       NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  YES;         11; alexnet, densenet161, googlenet, inception_v3, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, squeezenet1_0, vgg16, wide_resnet50_2
 aten::adaptive_avg_pool3d;                                       NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  YES;          1; r3d_18
 aten::chunk;                                                     NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   YES;          1; shufflenet_v2_x1_0
 aten::conv2d;                                                    NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   YES;         13; alexnet, densenet161, googlenet, inception_v3, mnasnet1_0, mobilenet_v2, resnet18, resnet50, resnext50_32x4d, shufflenet_v2_x1_0, squeezenet1_0, vgg16, wide_resnet50_2
