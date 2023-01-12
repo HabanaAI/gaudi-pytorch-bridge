@@ -100,6 +100,7 @@ target_sources(
           hpu_ops/norm_gen.cpp
           hpu_ops/normal_gen.cpp
           hpu_ops/op_backend.cpp
+          hpu_ops/op_logger.cpp
           hpu_ops/poission_gen.cpp
           hpu_ops/pow_gen.cpp
           hpu_ops/prelu_gen.cpp
