@@ -25,6 +25,8 @@
 
 #include "torch/csrc/jit/ir/ir.h"
 
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/synapse_helpers/habana_tensor.h"
 #include "pytorch_helpers/synapse_helpers/stream.h"
 #include "pytorch_helpers/synapse_helpers/time_slot.h"
@@ -276,6 +278,22 @@ class Bucket {
   void SetRecipeKey(size_t key) {
     recipe_key_ = key;
   };
+  void SetInputMetaData(const torch::jit::Stack& stack) {
+    input_metadata_.clear();
+    for (size_t i = 0; i < stack.size(); ++i) {
+      auto& tensor = stack[i].toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      HABANA_ASSERT(impl);
+      if (impl->get_shape_struct().has_shape_tensor_data()) {
+        input_metadata_.emplace(i, impl->get_shape_struct());
+      }
+    }
+  };
+
+  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
+  GetInputMetaData() {
+    return input_metadata_;
+  }
 
   bool IsStatic() const {
     return (ranges_.empty());
@@ -420,6 +438,7 @@ class Bucket {
   bool time_improvement_met_{true};
   std::vector<size_t> input_hist_idxes_;
   std::vector<size_t> inherited_input_hist_idxes_;
+  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct> input_metadata_;
 
   std::weak_ptr<habana::RecipeValueSpec> rvpwk_;
 };
@@ -539,6 +558,17 @@ class DynamicBucketInfo {
         __LINE__);
     return buckets_.at(bucket_idx).GetTimeBase();
   };
+
+  void SetInputMetaData(const torch::jit::Stack& stack, uint64_t bucket_idx) {
+    TORCH_CHECK(
+        bucket_idx < buckets_.size(),
+        "invalid bucket index access in SetInputMetaData at ",
+        __FILE__,
+        " : ",
+        __LINE__);
+    return buckets_.at(bucket_idx).SetInputMetaData(stack);
+  };
+
   size_t GetRecipeKeyForBucket(size_t bucket_idx) {
     TORCH_CHECK(
         bucket_idx < buckets_.size(),

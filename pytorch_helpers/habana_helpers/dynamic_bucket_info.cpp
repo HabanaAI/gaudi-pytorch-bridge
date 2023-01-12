@@ -548,7 +548,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
 
   bool isRuntimeImproved{buckets_[curr_mfu_id].IsRuntimeImproved()};
 
-  PT_DYNAMIC_SHAPE_DEBUG("Current mfu bucket is eligible for refinement");
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Current mfu bucket %d is eligible for refinement", curr_mfu_id);
   auto rvpsh = buckets_[curr_mfu_id].GetSynapseRecipePtr();
   if (nullptr == rvpsh) {
     PT_DYNAMIC_SHAPE_DEBUG("Recipe for mfu bucket is null");
@@ -578,6 +579,8 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   Bucket new_bucket_computed = ConstructNewBucket(
       result_computed, buckets_[curr_mfu_id], min_dist_idx, choose_lower);
 
+  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>& input_metadata =
+      buckets_[curr_mfu_id].GetInputMetaData();
   Bucket& new_bucket_candidate{new_bucket_computed};
   uint64_t new_bucket_candidate_id = buckets_.size();
   new_bucket_candidate.SetIndex(new_bucket_candidate_id);
@@ -587,6 +590,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   try {
     is_compiled = habana::CompileGraphWithRange(
         rvpsh,
+        input_metadata,
         new_range,
         new_bucket_candidate,
         new_recipe_key,

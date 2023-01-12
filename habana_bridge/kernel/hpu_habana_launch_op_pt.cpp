@@ -2811,6 +2811,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
               ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
           PT_DYNAMIC_SHAPE_DEBUG("OutputSif_END");
         }
+        current_dbipsh_->SetInputMetaData(*pt_stack, current_bucket_id_);
         bool refine_candidate =
             (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
         current_dbipsh_->get_statistics()->LogUsedBucket(
