@@ -66,6 +66,9 @@ unary_special_op_list = [
     [torch.isposinf, None],
     [torch.isneginf, None],
     [torch.isnan, None],
+    # Disabled due to TypeError: isinf() got an unexpected keyword argument 'out'
+    # isinf does not have out variant in python API
+    # [torch.isinf, "out"],
     [torch.isposinf, "out"],
     [torch.isneginf, "out"],
 ]

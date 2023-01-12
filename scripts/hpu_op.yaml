@@ -3277,6 +3277,17 @@ isinf:
   op_backend: _IsFiniteInf
   out_ids: [0]
 
+isinf.out:
+  custom_fill_params: FillisinfParamsFwd
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  out_dtype: Bool
+  guid: isinf_fwd
+  op_backend: _IsFiniteInf
+
 isnan:
   dtypes:
     Gaudi: [BFloat16, Float, Int]

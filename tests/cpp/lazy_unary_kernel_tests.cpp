@@ -1104,6 +1104,14 @@ TEST_F(LazyUnaryKernelTest, IsInfFwdF32Nd) {
   TestInfNan<false>(true, [](auto A) { return torch::isinf(A); });
 }
 
+TEST_F(LazyUnaryKernelTest, IsInfFwdF32Out) {
+  TestInfNan<true>(false, [](auto out, auto A) { torch::isinf_out(out, A); });
+}
+
+TEST_F(LazyUnaryKernelTest, IsInfFwdF32OutNd) {
+  TestInfNan<true>(true, [](auto out, auto A) { torch::isinf_out(out, A); });
+}
+
 TEST_F(LazyUnaryKernelTest, IsPosInfFwdF32) {
   TestInfNan<false>(false, [](auto A) { return torch::isposinf(A); });
 }
