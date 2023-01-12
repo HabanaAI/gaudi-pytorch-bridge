@@ -12,7 +12,7 @@ def checkVisibleDevices(rank):
     HABANA_DEVICE_ID_VAR = "ID"
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
-        visible_modules = sorted(os.environ[HABANA_VISIBLE_MODULES_VAR].split(","))
+        visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
         assert rank < len(visible_modules), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
         is set correctly."""
