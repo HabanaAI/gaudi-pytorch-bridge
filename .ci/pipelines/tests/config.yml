@@ -21,3 +21,13 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
+  accuracy:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
+  sbs:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
