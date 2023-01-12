@@ -571,15 +571,17 @@ Tensor& copy_hpu_lazy_D2D(
   auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
   HbLazyTensor hb_tensor = GetHbLazyTensor(src);
 
-  /* We can't create a long/double target in the device. Even a cast will
-  not work as these data types are not available within the device. The
-  only way to make progress is to just do a normal D2D so that the
-  target will also be the same as source, and when we want to pull this
-  out to CPU, the D2H will handle the type conversion */
-  bool no_conversion =
-      habana_helpers::is_downcast_to_int_needed(self.scalar_type()) ||
-      self.scalar_type() == c10::ScalarType::Double ||
-      src.scalar_type() == self.scalar_type();
+  auto self_dtype = ((self.scalar_type() == c10::ScalarType::Long) ||
+                     (self.scalar_type() == c10::ScalarType::Short) ||
+                     (self.scalar_type() == c10::ScalarType::Byte))
+      ? (c10::ScalarType::Int)
+      : self.scalar_type();
+
+  self_dtype = (self.scalar_type() == c10::ScalarType::Double)
+      ? c10::ScalarType::Float
+      : self.scalar_type();
+
+  bool no_conversion = (src.scalar_type() == self.scalar_type());
 
   if (no_conversion && hb_tensor.IsExecutionInProgress()) {
     auto context =
@@ -587,70 +589,70 @@ Tensor& copy_hpu_lazy_D2D(
     context->JoinPendingLaunchThread();
   }
   RUNNING_HASH_COMBINE_OPERATOR(hpu::copy_D2D, {self, src, no_conversion});
-  auto op_func = [self_, src_, non_blocking, no_conversion]() mutable {
-    ir::NodePtr node;
-    std::vector<at::Tensor> input_pt_vec;
-    // pick the most recent version of src tensor
-    auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
-    auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
-    HbLazyTensor hb_tensor = GetHbLazyTensor(src);
-    auto hlresult = GetHbLazyTensor(self);
-    auto layout_format = hb_tensor.GetTensorLayout();
-    hlresult.SetTensorLayout(layout_format);
+  auto op_func =
+      [self_, src_, self_dtype, non_blocking, no_conversion]() mutable {
+        ir::NodePtr node;
+        std::vector<at::Tensor> input_pt_vec;
+        // pick the most recent version of src tensor
+        auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
+        auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
+        HbLazyTensor hb_tensor = GetHbLazyTensor(src);
+        auto hlresult = GetHbLazyTensor(self);
+        auto layout_format = hb_tensor.GetTensorLayout();
+        hlresult.SetTensorLayout(layout_format);
 
-    if (no_conversion) {
-      // If both src and dst are already processed ,  go and do the DMA dont
-      // wait Else , If we already have storage in dst, add memcopy node to
-      // lazy graph and we want to copy to existing tensor and not a new one
-      // Kernel expects us to pass dst as second input in that case
-      auto src_id = hb_tensor.getTensorUniqueId();
-      auto dst_id = hlresult.getTensorUniqueId();
-      if (src_id == dst_id) {
-        return;
-      }
+        if (no_conversion) {
+          // If both src and dst are already processed ,  go and do the DMA dont
+          // wait Else , If we already have storage in dst, add memcopy node to
+          // lazy graph and we want to copy to existing tensor and not a new one
+          // Kernel expects us to pass dst as second input in that case
+          auto src_id = hb_tensor.getTensorUniqueId();
+          auto dst_id = hlresult.getTensorUniqueId();
+          if (src_id == dst_id) {
+            return;
+          }
 
-      // graph cycle happens in squad 8x with view table mechanism
-      // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
-      // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
-      auto src_parent = HbLazyTensorViews::get_base_tensor(src);
-      auto src_parent_id = GetHbLazyTensorId(src_parent);
+          // graph cycle happens in squad 8x with view table mechanism
+          // %id:3646 = hpu::as_strided_lazy(%id:18.1, %89, %90, %91)
+          // %id:18 = hpu::habana_d2d_memcpy_other(%id:3646, %id:18.1)
+          auto src_parent = HbLazyTensorViews::get_base_tensor(src);
+          auto src_parent_id = GetHbLazyTensorId(src_parent);
 
-      if (src_parent_id == dst_id) {
-        return;
-      }
+          if (src_parent_id == dst_id) {
+            return;
+          }
 
-      // Handle views and lhs slice
-      auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
-      if (is_view == false) {
-        AddMemcpy(src, self);
-      }
-    } else {
-      node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
+          // Handle views and lhs slice
+          auto is_view = HbLazyTensorViews::HandleViewsD2D(src, self);
+          if (is_view == false) {
+            AddMemcpy(src, self);
+          }
+        } else {
+          node =
+              std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
 
-      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-      auto id = GetHbLazyTensorId(self);
-      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-      if (params_ptr != nullptr) {
-        // add strided insert at the cast output
-        at::TensorOptions options = src.options().dtype(self.scalar_type());
-        auto src_cast = empty_hpu_lazy(
-            src.sizes(), options, src.suggest_memory_format(), false);
+          auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+          auto id = GetHbLazyTensorId(self);
+          StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+          if (params_ptr != nullptr) {
+            // add strided insert at the cast output
+            at::TensorOptions options = src.options().dtype(self.scalar_type());
+            auto src_cast = empty_hpu_lazy(
+                src.sizes(), options, src.suggest_memory_format(), false);
 
-        auto hl_src_cast = GetHbLazyTensor(src_cast);
-        hl_src_cast.IrSetNode(node);
-        flush_op(1);
+            auto hl_src_cast = GetHbLazyTensor(src_cast);
+            hl_src_cast.IrSetNode(node);
+            flush_op(1);
 
-        HbLazyTensorViews::HandleViewsD2D(src_cast, self);
-      } else {
-        auto out_type = (self.scalar_type() == c10::ScalarType::Long)
-            ? (c10::ScalarType::Int)
-            : self.scalar_type();
-        LazyOp<at::Tensor> k{"hpu::cast", {src, out_type}, {src.sizes().vec()}};
-        k.set_scalar_types({out_type});
-        k.call(self);
-      }
-    }
-  };
+            HbLazyTensorViews::HandleViewsD2D(src_cast, self);
+          } else {
+            LazyOp<at::Tensor> k{
+                "hpu::cast", {src, self_dtype}, {src.sizes().vec()}};
+            k.set_scalar_types({self_dtype});
+            k.call(self);
+          }
+        }
+      };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self_);
 }
