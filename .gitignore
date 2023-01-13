@@ -9,6 +9,7 @@ habana_kernels/wrap_kernels_declarations.h
 __pycache__/
 *.log
 *.so
+*.so.*
 *.bin
 *.used
 *.egg-info/
@@ -18,4 +19,4 @@ dist
 *.swp
 *.swo
 .cache/
-tests/test_pt_integration
+test_pt_integration
