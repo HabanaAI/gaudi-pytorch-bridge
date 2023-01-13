@@ -130,6 +130,13 @@ class TOperator : public TransposeOperator {
   TOperator(int device_id, c10::ScalarType scalarType)
       : TransposeOperator(device_id, scalarType) {}
 
+  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+      torch::jit::Stack& inputs) override {
+    inputs.insert(inputs.begin() + 1, c10::IValue(0));
+    inputs.insert(inputs.begin() + 2, c10::IValue(1));
+    return TransposeOperator::ComputeOutputShape(inputs);
+  }
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

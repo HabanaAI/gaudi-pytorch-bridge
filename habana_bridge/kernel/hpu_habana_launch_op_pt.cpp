@@ -70,7 +70,7 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     "prim::dtype"};
 
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
-std::unordered_set<std::string> HabanaLaunchOpPT::enabled_jit_ir_ops_ = {};
+std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
 //--------------------------------------
 
 void HabanaLaunchOpPT::cleanUp() {}
@@ -159,30 +159,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       while (wfile) {
         getline(wfile, opname);
         watchlist_.insert(opname);
-      }
-      wfile.close();
-    }
-  }
-
-  if (enabled_jit_ir_ops_.empty()) {
-    std::string wfile_name =
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE);
-    if (!wfile_name.empty()) {
-      std::ifstream wfile(wfile_name);
-      TORCH_CHECK(
-          wfile.is_open(),
-          "Unable to open PT_HPU_ENABLED_JIT_IR_OPS_LIST_FILE file ",
-          wfile_name);
-
-      std::string opname;
-      while (wfile) {
-        getline(wfile, opname);
-        if (opname.empty())
-          break;
-        if (opname[0] == '#')
-          continue;
-        enabled_jit_ir_ops_.insert(opname);
-        PT_DYNAMIC_SHAPE_DEBUG("Enabled_JIT_IR_OP: ", opname);
       }
       wfile.close();
     }
@@ -2054,14 +2030,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           syn_graph, input_stack, outputs_metadata);
     }
 
-    // Temporary check for eanbling yolo
-    static std::unordered_set<std::string> validated_cs_jit_ir_ops_;
-    static std::unordered_set<std::string> disabled_cs_jit_ir_ops_;
+    static std::unordered_set<std::string> cs_jit_ir_ops_;
     static std::unordered_set<std::string> empty_cs_jit_ir_ops_;
 
     habana::OutputShapeInfRetType kernel_output_cs(true);
-    if (enabled_jit_ir_ops_.empty() ||
-        enabled_jit_ir_ops_.count(node_qual_str)) {
+    if (!disabled_jit_ir_ops_.count(node_qual_str)) {
       // Either the ComputeOutputShape flow is getting validated or
       // fast shape inference is running.
       if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
@@ -2091,12 +2064,24 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
             ProcessShapeTensorsCS(
                 kernel_output_cs, intermediate_shape_tensor_cs);
           }
-          validateOutputShape(
-              HabanaKernel, kernel_output_cs, syn_graph, opname);
-          if (validated_cs_jit_ir_ops_.count(node_qual_str) == 0) {
-            PT_DYNAMIC_SHAPE_DEBUG(
-                "Validated_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
-            validated_cs_jit_ir_ops_.insert(node_qual_str);
+          try {
+            validateOutputShape(
+                HabanaKernel, kernel_output_cs, syn_graph, opname);
+            if (cs_jit_ir_ops_.count(node_qual_str) == 0) {
+              PT_DYNAMIC_SHAPE_DEBUG(
+                  "ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
+              cs_jit_ir_ops_.insert(node_qual_str);
+            }
+          } catch (std::exception& e) {
+            if (disabled_jit_ir_ops_.count(node_qual_str) == 0) {
+              PT_DYNAMIC_SHAPE_DEBUG(
+                  "DISABLED_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
+              disabled_jit_ir_ops_.insert(node_qual_str);
+            }
+            TORCH_CHECK(
+                false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
+                "ComputeOutputShape validation failed for op ",
+                node_qual_str);
           }
         } else {
           if (empty_cs_jit_ir_ops_.count(node_qual_str) == 0) {
@@ -2109,12 +2094,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               "ComputeOutputShape method not available for validation of op ",
               node_qual_str);
         }
-      }
-    } else {
-      if (disabled_cs_jit_ir_ops_.count(node_qual_str) == 0) {
-        PT_DYNAMIC_SHAPE_DEBUG(
-            "DISABLED_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
-        disabled_cs_jit_ir_ops_.insert(node_qual_str);
       }
     }
 
@@ -3930,6 +3909,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     // occurs in compilation or launch and both happens before adding recipie to
     // cache.
     try {
+      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       auto syn_graph =
           habana_helpers::create_graph(device.id(), GetSynapseGraphName());
       syn_graph.set_dynamic_graph(is_dynamic_graph);

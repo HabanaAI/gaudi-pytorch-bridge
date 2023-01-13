@@ -49,10 +49,11 @@ std::shared_ptr<void> FillExponentialParams(
 void ExponentialSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  // Discard self tensor, input is seed tensor only
-  p_context_->syn_inputs_.pop_front();
-  HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
-
+  if (!isMetaMode()) {
+    // Discard self tensor, input is seed tensor only
+    p_context_->syn_inputs_.pop_front();
+    HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
+  }
   auto outshape = stack_tensor(stack, 0).sizes();
   size_t size = 0;
   auto params = FillExponentialParams(stack, size);

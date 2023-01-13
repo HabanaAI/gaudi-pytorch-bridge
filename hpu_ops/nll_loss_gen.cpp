@@ -159,12 +159,17 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
 void NllLossFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  // remove total_weight from output as it is unsupported
-  // JIRA https://jira.habana-labs.com/browse/SW-73520
-  p_context_->syn_outputs_.pop_back();
-  // dummy output in place of total_weight
-  DummyOutput(
-      graph, p_context_, IsOutputPersistent(1), GetOutputMetaData(1).external);
+  if (!isMetaMode()) {
+    // remove total_weight from output as it is unsupported
+    // JIRA https://jira.habana-labs.com/browse/SW-73520
+    p_context_->syn_outputs_.pop_back();
+    // dummy output in place of total_weight
+    DummyOutput(
+        graph,
+        p_context_,
+        IsOutputPersistent(1),
+        GetOutputMetaData(1).external);
+  }
 
   size_t size = 0;
   const auto& params = FillParams(stack, size);
@@ -191,11 +196,16 @@ void NllLossFwd::AddNode(
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  // remove total_weight from output as it is unsupported
-  p_context_->syn_outputs_.pop_back();
-  // dummy output in place of total_weight
-  DummyOutput(
-      graph, p_context_, IsOutputPersistent(1), GetOutputMetaData(1).external);
+  if (!isMetaMode()) {
+    // remove total_weight from output as it is unsupported
+    p_context_->syn_outputs_.pop_back();
+    // dummy output in place of total_weight
+    DummyOutput(
+        graph,
+        p_context_,
+        IsOutputPersistent(1),
+        GetOutputMetaData(1).external);
+  }
 
   auto input_shape = stack_tensor(stack, 0).sizes();
   size_t size = 0;

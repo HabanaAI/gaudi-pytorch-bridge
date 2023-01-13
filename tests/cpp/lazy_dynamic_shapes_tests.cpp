@@ -2352,6 +2352,15 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest) {
 
 // Reproducer for https://jira.habana-labs.com/browse/SW-117082
 TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
+  auto enable_fast_sif = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
+  auto run_hybrid_sif = GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
+
+  // Disable hybrid sif if enabled
+  if (enable_fast_sif || run_hybrid_sif) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, false, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, false, 1);
+  }
+
   std::vector<std::vector<int64_t>> in_sizes{
       {1, 3, 32, 32, 32}, {1, 3, 64, 64, 64}, {1, 3, 128, 128, 128}};
   std::vector<std::vector<int64_t>> out_sizes{
@@ -2378,4 +2387,8 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
 
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
   }
+
+  // Restore hybrid sif flag
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, enable_fast_sif, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, run_hybrid_sif, 1);
 }

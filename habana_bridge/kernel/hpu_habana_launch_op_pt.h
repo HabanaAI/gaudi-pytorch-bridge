@@ -558,7 +558,7 @@ class HabanaLaunchOpPT {
   // for JIT OPs whenever possible, otherwise falls back to
   // AllocateAndAddSynapseNode for the output shape computation.
 
-  static std::unordered_set<std::string> enabled_jit_ir_ops_;
+  static std::unordered_set<std::string> disabled_jit_ir_ops_;
   synapse_helpers::tensor& allocate_synapse_tensor(
       at::Tensor& pt_tensor,
       const HabanaOperatorPtr& habana_op,

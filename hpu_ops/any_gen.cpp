@@ -47,16 +47,21 @@ synapse_helpers::tensor AnyCommonFunc(
     const at::Tensor& self,
     const at::IntArrayRef dim,
     const bool keepdim,
-    synapse_helpers::tensor& input_,
     const at::IntArrayRef outshape) {
   // TODO: for integral types, use reduce_sum_fwd_i32 instead
   const auto& dtype = at::kFloat;
   std::unique_ptr<synapse_helpers::tensor> cast;
-  synTensor& input = input_.get();
+  synTensor input = nullptr;
+  if (!op->isMetaMode()) {
+    synapse_helpers::tensor& synInput = op->GetSynInputs()[0];
+    input = synInput.get();
+  }
   if (dtype != self.scalar_type()) {
     cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
         op, graph, input, self.sizes(), self.scalar_type(), dtype));
-    input = cast->get();
+    if (!op->isMetaMode()) {
+      input = cast->get();
+    }
   }
 
   op->SetScalarType(dtype);
@@ -80,22 +85,19 @@ synapse_helpers::tensor AnyCommonFunc(
 
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  synapse_helpers::tensor& input = GetSynInputs()[0];
   auto outshape = ComputeOutputShapes(stack)[0];
   auto dim = stack.at(1).toInt();
   bool keepdim = stack.at(2).toBool();
 
-  auto any_out =
-      AnyCommonFunc(this, graph, self, dim, keepdim, input, outshape);
+  auto any_out = AnyCommonFunc(this, graph, self, dim, keepdim, outshape);
   syn_out(0) = std::move(any_out);
 }
 
 void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  synapse_helpers::tensor& input = GetSynInputs()[0];
   auto outshape = ComputeOutputShapes(stack)[0];
 
-  auto any_out = AnyCommonFunc(this, graph, self, {}, false, input, outshape);
+  auto any_out = AnyCommonFunc(this, graph, self, {}, false, outshape);
   syn_out(0) = std::move(any_out);
 }
 } // namespace habana

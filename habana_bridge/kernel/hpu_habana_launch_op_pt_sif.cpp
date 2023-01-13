@@ -510,8 +510,7 @@ void HabanaLaunchOpPT::RunHybridSif(
           habana::ShapeInference::GetSifTensorId());
     }};
 
-    // Temporary check for eanbling yolo
-    if (enabled_jit_ir_ops_.empty() || enabled_jit_ir_ops_.count(op_name)) {
+    if (!disabled_jit_ir_ops_.count(op_name)) {
       auto output_shape_info = habana_op->ComputeOutputShape(op_input_stack);
       if (output_shape_info.empty()) {
         PT_DYNAMIC_SHAPE_DEBUG(
@@ -562,7 +561,7 @@ void HabanaLaunchOpPT::RunHybridSif(
         }
       }
     } else {
-      PT_DYNAMIC_SHAPE_DEBUG("ComputeOutputShape is not enabled for ", op_name);
+      PT_DYNAMIC_SHAPE_DEBUG("ComputeOutputShape is disabled for ", op_name);
       propagate_shape();
     }
   }
