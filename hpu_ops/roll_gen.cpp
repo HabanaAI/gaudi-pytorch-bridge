@@ -53,7 +53,10 @@ void RollHabanaOperator::AddNode(
     // Handle negative axis
     axis_flat = c10::maybe_wrap_dim(axis_flat, input.dim(), true);
 
-    mod_shift = abs(shift_flat) % input_shape[axis_flat];
+    mod_shift = 0;
+    if (input_shape[axis_flat] != 0) {
+      mod_shift = abs(shift_flat) % input_shape[axis_flat];
+    }
 
     // Handle when shift value > larger/smaller than shape of the input tensor
     if (shift_flat > 0) {
