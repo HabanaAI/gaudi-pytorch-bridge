@@ -5,6 +5,7 @@ orchestratorConfig:
     silentMode: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
     runInSanitizer: true
+    runInCodeCoverage: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
     silentMode: true
 # PyTorch full graph tests
@@ -21,11 +22,14 @@ orchestratorConfig:
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
     runInSanitizer: true
+    runInCodeCoverage: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
     runInSanitizer: true
+    runInCodeCoverage: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
     runInSanitizer: true
+    runInCodeCoverage: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite
 # Dtype validation <Start>
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
@@ -44,5 +48,6 @@ orchestratorConfig:
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
     silentMode: true
     runInSanitizer: true
+    runInCodeCoverage: true
 stepConfig:
   jobTimeout: '300'
