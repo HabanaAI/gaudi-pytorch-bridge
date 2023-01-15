@@ -1002,6 +1002,7 @@ void LaunchSyncTensorsGraph(
       false); // disable acc thread during launch, but do not sync the acc
               // thread
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  context->HandleException();
   context->m_launch_thread_context = true;
   std::vector<HbLazyTensor>* tensors = &launch_info.tensors_ptr;
   PT_LAZY_EXEC_THREAD(
@@ -1102,10 +1103,9 @@ void LaunchSyncTensorsGraph(
         LazyGraphCache::GetLazyCache().RemoveGraph(
             launch_info.hlexec.GetGraphHash());
       }
-    } catch (const std::exception& e) {
+    } catch (...) {
       launch_except = std::current_exception();
       exception = true;
-      PT_LAZY_FATAL("Exception in Launch recipe from queue..\n", e.what());
     }
   }
 

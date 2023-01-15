@@ -289,6 +289,19 @@ class HbExecutionContext {
   // Handle for the launch thread, only one thread is alive at a time.
   std::future<void> m_launch_thread_handle;
   void JoinPendingLaunchThread();
+  void HandleException() {
+    if (C10_UNLIKELY(m_launch_thread_exception_handler)) {
+      try {
+        std::rethrow_exception(m_launch_thread_exception_handler);
+      } catch (const std::exception& e) {
+        m_launch_thread_exception_handler = nullptr;
+        PT_BRIDGE_FATAL("Exception in Launch thread...\n", e.what());
+      } catch (...) {
+        m_launch_thread_exception_handler = nullptr;
+        PT_BRIDGE_FATAL("Exception in Launch thread...\n");
+      }
+    }
+  }
   thread_local static bool m_launch_thread_context;
   std::exception_ptr m_launch_thread_exception_handler = nullptr;
   // Tensorids list which is part of current exec thread
