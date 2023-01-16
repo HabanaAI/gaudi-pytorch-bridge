@@ -6,24 +6,24 @@ from habana_frameworks.torch.utils.experimental.distributed_emulation import dis
 distributed_emulation_apply_if_enabled()
 
 
-def checkVisibleDevices(rank):
+def checkVisibleDevices(local_rank):
     HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
     HABANA_VISIBLE_DEVICES_VAR = "HABANA_VISIBLE_DEVICES"
     HABANA_DEVICE_ID_VAR = "ID"
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
-        assert rank < len(visible_modules), f"""There is not enough devices
+        assert local_rank < len(visible_modules), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
         is set correctly."""
-        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[rank]
+        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[local_rank]
         return
     elif HABANA_VISIBLE_DEVICES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_DEVICES_VAR].split(",")
-        assert rank < len(visible_modules), f"""There is not enough devices
+        assert local_rank < len(visible_modules), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_DEVICES_VAR}
         is set correctly."""
-        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[rank]
+        os.environ[HABANA_DEVICE_ID_VAR] = visible_modules[local_rank]
         return
 
 
