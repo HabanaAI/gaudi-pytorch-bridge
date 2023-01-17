@@ -65,7 +65,7 @@ def test_graph_training():
 
 def wrapped_func(data, target, module1, loss_fn):
     tmp = module1(data)
-    loss = loss_fn(tmp, target)
+    loss = loss_fn(tmp[:].add_(1.0), target)
     return loss
 
 

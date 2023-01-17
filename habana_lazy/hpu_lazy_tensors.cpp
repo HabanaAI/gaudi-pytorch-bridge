@@ -1533,9 +1533,15 @@ void HbLazyTensor::ExecuteCachedGraph(
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
   size_t i = 0;
+  auto& view_context =
+      habana_lazy_executor.getDeviceExecutionContext(0)->viewContext;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     HbLazyTensor out_tensor = hblazy_tensors[i++];
+
+    // clear the orig tensor map entries corresponding to cached graph outputs
+    view_context.DelOrigTensorMapEntry(out_tensor.getTensorUniqueId());
+
     out_tensor.SetTensorData(st);
   }
 }
