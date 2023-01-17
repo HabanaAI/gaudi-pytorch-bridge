@@ -95,6 +95,9 @@ __rshift__.Tensor_out:
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
 
+_copy_from:
+  override_fn: _copy_from
+
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize_lazy
 
