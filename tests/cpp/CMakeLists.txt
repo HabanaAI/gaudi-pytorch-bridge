@@ -120,6 +120,7 @@ add_executable(test_pt_integration
   hpu_ops/ne.cpp
   hpu_ops/nll_loss.cpp
   hpu_ops/norm.cpp
+  hpu_ops/op_logger.cpp
   hpu_ops/poisson.cpp
   hpu_ops/pow.cpp
   hpu_ops/prod.cpp

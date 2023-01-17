@@ -19,6 +19,7 @@
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/eager/empty.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
@@ -1003,11 +1004,6 @@ Tensor hpu_wrap::empty_strided(
       to_string(device),
       " pin_memory=",
       to_string(pin_memory));
-  FALLBACK_IF_UNSUPPORTED_OP_RT(
-      at::dtype_or_default(dtype),
-      empty_strided,
-      PARAMS1(),
-      PARAMS2(size, stride, dtype, layout, device, pin_memory))
 
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))
@@ -1044,6 +1040,11 @@ Tensor hpu_wrap::empty(
       to_string(pin_memory),
       " optional_memory_format=",
       to_string(optional_memory_format));
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    return habana::eager::empty(
+        size, dtype, layout, device, pin_memory, optional_memory_format);
+  }
+
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(dtype)
                                   .layout(layout)
@@ -1056,7 +1057,7 @@ Tensor hpu_wrap::empty(
   }
   return empty_hpu(
       C10_AS_INTARRAYREF_SLOW(size), options, optional_memory_format);
-};
+}
 
 Tensor hpu_wrap::empty_strided(
     SymIntArrayRef size,
@@ -1081,11 +1082,10 @@ Tensor hpu_wrap::empty_strided(
       to_string(device),
       " pin_memory=",
       to_string(pin_memory));
-  FALLBACK_IF_UNSUPPORTED_OP_RT(
-      at::dtype_or_default(dtype),
-      empty_strided,
-      PARAMS1(),
-      PARAMS2(size, stride, dtype, layout, device, pin_memory))
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    return habana::eager::empty_strided(
+        size, stride, dtype, layout, device, pin_memory);
+  }
 
   at::TensorOptions options = at::TensorOptions()
                                   .dtype(std::move(dtype))

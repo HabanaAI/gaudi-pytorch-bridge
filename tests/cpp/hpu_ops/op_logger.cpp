@@ -17,9 +17,9 @@
 TEST(HpuOpLogTest, logger) {
   // Tensor
   EXPECT_EQ(
-      "HPUFloatType[1, 2, 3, 4, 0]",
-      habana::to_string(at::empty(
-          {1, 2, 3, 4, 0}, at::kHPU, c10::MemoryFormat::ChannelsLast)));
+      "HPUFloatType[1, 2, 3, 4]",
+      habana::to_string(
+          at::empty({1, 2, 3, 4}, at::kHPU, c10::MemoryFormat::ChannelsLast)));
   EXPECT_EQ(
       "CPUHalfType[5, 20]", habana::to_string(at::ones({5, 20}, at::kHalf)));
 
