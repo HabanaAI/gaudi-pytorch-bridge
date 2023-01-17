@@ -29,27 +29,45 @@ std::mutex habana::DynamicBucketInfoMap::mutex_;
 
 at::Tensor habana::CreateEmptyTensor(
     const PtTensorInfo& ti,
-    habana_lazy::ShapeTensorStruct& tensor_data,
+    habana_lazy::ImplData* tensor_data,
     const std::vector<int64_t>& tshape) {
   if (ti.tensor_type() == SHAPE_TENSOR) {
     auto pt_tensor = habana_lazy::empty_hpu_lazy(
         tshape, ti.get_topts(), ti.get_mf(), false, SHAPE_TENSOR);
-    if (tensor_data.has_shape_tensor_data()) {
+    habana_lazy::ShapeTensorStruct* shape_tensor_data =
+        dynamic_cast<habana_lazy::ShapeTensorStruct*>(tensor_data);
+    if (shape_tensor_data != nullptr &&
+        shape_tensor_data->has_shape_tensor_data()) {
       auto new_impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
       HABANA_ASSERT(new_impl);
-      new_impl->get_shape_struct() = tensor_data;
+      new_impl->get_shape_struct() = *shape_tensor_data;
     }
     return pt_tensor;
+  } else if (ti.tensor_type() == HOST_TO_DEVICE_TENSOR) {
+    auto pt_tensor = habana_lazy::empty_hpu_lazy(
+        tshape, ti.get_topts(), ti.get_mf(), false, HOST_TO_DEVICE_TENSOR);
+    habana_lazy::H2DTensorData* h2d_tensor_data =
+        dynamic_cast<habana_lazy::H2DTensorData*>(tensor_data);
+    if (h2d_tensor_data != nullptr && h2d_tensor_data->has_h2d_tensor_data()) {
+      auto new_impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+      HABANA_ASSERT(new_impl);
+      void* h2d_data = h2d_tensor_data->get_host_data();
+      size_t size = h2d_tensor_data->get_size();
+      size_t el_size = h2d_tensor_data->get_elem_size();
+      habana_lazy::HostDataType dt_type = h2d_tensor_data->get_dt_type();
+      new_impl->set_host_data(h2d_data, size, el_size, dt_type);
+    }
+    return pt_tensor;
+  } else {
+    auto pt_tensor = at::empty(tshape, ti.get_topts(), ti.get_mf());
+    return pt_tensor;
   }
-
-  auto pt_tensor = at::empty(tshape, ti.get_topts(), ti.get_mf());
-  return pt_tensor;
 }
 
 torch::jit::Stack habana::CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, std::shared_ptr<habana_lazy::ImplData>>&
+        input_mdata,
     habana_helpers::TensorShapes& input_shapes) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_input_stack;
@@ -58,7 +76,8 @@ torch::jit::Stack habana::CreateInputStack(
       "Number of graph inputs ",
       rvpsh->num_inputs,
       ", number of inputs with impl data:",
-      input_metadata.size());
+      input_mdata.size());
+
   for (size_t tidx = 0; tidx < rvpsh->num_inputs; tidx++) {
     auto& ti = rvpsh->dtensorinfos->at(tidx);
     TORCH_CHECK(
@@ -67,9 +86,10 @@ torch::jit::Stack habana::CreateInputStack(
         tidx,
         "is missing from ",
         input_shapes);
-    habana_lazy::ShapeTensorStruct tensor_data;
-    if (input_metadata.count(tidx)) {
-      tensor_data = input_metadata[tidx];
+
+    habana_lazy::ImplData* tensor_data = nullptr;
+    if (input_mdata.count(tidx)) {
+      tensor_data = input_mdata[tidx].get();
     }
 
     auto pt_input = habana::CreateEmptyTensor(
@@ -95,8 +115,8 @@ bool habana::RefineBucketDS(size_t graph_key) {
 
 bool habana::CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, std::shared_ptr<habana_lazy::ImplData>>&
+        input_mdata,
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,
@@ -119,7 +139,7 @@ bool habana::CompileGraphWithRange(
       rvpsh->header_str());
 
   torch::jit::Stack input_stack =
-      habana::CreateInputStack(rvpsh, input_metadata, input_ranges.min_shapes);
+      habana::CreateInputStack(rvpsh, input_mdata, input_ranges.min_shapes);
   PrintStack(input_stack);
 
   auto mp_g_ = rvpsh->jit_graph_;
