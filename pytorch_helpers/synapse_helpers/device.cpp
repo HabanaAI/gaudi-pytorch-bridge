@@ -293,6 +293,9 @@ device::device(
       recipe_handle_cache_{*this},
       host_memory_{*this},
       device_memory_{*this} {
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) && (type_ == synDeviceGaudi2)) {
+    SetEagerModeEnv();
+  }
   // create default stream
   create_default_compute_stream();
   HABANA_ASSERT(create_allocator != nullptr);
@@ -498,6 +501,40 @@ int device::get_total_device_count() {
   return count;
 }
 
+void device::SetEagerModeEnv() {
+  // SET_ENV_FLAG_NEW(name, value, overwrite)
+
+  eager_gc_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API);
+  if (!eager_gc_mode) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
+  }
+
+  recipe_cache_enable = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
+  if (recipe_cache_enable) {
+    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, false, 1);
+  }
+
+  shape_agnostic_enable =
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
+  if (!shape_agnostic_enable) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, true, 1);
+  }
+}
+
+void device::ResetEagerModeEnv() {
+  // SET_ENV_FLAG_NEW(name, value, overwrite)
+
+  if (!eager_gc_mode) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, false, 1);
+  }
+  if (recipe_cache_enable) {
+    SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, true, 1);
+  }
+  if (!shape_agnostic_enable) {
+    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, false, 1);
+  }
+}
+
 void device::cleanup() {
   if (cleanup_done_) {
     return;
@@ -542,6 +579,9 @@ void device::cleanup() {
 device::~device() {
   PT_SYNHELPER_DEBUG("Device dectructor entry");
   cleanup();
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) && (type_ == synDeviceGaudi2)) {
+    ResetEagerModeEnv();
+  }
 }
 
 void device::flush_stream_events() {
