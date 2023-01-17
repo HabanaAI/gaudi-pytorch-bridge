@@ -24,6 +24,10 @@ from collections import defaultdict
 from yaml import Loader
 from packaging.version import Version
 
+# Temporary flag, remove libraries are split
+_IS_EAGER = os.environ.get("PT_HPU_EAGER_OPS", "0").lower() in ["1", "true"]
+
+
 def namedtuple_with_defaults(typename, field_names, default_values=()):
     ntuple = collections.namedtuple(typename, field_names)
     ntuple.__new__.__defaults__ = (None,) * len(ntuple._fields)
@@ -355,6 +359,7 @@ class Op(object):
 
     def get_out_dtype(self):
         return self.op.get("out_dtype", None)
+
 
 class Context(object):
     def __init__(self, functions, yamlfile):
@@ -793,7 +798,7 @@ def frontend(
                     code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(
                         fname
                     )
-                elif "TensorList" in sig:
+                elif rtype == "void" and "TensorList" in sig:
                     assert (
                         sig.count("TensorList") == 1
                     ), f"Only 1 TensorList input supported for inplace ops. Sig: {sig}"
@@ -801,10 +806,8 @@ def frontend(
                         fname, param_vars[0]
                     )
                 elif rtype.startswith("const at::Tensor"):
-                    code += (
-                        "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
-                            fname, lazyop_call_args
-                        )
+                    code += "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
+                        fname, lazyop_call_args
                     )
                 else:
                     code += (
@@ -1046,10 +1049,13 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
     else:
         return (
             rtype.startswith("at::Tensor")  # regular, in-place, _out ops
-            or rtype.startswith("const at::Tensor")  # only resize_ op so far, handled as inplace/out (shape change)
+            or rtype.startswith(
+                "const at::Tensor"
+            )  # only resize_ op so far, handled as inplace/out (shape change)
             or rtype.startswith("::std::tuple<at::Tensor")  # tuple ops
             or "TensorList" in sig  # TensorList ops
         )
+
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):
@@ -1209,12 +1215,14 @@ def get_hpu_wrapper(fndef, ctx):
         op_frontend, op_backend, cname, ctxop, fc_params = generate_code(
             ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params
         )
-        if ctxop.force_default() is not None:
+
+        # Use default flag from pytorch when force_default is not defined or in eager flow
+        if ctxop.force_default() is None or _IS_EAGER:
+            default = fndef.default
+        else:
             default = ctxop.force_default()
             if default == fndef.default:
                 print("No need to force it to False for {}".format(opname))
-        else:
-            default = fndef.default
 
         if default:
             print("{} has default={}".format(opname, default))
@@ -1541,14 +1549,21 @@ def gen_manual_op_registrations(fgens, args):
         for mapsig, cpp_sig in overrides.items():
             mapsig_key = get_mapsig_key(mapsig)
             if mapsig_key not in overridden:
-                misses += 1
+                # In eager flow, we skip non mandatory ops registration without asserting here
+                if not _IS_EAGER:
+                    misses += 1
                 _print_missed_override_error(overridden, mapsig, cpp_sig, mapsig_key)
         return misses == 0
 
     aten_code = "TORCH_LIBRARY_IMPL(aten, HPU, m) {\n"
-    autogradhpu_code = "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n"
+    autogradhpu_code = (
+        "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n  static_cast<void>(m);\n"
+    )
     overridden = set()
     for fgen in fgens:
+        if _IS_EAGER and not (fgen.dispatch and not fgen.default):
+            continue
+
         mapsig_key = get_mapsig_key(fgen.mapsig)
         if mapsig_key in overrides:
             override_fn = "hpu_wrap::{}".format(fgen.func)
@@ -1681,15 +1696,6 @@ def generate_autocast_ops(fgens, args):
 
 
 def generate(args):
-    # TODO: Remove this once this old directory is removed from all build env
-    import shutil
-
-    old_gen_dir = os.path.join(
-        os.environ["PYTORCH_MODULES_ROOT_PATH"], "hpu_ops/generated/"
-    )
-    if os.path.isdir(old_gen_dir):
-        shutil.rmtree(old_gen_dir)
-
     fndefs, errors = extract_functions(args.typedef)
     assert len(errors) == 0
 
@@ -1721,6 +1727,9 @@ def generate(args):
         for op in ctx.op_data.keys():
             if op not in fgen_data:
                 print("Cannot generate {}, skipping it...".format(op), file=sys.stderr)
+
+    if _IS_EAGER:
+        fgens = [x for x in fgens if x.dispatch and not x.default]
 
     num_shards = 5
     num_fgens_per_shard = len(fgens) // num_shards
