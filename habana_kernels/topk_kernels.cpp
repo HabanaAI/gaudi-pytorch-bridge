@@ -149,8 +149,10 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   int64_t k;
   // Get k value
   if (inputs[1].isTensor()) {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
-    TORCH_CHECK(p_context_->syn_inputs_.size() == 2);
+    TORCH_CHECK(
+        (p_context_->syn_inputs_.size() == 2) ||
+        (p_context_->syn_inputs_.size() == 4));
+    TORCH_CHECK(p_context_->syn_inputs_.at(1).ref().is_shape_tensor());
     Tensor k_tensor = inputs[1].toTensor();
     k = k_tensor.sizes().vec().at(
         0); // Get the first element which holds the dynamic value of k
