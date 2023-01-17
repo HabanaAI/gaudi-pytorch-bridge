@@ -55,6 +55,7 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/eager/as_strided.h"
 #include "hpu_ops/eager/view.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -1354,6 +1355,10 @@ Tensor as_strided_hpu_lazy2(
     SymIntArrayRef size,
     SymIntArrayRef stride,
     c10::optional<SymInt> offset) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    return habana::eager::as_strided(self, size, stride, offset);
+  }
+
   PT_LAZY_TRACE;
   auto storage_offset_val =
       offset.has_value() ? offset.value().expect_int() : self.storage_offset();

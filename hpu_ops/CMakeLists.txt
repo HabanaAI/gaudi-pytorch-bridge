@@ -135,6 +135,7 @@ target_sources(
           hpu_ops/vdot_gen.cpp
           hpu_ops/where_gen.cpp
           hpu_ops/xlogy_gen.cpp
+          hpu_ops/eager/as_strided.cpp
           hpu_ops/eager/empty.cpp
           hpu_ops/eager/copy.cpp
           hpu_ops/eager/view.cpp
