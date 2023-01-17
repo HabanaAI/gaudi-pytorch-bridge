@@ -55,6 +55,7 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/eager/view.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
@@ -1587,6 +1588,9 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   auto size_ = size;
 #else
 Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    return habana::eager::view(self_, size);
+  }
   PT_LAZY_TRACE;
   auto size_ = C10_AS_INTARRAYREF_SLOW(size);
 #endif
