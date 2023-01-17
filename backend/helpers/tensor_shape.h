@@ -13,9 +13,10 @@
 #pragma once
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
+#include <synapse_api_types.h>
 #include <iostream>
 #include <vector>
-#include "tensor_utils.h"
+//#include "tensor_utils.h"
 
 namespace habana_helpers {
 

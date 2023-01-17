@@ -9,7 +9,7 @@
  */
 #pragma once
 #include <iostream>
-#include "habana_helpers/tensor_shape.h"
+#include "backend/helpers/tensor_shape.h"
 #include "synapse_helpers/graph.h"
 
 namespace habana {

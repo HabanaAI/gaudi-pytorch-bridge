@@ -87,17 +87,6 @@ add_subdirectory(pytorch_helpers)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
-  habana_bridge/kernel/ds_graph_recompile.cpp
-  habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
-  habana_bridge/kernel/hpu_habana_launch_op_pt_lowering.cpp
-  habana_bridge/kernel/hpu_habana_launch_op_pt_sif.cpp
-  habana_bridge/kernel/hpu_habana_cache.cpp
-  habana_bridge/kernel/hpu_process_control_edges.cpp
-  habana_bridge/kernel/hpu_shape_inference.cpp
-  habana_bridge/kernel/refinement_engine.cpp
-  habana_bridge/passes/habana_fuser.cpp
-  habana_bridge/passes/remove_inplace_ops.cpp
-  habana_bridge/passes/hpu_habana_persistence_marker_pass.cpp
   habana_bridge/program/cache.cpp
   habana_bridge/program/splitter.cpp
   habana_bridge/program/program.cpp
@@ -113,19 +102,13 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp
-  pytorch_helpers/habana_helpers/tensor_info.cpp
   pytorch_helpers/habana_helpers/tensor_utils.cpp
-  pytorch_helpers/habana_helpers/tensor_shape.cpp
-  pytorch_helpers/habana_helpers/dynamic_bucket_info.cpp
-  pytorch_helpers/habana_helpers/dynamic_bucket_info_utils.cpp
-  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
-  pytorch_helpers/habana_helpers/compilation_statistics.cpp
-  pytorch_helpers/habana_helpers/collective_kernel_info.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
+  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
   pytorch_helpers/habana_helpers/cast_sequence.cpp
   pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
@@ -215,6 +198,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/hpu_stage_submission.cpp
   ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
+add_subdirectory(backend)
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
@@ -225,14 +209,13 @@ target_link_libraries(habana_pytorch_plugin
   PRIVATE
     habana_serialization
     torch
-    pytorch_synapse_helpers_abi11
-    ${PYTORCH_SYNAPSE_UTILS_LIB}
+    habana_pytorch_backend
     json
     tensor_comparator_core
-    -lstdc++fs
+    absl::hash
 )
 
-target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
 target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR} ${CMAKE_BINARY_DIR})
 if (DEFINED ENV{KINETO_ROOT})
   target_include_directories(habana_pytorch_plugin PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)

@@ -9,9 +9,9 @@
  */
 #pragma once
 #include <synapse_api_types.h>
+#include "backend/helpers/tensor_info.h"
+#include "backend/helpers/tensor_shape.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/tensor_info.h"
-#include "habana_helpers/tensor_shape.h"
 #include "habana_helpers/tensor_utils.h"
 #include "include/habanalabs/hpu_custom_op.h"
 #include "synapse_helpers/device_types.h"

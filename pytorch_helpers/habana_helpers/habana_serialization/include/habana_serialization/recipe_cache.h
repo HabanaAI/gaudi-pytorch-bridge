@@ -10,7 +10,6 @@
 #pragma once
 
 #include <synapse_api_types.h>
-#include <synapse_helpers/graph.h>
 #include <algorithm>
 #include <condition_variable>
 #include <cstdint>
@@ -22,6 +21,7 @@
 #include <string>
 #include "cache_file_handler.h"
 #include "inter_host_cache.h"
+#include "synapse_helpers/graph.h"
 
 namespace serialization {
 

@@ -26,9 +26,9 @@
 #include <thread>
 #include <unordered_set>
 
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_device/HPUEvent.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 using namespace habana_lazy;
 
 #define ASSERT_EQ_HPU(X, Y) \

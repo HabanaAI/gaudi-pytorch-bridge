@@ -12,6 +12,7 @@
 #include "generated/backend/nll_loss2d_forward.h"
 #include "generated/backend/nll_loss_backward.h"
 #include "generated/backend/nll_loss_forward.h"
+#include "habana_helpers/tensor_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {

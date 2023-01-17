@@ -29,4 +29,9 @@ target_include_directories(habana_serialization
     PUBLIC  include/
 )
 
-target_link_libraries(habana_serialization PUBLIC torch c10 pytorch_synapse_helpers_abi11)
+target_include_directories(habana_serialization
+   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+
+target_include_directories(habana_serialization PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
+target_include_directories(habana_serialization PUBLIC "$ENV{SPDLOG_ROOT}")
+target_link_libraries(habana_serialization PUBLIC torch c10 absl::span)

@@ -1,30 +1,29 @@
-#include "test_base.h"
-#include "test_utils.h"
-#include "habana_bridge/passes/habana_fuser.h"
-#include "torch/csrc/jit/runtime/argument_spec.h"
-#include "torch/csrc/jit/runtime/autodiff.h"
-#include "torch/csrc/jit/passes/common_subexpression_elimination.h"
+#include <ATen/ATen.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
-#include <torch/csrc/jit/passes/lower_tuples.h>
 #include <torch/csrc/jit/passes/inline_autodiff_subgraphs.h>
 #include <torch/csrc/jit/passes/inliner.h>
 #include <torch/csrc/jit/passes/lower_grad_of.h>
+#include <torch/csrc/jit/passes/lower_tuples.h>
+#include <torch/csrc/jit/passes/peephole.h>
+#include <torch/csrc/jit/passes/specialize_autogradzero.h>
+#include "backend/passes/habana_fuser.h"
+#include "test_base.h"
+#include "test_utils.h"
+#include "torch/csrc/autograd/engine.h"
+#include "torch/csrc/autograd/generated/variable_factories.h"
+#include "torch/csrc/autograd/variable.h"
+#include "torch/csrc/jit/frontend/tracer.h"
+#include "torch/csrc/jit/passes/common_subexpression_elimination.h"
 #include "torch/csrc/jit/passes/constant_propagation.h"
 #include "torch/csrc/jit/passes/create_autodiff_subgraphs.h"
 #include "torch/csrc/jit/passes/dead_code_elimination.h"
 #include "torch/csrc/jit/passes/graph_fuser.h"
 #include "torch/csrc/jit/passes/lower_grad_of.h"
-#include <torch/csrc/jit/passes/peephole.h>
 #include "torch/csrc/jit/passes/requires_grad_analysis.h"
 #include "torch/csrc/jit/passes/shape_analysis.h"
-#include <torch/csrc/jit/passes/specialize_autogradzero.h>
 #include "torch/csrc/jit/passes/utils/subgraph_utils.h"
-#include "torch/csrc/jit/frontend/tracer.h"
-#include <ATen/ATen.h>
-#include "torch/csrc/autograd/engine.h"
-#include "torch/csrc/autograd/generated/variable_factories.h"
-#include "torch/csrc/autograd/variable.h"
-
+#include "torch/csrc/jit/runtime/argument_spec.h"
+#include "torch/csrc/jit/runtime/autodiff.h"
 
 namespace torch {
 namespace jit {
@@ -338,7 +337,6 @@ void testDifferentiateWithRequiresGrad(std::string graph_string) {
 
 
 }*/
-
 
 } // namespace jit
 } // namespace torch

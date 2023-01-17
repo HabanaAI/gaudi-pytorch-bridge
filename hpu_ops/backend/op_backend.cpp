@@ -15,9 +15,10 @@
 #include <c10/core/ScalarType.h>
 #include "habana_helpers/cast_sequence.h"
 #include "habana_helpers/dtype_helpers.h"
+#include "habana_helpers/pt_version_check.h"
+#include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace {
 auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {

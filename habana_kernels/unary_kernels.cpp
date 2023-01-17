@@ -14,9 +14,9 @@
 #include <ATen/InferSize.h>
 #include <ATen/WrapDimUtils.h>
 
+#include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"

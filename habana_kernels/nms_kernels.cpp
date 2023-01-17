@@ -10,7 +10,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
-#include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"

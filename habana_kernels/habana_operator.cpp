@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "habana_operator.h"
-#include "habana_bridge/kernel/hpu_shape_inference.h"
-#include "habana_helpers/graph.h"
+#include "backend/helpers/graph.h"
+#include "backend/kernel/hpu_shape_inference.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"

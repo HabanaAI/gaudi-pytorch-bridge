@@ -13,7 +13,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_lazy/ir.h"

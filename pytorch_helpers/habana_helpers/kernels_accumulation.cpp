@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_executor.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 
 #include <string>
 #include <unordered_set>

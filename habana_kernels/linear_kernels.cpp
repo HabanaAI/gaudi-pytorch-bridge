@@ -12,10 +12,10 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"

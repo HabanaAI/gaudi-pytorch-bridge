@@ -20,7 +20,7 @@
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 #include <habana_device/PinnedMemoryAllocator.h>
-#include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"

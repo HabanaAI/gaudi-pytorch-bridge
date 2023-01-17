@@ -16,16 +16,16 @@
 #include <algorithm>
 #include <mutex>
 
-#include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "backend/helpers/graph.h"
+#include "backend/helpers/tensor_info.h"
+#include "backend/kernel/hpu_shape_inference.h"
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 
-#include "habana_helpers/graph.h"
 #include "habana_helpers/pt_version_check.h"
-#include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/habana_operator.h"

@@ -20,7 +20,7 @@
 
 #include <torch/csrc/api/include/torch/version.h>
 
-#include "habana_bridge/passes/hpu_habana_persistence_marker_pass.h"
+#include "backend/passes/hpu_habana_persistence_marker_pass.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/logging.h"

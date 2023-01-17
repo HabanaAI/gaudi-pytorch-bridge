@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
 
 #include <algorithm>
 #include <chrono>
@@ -19,9 +19,9 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 
+#include "backend/helpers/tensor_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
-#include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/deserializers.h"
@@ -35,7 +35,7 @@
 
 #include "habana_kernels/hccl_kernels.h"
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include "habana_lazy/memlog.h"
 

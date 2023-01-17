@@ -33,8 +33,8 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_bridge/passes/hpu_habana_pass_interface.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/passes/hpu_habana_pass_interface.h"
 
 #include "habana_helpers/logging.h"
 

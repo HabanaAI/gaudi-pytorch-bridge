@@ -10,9 +10,16 @@
 #include "logging.h"
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>
+#include <logging.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "habana_lazy/debug_utils.h"
+
+PtLogger::PtLogger() {
+  loadMask();
+  CREATE_LOGGER(
+      "PYTORCH_HPU_OPS", "pytorch_plugin.log", 1000 * 1000 * 10, 3, 3);
+}
 
 namespace Logger {
 

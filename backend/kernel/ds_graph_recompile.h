@@ -19,8 +19,7 @@
 #include <mutex>
 #include <thread>
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_lazy/tensor_impl.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana {
 

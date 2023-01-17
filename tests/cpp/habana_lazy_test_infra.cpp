@@ -11,8 +11,8 @@
 #include "habana_lazy_test_infra.h"
 #include <absl/strings/match.h>
 
+#include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana_lazy_test {
 

@@ -17,7 +17,7 @@
 #include <fstream>
 #include <unordered_set>
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 namespace at {
 namespace autocast {

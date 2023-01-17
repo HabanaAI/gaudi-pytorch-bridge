@@ -20,7 +20,7 @@
 
 #include <c10/util/Exception.h>
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 TEST(EnvFlags, GetEnv) {

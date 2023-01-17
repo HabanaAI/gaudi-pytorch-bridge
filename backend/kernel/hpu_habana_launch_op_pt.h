@@ -33,15 +33,15 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
-#include "habana_bridge/kernel/hpu_habana_cache.h"
-#include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
-#include "habana_bridge/kernel/hpu_shape_inference.h"
+#include "backend/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_meta_op_list.h"
+#include "backend/kernel/hpu_shape_inference.h"
 
+#include "backend/helpers/compilation_statistics.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/visualize.h"
-#include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 
 namespace habana {
 using CValPtr = const torch::jit::Value*;

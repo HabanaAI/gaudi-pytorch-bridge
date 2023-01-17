@@ -3,6 +3,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "backend/helpers/graph.h"
 #include "habana_device/HPUGuardImpl.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -12,7 +13,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy/lazy_executor.h"
-#include "pytorch_helpers/habana_helpers/graph.h"
 
 using namespace habana_lazy;
 using namespace at;

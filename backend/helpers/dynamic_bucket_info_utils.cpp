@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 
-#include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
+#include "backend/helpers/dynamic_bucket_info.h"
 
 namespace habana_helpers {
 std::string ResultShapes::DebugString() {

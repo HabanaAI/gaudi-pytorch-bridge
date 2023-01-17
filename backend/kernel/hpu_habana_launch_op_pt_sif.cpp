@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -24,15 +24,15 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/tensor_builder.h"
 
-#include "habana_bridge/kernel/ds_graph_recompile.h"
-#include "habana_bridge/kernel/hpu_shape_inference.h"
-#include "habana_bridge/kernel/refinement_engine.h"
-#include "habana_bridge/passes/hpu_habana_persistence_marker_pass.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_shape_inference.h"
+#include "backend/kernel/refinement_engine.h"
+#include "backend/passes/hpu_habana_persistence_marker_pass.h"
 
-#include "habana_helpers/graph.h"
+#include "backend/helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
-#include "habana_helpers/tensor_utils.h"
+#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"

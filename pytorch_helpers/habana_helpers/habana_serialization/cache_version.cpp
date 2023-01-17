@@ -16,7 +16,7 @@
 #include <absl/types/span.h>
 #include <dlfcn.h>
 #include <link.h>
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
 
 #include <fcntl.h>
@@ -57,7 +57,7 @@ std::string habana_device_path(void) {
   dladdr((void*)habana_device_path, &dl_info);
   std::string lib_path = dl_info.dli_fname;
   HABANA_ASSERT(
-      lib_path.find("libhabana_pytorch_plugin.so") != std::string::npos);
+      lib_path.find("libhabana_pytorch_backend.so") != std::string::npos);
   return lib_path;
 }
 

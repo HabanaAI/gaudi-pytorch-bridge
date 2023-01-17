@@ -1,5 +1,5 @@
 #include <tests/cpp/habana_lazy_test_infra.h>
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 using namespace habana_lazy;
 

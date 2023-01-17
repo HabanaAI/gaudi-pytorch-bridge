@@ -6,9 +6,9 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 
+#include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy_test_infra.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;

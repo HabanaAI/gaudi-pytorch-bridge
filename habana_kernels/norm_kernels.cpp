@@ -16,11 +16,11 @@
 #include <memory>
 #include <tuple>
 
+#include "backend/helpers/graph.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "generated/backend/ne.h"
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_inplace_kernels.h"

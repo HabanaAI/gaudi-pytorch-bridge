@@ -11,14 +11,14 @@
  *******************************************************************************
  */
 
-#include "habana_bridge/kernel/refinement_engine.h"
+#include "backend/kernel/refinement_engine.h"
 
-#include "habana_bridge/kernel/ds_graph_recompile.h"
+#include "backend/kernel/ds_graph_recompile.h"
 
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 habana::RefinementEngine& habana::RefinementEngine::GetEngine() {
   static RefinementEngine engine_;

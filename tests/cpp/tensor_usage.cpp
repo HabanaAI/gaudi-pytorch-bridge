@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"

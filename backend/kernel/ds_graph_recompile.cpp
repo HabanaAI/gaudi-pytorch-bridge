@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 
-#include "habana_bridge/kernel/ds_graph_recompile.h"
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_habana_cache.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
@@ -22,8 +22,8 @@
 
 #include "habana_kernels/lazy_kernels.h"
 
-#include "pytorch_helpers/habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/tensor_info.h"
+#include "backend/helpers/tensor_info.h"
+#include "habana_helpers/logging.h"
 
 std::mutex habana::DynamicBucketInfoMap::mutex_;
 

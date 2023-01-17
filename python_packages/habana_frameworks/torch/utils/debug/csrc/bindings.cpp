@@ -8,14 +8,14 @@
  ******************************************************************************
  */
 #include <torch/extension.h>
-#include "habana_bridge/kernel/hpu_habana_cache.h"
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/helpers/dynamic_bucket_info.h"
+#include "backend/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/memlog.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_fallback_op_count", []() {

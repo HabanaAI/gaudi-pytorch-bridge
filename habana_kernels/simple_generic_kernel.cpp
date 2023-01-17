@@ -8,9 +8,9 @@
  ******************************************************************************
  */
 #include "simple_generic_kernel.h"
+#include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 
 void synapse_simple_generic_kernel(
     std::vector<at::Tensor>& pt_outputs, // NHWC

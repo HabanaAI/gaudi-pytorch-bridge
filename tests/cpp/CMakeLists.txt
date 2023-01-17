@@ -264,8 +264,7 @@ target_link_libraries(test_pt_integration PRIVATE
   "${PYTHON3_LIB}"
   torch
   habana_pytorch_plugin
-  habana_serialization
-  pytorch_synapse_helpers_abi11
+  habana_pytorch_backend
   gtest
   gtest_main
   util
@@ -273,6 +272,7 @@ target_link_libraries(test_pt_integration PRIVATE
   stdc++
   stdc++fs
   dl)
+target_include_directories(test_pt_integration PUBLIC "$ENV{SPDLOG_ROOT}")
 
 add_custom_command(TARGET test_pt_integration POST_BUILD COMMAND
   ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>

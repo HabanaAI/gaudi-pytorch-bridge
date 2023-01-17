@@ -14,7 +14,7 @@
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/lower_tuples.h>
 #include <torch/csrc/jit/passes/peephole.h>
-#include "habana_bridge/passes/mark_ops/Fusion_Ops.h"
+#include "backend/passes/mark_ops/Fusion_Ops.h"
 #include "habana_helpers/logging.h"
 #include "remove_inplace_ops.h"
 

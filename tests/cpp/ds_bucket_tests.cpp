@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 
+#include "backend/helpers/dynamic_bucket_info.h"
 #include "habana_lazy_test_infra.h"
-#include "pytorch_helpers/habana_helpers/dynamic_bucket_info.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 TEST(DS_TensorShapeTest, Simple) {

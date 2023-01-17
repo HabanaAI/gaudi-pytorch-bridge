@@ -22,8 +22,8 @@
 
 #include "habana_kernels/lazy_kernels_declarations.h"
 
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 

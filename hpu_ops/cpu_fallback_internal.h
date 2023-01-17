@@ -21,7 +21,7 @@
 #include <ATen/ops/result_type.h>
 #include <ATen_ver/native/CPUFallback.h>
 #include "habana_kernels/op_support_level.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 // clang-format on
 

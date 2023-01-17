@@ -16,7 +16,7 @@
 #include <sstream>
 #include <utility>
 #include <vector>
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 #include "habana_lazy/aten_lazy_bridge.h"

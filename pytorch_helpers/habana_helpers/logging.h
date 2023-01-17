@@ -9,19 +9,18 @@
  */
 #pragma once
 
-#include <logging.h>
-#include <synapse_helpers/runtime_tracing.h>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <utility>
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
+#include "pytorch_helpers/synapse_helpers/runtime_tracing.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#include "spdlog/common.h"
 #include "spdlog/fmt/bundled/format.h"
+#include "spdlog/spdlog.h"
 #pragma GCC diagnostic pop
 #include <absl/strings/str_format.h>
 
@@ -209,11 +208,7 @@ class PtLogger {
       }
     }
   }
-  PtLogger() {
-    loadMask();
-    CREATE_LOGGER(
-        "PYTORCH_HPU_OPS", "pytorch_plugin.log", 1000 * 1000 * 10, 3, 3);
-  }
+  PtLogger();
 
  public:
   PtLogger(const PtLogger&) = delete;

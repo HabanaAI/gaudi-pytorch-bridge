@@ -9,7 +9,7 @@
  */
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hlexec.h"

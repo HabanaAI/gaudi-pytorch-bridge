@@ -21,9 +21,9 @@
 #include <utility>
 #include <vector>
 
+#include "backend/helpers/tensor_shape.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
-#include "pytorch_helpers/habana_helpers/tensor_shape.h"
 
 namespace habana_helpers {
 constexpr size_t max_elements_to_print = 64;

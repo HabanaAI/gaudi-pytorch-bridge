@@ -21,11 +21,11 @@
 #include <memory>
 #include <variant>
 
-#include "habana_bridge/kernel/ds_graph_recompile.h"
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_habana_cache.h"
 
+#include "backend/helpers/compilation_statistics.h"
 #include "pytorch_helpers/habana_device/HPUCheck.h"
-#include "pytorch_helpers/habana_helpers/compilation_statistics.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace synapse_helpers;

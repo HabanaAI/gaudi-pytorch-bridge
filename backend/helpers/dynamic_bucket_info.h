@@ -12,7 +12,7 @@
  */
 #pragma once
 
-#include "pytorch_helpers/habana_helpers/dynamic_bucket_info_utils.h"
+#include "backend/helpers/dynamic_bucket_info_utils.h"
 
 #include <cstdint>
 

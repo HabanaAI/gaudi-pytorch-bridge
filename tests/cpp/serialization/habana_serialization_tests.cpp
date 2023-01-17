@@ -7,11 +7,11 @@
 
 #include <experimental/filesystem>
 #include <fstream>
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_serialization/deserializers.h"
-#include "habana_serialization/serializers.h"
+#include "pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
+#include "pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace std;

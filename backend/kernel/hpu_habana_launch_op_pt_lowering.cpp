@@ -10,11 +10,11 @@
  *
  *******************************************************************************
  */
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
+#include "habana_helpers/logging.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "pytorch_helpers/habana_device//hpu_cached_devices.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {

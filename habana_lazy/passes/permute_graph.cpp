@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include "permute_graph.h"
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"

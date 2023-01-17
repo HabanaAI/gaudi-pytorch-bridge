@@ -16,10 +16,10 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/torch.h>
 
-#include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "backend/kernel/hpu_habana_cache.h"
+#include "habana_helpers/logging.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy_test_infra.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 
 TEST(DS_CacheTest, UniqueTokenGenTest) {
   auto t0 = habana_helpers::UniqueTokenGenerator::get_gen().token();

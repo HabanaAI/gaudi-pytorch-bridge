@@ -10,7 +10,7 @@
 
 #include "recalculate_batchnorm_params.h"
 #include <torch/script.h>
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "weight_permute_graph.h"
 

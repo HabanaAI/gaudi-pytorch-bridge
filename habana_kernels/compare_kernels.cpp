@@ -13,10 +13,10 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/helpers/graph.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/compare_kernels.h"

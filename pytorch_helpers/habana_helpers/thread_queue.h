@@ -21,7 +21,7 @@
 #include <iostream>
 #include <mutex>
 #include <queue>
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_helpers {

@@ -15,8 +15,8 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
-#include "habana_bridge/kernel/ds_graph_recompile.h"
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include "habana_helpers/logging.h"
 

@@ -13,8 +13,8 @@
 #include <ATen/Parallel.h>
 #include <c10/util/thread_name.h>
 
+#include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_graph_hash_disabler.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.h"
 
 namespace habana_lazy {

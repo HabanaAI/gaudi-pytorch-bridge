@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 TEST(MiscUtils, ModExp) {

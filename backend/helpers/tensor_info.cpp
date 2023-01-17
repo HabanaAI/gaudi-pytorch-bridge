@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 
-#include "habana_helpers/tensor_info.h"
+#include "backend/helpers/tensor_info.h"
 
 #include <sstream>
 
@@ -20,7 +20,7 @@
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 
-#include "pytorch_helpers/habana_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
