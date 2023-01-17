@@ -713,7 +713,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       synapse_helpers::tensor_builder(
           shape, calculate_strides(shape.vec()), pytorch_to_synapse_type(dtype))
           .mark_persistence(persistent)
-          .mark_external(external);
+          .mark_external(external)
+          .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
   if (!name.empty()) {
     builder.use_suffix(name);
   }
@@ -865,7 +866,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .mark_external(external)
           .with_permutation(permutation)
           .with_dont_allow_permutation(dont_allow_permutation)
-          .mark_const_section(const_section);
+          .mark_const_section(const_section)
+          .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
   // Add a check to validate the inference_range
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
@@ -1000,7 +1002,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
           .mark_persistence(persistent)
           .mark_external(external)
           .with_permutation(permutation)
-          .with_dont_allow_permutation(dont_allow_permutation);
+          .with_dont_allow_permutation(dont_allow_permutation)
+          .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
 
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     bool range_found = false;
@@ -1328,7 +1331,8 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
                      .with_memory_section(tensor.memorysection())
                      .mark_persistence(tensor.is_persistent())
                      .mark_external(external)
-                     .set_offset(tensor.get_offset());
+                     .set_offset(tensor.get_offset())
+                     .with_is_shape_agnostic_on(tensor.is_shape_agnostic());
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     PT_LAZY_DEBUG(
@@ -1377,7 +1381,8 @@ synapse_helpers::tensor habana_helpers::
                      .with_memory_section(tensor.memorysection())
                      .set_offset(offset)
                      .mark_persistence(tensor.is_persistent())
-                     .mark_external(external);
+                     .mark_external(external)
+                     .with_is_shape_agnostic_on(tensor.is_shape_agnostic());
 
   if (tensor.has_dynamic_shape()) {
     std::vector<int64_t> min, max;

@@ -3214,6 +3214,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
       auto syn_graph =
           habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+      syn_graph.set_shape_agnostic_graph(true);
       BuildSynapseGraph(syn_graph);
 
       if (syn_graph_ptr->is_empty()) {

@@ -253,6 +253,14 @@ class graph {
     is_valid_ = flag;
   }
 
+  bool is_shape_agnostic_graph() const {
+    return is_shape_agnostic_graph_;
+  }
+
+  void set_shape_agnostic_graph(bool shape_agnostic_graph = true) {
+    is_shape_agnostic_graph_ = shape_agnostic_graph;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
@@ -289,6 +297,7 @@ class graph {
   synGraphHandle duplicate_graph_handle_{};
   uint32_t numTensors = 0;
   uint32_t numNodes = 0;
+  bool is_shape_agnostic_graph_{false};
 };
 
 } // namespace synapse_helpers

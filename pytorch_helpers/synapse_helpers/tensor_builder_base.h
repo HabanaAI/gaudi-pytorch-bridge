@@ -124,6 +124,11 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& with_is_shape_agnostic_on(const bool flag) {
+    is_shape_agnostic_on_ = flag;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& with_inference_range(const float min, const float max) {
     have_quantization_data = true;
     inference_min = min;
@@ -318,6 +323,7 @@ class tensor_builder_base {
     if (have_quantization_data)
       t.set_inference_range(inference_min, inference_max);
     t.set_dont_allow_permute(dont_allow_permutation_);
+    t.set_shape_agnostic_on(is_shape_agnostic_on_);
 
     auto create_result{t.create()};
 
@@ -357,6 +363,7 @@ class tensor_builder_base {
   bool error_invalid_dtype_{false};
   synapse_helpers::layouts::MemoryPermutation permutation_;
   bool dont_allow_permutation_{false};
+  bool is_shape_agnostic_on_{false};
 
   uint64_t total_size_bytes() const {
     return detail::size_bytes_from_shape(shape_.max(), data_type_);

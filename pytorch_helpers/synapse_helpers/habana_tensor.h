@@ -70,7 +70,8 @@ class memory_section {
       // To Do - make a provision to destroy at the end of use case for shape
       // agnostic as sections would not be destoryed by graph destroy
       if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH))) {
+            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
+            is_sa_on_)) {
         synSectionDestroy(memory_section_);
       }
     }
@@ -86,8 +87,18 @@ class memory_section {
     return memory_section_;
   }
 
+  void set_sa_on(const bool flag) {
+    is_sa_on_ = flag;
+  }
+
+  bool is_sa_on() const {
+    return is_sa_on_;
+  }
+
  private:
   synSectionHandle memory_section_;
+  // flag to recognize if this section is part of shape agnostic cached graph
+  bool is_sa_on_{false};
 };
 
 using shared_memory_section = std::shared_ptr<memory_section>;
@@ -401,6 +412,14 @@ class tensor final {
     return host_ptr_size_;
   }
 
+  bool is_shape_agnostic() const {
+    return is_shape_agnostic_;
+  }
+
+  void set_shape_agnostic_on(bool flag) {
+    is_shape_agnostic_ = flag;
+  }
+
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
 
   std::string DebugString() const {
@@ -515,6 +534,8 @@ class tensor final {
   // permutaion representation for passing strided weight tensor to Synapse
   synapse_helpers::layouts::MemoryPermutation permutation_;
   bool dont_allow_permute_ = false;
+
+  bool is_shape_agnostic_ = false;
 };
 
 /**
