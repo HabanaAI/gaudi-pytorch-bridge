@@ -514,13 +514,28 @@ class ModuleCacher(torch.nn.Module):
         self.model_dict = {}
         self.max_graphs = max_graphs
         self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+        # Variables for statistics collection
+        self.forward_cnt = 0
+        self.orig_graph_hits_cnt = 0
+        self.hpu_graph_hits_cnt = 0
+        self.hpu_graph_hit_stats = {}
+        self.set_iterations_call_cnt = 0
+
+    def set_iteration_count(self, iter_num):
+        self.forward_cnt = iter_num
+        self.set_iterations_call_cnt += 1
 
 
     def forward(self, *args, **kwargs):
         input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode
 
+        if self.have_grad_accumulation and self.forward_cnt == 0:
+            input_id = input_hash((input_id, self.forward_cnt+1,))
+
         if use_cache and input_id in self.model_dict:
+            self.hpu_graph_hit_stats[input_id] += 1
+            self.hpu_graph_hits_cnt += 1
             graph_model = self.model_dict[input_id]
             output = graph_model.graph_forward(*args, **kwargs)
             return output
@@ -529,12 +544,14 @@ class ModuleCacher(torch.nn.Module):
             graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
             graph_model.init_hpu_graph(*args, **kwargs)
             self.model_dict[input_id] = graph_model
+            self.hpu_graph_hit_stats[input_id] = 0
             return self.forward(*args, **kwargs)
 
         else:
+            self.orig_graph_hits_cnt += 1
             return self.orig_model(*args, **kwargs)
 
-    def __call__(self, model, inplace=True, allow_unused_input=False, asynchronous=False):
+    def __call__(self, model, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, verbose=False):
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
@@ -543,4 +560,20 @@ class ModuleCacher(torch.nn.Module):
         self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
         self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
+        self.have_grad_accumulation = have_grad_accumulation
+        self.model.set_iteration_count = self.set_iteration_count
+        self.verbose = verbose
         return self.model
+
+    def __del__(self):
+        if self.verbose:
+            print("HPU Graph Statistics")
+            print(" Maximum graphs cache config    :", self.max_graphs)
+            print(" Async execution config         :", self.asynchronous)
+            print(" Grad accumulation config       :", self.have_grad_accumulation)
+            print(" Set iteration calls            :", self.set_iterations_call_cnt)
+            print(" No of HPUGraphs cached         :", len(self.model_dict))
+            print(" HPUGraphs hash/hit counts      :", self.hpu_graph_hit_stats)
+            print(" Original model graphs executed :", self.orig_graph_hits_cnt)
+            print(" HPUGraph cache executed        :", self.hpu_graph_hits_cnt)
+            print(" Total graphs executed          :", self.hpu_graph_hits_cnt + self.orig_graph_hits_cnt)
