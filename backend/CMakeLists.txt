@@ -66,6 +66,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
     COMMAND "${CMAKE_COMMAND}" -E create_symlink
     "$<TARGET_FILE:habana_pytorch_backend>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
 target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
+target_include_directories(habana_pytorch_backend PRIVATE "/usr/include/gperftools")
 if (DEFINED ENV{KINETO_ROOT})
   target_include_directories(habana_pytorch_backend PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
 else()
@@ -76,6 +77,7 @@ target_link_libraries(habana_pytorch_backend
     habana_pytorch_backend_ops
     pytorch_synapse_helpers
     c10
+    -ltcmalloc
   PRIVATE
     habana_serialization
     torch

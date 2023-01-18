@@ -188,6 +188,19 @@ function pytorch_usage()
     fi
 }
 
+export LD_PRELOAD
+
+tcmalloc_file=libtcmalloc.so.4
+if [[ "$(lsb_release -d)" == *"Amazon"* ]]; then
+    LD_PRELOAD=$LD_PRELOAD:/usr/lib/$tcmalloc_file
+else
+    LD_PRELOAD=$LD_PRELOAD:/usr/lib/x86_64-linux-gnu/$tcmalloc_file
+fi
+
+if [[ -n "$SANITIZER_LIB_LOCATION" ]]; then
+    LD_PRELOAD=$SANITIZER_LIB_LOCATION:$LD_PRELOAD
+fi
+
 build_pytorch_modules()
 {
     SECONDS=0
