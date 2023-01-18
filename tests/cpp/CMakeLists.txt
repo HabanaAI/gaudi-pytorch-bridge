@@ -118,6 +118,7 @@ add_executable(test_pt_integration
   hpu_ops/nan_to_num.cpp
   hpu_ops/nansum.cpp
   hpu_ops/ne.cpp
+  hpu_ops/nextafter.cpp
   hpu_ops/nll_loss.cpp
   hpu_ops/norm.cpp
   hpu_ops/op_logger.cpp
