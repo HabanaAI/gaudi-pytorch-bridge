@@ -160,7 +160,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/scalar.cpp
   habana_kernels/simple_generic_kernel.cpp
   habana_kernels/softmax_kernels.cpp
-  habana_kernels/tensor_factories.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp
   habana_kernels/triangular_kernels.cpp

@@ -12,7 +12,7 @@
  */
 #include <torch/library.h>
 
-#include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -94,7 +94,7 @@ Tensor hpu_wrap::pin_memory(
   PT_OP_INFO(
       "pin_memory :", " self=", to_string(self), " device=", to_string(device));
   return pin_memory_hpu(self, device);
-};
+}
 
 Tensor hpu_wrap::_pin_memory(
     const at::Tensor& self,
@@ -107,7 +107,7 @@ Tensor hpu_wrap::_pin_memory(
       " device=",
       to_string(device));
   return pin_memory_hpu(self, device);
-};
+}
 /*
  PT1.12 introduced a change in linear() to use addmm instead of matmul
  in case of 3d input. This caused a perf regression on HPU. In order to
@@ -153,7 +153,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
       " non_blocking=",
       to_string(non_blocking));
   return copy_hpu_lazy_(self, src, non_blocking);
-};
+}
 
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::_reshape_alias(
@@ -185,12 +185,8 @@ Tensor hpu_wrap::_reshape_alias(
     return as_strided_hpu_lazy(self, size, stride, self.storage_offset());
   }
 
-  if (mode != 0) {
-    return view_hpu_lazy(self, size);
-  } else {
-    return view_hpu(self, size);
-  }
-};
+  return view_hpu_lazy(self, size);
+}
 
 Tensor& hpu_wrap::set_(
     Tensor& self,
@@ -240,12 +236,8 @@ Tensor hpu_wrap::_reshape_alias(
         self.storage_offset());
   }
 
-  if (mode != 0) {
-    return view_hpu_lazy(self, size);
-  } else {
-    return view_hpu(self, C10_AS_INTARRAYREF_SLOW(size));
-  }
-};
+  return view_hpu_lazy(self, size);
+}
 
 Tensor& hpu_wrap::set_(
     Tensor& self,
@@ -297,7 +289,7 @@ Tensor hpu_wrap::_efficientzerotensor(
       empty_hpu_lazy(size, options, MemoryFormat::Contiguous, true);
   fill_hpu_lazy_(zero_tensor, 0);
   return zero_tensor;
-};
+}
 #endif
 
 Tensor embedding_bag_sum_hpu_wrap(
@@ -320,15 +312,10 @@ Tensor embedding_bag_sum_hpu_wrap(
       to_string(valid_count),
       " kernel_mode=",
       to_string(kernel_mode));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return embedding_bag_sum_hpu_lazy(
-        input, indices, offsets, valid_count, kernel_mode);
+  return embedding_bag_sum_hpu_lazy(
+      input, indices, offsets, valid_count, kernel_mode);
+}
 
-  } else {
-    return embedding_bag_sum_hpu(
-        input, indices, offsets, valid_count, kernel_mode);
-  }
-};
 Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     Tensor& out,
     const Tensor& input,
@@ -352,15 +339,9 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
       to_string(valid_count),
       " kernel_mode=",
       to_string(kernel_mode));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
-        out, input, indices, offsets, valid_count, kernel_mode);
-
-  } else {
-    return embedding_bag_sum_bwd_out_kernel_mode_hpu(
-        out, input, indices, offsets, valid_count, kernel_mode);
-  }
-};
+  return embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
+      out, input, indices, offsets, valid_count, kernel_mode);
+}
 
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
   PT_OP_TRACE;
@@ -369,13 +350,9 @@ Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
       "masked_select :", " self=", to_string(self), " mask=", to_string(mask));
   FALLBACK_IF_UNSUPPORTED_OP(
       masked_select, PARAMS1(self, mask), PARAMS2(self, mask))
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_select_hpu_lazy(self, mask);
-  } else {
-    HABANA_ASSERT(0 && "masked_select not implemented for eager mode");
-    return masked_select_hpu_lazy(self, mask);
-  }
-};
+  return masked_select_hpu_lazy(self, mask);
+}
+
 Tensor& hpu_wrap::masked_select_out(
     const Tensor& self,
     const Tensor& mask,
@@ -392,13 +369,8 @@ Tensor& hpu_wrap::masked_select_out(
       to_string(out));
   FALLBACK_IF_UNSUPPORTED_OP_O(
       masked_select, PARAMS1(self, mask, out), PARAMS2(self, mask, out), out)
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return masked_select_out_hpu_lazy(self, mask, out);
-  } else {
-    HABANA_ASSERT(0 && "masked_select_out not implemented for eager mode");
-    return masked_select_out_hpu_lazy(self, mask, out);
-  }
-};
+  return masked_select_out_hpu_lazy(self, mask, out);
+}
 
 Tensor& hpu_wrap::scatter_add_(
     Tensor& self,
@@ -420,13 +392,8 @@ Tensor& hpu_wrap::scatter_add_(
   FALLBACK_IF_UNSUPPORTED_OP(
       scatter_add_, PARAMS1(self, index, src), PARAMS2(self, dim_, index, src))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
-
-  } else {
-    return scatter_add_inplace_src_hpu(self, dim_, index, src);
-  }
-};
+  return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
+}
 
 Tensor& hpu_wrap::index_add_out(
     const Tensor& self,
@@ -456,13 +423,7 @@ Tensor& hpu_wrap::index_add_out(
       PARAMS1(self, index, source, out),
       PARAMS2(self, dim, index, source, alpha, out))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
-  } else {
-    HABANA_ASSERT(0 && "index_add_out is not implemented for eager mode");
-    /* dummy return to satisfy compiler */
-    return out;
-  }
+  return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
 }
 
 Tensor& hpu_wrap::index_fill_(
@@ -482,13 +443,8 @@ Tensor& hpu_wrap::index_fill_(
       to_string(index),
       "value=",
       to_string(value));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_fill_hpu_lazy_(self, dim, index, value);
-  } else {
-    HABANA_ASSERT(0 && "index_fill_ is not implemented for eager mode");
-    return index_fill_hpu_lazy_(self, dim, index, value);
-  }
-};
+  return index_fill_hpu_lazy_(self, dim, index, value);
+}
 
 Tensor& hpu_wrap::index_copy_(
     Tensor& self,
@@ -507,13 +463,8 @@ Tensor& hpu_wrap::index_copy_(
       to_string(index),
       "value=",
       to_string(value));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return index_copy_hpu_lazy_(self, dim, index, value);
-  } else {
-    HABANA_ASSERT(0 && "index_copy_ is not implemented for eager mode");
-    return index_copy_hpu_lazy_(self, dim, index, value);
-  }
-};
+  return index_copy_hpu_lazy_(self, dim, index, value);
+}
 
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_OP_TRACE;
@@ -523,13 +474,8 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   FALLBACK_IF_UNSUPPORTED_OP(
       nonzero_out, PARAMS1(self, out), PARAMS2(self, out))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return nonzero_out_hpu_lazy(self, out);
-  } else {
-    HABANA_ASSERT(0 && "nonzero_out is not implemented for eager mode");
-    return nonzero_out_hpu_lazy(self, out);
-  }
-};
+  return nonzero_out_hpu_lazy(self, out);
+}
 
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::kl_div_backward(
@@ -566,12 +512,8 @@ Tensor hpu_wrap::kl_div_backward(
       PARAMS1(grad, self, target),
       PARAMS2(grad, self, target, reduction, log_target))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
-  } else {
-    return kl_div_backward_hpu(grad, self, target, reduction, log_target);
-  }
-};
+  return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
+}
 #endif
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
@@ -857,29 +799,16 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
           grad_input),
       grad_input)
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return max_pool2d_with_indices_backward_out_hpu_lazy(
-        grad_input,
-        grad_output,
-        input,
-        indices,
-        kernel_size,
-        stride,
-        padding,
-        dilation,
-        ceil_mode);
-  } else {
-    return max_pool2d_with_indices_backward_out_hpu(
-        grad_input,
-        grad_output,
-        input,
-        indices,
-        kernel_size,
-        stride,
-        padding,
-        dilation,
-        ceil_mode);
-  }
+  return max_pool2d_with_indices_backward_out_hpu_lazy(
+      grad_input,
+      grad_output,
+      input,
+      indices,
+      kernel_size,
+      stride,
+      padding,
+      dilation,
+      ceil_mode);
 }
 
 at::Tensor hpu_wrap::repeat_interleave(
@@ -975,11 +904,8 @@ Tensor hpu_wrap::empty(
                                   .pinned_memory(pin_memory)
                                   .device(device);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return empty_hpu_lazy(size, options, optional_memory_format);
-  }
-  return empty_hpu(size, options, optional_memory_format);
-};
+  return empty_hpu_lazy(size, options, optional_memory_format);
+}
 
 Tensor hpu_wrap::empty_strided(
     IntArrayRef size,
@@ -1010,10 +936,7 @@ Tensor hpu_wrap::empty_strided(
                                   .layout(std::move(layout))
                                   .pinned_memory(std::move(pin_memory))
                                   .device(std::move(device));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return empty_strided_hpu_lazy(size, stride, options);
-  }
-  return empty_strided_hpu(size, stride, options);
+  return empty_strided_hpu_lazy(size, stride, options);
 }
 
 #else
@@ -1051,11 +974,7 @@ Tensor hpu_wrap::empty(
                                   .pinned_memory(pin_memory)
                                   .device(device);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return empty_hpu_lazy(
-        C10_AS_INTARRAYREF_SLOW(size), options, optional_memory_format);
-  }
-  return empty_hpu(
+  return empty_hpu_lazy(
       C10_AS_INTARRAYREF_SLOW(size), options, optional_memory_format);
 }
 
@@ -1092,13 +1011,7 @@ Tensor hpu_wrap::empty_strided(
                                   .layout(std::move(layout))
                                   .pinned_memory(std::move(pin_memory))
                                   .device(std::move(device));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return empty_strided_hpu_lazy(
-        C10_AS_INTARRAYREF_SLOW(size),
-        C10_AS_INTARRAYREF_SLOW(stride),
-        options);
-  }
-  return empty_strided_hpu(
+  return empty_strided_hpu_lazy(
       C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride), options);
 }
 
@@ -1122,13 +1035,9 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
   FALLBACK_IF_UNSUPPORTED_OP(
       split_with_sizes, PARAMS1(self), PARAMS2(self, split_sizes, dim))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return split_with_sizes_hpu_lazy(self, split_sizes, dim);
+  return split_with_sizes_hpu_lazy(self, split_sizes, dim);
+}
 
-  } else {
-    return split_with_sizes_hpu(self, split_sizes, dim);
-  }
-};
 #else
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
@@ -1147,15 +1056,9 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
   FALLBACK_IF_UNSUPPORTED_OP(
       split_with_sizes, PARAMS1(self), PARAMS2(self, split_sizes, dim))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return split_with_sizes_hpu_lazy(
-        self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
-
-  } else {
-    return split_with_sizes_hpu(
-        self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
-  }
-};
+  return split_with_sizes_hpu_lazy(
+      self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
+}
 #endif
 
 std::tuple<Tensor, Tensor> hpu_wrap::sort(
@@ -1179,13 +1082,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   FALLBACK_IF_UNSUPPORTED_OP1_RT(
       self.scalar_type(), sort, PARAMS1(self), PARAMS2(self, dim, descending))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return sort_hpu_lazy(self, dim, descending);
-
-  } else {
-    return sort_hpu(self, dim, descending);
-  }
-};
+  return sort_hpu_lazy(self, dim, descending);
+}
 
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
@@ -1195,12 +1093,7 @@ Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
       "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
   FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return view_hpu_lazy(self, size);
-
-  } else {
-    return view_hpu(self, size);
-  }
+  return view_hpu_lazy(self, size);
 }
 #else
 Tensor hpu_wrap::_unsafe_view(
@@ -1212,11 +1105,7 @@ Tensor hpu_wrap::_unsafe_view(
       "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
   FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return view_hpu_lazy(self, size);
-  } else {
-    return view_hpu(self, C10_AS_INTARRAYREF_SLOW(size));
-  }
+  return view_hpu_lazy(self, size);
 }
 #endif
 
@@ -1345,28 +1234,17 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       to_string(mom),
       " nesterov",
       to_string(nesterov));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return optimizer_sparse_sgd_with_valid_count_hpu_lazy(
-        gradients,
-        weights_in,
-        moments_in,
-        indices,
-        learning_rate,
-        valid_count_tensor,
-        mom,
-        nesterov);
-  } else {
-    return optimizer_sparse_sgd_with_valid_count_hpu(
-        gradients,
-        weights_in,
-        moments_in,
-        indices,
-        learning_rate,
-        valid_count_tensor,
-        mom,
-        nesterov);
-  }
+  return optimizer_sparse_sgd_with_valid_count_hpu_lazy(
+      gradients,
+      weights_in,
+      moments_in,
+      indices,
+      learning_rate,
+      valid_count_tensor,
+      mom,
+      nesterov);
 }
+
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& gradients,
@@ -1391,24 +1269,15 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       to_string(learning_rate),
       " valid_count_tensor",
       to_string(valid_count_tensor));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
-        gradients,
-        weights_in,
-        moments_in,
-        indices,
-        learning_rate,
-        valid_count_tensor);
-  } else {
-    return optimizer_sparse_adagrad_with_valid_count_hpu(
-        gradients,
-        weights_in,
-        moments_in,
-        indices,
-        learning_rate,
-        valid_count_tensor);
-  }
+  return optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
+      gradients,
+      weights_in,
+      moments_in,
+      indices,
+      learning_rate,
+      valid_count_tensor);
 }
+
 void optimizer_adamw_hpu_wrap(
     const TensorList& gradient_vec,
     TensorList& weight_vec,
@@ -1446,32 +1315,19 @@ void optimizer_adamw_hpu_wrap(
       to_string(weight_decay));
   TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
   auto lr_t = get_tensor_for_scalar(lr);
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_adamw_hpu_lazy(
-        gradient_vec,
-        weight_vec,
-        exp_avg_vec,
-        exp_avg_sq_vec,
-        lr_t,
-        neg_step_t,
-        beta1,
-        beta2,
-        epsilon,
-        weight_decay);
-  } else {
-    optimizer_adamw_hpu(
-        gradient_vec,
-        weight_vec,
-        exp_avg_vec,
-        exp_avg_sq_vec,
-        lr_t,
-        neg_step_t,
-        beta1,
-        beta2,
-        epsilon,
-        weight_decay);
-  }
+  optimizer_adamw_hpu_lazy(
+      gradient_vec,
+      weight_vec,
+      exp_avg_vec,
+      exp_avg_sq_vec,
+      lr_t,
+      neg_step_t,
+      beta1,
+      beta2,
+      epsilon,
+      weight_decay);
 }
+
 Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const Tensor& max_norm,
@@ -1487,12 +1343,9 @@ Tensor fused_norm_hpu_wrap(
       " norm_type=",
       to_string(norm_type));
   TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return fused_norm_hpu_lazy(grad, max_norm, norm_type);
-  } else {
-    return fused_norm_hpu(grad, max_norm, norm_type);
-  }
+  return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
+
 void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
@@ -1522,13 +1375,8 @@ void optimizer_adagrad_hpu_wrap(
       to_string(lrd),
       " epsilon=",
       to_string(epsilon));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_adagrad_hpu_lazy(
-        gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
-  } else {
-    optimizer_adagrad_hpu(
-        gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
-  }
+  optimizer_adagrad_hpu_lazy(
+      gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
 }
 
 void optimizer_ema_hpu_wrap(
@@ -1545,11 +1393,7 @@ void optimizer_ema_hpu_wrap(
       to_string(updated_ema),
       " decay=",
       to_string(decay));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_ema_hpu_lazy(model_inputs, updated_ema, decay);
-  }
-
-  return;
+  optimizer_ema_hpu_lazy(model_inputs, updated_ema, decay);
 }
 
 void optimizer_sgd_hpu_wrap(
@@ -1578,12 +1422,7 @@ void optimizer_sgd_hpu_wrap(
       to_string(damp),
       " nesterov=",
       to_string(nesterov));
-  if (!habana_lazy::isDeviceInLoweringMode() &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
-  } else {
-    optimizer_sgd_hpu(gradients, weights, lr, wd, mom, damp, nesterov);
-  }
+  optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
 }
 
 void optimizer_sgd_momentum_hpu_wrap(
@@ -1619,14 +1458,8 @@ void optimizer_sgd_momentum_hpu_wrap(
       " nesterov=",
       to_string(nesterov));
   auto mom_t = get_tensor_for_scalar(mom);
-  if (!habana_lazy::isDeviceInLoweringMode() &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_sgd_momentum_hpu_lazy(
-        gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
-  } else {
-    optimizer_sgd_momentum_hpu(
-        gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
-  }
+  optimizer_sgd_momentum_hpu_lazy(
+      gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
 }
 
 Tensor optimizer_lamb_fused_norm_hpu_wrap(
@@ -1640,11 +1473,7 @@ Tensor optimizer_lamb_fused_norm_hpu_wrap(
       to_string(grad),
       "max_grad_norm=",
       to_string(max_grad_norm));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return optimizer_lamb_fused_norm_hpu_lazy(grad, max_grad_norm);
-  } else {
-    return optimizer_lamb_fused_norm_hpu(grad, max_grad_norm);
-  }
+  return optimizer_lamb_fused_norm_hpu_lazy(grad, max_grad_norm);
 }
 
 std::tuple<
@@ -1695,37 +1524,20 @@ optimizer_lamb_phase1_hpu_wrap(
       to_string(bias_correction),
       "weight_decay=",
       to_string(weight_decay));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return optimizer_lamb_phase1_hpu_lazy(
-        gradients,
-        weights,
-        exp_avg,
-        exp_avg_sq,
-        clip_global_grad_norm,
-        grad_averaging,
-        lr,
-        beta1,
-        beta2,
-        epsilon,
-        step,
-        bias_correction,
-        weight_decay);
-  } else {
-    return optimizer_lamb_phase1_hpu(
-        gradients,
-        weights,
-        exp_avg,
-        exp_avg_sq,
-        clip_global_grad_norm,
-        grad_averaging,
-        lr,
-        beta1,
-        beta2,
-        epsilon,
-        step,
-        bias_correction,
-        weight_decay);
-  }
+  return optimizer_lamb_phase1_hpu_lazy(
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      clip_global_grad_norm,
+      grad_averaging,
+      lr,
+      beta1,
+      beta2,
+      epsilon,
+      step,
+      bias_correction,
+      weight_decay);
 }
 
 void optimizer_lamb_phase2_hpu_wrap(
@@ -1754,25 +1566,14 @@ void optimizer_lamb_phase2_hpu_wrap(
       to_string(weight_decay),
       "use_lamb=",
       to_string(use_lamb));
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    optimizer_lamb_phase2_hpu_lazy(
-        weight_vec,
-        adam_norm_vec,
-        weight_norm_vec,
-        adam_step_vec,
-        step,
-        weight_decay,
-        use_lamb);
-  } else {
-    optimizer_lamb_phase2_hpu(
-        weight_vec,
-        adam_norm_vec,
-        weight_norm_vec,
-        adam_step_vec,
-        step,
-        weight_decay,
-        use_lamb);
-  }
+  optimizer_lamb_phase2_hpu_lazy(
+      weight_vec,
+      adam_norm_vec,
+      weight_norm_vec,
+      adam_step_vec,
+      step,
+      weight_decay,
+      use_lamb);
 }
 
 void optimizer_lars_hpu_wrap(
@@ -1838,11 +1639,7 @@ Tensor torchvision_nms_hpu_wrap(
       "iou_threshold=",
       to_string(iou_threshold));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return habana_nms_hpu_lazy(boxes, scores, iou_threshold);
-  } else {
-    return habana_nms_hpu(boxes, scores, iou_threshold);
-  }
+  return habana_nms_hpu_lazy(boxes, scores, iou_threshold);
 }
 
 Tensor batched_nms_hpu_wrap(
@@ -1863,17 +1660,6 @@ Tensor batched_nms_hpu_wrap(
       "iou_threshold=",
       to_string(iou_threshold));
   return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
-}
-
-Tensor habana_d2d_memcpy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return self;
-}
-
-Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
-  HABANA_ASSERT(0);
-  static_cast<void>(other);
-  return self;
 }
 
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
@@ -1956,13 +1742,7 @@ struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
       const at::Tensor& other) {
     at::Tensor result;
     ctx->save_for_backward({self, other});
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      result = matmul_hpu_lazy(self, other);
-    } else {
-      result = matmul_hpu(self, other);
-    }
-
-    return result;
+    return matmul_hpu_lazy(self, other);
   }
 
   static variable_list backward(
@@ -1971,13 +1751,8 @@ struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
     std::tuple<Tensor, Tensor> result;
     variable_list saved_vars = ctx->get_saved_variables();
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      result = matmul_backward_hpu_lazy(
-          grad_output[0], saved_vars[0], saved_vars[1]);
-    } else {
-      result =
-          matmul_backward_hpu(grad_output[0], saved_vars[0], saved_vars[1]);
-    }
+    result =
+        matmul_backward_hpu_lazy(grad_output[0], saved_vars[0], saved_vars[1]);
 
     return {std::get<0>(result), std::get<1>(result)};
   }
@@ -1988,7 +1763,7 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   return MatmulFunction::apply(self, other);
-};
+}
 
 struct LinearFunction : public torch::autograd::Function<LinearFunction> {
   static at::Tensor forward(
@@ -2016,7 +1791,6 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
     return linear_non2d_bwd_hpu_lazy(grad_output[0], input, weight, bias_opt);
   }
 };
-
 #if IS_PYTORCH_AT_LEAST(1, 13)
 ::std::tuple<Tensor, Tensor, Tensor> linear_backward(
     const Tensor& self,
@@ -2081,12 +1855,8 @@ Tensor hpu_wrap::slice(
       "step=",
       to_string(step));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return slice_hpu_lazy(self, dim, start, end, step);
-  } else {
-    return slice_hpu(self, dim, start, end, step);
-  }
-};
+  return slice_hpu_lazy(self, dim, start, end, step);
+}
 #else
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
@@ -2111,12 +1881,8 @@ Tensor hpu_wrap::slice(
       "step=",
       to_string(step));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    return slice_hpu_lazy(self, dim, temp_start, temp_end, step.expect_int());
-  } else {
-    return slice_hpu(self, dim, temp_start, temp_end, step.expect_int());
-  }
-};
+  return slice_hpu_lazy(self, dim, temp_start, temp_end, step.expect_int());
+}
 #endif
 
 struct DropoutFunction : public Function<DropoutFunction> {
@@ -2199,7 +1965,7 @@ at::Tensor roi_align_fwd_wrap(
       static_cast<int>(sampling_ratio),
       static_cast<float>(spatial_scale),
       aligned);
-};
+}
 
 at::Tensor roi_align_bwd_wrap(
     const at::Tensor& grad_out,
@@ -2230,7 +1996,7 @@ at::Tensor roi_align_bwd_wrap(
       static_cast<int>(sampling_ratio),
       static_cast<float>(spatial_scale),
       aligned);
-};
+}
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl(

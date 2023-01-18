@@ -14,7 +14,6 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"

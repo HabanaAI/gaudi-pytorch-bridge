@@ -3,7 +3,6 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -127,57 +126,5 @@ TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   Tensor result2 = out2.to(kCPU);
 
   EXPECT_EQ(allclose(result1, result1_eager), true);
-  EXPECT_EQ(allclose(result2, result2_eager), true);
-}
-
-TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomAdagrad) {
-  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
-  auto wts = torch::randn({2, 2}, torch::requires_grad(false));
-  auto moments = torch::randn({2, 2}, torch::requires_grad(false));
-  auto indices = torch::tensor({0, 1}, torch::dtype(torch::kInt32));
-  auto lr = torch::tensor({0.01}, torch::dtype(torch::kFloat));
-  auto valid_cnt = torch::tensor({2}, torch::dtype(torch::kInt32));
-  auto hwt_eager = wts.to(torch::kHPU);
-  auto hmoment_eager = moments.to(torch::kHPU);
-
-  torch::Tensor out1_eager, out2_eager;
-  torch::Tensor result1_eager, result2_eager;
-  auto eagerFn = [&]() {
-    std::tie(out1_eager, out2_eager) =
-        optimizer_sparse_adagrad_with_valid_count_hpu(
-            grad.to(torch::kHPU),
-            hwt_eager,
-            hmoment_eager,
-            indices.to(torch::kHPU),
-            lr.to(torch::kHPU),
-            valid_cnt.to(torch::kHPU));
-    result1_eager = out1_eager.to(kCPU);
-    result2_eager = out2_eager.to(kCPU);
-  };
-  ExecuteEager(eagerFn);
-
-  auto hgrad = grad.to(torch::kHPU);
-  auto hwts = wts.to(torch::kHPU);
-  auto hmoments = moments.to(torch::kHPU);
-  auto hindices = indices.to(torch::kHPU);
-  auto hlr = lr.to(torch::kHPU);
-  auto hvalid_cnt = valid_cnt.to(torch::kHPU);
-  torch::Tensor out1, out2;
-  std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
-      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
-
-  auto hl_result1 =
-      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out1));
-  auto hl_result2 =
-      std::make_shared<HbLazyTensor>(SyncAndGetHbLazyTensor(out2));
-  std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
-  HbLazyTensor::SyncTensorsGraph(&tensors);
-
-  Tensor result1 = out1.to(kCPU);
-  Tensor result2 = out2.to(kCPU);
-
-  // NANs  are treated as equals to avoid random failures
-  EXPECT_EQ(
-      allclose(result1, result1_eager, 0.001, 0.001, /*equal_nan*/ true), true);
   EXPECT_EQ(allclose(result2, result2_eager), true);
 }

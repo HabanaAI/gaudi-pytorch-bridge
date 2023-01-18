@@ -20,9 +20,9 @@
 #include <utility>
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
-#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,16 @@
 #pragma once
 #include <perf_lib_layer_params.h>
 #include "habana_kernels/habana_operator.h"
+
+at::Tensor& copy_hpu_(
+    at::Tensor& self,
+    const at::Tensor& src,
+    bool non_blocking);
+
+bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device);
+at::Tensor pin_memory_hpu(
+    const at::Tensor& self,
+    c10::optional<at::Device> device);
 
 //
 // Function to adjust and set the correct memory format

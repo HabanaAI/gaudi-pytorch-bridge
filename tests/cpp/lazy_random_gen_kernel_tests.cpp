@@ -3,7 +3,6 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
