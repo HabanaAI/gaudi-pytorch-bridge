@@ -153,11 +153,6 @@ function pytorch_usage()
     fi
 }
 
-export LD_PRELOAD=$LD_PRELOAD:/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4
-if [[ -n "$SANITIZER_LIB_LOCATION" ]]; then
-    LD_PRELOAD=$SANITIZER_LIB_LOCATION:$LD_PRELOAD
-fi
-
 build_pytorch_modules()
 {
     SECONDS=0

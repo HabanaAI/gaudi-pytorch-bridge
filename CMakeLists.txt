@@ -215,7 +215,6 @@ target_link_libraries(habana_pytorch_plugin
     json
     tensor_comparator_core
     -lstdc++fs
-    -ltcmalloc
 )
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
