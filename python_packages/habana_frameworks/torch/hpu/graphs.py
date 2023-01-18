@@ -95,7 +95,7 @@ class graph(object):
         self.stream_ctx.__exit__(exc_type, exc_value, traceback)
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
-def make_graphed_callables(callables, sample_args, warmups=0, asynchronous=False):
+def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input=False, asynchronous=False):
 
     '''
     callables (torch.nn.Module or Python function, or tuple of these) – Callable or callables to graph.
@@ -106,6 +106,13 @@ def make_graphed_callables(callables, sample_args, warmups=0, asynchronous=False
         If a tuple of callables was passed, sample_args must be tuple of tuples of argument Tensors.
 
     warmups (Int) -  number warmups run needed.
+
+    allow_unused_input (bool): If False, specifying inputs that were not used when computing outputs
+    (and therefore their grad is always zero) is an error. Defaults to False.
+
+    asynchronous (bool): If True, replay will be done asynchronously, main thread returns immediately after queing replay.
+        Defaults to False.
+
     '''
     just_one_callable = False
 
@@ -148,7 +155,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, asynchronous=False
                                                     inputs=tuple(i for i in static_input_surface if i.requires_grad),
                                                     grad_outputs=tuple(torch.empty_like(o) for o in outputs),
                                                     only_inputs=True,
-                                                    allow_unused=False)
+                                                    allow_unused=allow_unused_input)
                 del outputs, grad_inputs
 
     htorch.hpu.synchronize()
@@ -181,7 +188,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, asynchronous=False
                                               inputs=tuple(i for i in static_input_surface if i.requires_grad),
                                               grad_outputs=static_grad_outputs,
                                               only_inputs=True,
-                                              allow_unused=False)
+                                              allow_unused=allow_unused_input)
 
         static_grad_inputs = []
         grad_idx = 0
@@ -434,7 +441,7 @@ class TensorPacker:
         return data
 
 class GraphModel(torch.nn.Module):
-    def __init__(self, model, asynchronous=False):
+    def __init__(self, model, allow_unused_input=False, asynchronous=False):
         super(GraphModel, self).__init__()
         self.model = model
         self.input_packer = TensorPacker()
@@ -443,6 +450,7 @@ class GraphModel(torch.nn.Module):
         self.output_meta = None
         self.assert_not_dataparallel()
         self.func_parameters = self.process_function_signature(self.model.forward)
+        self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
     def forward(self, *args):
         full_args = self.input_packer.unpack(args, self.input_meta)
@@ -460,7 +468,7 @@ class GraphModel(torch.nn.Module):
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
         self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
-        self.hpu_graph = make_graphed_callables(self, tensor_args, asynchronous=self.asynchronous)
+        self.hpu_graph = make_graphed_callables(self, tensor_args, allow_unused_input=self.allow_unused_input, asynchronous=self.asynchronous)
 
     def assert_not_dataparallel(self):
         assert not isinstance(self.model, torch.nn.parallel.DataParallel) and \
@@ -515,7 +523,7 @@ class ModuleCacher(torch.nn.Module):
             return output
 
         elif len(self.model_dict) < self.max_graphs and torch.is_grad_enabled() and self.use_lazy_mode:
-            graph_model = GraphModel(self.orig_model, self.asynchronous)
+            graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
             graph_model.init_hpu_graph(*args, **kwargs)
             self.model_dict[input_id] = graph_model
             return self.forward(*args, **kwargs)
@@ -523,12 +531,13 @@ class ModuleCacher(torch.nn.Module):
         else:
             return self.orig_model(*args, **kwargs)
 
-    def __call__(self, model, inplace=True, asynchronous=False):
+    def __call__(self, model, inplace=True, allow_unused_input=False, asynchronous=False):
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
         self.model = model
         self.model.forward = self.forward
         self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
+        self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
         return self.model
