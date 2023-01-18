@@ -54,11 +54,13 @@ ClusteredProgramSPtr CreateInitialProgram(
   program->SetSchedule({main_cluster->id_});
 
   // For testing
-  PT_BRIDGE_WARN("=======================================");
+  PT_BRIDGE_WARN("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+  lazy_jit_graph->get_cached_graph()->print(std::cout, false);
+  PT_BRIDGE_WARN("-----------------------------------------");
   auto strategy = GetSplittingStrategy();
   auto decision = strategy(*lazy_jit_graph);
   SplitJitIrGraph(*lazy_jit_graph, decision);
-  PT_BRIDGE_WARN("=======================================");
+  PT_BRIDGE_WARN("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
 
   return program;
 }

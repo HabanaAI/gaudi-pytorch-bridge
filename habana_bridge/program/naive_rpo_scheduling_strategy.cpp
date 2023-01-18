@@ -12,16 +12,39 @@
  */
 
 #include "naive_rpo_scheduling_strategy.h"
+#include <algorithm>
 
 namespace habana {
 namespace program {
 
 SchedulingDecision NaiveRpoSchedulingStrategy(const GraphOfClusters& graph) {
-  (void)graph;
   SchedulingDecision decision;
-  // Not yet implemented
+
+  std::unordered_set<Cluster::Id> visited;
+  visited.insert(GraphOfClusters::SINK);
+
+  std::function<void(Cluster::Id)> dfs = [&](Cluster::Id id) {
+    if (visited.count(id))
+      return;
+    visited.insert(id);
+    auto cluster = graph.FindCluster(id);
+
+    for (auto& outputs : cluster->outputs_) {
+      for (auto& output : outputs) {
+        dfs(output.cluster);
+      }
+    }
+    decision.scheduling.push_back(id);
+  };
+
+  for (auto& p : graph.nodes_) {
+    dfs(p.first);
+  }
+
+  std::reverse(decision.scheduling.begin(), decision.scheduling.end());
+
   return decision;
-}
+} // namespace program
 
 } // namespace program
 } // namespace habana

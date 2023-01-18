@@ -37,12 +37,9 @@ namespace program {
  */
 struct SplittingDecision {
   std::unordered_map<const torch::jit::Node*, std::int64_t> colors;
-  std::vector<int> scheduling;
 
   explicit operator bool() const;
   bool Validate(const LazyJitGraph& lazy_graph) const;
-
-  bool HasScheduling() const;
 };
 
 /*

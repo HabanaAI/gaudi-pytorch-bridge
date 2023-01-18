@@ -22,10 +22,6 @@ SplittingDecision::operator bool() const {
   return not colors.empty();
 }
 
-bool SplittingDecision::HasScheduling() const {
-  return not scheduling.empty();
-}
-
 namespace {
 
 struct SplittingDecisionValidatorImpl {

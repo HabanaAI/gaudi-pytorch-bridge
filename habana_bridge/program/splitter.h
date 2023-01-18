@@ -18,29 +18,37 @@
 namespace habana {
 namespace program {
 
+// special color assigned to inputs
+constexpr std::int64_t COLOR_PARAM = -1;
+// special color assigned to outputs
+constexpr std::int64_t COLOR_RETURN = -2;
+
 /*
- * TODO
- *
- * Represents partitioned graph and its relations to clusters associated to
- * other colors by strategy.
+ * Represents cluster cut from graph during splitting.
  */
 struct ClusterAfterSplitting {
   std::shared_ptr<LazyJitGraph> graph_;
+
+  // Maps output index into pairs (color, input_index)
+  std::vector<PortVector> outputs_;
 };
 
 /*
- * TODO
- *
- * Describes result of splitting. Partitions associated to colors and data
- * dependencies related to inputs/outputs of original graph.
+ * Describes result of splitting.
  */
 struct SplittingResult {
-  std::unordered_map<std::int64_t, ClusterAfterSplitting> clusters;
+  // Maps input index into pairs (color, input_index)
+  std::vector<PortVector> inputs_;
+  // Partitions
+  std::unordered_map<std::int64_t, ClusterAfterSplitting> clusters_;
 };
 
 SplittingResult SplitJitIrGraph(
     const LazyJitGraph& graph,
     const SplittingDecision& decision);
+
+std::unique_ptr<GraphOfClusters> CreateGraphOfClustersFromSplittingResult(
+    SplittingResult& result);
 
 } // namespace program
 } // namespace habana

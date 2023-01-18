@@ -25,8 +25,20 @@ Cluster* GraphOfClusters::CreateCluster() {
   return cluster_ptr;
 }
 
-Cluster* GraphOfClusters::FindCluster(Cluster::Id id) {
+Cluster* GraphOfClusters::FindCluster(Cluster::Id id) const {
+  if (id == SINK) {
+    return nullptr;
+  }
   return nodes_.at(id).get();
+}
+
+Cluster* GraphOfClusters::ExpandCluster(
+    Cluster::Id id,
+    std::unique_ptr<GraphOfClusters>&& expansion) {
+  (void)id;
+  (void)expansion;
+
+  return nullptr;
 }
 
 ClusteredProgram::ClusteredProgram(

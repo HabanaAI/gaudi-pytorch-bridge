@@ -20,17 +20,48 @@ namespace program {
 
 using LazyJitGraph = habana_lazy::OptimizedJITGraphAndMetaData;
 
+struct Port {
+  Port() = default;
+  Port(std::int64_t _cluster, std::size_t _index)
+      : cluster(_cluster), index(_index) {}
+
+  bool operator==(const Port& other) const {
+    return std::tie(cluster, index) == std::tie(other.cluster, other.index);
+  }
+
+  bool operator<(const Port& other) const {
+    return std::tie(cluster, index) < std::tie(other.cluster, other.index);
+  }
+
+  std::string toString() const {
+    std::string res;
+    res += "Port(cluster=";
+    res += std::to_string(cluster);
+    res += ", port=";
+    res += std::to_string(index);
+    res += ")";
+    return res;
+  }
+
+  std::int64_t cluster = 0;
+  std::size_t index = 0;
+};
+
+using PortVector = std::vector<Port>;
+
 /*
  * Cluster, represents part of computation.
  * Contains part of JIT IR Graph and unique id.
  */
 struct Cluster {
-  using Id = std::uint64_t;
+  using Id = std::int64_t;
 
   Cluster(Id id);
 
   Id id_;
   std::shared_ptr<LazyJitGraph> lazy_graph_;
+
+  std::vector<PortVector> outputs_;
 };
 
 using ClusterUPtr = std::unique_ptr<Cluster>;
@@ -42,13 +73,20 @@ using ClusterUPtr = std::unique_ptr<Cluster>;
  */
 class GraphOfClusters {
  public:
+  static constexpr Cluster::Id SINK = 0;
+
   Cluster* CreateCluster();
 
-  Cluster* FindCluster(Cluster::Id id);
+  Cluster* FindCluster(Cluster::Id id) const;
+  Cluster* ExpandCluster(
+      Cluster::Id id,
+      std::unique_ptr<GraphOfClusters>&& expansion);
+
+  std::vector<PortVector> inputs_;
+  std::unordered_map<Cluster::Id, ClusterUPtr> nodes_;
 
  private:
-  std::unordered_map<Cluster::Id, ClusterUPtr> nodes_;
-  Cluster::Id freeNodeId = 0;
+  Cluster::Id freeNodeId = 1;
 };
 
 /*
