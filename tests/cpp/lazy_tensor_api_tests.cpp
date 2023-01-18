@@ -3,6 +3,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_device/HPUGuardImpl.h"
 #include "habana_device/hpu_cached_devices.h"

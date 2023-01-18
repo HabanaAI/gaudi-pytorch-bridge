@@ -11,6 +11,7 @@
 #include <torch/script.h>
 #include <memory>
 
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/bitwise_kernels.h"

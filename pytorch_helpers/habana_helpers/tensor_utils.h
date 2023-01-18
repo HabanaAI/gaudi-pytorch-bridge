@@ -84,8 +84,6 @@ at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
 
 at::Tensor cast_tensor_to_long(const at::Tensor& int_tensor);
 
-c10::ScalarType scalar_type(const c10::Scalar& s);
-
 synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
 c10::ScalarType synapse_to_pytorch_type(const synDataType type);
 
@@ -148,90 +146,6 @@ at::Tensor createPTTensor(
     at::optional<c10::MemoryFormat> optional_memory_format,
     bool is_persistent);
 
-/**
-@brief This function can be used to create an intermediate
-       synapse_helper tensor of required shape (which is
-       different from shape of input & output tensors)
-**/
-synapse_helpers::tensor create_tensor(
-    const c10::IntArrayRef& shape,
-    const c10::IntArrayRef& stride,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    bool external,
-    int devid,
-    const c10::ScalarType dtype,
-    const std::string& name = std::string());
-
-synapse_helpers::tensor create_tensor(
-    const at::Tensor& tensor,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    bool external,
-    const c10::optional<c10::ScalarType> dtype = c10::nullopt,
-    const std::string& name = std::string(),
-    const std::string& inference_name = std::string());
-
-synapse_helpers::tensor create_shape_tensor(
-    const at::Tensor& tensor,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    synTensorType shape_tensor_type,
-    const std::string& name = std::string(),
-    void* host_ptr = nullptr);
-
-synapse_helpers::tensor create_shape_tensor(
-    const c10::IntArrayRef& input_shapes,
-    synDeviceId syn_device,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    synTensorType shape_tensor_type,
-    const std::string& name = std::string(),
-    void* host_ptr = nullptr);
-
-/**
-@brief This function can be used to create an intermediate
-       synapse_helper tensor of required shape and synDataType
-       as ScalarType dosen't represent all synapse supported types
-**/
-synapse_helpers::tensor create_tensor(
-    const at::Tensor& tensor,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    bool external,
-    const synDataType dtype,
-    const std::string& name = std::string(),
-    const std::string& inference_name = std::string());
-
-std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
-create_tensors(
-    const std::vector<at::Tensor>& tensors,
-    synapse_helpers::graph& graph,
-    const std::vector<bool>& persistents,
-    const std::vector<bool>& externals,
-    const std::vector<c10::optional<c10::ScalarType>> dtypes);
-
-std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
-create_tensors(
-    const std::vector<at::Tensor>& tensors,
-    synapse_helpers::graph& graph,
-    bool persistent,
-    bool external);
-
-synapse_helpers::tensor duplicate_tensor_in_memory_section(
-    const synapse_helpers::tensor& tensor,
-    synapse_helpers::graph& graph,
-    bool external);
-
-synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
-    const synapse_helpers::tensor& tensor,
-    synapse_helpers::graph& graph,
-    std::vector<int64_t>& sizes,
-    std::vector<int64_t>& strides,
-    const uint64_t offset,
-    bool external,
-    synapse_helpers::layouts::MemoryPermutation permutation = {});
-
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
     const std::vector<const at::Tensor*>& vec);
@@ -239,14 +153,6 @@ std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
 std::vector<void*> extract_data_ptrs(const std::vector<at::Tensor>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
     const std::vector<at::Tensor>& vec);
-
-std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
-
-std::vector<std::string> names(
-    const std::vector<synapse_helpers::tensor_or_ref>&);
-
-std::vector<std::string> names(
-    const std::deque<synapse_helpers::tensor_or_ref>&);
 
 std::string name_suffix_from_type(
     const c10::ScalarType pt_type,

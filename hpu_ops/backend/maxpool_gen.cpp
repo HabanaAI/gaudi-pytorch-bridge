@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/helpers/create_tensor.h"
 #include "generated/backend/max_pool2d_with_indices.h"
 #include "generated/backend/max_pool2d_with_indices_backward.h"
 #include "generated/backend/max_pool3d_with_indices.h"

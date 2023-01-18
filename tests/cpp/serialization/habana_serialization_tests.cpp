@@ -7,6 +7,7 @@
 
 #include <experimental/filesystem>
 #include <fstream>
+#include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"

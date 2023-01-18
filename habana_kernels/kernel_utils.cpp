@@ -13,6 +13,7 @@
 #include <torch/script.h>
 
 #include <perf_lib_layer_params.h>
+#include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUStream.h"
 #include "habana_device/hpu_cached_devices.h"

@@ -16,6 +16,7 @@
 #include <memory>
 #include <tuple>
 
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "generated/backend/ne.h"

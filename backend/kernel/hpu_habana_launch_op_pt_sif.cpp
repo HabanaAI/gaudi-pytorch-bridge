@@ -29,10 +29,10 @@
 #include "backend/kernel/refinement_engine.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
 
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
-#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iostream>
 
+#include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/conv_pool_utils.h"

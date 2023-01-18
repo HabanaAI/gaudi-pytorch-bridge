@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
+#include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"

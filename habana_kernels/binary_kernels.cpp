@@ -12,6 +12,7 @@
 #include <memory>
 #include <vector>
 
+#include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/dtype_helpers.h"

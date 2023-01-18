@@ -13,6 +13,7 @@
 
 #include "hpu_ops/op_backend.h"
 #include <c10/core/ScalarType.h>
+#include "backend/helpers/create_tensor.h"
 #include "habana_helpers/cast_sequence.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/pt_version_check.h"

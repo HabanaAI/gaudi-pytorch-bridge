@@ -10,6 +10,7 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
+#include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/binary_kernels.h"
@@ -18,7 +19,6 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/threshold_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/layout_utils.h"
 #include "synapse_helpers/recipe.h"

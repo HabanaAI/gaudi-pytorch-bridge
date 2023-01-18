@@ -16,6 +16,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   helpers/compilation_statistics.cpp
   helpers/tensor_shape.cpp
   helpers/tensor_info.cpp
+  helpers/create_tensor.cpp
   )
   add_custom_command(TARGET habana_pytorch_backend POST_BUILD
     COMMENT "Creating ${TARGET_NAME} symbolic link in $ENV{BUILD_ROOT_LATEST}"

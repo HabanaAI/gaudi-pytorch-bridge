@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "habana_operator.h"
+#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_helpers/logging.h"

@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/helpers/create_tensor.h"
 #include "generated/backend/max.h"
 #include "generated/backend/min.h"
 #include "hpu_ops/backend/reduction_template.h"

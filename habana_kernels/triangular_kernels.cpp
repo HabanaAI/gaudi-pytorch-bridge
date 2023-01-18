@@ -9,6 +9,7 @@
  */
 #include "habana_kernels/triangular_kernels.h"
 #include <torch/script.h>
+#include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"

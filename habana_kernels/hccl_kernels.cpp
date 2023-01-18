@@ -14,6 +14,7 @@
 #include <ATen/ATen.h>
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include "backend/helpers/create_tensor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
