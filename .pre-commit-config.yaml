@@ -1,41 +1,63 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
-    hooks:
-    -   id: check-added-large-files
-    -   id: check-yaml
-    -   id: end-of-file-fixer
-    -   id: trailing-whitespace
--   repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
-    rev: v10.0.1
-    hooks:
-    -   id: git-clang-format
--   repo: https://github.com/PyCQA/bandit
-    rev: 1.7.4
-    hooks:
-    -   id: bandit
--   repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
-    hooks:
-    -   id: flake8
--   repo: https://github.com/PyCQA/isort
-    rev: v5.11.3
-    hooks:
-    -   id: isort
--   repo: https://github.com/PyCQA/pylint
-    rev: v2.15.10
-    hooks:
-    -   id: pylint
-# TODO: enable once https://github.com/Lucas-C/pre-commit-hooks/issues/23 is solved
-# -   repo: https://github.com/Lucas-C/pre-commit-hooks
-#     rev: v1.3.1
-#     hooks:
-#     -   id: insert-license
-#         files: \.(ba|z)sh$|CMakeLists.txt$|\.cmake$|\.py$
-#         args:
-#         -   --comment-style=###############################################################################|#|###############################################################################
-#         -
-#     -   id: insert-license
-#         files: \.c(pp)?$|\.h(pp)?$
-#         args:
-#         -   --comment-style='/********************************************************************************| *| ********************************************************************************\n */'
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v2.3.0
+      hooks:
+          - id: check-added-large-files
+          - id: check-executables-have-shebangs
+          - id: end-of-file-fixer
+            exclude: ^LICENSE.txt
+          - id: trailing-whitespace
+    - repo: https://github.com/cheshirekow/cmake-format-precommit
+      rev: v0.6.13
+      hooks:
+          - id: cmake-format
+          - id: cmake-lint
+    - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
+      rev: v10.0.1
+      hooks:
+          - id: git-clang-format
+    - repo: local
+      hooks:
+          - id: ensure-new-cpp-files-are-added-to-cmake
+            name: Ensure new C++ files are added to CMake
+            entry: scripts/ensure_new_cpp_files_are_added_to_cmake.sh
+            language: script
+    - repo: https://github.com/jumanjihouse/pre-commit-hooks
+      rev: 3.0.0
+      hooks:
+          - id: forbid-binary
+          # - id: git-check  # hopefully to be added once we fix whitespace issues
+          - id: script-must-have-extension
+    - repo: https://github.com/PyCQA/bandit
+      rev: 1.7.4
+      hooks:
+          - id: bandit
+    - repo: https://github.com/PyCQA/flake8
+      rev: 6.0.0
+      hooks:
+          - id: flake8
+    - repo: https://github.com/PyCQA/isort
+      rev: v5.11.3
+      hooks:
+          - id: isort
+    - repo: https://github.com/PyCQA/pylint
+      rev: v2.15.10
+      hooks:
+          - id: pylint
+    - repo: https://github.com/aostrowski/lucas-c-pre-commit-hooks
+      rev: v1.3.1+flexible_years
+      hooks:
+          - id: insert-license
+            files: \.(ba|z)sh$|CMakeLists.txt$|\.cmake$|\.py$
+            args:
+                - --comment-style=###############################################################################|#|###############################################################################
+                - --flexible-years
+          - id: insert-license
+            files: \.c(pp)?$|\.h(pp)?$
+            args:
+                - --comment-style='/********************************************************************************| *| ********************************************************************************\n */'
+                - --flexible-years
+    - repo: https://github.com/adrienverge/yamllint.git
+      rev: v1.29.0
+      hooks:
+          - id: yamllint
