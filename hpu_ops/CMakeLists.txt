@@ -96,7 +96,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/div_round_gen.cpp
           backend/dot_gen.cpp
           backend/elu_backward_gen.cpp
-          backend/entr_gen.cpp
           backend/equal_gen.cpp
           backend/erfc_gen.cpp
           backend/exponential_gen.cpp

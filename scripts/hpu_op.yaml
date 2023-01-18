@@ -6378,13 +6378,13 @@ special_entr:
   promote_int_to_float: [self]
   dtypes: [Float]
   force_default: false
-  op_backend: SpecialEntr
+  guid: entr_fwd
   out_ids: [0]
 
 special_entr.out:
   promote_int_to_float: [self]
   dtypes: [Float]
-  op_backend: SpecialEntr
+  guid: entr_fwd
 
 sqrt:
   force_default: false
