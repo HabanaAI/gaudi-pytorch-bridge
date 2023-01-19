@@ -258,9 +258,15 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       uint64_t syn_offset = input.storage_offset() * input.itemsize();
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
-      auto hb_impl = habana_lazy::GetHbInternalTensorImpl(input);
-      TORCH_CHECK(hb_impl, " internal tensor missing for input tensor");
-      auto permutation = hb_impl->GetMemoryPermutation();
+      synapse_helpers::layouts::MemoryPermutation permutation;
+      if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+        PT_BRIDGE_WARN(
+            "Skipping permutations for EagerOp with duplicate inputs...");
+      } else {
+        auto hb_impl = habana_lazy::GetHbInternalTensorImpl(input);
+        TORCH_CHECK(hb_impl, " internal tensor missing for input tensor");
+        permutation = hb_impl->GetMemoryPermutation();
+      }
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(
               p_context_->syn_input_orig_[0],

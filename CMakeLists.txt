@@ -146,6 +146,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
   habana_kernels/fill_kernels.cpp
+  habana_kernels/eager_op.cpp
   habana_kernels/habana_operator.cpp
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp

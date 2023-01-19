@@ -284,6 +284,10 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
                 info->get_tensor_id(),
                 " permutation because it is not allowed permutation")
           } else {
+            if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+              PT_BRIDGE_WARN("Skipping permutations for EagerOp...");
+              continue;
+            }
             TORCH_CHECK(
                 false,
                 "Failed to reset the permutation because the BE tensor has no internal impl");

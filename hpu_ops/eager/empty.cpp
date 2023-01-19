@@ -23,6 +23,7 @@ at::Tensor empty(
     c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     c10::optional<at::MemoryFormat> memory_format_opt) {
+  PT_LAZY_TRACE;
   TORCH_CHECK(
       !pin_memory_opt.has_value() || !*pin_memory_opt,
       "Only dense CPU tensors can be pinned");
@@ -53,6 +54,7 @@ at::Tensor empty_strided(
     c10::optional<at::Layout> layout_opt,
     c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt) {
+  PT_LAZY_TRACE;
   TORCH_CHECK(
       !pin_memory_opt.has_value() || !*pin_memory_opt,
       "Only dense CPU tensors can be pinned");

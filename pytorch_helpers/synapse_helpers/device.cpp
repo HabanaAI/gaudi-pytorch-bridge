@@ -259,6 +259,8 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER) << "\n";
     std::clog << " PT_HPU_LAZY_ACC_PAR_MODE = "
               << GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) << "\n";
+    std::clog << " PT_HPU_EAGER_OPS = " << GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)
+              << "\n";
     if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
       PT_BRIDGE_WARN(
           "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "
