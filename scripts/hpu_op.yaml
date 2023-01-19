@@ -2778,7 +2778,7 @@ gather:
     Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Half]
   force_default: false
-  op_backend: GatherHabanaOperator
+  guid: gather_elements_fwd
   out_ids: [0]
 
 gather.out:
@@ -2789,7 +2789,7 @@ gather.out:
     Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Greco: [BFloat16, Float, Int, Half]
-  op_backend: GatherHabanaOperator
+  guid: gather_elements_fwd
 
 ge.Scalar_out:
   dtypes:

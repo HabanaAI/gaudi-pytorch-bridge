@@ -45,34 +45,5 @@ std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
   params->axis = dim;
   return params;
 }
-void GatherHabanaOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  // output shape
-  auto outshape = GatherOutputShape(stack)[0];
-  at::Tensor self = stack.at(0).toTensor();
-  at::Tensor indices = stack.at(2).toTensor();
-
-  // Fill params for gather_fwd or gather_elements_fwd guid
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-  if (self.dim() != indices.dim()) {
-    this->guid_ =
-        "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType());
-  } else {
-    this->guid_ = "gather_elements_fwd_" +
-        habana_helpers::name_suffix_from_type(ScalarType());
-  }
-
-  auto result = BuildOp(
-      graph,
-      guid_,
-      {syn_in(0), syn_in(1)},
-      {{outshape, ScalarType(), 0}},
-      params.get(),
-      size);
-  syn_out(0) = std::move(result[0]);
-  // }
-}
 
 } // namespace habana
