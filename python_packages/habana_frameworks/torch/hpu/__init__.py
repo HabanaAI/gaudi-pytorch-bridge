@@ -6,6 +6,7 @@ from habana_frameworks.torch import _hpu_C
 from typing import Optional, Union, List, Any
 from ._utils import _get_device_index, _get_device_id_from_environ
 from .memory import *
+from .metrics import *
 from .streams import *
 from .events import *
 from .graphs import *

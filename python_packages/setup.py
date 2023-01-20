@@ -99,6 +99,7 @@ extensions = [
     ("habana_frameworks.torch.utils._profiler_C", glob.glob(f"{ext_src_root}/utils/profiler/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._debug_C", glob.glob(f"{ext_src_root}/utils/debug/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._activity_profiler_C", glob.glob(f"{ext_src_root}/activity_profiler/csrc/*.cpp")),
+    ("habana_frameworks.torch.utils._event_dispatcher_C", glob.glob(f"{ext_src_root}/utils/event_dispatcher/csrc/*.cpp")),
 ]
 assert not any(
     ext for ext, src in extensions if len(src) == 0

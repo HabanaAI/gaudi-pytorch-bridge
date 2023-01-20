@@ -23,6 +23,7 @@
 #include <type_traits>
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "habana_helpers/event_dispatcher.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/stat_collection.h"
 #include "synapse_helpers/device.h"
@@ -404,11 +405,22 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   recipe_handle->in_execution_phase_ = true;
   recipe_handle->recipe_name_ = std::move(name);
 
+  auto syn_compile_duration_us =
+      std::chrono::duration_cast<std::chrono::duration<int64_t, std::micro>>(
+          end_time - start_time)
+          .count();
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE,
+      habana_helpers::EventDispatcher::EventParams(
+          {{"duration", syn_compile_duration_us},
+           {"recipe", recipe_handle->recipe_name_}}));
+
   STAT_ADD_ATTRIBUTE(
       globalStatPtsEnum::recipe_compile,
       "Recipe Name",
       recipe_handle->recipe_name_);
   STAT_COLLECT_TIME(synapse_compilation, globalStatPtsEnum::recipe_compile);
+
   return {std::move(recipe_handle)};
 }
 

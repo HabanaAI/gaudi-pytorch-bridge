@@ -130,6 +130,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/profiling/trace_parser.cpp
   pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
+  pytorch_helpers/habana_helpers/event_dispatcher.cpp
   pytorch_helpers/serialize/export.cpp
   pytorch_helpers/util/jitgraph_utils.cpp
   habana_kernels/basic_kernels.cpp
@@ -390,6 +391,8 @@ if (BUILD_PKGS)
     habana_frameworks/torch/utils/debug/csrc/bindings.cpp
     habana_frameworks/torch/utils/debug/README.txt
     habana_frameworks/torch/utils/distributed_utils.py
+    habana_frameworks/torch/utils/event_dispatcher/__init__.py
+    habana_frameworks/torch/utils/event_dispatcher/csrc/bindings.cpp
     habana_frameworks/torch/utils/experimental/__init__.py
     habana_frameworks/torch/utils/experimental/csrc/bindings.cpp
     habana_frameworks/torch/utils/experimental/distributed_emulation.py
