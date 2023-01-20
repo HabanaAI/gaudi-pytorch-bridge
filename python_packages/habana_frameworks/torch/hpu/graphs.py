@@ -515,14 +515,17 @@ class ModuleCacher(torch.nn.Module):
         self.max_graphs = max_graphs
         self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
 
+
     def forward(self, *args, **kwargs):
         input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
-        if input_id in self.model_dict:
+        use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode
+
+        if use_cache and input_id in self.model_dict:
             graph_model = self.model_dict[input_id]
             output = graph_model.graph_forward(*args, **kwargs)
             return output
 
-        elif len(self.model_dict) < self.max_graphs and torch.is_grad_enabled() and self.use_lazy_mode:
+        elif use_cache and len(self.model_dict) < self.max_graphs:
             graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
             graph_model.init_hpu_graph(*args, **kwargs)
             self.model_dict[input_id] = graph_model
