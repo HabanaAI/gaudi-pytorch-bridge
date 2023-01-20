@@ -67,8 +67,7 @@ target_sources(
           hpu_ops/huber_loss_gen.cpp
           hpu_ops/index_gen.cpp
           hpu_ops/index_select_gen.cpp
-          hpu_ops/isfinite_isinf_gen.cpp
-          hpu_ops/isnan_gen.cpp
+          hpu_ops/isfinite_isinf_isnan_gen.cpp
           hpu_ops/isposneginf_gen.cpp
           hpu_ops/l1_loss_backward_gen.cpp
           hpu_ops/l1_loss_gen.cpp

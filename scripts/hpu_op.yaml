@@ -3254,12 +3254,12 @@ index.Tensor:
 isfinite:
   force_default: false
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
-  op_frontend: IsFiniteInf
-  op_backend: _IsFiniteInf
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
+  op_frontend: IsFiniteInfNan
+  op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
   out_ids: [0]
 
@@ -3267,84 +3267,84 @@ isinf:
   force_default: false
   custom_fill_params: FillisinfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInf
-  op_backend: _IsFiniteInf
+  op_frontend: IsFiniteInfNan
+  op_backend: _IsFiniteInfNan
   out_ids: [0]
 
 isinf.out:
   custom_fill_params: FillisinfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   out_dtype: Bool
   guid: isinf_fwd
-  op_backend: _IsFiniteInf
+  op_backend: _IsFiniteInfNan
 
 isnan:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   guid: isnan_fwd
-  op_backend: IsNanOperator
-  op_frontend: LazyIsNan
+  op_frontend: IsFiniteInfNan
+  op_backend: _IsFiniteInfNan
   out_ids: [0]
 
 isneginf:
   force_default: false
   custom_fill_params: FillisneginfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInf
-  op_backend: _IsFiniteInf
+  op_frontend: IsFiniteInfNan
+  op_backend: _IsFiniteInfNan
   out_ids: [0]
 
 isneginf.out:
   custom_fill_params: FillisneginfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   out_dtype: Bool
   guid: isinf_fwd
-  op_backend: _IsFiniteInf
+  op_backend: _IsFiniteInfNan
 
 isposinf:
   force_default: false
   custom_fill_params: FillisposinfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInf
-  op_backend: _IsFiniteInf
+  op_frontend: IsFiniteInfNan
+  op_backend: _IsFiniteInfNan
   out_ids: [0]
 
 isposinf.out:
   custom_fill_params: FillisposinfParamsFwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-    Greco: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
   out_dtype: Bool
   guid: isinf_fwd
-  op_backend: _IsFiniteInf
+  op_backend: _IsFiniteInfNan
 
 kl_div:
   force_default: false

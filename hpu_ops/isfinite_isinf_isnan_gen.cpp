@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,11 +12,12 @@
  */
 #include "generated/isfinite.h"
 #include "generated/isinf.h"
+#include "generated/isnan.h"
 
 namespace habana {
 
 template <>
-IsFiniteInf<at::Tensor>::IsFiniteInf(
+IsFiniteInfNan<at::Tensor>::IsFiniteInfNan(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
@@ -25,11 +26,11 @@ IsFiniteInf<at::Tensor>::IsFiniteInf(
 }
 
 template <>
-at::Tensor IsFiniteInf<at::Tensor>::get_result_overrideable() {
+at::Tensor IsFiniteInfNan<at::Tensor>::get_result_overrideable() {
   return {};
 }
 
-void _IsFiniteInf::AddNode(
+void _IsFiniteInfNan::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t size = 0;
