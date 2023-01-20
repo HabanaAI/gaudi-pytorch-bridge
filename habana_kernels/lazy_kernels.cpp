@@ -5318,7 +5318,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   std::set<size_t> metadata_indices;
 
   // Handle 0D tensor
-  if (self.sizes().empty() && self.numel() == 1) {
+  if (self.sizes().empty() && self.numel() == 1 && repeats.empty()) {
     return self;
   }
 
