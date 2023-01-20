@@ -87,7 +87,10 @@ void PtTensorInfo::populate_tinfo(
     hb_dont_allow_permute_ = hb_internal_tensor->GetDontAllowPermutation();
   }
 
-  offset_ = (get_buffer_syn() - get_buffer_start_syn());
+  if (get_buffer_syn() != 0) {
+    // set valid offset
+    offset_ = (get_buffer_syn() - get_buffer_start_syn());
+  }
   is_view_tensor_ = (offset_ != 0);
 
   dma_gen_id_ = dma_gen_id;
