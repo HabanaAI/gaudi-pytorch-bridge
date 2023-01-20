@@ -7656,6 +7656,21 @@ at::Tensor habana_cast_to_fp8_lazy(
     ::std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
   PT_OP_TRACE;
+  if (input.dim() == 2) {
+    // Adopted from torch/csrc/jit/runtime/symbolic_script.cpp -> addmm()a
+    auto bias_size = weight.sizes().vec();
+    bias_size.erase(bias_size.begin() + 1);
+    auto self_grad = grad_output.sum_to_size(bias_size);
+    auto mat1_grad = grad_output.mm(weight); // No weight.t()
+    auto mat2_grad = input.t().mm(grad_output).t();
+    if (output_mask[2]) {
+      return std::make_tuple(mat1_grad, mat2_grad, self_grad);
+    } else {
+      at::Tensor grad_bias;
+      return std::make_tuple(mat1_grad, mat2_grad, grad_bias);
+    }
+  }
+
   c10::optional<at::Tensor> bias_opt;
   auto bias_elem_count = weight.sizes().vec()[0];
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
