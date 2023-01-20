@@ -51,7 +51,6 @@ target_sources(
           hpu_ops/fill_gen.cpp
           hpu_ops/flip_gen.cpp
           hpu_ops/floor_divide_gen.cpp
-          hpu_ops/fmod_gen.cpp
           hpu_ops/foreach_gen.cpp
           hpu_ops/frac_gen.cpp
           hpu_ops/frexp_gen.cpp

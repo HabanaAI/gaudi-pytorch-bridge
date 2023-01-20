@@ -2729,7 +2729,6 @@ fmod.Scalar:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_backend: Fmod
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -2738,7 +2737,6 @@ fmod.Scalar_out:
   force_default: false
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_backend: Fmod
   scalar_ids: [1]
   promote_to_common_type: [self, other]
 
@@ -2747,7 +2745,6 @@ fmod.Tensor:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_backend: Fmod
   out_ids: [0]
   promote_to_common_type: [self, other]
 
@@ -2755,7 +2752,6 @@ fmod.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
-  op_backend: Fmod
   promote_to_common_type: [self, other]
 
 fmod_.Scalar:
@@ -2764,7 +2760,6 @@ fmod_.Scalar:
   guid: mod_fwd
   inplace_ids: [0]
   scalar_ids: [1]
-  op_backend: Fmod
   promote_to_common_type: [self, other]
 
 fmod_.Tensor:
@@ -2772,7 +2767,6 @@ fmod_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   inplace_ids: [0]
-  op_backend: Fmod
   promote_to_common_type: [self, other]
 
 gather:
