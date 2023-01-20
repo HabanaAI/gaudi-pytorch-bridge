@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -130,6 +130,7 @@ void OpBackend::HandleFn(
   }
 
   std::vector<at::Tensor> tensors;
+  tensors.reserve(m_output_metadata.size());
 
   const auto& outshapes = ComputeOutputShapes(stack);
 
@@ -479,6 +480,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   if (op->isMetaMode()) {
     auto& meta = op->GetMeta();
     std::vector<synapse_helpers::tensor> out;
+    out.reserve(node_attr.output_attrs.size());
 
     for (const auto& attr : node_attr.output_attrs) {
       const auto& attr_strides = HabanaOperator::CalculateStrides(
@@ -510,7 +512,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
 
   const auto& ctx = op->p_context_;
   std::vector<synapse_helpers::tensor> outputs;
+  outputs.reserve(node_attr.output_attrs.size());
   std::vector<synTensor> node_outputs;
+  node_outputs.reserve(node_attr.output_attrs.size());
 
   for (const auto& attr : node_attr.output_attrs) {
     bool is_final_result = attr.final_result_index.has_value();
