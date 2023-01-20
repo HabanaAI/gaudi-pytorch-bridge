@@ -7435,3 +7435,8 @@ zero_:
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   override_fn: zero_hpu_lazy
   acc_thread: true
+
+_assert_async:
+  guid: assert_async
+  out_ids: [0]
+  op_backend: AssertAsync
