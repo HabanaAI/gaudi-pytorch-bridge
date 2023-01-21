@@ -274,16 +274,6 @@ struct OptimizedJITGraphAndMetaData {
     cur_shape_agnostic_rvalpsh = shape_agnostic_recipe;
   }
 
-  std::unordered_map<uint64_t, synTensor>
-  get_syn_tensor_id_to_tensor_handle_map() {
-    return syn_tensor_id_to_tensor_handle;
-  }
-
-  void set_syn_tensor_id_to_tensor_handle_map(
-      std::unordered_map<uint64_t, synTensor> tensor_id_to_tensor_handle_map) {
-    syn_tensor_id_to_tensor_handle = tensor_id_to_tensor_handle_map;
-  }
-
   bool get_is_shape_agnostic_supported() {
     return is_shape_agnostic_supported;
   }
@@ -323,7 +313,6 @@ struct OptimizedJITGraphAndMetaData {
   bool event_flag = false;
   std::vector<std::vector<int64_t>> output_shapes{};
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
-  std::unordered_map<uint64_t, synTensor> syn_tensor_id_to_tensor_handle{};
   bool is_shape_agnostic_supported = true;
   std::vector<uint64_t> stack_idx_fwd_graph_builder{};
 };

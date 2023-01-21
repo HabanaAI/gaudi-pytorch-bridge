@@ -108,6 +108,7 @@ class PtTensorInfo {
       const ValPtr& vp,
       const bool wflag,
       const uint64_t tensor_id,
+      const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR,
       DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
   PtTensorInfo(
@@ -116,6 +117,7 @@ class PtTensorInfo {
       const std::string& irn,
       const bool wflag,
       const uint64_t tensor_id,
+      const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR,
       DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
 
@@ -335,6 +337,10 @@ class PtTensorInfo {
     return size;
   }
 
+  synTensor get_orig_syn_handle() const {
+    return orig_syn_handle_;
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};
@@ -377,6 +383,8 @@ class PtTensorInfo {
 
   void* host_ptr_{nullptr};
   DMAInputGeneratorType dma_gen_id_;
+
+  synTensor orig_syn_handle_{nullptr};
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,

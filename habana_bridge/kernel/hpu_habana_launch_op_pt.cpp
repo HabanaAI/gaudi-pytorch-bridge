@@ -448,6 +448,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         irn,
         watch_tensor_flag_,
         syn_tensor.id(),
+        syn_tensor.get(),
         syn_tensor.tensor_type());
 
     auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
@@ -600,6 +601,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       vp,
       watch_tensor_flag_,
       out_syntensor.id(),
+      out_syntensor.get(),
       out_syntensor.tensor_type());
   ti->set_external(out_syntensor.is_external());
   ivalue_to_tensor_info_map[ivpsh] = ti;
@@ -931,6 +933,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
         value_in,
         watch_tensor_flag_,
         meta_syn_tensors.back().id(),
+        meta_syn_tensors.back().get(),
         meta_syn_tensors.back().tensor_type());
     ivalue_to_tensor_info_map[value_to_ivalue[value_in]] = ti;
     if (!isInGraphOutputs(value_in)) {
@@ -1061,6 +1064,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
         value_in,
         watch_tensor_flag_,
         syn_tensor.id(),
+        syn_tensor.get(),
         syn_tensor.tensor_type());
     ti->set_restrided(true);
 
@@ -1214,6 +1218,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
             irn,
             watch_tensor_flag_,
             meta_syn_tensors.back().id(),
+            meta_syn_tensors.back().get(),
             meta_syn_tensors.back().tensor_type());
 
         ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
@@ -2951,14 +2956,20 @@ void RecipeValueSpec::create_outdup(
 
   at::Tensor pt_outdup;
 
-  if ((parent_tensor.sizes() == pt_sizes) &&
-      (parent_tensor.strides() == pt_strides)) {
-    // inplace op
+  // To Do - to handle view along with new view implementation for eager mode
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
     pt_outdup = parent_tensor;
   } else {
-    // view
-    pt_outdup =
-        at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+    if ((parent_tensor.sizes() == pt_sizes) &&
+        (parent_tensor.strides() == pt_strides)) {
+      // inplace op
+      pt_outdup = parent_tensor;
+    } else {
+      // view
+      pt_outdup =
+          at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+    }
   }
 
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_outdup);
@@ -3035,28 +3046,41 @@ void HabanaLaunchOpPT::StoreShapeAgnosticGraph() {
   shape_agnostic_graph_ptr->set_is_valid(true);
 }
 
-// shape agnostic : prepare tensor id to tensor handle map
-void HabanaLaunchOpPT::PrepareTensorIdToTensorHandleMap() {
-  PT_LAZY_EAGER_DEBUG(
-      "[LAZY EAGER SHAPE AGNOSTIC] pt_to_synapse_tensors size : ",
-      pt_to_synapse_tensors.size());
-
-  std::unordered_map<uint64_t, synTensor> tensor_id_to_tensor_handle_map{};
-  for (auto iter = pt_to_synapse_tensors.begin();
-       iter != pt_to_synapse_tensors.end();
-       ++iter) {
-    for (synapse_helpers::tensor& tensor : *(iter->second)) {
-      PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER SHAPE AGNOSTIC] tensor id : ",
-          tensor.id(),
-          " tensor handle : ",
-          tensor.get());
-      tensor_id_to_tensor_handle_map.insert({tensor.id(), tensor.get()});
+// shape agnostic : validate Inputs and Outputs and disable shape agnostic if
+// not supported
+void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
+    at::ArrayRef<torch::jit::IValue>& input_refs) {
+  // Validate if output shapes are filled correctly otherwise we can not
+  // support shape agnostic graph caching.
+  for (auto shape : out_shapes) {
+    for (auto size : shape) {
+      if (size == 0) {
+        jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+            " output shapes not ok! ");
+        break;
+      }
     }
   }
 
-  jit_graph_and_meta_data->set_syn_tensor_id_to_tensor_handle_map(
-      tensor_id_to_tensor_handle_map);
+  // Check if any of the inputs is a shape tensor
+  for (auto const& input : input_refs) {
+    if (input.isTensor()) {
+      auto& tensor = input.toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      bool is_shape_tensor = impl && impl->isShapeTensor();
+      if (is_shape_tensor) {
+        jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+            " input is a shape tensor ! ",
+            " impl : ",
+            impl);
+        break;
+      }
+    }
+  }
 }
 
 // shape agnostic : print duplicate graph information
@@ -3196,10 +3220,15 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   CreateValueToIvalueMapForInputs();
 
+  if (enable_shape_agnostic_caching_) {
+    ValidateInputsAndOutputsAndDisableSA(input_refs);
+  }
+
   // shape agnostic caching :: begin
   if (enable_shape_agnostic_caching_ &&
       jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
-    if (is_jit_cached_graph_info_available == false) {
+    cur_rvalpsh = jit_graph_and_meta_data->get_shape_agnostic_recipe();
+    if (cur_rvalpsh == nullptr) {
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
       auto syn_graph =
@@ -3214,9 +3243,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         return;
       }
 
-      PrepareTensorIdToTensorHandleMap();
-
       DuplicateSynapseGraph();
+
       if ((syn_graph_ptr->get_num_of_tensors() !=
            pt_to_synapse_tensors.size()) ||
           (habana_kernels.size() > 1)) {
@@ -3244,7 +3272,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     } else {
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
-      cur_rvalpsh = jit_graph_and_meta_data->get_shape_agnostic_recipe();
       syn_graph_ptr = cur_rvalpsh->shape_agnostic_synapse_graph_.get();
 
       std::vector<synTensorHandleMap> tensorsMap(
@@ -3294,7 +3321,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           std::nullopt,
           out_shapes,
           syn_graph_ptr,
-          jit_graph_and_meta_data->get_syn_tensor_id_to_tensor_handle_map(),
           synapse_orig_to_new_handle);
 
       // To check if any other members just like ntensorbytes also need to be

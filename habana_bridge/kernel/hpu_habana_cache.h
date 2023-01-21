@@ -272,8 +272,6 @@ struct RecipeValueSpec {
   inline void update_new_tensor(
       synapse_helpers::graph* synapse_graph_ptr,
       size_t ridx,
-      std::unordered_map<uint64_t, synTensor>&
-          synapse_tensor_id_to_tensor_handle,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       std::vector<int64_t> new_shape,
       std::vector<uint8_t> permute_or_empty = {});
@@ -288,8 +286,6 @@ struct RecipeValueSpec {
           tidx_to_tensor_map_opt = std::nullopt,
       std::vector<std::vector<int64_t>> output_shapes = {},
       synapse_helpers::graph* synapse_graph_ptr = nullptr,
-      std::unordered_map<uint64_t, synTensor>
-          synapse_tensor_id_to_tensor_handle = {},
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {});
   void populate_syn_tensor_ids();
   void patch_launch_info(

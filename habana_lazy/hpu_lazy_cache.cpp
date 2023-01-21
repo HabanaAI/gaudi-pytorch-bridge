@@ -415,7 +415,6 @@ void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   new_positions.clear();
   is_in_graph_outputs.clear();
   is_control_edge_processing_required = false;
-  syn_tensor_id_to_tensor_handle.clear();
 }
 
 void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {

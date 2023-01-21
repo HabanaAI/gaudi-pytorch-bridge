@@ -121,8 +121,10 @@ PtTensorInfo::PtTensorInfo(
     const std::string& irn,
     const bool wflag,
     const uint64_t tensor_id,
+    const synTensor handle,
     const synTensorType stt,
-    DMAInputGeneratorType dma_gen_id) {
+    DMAInputGeneratorType dma_gen_id)
+    : orig_syn_handle_(handle) {
   populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
 }
 
@@ -132,8 +134,10 @@ PtTensorInfo::PtTensorInfo(
     const ValPtr& vp,
     const bool wflag,
     const uint64_t tensor_id,
+    const synTensor handle,
     const synTensorType stt,
-    DMAInputGeneratorType dma_gen_id) {
+    DMAInputGeneratorType dma_gen_id)
+    : orig_syn_handle_(handle) {
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();

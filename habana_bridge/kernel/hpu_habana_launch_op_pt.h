@@ -407,7 +407,8 @@ class HabanaLaunchOpPT {
   void ReturnCachedRecipe(RecipeValueSpec& rv);
   void DuplicateSynapseGraph();
   void StoreShapeAgnosticGraph();
-  void PrepareTensorIdToTensorHandleMap();
+  void ValidateInputsAndOutputsAndDisableSA(
+      at::ArrayRef<torch::jit::IValue>& input_refs);
   void PrintDuplicateGraphInformation(
       synapse_helpers::graph* graph_ptr,
       std::vector<synTensorHandleMap>& tensors_map,

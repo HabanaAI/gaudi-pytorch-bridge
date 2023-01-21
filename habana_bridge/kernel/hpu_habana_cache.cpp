@@ -630,16 +630,41 @@ void RecipeValueSpec::update_tensor_shape(
 inline void RecipeValueSpec::update_new_tensor(
     synapse_helpers::graph* synapse_graph_ptr,
     size_t ridx,
-    std::unordered_map<uint64_t, synTensor>& synapse_tensor_id_to_tensor_handle,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
     std::vector<uint8_t> permute_or_empty) {
   auto tinfo = dtensorinfos->at(ridx);
+
+  auto orig_handle = tinfo->get_orig_syn_handle();
+
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " orig_handle : ",
+      orig_handle);
+
+  synTensor new_handle = nullptr;
+  if (synapse_orig_to_new_handle.find(orig_handle) ==
+      synapse_orig_to_new_handle.end()) {
+    // This could be changed assert if it is gauranteed that synapse
+    // duplicate API returns orig/new handle for each persistent tensor
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] origHandle : ",
+        orig_handle,
+        " not present in the synapse_orig_to_new_handle map");
+  } else {
+    new_handle = synapse_orig_to_new_handle.find(orig_handle)->second;
+  }
+
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " newHandle : ",
+      new_handle);
+
   size_t tensorId = tinfo->get_tensor_id();
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] ridx : ", ridx, " tensor id : ", tensorId);
-  synTensor new_handle = get_syn_new_handle(
-      synapse_tensor_id_to_tensor_handle, synapse_orig_to_new_handle, tensorId);
 
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] new handle : ",
@@ -771,7 +796,6 @@ void RecipeValueSpec::update_patching_table(
         tidx_to_tensor_map_opt,
     std::vector<std::vector<int64_t>> output_shapes,
     synapse_helpers::graph* synapse_graph_ptr,
-    std::unordered_map<uint64_t, synTensor> synapse_tensor_id_to_tensor_handle,
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle) {
   PT_BRIDGE_BEGIN;
   PT_LAZY_EAGER_DEBUG(
@@ -914,7 +938,6 @@ void RecipeValueSpec::update_patching_table(
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
-              synapse_tensor_id_to_tensor_handle,
               synapse_orig_to_new_handle,
               input.toTensor().sizes().vec(),
               impl->GetMemoryPermutation());
@@ -941,7 +964,6 @@ void RecipeValueSpec::update_patching_table(
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
-              synapse_tensor_id_to_tensor_handle,
               synapse_orig_to_new_handle,
               t.sizes().vec(),
               impl->GetMemoryPermutation());
@@ -1133,7 +1155,6 @@ void RecipeValueSpec::update_patching_table(
       update_new_tensor(
           synapse_graph_ptr,
           ridx,
-          synapse_tensor_id_to_tensor_handle,
           synapse_orig_to_new_handle,
           output_shapes.at(output_idx));
       dtinfos_patched_count++;
@@ -1214,7 +1235,6 @@ void RecipeValueSpec::update_patching_table(
         update_new_tensor(
             synapse_graph_ptr,
             ridx,
-            synapse_tensor_id_to_tensor_handle,
             synapse_orig_to_new_handle,
             output_shapes.at(output_idx));
         dtinfos_patched_count++;
@@ -1277,7 +1297,6 @@ void RecipeValueSpec::update_patching_table(
         update_new_tensor(
             synapse_graph_ptr,
             ridx,
-            synapse_tensor_id_to_tensor_handle,
             synapse_orig_to_new_handle,
             output_shapes.at(output_idx));
         dtinfos_patched_count++;
