@@ -6571,17 +6571,19 @@ t:
   acc_thread: true
 
 take:
+  custom_output_shape: TakeOutputShape
   dtypes:
     self: [BFloat16, Float]
     index: [Int]
-  op_backend: TakeOperator
+  guid: take_fwd
   out_ids: [0]
 
 take.out:
+  custom_output_shape: TakeOutputShape
   dtypes:
     self: [BFloat16, Float]
     index: [Int]
-  op_backend: TakeOperator
+  guid: take_fwd
 
 tan.out:
   promote_int_to_float: [self]

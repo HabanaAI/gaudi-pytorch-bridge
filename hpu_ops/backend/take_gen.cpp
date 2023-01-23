@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -13,28 +13,7 @@
 
 namespace habana {
 
-void TakeOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const auto self = stack.at(0).toTensor();
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-
-  ns_GatherKernel::Params params{};
-
-  // (M, N) -> (MN)
-  auto reshape_outshape = self.numel();
-  auto reshape =
-      ReshapeHelper(graph, syn_in(0), reshape_outshape, ScalarType());
-
-  // Gathers values along an axis
-  auto gatherkernel = BuildOp(
-      graph,
-      "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {reshape.get(), syn_in(1)},
-      {{outshape, ScalarType(), 0}},
-      &params,
-      sizeof(params));
-
-  syn_out(0) = std::move(gatherkernel[0]);
+sizes_vec TakeOutputShape(const at::Stack& stack) {
+  return {stack_tensor(stack, 1).sizes().vec()};
 }
 } // namespace habana
