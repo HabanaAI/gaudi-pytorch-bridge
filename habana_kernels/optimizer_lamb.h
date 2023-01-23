@@ -9,7 +9,7 @@
  */
 #pragma once
 #include <torch/script.h>
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 namespace habana {
 
 class OptimizerLambPhase1Operator : public HabanaOperator {

@@ -16,9 +16,9 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/torch.h>
 
+#include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy_test_infra.h"
 
 TEST(DS_CacheTest, UniqueTokenGenTest) {
@@ -71,8 +71,7 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   std::string id_str{"HabanaLaunchOp"};
   size_t graphKey = 0;
   std::string op_strs = std::string();
-  habana_lazy::ComputeGraphHashCode(
-      jit_ir_graph, id_str, inputs, op_strs, graphKey);
+  habana::ComputeGraphHashCode(jit_ir_graph, id_str, inputs, op_strs, graphKey);
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
       std::make_shared<habana::RecipeArgumentSpec>(inputs, graphKey, op_strs);
 

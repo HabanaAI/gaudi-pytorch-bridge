@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 #pragma once
+#include "backend/habana_operator.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/habana_operator.h"
 
 namespace habana {
 

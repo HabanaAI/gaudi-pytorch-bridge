@@ -37,10 +37,11 @@
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
 
+#include "backend/habana_operator.h"
 #include "backend/helpers/compilation_statistics.h"
-#include "habana_kernels/habana_operator.h"
-#include "habana_lazy/hpu_lazy_cache.h"
+#include "backend/jit_graph_cache.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_arg_spec.h"
 #include "habana_lazy/visualize.h"
 
 namespace habana {
@@ -116,7 +117,7 @@ class PersistenceMarkerPassData;
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(
-      std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
           optimized_jit_graph_and_meta_data);
   ~HabanaLaunchOpPT();
 
@@ -155,7 +156,7 @@ class HabanaLaunchOpPT {
   std::string id_str = std::string();
   std::string op_strs = std::string();
   size_t graph_key = 0;
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
       jit_graph_and_meta_data = nullptr;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
   std::vector<std::vector<int64_t>> out_shapes{};

@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <synapse_api.h>
@@ -13,13 +16,10 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
+#include "backend/habana_operator.h"
 #include "backend/kernel/hpu_habana_cache.h"
-#include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/habana_operator.h"
-#include "habana_lazy/ir.h"
-#include "habana_lazy/ir_utils.h"
 
-namespace habana_lazy {
+namespace habana {
 
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 // Functionality to calculate the graph hash on the JIT graph
@@ -31,6 +31,7 @@ void ComputeGraphHashCode(
     size_t& graphHashCode,
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {});
+
 /**
  * LazyGraphCache
  * ----------------
@@ -82,62 +83,6 @@ void ComputeGraphHashCode(
  *         - If Yes, invoke recipe
  *         - If no, create aynspase graphm compile and invoke recipe
  */
-
-/**
- * LazyArgumentSpec
- *
- * This spec creates a hash_code for a given post_order graph
- * and input IValues.
- */
-class LazyArgumentSpec {
- public:
-  LazyArgumentSpec(
-      bool with_grad,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
-      size_t post_order_nodes_hash,
-      const ir::ValueList& inputs,
-      const ir::ValueNodeListMap& value_input_nodes_map,
-      const ir::ValueList& outputs,
-      const std::vector<size_t>& parent_vec,
-      const std::vector<bool>& node_bcast_map = {});
-
-  bool operator==(const LazyArgumentSpec& rv) const {
-    return m_hash_code == rv.m_hash_code &&
-        m_post_order_nodes_hash == rv.m_post_order_nodes_hash;
-  }
-
-  bool operator!=(const LazyArgumentSpec& rv) const {
-    return !(*this == rv);
-  }
-
-  size_t hashCode() const {
-    return m_hash_code;
-  }
-
- private:
-  torch::jit::Stack CreateStack(const at::ArrayRef<torch::jit::IValue>& list);
-
-  void GetArgSpecKey(
-      bool with_grad,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
-      const ir::ValueList& inputs,
-      const ir::ValueNodeListMap& value_input_nodes_map,
-      const ir::ValueList& outputs);
-
-  size_t GetInputHash(
-      const ir::ValueList& inputs,
-      const ir::ValueNodeListMap& value_input_nodes_map);
-
-  size_t GetOutputHash(const ir::ValueList& outputs);
-
-  size_t m_post_order_nodes_hash;
-  size_t m_hash_code = 0;
-
-  //
-  // Cache for storing the compiled graph
-  static std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
-      m_compiled_graph;
-};
 
 struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
@@ -332,7 +277,7 @@ struct OptimizedJITGraphAndMetaData {
  * ============
  * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
  * auto jit_graph_and_meta_data =
- * LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(las.hashCode());
+ * habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(las.hashCode());
  *
  * Cache hit
  * =========
@@ -346,9 +291,9 @@ struct OptimizedJITGraphAndMetaData {
  * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
  * // Compute meta data for JIT graph and store in cache along with JIT graph
  * auto jit_graph_and_meta_data =
- * std::make_shared<OptimizedJITGraphAndMetaData>(jit_graph, input_refs);
- * LazyGraphCache::GetLazyCache().Add(las.hashCode, jit_graph_and_meta_data);
- * lower_jit_graph(...)
+ * std::make_shared<habana::OptimizedJITGraphAndMetaData>(jit_graph,
+ * input_refs); habana::LazyGraphCache::GetLazyCache().Add(las.hashCode,
+ * jit_graph_and_meta_data); lower_jit_graph(...)
  *
  */
 class LazyGraphCache {
@@ -368,9 +313,11 @@ class LazyGraphCache {
 
   ~LazyGraphCache();
 
-  std::shared_ptr<OptimizedJITGraphAndMetaData> GetOptimizedJITGraphAndMetaData(
-      size_t key);
-  void Add(size_t key, std::shared_ptr<OptimizedJITGraphAndMetaData> val);
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+  GetOptimizedJITGraphAndMetaData(size_t key);
+  void Add(
+      size_t key,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val);
   void RemoveGraph(size_t key);
   bool IsCached(size_t key);
   bool Empty();
@@ -380,9 +327,10 @@ class LazyGraphCache {
   explicit LazyGraphCache();
 
   std::mutex m_mutex;
-  ;
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
-  std::unordered_map<size_t, std::shared_ptr<OptimizedJITGraphAndMetaData>>
+  std::unordered_map<
+      size_t,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
       m_cache_map;
 };
 
@@ -403,9 +351,11 @@ class OptimizedLazyGraphCache {
 
   ~OptimizedLazyGraphCache();
 
-  std::shared_ptr<OptimizedJITGraphAndMetaData> GetOptimizedJITGraphAndMetaData(
-      size_t key);
-  void Add(size_t key, std::shared_ptr<OptimizedJITGraphAndMetaData> val);
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+  GetOptimizedJITGraphAndMetaData(size_t key);
+  void Add(
+      size_t key,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val);
   void RemoveGraph(size_t key);
   bool IsCached(size_t key);
   bool Empty();
@@ -417,8 +367,10 @@ class OptimizedLazyGraphCache {
   std::mutex m_mutex;
 
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
-  std::unordered_map<size_t, std::shared_ptr<OptimizedJITGraphAndMetaData>>
+  std::unordered_map<
+      size_t,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
       m_cache_map;
 };
 
-} // namespace habana_lazy
+} // namespace habana

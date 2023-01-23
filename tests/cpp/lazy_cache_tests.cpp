@@ -8,7 +8,8 @@
  ******************************************************************************
  */
 
-#include "habana_lazy/hpu_lazy_cache.h"
+#include "backend/jit_graph_cache.h"
+#include "habana_lazy/lazy_arg_spec.h"
 #include "habana_lazy_test_infra.h"
 
 #include <gtest/gtest.h>
@@ -42,14 +43,14 @@ TEST(LazyCacheTest, CacheMissEmptyCache) {
 
   // Look for the lazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 /*
@@ -80,8 +81,8 @@ TEST(LazyCacheTest, CacheHitSameInput) {
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
@@ -89,19 +90,19 @@ TEST(LazyCacheTest, CacheHitSameInput) {
   // Create a JIT IR graph corresponding to the 3 nodes
   auto g = habana_lazy_test::CreateJITGraph();
   auto g_and_m_data =
-      std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>(g, inputs);
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>(g, inputs);
 
   // Add the JIR IR against the lazyArgumentSpec in cache
-  habana_lazy::LazyGraphCache::GetLazyCache().Add(las.hashCode(), g_and_m_data);
+  habana::LazyGraphCache::GetLazyCache().Add(las.hashCode(), g_and_m_data);
 
   // This time, the cache lookup should find a cache hit
   jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las.hashCode());
   EXPECT_EQ(jit_graph_and_meta_data, g_and_m_data);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 /*
@@ -133,8 +134,8 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las1.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las1.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
@@ -142,11 +143,10 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
   // Create a JIT IR graph corresponding to the 3 nodes
   auto g = habana_lazy_test::CreateJITGraph();
   auto g_and_m_data =
-      std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>(g, inputs1);
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>(g, inputs1);
 
   // Add the JIR IR against the LazyArgumentSpec in cache
-  habana_lazy::LazyGraphCache::GetLazyCache().Add(
-      las1.hashCode(), g_and_m_data);
+  habana::LazyGraphCache::GetLazyCache().Add(las1.hashCode(), g_and_m_data);
 
   // 2 input tensors, different shaped tensors
   auto inputs2_ivalues = habana_lazy_test::CreateInputs({{4, 6}, {4, 6}}, {});
@@ -165,14 +165,14 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las2.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las2.hashCode());
 
   // Cache hit is expected
   EXPECT_EQ(jit_graph_and_meta_data, g_and_m_data);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 /*
@@ -204,8 +204,8 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las1.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las1.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
@@ -213,11 +213,10 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
   // Create a JIT IR graph corresponding to the 3 nodes
   auto g = habana_lazy_test::CreateJITGraph();
   auto g_and_m_data =
-      std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>(g, inputs1);
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>(g, inputs1);
 
   // Add the JIR IR against the LazyArgumentSpec in cache
-  habana_lazy::LazyGraphCache::GetLazyCache().Add(
-      las1.hashCode(), g_and_m_data);
+  habana::LazyGraphCache::GetLazyCache().Add(las1.hashCode(), g_and_m_data);
 
   // Create another set of 2 tensors
   auto inputs2_ivalues =
@@ -237,14 +236,14 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las2.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las2.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 /*
@@ -275,8 +274,8 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las1.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las1.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
@@ -284,11 +283,10 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
   // Create a JIT IR graph corresponding to the 3 nodes
   auto g = habana_lazy_test::CreateJITGraph();
   auto g_and_m_data =
-      std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>(g, inputs);
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>(g, inputs);
 
   // Add the JIR IR against the LazyArgumentSpec in cache
-  habana_lazy::LazyGraphCache::GetLazyCache().Add(
-      las1.hashCode(), g_and_m_data);
+  habana::LazyGraphCache::GetLazyCache().Add(las1.hashCode(), g_and_m_data);
 
   // Create another post order graph
   auto post_order_struct2 = habana_lazy_test::GetPostOrderNodes(true);
@@ -307,14 +305,14 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las2.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las2.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 /*
@@ -350,8 +348,8 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las1.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las1.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
@@ -359,11 +357,10 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   // Create a JIT IR graph corresponding to the 3 nodes
   auto g = habana_lazy_test::CreateJITGraph();
   auto g_and_m_data =
-      std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>(g, inputs1);
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>(g, inputs1);
 
   // Add the JIR IR against the LazyArgumentSpec in cache
-  habana_lazy::LazyGraphCache::GetLazyCache().Add(
-      las1.hashCode(), g_and_m_data);
+  habana::LazyGraphCache::GetLazyCache().Add(las1.hashCode(), g_and_m_data);
 
   // Create another set of 2 tensors
   auto inputs2_ivalues =
@@ -383,14 +380,14 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph_and_meta_data =
-      habana_lazy::LazyGraphCache::GetLazyCache()
-          .GetOptimizedJITGraphAndMetaData(las2.hashCode());
+      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+          las2.hashCode());
 
   // Cache miss is expected
   EXPECT_EQ(jit_graph_and_meta_data, nullptr);
 
   // End the test by clearing the cache for later tests
-  habana_lazy::LazyGraphCache::GetLazyCache().Clear();
+  habana::LazyGraphCache::GetLazyCache().Clear();
 }
 
 TEST(LazyCacheTest, PadOpCacheTest) {

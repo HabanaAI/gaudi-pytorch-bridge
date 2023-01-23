@@ -12,7 +12,7 @@
  */
 #pragma once
 #include <perf_lib_layer_params.h>
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 
 at::Tensor& copy_hpu_(
     at::Tensor& self,

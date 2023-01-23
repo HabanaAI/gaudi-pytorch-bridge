@@ -155,9 +155,9 @@ bool habana::CompileGraphWithRange(
         graphKey, torch::jit::last(input_stack, input_stack.size()))};
     std::string graphName{rvpsh->get_graph_name()};
     std::string opStr{rvpsh->get_op_strs()};
-    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         jit_ir_graph_and_mdata =
-            std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+            std::make_shared<habana::OptimizedJITGraphAndMetaData>();
     jit_ir_graph_and_mdata->set_cached_graph(mp_g_);
     jit_ir_graph_and_mdata->set_cached_graph_key(graphKey);
     jit_ir_graph_and_mdata->SetGraphIndex(graphIndex);

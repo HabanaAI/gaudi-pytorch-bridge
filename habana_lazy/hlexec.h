@@ -12,7 +12,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "habana_lazy/hpu_lazy_cache.h"
+#include "backend/jit_graph_cache.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
 #include "lazy_executor.h"
@@ -29,7 +29,7 @@ using HabanaLazyOutput = habana_lazy::ir::Output;
 using JitIValue = torch::jit::IValue;
 using GraphPtr = std::shared_ptr<Graph>;
 using OptimizedJITGraphAndMetaDataPtr =
-    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>;
+    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>;
 using JitValuePtr = std::shared_ptr<JitValue>;
 using ScopePtr = torch::jit::ScopePtr;
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
@@ -288,7 +288,8 @@ class HlExec {
 
   void set_graph(GraphPtr p_g) {
     mp_g_ = p_g;
-    mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>();
+    mp_g_and_meta_data_ =
+        std::make_shared<habana::OptimizedJITGraphAndMetaData>();
     mp_g_and_meta_data_->set_cached_graph(mp_g_);
   }
 

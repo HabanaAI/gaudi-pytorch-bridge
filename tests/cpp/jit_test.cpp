@@ -40,7 +40,7 @@ TEST_F(JIT_IR_test, RerunJITGraph) {
         num_inputs);
 
     auto input_refs = torch::jit::last(input_stack, num_inputs);
-    auto g_and_m_data = std::make_shared<OptimizedJITGraphAndMetaData>(
+    auto g_and_m_data = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
         jit_ir_graph_ptr, input_refs);
     habana::HabanaLaunchOpPT habanaLoweringOp{g_and_m_data};
     habanaLoweringOp.run(input_stack);

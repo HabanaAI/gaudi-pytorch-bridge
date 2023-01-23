@@ -1106,9 +1106,8 @@ Tensor all_hpu(const Tensor& self) {
 
   habana_lazy::transform_graph(graph);
 
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      jit_ir_graph_and_mdata =
-          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_ir_graph_and_mdata =
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>();
   jit_ir_graph_and_mdata->set_cached_graph(graph);
   jit_ir_graph_and_mdata->SetOpName("all");
   // Execute OP graph

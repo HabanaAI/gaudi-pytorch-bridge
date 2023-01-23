@@ -1,18 +1,20 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <synapse_api_types.h>
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_shape.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/tensor_utils.h"
 #include "include/habanalabs/hpu_custom_op.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"

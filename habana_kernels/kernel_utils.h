@@ -25,8 +25,8 @@
 #include <synapse_helpers/recipe.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
+#include "backend/habana_operator.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/habana_operator.h"
 
 namespace habana_helpers {
 at::ScalarType getInternalDtype(at::ScalarType dtype);

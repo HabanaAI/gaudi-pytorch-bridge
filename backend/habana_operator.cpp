@@ -10,15 +10,15 @@
  *
  *******************************************************************************
  */
-#include "habana_operator.h"
+#include "backend/habana_operator.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/lazy_to_backend.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/layout_utils.h"
@@ -135,12 +135,8 @@ void habana::HabanaOperator::CreateGraphAndCompile(
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    if (!habana_lazy::isDeviceInLoweringMode()) {
-      // Lazy mode shape inference call, early return without execution
-      return;
-    }
-  }
+  if (lazy_to_backend::is_lazy_inference_call_context())
+    return;
 
   // compile the graph
   habana_helpers::compile_and_run(
@@ -259,15 +255,10 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       uint64_t syn_offset = input.storage_offset() * input.itemsize();
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
-      synapse_helpers::layouts::MemoryPermutation permutation;
-      if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-        PT_BRIDGE_WARN(
-            "Skipping permutations for EagerOp with duplicate inputs...");
-      } else {
-        auto hb_impl = habana_lazy::GetHbInternalTensorImpl(input);
-        TORCH_CHECK(hb_impl, " internal tensor missing for input tensor");
-        permutation = hb_impl->GetMemoryPermutation();
-      }
+      std::vector<uint8_t> permutation;
+      bool dont_allow_permutation = false;
+      std::tie(permutation, dont_allow_permutation) =
+          lazy_to_backend::get_memory_permutation(input);
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(
               p_context_->syn_input_orig_[0],

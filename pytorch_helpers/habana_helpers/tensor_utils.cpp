@@ -26,7 +26,8 @@
 
 #include "habana_helpers/tensor_utils.h"
 
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
+#include "backend/lazy_to_backend.h"
 #include "habana_kernels/kernel_utils.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"

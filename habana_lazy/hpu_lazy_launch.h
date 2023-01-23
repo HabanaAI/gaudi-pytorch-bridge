@@ -40,7 +40,7 @@ struct LaunchTensorsInfo {
 struct LaunchEagerInfo {
   std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo;
   std::vector<at::Tensor> retained_tensor_list;
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
       optimized_path_jit_ir_and_mdata;
   std::string lazyOpName;
   std::vector<std::vector<int64_t>> out_shapes;

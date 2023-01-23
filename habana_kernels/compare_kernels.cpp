@@ -613,9 +613,8 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
 
   habana_lazy::transform_graph(graph);
 
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      jit_ir_graph_and_mdata =
-          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_ir_graph_and_mdata =
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>();
   jit_ir_graph_and_mdata->set_cached_graph(graph);
   jit_ir_graph_and_mdata->SetOpName("ne_tensor");
   // Execute OP graph
@@ -657,9 +656,8 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
 
   habana_lazy::transform_graph(graph);
 
-  std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
-      jit_ir_graph_and_mdata =
-          std::make_shared<habana_lazy::OptimizedJITGraphAndMetaData>();
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_ir_graph_and_mdata =
+      std::make_shared<habana::OptimizedJITGraphAndMetaData>();
   jit_ir_graph_and_mdata->set_cached_graph(graph);
   jit_ir_graph_and_mdata->SetOpName("ne_scalar");
   // Execute OP graph

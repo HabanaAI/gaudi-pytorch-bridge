@@ -12,12 +12,16 @@
  */
 
 #pragma once
+#include "backend/habana_operator.h"
+#include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_cache.h"
+
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/hpu_stage_submission.h"
+#include "habana_lazy/ir.h"
+#include "habana_lazy/lazy_arg_spec.h"
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>

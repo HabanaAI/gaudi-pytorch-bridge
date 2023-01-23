@@ -13,12 +13,12 @@
 #pragma once
 #include <memory>
 #include <vector>
-#include "habana_lazy/hpu_lazy_cache.h"
+#include "backend/jit_graph_cache.h"
 #include "torch/csrc/jit/ir/ir.h"
 namespace habana {
 namespace program {
 
-using LazyJitGraph = habana_lazy::OptimizedJITGraphAndMetaData;
+using LazyJitGraph = habana::OptimizedJITGraphAndMetaData;
 
 struct Port {
   Port() = default;

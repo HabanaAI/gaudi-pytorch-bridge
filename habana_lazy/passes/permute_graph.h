@@ -11,7 +11,7 @@
 #pragma once
 
 #include <torch/csrc/jit/ir/ir.h>
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 namespace habana_lazy {
 void InsertPermute_graph(
     std::shared_ptr<torch::jit::Graph>& graph,

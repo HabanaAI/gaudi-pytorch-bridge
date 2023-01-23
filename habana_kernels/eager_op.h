@@ -15,11 +15,11 @@
 #include <tuple>
 #include <utility>
 
+#include "backend/jit_graph_cache.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/ir.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"

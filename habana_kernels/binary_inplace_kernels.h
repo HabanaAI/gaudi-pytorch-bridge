@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #pragma once
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 

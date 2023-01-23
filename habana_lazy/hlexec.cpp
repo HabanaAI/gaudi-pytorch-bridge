@@ -16,12 +16,13 @@
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/peephole.h>
 
+#include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_bridge/program/executor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "hlexec.h"
-#include "hpu_lazy_cache.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/lazy_arg_spec.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
 #include "passes/fuse_bn_relu_residual_add.h"
@@ -56,8 +57,7 @@ struct Launcher {
  */
 struct HabanaLaunchOpLauncher : Launcher {
   HabanaLaunchOpLauncher(
-      const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
-          graph_meta,
+      const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
       const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
       std::vector<bool>& bcast_map)
       : habana_launch_op_(graph_meta) {
@@ -79,8 +79,7 @@ struct HabanaLaunchOpLauncher : Launcher {
  */
 struct ClusteredProgramLauncher : Launcher {
   ClusteredProgramLauncher(
-      const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
-          graph_meta) {
+      const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta) {
     executor_ = habana::program::CreateExecutor(graph_meta);
     TORCH_CHECK(executor_ != nullptr);
   }
@@ -99,8 +98,7 @@ struct ClusteredProgramLauncher : Launcher {
  * is created, ohterwise launcher for HabanaLaunchOpPT is used.
  */
 std::unique_ptr<Launcher> CreateLauncher(
-    const std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>&
-        graph_meta,
+    const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
     const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
     std::vector<bool>& bcast_map) {
   static bool is_clustered_program_enabled =
@@ -372,8 +370,9 @@ void HlExec::GetOrCreate(
         PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
         at::ArrayRef<torch::jit::IValue> input_refs =
             torch::jit::last(stack, mp_g_->inputs().size());
-        mp_g_and_meta_data_ = std::make_shared<OptimizedJITGraphAndMetaData>(
-            mp_g_, input_refs, unique_cntr, node_bcast_map_);
+        mp_g_and_meta_data_ =
+            std::make_shared<habana::OptimizedJITGraphAndMetaData>(
+                mp_g_, input_refs, unique_cntr, node_bcast_map_);
         mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
             m_fwd_graph_stack_map_);
       }};
@@ -398,8 +397,9 @@ void HlExec::GetOrCreate(
 
   // To not read the normal cache for optimized eager
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
-    mp_g_and_meta_data_ = habana_lazy::LazyGraphCache::GetLazyCache()
-                              .GetOptimizedJITGraphAndMetaData(m_g_hash_);
+    mp_g_and_meta_data_ =
+        habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+            m_g_hash_);
   }
 
   // Cache miss
@@ -419,7 +419,8 @@ void HlExec::GetOrCreate(
       PT_IRGRAPH_DEBUG("JIT Cache miss");
       // Cache miss handling
       // ===================
-      LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_and_meta_data_);
+      habana::LazyGraphCache::GetLazyCache().Add(
+          m_g_hash_, mp_g_and_meta_data_);
     }
   } else {
     PT_LAZY_DEBUG(
@@ -443,10 +444,10 @@ void HlExec::GetOrCreate(
 
   if (optimized_lazy_eager_key != 0) {
     bool IsOptimizedLazyEagerCached =
-        habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
+        habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
             optimized_lazy_eager_key);
     if (IsOptimizedLazyEagerCached == false) {
-      OptimizedLazyGraphCache::GetOptimizedLazyCache().Add(
+      habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().Add(
           optimized_lazy_eager_key, mp_g_and_meta_data_);
       // To Do - To incorporate the Graph index change
       PT_LAZY_DEBUG(
@@ -475,7 +476,7 @@ size_t HlExec::GetGraphIndex(
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto perm_hash_code = ComputePermutationHashCode(input_refs);
+    auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
     hash = at::hash_combine(hash, perm_hash_code);
   }
 

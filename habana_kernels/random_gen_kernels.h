@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #pragma once
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 #include "hpu_ops/op_backend.h"
 namespace habana {
 

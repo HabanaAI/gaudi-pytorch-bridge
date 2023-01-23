@@ -13,7 +13,7 @@
 #pragma once
 
 #include <memory>
-#include "habana_lazy/hpu_lazy_cache.h"
+#include "backend/jit_graph_cache.h"
 #include "program.h"
 
 namespace habana {

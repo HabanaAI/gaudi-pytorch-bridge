@@ -16,11 +16,11 @@
 #include <utility>
 
 #include <c10_ver/core/SymIntArrayRef.h>
+#include "backend/jit_graph_cache.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
-#include "habana_lazy/hpu_lazy_cache.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
@@ -1502,8 +1502,9 @@ class LazyOp {
       lazy_eager_key = calculate_optimized_lazy_eager_key();
       PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
       if (lazy_eager_key != 0) {
-        IsCached = habana_lazy::OptimizedLazyGraphCache::GetOptimizedLazyCache()
-                       .IsCached(lazy_eager_key);
+        IsCached =
+            habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
+                lazy_eager_key);
       }
     }
 

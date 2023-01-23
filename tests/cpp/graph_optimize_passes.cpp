@@ -6,7 +6,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"

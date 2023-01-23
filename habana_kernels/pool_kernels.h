@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #pragma once
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 namespace habana {
 
 // Pool Operator

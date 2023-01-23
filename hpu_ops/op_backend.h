@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 
 #pragma once
 namespace habana {

@@ -114,7 +114,7 @@ void HabanaLaunchOpPT::SetOpName(const std::string& name) {
 }
 
 HabanaLaunchOpPT::HabanaLaunchOpPT(
-    std::shared_ptr<habana_lazy::OptimizedJITGraphAndMetaData>
+    std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         optimized_jit_graph_and_meta_data)
     : name(optimized_jit_graph_and_meta_data->GetOpName()),
       graph_index(optimized_jit_graph_and_meta_data->GetGraphIndex()),

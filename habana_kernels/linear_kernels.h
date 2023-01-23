@@ -13,8 +13,8 @@
 
 #pragma once
 
+#include "backend/habana_operator.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_operator.h"
 
 namespace habana {
 

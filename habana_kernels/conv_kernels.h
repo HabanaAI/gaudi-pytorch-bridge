@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #pragma once
-#include "habana_kernels/habana_operator.h"
+#include "backend/habana_operator.h"
 
 // index of hieght/width/depth in pad/stride/dial tensor
 #define CONV2D_KERNEL_HIEGHT_ATTRIBUTE_IDX 0
