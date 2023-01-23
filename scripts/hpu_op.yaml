@@ -503,6 +503,18 @@ select_backward:
   override_fn: select_backward_hpu_lazy
   acc_thread: true
 
+set_:
+  override_fn: set_
+
+set_.source_Storage:
+  override_fn: set_source_Storage
+
+set_.source_Tensor:
+  override_fn: set_source_Tensor
+
+set_.source_Storage_storage_offset:
+  override_fn: set_source_Storage_storage_offset
+
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu_lazy
 

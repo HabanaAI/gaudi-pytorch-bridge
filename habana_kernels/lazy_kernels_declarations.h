@@ -24,10 +24,19 @@
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 namespace habana_lazy {
+// Move these eager ops to some where appropriate
+// Should be handled as a part of SW-119196
+
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,
     bool non_blocking);
+
+at::Tensor& set_source_Storage(at::Tensor& self, at::Storage source);
+at::Tensor& set_source_Tensor(at::Tensor& self, const at::Tensor& source);
+at::Tensor& set_(at::Tensor& self);
+
+// End of eager ops
 
 at::Tensor& copy_hpu_lazy_(
     at::Tensor& self,
@@ -69,12 +78,18 @@ const at::Tensor& as_strided_hpu_lazy_(
     at::SymIntArrayRef stride,
     c10::optional<c10::SymInt> storage_offset);
 #endif
-at::Tensor& set_hpu_lazy_(
+at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
     int64_t storage_offset,
     at::IntArrayRef size,
     at::IntArrayRef stride);
+at::Tensor& set_source_Storage_storage_offset(
+    at::Tensor& self,
+    at::Storage source,
+    at::SymInt storage_offset,
+    at::SymIntArrayRef size,
+    at::SymIntArrayRef stride);
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor view_hpu_lazy(const at::Tensor& self_, at::IntArrayRef size);
 #else

@@ -57,6 +57,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/eager/as_strided.h"
+#include "hpu_ops/eager/set.h"
 #include "hpu_ops/eager/view.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -1640,7 +1641,24 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   flush_op(1);
 }
 
-Tensor& set_hpu_lazy_(
+at::Tensor& set_source_Storage_storage_offset(
+    at::Tensor& self,
+    at::Storage source,
+    at::SymInt storage_offset,
+    at::SymIntArrayRef size,
+    at::SymIntArrayRef stride) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    return habana::eager::set_(self, source, storage_offset, size, stride);
+  }
+  return set_source_Storage_storage_offset(
+      self,
+      source,
+      storage_offset.expect_int(),
+      C10_AS_INTARRAYREF_SLOW(size),
+      C10_AS_INTARRAYREF_SLOW(stride));
+}
+
+Tensor& set_source_Storage_storage_offset(
     Tensor& self,
     Storage source,
     int64_t storage_offset,

@@ -189,20 +189,6 @@ Tensor hpu_wrap::_reshape_alias(
   return view_hpu_lazy(self, size);
 }
 
-Tensor& hpu_wrap::set_(
-    Tensor& self,
-    Storage source,
-    int64_t storage_offset,
-    IntArrayRef size,
-    IntArrayRef stride) {
-  PT_OP_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      set_,
-      PARAMS1(self),
-      PARAMS2(self, source, storage_offset, size, stride),
-      source_Storage_storage_offset)
-  return set_hpu_lazy_(self, source, storage_offset, size, stride);
-}
 #else
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
@@ -238,26 +224,6 @@ Tensor hpu_wrap::_reshape_alias(
   }
 
   return view_hpu_lazy(self, size);
-}
-
-Tensor& hpu_wrap::set_(
-    Tensor& self,
-    Storage source,
-    SymInt storage_offset,
-    SymIntArrayRef size,
-    SymIntArrayRef stride) {
-  PT_OP_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      set_,
-      PARAMS1(self),
-      PARAMS2(self, source, storage_offset, size, stride),
-      source_Storage_storage_offset)
-  return set_hpu_lazy_(
-      self,
-      source,
-      storage_offset.expect_int(),
-      C10_AS_INTARRAYREF_SLOW(size),
-      C10_AS_INTARRAYREF_SLOW(stride));
 }
 
 Tensor hpu_wrap::_efficientzerotensor(

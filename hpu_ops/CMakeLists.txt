@@ -172,6 +172,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           eager/as_strided.cpp
           eager/empty.cpp
           eager/copy.cpp
+          eager/set.cpp
           eager/view.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp

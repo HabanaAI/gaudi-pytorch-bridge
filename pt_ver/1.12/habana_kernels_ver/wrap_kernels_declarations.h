@@ -43,12 +43,6 @@ at::Tensor kl_div_backward(
     const at::Tensor& target,
     int64_t reduction,
     bool log_target);
-at::Tensor& set_(
-    at::Tensor& self,
-    at::Storage source,
-    int64_t storage_offset,
-    at::IntArrayRef size,
-    at::IntArrayRef stride);
 at::Tensor slice(
     const at::Tensor& self,
     int64_t dim,

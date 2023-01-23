@@ -44,12 +44,6 @@ at::Tensor empty_strided(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory);
-at::Tensor& set_(
-    at::Tensor& self,
-    at::Storage source,
-    c10::SymInt storage_offset,
-    c10::SymIntArrayRef size,
-    c10::SymIntArrayRef stride);
 at::Tensor slice(
     const at::Tensor& self,
     int64_t dim,
