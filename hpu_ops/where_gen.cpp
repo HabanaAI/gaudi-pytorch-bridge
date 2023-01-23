@@ -94,16 +94,18 @@ void WhereBackend::AddNode(
       habana_helpers::DTypeHelper::binary_op_with_type_promotion(
           {stack.at(1), stack.at(2)}, output, false);
 
-  c10::ScalarType result_type = dtype_helper.get_result_dtype();
+  c10::ScalarType result_type =
+      habana_helpers::getInternalDtype(dtype_helper.get_result_dtype());
 
   std::vector<synapse_helpers::tensor> cast;
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
 
-  if (self.scalar_type() != result_type) {
+  if (habana_helpers::getInternalDtype(self.scalar_type()) != result_type) {
     cast.emplace_back(CastHelper(
         graph, syn_in(1), self.sizes(), self.scalar_type(), result_type));
     inputs[1] = cast[0].get();
-  } else if (other.scalar_type() != result_type) {
+  } else if (
+      habana_helpers::getInternalDtype(other.scalar_type()) != result_type) {
     cast.emplace_back(CastHelper(
         graph, syn_in(2), other.sizes(), other.scalar_type(), result_type));
     inputs[2] = cast[0].get();
