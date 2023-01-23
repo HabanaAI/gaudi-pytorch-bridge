@@ -56,53 +56,11 @@ at::Tensor& prepare_out(
 }
 } // namespace detail
 
-static void updateAtensorView(
-    const at::Tensor& old_tensor,
-    const at::Tensor& new_tensor) {
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  auto tensor_id = habana_lazy::GetHbLazyTensorId(old_tensor);
-  if (context->viewContext.GetViewTableEntry(tensor_id) != nullptr) {
-    habana_lazy::strided_insert_hpu_lazy(old_tensor, new_tensor);
-  }
-}
-
-static void updateTensorViewIfNeeded(
-    const c10::IValue& dst,
-    const c10::IValue& src,
-    std::string op_name) {
-  if (isInplaceOp(op_name)) {
-    if (src.isTensor() && dst.isTensor()) {
-      updateAtensorView(dst.toTensor(), src.toTensor());
-    }
-    /*foreach op can't supported on view tensor due to current limitation
-      of native fallback implementation.
-      Below code is kept as of now for future reference.
-    */
-    /*else if (
-       op_name.find("foreach") != std::string::npos && src.isTensorList() &&
-       dst.isTensorList()) {
-     auto src_list = src.toTensorList();
-     auto dst_list = dst.toTensorList();
-     TORCH_CHECK(
-         src_list.size() == dst_list.size(),
-         "src & dst tensorlist expected to be of same size");
-     auto new_tensor = src_list.begin();
-     auto old_tensor = dst_list.begin();
-     while (new_tensor != src_list.end() && old_tensor != dst_list.end()) {
-       updateAtensorView(*old_tensor, *new_tensor);
-       new_tensor++;
-       old_tensor++;
-     }
-    }*/
-  }
-}
-
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   PT_FALLBACK_TRACE
   const auto& op_name = c10::toString(op.operator_name());
   HpuFallbackHelper::get()->check_fallback_allowed(op_name);
   HpuFallbackHelper::get()->increment_count(op_name);
-  auto old_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
@@ -117,10 +75,6 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
 
   ::habana_lazy::StageSubmission::getInstance().setStageSubmissionFlow(
       ::habana_lazy::StageSubmission::Mode::SET_WHEN_CPU_FALLBACK);
-
-  auto new_tensor = stack->size() > 0 ? stack->at(0) : c10::nullopt;
-
-  updateTensorViewIfNeeded(old_tensor, new_tensor, op_name);
 }
 
 TORCH_LIBRARY_IMPL(_, HPU, m) {

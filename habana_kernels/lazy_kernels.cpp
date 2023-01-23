@@ -1102,6 +1102,25 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   // to lazy graph for execution later
   if (!is_d2d_copy) {
     if (src_device == c10::DeviceType::CPU) {
+      if (IsHbLazyTensor(self)) {
+        auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+        auto self_params =
+            context->viewContext.GetViewTableEntry(GetHbLazyTensorId(self));
+        if (self_params != nullptr) {
+          // self = base.view()
+          // self.copy_(cpu_tensor)
+          // lower it as insert_t = cpu_tensor.to('hpu')
+          // strided_insert/slice_insert(self, insert_t, view_params)
+          auto insert_t = empty_hpu_lazy(
+              src.sizes(),
+              self.options(),
+              c10::MemoryFormat::Contiguous,
+              false);
+          copy_hpu_lazy_H2D(insert_t, src, non_blocking);
+          HbLazyTensorViews::HandleViewsD2D(insert_t, self);
+          return self;
+        }
+      }
       self = copy_hpu_lazy_H2D(self, src, non_blocking);
     } else if (src_device == c10::DeviceType::HPU) {
       self = copy_hpu_lazy_D2H(self, src, non_blocking);
