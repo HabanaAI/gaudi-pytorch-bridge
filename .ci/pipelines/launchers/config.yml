@@ -94,3 +94,8 @@ launchers:
   gerritTriggerMap:
     - repository: pytorch-fork
     - repository: pytorch-integration
+- testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_ci
+  silentMode: true
+  gerritTriggerMap:
+    - repository: pytorch-fork
+    - repository: pytorch-integration
