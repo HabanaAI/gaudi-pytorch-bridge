@@ -1680,7 +1680,9 @@ cat:
 
 cat.out:
   promote_to_common_type: [tensors]
-  override_fn: cat_hpu_lazy_out
+  custom_output_shape: CatOutOutputShape
+  guid: concat
+  op_backend: CatOutHabanaOperator
   acc_thread: true
 
 ceil:

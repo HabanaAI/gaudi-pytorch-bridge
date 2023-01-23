@@ -32,6 +32,7 @@ target_sources(
           hpu_ops/bitwise_gen.cpp
           hpu_ops/bitwise_shift_gen.cpp
           hpu_ops/bmm_gen.cpp
+          hpu_ops/cat_gen.cpp
           hpu_ops/channelshuffle_gen.cpp
           hpu_ops/clamp_gen.cpp
           hpu_ops/compare_gen.cpp
