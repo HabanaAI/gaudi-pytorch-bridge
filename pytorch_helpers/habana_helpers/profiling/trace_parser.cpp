@@ -50,6 +50,8 @@ struct EngineType {
         "*ROTATOR",
         "*ARC_FARM",
         "*VIDEO_DECODER", // Additional engines in Gaudi2
+        "*NIC ",
+        "**NIC ",
     };
     for (int i = 0; i < (int)engines_of_interest.size(); i++) {
       if (name.find(engines_of_interest[i]) == 0) {
