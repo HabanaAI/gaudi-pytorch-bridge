@@ -3766,20 +3766,20 @@ log10:
   force_default: false
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Log10
+  guid: log10_fwd
   out_ids: [0]
 
 log10_:
   force_default: false
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Log10
+  guid: log10_fwd
   inplace_ids: [0]
 
 log10.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Log10
+  guid: log10_fwd
 
 log2.out:
   dtypes:
