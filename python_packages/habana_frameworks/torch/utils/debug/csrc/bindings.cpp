@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <torch/extension.h>
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -146,10 +149,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana::RecipeCacheLRU::DumpDynamicShapeMemoryStat();
   });
   m.def("load_ds_checkpoint", [](std::string path) {
-    habana::DynamicBucketInfoMap::load_ds_checkpoint(path.c_str());
+    habana_lazy::exec::HlExec::LoadDSCheckpoint(path);
   });
   m.def("save_ds_checkpoint", [](std::string path) {
-    habana::DynamicBucketInfoMap::save_ds_checkpoint(path.c_str());
+    habana_lazy::exec::HlExec::SaveDSCheckpoint(path);
   });
   m.def("is_enabled_synapse_layout_handling", []() {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);

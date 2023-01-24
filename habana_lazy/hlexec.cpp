@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -568,6 +568,21 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
           "Optimized Path JIT Cache miss :: key ", optimized_lazy_eager_key);
     }
   }
+}
+
+void HlExec::LoadDSCheckpoint(const std::string& path) {
+  std::ifstream ds_checkpoint(std::string(path), std::ifstream::binary);
+  HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file (load)");
+  habana::DynamicBucketInfoMap::load_ds_checkpoint(ds_checkpoint);
+  Deserialize(ds_checkpoint);
+}
+
+void HlExec::SaveDSCheckpoint(const std::string& path) {
+  std::ofstream ds_checkpoint(path, std::ofstream::binary);
+  HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file (save)");
+  habana_lazy::HbLazyTensor::StepMarkerFinish();
+  habana::DynamicBucketInfoMap::save_ds_checkpoint(ds_checkpoint);
+  Serialize(ds_checkpoint);
 }
 
 void HlExec::Serialize(std::ostream& os) {

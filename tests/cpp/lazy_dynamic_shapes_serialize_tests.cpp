@@ -1,13 +1,17 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <iostream>
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy_test_infra.h"
 
 // In this class both the pass fallback and compilation fallback are disabled
@@ -80,9 +84,9 @@ TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
   for (int i = 0; i < channel_sizes.size() - 2; i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});
   }
-  habana::DynamicBucketInfoMap::save_ds_checkpoint("ds_checkpoint.pt");
+  habana_lazy::exec::HlExec::SaveDSCheckpoint("ds_checkpoint.pt");
   habana::ClearDynamicBucketRecipeInfo();
-  habana::DynamicBucketInfoMap::load_ds_checkpoint("ds_checkpoint.pt");
+  habana_lazy::exec::HlExec::LoadDSCheckpoint("ds_checkpoint.pt");
 
   for (int i = 2; i < channel_sizes.size(); i++) {
     AddNonzeroOpsTest({4, channel_sizes[i], 3});

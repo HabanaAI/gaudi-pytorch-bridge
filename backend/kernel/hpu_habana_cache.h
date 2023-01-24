@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -607,8 +610,8 @@ class DynamicBucketInfoMap {
   static void DumpHistoryMemoryStat();
   void clear();
 
-  static void load_ds_checkpoint(const char* path);
-  static void save_ds_checkpoint(const char* path);
+  static void load_ds_checkpoint(std::ifstream& ds_checkpoint);
+  static void save_ds_checkpoint(std::ofstream& ds_checkpoint);
   void Serialize(std::ostream& os) const;
   void Deserialize(std::istream& is);
 

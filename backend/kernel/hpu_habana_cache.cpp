@@ -2046,15 +2046,8 @@ void DynamicBucketInfoMap::clear() {
   map_.clear();
 }
 
-void DynamicBucketInfoMap::save_ds_checkpoint(const char* checkpoint_path) {
-  std::ofstream ds_checkpoint(
-      std::string(checkpoint_path), std::ofstream::binary);
-  if (!ds_checkpoint.is_open()) {
-    HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
-    return;
-  }
+void DynamicBucketInfoMap::save_ds_checkpoint(std::ofstream& ds_checkpoint) {
   std::stringstream os;
-  habana_lazy::HbLazyTensor::StepMarkerFinish();
   DynamicBucketInfoMap::get_instance().Serialize(os);
   ds_checkpoint << os.rdbuf();
   ds_checkpoint.close();
@@ -2072,14 +2065,9 @@ void DynamicBucketInfoMap::save_ds_checkpoint(const char* checkpoint_path) {
   }
 }
 
-void DynamicBucketInfoMap::load_ds_checkpoint(const char* checkpoint_path) {
+void DynamicBucketInfoMap::load_ds_checkpoint(std::ifstream& ds_checkpoint) {
   std::stringstream is;
-  std::ifstream ds_checkpoint(
-      std::string(checkpoint_path), std::ifstream::binary);
-  if (!ds_checkpoint) {
-    HABANA_ASSERT(ds_checkpoint, "Failed to open ds_checkpoint file");
-    return;
-  }
+
   is << ds_checkpoint.rdbuf();
   ds_checkpoint.close();
   DynamicBucketInfoMap::get_instance().Deserialize(is);
@@ -2112,7 +2100,6 @@ void DynamicBucketInfoMap::Serialize(std::ostream& os) const {
       p.second->Serialize(os);
     }
   }
-  habana_lazy::exec::HlExec::Serialize(os);
 }
 
 void DynamicBucketInfoMap::Deserialize(std::istream& is) {
@@ -2126,7 +2113,6 @@ void DynamicBucketInfoMap::Deserialize(std::istream& is) {
         std::make_shared<habana_helpers::DynamicBucketInfo>(is);
     add(key, value);
   }
-  habana_lazy::exec::HlExec::Deserialize(is);
 }
 
 size_t RecipeCacheLRU::Size() const {
