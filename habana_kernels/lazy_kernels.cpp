@@ -4621,14 +4621,10 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       auto result_dY = empty_hpu_lazy(
           sizes[0], dY.options(), dY.suggest_memory_format(), false);
       at::Tensor result2, result3;
-      if (grad_input_mask[1]) {
-        result2 = empty_hpu_lazy(
-            sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
-      }
-      if (grad_input_mask[2]) {
-        result3 = empty_hpu_lazy(
-            sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
-      }
+      result2 = empty_hpu_lazy(
+          sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
+      result3 = empty_hpu_lazy(
+          sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
       return std::make_tuple(result_dY, result2, result3);
     }
     const at::Tensor& dY;
@@ -4803,14 +4799,10 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
       auto result_dY = empty_hpu_lazy(
           sizes[0], dY.options(), dY.suggest_memory_format(), false);
       at::Tensor result2, result3;
-      if (grad_input_mask[1]) {
-        result2 = empty_hpu_lazy(
-            sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
-      }
-      if (grad_input_mask[2]) {
-        result3 = empty_hpu_lazy(
-            sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
-      }
+      result2 = empty_hpu_lazy(
+          sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
+      result3 = empty_hpu_lazy(
+          sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
       return std::make_tuple(result_dY, result2, result3);
     }
     const at::Tensor& dY;
