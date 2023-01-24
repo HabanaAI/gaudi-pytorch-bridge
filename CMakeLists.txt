@@ -109,6 +109,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp
   pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
+  pytorch_helpers/habana_device/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp

@@ -306,4 +306,5 @@ bool is_shape_tensor(synTensorType shape_tensor);
 std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
 
 at::Tensor downcast_to_int_if_needed(const at::Tensor& in);
+
 } // namespace habana_helpers
