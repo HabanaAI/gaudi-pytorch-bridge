@@ -1521,7 +1521,7 @@ void RecipeValueSpec::launch(
   }
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto& stream_handle = device.get_compute_stream(hpu_stream);
+  auto& stream_handle = device.get_stream(hpu_stream);
 
   std::vector<at::Tensor> ptRefs;
   std::vector<at::Tensor> outPtRefs;
@@ -1715,7 +1715,7 @@ void RecipeValueSpec::launch(
           std::move(outDevPtr), stream_handle, cleanup_callback, nullptr);
       // now record the timer_event
       if (event_handle) {
-        auto& ev_stream_handle = device.get_compute_stream(event_stream);
+        auto& ev_stream_handle = device.get_stream(event_stream);
         auto status = synEventRecord(event_handle, ev_stream_handle);
         if (synStatus::synSuccess != status) {
           PT_LAZY_FATAL("synEventRecord failed ", status);

@@ -265,8 +265,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           get_hpu_flag(flag));
     } else {
       auto& device = synapse_helpers::HPURegistrar::get_device();
-      auto status = synEventRecord(
-          handle, device.get_compute_stream(hpu_stream.stream()));
+      auto status =
+          synEventRecord(handle, device.get_stream(hpu_stream.stream()));
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL("synEventRecord failed ", status);
       }
@@ -280,8 +280,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     habana_lazy::HbLazyTensor::StepMarkerFinish();
     HPUStream hpu_stream{stream};
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto status = synStreamWaitEvent(
-        device.get_compute_stream(hpu_stream.stream()), handle, 0);
+    auto status =
+        synStreamWaitEvent(device.get_stream(hpu_stream.stream()), handle, 0);
     if (synStatus::synSuccess != status) {
       PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
     }

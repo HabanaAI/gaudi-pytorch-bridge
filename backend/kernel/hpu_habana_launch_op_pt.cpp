@@ -2636,8 +2636,7 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
       rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
           syn_device.get_cached_time_event_handle(),
           syn_device.get_cached_time_event_handle(),
-          static_cast<synStreamHandle>(
-              syn_device.get_compute_stream(hpu_stream)));
+          static_cast<synStreamHandle>(syn_device.get_stream(hpu_stream)));
       current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
     } else {
       PT_BRIDGE_WARN(

@@ -135,8 +135,7 @@ struct HPUEvent {
       habana_lazy::HbLazyTensor::StepMarker(
           {}, nullptr, {}, async, handle_, stream.stream(), flags_);
     } else {
-      auto status =
-          synEventRecord(handle_, device.get_compute_stream(stream.stream()));
+      auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL("synEventRecord failed ", status);
       }
@@ -154,8 +153,8 @@ struct HPUEvent {
       }
       habana_lazy::HbLazyTensor::StepMarkerFinish();
       auto& device = synapse_helpers::HPURegistrar::get_device();
-      auto status = synStreamWaitEvent(
-          device.get_compute_stream(stream.stream()), handle_, 0);
+      auto status =
+          synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
       }

@@ -293,21 +293,11 @@ device::device(
       event_handle_cache_{*this, 0},
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
-      // Network collective should not be created without hcl
-      stream_network_collective_ptr_{nullptr},
-      stream_d2d_ptr_{nullptr},
-      stream_h2d_ptr_{nullptr},
-      stream_d2h_ptr_{nullptr},
       recipe_handle_cache_{*this},
       host_memory_{*this},
       device_memory_{*this} {
   // create default stream
-  create_default_compute_stream();
-  // Network collective should not be created without hcl
-  stream_network_collective_ptr_ = nullptr,
-  stream_d2d_ptr_ = absl::make_unique<stream>(*this);
-  stream_h2d_ptr_ = absl::make_unique<stream>(*this);
-  stream_d2h_ptr_ = absl::make_unique<stream>(*this);
+  create_default_stream();
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
@@ -526,10 +516,8 @@ void device::cleanup() {
   habana::RefinementEngine::GetEngine().Shutdown();
 
   // Wait for H2D copy tensors if any pending
-  std::set<synapse_helpers::device_ptr>::iterator itr;
-  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
-  for (itr = copy_tensor_set_.begin(); itr != copy_tensor_set_.end(); itr++) {
-    sem_.enqueue_wait_event(*itr, stream_handle);
+  for (auto& tensor : copy_tensor_set_) {
+    sem_.enqueue_wait_event(tensor.first, get_stream(tensor.second, DMA_H2D));
   }
 
   flush_stream_events();
@@ -552,7 +540,7 @@ void device::cleanup() {
     PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
   }
   synapse_helpers::memstats_dump(*this, "Stats after cleanup.");
-  stream_compute_.clear();
+  streams_.clear();
   user_event_flag_map_.clear();
 }
 
@@ -561,26 +549,144 @@ device::~device() {
   cleanup();
 }
 
+// only used when generic stream is not used
+uint64_t device::get_compute_stream_count() {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    if (type_ == synDeviceGaudi)
+      return 2;
+    if (type_ == synDeviceGaudi2)
+      return 4;
+    if (type_ == synDeviceGreco)
+      return 4;
+    if (type_ == synDeviceGaudi3)
+      return 4;
+    return 1;
+  }
+  PT_SYNHELPER_FATAL("get_compute_stream_count not supported");
+  return 0;
+}
+
+void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    hpu_stream = ++stream_index_;
+    streams_[hpu_stream] = absl::make_unique<stream>(*this);
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: New device stream created with index", stream_index_);
+  } else {
+    // special case handling only for Network stream in case of non generic
+    // stream. Priority is never used otherwise
+    if (high_priority &&
+        default_streams_.find(NETWORK) == default_streams_.end()) {
+      default_streams_[NETWORK] = absl::make_unique<stream>(*this);
+    }
+    auto compute_stream_count = get_compute_stream_count();
+    hpu_stream = ++stream_index_;
+    if (stream_index_ < compute_stream_count) {
+      streams_[hpu_stream] = absl::make_unique<stream>(*this);
+    }
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: New device stream created with index", stream_index_);
+  }
+}
+
+void device::create_default_stream() {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = streams_.find(0);
+    HABANA_ASSERT(it == streams_.end());
+    streams_[0] = absl::make_unique<stream>(*this);
+  } else {
+    default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
+
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
+    default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
+    default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
+    default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
+    PT_SYNHELPER_DEBUG(
+        "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
+  }
+}
+
+stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+      return *streams_[0];
+    } else {
+      auto& stream = *default_streams_[stream_type];
+      return stream;
+    }
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = streams_.find(id);
+    HABANA_ASSERT(it != streams_.end());
+
+    auto& stream = *it->second;
+    return stream;
+  } else {
+    if (id == 0 || stream_type != COMPUTE) { // any type stream
+      auto& stream = *default_streams_[stream_type];
+      PT_SYNHELPER_DEBUG("STREAM:: get stream handle", stream, " for id::", id);
+      return stream;
+    } else {
+      auto compute_stream_count = get_compute_stream_count();
+      auto index = id;
+      // if not using generic stream, compute stream is assigned
+      // in round robin fashion to user_stream in case if
+      // it exceed actaul stream count.
+      if (id >= compute_stream_count) {
+        index = id % compute_stream_count;
+      }
+
+      if (index == 0) { // coumpute stream
+        auto& stream = *default_streams_[stream_type];
+        PT_SYNHELPER_DEBUG(
+            "STREAM:: get stream handle", stream, " for id::", id);
+        return stream;
+      }
+
+      auto it = streams_.find(index);
+      HABANA_ASSERT(
+          it != streams_.end(), "Invalid Compute stream streamId::", index);
+
+      auto& stream = *it->second;
+      PT_SYNHELPER_DEBUG(
+          "STREAM:: get stream handle",
+          stream,
+          " for id::",
+          id,
+          " index::",
+          index);
+      return stream;
+    }
+  }
+}
+
+void device::delete_stream(hpuStream_t id) {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  auto it = streams_.find(id);
+  HABANA_ASSERT(it != streams_.end());
+  streams_.erase(id);
+}
+
 void device::flush_stream_events() {
-  if (stream_d2d_ptr_) {
-    auto& stream = *stream_d2d_ptr_;
-    stream.flush();
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    for (auto& s : default_streams_) {
+      std::unique_lock<std::mutex> lock(stream_mutex_);
+      auto& stream = *s.second;
+      stream.flush();
+    }
   }
-  if (stream_h2d_ptr_) {
-    auto& stream = *stream_h2d_ptr_;
-    stream.flush();
-  }
-  if (stream_d2h_ptr_) {
-    auto& stream = *stream_d2h_ptr_;
-    stream.flush();
-  }
-  for (auto& cs : stream_compute_) {
-    auto& stream = *cs.second;
-    stream.flush();
-  }
-  // do not flush collective, if it was not created before
-  if (stream_network_collective_ptr_) {
-    auto& stream = *stream_network_collective_ptr_;
+  for (auto& s : streams_) {
+    std::unique_lock<std::mutex> lock(stream_mutex_);
+    auto& stream = *s.second;
     stream.flush();
   }
   auto start = std::chrono::steady_clock::now();
@@ -633,7 +739,8 @@ inline bool device::copy_data_to_device_(
     device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb,
-    bool is_pinned) {
+    bool is_pinned,
+    synapse_helpers::hpuStream_t hpu_stream) {
   PT_SYNHELPER_DEBUG(
       "Copy CPU Tensor to Device ",
       cpu_data,
@@ -644,7 +751,7 @@ inline bool device::copy_data_to_device_(
   synStatus status;
 
   void* mapped_cpu_data = cpu_data;
-  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   uint8_t* dst_ptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
@@ -718,12 +825,13 @@ synapse_error device::copy_data_to_device(
     size_t total_bytes,
     const event_done_callback& done_cb,
     bool non_blocking,
-    bool is_pinned) {
+    bool is_pinned,
+    synapse_helpers::hpuStream_t hpu_stream) {
   /* in case of write, we can invoke a fill (compute)
    * stream or via DMA. if we have a fill and a copy
    * Need to wait for the fill compute stream to complete
    * before copy, so wait */
-  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   sem_.enqueue_wait_event(event_addr, stream_handle);
 
   /*
@@ -744,22 +852,30 @@ synapse_error device::copy_data_to_device(
         event_addr,
         total_bytes,
         done_cb,
-        is_pinned);
+        is_pinned,
+        hpu_stream);
     submit_future(destination, std::move(copy_future));
-    copy_tensor_set_.insert(destination);
+    copy_tensor_set_.insert(std::make_pair(destination, hpu_stream));
   } else { // Continue in the same main thread
     (void)device::copy_data_to_device_(
-        cpu_data, destination, event_addr, total_bytes, done_cb, is_pinned);
+        cpu_data,
+        destination,
+        event_addr,
+        total_bytes,
+        done_cb,
+        is_pinned,
+        hpu_stream);
   }
   return {};
 }
 
 synapse_error device::copy_data_to_device(
     transfer_manifest const& transfers,
-    event_done_callback unref_cb) {
+    event_done_callback unref_cb,
+    synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
 
-  synapse_helpers::stream& stream_handle = get_host_to_device_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   for (std::size_t i = 0; i < transfers.size(); ++i) {
     sem_.enqueue_wait_event(transfers[i].dst_event_addr, stream_handle);
   }
@@ -855,7 +971,8 @@ synapse_error device::copy_data_to_host(
     device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb,
-    bool is_pinned) {
+    bool is_pinned,
+    synapse_helpers::hpuStream_t hpu_stream) {
   PT_SYNHELPER_DEBUG(
       "Copy Device Tensor to CPU ",
       (void*)device_data,
@@ -865,7 +982,7 @@ synapse_error device::copy_data_to_host(
       total_bytes);
 
   synStatus status;
-  synapse_helpers::stream& stream_handle = get_device_to_host_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2H);
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_handle);
   sem_.enqueue_wait_event(event_addr, stream_handle);
 
@@ -946,10 +1063,11 @@ synapse_error device::copy_data_within_device(
     device_ptr src_event_addr,
     device_ptr dst_event_addr,
     size_t total_bytes,
-    event_done_callback unref_cb) {
+    event_done_callback unref_cb,
+    synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
 
-  synapse_helpers::stream& stream_handle = get_device_to_device_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2D);
   sem_.enqueue_wait_event(src_event_addr, stream_handle);
   auto locked =
       std::make_shared<device_ptr_lock>(lock_addresses(source, destination));
@@ -974,7 +1092,8 @@ synapse_error device::copy_data_within_device(
 synapse_error device::copy_data_within_device(
     transfer_manifest const& transfers,
     event_done_callback unref_cb,
-    stream* const next_operation_stream) {
+    stream* const next_operation_stream,
+    synapse_helpers::hpuStream_t hpu_stream) {
   synStatus status;
 
   std::vector<std::uint64_t> all_addresses(2 * transfers.size());
@@ -982,7 +1101,7 @@ synapse_error device::copy_data_within_device(
   std::vector<std::uint64_t> lens(transfers.size());
   std::vector<std::uint64_t> dsts_event_addr(transfers.size());
 
-  synapse_helpers::stream& stream_handle = get_device_to_device_stream();
+  synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_D2D);
   for (std::size_t i = 0; i < transfers.size(); ++i) {
     sem_.enqueue_wait_event(transfers[i].src_event_addr, stream_handle);
     all_addresses[i] = transfers[i].src;

@@ -43,7 +43,16 @@
 
 namespace synapse_helpers {
 std::string get_mem_str(size_t nbytes);
-typedef uint32_t hpuStream_t;
+typedef uint64_t hpuStream_t;
+
+// this enum is used only for the case where non generic stream is used
+enum default_stream_type {
+  COMPUTE = 0,
+  DMA_D2D = 1,
+  DMA_H2D = 2,
+  DMA_D2H = 3,
+  NETWORK = 4
+};
 
 class session;
 
@@ -179,21 +188,24 @@ class device {
       size_t total_bytes,
       const event_done_callback& done_cb,
       bool non_blocking = false,
-      bool is_pinned = false);
+      bool is_pinned = false,
+      hpuStream_t hpu_stream = 0);
   synapse_error copy_data_to_host(
       device_ptr device_data,
       void* destination,
       device_ptr event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb,
-      bool is_pinned = false);
+      bool is_pinned = false,
+      hpuStream_t hpu_stream = 0);
   synapse_error copy_data_within_device(
       device_ptr source,
       device_ptr destination,
       device_ptr src_event_addr,
       device_ptr dst_event_addr,
       size_t total_bytes,
-      event_done_callback unref_cb);
+      event_done_callback unref_cb,
+      hpuStream_t hpu_stream = 0);
 
   /*!
    * \brief Copies data within device
@@ -209,27 +221,13 @@ class device {
   synapse_error copy_data_within_device(
       transfer_manifest const& manifest,
       event_done_callback unref_cb,
-      stream* const next_operation_stream = nullptr);
+      stream* const next_operation_stream = nullptr,
+      hpuStream_t hpu_stream = 0);
 
   synapse_error copy_data_to_device(
       transfer_manifest const& transfers,
-      event_done_callback unref_cb);
-
-  stream& get_or_create_network_collective_stream() {
-    if (!stream_network_collective_ptr_) {
-      stream_network_collective_ptr_ = absl::make_unique<stream>(*this);
-    }
-    return *stream_network_collective_ptr_;
-  }
-  stream& get_host_to_device_stream() {
-    return *stream_h2d_ptr_;
-  }
-  stream& get_device_to_host_stream() {
-    return *stream_d2h_ptr_;
-  }
-  stream& get_device_to_device_stream() {
-    return *stream_d2d_ptr_;
-  };
+      event_done_callback unref_cb,
+      hpuStream_t hpu_stream = 0);
 
   /** \brief Returns global workspace buffer
    *  \param size checks if given size is bigger than global buffer, if so, logs
@@ -384,46 +382,13 @@ class device {
 
   void cleanup_workspace_buffer();
 
-  void create_compute_stream(hpuStream_t& hpu_stream) {
-    std::unique_lock<std::mutex> lock(stream_mutex_);
-    hpu_stream = ++compute_stream_index_;
-    stream_compute_[hpu_stream] = absl::make_unique<stream>(*this);
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: New device stream created with index", compute_stream_index_);
-  }
+  void create_stream(hpuStream_t& hpu_stream, bool high_priority = false);
 
-  void create_default_compute_stream() {
-    std::unique_lock<std::mutex> lock(stream_mutex_);
-    auto it = stream_compute_.find(0);
-    HABANA_ASSERT(it == stream_compute_.end());
-    stream_compute_[0] = absl::make_unique<stream>(*this);
-  }
+  void create_default_stream();
 
-  int get_compute_stream_count() {
-    // FIXME need to get the info from synapse.
-    if (type_ == synDeviceGaudi)
-      return 2;
-    if (type_ == synDeviceGaudi2)
-      return 4;
-    if (type_ == synDeviceGreco)
-      return 4;
-    if (type_ == synDeviceGaudi3)
-      return 4;
-    return 1;
-  }
+  stream& get_stream(hpuStream_t id, default_stream_type stream_type = COMPUTE);
 
-  stream& get_compute_stream(hpuStream_t id) {
-    std::unique_lock<std::mutex> lock(stream_mutex_);
-    if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM)) {
-      return *stream_compute_[0];
-    } else {
-      auto it = stream_compute_.find(id);
-      HABANA_ASSERT(it != stream_compute_.end());
-
-      auto& stream = *it->second;
-      return stream;
-    }
-  }
+  void delete_stream(hpuStream_t id);
 
   size_t get_real_workspace_size() const {
     return real_workspace_size_;
@@ -495,11 +460,10 @@ class device {
   event_handle_cache event_handle_cache_;
   event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
-  std::unique_ptr<stream> stream_network_collective_ptr_;
-  std::unique_ptr<stream> stream_d2d_ptr_;
-  std::unique_ptr<stream> stream_h2d_ptr_;
-  std::unique_ptr<stream> stream_d2h_ptr_;
-  std::unordered_map<hpuStream_t, std::unique_ptr<stream>> stream_compute_;
+  std::unordered_map<hpuStream_t, std::unique_ptr<stream>> streams_;
+  // Only used with old design of stream assignment
+  std::unordered_map<default_stream_type, std::unique_ptr<stream>>
+      default_streams_;
   stream_event_manager sem_;
   recipe_handle_cache recipe_handle_cache_;
   bool is_caching_enabled_;
@@ -520,10 +484,11 @@ class device {
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};
 
-  std::set<synapse_helpers::device_ptr> copy_tensor_set_{};
+  std::set<std::pair<synapse_helpers::device_ptr, hpuStream_t>>
+      copy_tensor_set_{};
 
-  // compute stream counter
-  std::atomic<uint32_t> compute_stream_index_{0};
+  // stream counter
+  std::atomic<uint64_t> stream_index_{0};
 
   std::unordered_map<synEventHandle, bool> user_event_flag_map_;
   std::mutex event_mutex_;
@@ -535,8 +500,10 @@ class device {
       device_ptr event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb,
-      bool is_pinned);
+      bool is_pinned,
+      hpuStream_t hpu_stream);
 
+  uint64_t get_compute_stream_count();
   // Empty be default, framework can register its function to be called before
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};

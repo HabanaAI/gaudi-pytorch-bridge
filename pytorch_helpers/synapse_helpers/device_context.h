@@ -61,17 +61,6 @@ class device_context : std::enable_shared_from_this<device_context> {
       synStreamHandle* stream_handle_ptr,
       deviceCtxtMemcpyKind_t kind);
 
-  hcclResult_t copy_data_within_device(
-      synapse_helpers::device_ptr input_address,
-      synapse_helpers::device_ptr output_address,
-      synapse_helpers::device_ptr input_event_addr,
-      synapse_helpers::device_ptr output_event_addr,
-      size_t nbytes,
-      const event_done_callback& done_callback = [] {});
-
-  hcclResult_t malloc(void** address, size_t size);
-  hcclResult_t free(void* address);
-
   hcclResult_t lock_address(void* const address, void** device_address_ptr);
   hcclResult_t lock_address(
       void* const address,
@@ -111,6 +100,7 @@ class device_context : std::enable_shared_from_this<device_context> {
   // Device ID currently selected using set_device().
   synapse_helpers::device_handle device_;
   std::map<synStreamHandle, synapse_helpers::stream*> stream_objects_{};
+  std::map<synStreamHandle, synapse_helpers::hpuStream_t> hpustream_handle_map_;
 };
 
 } // namespace hccl_integration

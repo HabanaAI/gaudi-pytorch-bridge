@@ -70,7 +70,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("compute_stream", []() {
     auto& d = synapse_helpers::HPURegistrar::get_device();
     HPUStream hpu_stream = getDefaultHPUStream(d.id());
-    void* stream = (void*)d.get_compute_stream(hpu_stream.id());
+    void* stream = (void*)d.get_stream(hpu_stream.id());
     return reinterpret_cast<intptr_t>(stream);
   });
   m.def(

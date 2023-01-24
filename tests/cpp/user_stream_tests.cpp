@@ -156,7 +156,6 @@ TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   }
 }
 
-// Streampool Round Robin
 TEST(TestStream, StreamPoolTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
@@ -174,12 +173,14 @@ TEST(TestStream, StreamPoolTest) {
   bool hasDuplicates = false;
   for (const auto i : c10::irange(streams.size())) {
     synapse_helpers::hpuStream_t hpu_stream = streams[i];
-    auto result_pair = stream_set.insert(hpu_stream);
-    if (!result_pair.second)
+    if (stream_set.find(hpu_stream) == stream_set.end()) {
+      stream_set.insert(hpu_stream);
+    } else {
       hasDuplicates = true;
+      break;
+    }
   }
-
-  ASSERT_TRUE(hasDuplicates);
+  ASSERT_TRUE(!hasDuplicates);
 }
 
 TEST(TestStream, DISABLED_Use2StreamForadd) {

@@ -333,8 +333,7 @@ static void launchRecipe(
     const uint32_t device_id,
     std::shared_ptr<synapse_helpers::recipe>& recipe) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto& stream_handle =
-      device.get_compute_stream(c10::hpu::getCurrentHPUStream());
+  auto& stream_handle = device.get_stream(c10::hpu::getCurrentHPUStream());
   std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
   if (device.IsStreamASyncEnabled()) {
     // wait for input DMA to complete before launching the compute.

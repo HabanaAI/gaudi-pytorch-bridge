@@ -554,7 +554,7 @@ void device_memory::MoveData(
   }
 
   auto status = synMemCopyAsyncMultiple(
-      dev.get_device_to_device_stream(),
+      dev.get_stream(0, DMA_D2D),
       srcs.data(),
       lens.data(),
       dsts.data(),
@@ -564,7 +564,7 @@ void device_memory::MoveData(
     PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
   }
 
-  auto& handle = device_.get_device_to_device_stream();
+  auto& handle = device_.get_stream(0, DMA_D2D);
   if (synStatus::synSuccess != synStreamSynchronize(handle)) {
     PT_DEVMEM_FATAL("Waiting for Move complete failed");
   }

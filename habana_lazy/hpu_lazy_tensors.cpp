@@ -811,8 +811,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     // if the accumulated op is empty, then just record the event
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (event_handle) {
-      auto status =
-          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      auto status = synEventRecord(event_handle, dev.get_stream(event_stream));
       if (synStatus::synSuccess != status) {
         PT_LAZY_FATAL("synEventRecord failed ", status);
       }
@@ -840,8 +839,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   } else {
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (event_handle) {
-      auto status =
-          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      auto status = synEventRecord(event_handle, dev.get_stream(event_stream));
       if (synStatus::synSuccess != status) {
         PT_LAZY_FATAL("synEventRecord failed ", status);
       }
@@ -1295,8 +1293,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // if the accumulated op is empty, then just record the event
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (event_handle) {
-      auto status =
-          synEventRecord(event_handle, dev.get_compute_stream(event_stream));
+      auto status = synEventRecord(event_handle, dev.get_stream(event_stream));
       if (synStatus::synSuccess != status) {
         PT_LAZY_FATAL("synEventRecord failed ", status);
       }

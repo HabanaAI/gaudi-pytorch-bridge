@@ -79,11 +79,15 @@ hcclResult_t device_context::acquire_collective_stream(
     return hcclInvalidArgument;
   }
   synapse_helpers::device_handle dev_handle = device_;
+  synapse_helpers::hpuStream_t stream;
+  dev_handle->create_stream(stream, true);
+
   synapse_helpers::stream& stream_handle =
-      dev_handle->get_or_create_network_collective_stream();
+      dev_handle->get_stream(stream, synapse_helpers::NETWORK);
   HABANA_ASSERT(nullptr != stream_handle);
 
   stream_objects_[stream_handle] = &stream_handle;
+  hpustream_handle_map_[stream_handle] = stream;
 
   *stream_handle_ptr = stream_handle;
   return hcclSuccess;
@@ -99,25 +103,11 @@ hcclResult_t device_context::release_stream(synStreamHandle stream_handle) {
     PT_DISTRIBUTED_WARN("Stream handle should not be null!");
     return hcclInvalidArgument;
   }
+  synapse_helpers::device_handle dev_handle = device_;
+  dev_handle->delete_stream(hpustream_handle_map_[stream_handle]);
+  hpustream_handle_map_.erase(stream_handle);
 
   stream_objects_[stream_handle] = nullptr;
-  return hcclSuccess;
-}
-
-hcclResult_t device_context::free(void* address) {
-  PT_DISTRIBUTED_DEBUG(
-      "Calling device_context::free(address=",
-      reinterpret_cast<void*>(address),
-      ")");
-
-  if (device_ == nullptr) {
-    PT_DISTRIBUTED_FATAL(
-        "Device need to be opened and chosen before allocating memory.");
-    return hcclInvalidUsage;
-  }
-
-  device_->free(reinterpret_cast<synapse_helpers::device_ptr>(address));
-
   return hcclSuccess;
 }
 
@@ -220,69 +210,6 @@ synapse_helpers::active_recipe_counter& device_context::
         "Device need to be opened and chosen before get_active_recipe_counter");
   }
   return device_->get_active_recipe_counter();
-}
-
-hcclResult_t device_context::acquire_copy_stream(
-    synStreamHandle* stream_handle_ptr,
-    deviceCtxtMemcpyKind_t kind) {
-  PT_DISTRIBUTED_DEBUG(
-      "Calling device_context::acquire_copy_stream(stream_handle_ptr=",
-      stream_handle_ptr,
-      ", kind=",
-      kind,
-      ")");
-
-  std::lock_guard<std::mutex> guard{access_mutex_};
-
-  synapse_helpers::device_handle dev_handle = device_;
-
-  synapse_helpers::stream* stream_handle{nullptr};
-
-  switch (kind) {
-    case deviceCtxtMemcpyHostToDevice: {
-      stream_handle = &dev_handle->get_host_to_device_stream();
-      break;
-    }
-    case deviceCtxtMemcpyDeviceToHost: {
-      stream_handle = &dev_handle->get_device_to_host_stream();
-      break;
-    }
-    case deviceCtxtMemcpyDeviceToDevice: {
-      stream_handle = &dev_handle->get_device_to_device_stream();
-      break;
-    }
-    default: {
-      stream_handle = nullptr;
-      break;
-    }
-  };
-
-  if (nullptr == stream_handle) {
-    PT_DISTRIBUTED_FATAL("Copy stream of kind ", kind, " not available!");
-    return hcclInternalError;
-  }
-
-  stream_objects_[*stream_handle] = stream_handle;
-  *stream_handle_ptr = *stream_handle;
-  return hcclSuccess;
-}
-
-hcclResult_t device_context::copy_data_within_device(
-    synapse_helpers::device_ptr input_address,
-    synapse_helpers::device_ptr output_address,
-    synapse_helpers::device_ptr input_event_addr,
-    synapse_helpers::device_ptr output_event_addr,
-    size_t nbytes,
-    const event_done_callback& done_callback) {
-  synapse_helpers::device_handle dev_handle = device_;
-  auto syn_error = dev_handle->copy_data_within_device(
-      input_address,
-      output_address,
-      input_event_addr,
-      output_event_addr,
-      nbytes,
-      done_callback);
-  return to_hccl_result(syn_error);
 }
 
 hcclResult_t device_context::prepare_stream(

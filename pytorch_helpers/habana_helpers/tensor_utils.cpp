@@ -489,7 +489,8 @@ void habana_helpers::copy_scalar_to_host(
                   src.storage().data_ptr().get()),
               size,
               [&copyDone]() { copyDone = true; },
-              is_pinned);
+              is_pinned,
+              c10::hpu::getCurrentHPUStream());
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
@@ -521,7 +522,8 @@ void habana_helpers::copy_scalar_to_device(
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         size,
-        [dstRef]() { return; });
+        [dstRef]() { return; },
+        c10::hpu::getCurrentHPUStream());
 
   } else {
     std::atomic<bool> copyDone{false};
@@ -531,7 +533,8 @@ void habana_helpers::copy_scalar_to_device(
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         size,
-        [&copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; },
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
     // wait for copy completion
@@ -577,11 +580,15 @@ void habana_helpers::copy_scalars_to_device(
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     auto syn_error = device.copy_data_to_device(
-        manifest, [src_list, dst_list]() { return; });
+        manifest,
+        [src_list, dst_list]() { return; },
+        c10::hpu::getCurrentHPUStream());
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_to_device(
-        manifest, [&copyDone]() { copyDone = true; });
+        manifest,
+        [&copyDone]() { copyDone = true; },
+        c10::hpu::getCurrentHPUStream());
 
     // wait for copy completion
     while (!copyDone) {
@@ -690,7 +697,8 @@ void habana_helpers::copy_data_to_host(
             src.storage().data_ptr().get()),
         habana_lazy::GetNBytes(src),
         [srcRef, dstRef]() { return; },
-        is_pinned);
+        is_pinned,
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -701,7 +709,8 @@ void habana_helpers::copy_data_to_host(
             src.storage().data_ptr().get()),
         habana_lazy::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
-        is_pinned);
+        is_pinned,
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -742,7 +751,8 @@ void habana_helpers::copy_data_to_device(
         habana_lazy::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         non_blocking,
-        is_pinned);
+        is_pinned,
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -754,7 +764,8 @@ void habana_helpers::copy_data_to_device(
         habana_lazy::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         false,
-        is_pinned);
+        is_pinned,
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -789,7 +800,8 @@ void habana_helpers::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         habana_lazy::GetNBytes(src),
-        [srcRef, dstRef]() { return; });
+        [srcRef, dstRef]() { return; },
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -801,7 +813,8 @@ void habana_helpers::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         habana_lazy::GetNBytes(src),
-        [&copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; },
+        c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

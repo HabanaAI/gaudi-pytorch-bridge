@@ -2,6 +2,9 @@ import torch
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch as ht
 import time
+from threading import Thread
+from test_utils import reset_seed, compare_tensors
+import numpy as np
 
 def doWork():
     in_shape = (4,2)
@@ -214,15 +217,16 @@ def testProfiling2():
     tA_h = torch.zeros(in_shape).to('hpu')
     tB_h = torch.ones(in_shape).to('hpu')
 
-    s = ht.hpu.Stream()
+    s1 = ht.hpu.Stream()
+    s2 = ht.hpu.Stream()
     startEv =ht.hpu.Event(enable_timing=True)
     endEv = ht.hpu.Event(enable_timing=True)
     assert endEv.query()== True , "Event query on unrecorded event returned False (expected True)"
     print(f'Before record :endEv info={repr(endEv)}')
     # startEv.record()
-    with ht.hpt.stream(s1):
+    with ht.hpu.stream(s1):
         tA_h = torch.add(tA_h,tB_h)
-    with ht.hpt.stream(s2):
+    with ht.hpu.stream(s2):
         tA_h = torch.add(tA_h,tB_h)
 
     s1.record_event(startEv)
@@ -415,6 +419,175 @@ def testStreamWaitEventWAR():
 
     print('Starting testStreamWaitEventWAR TEST - Finished')
 
+def sync(t, b, a, count):
+    with ht.hpu.stream(t):
+        t.synchronize()
+    np.testing.assert_allclose(b.detach().numpy(),
+                                a.detach().numpy(), atol=0, rtol=0)
+
+def testStreamCopyH2DNonBlocking():
+    import os
+    use_generic_stream = 1
+    if "PT_HPU_ENABLE_GENERIC_STREAM" in os.environ:
+        use_generic_stream = int(os.environ["PT_HPU_ENABLE_GENERIC_STREAM"])
+
+    #this feature only supported in generic stream
+    if not use_generic_stream:
+        return
+
+    print('Starting testStreamCopyH2DNonBlocking TEST')
+    s0 = ht.hpu.Stream()
+    List = []
+    count = 0
+    while (count < 10):
+        in_shape = (1000,2000)
+        tA = torch.ones(in_shape)
+        tB = torch.ones(in_shape)
+        tC = torch.empty_like(tA)
+
+        tA_h = tA.to('hpu', non_blocking=True)
+        tB_h = tB.to('hpu', non_blocking=True)
+        tC_h = torch.empty_like(tA_h)
+
+        tC = tA + tB
+        tC_h = tA_h + tB_h
+        y = torch.empty_like(tA).pin_memory(device='hpu')
+        with ht.hpu.stream(s0):
+            y.copy_(tC_h, non_blocking=True)
+
+        t1 = Thread(target=sync, args=(s0, y, tC, count))
+        t1.start()
+        List.append(t1)
+        count = count + 1
+    for x in List:
+        x.join()
+    print('Finshed testStreamCopyH2DNonBlocking TEST')
+
+def testProfiling_copy_h2d():
+    import os
+    use_generic_stream = 1
+    if "PT_HPU_ENABLE_GENERIC_STREAM" in os.environ:
+        use_generic_stream = int(os.environ["PT_HPU_ENABLE_GENERIC_STREAM"])
+
+    #this feature only supported in generic stream
+    if not use_generic_stream:
+        return
+
+    in_shape = (10,2)
+    cpu_tensor = torch.randn(in_shape)
+    s = ht.hpu.Stream()
+
+    hpu_tensor = cpu_tensor
+    startEv =ht.hpu.Event(enable_timing=True)
+    endEv = ht.hpu.Event(enable_timing=True)
+    startEv.record()
+    with ht.hpu.stream(s):
+        hpu_tensor = cpu_tensor.to('hpu')
+
+    endEv.record()
+    endEv.synchronize()
+    print(f'Time Elapsed={startEv.elapsed_time(endEv)}')  # milliseconds
+    print(f'After record :endEv info={repr(endEv)}')
+
+def testProfiling_copy_d2h():
+    import os
+    use_generic_stream = 1
+    if "PT_HPU_ENABLE_GENERIC_STREAM" in os.environ:
+        use_generic_stream = int(os.environ["PT_HPU_ENABLE_GENERIC_STREAM"])
+
+    #this feature only supported in generic stream
+    if not use_generic_stream:
+        return
+
+    in_shape = (10,2)
+    cpu_tensor = torch.randn(in_shape)
+    s = ht.hpu.Stream()
+
+    hpu_tensor = cpu_tensor.to('hpu')
+    hpu_tensor.fill_(2.2)
+    htcore.mark_step()
+    startEv =ht.hpu.Event(enable_timing=True)
+    endEv = ht.hpu.Event(enable_timing=True)
+    startEv.record()
+    with ht.hpu.stream(s):
+        hpu_tensor.to('cpu')
+    endEv.record()
+    endEv.synchronize()
+    print(f'Time Elapsed={startEv.elapsed_time(endEv)}')  # milliseconds
+    print(f'After record :endEv info={repr(endEv)}')
+
+def testStreamUseDifferentStreamForEachOP():
+    import os
+    use_generic_stream = 1
+    if "PT_HPU_ENABLE_GENERIC_STREAM" in os.environ:
+        use_generic_stream = int(os.environ["PT_HPU_ENABLE_GENERIC_STREAM"])
+
+    #this feature only supported in generic stream
+    if not use_generic_stream:
+        return
+
+    print('Starting testStreamUseDifferentStreamForEachOP TEST')
+    s0 = ht.hpu.Stream()
+    s1 = ht.hpu.Stream()
+    List = []
+    count = 0
+    while (count < 10):
+        in_shape = (1000,2000)
+        tA = torch.ones(in_shape)
+        tB = torch.ones(in_shape)
+        tC = torch.empty_like(tA)
+        tC = tA + tB
+
+        tA_h = tA.to('hpu', non_blocking=True)
+        tB_h = tB.to('hpu', non_blocking=True)
+        tC_h = torch.empty_like(tA_h)
+        with ht.hpu.stream(s0):
+            tC_h = tA_h + tB_h
+        y = torch.empty_like(tA)
+        with ht.hpu.stream(s1):
+            y = tC_h.to('cpu')
+        #s1.synchronize()
+        np.testing.assert_allclose(y.detach().numpy(),
+                                tC.detach().numpy(), atol=0, rtol=0)
+        count = count + 1
+    print('Finshed testStreamUseDifferentStreamForEachOP TEST')
+
+def testStreamUseDifferentStreamForEachOPNonBlocking():
+    import os
+    use_generic_stream = 1
+    if "PT_HPU_ENABLE_GENERIC_STREAM" in os.environ:
+        use_generic_stream = int(os.environ["PT_HPU_ENABLE_GENERIC_STREAM"])
+
+    #this feature only supported in generic stream
+    if not use_generic_stream:
+        return
+
+    print('Starting testStreamUseDifferentStreamForEachOPNonBlocking TEST')
+    s0 = ht.hpu.Stream()
+    s1 = ht.hpu.Stream()
+    List = []
+    count = 0
+    while (count < 10):
+        in_shape = (1000,2000)
+        tA = torch.ones(in_shape)
+        tB = torch.ones(in_shape)
+        tC = torch.empty_like(tA)
+        tC = tA + tB
+
+        tA_h = tA.to('hpu', non_blocking=True)
+        tB_h = tB.to('hpu', non_blocking=True)
+        tC_h = torch.empty_like(tA_h)
+        with ht.hpu.stream(s0):
+            tC_h = tA_h + tB_h
+        y = torch.empty_like(tA).pin_memory(device='hpu')
+        with ht.hpu.stream(s1):
+            y.copy_(tC_h, non_blocking=True)
+        s1.synchronize()
+        np.testing.assert_allclose(y.detach().numpy(),
+                                tC.detach().numpy(), atol=0, rtol=0)
+        count = count + 1
+    print('Finshed testStreamUseDifferentStreamForEachOP TEST')
+
 if __name__ == "__main__":
     test_stream_none()
     test_stream_event_uninit()
@@ -435,3 +608,8 @@ if __name__ == "__main__":
     testStreamWaitEvent()
     testStreamWaitEventWAR()
     testEventSyncEmptyGraph()
+    testStreamCopyH2DNonBlocking()
+    testProfiling_copy_h2d()
+    testProfiling_copy_d2h()
+    testStreamUseDifferentStreamForEachOP()
+    testStreamUseDifferentStreamForEachOPNonBlocking()
