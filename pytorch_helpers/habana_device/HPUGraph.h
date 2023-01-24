@@ -71,6 +71,7 @@ struct HPUGraph {
   // Stream on which capture began
   c10::hpu::HPUStream capture_stream_;
   std::recursive_mutex mutex_;
+  bool dynamic_env_ = false;
   bool capturing_ = false;
   std::vector<std::shared_ptr<SingleHPUGraph>> captured_graphs;
 };

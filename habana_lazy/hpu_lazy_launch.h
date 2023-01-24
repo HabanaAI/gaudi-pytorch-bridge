@@ -34,6 +34,7 @@ struct LaunchTensorsInfo {
   bool async;
   bool has_queued;
   size_t launch_counter;
+  bool dynamic_shape;
 };
 
 struct LaunchEagerInfo {

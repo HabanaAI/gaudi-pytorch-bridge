@@ -428,7 +428,7 @@ void HlExec::GetOrCreate(
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     mp_g_ = mp_g_and_meta_data_->get_cached_graph();
     HABANA_ASSERT(mp_g_ != nullptr);
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       at::ArrayRef<torch::jit::IValue> input_refs =
           torch::jit::last(stack, mp_g_->inputs().size());
       mp_g_and_meta_data_->ComputeGraphHashCode(mp_g_, input_refs);

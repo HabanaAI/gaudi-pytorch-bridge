@@ -11,7 +11,7 @@ TEST_F(JIT_IR_test, RerunJITGraph) {
     return;
   }
 
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+  habana_helpers::EnableRefineDynamicShape();
   LazyExecutionMode exec_mode{habana_lazy_executor.getExecutionMode()};
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
 
@@ -47,5 +47,5 @@ TEST_F(JIT_IR_test, RerunJITGraph) {
   }
   tensor_dtype_map.clear();
   habana_lazy_executor.setExecutionMode(exec_mode);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  habana_helpers::DisableRefineDynamicShape();
 }

@@ -469,7 +469,7 @@ class DynamicBucketInfo {
       : min_policy_(min_policy),
         max_policy_(max_policy),
         split_policy_(SplitPolicy::DYNAMIC) {
-    refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    refine_enabled_ = habana_helpers::GetRefineDynamicShapeStatus();
   };
 
   using DimMultipliers =

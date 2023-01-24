@@ -46,7 +46,7 @@ static bool can_use_dynamic_shapes(
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
   return (
-      (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      (habana_helpers::GetRefineDynamicShapeStatus() &&
        GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)) &&
       ((start.isIntegral(false) || can_convert(start)) &&
        (end.isIntegral(false) || can_convert(end)) &&

@@ -62,15 +62,15 @@ class EnvHelper {
   }
 
   void SetDynamicMode() {
-    m_dynamic = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    m_dynamic = habana_helpers::GetRefineDynamicShapeStatus();
     if (!m_dynamic) {
-      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+      habana_helpers::EnableRefineDynamicShape();
     }
   }
 
   void UnsetDynamicMode() {
     if (!m_dynamic) {
-      UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+      habana_helpers::DisableRefineDynamicShape();
     }
   }
 

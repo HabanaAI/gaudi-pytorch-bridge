@@ -115,6 +115,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/tensor_shape.cpp
   pytorch_helpers/habana_helpers/dynamic_bucket_info.cpp
   pytorch_helpers/habana_helpers/dynamic_bucket_info_utils.cpp
+  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
   pytorch_helpers/habana_helpers/compilation_statistics.cpp
   pytorch_helpers/habana_helpers/collective_kernel_info.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp

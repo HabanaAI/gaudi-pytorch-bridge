@@ -29,7 +29,7 @@ struct Slice : public ir::Node {
       int64_t end,
       int64_t step)
       : Node(
-            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+            habana_helpers::GetRefineDynamicShapeStatus()
                 ? c10::Symbol::fromQualString("hpu::slice")
                 : c10::Symbol::fromQualString("aten::slice")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
@@ -44,7 +44,7 @@ struct Slice : public ir::Node {
      * converted to shape tensor. and added as input & hence we do
      * not set the meta data here.
      */
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
 
       end = self.sizes().vec()[dim] < end ? self.sizes().vec()[dim] : end;
@@ -108,7 +108,7 @@ struct Slice : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+    if (habana_helpers::GetRefineDynamicShapeStatus() &&
         (m_inputs.size() == 4)) {
       auto& shape = m_inputs[1];
       HABANA_ASSERT(shape.DataPtrValidAndNotExpired());

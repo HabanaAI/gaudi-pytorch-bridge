@@ -129,9 +129,9 @@ TEST(ViewUtilsTest, IsAliasNonZeroOpViews) {
 }
 
 TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
-    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
 
   int N = 2, C = 3, H = 4, W = 5;
@@ -152,6 +152,6 @@ TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
   }
 
   if (!refine_enabled) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    habana_helpers::DisableRefineDynamicShape();
   }
 }

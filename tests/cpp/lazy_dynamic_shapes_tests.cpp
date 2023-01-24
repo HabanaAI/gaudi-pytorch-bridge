@@ -637,17 +637,17 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   int kW = 3;
   const int C = 16;
   // Check org state of env flag
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   // set the env variable false if set true for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
+    habana_helpers::DisableRefineDynamicShape();
   }
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, false);
   HbLazyTensor::SetDynamicMode();
   // Check if env flag set for op Accumulation/execution
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -659,12 +659,12 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
   // Check if env flag is unset after execution
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original state
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, org_state, 1);
+  habana_helpers::SetRefineDynamicShape(org_state);
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
@@ -672,17 +672,17 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
   int kW = 3;
   const int C = 16;
   // Set the env flag if not set
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   bool org_state = refine_enabled;
   if (!refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
   // Check org state of env flag
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, true);
   HbLazyTensor::SetDynamicMode();
   // Check if env flag set for op Accumulation/execution
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -695,13 +695,13 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
   HbLazyTensor::StepMarker({});
   // Check if env flag is same after execution(since set through
   // env and not through SetDynamicMode)
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, true);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original env variable
   if (!org_state) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    habana_helpers::DisableRefineDynamicShape();
   }
 }
 
@@ -710,14 +710,14 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   int kW = 3;
   const int C = 16;
   // Check org state of env flag
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   // set the env variable false if set true for this case
   bool org_state = refine_enabled;
   if (refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
+    habana_helpers::DisableRefineDynamicShape();
   }
   // Check if dynamic mode is unset
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor num1 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
@@ -729,12 +729,12 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
   // Check if env flag is still unset
-  refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   ASSERT_EQ(refine_enabled, false);
   torch::Tensor sum_hpu = sum_tensor.to(torch::kCPU);
   EXPECT_EQ(allclose(sum_cpu, sum_hpu, 0.01, 0.01), true);
   // restore the original state
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, org_state, 1);
+  habana_helpers::SetRefineDynamicShape(org_state);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {

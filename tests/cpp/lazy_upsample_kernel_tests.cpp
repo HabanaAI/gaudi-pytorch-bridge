@@ -130,9 +130,9 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
 
 TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
   torch::manual_seed(0);
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
   auto upsample_test = [](c10::IntArrayRef size1) {
     auto mat1 = torch::randn(size1);
@@ -169,7 +169,7 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
   upsample_test({1, 1, 4, 7});
   upsample_test({1, 1, 6, 12});
   if (!refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    habana_helpers::DisableRefineDynamicShape();
   }
 }
 

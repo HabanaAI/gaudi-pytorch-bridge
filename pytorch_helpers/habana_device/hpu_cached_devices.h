@@ -14,6 +14,7 @@
 #include <habana_device/PinnedMemoryAllocator.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
+#include "habana_helpers/dynamic_shape_info.h"
 
 #include <array>
 #include <memory>

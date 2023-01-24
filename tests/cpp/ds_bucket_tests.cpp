@@ -251,9 +251,9 @@ INSTANTIATE_TEST_SUITE_P(
             habana_helpers::DynamicDimsPolicy::CALCULATED)));
 
 TEST_P(DynamicDimsTest, BucketingPolicy) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
 
   std::vector<std::vector<std::vector<int64_t>>> input_dimvals;
@@ -311,7 +311,7 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
   }
 
   if (!refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    habana_helpers::DisableRefineDynamicShape();
   }
 }
 
@@ -342,9 +342,9 @@ INSTANTIATE_TEST_SUITE_P(
     PrintToStringParamName());
 
 TEST_P(DynamicBucketInfoTest, MinShape) {
-  bool refine_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
 
   int64_t min_dim{habana_helpers::DynamicBucketInfo::default_min_value()};
@@ -424,6 +424,6 @@ TEST_P(DynamicBucketInfoTest, MinShape) {
   get_and_check_bucket(3, 2);
 
   if (!refine_enabled) {
-    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+    habana_helpers::DisableRefineDynamicShape();
   }
 }

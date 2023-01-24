@@ -34,6 +34,12 @@ void HPUGraph::capture_begin() {
   /*flush current Accumulated graph, before capture */
   habana_lazy::HbLazyTensor::StepMarkerBind("");
   context->JoinPendingLaunchThread();
+
+  dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
+  if (dynamic_env_) {
+    habana_helpers::DisableRefineDynamicShape();
+  }
+
   capturing_ = true;
 
   /* Set graph capture mode on */
@@ -67,6 +73,9 @@ void HPUGraph::capture_end() {
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
+  if (dynamic_env_) {
+    habana_helpers::EnableRefineDynamicShape();
+  }
 }
 
 void HPUGraph::mark_step() {
@@ -180,6 +189,11 @@ SingleHPUGraph::~SingleHPUGraph() {
 void SingleHPUGraph::replayGraph(
     habana_lazy::ir::ValueList& input_vals,
     bool async) {
+  bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
+  if (dynamic_env_) {
+    habana_helpers::DisableRefineDynamicShape();
+  }
+
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
       GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)) {
@@ -211,6 +225,9 @@ void SingleHPUGraph::replayGraph(
         hblazy_tensors_,
         seed_tensors_generator_,
         true /*is_cached*/);
+  }
+  if (dynamic_env_) {
+    habana_helpers::EnableRefineDynamicShape();
   }
 }
 

@@ -24,6 +24,7 @@
 
 #include "habana_bridge/kernel/refinement_engine.h"
 
+#include "pytorch_helpers/habana_helpers/dynamic_shape_info.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
@@ -343,8 +344,10 @@ device::device(
       GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION);
   enable_memory_defrag_info_ = GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO);
 
-  CheckDynamicMinMaxPolicyOrder();
+  habana_helpers::SetRefineDynamicShape(
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES));
 
+  CheckDynamicMinMaxPolicyOrder();
   // Create the refinement thread
   habana::RefinementEngine::GetEngine().Initialize();
 }

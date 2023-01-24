@@ -23,7 +23,7 @@ class View : public ir::Node {
   View() = delete;
   View(const at::Tensor& self, at::IntArrayRef size)
       : Node(
-            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+            habana_helpers::GetRefineDynamicShapeStatus()
                 ? c10::Symbol::fromQualString("hpu::view")
                 : c10::Symbol::fromQualString("aten::view")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
@@ -36,7 +36,7 @@ class View : public ir::Node {
      * converted to shape tensor. and added as input & hence we do
      * not set the meta data here.
      */
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       auto shape = empty_hpu_lazy(
           size,
           self.options(),
@@ -55,7 +55,7 @@ class View : public ir::Node {
   std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString();
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == 0) {
+    if (habana_helpers::GetRefineDynamicShapeStatus() == 0) {
       ss << ", View Size = " << m_meta_data.get(static_cast<size_t>(1));
     } else {
       HABANA_ASSERT(m_inputs.size() == 2);
@@ -213,7 +213,7 @@ class StridedInsert : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       ss << Node::ToString();
       if (m_inputs.size() == 3) {
         HABANA_ASSERT(m_inputs[2].DataPtrValidAndNotExpired());
@@ -248,7 +248,7 @@ struct SliceInsert : public ir::Node {
       const at::Tensor& insert_t,
       at::IntArrayRef params)
       : Node(
-            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)
+            habana_helpers::GetRefineDynamicShapeStatus()
                 ? c10::Symbol::fromQualString("hpu::slice_insert_ds")
                 : c10::Symbol::fromQualString("hpu::slice_insert")) {
     auto hl_orig = habana_lazy::GetOrCreateHbLazyTensor(orig_t, c10::kHPU);
@@ -259,7 +259,7 @@ struct SliceInsert : public ir::Node {
 
     std::vector<at::Tensor> input_pt_vec{orig_t, insert_t};
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       auto dims = orig_t.dim();
       std::vector<int64_t> step_vec(dims, 1);
       std::vector<int64_t> start_vec(dims, 0);
@@ -301,7 +301,7 @@ struct SliceInsert : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       auto& start = m_inputs[3];
       HABANA_ASSERT(start.DataPtrValidAndNotExpired());
       std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
@@ -390,7 +390,7 @@ class StridedView : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       ss << Node::ToString();
       HABANA_ASSERT(m_inputs[1].DataPtrValidAndNotExpired());
       std::shared_ptr<Data> d1 = m_inputs[1].m_data_ptr.lock();

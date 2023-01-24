@@ -229,7 +229,7 @@ Tensor add_strided_insert_node(
       strides.vec(),
       " offset = ",
       offset);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     std::string node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
                             (mf == c10::MemoryFormat::ChannelsLast3d))
         ? "hpu::strided_insert_cl_ds"
@@ -1062,7 +1062,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
   hl_self = HandleViewsOrUpdate(self, hl_self);
 
   ir::NodePtr node;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) == 1) {
+  if (habana_helpers::GetRefineDynamicShapeStatus() == 1) {
     auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
     auto hl_false = GetIrValueForScalar(implicit);
     node = ir::Node::Create(

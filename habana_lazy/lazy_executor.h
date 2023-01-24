@@ -10,6 +10,7 @@
 #pragma once
 #include <thread>
 
+#include "habana_helpers/dynamic_shape_info.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"

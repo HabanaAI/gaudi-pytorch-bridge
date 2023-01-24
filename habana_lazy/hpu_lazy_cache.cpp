@@ -167,7 +167,7 @@ void ComputeGraphHashCode(
     graphHashCode =
         at::hash_combine(graphHashCode, hash_bcast(node_bcast_details));
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     graphHashCode =
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
   }

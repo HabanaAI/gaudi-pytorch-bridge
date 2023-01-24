@@ -1000,6 +1000,18 @@ void LaunchSyncTensorsGraph(
     LaunchEagerInfo lazy_eager_info,
     LaunchStreamInfo stream_info) {
   PT_LAZY_TRACE;
+  PT_LAZY_EXEC_THREAD(
+      "Launch started async:",
+      launch_info.async,
+      " has_queued:",
+      launch_info.has_queued,
+      " launch_counter:",
+      launch_info.launch_counter,
+      " dynamic:",
+      launch_info.dynamic_shape);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
+  bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
+  habana_helpers::SetRefineDynamicShape(launch_info.dynamic_shape);
   habana_lazy::NoAccThread no_acc_thread(
       false); // disable acc thread during launch, but do not sync the acc
               // thread
@@ -1007,13 +1019,6 @@ void LaunchSyncTensorsGraph(
   context->HandleException();
   context->m_launch_thread_context = true;
   std::vector<HbLazyTensor>* tensors = &launch_info.tensors_ptr;
-  PT_LAZY_EXEC_THREAD(
-      "Launch started async:",
-      launch_info.async,
-      " has_queued:",
-      launch_info.has_queued,
-      " launch_counter:",
-      launch_info.launch_counter);
   // Launch the execution
   std::exception_ptr launch_except = nullptr;
   bool exception = false;
@@ -1021,7 +1026,6 @@ void LaunchSyncTensorsGraph(
       optimized_path_jit_ir_and_mdata =
           lazy_eager_info.optimized_path_jit_ir_and_mdata;
   if (lazy_eager_info.isOptimizedLazyEager) {
-    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
     optimized_path_jit_ir_and_mdata->SetOpName(lazy_eager_info.lazyOpName);
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
     optimized_path_jit_ir_and_mdata->SetHPUStream(stream_info.stream);
@@ -1127,6 +1131,8 @@ void LaunchSyncTensorsGraph(
     std::rethrow_exception(launch_except);
   }
   context->m_launch_thread_context = false;
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
+  habana_helpers::SetRefineDynamicShape(dynamic_env_);
   launch_info.input_list.clear();
   PT_LAZY_EXEC_THREAD(
       "Launch completed async:",
@@ -1438,7 +1444,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       stack,
       async,
       has_queued,
-      launch_counter};
+      launch_counter,
+      habana_helpers::GetRefineDynamicShapeStatus()};
 
   LaunchEagerInfo lazy_eager_info = {
       lazyFrontEndInfo,
@@ -1499,6 +1506,13 @@ void HbLazyTensor::ExecuteCachedGraph(
         seed_tensors_generator_map,
     bool is_cached) {
   PT_LAZY_TRACE;
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
+  bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
+  habana_helpers::SetRefineDynamicShape(false);
+  habana_lazy::NoAccThread no_acc_thread(
+      false); // disable acc thread during launch, but do not sync the acc
+              // thread
+
   exec::HlExec hlexec{};
 
   torch::jit::Stack stack;
@@ -1557,6 +1571,9 @@ void HbLazyTensor::ExecuteCachedGraph(
 
     out_tensor.SetTensorData(st);
   }
+
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
+  habana_helpers::SetRefineDynamicShape(dynamic_env_);
 }
 
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
@@ -1672,7 +1689,7 @@ void HbLazyTensor::StepMarker(
   }
   HbLazyTensor::MarkStep(device);
   if (switch_dynamic_mode) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
+    habana_helpers::DisableRefineDynamicShape();
     switch_dynamic_mode = false;
   }
   if (context->getCapturing()) {
@@ -1681,10 +1698,10 @@ void HbLazyTensor::StepMarker(
 }
 
 void HbLazyTensor::SetDynamicMode() {
-  bool dynamic_env = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  bool dynamic_env = habana_helpers::GetRefineDynamicShapeStatus();
   switch_dynamic_mode = dynamic_env ? false : true;
   if (switch_dynamic_mode) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    habana_helpers::EnableRefineDynamicShape();
   }
 }
 

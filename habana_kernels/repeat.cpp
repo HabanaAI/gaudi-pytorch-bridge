@@ -13,6 +13,7 @@
 #include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/dynamic_shape_info.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -277,7 +278,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[2].toInt();
   auto out_shape = inputs[3].toTensor();
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     auto repeats_ht = inputs[1].toTensor();
     TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
     auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);

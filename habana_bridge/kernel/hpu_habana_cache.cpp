@@ -1766,8 +1766,7 @@ void RecipeCacheLRU::insert(
 
   size_t rcnt{0};
   bool dropped{true};
-  const bool is_ds_enabled =
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!is_ds_enabled) {
     while (
         !map_.empty() && dropped &&
@@ -1921,8 +1920,7 @@ RecipeCacheLRU::RecipeCacheLRU() {
 
 void RecipeCacheLRU::InitDiskCache() {
   // disk caching is not enabled with dynamic shapes
-  const bool is_ds_enabled =
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
   // "" is valid method to unset path
   auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
@@ -1942,8 +1940,7 @@ void RecipeCacheLRU::InitDiskCache() {
 
 void RecipeCacheLRU::ResetDiskCache() {
   // disk caching is not enabled with dynamic shapes
-  const bool is_ds_enabled =
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   // Reset disk_cache_ if PT_RECIPE_CACHE_PATH is defined
   auto recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
   if (recipe_cache_path == NULL) {

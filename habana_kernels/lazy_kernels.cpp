@@ -1245,7 +1245,7 @@ ir::NodePtr create_as_strided_node(
   auto offset = storage_offset.value_or(self.storage_offset());
   auto mf = self.suggest_memory_format();
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     std::string node_str =
         (is_out) ? "hpu::strided_view_out_ds" : "hpu::strided_view_ds";
 
@@ -2386,7 +2386,7 @@ Tensor constant_pad_hpu_lazy(
     std::vector<at::IValue> vector_of_inputs;
     std::string op_name;
     std::set<size_t> metadata_indices;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       // Keep IDST implementation also, but use H2D implementation by default
       bool isIDST =
           (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR) == false);
@@ -3502,7 +3502,7 @@ Tensor index_put_hpu_lazy(
          accumulate}};
     return index_put_op.call();
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+  if (habana_helpers::GetRefineDynamicShapeStatus() ||
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     return index_put_frontend_impl_hpu_lazy(
         self, indices_list, value_in, accumulate);
@@ -3540,8 +3540,8 @@ Tensor& index_put_hpu_lazy_(
   // to break index_put op from subsequent graph whereas in other cases
   // changing shapes will cause cache misses therefore breaking graph.
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK) ||
-      (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-       isIndicesBool && (accumulate || value.dim()))) {
+      (!habana_helpers::GetRefineDynamicShapeStatus() && isIndicesBool &&
+       (accumulate || value.dim()))) {
     std::vector<HbLazyTensor> hl_flush_end = {GetHbLazyTensor(self)};
     HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   } else {
@@ -5244,7 +5244,7 @@ Tensor& randperm_hpu_lazy(
 
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+  if (habana_helpers::GetRefineDynamicShapeStatus() &&
       (output.scalar_type() == c10::ScalarType::Int ||
        output.scalar_type() == c10::ScalarType::Long)) {
     if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
@@ -5379,7 +5379,7 @@ at::Tensor repeat_hpu_lazy(
   std::vector<at::IValue> vector_of_inputs;
   std::string op_name;
   std::set<size_t> metadata_indices;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     auto repeats_shape = empty_hpu_lazy(
         repeats,
         self.options(),
@@ -5420,7 +5420,7 @@ at::Tensor repeat_inlv_hpu_lazy(
   // repeats can only by "long" or "int", if long, cast to int because synapse
   // cannot handle long tensors
   bool need_h2d_tensor = false;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) ||
+  if (habana_helpers::GetRefineDynamicShapeStatus() ||
       !output_size.has_value()) {
     need_h2d_tensor = true;
   }
@@ -5820,7 +5820,7 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
     t_list = filter(t_list, is_nonempty_tensor);
     const TensorList view_list{t_list};
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       auto output_shape_tensor = empty_hpu_lazy(
           IntArrayRef(output_shape),
           tensors_[0].options().dtype(c10::ScalarType::Int),
@@ -5831,7 +5831,7 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
       LazyOp<at::Tensor> k{
           "hpu::cat", {view_list, dim_, output_shape_tensor}, {1}, {}, 0};
       k.call(out);
-    } else { // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES))
+    } else { // if (habana_helpers::GetRefineDynamicShapeStatus())
       LazyOp<at::Tensor> k{"aten::cat", {view_list, dim_}, {1}, {}, 0};
       k.call(out);
     }
@@ -6267,7 +6267,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
   std::string op_name;
   std::set<size_t> metadata_indices;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     op_name = "hpu::topk";
     auto k_tensor = empty_hpu_lazy(
         k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);
@@ -6341,7 +6341,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
   shape_out[dim_] = k;
   out_shapes = {shape_out, shape_out};
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     op_name = "hpu::topk";
     auto k_tensor = empty_hpu_lazy(
         k, self.options(), self.suggest_memory_format(), false, SHAPE_TENSOR);

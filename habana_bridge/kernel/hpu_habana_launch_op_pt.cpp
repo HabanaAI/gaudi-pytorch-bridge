@@ -120,7 +120,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       graph_index(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph(optimized_jit_graph_and_meta_data->get_cached_graph()),
       debug(optimized_jit_graph_and_meta_data->GetDbgFlag()) {
-  refine_ds_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_ds_enabled_ = habana_helpers::GetRefineDynamicShapeStatus();
   enable_fast_shape_inf_ =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE) &&
       refine_ds_enabled_;

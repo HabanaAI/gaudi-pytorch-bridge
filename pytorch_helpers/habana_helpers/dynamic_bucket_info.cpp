@@ -295,7 +295,7 @@ DynamicBucketInfo::DynamicBucketInfo(size_t key)
       max_policy_(DynamicDimsPolicy::CALCULATED),
       split_policy_(SplitPolicy::DYNAMIC) {
   SetGraphKey(key);
-  refine_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  refine_enabled_ = habana_helpers::GetRefineDynamicShapeStatus();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT)) {
     min_policy_ = DynamicDimsPolicy::CURRENT;
     max_policy_ = DynamicDimsPolicy::CURRENT;
