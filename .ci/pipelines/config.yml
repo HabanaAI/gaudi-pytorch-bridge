@@ -1,5 +1,6 @@
 config:
   jobTimeout: '180'
+  sharedCCacheEnabled: true
   gerritTriggerMap:
     - repository: pytorch-fork
     - repository: pytorch-lightning-fork
