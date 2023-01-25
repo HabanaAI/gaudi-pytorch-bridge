@@ -2347,7 +2347,7 @@ dot:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Int, Short, Char]
-  op_backend: Dot
+  guid: dot_fwd
   out_ids: [0]
 
 dot.out:
@@ -2358,7 +2358,7 @@ dot.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Int, Short, Char]
-  op_backend: Dot
+  guid: dot_fwd
 
 elu:
   force_default: false
