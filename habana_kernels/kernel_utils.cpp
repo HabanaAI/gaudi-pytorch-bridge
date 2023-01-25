@@ -197,6 +197,15 @@ CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
   return CAST_ROUND_HALF_NE;
 }
 
+bool habana_helpers::isLongTypeSupported(const std::string& guid) {
+  // Notice: We have no way of checking at runtime which kernels are supported
+  // in i64 version, so the list has to be hardcoded here.
+  // This is a temporary solution, in the future Synapse will allow us to call
+  // i64 version for all kernels and will add i64->i32 cast when needed.
+  std::unordered_set<std::string> supported_guids{"cast_"};
+  return supported_guids.find(guid) != supported_guids.end();
+}
+
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get
  *input arguments with different dtypes. For such cases, this function
  *determines which input argument can be promoted to larger dtype. This function

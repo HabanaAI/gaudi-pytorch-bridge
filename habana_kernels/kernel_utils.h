@@ -38,6 +38,9 @@ CastF32RoundMode_t get_cast_rounding_mode(
     c10::ScalarType dst_dtype,
     const bool stochastic_rounding_override = false);
 
+// Check whether long is supported on Synapse side for given guid name
+bool isLongTypeSupported(const std::string& guid);
+
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
     int& position_of_promoted_tensor,

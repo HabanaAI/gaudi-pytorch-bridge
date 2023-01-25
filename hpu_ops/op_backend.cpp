@@ -21,9 +21,12 @@
 
 namespace {
 auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
-  const auto srcStr = habana_helpers::name_suffix_from_type(src, true);
-  const auto dstStr = habana_helpers::name_suffix_from_type(dst, true);
-  const auto guid = "cast_" + srcStr + "_to_" + dstStr;
+  static const std::string prefix = "cast_";
+  const auto srcStr = habana_helpers::name_suffix_from_type(
+      src, habana_helpers::isLongTypeSupported(prefix));
+  const auto dstStr = habana_helpers::name_suffix_from_type(
+      dst, habana_helpers::isLongTypeSupported(prefix));
+  const auto guid = prefix + srcStr + "_to_" + dstStr;
   HABANA_ASSERT(
       srcStr != dstStr, guid, " cannot be used, from=", src, " to=", dst);
   return guid;
@@ -57,7 +60,11 @@ OpBackend::OpBackend(
     std::vector<int> inplace_ids,
     std::vector<int> scalar_ids,
     bool is_outfn)
-    : HabanaOperator(guid + habana_helpers::name_suffix_from_type(scalar_type)),
+    : HabanaOperator(
+          guid +
+          habana_helpers::name_suffix_from_type(
+              scalar_type,
+              habana_helpers::isLongTypeSupported(guid))),
       m_res_ids{std::move(res_ids)},
       m_inplace_ids{std::move(inplace_ids)},
       m_scalar_ids{std::move(scalar_ids)},
