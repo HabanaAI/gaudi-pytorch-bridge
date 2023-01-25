@@ -334,8 +334,9 @@ synapse_error_o graph::add_node(
       output_layouts);
   if (status != synStatus::synSuccess) {
     PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
+    PT_SYNHELPER_FATAL("node add failed ", status);
   }
-  HABANA_ASSERT(status == synStatus::synSuccess)
+
   graph_is_empty_ = false;
   op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
   if (ret_node_id) {
@@ -347,7 +348,7 @@ synapse_error_o graph::add_node(
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN(
           "Node " + node_type + " synNodeSetDeterministic", " Err: ", status);
-      HABANA_ASSERT(status == synStatus::synSuccess)
+      PT_SYNHELPER_FATAL("node add synNodeSetDeterministic failed ", status);
     }
   }
   return {};
