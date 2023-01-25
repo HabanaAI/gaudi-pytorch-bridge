@@ -87,13 +87,6 @@ add_subdirectory(backend)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
-  habana_bridge/program/cache.cpp
-  habana_bridge/program/splitter.cpp
-  habana_bridge/program/program.cpp
-  habana_bridge/program/strategy.cpp
-  habana_bridge/program/executor.cpp
-  habana_bridge/program/eager_splitting_strategy.cpp
-  habana_bridge/program/naive_rpo_scheduling_strategy.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
   pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp
@@ -226,13 +219,6 @@ file(GLOB habana_pytorch2_plugin_ops_passes
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch2_plugin SHARED
-  habana_bridge/program/cache.cpp
-  habana_bridge/program/splitter.cpp
-  habana_bridge/program/program.cpp
-  habana_bridge/program/strategy.cpp
-  habana_bridge/program/executor.cpp
-  habana_bridge/program/eager_splitting_strategy.cpp
-  habana_bridge/program/naive_rpo_scheduling_strategy.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
   pytorch_helpers/habana_device/HPUGraph.cpp
   pytorch_helpers/habana_device/HPUStream.cpp

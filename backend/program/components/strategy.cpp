@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,14 +12,23 @@
  */
 
 #include "strategy.h"
-#include "eager_splitting_strategy.h"
-#include "naive_rpo_scheduling_strategy.h"
+#include "../scheduling_strategies/naive_rpo_scheduling_strategy.h"
+#include "../splitting_strategies/eager_splitting_strategy.h"
+#include "../splitting_strategies/lvaspill_splitting_strategy.h"
 
 namespace habana {
 namespace program {
 
 SplittingDecision::operator bool() const {
   return not colors.empty();
+}
+
+std::int64_t SplittingDecision::MaxColor() const {
+  std::int64_t color = 0;
+  for (auto& p : colors) {
+    color = std::max(color, p.second);
+  }
+  return color;
 }
 
 namespace {
@@ -42,8 +51,9 @@ struct SplittingDecisionValidatorImpl {
     for (auto node : graph_.nodes()) {
       auto it = decision_.colors.find(node);
       // Check if node has color
-      if (it == decision_.colors.end())
+      if (it == decision_.colors.end()) {
         return false;
+      }
       // Check if color is valid
       if (it->second < 0)
         return false;
@@ -67,10 +77,14 @@ struct SplittingDecisionValidatorImpl {
 
     for (auto node : graph_.nodes()) {
       auto node_color = colors.at(node);
+      successors[node_color];
       for (auto input_value : node->inputs()) {
         auto input_node = input_value->node();
         auto input_color = colors.at(input_node);
-        successors[input_color].insert(node_color);
+        successors[input_color];
+        if (input_color != node_color) {
+          successors[input_color].insert(node_color);
+        }
       }
     }
 
@@ -131,8 +145,13 @@ bool SchedulingDecision::Validate(const GraphOfClusters& graph) const {
 
 namespace {
 
+const std::string DEFAULT_SPLIT_STR = "eager";
+const std::string DEFAULT_SCHED_STR = "naive";
+
 std::unordered_map<std::string, SplittingStrategy> splitting_strategies = {
-    {"eager", EagerSplittingStrategy}};
+    {"eager", EagerSplittingStrategy},
+    {"lvaspill", LvaSpillSplittingStrategy},
+};
 
 std::unordered_map<std::string, SchedulingStrategy> scheduling_strategies = {
     {"naive", NaiveRpoSchedulingStrategy}};
@@ -140,7 +159,10 @@ std::unordered_map<std::string, SchedulingStrategy> scheduling_strategies = {
 } // namespace
 
 SplittingStrategy GetSplittingStrategy() {
-  auto name = GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR);
+  std::string name = GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR);
+  if (name == "default") {
+    name = DEFAULT_SPLIT_STR;
+  }
   auto it = splitting_strategies.find(name);
   if (it == splitting_strategies.end()) {
     PT_BRIDGE_WARN(
@@ -151,7 +173,10 @@ SplittingStrategy GetSplittingStrategy() {
 }
 
 SchedulingStrategy GetSchedulingStrategy() {
-  auto name = GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SCHED_STR);
+  std::string name = GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SCHED_STR);
+  if (name == "default") {
+    name = DEFAULT_SCHED_STR;
+  }
   auto it = scheduling_strategies.find(name);
   if (it == scheduling_strategies.end()) {
     PT_BRIDGE_WARN(

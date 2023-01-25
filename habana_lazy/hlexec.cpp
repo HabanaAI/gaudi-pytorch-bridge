@@ -19,8 +19,8 @@
 
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/program/create_executor.h"
 #include "backend/synapse_helpers/device.h"
-#include "habana_bridge/program/executor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/hlexec.h"
@@ -81,8 +81,9 @@ struct HabanaLaunchOpLauncher : Launcher {
  */
 struct ClusteredProgramLauncher : Launcher {
   ClusteredProgramLauncher(
+      std::size_t graph_hash,
       const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta) {
-    executor_ = habana::program::CreateExecutor(graph_meta);
+    executor_ = habana::program::CreateExecutor(graph_hash, graph_meta);
     TORCH_CHECK(executor_ != nullptr);
   }
 
@@ -100,6 +101,7 @@ struct ClusteredProgramLauncher : Launcher {
  * is created, ohterwise launcher for HabanaLaunchOpPT is used.
  */
 std::unique_ptr<Launcher> CreateLauncher(
+    std::size_t graph_hash,
     const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
     const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
     std::vector<bool>& bcast_map) {
@@ -107,8 +109,7 @@ std::unique_ptr<Launcher> CreateLauncher(
       GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM);
 
   if (is_clustered_program_enabled) {
-    PT_BRIDGE_WARN("creating clustered program launcher");
-    return std::make_unique<ClusteredProgramLauncher>(graph_meta);
+    return std::make_unique<ClusteredProgramLauncher>(graph_hash, graph_meta);
   }
   return std::make_unique<HabanaLaunchOpLauncher>(graph_meta, info, bcast_map);
 }
@@ -175,7 +176,7 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetEventRecordStream(event_stream);
   mp_g_and_meta_data_->SetEventFlag(event_flag);
   auto launcher =
-      CreateLauncher(mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
+      CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
   try {
     launcher->Run(stack);
   } catch (const std::exception& e) {

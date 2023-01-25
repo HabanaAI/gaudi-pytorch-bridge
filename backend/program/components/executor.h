@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,9 +15,18 @@
 #include <memory>
 #include "backend/jit_graph_cache.h"
 #include "program.h"
+#include "pytorch_helpers/habana_device/HPUStream.h"
 
 namespace habana {
 namespace program {
+
+struct Environment {
+  synapse_helpers::hpuStream_t stream;
+  std::string op_name;
+  std::size_t graph_hash;
+  std::size_t graph_key;
+  std::size_t graph_index;
+};
 
 /*
  * Executor for clustered program.
@@ -25,9 +34,11 @@ namespace program {
 class Executor {
  public:
   struct Frame {
-    std::vector<at::IValue> inputs;
+    torch::jit::Stack stack_;
+
+    void Assign(std::size_t index, at::IValue& value);
   };
-  Executor(ClusteredProgramSPtr program);
+  Executor(ClusteredProgramSPtr program, Environment& env);
 
   /*
    * Run program according to program's schedule.
@@ -37,20 +48,17 @@ class Executor {
   void Run(torch::jit::Stack& stack);
 
  private:
-  void RunCluster(Cluster* cluster);
+  void RunCluster(Cluster& cluster);
+  void PrepareFrames();
+  void PropagateClusterOutputs(Frame& frame, Cluster& cluster);
+
+  void ForwardProgramInputs(torch::jit::Stack& stack);
+  void ForwardProgramOutputs(torch::jit::Stack& stack);
   ClusteredProgramSPtr program_;
+  Environment env_;
 
   std::unordered_map<Cluster::Id, Frame> frames_;
 };
-
-/*
- * Creates executor for given lazy_jit_graph.
- * The program associated with executor is looked up from cache.
- *
- * TODO: is it enough to use cached_graph_key() to identify program?
- */
-std::unique_ptr<Executor> CreateExecutor(
-    const std::shared_ptr<LazyJitGraph>& lazy_jit_graph);
 
 } // namespace program
 } // namespace habana

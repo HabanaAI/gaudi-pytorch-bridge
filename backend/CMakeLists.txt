@@ -45,6 +45,20 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
+  program/components/cache.cpp
+  program/components/executor.cpp
+  program/components/program.cpp
+  program/components/splitter.cpp
+  program/components/strategy.cpp
+  program/create_executor.cpp
+  program/scheduling_strategies/naive_rpo_scheduling_strategy.cpp
+  program/splitting_strategies/eager_splitting_strategy.cpp
+  program/splitting_strategies/lvaspill_splitting_strategy.cpp
+  program/utils/jit_bfstopsort.cpp
+  program/utils/jit_fixcolors.cpp
+  program/utils/jit_fixcycles.cpp
+  program/utils/jit_liveness_analysis.cpp
+  program/utils/union_find.cpp
   )
   add_custom_command(TARGET habana_pytorch_backend POST_BUILD
     COMMENT "Creating ${TARGET_NAME} symbolic link in $ENV{BUILD_ROOT_LATEST}"

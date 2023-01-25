@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,20 +11,27 @@
  *******************************************************************************
  */
 
-#include "eager_splitting_strategy.h"
+#include "cache.h"
 
 namespace habana {
 namespace program {
 
-SplittingDecision EagerSplittingStrategy(const LazyJitGraph& lazy_graph) {
-  SplittingDecision decision;
-  std::int64_t fresh_color = 0;
-  const auto& graph = *lazy_graph.get_cached_graph();
-  for (auto* node : graph.nodes()) {
-    decision.colors[node] = fresh_color++;
-  }
+ClusteredProgramSPtr Cache::Lookup(std::size_t graphKey) {
+  std::lock_guard<std::mutex> _lck(mutex_);
+  auto it = table_.find(graphKey);
+  if (it == table_.end())
+    return nullptr;
+  return it->second;
+}
 
-  return decision;
+void Cache::Insert(std::size_t graphKey, const ClusteredProgramSPtr& program) {
+  std::lock_guard<std::mutex> _lck(mutex_);
+  table_[graphKey] = program;
+}
+
+Cache& Cache::GetInstance() {
+  static Cache instance;
+  return instance;
 }
 
 } // namespace program

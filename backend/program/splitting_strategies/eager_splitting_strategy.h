@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,20 +10,18 @@
  *
  *******************************************************************************
  */
-
 #pragma once
-#include "strategy.h"
+#include "../components/strategy.h"
 
 namespace habana {
 namespace program {
 
 /*
- * Naive reverse post order (dfs-based topological order) scheduling strategy.
+ * Eager-mode like splitting strategy.
  *
- * Just computes topological order of given graph, does not take anything into
- * account.
+ * Puts every op in separate cluster.
  */
-SchedulingDecision NaiveRpoSchedulingStrategy(const GraphOfClusters& graph);
+SplittingDecision EagerSplittingStrategy(const LazyJitGraph& graph);
 
 } // namespace program
 } // namespace habana

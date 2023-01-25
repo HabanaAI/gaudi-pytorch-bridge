@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,18 +10,22 @@
  *
  *******************************************************************************
  */
+
 #pragma once
-#include "strategy.h"
+#include "components/executor.h"
 
 namespace habana {
 namespace program {
 
 /*
- * Eager-mode like splitting strategy.
+ * Creates executor for given lazy_jit_graph.
+ * The program associated with executor is looked up from cache.
  *
- * Puts every op in separate cluster.
+ * TODO: is it enough to use cached_graph_key() to identify program?
  */
-SplittingDecision EagerSplittingStrategy(const LazyJitGraph& graph);
+std::unique_ptr<Executor> CreateExecutor(
+    std::size_t graph_hash,
+    const std::shared_ptr<LazyJitGraph>& lazy_jit_graph);
 
 } // namespace program
 } // namespace habana

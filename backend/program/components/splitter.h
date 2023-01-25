@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,6 +22,8 @@ namespace program {
 constexpr std::int64_t COLOR_PARAM = -1;
 // special color assigned to outputs
 constexpr std::int64_t COLOR_RETURN = -2;
+// special color assigned to prim::Constant which needs to be duplicated
+constexpr std::int64_t COLOR_CONSTANT_FOR_DUPLICATION = -3;
 
 /*
  * Represents cluster cut from graph during splitting.
@@ -43,12 +45,27 @@ struct SplittingResult {
   std::unordered_map<std::int64_t, ClusterAfterSplitting> clusters_;
 };
 
+/*
+ * Raw splitting algorithm.
+ * TODO: better name
+ */
 SplittingResult SplitJitIrGraph(
     const LazyJitGraph& graph,
     const SplittingDecision& decision);
 
+/*
+ * Creates GoC from splitting algorithm result.
+ * TODO: better name
+ */
 std::unique_ptr<GraphOfClusters> CreateGraphOfClustersFromSplittingResult(
     SplittingResult& result);
+
+/*
+ * TODO: better name
+ */
+std::unique_ptr<GraphOfClusters> SplitIntoGoc(
+    const LazyJitGraph& graph,
+    const SplittingDecision& decision);
 
 } // namespace program
 } // namespace habana

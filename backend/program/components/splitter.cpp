@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -68,10 +68,12 @@ struct Dependencies {
     for (auto& p : data_flow) {
       auto& output = p.first;
       if (output.cluster == COLOR_PARAM) {
-        FillPorts(
-            result.clusters_[output.cluster].outputs_, output.index, p.second);
-      } else {
         FillPorts(result.inputs_, output.index, p.second);
+      } else {
+        FillPorts(
+            result.clusters_.at(output.cluster).outputs_,
+            output.index,
+            p.second);
       }
     }
   }
@@ -86,6 +88,26 @@ struct Dependencies {
     target[index] = PortVector(source.begin(), source.end());
   }
 };
+
+bool isPrimConstantNone(const Node* node) {
+  if (node->kind() != torch::jit::prim::Constant) {
+    return false;
+  }
+
+  return node->output(0)->type() == torch::NoneType::get();
+}
+
+[[maybe_unused]] bool isPrimConstantNone(const Value* value) {
+  return isPrimConstantNone(value->node());
+}
+
+bool isPrimConstant(const Node* node) {
+  return node->kind() == torch::jit::prim::Constant;
+}
+
+bool isPrimConstant(const Value* value) {
+  return isPrimConstant(value->node());
+}
 
 /*
  * Implementation of splitting algorithm.
@@ -111,26 +133,26 @@ struct SplitterImpl {
         decision_(decision) {}
 
   SplittingResult Run() {
-    PT_BRIDGE_WARN("Run");
+    PT_BRIDGE_DEBUG("Run");
     MapSpecialColors();
     for (auto* node : graph_.nodes()) {
       VisitNode(node);
     }
     VisitNode(graph_.return_node());
-    PT_BRIDGE_WARN("after Run");
-    PT_BRIDGE_WARN("------------------------------------");
+    PT_BRIDGE_DEBUG("after Run");
+    PT_BRIDGE_DEBUG("------------------------------------");
     for (auto& p : color2partition) {
-      PT_BRIDGE_WARN("=== color=", p.first);
-      p.second.graph_->print(std::cout, false);
+      PT_BRIDGE_DEBUG("=== color=", p.first);
+      // p.second.graph_->print(std::cout, false);
     }
-    PT_BRIDGE_WARN("------------------------------------");
+    PT_BRIDGE_DEBUG("------------------------------------");
 
-    for (auto& p : dependencies_.data_flow) {
-      auto& output = p.first;
-      for (auto& input : p.second) {
-        std::cout << output.toString() << " -> " << input.toString() << "\n";
-      }
-    }
+    // for (auto& p : dependencies_.data_flow) {
+    //  auto& output = p.first;
+    //  for (auto& input : p.second) {
+    //    std::cout << output.toString() << " -> " << input.toString() << "\n";
+    //  }
+    //}
 
     FillResult();
     return std::move(result_);
@@ -142,8 +164,8 @@ struct SplitterImpl {
    * are already mapped to partitions.
    */
   void VisitNode(const Node* node) {
-    std::cout << "VisitNode color=" << GetColor(node) << " ptr=" << node << " ";
-    node->print(std::cout, 0, {});
+    // std::cout << "VisitNode color=" << GetColor(node) << " ptr=" << node << "
+    // "; node->print(std::cout, 0, {});
 
     auto node_color = GetColor(node);
     if (not IsSpecialColor(node_color)) {
@@ -170,10 +192,10 @@ struct SplitterImpl {
       std::int64_t dst_color,
       const Value* src,
       std::int64_t src_color) {
-    std::cout << "\tVisitEdge src_color=" << src_color
-              << " offset=" << src->offset() << " value_ptr=" << src
-              << " node_ptr=" << src->node() << " ";
-    src->node()->print(std::cout, 0, {});
+    // std::cout << "\tVisitEdge src_color=" << src_color
+    //          << " offset=" << src->offset() << " value_ptr=" << src
+    //          << " node_ptr=" << src->node() << " ";
+    // src->node()->print(std::cout, 0, {});
     if (IsSpecialColor(dst_color) and IsSpecialColor(src_color)) {
       return VisitEdge_SpecialToSpecial(
           dst_input_index, dst, dst_color, src, src_color);
@@ -219,7 +241,9 @@ struct SplitterImpl {
   }
 
   /*
-   * Handle edge between special node to regular node (input -> node).
+   * Handle edge between special node to regular node, it can be:
+   * - input -> node
+   * - None -> node
    *
    * Maps external input into internal one and connects to current node.
    */
@@ -229,18 +253,29 @@ struct SplitterImpl {
       std::int64_t dst_color,
       const Value* src,
       std::int64_t src_color) {
-    std::cout << "\t special 2 cluster\n";
-    TORCH_CHECK_EQ(src_color, COLOR_PARAM);
-    TORCH_CHECK_EQ(src->node(), graph_.param_node());
-    auto mapped_dst = MapNode(dst_color, dst);
-    auto mapped_src = MapExternalInput(dst_color, src);
+    Node* mapped_dst = nullptr;
+    Value* mapped_src = nullptr;
+    if (src_color == COLOR_PARAM) {
+      TORCH_CHECK_EQ(src->node(), graph_.param_node());
+      mapped_dst = MapNode(dst_color, dst);
+      mapped_src = MapExternalInput(dst_color, src);
+    } else if (src_color == COLOR_CONSTANT_FOR_DUPLICATION) {
+      TORCH_CHECK(isPrimConstant(src));
+      // Duplicate None in destination partition
+      mapped_src = MapConstant(dst_color, src);
+      mapped_dst = MapNode(dst_color, dst);
+    } else {
+      throw std::runtime_error("VisitEdge_SpecialToCluster invalid usage");
+    }
+
     // Make sure indices are consistent
     TORCH_CHECK(mapped_dst->inputs().size() == dst_input_index);
-    mapped_dst->addInput(mapped_src);
+    auto new_value = mapped_dst->addInput(mapped_src);
+    new_value->setType(mapped_src->type());
   }
 
   /*
-   * Handle edge between regular node and special node (node -> return_node?).
+   * Handle edge between regular node and special node (node -> return_node).
    *
    * Connects mapped node into partition's return_node and records data flow
    * from internal output to external output.
@@ -251,7 +286,6 @@ struct SplitterImpl {
       std::int64_t dst_color,
       const Value* src,
       std::int64_t src_color) {
-    std::cout << "\t cluster 2 special\n";
     TORCH_CHECK_EQ(dst_color, COLOR_RETURN);
     TORCH_CHECK_EQ(dst, graph_.return_node());
 
@@ -271,11 +305,11 @@ struct SplitterImpl {
       std::int64_t dst_color,
       const Value* src,
       std::int64_t src_color) {
-    printf("\t cluster 2 cluster inter\n");
     auto mapped_src = MapInternalInputFromCluster(dst_color, src_color, src);
     auto mapped_dst = MapNode(dst_color, dst);
     TORCH_CHECK(mapped_dst->inputs().size() == dst_input_index);
-    mapped_dst->addInput(mapped_src);
+    auto new_value = mapped_dst->addInput(mapped_src);
+    new_value->setType(mapped_src->type());
   }
 
   /*
@@ -288,14 +322,13 @@ struct SplitterImpl {
       const Node* dst,
       const Value* src,
       std::int64_t color) {
-    printf("\t cluster 2 cluster intra\n");
-
     // Map values from original graph into partition's graph
     auto mapped_dst = MapNode(color, dst);
     auto mapped_src = MapValue(color, src);
     // Make sure indices are consistent
     TORCH_CHECK(mapped_dst->inputs().size() == dst_input_index);
-    mapped_dst->addInput(mapped_src);
+    auto new_value = mapped_dst->addInput(mapped_src);
+    new_value->setType(mapped_src->type());
   }
 
   /*
@@ -328,8 +361,10 @@ struct SplitterImpl {
   /*
    * Map node from original graph into partition.
    */
-  Node* MapNode(std::int64_t color, const Node* orig_node) {
-    TORCH_CHECK(not IsSpecialColor(color));
+  Node* _InternalMapNode(
+      std::int64_t color,
+      const Node* orig_node,
+      bool append = true) {
     auto* partition = GetPartition(color);
     auto it = partition->mapping_.find(orig_node);
     if (it == partition->mapping_.end()) {
@@ -338,10 +373,29 @@ struct SplitterImpl {
       partition->mapping_[orig_node] = new_node;
       new_node->copyAttributes(*orig_node);
       new_node->copyMetadata(const_cast<Node*>(orig_node));
-      partition->graph_->appendNode(new_node);
+      if (append) {
+        partition->graph_->appendNode(new_node);
+      } else {
+        partition->graph_->prependNode(new_node);
+      }
+
+      for (std::size_t i = 0; i < orig_node->outputs().size(); ++i) {
+        auto old_output = orig_node->output(i);
+        auto new_output = new_node->output(i);
+        new_output->setType(old_output->type());
+      }
+
       return new_node;
     }
     return it->second;
+  }
+
+  /*
+   * Map node from original graph into partition.
+   */
+  Node* MapNode(std::int64_t color, const Node* orig_node) {
+    TORCH_CHECK(not IsSpecialColor(color));
+    return _InternalMapNode(color, orig_node);
   }
 
   /*
@@ -349,6 +403,25 @@ struct SplitterImpl {
    */
   Value* MapValue(std::int64_t color, const Value* orig_value) {
     auto node = MapNode(color, orig_value->node());
+    auto value = node->output(orig_value->offset());
+    value->setDebugName("v_" + orig_value->debugName());
+    return value;
+  }
+
+  /*
+   * Map value from original graph into partition.
+   */
+  Node* MapConstant(std::int64_t color, const Node* orig_node) {
+    TORCH_CHECK(isPrimConstant(orig_node));
+    TORCH_CHECK(not IsSpecialColor(color));
+    return _InternalMapNode(color, orig_node, false);
+  }
+
+  /*
+   * Map value from original graph into partition.
+   */
+  Value* MapConstant(std::int64_t color, const Value* orig_value) {
+    auto node = MapConstant(color, orig_value->node());
     auto value = node->output(orig_value->offset());
     value->setDebugName("v_" + orig_value->debugName());
     return value;
@@ -365,6 +438,12 @@ struct SplitterImpl {
       }
     }
     decision_.colors[graph_.return_node()] = COLOR_RETURN;
+
+    for (auto* node : graph_.nodes()) {
+      if (isPrimConstant(node)) {
+        decision_.colors[node] = COLOR_CONSTANT_FOR_DUPLICATION;
+      }
+    }
   }
 
   /*
@@ -395,6 +474,8 @@ struct SplitterImpl {
         partition->graph_->addInput("external_input_" + input->debugName());
     partition->forwarded_inputs_[input_index] = new_value;
 
+    new_value->setType(input->type());
+
     dependencies_.Add(COLOR_PARAM, input->offset(), color, new_value->offset());
     return new_value;
   }
@@ -418,10 +499,9 @@ struct SplitterImpl {
 
   /*
    * Maps value from other partition into internal input in another partition.
-
+   *
    * Connects source value to internal output inside source partition if it is
-   not
-   * already connected to output.
+   * not already connected to output.
    *
    * Records dataflow between partitions.
    */
@@ -440,6 +520,7 @@ struct SplitterImpl {
     auto mapped_value = dst_partition->graph_->addInput(
         "internal_input_" + src_value->debugName());
     dst_partition->cluster_inputs_[src_value] = mapped_value;
+    mapped_value->setType(src_value->type());
 
     dependencies_.Add(
         src_color, src_output_index, dst_color, mapped_value->offset());
@@ -473,7 +554,60 @@ struct GocCreatorImpl {
       : splitting_result_(splitting_result) {}
 
   std::unique_ptr<GraphOfClusters> Run() {
+    CreateClusters();
+    MapInputOutputs();
     return std::move(goc_);
+  }
+
+  void CreateClusters() {
+    color2cluster_[COLOR_RETURN] = GraphOfClusters::SINK;
+    for (auto& p : splitting_result_.clusters_) {
+      auto color = p.first;
+      auto cluster = goc_->CreateCluster();
+      color2cluster_[color] = cluster->id_;
+      PT_BRIDGE_DEBUG(
+          "Copying color=",
+          color,
+          " id=",
+          cluster->id_,
+          " ",
+          p.second.graph_.get());
+      cluster->lazy_graph_ = std::move(p.second.graph_);
+    }
+  }
+
+  void MapInputOutputs() {
+    goc_->inputs_ = MapPortVector(splitting_result_.inputs_);
+    for (auto& p : color2cluster_) {
+      auto color = p.first;
+      if (color == COLOR_RETURN)
+        continue;
+      auto cluster = goc_->FindCluster(p.second);
+      cluster->outputs_ =
+          MapPortVector(splitting_result_.clusters_.at(color).outputs_);
+    }
+  }
+
+  Port MapPort(const Port& port) {
+    return Port{color2cluster_.at(port.cluster), port.index};
+  }
+
+  PortVector MapPortVector(const PortVector& port_vector) {
+    PortVector result;
+    result.reserve(port_vector.size());
+    for (auto& p : port_vector) {
+      result.emplace_back(MapPort(p));
+    }
+    return result;
+  }
+
+  std::vector<PortVector> MapPortVector(const std::vector<PortVector>& xs) {
+    std::vector<PortVector> result;
+    result.reserve(xs.size());
+    for (auto& x : xs) {
+      result.emplace_back(MapPortVector(x));
+    }
+    return result;
   }
 
   std::unordered_map<std::int64_t, Cluster::Id> color2cluster_;
@@ -494,6 +628,13 @@ SplittingResult SplitJitIrGraph(
 std::unique_ptr<GraphOfClusters> CreateGraphOfClustersFromSplittingResult(
     SplittingResult& result) {
   return GocCreatorImpl(result).Run();
+}
+
+std::unique_ptr<GraphOfClusters> SplitIntoGoc(
+    const LazyJitGraph& graph,
+    const SplittingDecision& decision) {
+  auto result = SplitJitIrGraph(graph, decision);
+  return CreateGraphOfClustersFromSplittingResult(result);
 }
 
 } // namespace program

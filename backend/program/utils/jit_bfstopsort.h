@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,31 +10,20 @@
  *
  *******************************************************************************
  */
+
 #pragma once
-#include <mutex>
-#include <unordered_map>
-#include "program.h"
+#include <vector>
+#include "../components/program.h"
 
 namespace habana {
 namespace program {
+namespace utils {
 
-class Cache {
- public:
-  ClusteredProgramSPtr Lookup(std::size_t graphKey);
-  void Insert(std::size_t graphKey, const ClusteredProgramSPtr& program);
+/*
+ * Returns BFS based topological order of given graph
+ */
+std::vector<const torch::jit::Node*> BfsTopSort(const torch::jit::Graph& graph);
 
-  static Cache& GetInstance();
-
- private:
-  Cache() = default;
-  Cache(const Cache&) = delete;
-  Cache(Cache&&) = delete;
-  Cache& operator=(const Cache&) = delete;
-  Cache& operator=(Cache&&) = delete;
-
-  std::mutex mutex_;
-  std::unordered_map<std::size_t, ClusteredProgramSPtr> table_;
-};
-
+} // namespace utils
 } // namespace program
 } // namespace habana
