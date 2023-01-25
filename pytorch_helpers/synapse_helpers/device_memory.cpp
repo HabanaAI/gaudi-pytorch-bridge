@@ -431,7 +431,8 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
     uint32_t counter_state{0};
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
-    } while (counter_state > DEFAULT_RECIPE_COUNT);
+    } while (counter_state > DEFAULT_RECIPE_COUNT &&
+             !suballoc_->is_memory_available(size));
 
     habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Lock-Addr", "", size);
   }
