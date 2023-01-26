@@ -352,7 +352,7 @@ class HlExec {
 
   void CreateNodeBcastMap(const ir::NodePtrList& nodes);
   GraphPtr mp_g_;
-  OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_;
+  OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_{nullptr};
   size_t m_g_hash_;
   size_t m_fwd_graph_hash_ = 0;
   std::vector<uint64_t> m_fwd_graph_stack_map_;

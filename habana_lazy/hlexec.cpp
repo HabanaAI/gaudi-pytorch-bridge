@@ -385,18 +385,23 @@ void HlExec::GetOrCreate(
     ConstructJITGraph();
     return;
   }
-  mp_g_and_meta_data_ = habana_lazy::LazyGraphCache::GetLazyCache()
-                            .GetOptimizedJITGraphAndMetaData(m_g_hash_);
 
   size_t optimized_lazy_eager_key = 0;
   if (lazyInfo) {
     optimized_lazy_eager_key = lazyInfo->get_optimized_lazy_eager_key();
   }
 
+  // To not read the normal cache for optimized eager
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
+    mp_g_and_meta_data_ = habana_lazy::LazyGraphCache::GetLazyCache()
+                              .GetOptimizedJITGraphAndMetaData(m_g_hash_);
+  }
+
   // Cache miss
   // ==========
   if (mp_g_and_meta_data_ == nullptr) {
     ConstructJITGraph();
+    // To not write the normal cache for optimized eager
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
       PT_LAZY_DEBUG(
           "JIT Cache miss :: key ",
