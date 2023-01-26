@@ -3188,6 +3188,18 @@ Tensor& index_add_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_add_, func, self)
 }
 
+bool static cast_required(c10::ScalarType self_scalar_type) {
+  if (self_scalar_type != c10::ScalarType::Double &&
+      self_scalar_type != c10::ScalarType::Float &&
+      self_scalar_type != c10::ScalarType::Half &&
+      self_scalar_type != c10::ScalarType::BFloat16 &&
+      self_scalar_type != c10::ScalarType::Long &&
+      self_scalar_type != c10::ScalarType::Int) {
+    return true;
+  }
+  return false;
+}
+
 Tensor index_put_frontend_impl_hpu_lazy(
     const Tensor& self,
     const c10::List<c10::optional<at::Tensor>>& indices_list,
@@ -3254,11 +3266,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
   at::Tensor self_cast = self;
   at::Tensor value = value_in;
 
-  if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float &&
-      self.scalar_type() != c10::ScalarType::BFloat16 &&
-      self.scalar_type() != c10::ScalarType::Long &&
-      self.scalar_type() != c10::ScalarType::Int) {
+  if (cast_required(self.scalar_type())) {
     // i8/i16/i32 -> f32
     LazyOp<at::Tensor> k_{
         "hpu::cast",
@@ -3287,11 +3295,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
         "hpu::scatter_nd_onnx",
         {self_cast, concatenated_indices, broadcasted_values});
     Tensor scatter_nd_out = scatter_nd_op.call();
-    if (self.scalar_type() != c10::ScalarType::Double &&
-        self.scalar_type() != c10::ScalarType::Float &&
-        self.scalar_type() != c10::ScalarType::BFloat16 &&
-        self.scalar_type() != c10::ScalarType::Long &&
-        self.scalar_type() != c10::ScalarType::Int) {
+    if (cast_required(self.scalar_type())) {
       LazyOp<at::Tensor> k_{
           "hpu::cast",
           {scatter_nd_out, self.scalar_type()},
@@ -3332,11 +3336,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
     Tensor scatter_nd_onnx_out = scatter_nd_onnx_op.call();
     auto result = at::add(self_cast, scatter_nd_onnx_out);
 
-    if (self.scalar_type() != c10::ScalarType::Double &&
-        self.scalar_type() != c10::ScalarType::Float &&
-        self.scalar_type() != c10::ScalarType::BFloat16 &&
-        self.scalar_type() != c10::ScalarType::Long &&
-        self.scalar_type() != c10::ScalarType::Int) {
+    if (cast_required(self.scalar_type())) {
       LazyOp<at::Tensor> k_{
           "hpu::cast",
           {result, self.scalar_type()},
