@@ -5790,7 +5790,8 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   TORCH_CHECK(_tensors.size() > 0, "Empty tensors list!");
 
   handle_collective(_tensors);
-  TensorList tensors = _tensors.toUnboxed();
+  std::vector<Tensor> tensors;
+  std::copy(_tensors.begin(), _tensors.end(), std::back_inserter(tensors));
   auto non_empty_list = filter(tensors, is_nonempty_tensor);
   auto first_tensor = tensors[0];
 
