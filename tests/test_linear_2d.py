@@ -4,8 +4,8 @@ import os
 import torch.nn as nn
 from test_utils import compare_tensors
 
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
+#from habana_frameworks.torch.utils.library_loader import load_habana_module
+#load_habana_module()
 
 out_features = 16
 in_features = 8
