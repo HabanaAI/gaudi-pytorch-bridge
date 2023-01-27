@@ -64,9 +64,10 @@ binary_op_out_list = [
 ]
 
 data_type_list = [
-    (torch.float, 0.001),
-    (torch.bfloat16, 0.01),
-    (torch.float64, 0.001),
+    (torch.float, 0.001, {}),
+    (torch.bfloat16, 0.01, {}),
+    (torch.float64, 0.001, {}),
+    (torch.short, 0, {torch.min, torch.max})
 ]
 
 
@@ -131,8 +132,10 @@ def test_hpu_mult_bool_op(N, H, W, C):
     evaluate_fwd_kernel(kernel=torch.mul, kernel_params=kernel_params_fwd)
 
 
-@pytest.mark.parametrize("dtype, tol", data_type_list)
-def test_hpu_atan2_special(dtype, tol):
+@pytest.mark.parametrize("dtype, tol, allowed_ops_for_dtype", data_type_list)
+def test_hpu_atan2_special(dtype, tol, allowed_ops_for_dtype):
+    if len(allowed_ops_for_dtype) > 0 and torch.atan2 not in allowed_ops_for_dtype:
+        pytest.skip()
     binary_op = torch.atan2
 
     special = [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
@@ -147,8 +150,10 @@ def test_hpu_atan2_special(dtype, tol):
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
-@pytest.mark.parametrize("dtype, tol", data_type_list)
-def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd, dtype, tol):
+@pytest.mark.parametrize("dtype, tol, allowed_ops_for_dtype", data_type_list)
+def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd, dtype, tol, allowed_ops_for_dtype):
+    if len(allowed_ops_for_dtype) > 0 and binary_op not in allowed_ops_for_dtype:
+        pytest.skip()
     kernel_params_fwd["input"] = torch.randn(N, C, H, W).to(dtype)
     kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(dtype)
     evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd, atol=tol, rtol=tol)
