@@ -1,0 +1,197 @@
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+
+import os
+import torch
+import torch.nn as nn
+import numpy as np
+import pytest
+import math
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import Format, DelayedScaling
+import habana_frameworks.torch.hpex.experimental.transformer_engine as te
+from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
+    cast_to_fp8,
+    cast_from_fp8,
+)
+from habana_frameworks.torch import _hpex_C as tex
+
+# Disable dynamic shapes
+import habana_frameworks.torch.hpu as ht
+ht.disable_dynamic_shape()
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("stochastic_rounding", [True, False])
+@pytest.mark.parametrize("scale", [1., 16.])
+def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale):
+    input_value = 18.5
+    input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
+
+    meta = tex.FP8TensorMeta()
+    meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
+    meta.scale_inv = torch.full((1,), 0., dtype=torch.float32, device=device)
+    meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
+    cast_out = cast_to_fp8(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
+
+    upcasted = cast_from_fp8(cast_out, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, tex.DType.kFloat32)
+    mean = torch.mean(upcasted).cpu()
+    # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
+    # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
+    # dependent on the distance between original value to the closest fp8 numbers, so the mean result
+    # should be close to the input value.
+    if stochastic_rounding:
+        assert mean < 19.5
+        assert mean > 17.5
+    else:
+        assert mean == 20.0
+    assert meta.scale_inv.item() == 1./scale
+
+class MyLinear(torch.nn.Module):
+    __constants__ = ['in_features', 'out_features']
+    in_features: int
+    out_features: int
+    weight: torch.Tensor
+
+    def __init__(self, in_features: int, out_features: int, bias: bool = True,
+                 device=None, dtype=None, skip_weight_param_allocation: bool = False) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        super(MyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.skip_weight_param_allocation = skip_weight_param_allocation
+        if not self.skip_weight_param_allocation:
+            self.weight = torch.nn.Parameter(torch.empty((out_features, in_features), **factory_kwargs))
+        if bias:
+            self.bias = torch.nn.Parameter(torch.empty(out_features, **factory_kwargs))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
+        # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
+        # https://github.com/pytorch/pytorch/issues/57109
+        if not self.skip_weight_param_allocation:
+            torch.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = torch.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.init.uniform_(self.bias, -bound, bound)
+
+    def forward(self, input: torch.Tensor, weight: torch.Tensor = None) -> torch.Tensor:
+        return torch.nn.functional.linear(input, weight if weight is not None else self.weight, self.bias)
+
+    def extra_repr(self) -> str:
+        return 'in_features={}, out_features={}, bias={}'.format(
+            self.in_features, self.out_features, self.bias is not None
+        )
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("size_A", [16, 128])
+@pytest.mark.parametrize("size_B", [16, 128])
+@pytest.mark.parametrize("batched", [True, False])
+@pytest.mark.parametrize("trans_a", [True, False])
+@pytest.mark.parametrize("trans_b", [True, False])
+def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b):
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max")
+
+    if batched:
+        inp_size = [4, 8, size_B, size_A]
+        weight_size = [4, 8, size_A, size_A]
+    else:
+        inp_size = [size_B, size_A]
+        weight_size = [size_A, size_A]
+    if trans_a:
+        tmp = inp_size[-1]
+        inp_size[-1] = inp_size[-2]
+        inp_size[-2] = tmp
+    if trans_b:
+        tmp = weight_size[-1]
+        weight_size[-1] = weight_size[-2]
+        weight_size[-2] = tmp
+    fp32_in_val = 0.46875
+    fp8_in_val = 0.5
+    fp32_w_val = 3.26
+    fp8_w_val = 3.5
+
+    # calculate cpu reference
+    in_cpu = torch.full(inp_size, fp8_in_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+    w_cpu = torch.full(weight_size, fp8_w_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+
+    ref_out = torch.matmul(in_cpu if not trans_a else in_cpu.transpose(-1, -2), w_cpu if not trans_b else w_cpu.transpose(-1, -2))
+    ref_loss = ref_out.sum()
+    ref_loss.backward()
+    grad_in_cpu = in_cpu.grad.clone().to(torch.float).detach()
+    grad_w_cpu = w_cpu.grad.clone().to(torch.float).detach()
+    ref_out = ref_out.to(torch.float).detach()
+
+    # quantize and calculate hpu result
+    in_hpu = torch.full(inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True)
+    w_hpu = torch.full(weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True)
+
+    hpu_matmul = te.MatMul()
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        hpu_out = hpu_matmul(in_hpu, w_hpu, trans_a, trans_b)
+    hpu_loss = hpu_out.sum()
+    hpu_loss.backward()
+    grad_in_hpu = in_hpu.grad.clone().to(torch.float).cpu().detach()
+    grad_w_hpu = w_hpu.grad.clone().to(torch.float).cpu().detach()
+    hpu_out = hpu_out.to(torch.float).cpu().detach()
+
+    assert np.array_equal(hpu_out, ref_out, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), f"Data mismatch"
+
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("size_A", [16, 128])
+@pytest.mark.parametrize("size_B", [16, 128])
+@pytest.mark.parametrize("bias_add", [False])
+def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max")
+
+    inp_size = (size_B, size_A)
+    weight_size = (size_A, size_A)
+    fp32_in_val = 0.46875
+    fp8_in_val = 0.5
+    fp32_w_val = 3.26
+    fp8_w_val = 3.5
+
+    # calculate cpu reference
+    in_cpu = torch.full(inp_size, fp8_in_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+    w_cpu = torch.full(weight_size, fp8_w_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+
+    ref_linear = MyLinear(size_A, size_A, bias=False, skip_weight_param_allocation=True)
+    ref_out = ref_linear(in_cpu, weight=w_cpu)
+    ref_loss = ref_out.sum()
+    ref_loss.backward()
+    grad_in_cpu = in_cpu.grad.clone().to(torch.float).detach()
+    grad_w_cpu = w_cpu.grad.clone().to(torch.float).detach()
+    ref_out = ref_out.to(torch.float).detach()
+
+    # quantize and calculate hpu result
+    in_hpu = torch.full(inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True)
+    w_hpu = torch.full(weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True)
+
+    hpu_linear = te.Linear(size_A, size_A, bias=False, skip_weight_param_allocation=True)
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        hpu_out = hpu_linear(in_hpu, weight=w_hpu)
+    hpu_loss = hpu_out.sum()
+    hpu_loss.backward()
+    grad_in_hpu = in_hpu.grad.clone().to(torch.float).cpu().detach()
+    grad_w_hpu = w_hpu.grad.clone().to(torch.float).cpu().detach()
+    hpu_out = hpu_out.to(torch.float).cpu().detach()
+
+    assert np.array_equal(hpu_out, ref_out, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), f"Data mismatch"

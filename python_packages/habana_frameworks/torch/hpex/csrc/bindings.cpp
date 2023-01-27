@@ -15,6 +15,7 @@
 #include "bindings.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
+#include "transformer_engine/common.h"
 
 // Wrappers to match signatures
 static void optimizer_ResourceApplyMomentum(
@@ -307,4 +308,31 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "permute_2D_sparse_data",
       &habana_permute_2D_sparse_data_wrap,
       "Permute 2D sparse data");
+
+  // TE Data structures
+  py::class_<transformer_engine::FP8TensorMeta>(m, "FP8TensorMeta")
+      .def(py::init<>())
+      .def_readwrite("scale", &transformer_engine::FP8TensorMeta::scale)
+      .def_readwrite("scale_inv", &transformer_engine::FP8TensorMeta::scale_inv)
+      .def_readwrite(
+          "amax_history", &transformer_engine::FP8TensorMeta::amax_history);
+
+  py::enum_<transformer_engine::DType>(m, "DType")
+      .value("kByte", transformer_engine::DType::kByte)
+      .value("kInt32", transformer_engine::DType::kInt32)
+      .value("kFloat32", transformer_engine::DType::kFloat32)
+      .value("kFloat16", transformer_engine::DType::kFloat16)
+      .value("kBFloat16", transformer_engine::DType::kBFloat16)
+      .value("kFloat8E4M3", transformer_engine::DType::kFloat8E4M3)
+      .value("kFloat8E5M2", transformer_engine::DType::kFloat8E5M2);
+
+  py::enum_<transformer_engine::FP8FwdTensors>(m, "FP8FwdTensors")
+      .value("GEMM1_INPUT", transformer_engine::FP8FwdTensors::GEMM1_INPUT)
+      .value("GEMM1_WEIGHT", transformer_engine::FP8FwdTensors::GEMM1_WEIGHT)
+      .value("GEMM2_INPUT", transformer_engine::FP8FwdTensors::GEMM2_INPUT)
+      .value("GEMM2_WEIGHT", transformer_engine::FP8FwdTensors::GEMM2_WEIGHT);
+
+  py::enum_<transformer_engine::FP8BwdTensors>(m, "FP8BwdTensors")
+      .value("GRAD_OUTPUT1", transformer_engine::FP8BwdTensors::GRAD_OUTPUT1)
+      .value("GRAD_OUTPUT2", transformer_engine::FP8BwdTensors::GRAD_OUTPUT2);
 }
