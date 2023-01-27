@@ -330,6 +330,10 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     const AllToAllOptions& opts) {
   // TODO: current implementation ignores split sizes and assumes an even split
   // of input/output tensor between ranks
+  TORCH_CHECK(
+      (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0),
+      "outputSplitSize and inputSpliSizes are not supported");
+
   auto data_type = outputTensor.scalar_type();
   bool cast_tensor =
       !(data_type == c10::ScalarType::Float ||

@@ -610,29 +610,15 @@ void HcclAllToAllOutOperator::RunCollective(
           synStreamHandle stream) {
         int numRanks = comm->GetSize();
         size_t count = input->get_numel() / numRanks;
-        size_t rank_offset = count *
-            c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
         auto type = getHCCLDataType(scalar_type);
-        hcclGroupStart();
         hcclResult_t hccl_result{hcclSuccess};
-        for (auto r = 0; r < numRanks; r++) {
-          hcclSend(
-              reinterpret_cast<const unsigned char*>(send_buffer) +
-                  r * rank_offset,
-              count,
-              type,
-              r,
-              *comm->GetHcclHandle(),
-              stream);
-          hcclRecv(
-              reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
-              count,
-              type,
-              r,
-              *comm->GetHcclHandle(),
-              stream);
-        }
-        hcclGroupEnd();
+        hccl_result = hcclAlltoAll(
+            send_buffer,
+            recv_buffer,
+            count,
+            type,
+            *comm->GetHcclHandle(),
+            stream);
 
         return hccl_result;
       });

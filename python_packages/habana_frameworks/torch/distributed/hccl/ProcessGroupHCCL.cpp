@@ -1009,13 +1009,11 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
 
-  // This is a workaround to support alltoall using hcclSend and hcclRecv
-  // because HCCL library does support alltoall yet.
-  // hcclSend and hcclRecv works when the ranks are different. In order to
-  // ensure that same rank data is present in output, we are first performing
-  // copy_data_within_device
-  outputTensor.copy_(inputTensor);
+  TORCH_CHECK(
+      (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0),
+      "outputSplitSize and inputSpliSizes are not supported");
 
+  c10::intrusive_ptr<Work> work;
   at::Tensor alltoall_out_tensors;
   at::Tensor alltoall_in_tensors;
   auto data_type = getHCCLDataType(outputTensor.scalar_type());
@@ -1027,14 +1025,12 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     alltoall_out_tensors = outputTensor.to(c10::ScalarType::Float);
     alltoall_in_tensors = inputTensor.to(c10::ScalarType::Float);
   }
-
   // Currently only support for alltoall of same size split supported
   std::vector<at::Tensor> inputTensors;
   std::vector<at::Tensor> outputTensors;
   inputTensors.push_back(alltoall_in_tensors);
   outputTensors.push_back(alltoall_out_tensors);
-
-  auto work = collective(
+  work = collective(
       inputTensors,
       outputTensors,
       [numRanks = getSize(), rank = getRank(), this](
@@ -1044,10 +1040,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
-        size_t count = input.numel() / numRanks;
-        size_t rank_offset = count *
-            c10::elementSize(habana_helpers::getInternalDtype(
-                input.scalar_type()));
+        size_t count = input.numel();
         auto type = getHCCLDataType(input.scalar_type());
         HOST_SYNC()
         NW_STREAM_SYNC()
@@ -1062,45 +1055,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
             getHCCLDataType(input.scalar_type()));
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
-          hcclGroupStart();
-          for (auto r = 0; r < numRanks; r++) {
-            if (r < rank) {
-              hcclSend(
-                  reinterpret_cast<const unsigned char*>(send_buffer) +
-                      r * rank_offset,
-                  count,
-                  type,
-                  r,
-                  hccl_comm,
-                  stream);
-              hcclRecv(
-                  reinterpret_cast<unsigned char*>(recv_buffer) +
-                      r * rank_offset,
-                  count,
-                  type,
-                  r,
-                  hccl_comm,
-                  stream);
-            } else if (r > rank) {
-              hcclRecv(
-                  reinterpret_cast<unsigned char*>(recv_buffer) +
-                      r * rank_offset,
-                  count,
-                  type,
-                  r,
-                  hccl_comm,
-                  stream);
-              hcclSend(
-                  reinterpret_cast<const unsigned char*>(send_buffer) +
-                      r * rank_offset,
-                  count,
-                  type,
-                  r,
-                  hccl_comm,
-                  stream);
-            }
-          }
-          hcclGroupEnd();
+          hccl_result = hcclAlltoAll(
+              send_buffer, recv_buffer, count, type, hccl_comm, stream);
         }
         return hccl_result;
       });
@@ -1109,7 +1065,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     work->wait();
     outputTensor.copy_(alltoall_out_tensors.to(outputTensor.scalar_type()));
   }
-
   PT_DISTRIBUTED_END;
   return work;
 }
