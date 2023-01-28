@@ -142,6 +142,8 @@ class StridedViewContext {
 
   void SetViewStatus(int64_t id, ViewStatus viewStatus);
 
+  void ReplaceViewBase(int64_t id, at::Tensor& new_base_t);
+
  private:
   std::recursive_mutex m_view_table_mtx;
 

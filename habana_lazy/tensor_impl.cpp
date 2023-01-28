@@ -164,12 +164,76 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_NO_FLUSH(__FUNCTION__, func, impl);
 }
 
+/* Handles the below scenario
+Example:
+b = view(a)
+c = view(a)
+a.data = b.data
+
+print(a.cpu(), b.cpu(), c.cpu())
+*/
+void HbLazyTensorImpl::handle_view_cycles(
+    HbLazyTensor& hl_src,
+    HbLazyTensor& hl_dst) {
+  auto src_t = AtenFromHbLazyTensor(
+      hl_src, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+
+  auto src_updated_t = HbLazyTensorViews::get_recent_base_tensor(src_t);
+  auto src_id = GetHbLazyTensorId(src_updated_t);
+
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  {
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    auto* params_ptr = context->viewContext.GetViewTableEntry(src_id);
+    if (params_ptr != nullptr) {
+      auto base = params_ptr->base;
+      auto recent_base = HbLazyTensorViews::get_recent_base_tensor(base);
+
+      auto base_id = GetHbLazyTensorId(recent_base);
+
+      auto dst_t = AtenFromHbLazyTensor(
+          hl_dst, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+      auto dst_id = GetHbLazyTensorId(dst_t);
+
+      if (dst_id == base_id) {
+        // create a different hb lazy tensor for base
+        auto base_tensor_data =
+            GetHbLazyTensor(recent_base).EvaluateTensorData();
+        auto base_or_parent_impl = c10::make_intrusive<HbLazyTensorImpl>(
+            HbLazyTensor::Create(recent_base, recent_base.device()));
+
+        auto new_base_t = AtenFromHbLazyTensor(
+            base_or_parent_impl->m_tensor,
+            c10::nullopt,
+            recent_base.sizes(),
+            c10::nullopt,
+            c10::nullopt);
+
+        GetHbLazyTensor(new_base_t).SetTensorData(base_tensor_data);
+
+        // for simplicity always use as_strided op for this case. This helps to
+        // set just the base and avoid complications in multilevel view
+        // scenarios
+        params_ptr->optype = kStridedOpDefault;
+        params_ptr->base = new_base_t;
+
+        // Now replace the base tensor for all the other views pointing to the
+        // same base
+        context->viewContext.ReplaceViewBase(base_id, new_base_t);
+      }
+    } // if (params_ptr != nullptr)
+  }
+}
+
 void HbLazyTensorImpl::shallow_copy_from(
     const c10::intrusive_ptr<TensorImpl>& impl) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
   HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+
+  handle_view_cycles(hl_impl->m_tensor, this->m_tensor);
+
   copy_tensor_metadata(
       /*src_impl=*/hl_impl,
       /*dest_impl=*/this,

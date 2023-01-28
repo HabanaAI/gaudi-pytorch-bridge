@@ -104,6 +104,19 @@ c10::optional<at::Tensor> StridedViewContext::GetOrigTensorMapEntry(
   return c10::nullopt;
 }
 
+void StridedViewContext::ReplaceViewBase(int64_t id, Tensor& new_base_t) {
+  LOCK_VIEW_TABLE_MUTEX(*this);
+  for (auto& it : m_view_table) {
+    auto& params = it.second;
+    auto recent_base = HbLazyTensorViews::get_recent_base_tensor(params.base);
+    auto base_id = GetHbLazyTensorId(recent_base);
+    if (id == base_id) {
+      params.optype = kStridedOpDefault;
+      params.base = new_base_t;
+    }
+  }
+}
+
 bool IsStridesRatioZero(
     std::vector<int64_t>& self_strides,
     std::vector<int64_t>& stride_sizes) {

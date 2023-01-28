@@ -71,6 +71,8 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   void set_storage_keep_dtype(at::Storage storage);
 
+  void handle_view_cycles(HbLazyTensor& hl_src, HbLazyTensor& hl_dst);
+
  private:
   void SetupSizeProperties();
   void SetStorage(at::Storage storage);
