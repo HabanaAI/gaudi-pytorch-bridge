@@ -19,6 +19,7 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_distributed
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
     runInSanitizer: true
