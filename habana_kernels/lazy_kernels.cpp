@@ -1311,18 +1311,31 @@ ir::NodePtr strided_view_h2d(
       sizeof(uint64_t),
       HostDataType::UINT64_T);
 
-  if (self.sizes().size() != stride.size()) {
-    node_str = "hpu::strided_view_orig_ds_h2d";
+  if (orig_stride.size() != stride.size()) {
+    if (node_str == "hpu::strided_view_out_ds") {
+      node_str = "hpu::strided_view_out_orig_ds_h2d";
+    } else {
+      node_str = "hpu::strided_view_orig_ds_h2d";
+    }
 
     impl->setH2DDataForBucketing();
     node = std::make_shared<ir::StridedView>(
         self, out_size_st, stride_st, node_str);
   } else {
-    node_str = "hpu::strided_view_orig_ds";
+    if (node_str == "hpu::strided_view_out_ds") {
+      node_str = "hpu::strided_view_out_ds_h2d";
+    } else {
+      node_str = "hpu::strided_view_ds_h2d";
+    }
+
     auto offset_t = GetHbLazyTensor(offset_st);
     auto tensor_offset = offset_t.CurrentTensorAttached().value();
     auto impl_offset = habana_lazy::GetHbInternalTensorImpl(tensor_offset);
     HABANA_ASSERT(impl_offset, "impl_offset is invalid");
+
+    // Mark this front end shape tensor as it does not need synapse tensor.
+    // It carries stride_ratios info for BE lowering kernel.
+    impl_offset->setH2DFrontEndShapeTensor();
 
     std::vector<int64_t> stride_ratios;
     auto self_strides = orig_stride.vec();

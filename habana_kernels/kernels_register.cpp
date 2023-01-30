@@ -2134,7 +2134,11 @@ TORCH_LIBRARY(hpu, m) {
       "strided_view_cl(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
   m.def("strided_view_ds(Tensor self, Tensor size, Tensor offset) -> (Tensor)");
   m.def(
+      "strided_view_ds_h2d(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
       "strided_view_out_ds(Tensor self, Tensor size, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_view_out_ds_h2d(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(
       "strided_view_cl_ds(Tensor self, Tensor size,Tensor offset) -> (Tensor)");
   m.def("slice_insert(Tensor self, Tensor other, int[] params) -> (Tensor)");
@@ -2154,6 +2158,8 @@ TORCH_LIBRARY(hpu, m) {
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def(
       "strided_view_out_orig_ds(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_view_out_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def(
       "strided_insert_orig_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(

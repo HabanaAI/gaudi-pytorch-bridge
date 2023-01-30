@@ -152,6 +152,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  ComputeH2DHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, h2d_hash_code);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
     size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
     hash_code = at::hash_combine(hash_code, perm_hash_code);
@@ -172,6 +174,55 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       PT_BRIDGE_DEBUG("Jit Sysnapse Cache deterministic: ", node->i(one));
       auto node_name = node->kind().toQualString();
       PT_BRIDGE_DEBUG("Node Name: ", node_name);
+    }
+  }
+}
+
+void RecipeArgumentSpec::ComputeH2DHashCode(
+    at::ArrayRef<torch::jit::IValue> input_refs) {
+  h2d_hash_code = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+      if (impl && impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
+          impl->peekH2DDataForBucketing()) {
+        size_t h2d_size = impl->get_host_size();
+
+        std::vector<int64_t> h2d_vec;
+        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
+        if (h2d_dt_type == habana_lazy::HostDataType::INT32_T) {
+          int32_t* h2d_data = static_cast<int32_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
+          }
+        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT32_T) {
+          uint32_t* h2d_data = static_cast<uint32_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
+          }
+        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
+          uint64_t* h2d_data = static_cast<uint64_t*>(impl->get_host_ptr());
+          for (size_t i = 0; i < h2d_size; i++) {
+            uint64_t h2d_elem = *h2d_data++;
+            TORCH_CHECK(
+                h2d_elem < LONG_MAX,
+                "H2D data ",
+                h2d_elem,
+                " exceeds the int64 limit ");
+            h2d_vec.push_back(static_cast<int64_t>(h2d_elem));
+          }
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Host datatype Not Supported while processing host data from bucketing");
+        }
+
+        size_t h2d_single_value = 0;
+        for (size_t i = 0; i < h2d_vec.size(); i++) {
+          h2d_single_value = h2d_single_value + ((i + 1) * h2d_vec[i]);
+        }
+        h2d_hash_code = at::hash_combine(h2d_hash_code, h2d_single_value);
+      }
     }
   }
 }

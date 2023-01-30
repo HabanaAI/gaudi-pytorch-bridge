@@ -1109,92 +1109,86 @@ void StridedInsertOperator::compute_params_h2d(
   int64_t offset = 0;
 
   std::vector<int64_t> stride_values;
-  bool have_shape_tensors = inputs[2].isTensor();
-  if (have_shape_tensors) {
-    strides = GetStridedInsertOperatorH2DStrides(inputs, graph.is_dry_run());
-    if (!IsStridesRatioUsed(inputs)) {
-      uint64_t num_stride = strides[0];
-      offset = strides[1];
+  strides = GetStridedInsertOperatorH2DStrides(inputs, graph.is_dry_run());
+  if (!IsStridesRatioUsed(inputs)) {
+    uint64_t num_stride = strides[0];
+    offset = strides[1];
 
-      for (uint64_t i = 0; i < num_stride; i++) {
-        stride_values.push_back(static_cast<int64_t>(strides[i + 2]));
-      }
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "Backend orig tensor = ",
-          orig_t.sizes().vec(),
-          " insert tensor = ",
-          insert_t.sizes().vec(),
-          "strides = ",
-          strides,
-          " offset = ",
-          offset);
-
-      params.baseOffset = static_cast<uint64_t>(offset);
-      size_t idx = 0;
-      for (auto it = stride_values.begin(); it != stride_values.end(); ++it) {
-        params.strides[idx] = static_cast<uint64_t>(*it);
-        idx++;
-      }
-
-      std::reverse(stride_values.begin(), stride_values.end());
-    } else {
-      auto stride_tensor = inputs[2].toTensor();
-      auto offset_tensor = inputs[3].toTensor();
-      offset = offset_tensor.sizes()[0];
-      std::vector<uint64_t> stride_data_vec;
-      stride_data_vec.push_back(static_cast<uint64_t>(strides.size()));
-      stride_data_vec.push_back(static_cast<uint64_t>(offset));
-      for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-        stride_data_vec.push_back(static_cast<uint64_t>(*it));
-      }
-      size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - strides.size();
-      for (size_t i = 0; i < fill_dim; i++) {
-        stride_data_vec.push_back(static_cast<uint64_t>(0));
-      }
-
-      auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
-      if (habana::ShapeInference::GetCurrentPass() ==
-          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-        impl->set_min<uint64_t>(stride_data_vec);
-      } else if (
-          habana::ShapeInference::GetCurrentPass() ==
-          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-        impl->set_max<uint64_t>(stride_data_vec);
-      }
-
-      const auto& end = p_context_->syn_inputs_.end();
-      p_context_->syn_inputs_.erase(end - 1, end);
-
-      params.baseOffset = static_cast<uint64_t>(offset);
-      size_t idx = 0;
-      // synapse expects strides in reverse order
-      for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-        params.strides[idx] = static_cast<uint64_t>(*it);
-        idx++;
-      }
-
-      for (auto it = strides.begin(); it != strides.end(); ++it) {
-        stride_values.push_back(static_cast<int64_t>(*it));
-      }
+    for (uint64_t i = 0; i < num_stride; i++) {
+      stride_values.push_back(static_cast<int64_t>(strides[i + 2]));
     }
-    // For dynamic min-max inference, validate the mem access of
-    // elements. If the calculation dosen't match, fail here for inference
-    // fallback to kick in. if GC compile fails, the fallback penalty is huge.
-    // Since GC has relaxed memory access check for min/max only have the check
-    // for actual
-    if (!graph.is_dry_run() ||
-        habana::ShapeInference::GetCurrentPass() ==
-            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-      IntArrayRef strides_ref(stride_values.data(), stride_values.size());
-      bool memAccessCheck = verifyViewMemoryAccess(
-          inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-      TORCH_CHECK(
-          inputs[0].toTensor().numel() == 0 || memAccessCheck,
-          "Strided Insert will access memory outside of original tensor range!");
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Backend orig tensor = ",
+        orig_t.sizes().vec(),
+        " insert tensor = ",
+        insert_t.sizes().vec(),
+        "strides = ",
+        strides,
+        " offset = ",
+        offset);
+
+    params.baseOffset = static_cast<uint64_t>(offset);
+    size_t idx = 0;
+    for (auto it = stride_values.begin(); it != stride_values.end(); ++it) {
+      params.strides[idx] = static_cast<uint64_t>(*it);
+      idx++;
     }
+
+    std::reverse(stride_values.begin(), stride_values.end());
   } else {
-    strides = inputs[2].toIntVector();
-    offset = inputs[3].toInt();
+    auto stride_tensor = inputs[2].toTensor();
+    auto offset_tensor = inputs[3].toTensor();
+    offset = offset_tensor.sizes()[0];
+    std::vector<uint64_t> stride_data_vec;
+    stride_data_vec.push_back(static_cast<uint64_t>(strides.size()));
+    stride_data_vec.push_back(static_cast<uint64_t>(offset));
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      stride_data_vec.push_back(static_cast<uint64_t>(*it));
+    }
+    size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - strides.size();
+    for (size_t i = 0; i < fill_dim; i++) {
+      stride_data_vec.push_back(static_cast<uint64_t>(0));
+    }
+
+    auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
+    if (habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+      impl->set_min<uint64_t>(stride_data_vec);
+    } else if (
+        habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+      impl->set_max<uint64_t>(stride_data_vec);
+    }
+
+    const auto& end = p_context_->syn_inputs_.end();
+    p_context_->syn_inputs_.erase(end - 1, end);
+
+    params.baseOffset = static_cast<uint64_t>(offset);
+    size_t idx = 0;
+    // synapse expects strides in reverse order
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      params.strides[idx] = static_cast<uint64_t>(*it);
+      idx++;
+    }
+
+    for (auto it = strides.begin(); it != strides.end(); ++it) {
+      stride_values.push_back(static_cast<int64_t>(*it));
+    }
+  }
+  // For dynamic min-max inference, validate the mem access of
+  // elements. If the calculation dosen't match, fail here for inference
+  // fallback to kick in. if GC compile fails, the fallback penalty is huge.
+  // TODO: Currently GC have strict boundary check min and max shapes
+  // in case of H2D
+  if (!graph.is_dry_run() ||
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+    IntArrayRef strides_ref(stride_values.data(), stride_values.size());
+    bool memAccessCheck = verifyViewMemoryAccess(
+        inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
+    TORCH_CHECK(
+        inputs[0].toTensor().numel() == 0 || memAccessCheck,
+        "Strided Insert will access memory outside of original tensor range!");
   }
 }
 
@@ -1207,13 +1201,13 @@ void StridedInsertOperator::compute_params(
   std::vector<int64_t> strides;
   int64_t offset = 0;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
-    StridedInsertOperator::compute_params_h2d(params, inputs, graph);
-    return;
-  }
-
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+      StridedInsertOperator::compute_params_h2d(params, inputs, graph);
+      return;
+    }
+
     TORCH_CHECK(p_context_->syn_inputs_[2].ref().is_shape_tensor());
     strides = GetStridedInsertOperatorStrides(inputs, graph.is_dry_run());
     IntArrayRef strides_ref(strides.data(), strides.size());
@@ -1506,95 +1500,88 @@ void StridedViewOperator::compute_params_h2d(
     std::vector<int64_t>& strides,
     int64_t& offset) {
   params = static_cast<synStridedOpParams>(params);
-  bool have_shape_tensors = inputs[1].isTensor();
   std::vector<int64_t> stride_values;
-  if (have_shape_tensors) {
-    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
-    size = p_context_->syn_inputs_[1].ref().pt_shape();
-    strides = GetStridedViewOperatorH2DStrides(inputs, graph.is_dry_run());
-    if (!IsStridesRatioUsed(inputs)) {
-      auto stride_tensor = inputs[2].toTensor();
-      uint64_t num_stride = strides[0];
-      offset = strides[1];
+  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
+  size = p_context_->syn_inputs_[1].ref().pt_shape();
+  strides = GetStridedViewOperatorH2DStrides(inputs, graph.is_dry_run());
 
-      for (uint64_t i = 0; i < num_stride; i++) {
-        stride_values.push_back(static_cast<int64_t>(strides[i + 2]));
-      }
+  if (!IsStridesRatioUsed(inputs)) {
+    auto stride_tensor = inputs[2].toTensor();
+    uint64_t num_stride = strides[0];
+    offset = strides[1];
 
-      params.baseOffset = static_cast<uint64_t>(offset);
-      size_t idx = 0;
-      // synapse expects strides in reverse order
-      for (auto it = stride_values.begin(); it != stride_values.end(); ++it) {
-        params.strides[idx] = static_cast<uint64_t>(*it);
-        idx++;
-      }
-    } else {
-      auto stride_tensor = inputs[2].toTensor();
-      auto offset_tensor = inputs[3].toTensor();
-      offset = offset_tensor.sizes()[0];
-      std::vector<uint64_t> stride_data_vec;
-      stride_data_vec.push_back(static_cast<uint64_t>(strides.size()));
-      stride_data_vec.push_back(static_cast<uint64_t>(offset));
-      for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-        stride_data_vec.push_back(static_cast<uint64_t>(*it));
-      }
-      size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - strides.size();
-      for (size_t i = 0; i < fill_dim; i++) {
-        stride_data_vec.push_back(static_cast<uint64_t>(0));
-      }
-
-      auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
-      if (habana::ShapeInference::GetCurrentPass() ==
-          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-        impl->set_min<uint64_t>(stride_data_vec);
-      } else if (
-          habana::ShapeInference::GetCurrentPass() ==
-          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-        impl->set_max<uint64_t>(stride_data_vec);
-      }
-
-      const auto& end = p_context_->syn_inputs_.end();
-      p_context_->syn_inputs_.erase(end - 1, end);
-
-      params.baseOffset = static_cast<uint64_t>(offset);
-      size_t idx = 0;
-      // synapse expects strides in reverse order
-      for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-        params.strides[idx] = static_cast<uint64_t>(*it);
-        idx++;
-      }
-      for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
-        stride_values.push_back(static_cast<int64_t>(*it));
-      }
+    for (uint64_t i = 0; i < num_stride; i++) {
+      stride_values.push_back(static_cast<int64_t>(strides[i + 2]));
     }
-    // For dynamic min-max inference, validate the mem access of
-    // elements. If the calculation dosen't match, fail here for inference
-    // fallback to kick in. if GC compile fails, the fallback penalty is huge.
-    // Since GC has relaxed memory access check for min/max only have the check
-    // for actual
-    if (!graph.is_dry_run() ||
-        habana::ShapeInference::GetCurrentPass() ==
-            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-      std::reverse(stride_values.begin(), stride_values.end());
-      IntArrayRef strides_ref(stride_values.data(), stride_values.size());
-      bool memAccessCheck = verifyViewMemoryAccess(
-          inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
-      TORCH_CHECK(
-          inputs[0].toTensor().numel() == 0 || memAccessCheck,
-          "Strided View will access memory outside of original tensor range!");
+
+    params.baseOffset = static_cast<uint64_t>(offset);
+    size_t idx = 0;
+    // synapse expects strides in reverse order
+    for (auto it = stride_values.begin(); it != stride_values.end(); ++it) {
+      params.strides[idx] = static_cast<uint64_t>(*it);
+      idx++;
     }
   } else {
+    auto stride_tensor = inputs[2].toTensor();
+    auto offset_tensor = inputs[3].toTensor();
+    offset = offset_tensor.sizes()[0];
+    std::vector<uint64_t> stride_data_vec;
+    stride_data_vec.push_back(static_cast<uint64_t>(strides.size()));
+    stride_data_vec.push_back(static_cast<uint64_t>(offset));
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      stride_data_vec.push_back(static_cast<uint64_t>(*it));
+    }
+    size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - strides.size();
+    for (size_t i = 0; i < fill_dim; i++) {
+      stride_data_vec.push_back(static_cast<uint64_t>(0));
+    }
+
+    auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
+    if (habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+      impl->set_min<uint64_t>(stride_data_vec);
+    } else if (
+        habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+      impl->set_max<uint64_t>(stride_data_vec);
+    }
+
+    const auto& end = p_context_->syn_inputs_.end();
+    p_context_->syn_inputs_.erase(end - 1, end);
+
+    params.baseOffset = static_cast<uint64_t>(offset);
+    size_t idx = 0;
+    // synapse expects strides in reverse order
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      params.strides[idx] = static_cast<uint64_t>(*it);
+      idx++;
+    }
+    for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+      stride_values.push_back(static_cast<int64_t>(*it));
+    }
+  }
+  // For dynamic min-max inference, validate the mem access of
+  // elements. If the calculation dosen't match, fail here for inference
+  // fallback to kick in. if GC compile fails, the fallback penalty is huge.
+  // Since GC has relaxed memory access check for min/max only have the check
+  // for actual
+  if (!graph.is_dry_run() ||
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+    std::reverse(stride_values.begin(), stride_values.end());
+    IntArrayRef strides_ref(stride_values.data(), stride_values.size());
+    bool memAccessCheck = verifyViewMemoryAccess(
+        inputs[0].toTensor(), inputs[1].toTensor(), strides_ref, offset);
     TORCH_CHECK(
-        inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
-    TORCH_CHECK(
-        inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
-    TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 needs to be of scalar type");
-    size = inputs[1].toIntVector();
-    strides = inputs[2].toIntVector();
-    offset = inputs[3].toInt();
+        inputs[0].toTensor().numel() == 0 || memAccessCheck,
+        "Strided View will access memory outside of original tensor range!");
   }
 
   // TODO  For Dynamic case fill strides/offset params with max size
+  strides.clear();
+  for (auto it = stride_values.rbegin(); it != stride_values.rend(); ++it) {
+    strides.push_back(static_cast<uint64_t>(*it));
+  }
 }
 
 /*************************************************************************
@@ -1610,14 +1597,15 @@ void StridedViewOperator::compute_params(
     int64_t& offset) {
   auto self = inputs[0].toTensor();
   offset = 0;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
-    StridedViewOperator::compute_params_h2d(
-        params, inputs, graph, size, strides, offset);
-    return;
-  }
 
   bool have_shape_tensors = inputs[1].isTensor();
   if (have_shape_tensors) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+      StridedViewOperator::compute_params_h2d(
+          params, inputs, graph, size, strides, offset);
+      return;
+    }
+
     TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
     size = p_context_->syn_inputs_[1].ref().pt_shape();
     strides = GetStridedViewOperatorStrides(inputs, graph.is_dry_run());
@@ -1795,13 +1783,20 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::strided_view", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_view_cl", KERNEL_FN_GLOBAL(StridedViewClOperator))
         .add("hpu::strided_view_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add("hpu::strided_view_ds_h2d", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_view_cl_ds", KERNEL_FN_GLOBAL(StridedViewClOperator))
         .add("hpu::strided_view_out", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_view_orig_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add(
             "hpu::strided_view_orig_ds_h2d",
             KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add(
+            "hpu::strided_view_out_orig_ds_h2d",
+            KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::strided_view_out_ds", KERNEL_FN_GLOBAL(StridedViewOperator))
+        .add(
+            "hpu::strided_view_out_ds_h2d",
+            KERNEL_FN_GLOBAL(StridedViewOperator))
         .add(
             "hpu::strided_view_out_orig_ds",
             KERNEL_FN_GLOBAL(StridedViewOperator))

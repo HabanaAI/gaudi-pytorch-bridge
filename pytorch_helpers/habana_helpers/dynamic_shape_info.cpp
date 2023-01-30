@@ -37,6 +37,11 @@ void DisableRefineDynamicShape() {
 }
 
 bool GetRefineDynamicShapeStatus() {
+  // Dynamic shape supported only for lazy
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) {
+    return false;
+  }
+
   if (habana_lazy::isDeviceInLoweringMode()) {
     return m_enable_refine_dynamic_shape;
   }

@@ -2624,16 +2624,16 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
        */
       auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
       HABANA_ASSERT(new_impl);
-      new_impl->set_compile_host_ptr(impl);
       if (impl->get_shape_struct().has_shape_tensor_data()) {
         new_impl->get_shape_struct() = impl->get_shape_struct();
       }
-
+      new_impl->set_compile_host_ptr(impl);
       if (impl) {
         new_impl->setTensorType(impl->getTensorType());
       }
       if (tensor_type == HOST_TO_DEVICE_TENSOR &&
-          new_impl->peekH2DDataForBucketing()) {
+          impl->peekH2DDataForBucketing()) {
+        new_impl->setH2DDataForBucketing();
         new_impl->set_host_data(
             impl->get_host_ptr(),
             impl->get_host_size(),
@@ -3700,6 +3700,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND) == 0) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);
+    ProcessDynamicBucketInputShapesWithH2D(input_tshapes);
     PT_TEST_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key,
@@ -3818,7 +3819,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
     new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
     SetH2DMinMaxData(
-        new_stack,
+        *old_stack,
         graph_input_info.min_input_tshapes,
         ShapeInfo::InferencePass::MIN_SHAPE);
     pt_stack = &new_stack;
@@ -3869,7 +3870,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
     new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
     SetH2DMinMaxData(
-        new_stack,
+        *old_stack,
         graph_input_info.max_input_tshapes,
         ShapeInfo::InferencePass::MAX_SHAPE);
     pt_stack = &new_stack;
@@ -4022,11 +4023,19 @@ void HabanaLaunchOpPT::run_shape_inference(
     if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
       new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
       SetH2DMinMaxData(
+          *old_stack,
+          graph_input_info.min_input_tshapes,
+          ShapeInfo::InferencePass::MIN_SHAPE);
+      SetH2DMinMaxData(
           new_stack,
           graph_input_info.min_input_tshapes,
           ShapeInfo::InferencePass::MIN_SHAPE);
     } else {
       new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
+      SetH2DMinMaxData(
+          *old_stack,
+          graph_input_info.max_input_tshapes,
+          ShapeInfo::InferencePass::MAX_SHAPE);
       SetH2DMinMaxData(
           new_stack,
           graph_input_info.max_input_tshapes,

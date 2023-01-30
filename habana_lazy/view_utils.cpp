@@ -210,6 +210,11 @@ ir::NodePtr strided_insert_h2d(
     auto tensor_offset = lazy_ten.CurrentTensorAttached().value();
     auto impl_offset = habana_lazy::GetHbInternalTensorImpl(tensor_offset);
     HABANA_ASSERT(impl_offset, "impl_offset is invalid");
+
+    // Mark this front end shape tensor as it does not need synapse tensor.
+    // It carries stride_ratios info for BE lowering kernel.
+    impl_offset->setH2DFrontEndShapeTensor();
+
     std::vector<int64_t> stride_ratios;
     auto len = stride_sizes.size();
     for (uint64_t i = 0; i < len; i++) {

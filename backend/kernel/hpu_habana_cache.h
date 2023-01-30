@@ -123,6 +123,10 @@ struct RecipeArgumentSpec {
     return offset_hash_code;
   }
 
+  size_t h2dHashCode() const {
+    return h2d_hash_code;
+  }
+
   size_t cArgSpecHashCode() const {
     return cargspec_hash_code;
   }
@@ -157,6 +161,7 @@ struct RecipeArgumentSpec {
     serialize(os, hash_code);
     serialize(os, graph_hash_code);
     serialize(os, offset_hash_code);
+    serialize(os, h2d_hash_code);
     serialize(os, cargspec_hash_code);
     serialize(os, dynamic_hash_code);
     serialize(os, graph_with_permute_hash_code);
@@ -170,6 +175,7 @@ struct RecipeArgumentSpec {
     deserialize(is, hash_code);
     deserialize(is, graph_hash_code);
     deserialize(is, offset_hash_code);
+    deserialize(is, h2d_hash_code);
     deserialize(is, cargspec_hash_code);
     deserialize(is, dynamic_hash_code);
     deserialize(is, graph_with_permute_hash_code);
@@ -178,12 +184,14 @@ struct RecipeArgumentSpec {
 
  private:
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
+  void ComputeH2DHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 
   HbCas cas;
   std::string opstrs;
   size_t hash_code{0};
   size_t graph_hash_code{0};
   size_t offset_hash_code{0};
+  size_t h2d_hash_code{0};
   size_t cargspec_hash_code{0};
   size_t dynamic_hash_code{0};
   size_t graph_with_permute_hash_code{0};
