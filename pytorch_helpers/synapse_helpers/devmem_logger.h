@@ -32,7 +32,9 @@ enum mem_log_level {
 };
 
 enum mem_reporter_type {
-  MEM_REPORTER_GRAPH_LAUNCH = 0, /* report event when graph launch */
+  MEM_REPORTER_GRAPH_BEFORE_LAUNCH =
+      0, /* report event when before graph launch */
+  MEM_REPORTER_GRAPH_AFTER_LAUNCH, /* report event when after graph launch */
   MEM_REPORTER_ALLOC_FAILS, /* report event when alloc fails */
   MEM_REPORTER_OOM, /* report event when oom */
   MEM_REPORTER_USER_CALL, /* report event when user request */
@@ -166,7 +168,7 @@ class deviceMallocData final {
   }
 
   void create_memory_reporter_event(
-      synapse_helpers::MemoryStats& mem_stats,
+      synapse_helpers::device& device,
       std::string& event_name);
 
   bool is_fragment_json_enabled() const {
@@ -293,6 +295,7 @@ void log_DRAM_size(uint64_t dram_size);
 void set_back_trace(bool enable);
 void set_memstats_check_flag(bool flag);
 void memstats_dump(synapse_helpers::device& device, const char* msg);
+bool memory_reporter_enable();
 void memory_reporter_event_create(
     synapse_helpers::device& device,
     synapse_helpers::mem_reporter_type event_type);

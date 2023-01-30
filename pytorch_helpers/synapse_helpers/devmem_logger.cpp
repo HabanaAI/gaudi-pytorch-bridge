@@ -22,7 +22,6 @@
 #include <sstream>
 
 #include <absl/strings/str_format.h>
-#include "device_mem_reporter.h"
 #include "devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -1041,9 +1040,18 @@ void memstats_dump(synapse_helpers::device& device, const char* msg) {
   }
 }
 
+bool memory_reporter_enable() {
+  auto& dmd = deviceMallocData::singleton();
+  return dmd.is_mem_reporter_enabled();
+}
+
 void deviceMallocData::create_memory_reporter_event(
-    synapse_helpers::MemoryStats& mem_stats,
+    synapse_helpers::device& device,
     std::string& event_name) {
+  synapse_helpers::MemoryStats mem_stats;
+  device.get_device_memory().get_memory_stats(&mem_stats);
+  synapse_helpers::MemoryReporter* reporter =
+      device.get_device_memory().get_memory_reporter();
   // Redirect output to logfile
   static int status_id = 0;
   int event_ts = status_id++;
@@ -1080,39 +1088,34 @@ void deviceMallocData::create_memory_reporter_event(
           std::string("},\n");
 
   // memory consumption event create
-  synapse_helpers::MemoryConsumption mem_consume;
-  mem_consume.total_allocs_bytes = mem_stats.bytes_in_use;
-  mem_consume.max_alloc_bytes = mem_stats.largest_alloc_size;
-  mem_consume.pre_allocated_bytes = mem_stats.pre_allocate_size;
-  mem_consume.workspace_allocated = mem_stats.scratch_mem_in_use;
-  mem_consume.persistent_tensor_size =
-      (mem_stats.bytes_in_use - mem_stats.scratch_mem_in_use -
-       mem_consume.pre_allocated_bytes);
-  reporter_out_stream << mem_consume.toJsonEvent(
+  synapse_helpers::MemoryConsumption* mem_consume =
+      reporter->getMemoryConsumption();
+  mem_consume->update(mem_stats);
+  reporter_out_stream << mem_consume->toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
   // memory allocator stats event create
-  synapse_helpers::MemoryAllocatorStats mem_alloc_stats;
-  mem_alloc_stats.total_num_allocs = mem_stats.total_allocs;
-  mem_alloc_stats.new_num_allocs = mem_stats.num_allocs;
-  mem_alloc_stats.total_num_frees = mem_stats.total_frees;
-  mem_alloc_stats.new_num_frees = mem_stats.num_frees;
-  reporter_out_stream << mem_alloc_stats.toJsonEvent(
+  synapse_helpers::MemoryAllocatorStats* mem_alloc_stats =
+      reporter->getMemoryAllocatorStats();
+  mem_alloc_stats->update(mem_stats);
+  reporter_out_stream << mem_alloc_stats->toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
   // fragmentation stats event create
-  synapse_helpers::FragmentationStats frag_stats;
-  frag_stats.fragmentation_percent = mem_stats.fragmentation_percent;
-  frag_stats.total_num_chunks = mem_stats.total_chunks;
-  frag_stats.total_num_alloc_chunks = mem_stats.occupied_chunks;
-  frag_stats.total_num_free_chunks = mem_stats.free_chunks;
-  frag_stats.total_alloc_size = mem_stats.occupied_size;
-  frag_stats.total_free_size = mem_stats.free_chunks_size;
-  frag_stats.max_cntg_chunk_free_size = mem_stats.max_cntgs_free_chunks_size;
-  frag_stats.min_chunk_size = mem_stats.min_chunk_size;
-  frag_stats.max_chunk_size = mem_stats.max_chunk_size;
-  frag_stats.fragmentation_histogram = mem_stats.fragmentation_mask;
-  reporter_out_stream << frag_stats.toJsonEvent(
+  synapse_helpers::FragmentationStats* frag_stats =
+      reporter->getFragmentationStats();
+  frag_stats->update(mem_stats);
+  reporter_out_stream << frag_stats->toJsonEvent(
+      event_line_begin_header, event_line_end_header);
+
+  // graph stats event create
+  synapse_helpers::GraphStats* graph_stats = reporter->getGraphStats();
+  reporter_out_stream << graph_stats->toJsonEvent(
+      event_line_begin_header, event_line_end_header);
+
+  // tensor stats event create
+  synapse_helpers::TensorStats* tensor_stats = reporter->getTensorStats();
+  reporter_out_stream << tensor_stats->toJsonEvent(
       event_line_begin_header, event_line_end_header);
 
   reporter_out_stream << report_event_end;
@@ -1121,12 +1124,14 @@ void deviceMallocData::create_memory_reporter_event(
 void memory_reporter_event_create(
     synapse_helpers::device& device,
     synapse_helpers::mem_reporter_type event_type) {
-  auto& dmd = deviceMallocData::singleton();
-  if (dmd.is_mem_reporter_enabled()) {
+  if (memory_reporter_enable()) {
     std::string event_name = "";
     switch (event_type) {
-      case MEM_REPORTER_GRAPH_LAUNCH:
-        event_name = "GRAPH_LAUNCH_EVENT";
+      case MEM_REPORTER_GRAPH_BEFORE_LAUNCH:
+        event_name = "GRAPH_BEFORE_LAUNCH_EVENT";
+        break;
+      case MEM_REPORTER_GRAPH_AFTER_LAUNCH:
+        event_name = "GRAPH_AFTER_LAUNCH_EVENT";
         break;
       case MEM_REPORTER_ALLOC_FAILS:
         event_name = "ALLOC_FAIL_EVENT";
@@ -1138,9 +1143,8 @@ void memory_reporter_event_create(
         event_name = "USER_REQUEST_EVENT";
         break;
     }
-    synapse_helpers::MemoryStats mem_stats;
-    device.get_device_memory().get_memory_stats(&mem_stats);
-    dmd.create_memory_reporter_event(mem_stats, event_name);
+    auto& dmd = deviceMallocData::singleton();
+    dmd.create_memory_reporter_event(device, event_name);
   }
 }
 

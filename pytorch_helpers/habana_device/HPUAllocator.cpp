@@ -337,6 +337,12 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
   }
 }
 
+void HPUDeviceAllocator::dump_memory_reporter() {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  synapse_helpers::memory_reporter_event_create(
+      device, synapse_helpers::mem_reporter_type::MEM_REPORTER_USER_CALL);
+}
+
 } // namespace habana
 
 namespace synapse_helpers {

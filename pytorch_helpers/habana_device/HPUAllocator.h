@@ -57,6 +57,7 @@ class HPUDeviceAllocator final : public at::Allocator {
       const char* msg,
       bool show_leaked_callstacks);
   static void memstat_devmem_stop_collect(const char* msg);
+  static void dump_memory_reporter();
 };
 
 } // namespace habana

@@ -29,6 +29,7 @@
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
 #include "synapse_helpers/device.h"
+#include "synapse_helpers/device_mem_reporter.h"
 #include "synapse_helpers/mem_handle.h"
 #include "synapse_helpers/synapse_error.h"
 #include "synapse_helpers/synchronous_counter.h"
@@ -74,6 +75,7 @@ class device_memory {
       size_t new_ws_size);
   bool is_allocated(const device_ptr address) const;
   size_t get_max_cntgs_chunk_size() const;
+  synapse_helpers::MemoryReporter* get_memory_reporter();
 
  private:
   device& device_;
@@ -101,5 +103,7 @@ class device_memory {
   std::shared_ptr<synapse_helpers::synchronous_counter>
       threads_in_defragmenter_critical_section_ =
           std::make_shared<synapse_helpers::synchronous_counter>();
+
+  MemoryReporter mem_reporter;
 };
 } // namespace synapse_helpers

@@ -34,6 +34,7 @@
 
 #include "habana_kernels/random_gen_kernels.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
+#include "pytorch_helpers/synapse_helpers/devmem_logger.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
@@ -55,6 +56,12 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
   context->RegisterTensor(data);
+  if (synapse_helpers::memory_reporter_enable()) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    synapse_helpers::MemoryReporter* reporter =
+        device.get_device_memory().get_memory_reporter();
+    reporter->getTensorStats()->createTensor(data->unique_id);
+  }
 }
 
 std::weak_ptr<Data>& HbContextArena::GetTensorDataPtrFromHbContext(Data* data) {
@@ -84,6 +91,13 @@ void HbContextArena::UnregisterTensor(Data* data) {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
     devctx->tensors_data_opt.erase(unique_id);
+  }
+
+  if (synapse_helpers::memory_reporter_enable()) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    synapse_helpers::MemoryReporter* reporter =
+        device.get_device_memory().get_memory_reporter();
+    reporter->getTensorStats()->removeTensor(unique_id);
   }
 
   c10::optional<at::Tensor> viewEntryTensor;
@@ -338,6 +352,15 @@ bool HbLazyTensor::isStorageAttached() {
 }
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
+  if (synapse_helpers::memory_reporter_enable()) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    synapse_helpers::MemoryReporter* reporter =
+        device.get_device_memory().get_memory_reporter();
+    reporter->getTensorStats()->setTensorAddressData(
+        data()->unique_id,
+        (tensor_data.has_storage() ? tensor_data.storage().data_ptr().get()
+                                   : nullptr));
+  }
 }
 
 c10::optional<at::Tensor> HbLazyTensor::GetTensorData() {

@@ -1386,6 +1386,15 @@ void RecipeValueSpec::patch_launch_info(
           ti.get_ir_name(), !is_output, is_output, i, ti.get_size());
     }
 
+    if (synapse_helpers::memory_reporter_enable() &&
+        ti.tensor_type() != HOST_TO_DEVICE_TENSOR) {
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      synapse_helpers::MemoryReporter* reporter =
+          device.get_device_memory().get_memory_reporter();
+      reporter->getTensorStats()->updateTensorAddressData(
+          ti.get_buffer(), ti.get_syn_name(), ti.get_size());
+    }
+
     switch (ti.tensor_type()) {
       case SHAPE_TENSOR:
       case INPUT_DESCRIBING_SHAPE_TENSOR: {
@@ -1489,6 +1498,13 @@ void RecipeValueSpec::PrintDebugInfo(
   PT_BRIDGE_DEBUG(*this);
 }
 
+size_t get_active_graph_unique_key(const std::string& name) {
+  static uint64_t graph_key_suffix_ = -1;
+  ++graph_key_suffix_;
+  std::hash<std::string> str_hash;
+  return (graph_key_suffix_ + str_hash(name));
+}
+
 void RecipeValueSpec::launch(
     synapse_helpers::hpuStream_t hpu_stream,
     synEventHandle event_handle,
@@ -1518,6 +1534,8 @@ void RecipeValueSpec::launch(
   } else {
     PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
   }
+
+  size_t active_graph_key_ = 0;
 
   if (device.IsStreamASyncEnabled()) {
     // Get the reference to the tensor it is operating on to prevent
@@ -1595,10 +1613,27 @@ void RecipeValueSpec::launch(
 
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
+
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     {
       synapse_helpers::TimeScope ts(std::move(time_slot_));
       if (recipe) {
+        if (synapse_helpers::memory_reporter_enable()) {
+          active_graph_key_ = get_active_graph_unique_key(recipe->recipe_name_);
+          if (active_graph_key_ > 0) {
+            synapse_helpers::MemoryReporter* reporter =
+                device.get_device_memory().get_memory_reporter();
+            reporter->getGraphStats()->addGraph(
+                active_graph_key_,
+                id,
+                num_inputs,
+                num_outputs,
+                ntensorbytes,
+                workspace_size,
+                workspace_size);
+          }
+        }
+
         auto&& error_optional{synapse_helpers::graph::launch(
             device,
             *recipe,
@@ -1606,7 +1641,8 @@ void RecipeValueSpec::launch(
             syn_launch_info,
             address_lock,
             ext_events,
-            stream_handle)};
+            stream_handle,
+            active_graph_key_)};
         habana_lazy::log_dev_mem_stats(
             "Post-Launch", get_graph_name(), workspace_size);
         if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
@@ -1636,12 +1672,21 @@ void RecipeValueSpec::launch(
       std::vector<at::Tensor> input_tensors_;
       std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
       synapse_helpers::active_recipe_counter* recipe_counter_ptr;
+      size_t active_graph_key_;
     };
     auto resource_holder = std::shared_ptr<ResourceHolder>(
         new ResourceHolder(), [](ResourceHolder* resource_holder) {
           auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
           delete resource_holder;
           recipe_counter_ptr->decrease_and_notify();
+          if (synapse_helpers::memory_reporter_enable() &&
+              resource_holder->active_graph_key_ > 0) {
+            auto& device = synapse_helpers::HPURegistrar::get_device();
+            synapse_helpers::MemoryReporter* reporter =
+                device.get_device_memory().get_memory_reporter();
+            reporter->getGraphStats()->removeLiveGraph(
+                resource_holder->active_graph_key_);
+          }
           PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
         });
     // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
@@ -1652,6 +1697,7 @@ void RecipeValueSpec::launch(
     resource_holder->output_tensors_ = outPtRefs;
     resource_holder->address_lock = std::move(address_lock);
     resource_holder->recipe_counter_ptr = &recipe_counter;
+    resource_holder->active_graph_key_ = active_graph_key_;
     // ResourceHolder could be used directly as callback, if we would only
     // implement operator(), but copying of ResourceHolder would result in
     // copying of all shared_ptr stored inside (including std::vector). To make
@@ -1699,6 +1745,22 @@ void RecipeValueSpec::launch(
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     synapse_helpers::TimeScope ts(std::move(time_slot_));
     if (recipe) {
+      if (synapse_helpers::memory_reporter_enable()) {
+        active_graph_key_ = get_active_graph_unique_key(recipe->recipe_name_);
+        if (active_graph_key_ > 0) {
+          synapse_helpers::MemoryReporter* reporter =
+              device.get_device_memory().get_memory_reporter();
+          reporter->getGraphStats()->addGraph(
+              active_graph_key_,
+              id,
+              num_inputs,
+              num_outputs,
+              ntensorbytes,
+              workspace_size,
+              workspace_size);
+        }
+      }
+
       auto&& error_optional{synapse_helpers::graph::launch(
           device,
           *recipe,
@@ -1734,6 +1796,13 @@ void RecipeValueSpec::launch(
       HABANA_ASSERT(collective);
       PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
       collective->RunCollective(kernel_info->input_tensor_infos, false, [] {});
+    }
+
+    if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      synapse_helpers::MemoryReporter* reporter =
+          device.get_device_memory().get_memory_reporter();
+      reporter->getGraphStats()->removeLiveGraph(active_graph_key_);
     }
   }
 

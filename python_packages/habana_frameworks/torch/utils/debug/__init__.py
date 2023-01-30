@@ -97,3 +97,5 @@ def _mem_log(msg) -> bool:
 def _bridge_cleanup():
     _debug_C.bridge_cleanup()
 
+def _dump_memory_reporter() -> None:
+    _debug_C.dump_memory_reporter()

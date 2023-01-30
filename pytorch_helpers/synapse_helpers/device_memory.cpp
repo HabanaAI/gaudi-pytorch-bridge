@@ -965,4 +965,8 @@ bool device_memory::is_memory_available(
   return true;
 }
 
+synapse_helpers::MemoryReporter* device_memory::get_memory_reporter() {
+  return &mem_reporter;
+}
+
 } // namespace synapse_helpers

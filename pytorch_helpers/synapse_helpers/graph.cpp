@@ -469,7 +469,8 @@ synapse_error_o graph::launch(
     std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
-    stream& compute_stream) {
+    stream& compute_stream,
+    size_t active_graph_key) {
   return launch(
       device,
       recipe_handle,
@@ -477,7 +478,8 @@ synapse_error_o graph::launch(
       inputs_and_outputs_info,
       address_lock,
       ext_events,
-      compute_stream);
+      compute_stream,
+      active_graph_key);
 }
 
 synapse_error_o graph::launch(
@@ -487,7 +489,8 @@ synapse_error_o graph::launch(
     std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
-    stream& compute_stream) {
+    stream& compute_stream,
+    size_t active_graph_key) {
   PT_SYNHELPER_BEGIN;
   synStatus status;
 
@@ -556,9 +559,9 @@ synapse_error_o graph::launch(
   }
 
   size_t least_workspace_size = workspace_size;
+  size_t tensor_mem =
+      device.get_device_memory().get_total_memory_required(addresses);
   if (GET_ENV_FLAG_NEW(PT_ENABLE_WORKSPACE_MEMORY_SHRINK, 1)) {
-    size_t tensor_mem =
-        device.get_device_memory().get_total_memory_required(addresses);
     bool oom_may = !device.get_device_memory().is_memory_available(tensor_mem);
     if (oom_may) {
       least_workspace_size =
@@ -571,14 +574,21 @@ synapse_error_o graph::launch(
   habana_lazy::log_dev_mem_stats(
       "Post-Workspace", recipe_handle.recipe_name_, workspace_size);
 
+  if (synapse_helpers::memory_reporter_enable() && active_graph_key > 0) {
+    synapse_helpers::MemoryReporter* reporter =
+        device.get_device_memory().get_memory_reporter();
+    reporter->getGraphStats()->updateGraph(
+        active_graph_key, tensor_mem, device.get_workspace_size());
+    memory_reporter_event_create(device, MEM_REPORTER_GRAPH_BEFORE_LAUNCH);
+  }
+
   log_graph_info(
       device,
       recipe_handle.recipe_name_.c_str(),
-      device.get_device_memory().get_total_memory_required(addresses),
+      tensor_mem,
       workspace_size,
       device.get_workspace_size());
 
-  memory_reporter_event_create(device, MEM_REPORTER_GRAPH_LAUNCH);
   {
     address_lock = absl::make_unique<device_ptr_lock>(
         device.lock_addresses(absl::Span<const device_ptr>(addresses)));
@@ -627,6 +637,13 @@ synapse_error_o graph::launch(
         flags);
   }
 
+  if (synapse_helpers::memory_reporter_enable() && active_graph_key > 0) {
+    synapse_helpers::MemoryReporter* reporter =
+        device.get_device_memory().get_memory_reporter();
+    reporter->getGraphStats()->updateGraph(
+        active_graph_key, tensor_mem, device.get_workspace_size());
+    memory_reporter_event_create(device, MEM_REPORTER_GRAPH_AFTER_LAUNCH);
+  }
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
   PT_SYNHELPER_END;
 

@@ -159,4 +159,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "mem_log", [](std::string msg) { habana_lazy::log_dev_mem_stats(msg); });
   m.def("bridge_cleanup", []() { habana::HabanaLaunchOpPT::cleanUp(); });
+  m.def("dump_memory_reporter", []() {
+    return habana::HPUDeviceAllocator::dump_memory_reporter();
+  });
 }
