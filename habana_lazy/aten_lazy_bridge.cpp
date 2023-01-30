@@ -187,7 +187,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
     PT_LAZY_DEBUG("CheckAndUpdateSizeStride: at_internal_tensor is set!");
     PT_LAZY_DEBUG(
         "CheckAndUpdateSizeStride: at_internal_tensor storage size = ",
-        habana_lazy::GetNBytes(at_internal_tensor));
+        habana_helpers::GetNBytes(at_internal_tensor));
 
     // Update Size And Stride Info
     c10::IntArrayRef tensor_size = tensor.sizes();
@@ -254,44 +254,6 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
 
 HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor) {
   return dynamic_cast<HbInternalTensorImpl*>(tensor.unsafeGetTensorImpl());
-}
-
-static inline size_t calculate_nbytes(
-    size_t num_bytes,
-    const caffe2::TypeMeta d_type) {
-  auto s_type = c10::typeMetaToScalarType(d_type);
-  if (habana_helpers::is_downcast_to_int_needed(s_type)) {
-    PT_LAZY_DEBUG("GetNBytes() called for tensor with dtype 'Long'!");
-    // As our allocation is for 'Int'
-    num_bytes /= 2;
-  }
-  if (s_type == c10::ScalarType::Double) {
-    PT_LAZY_DEBUG("GetNBytes() called for tensor with dtype 'Double'!");
-    // As our allocation is for 'Float'
-    num_bytes /= 2;
-  }
-  return num_bytes;
-}
-
-// Use GetNBytes instead of nbytes
-size_t GetNBytes(c10::StorageImpl* impl, const caffe2::TypeMeta d_type) {
-  size_t num_bytes = calculate_nbytes(impl->nbytes(), d_type);
-  return num_bytes;
-}
-
-size_t GetNBytes(at::TensorImpl* impl) {
-  size_t num_bytes = calculate_nbytes(impl->storage().nbytes(), impl->dtype());
-  return num_bytes;
-}
-
-size_t GetNBytes(const at::Tensor& tensor) {
-  size_t num_bytes = calculate_nbytes(tensor.nbytes(), tensor.dtype());
-  return num_bytes;
-}
-
-size_t GetNBytes(at::Tensor& tensor) {
-  size_t num_bytes = calculate_nbytes(tensor.nbytes(), tensor.dtype());
-  return num_bytes;
 }
 
 HbLazyTensor GetOrCreateHbLazyTensor(

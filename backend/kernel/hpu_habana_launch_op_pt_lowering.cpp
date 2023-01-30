@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include "habana_helpers/logging.h"
@@ -328,7 +329,7 @@ void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
               (void*)tensor.get_host_ptr(),
               reinterpret_cast<synapse_helpers::device_ptr>(
                   src.storage().data_ptr().get()),
-              habana_lazy::GetNBytes(src),
+              habana_helpers::GetNBytes(src),
               [&copyDone]() { copyDone = true; },
               true);
           TORCH_CHECK(syn_error.status == 0, syn_error.error);

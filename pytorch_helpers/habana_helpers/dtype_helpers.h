@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,7 @@
 
 #include <ATen/Tensor.h>
 #include <c10/core/DefaultDtype.h>
+#include "backend/helpers/get_n_bytes.h"
 
 #pragma once
 
@@ -82,7 +83,5 @@ class DTypeHelper {
   c10::ScalarType common_dtype_ = c10::ScalarType::Undefined;
   c10::ScalarType result_dtype_ = c10::ScalarType::Undefined;
 };
-
-bool is_downcast_to_int_needed(c10::ScalarType dtype);
 
 } // namespace habana_helpers

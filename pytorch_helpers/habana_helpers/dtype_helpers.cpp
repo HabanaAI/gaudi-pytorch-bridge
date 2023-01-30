@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -291,11 +291,6 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
   return dtype.has_value()
       ? dtype_helper.get_result_dtype()
       : dtype_helper.get_common_dtype(double_support, int64_support);
-}
-
-bool is_downcast_to_int_needed(at::ScalarType dtype) {
-  return !GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
-      dtype == at::ScalarType::Long;
 }
 
 } // namespace habana_helpers

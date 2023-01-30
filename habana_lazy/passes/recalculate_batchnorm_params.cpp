@@ -10,6 +10,7 @@
 
 #include "recalculate_batchnorm_params.h"
 #include <torch/script.h>
+#include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "weight_permute_graph.h"
@@ -167,7 +168,7 @@ void* GetDataInHostBuffer(
           if (host_ptr == nullptr) {
             auto& device = synapse_helpers::HPURegistrar::get_device();
             auto device_id = device.id();
-            auto size_in_bytes = habana_lazy::GetNBytes(tensor);
+            auto size_in_bytes = habana_helpers::GetNBytes(tensor);
             // std::cout << "[GetDataInHostBuffer] [" << idx << "]
             // size_in_bytes: " << size_in_bytes << std::endl << std::flush;
             auto status = synHostMalloc(device_id, size_in_bytes, 0, &host_ptr);
@@ -206,7 +207,7 @@ void* GetDataInHostBuffer(
         if (host_ptr == nullptr) {
           auto& device = synapse_helpers::HPURegistrar::get_device();
           auto device_id = device.id();
-          auto size_in_bytes = habana_lazy::GetNBytes(tensor);
+          auto size_in_bytes = habana_helpers::GetNBytes(tensor);
           // std::cout << "[GetDataInHostBuffer] [" << idx << "] size_in_bytes:
           // " << size_in_bytes << std::endl << std::flush;
           auto status = synHostMalloc(device_id, size_in_bytes, 0, &host_ptr);
@@ -251,7 +252,7 @@ void UpdateDataInDeviceMem(
   }
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto size_in_bytes = habana_lazy::GetNBytes(tensor);
+  auto size_in_bytes = habana_helpers::GetNBytes(tensor);
   // std::cout << "[UpdateDataInDeviceMem] [" << idx << "] size_in_bytes: " <<
   // size_in_bytes << std::endl << std::flush;
 

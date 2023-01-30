@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include <c10/core/TensorImpl.h>
+#include "backend/helpers/get_n_bytes.h"
 #include "hpu_lazy_tensors.h"
 #include "tensor_impl.h"
 #pragma once
@@ -54,15 +55,6 @@ at::Tensor AtenInternalHbTensor(
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor);
 
 HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor);
-
-// Use GetNBytes instead of nbytes
-size_t GetNBytes(c10::StorageImpl* impl, const caffe2::TypeMeta dtype);
-
-size_t GetNBytes(at::TensorImpl* impl);
-
-size_t GetNBytes(const at::Tensor& tensor);
-
-size_t GetNBytes(at::Tensor& tensor);
 
 // If tensor is an HbLazy tensor type, returns the HbLazyTensor embedded within
 // it, otherwise creates a new HbLazy tensor type with tensor as data.

@@ -15,6 +15,7 @@
 
 #include <sstream>
 
+#include "backend/helpers/get_n_bytes.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
@@ -66,7 +67,7 @@ void PtTensorInfo::populate_tinfo(
   buffer_start_ = pt_tensor.storage().data_ptr().get();
 
   numel_ = pt_tensor.numel();
-  size_ = habana_lazy::GetNBytes(pt_tensor);
+  size_ = habana_helpers::GetNBytes(pt_tensor);
   shape_ = pt_tensor.sizes().vec();
   strides_ = pt_tensor.strides().vec();
 

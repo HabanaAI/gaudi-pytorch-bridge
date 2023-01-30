@@ -27,6 +27,7 @@
 #include "habana_helpers/tensor_utils.h"
 
 #include "backend/habana_operator.h"
+#include "backend/helpers/get_n_bytes.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_kernels/kernel_utils.h"
 
@@ -255,17 +256,17 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   auto self_scalar_type = self.scalar_type();
   if (self_scalar_type == c10::ScalarType::BFloat16) {
     auto val = scalar.to<at::BFloat16>();
-    copy_scalar_to_device(&val, output, habana_lazy::GetNBytes(output));
+    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
   } else if (
       self_scalar_type == c10::ScalarType::Float ||
       self_scalar_type == c10::ScalarType::Double) {
     auto val = scalar.to<float>();
-    copy_scalar_to_device(&val, output, habana_lazy::GetNBytes(output));
+    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
   } else if (
       self_scalar_type == c10::ScalarType::Int ||
       self_scalar_type == c10::ScalarType::Long) {
     auto val = scalar.to<int>();
-    copy_scalar_to_device(&val, output, habana_lazy::GetNBytes(output));
+    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
   } else {
     PT_KERNEL_FATAL(
         "Unsupported data type of scalar when attempting to convert it to a tensor");
@@ -565,7 +566,7 @@ void habana_helpers::copy_scalars_to_device(
 
     synapse_helpers::device::transfer_desc desc;
     desc.src = reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr());
-    desc.bytes_to_transfer = habana_lazy::GetNBytes(src);
+    desc.bytes_to_transfer = habana_helpers::GetNBytes(src);
     desc.dst = reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr());
     desc.dst_event_addr = reinterpret_cast<synapse_helpers::device_ptr>(
         dst.storage().data_ptr().get());
@@ -696,7 +697,7 @@ void habana_helpers::copy_data_to_host(
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
             src.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         is_pinned,
         c10::hpu::getCurrentHPUStream());
@@ -708,7 +709,7 @@ void habana_helpers::copy_data_to_host(
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
             src.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         is_pinned,
         c10::hpu::getCurrentHPUStream());
@@ -749,7 +750,7 @@ void habana_helpers::copy_data_to_device(
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         non_blocking,
         is_pinned,
@@ -762,7 +763,7 @@ void habana_helpers::copy_data_to_device(
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         false,
         is_pinned,
@@ -800,7 +801,7 @@ void habana_helpers::copy_data_within_device(
             src.storage().data_ptr().get()),
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -813,7 +814,7 @@ void habana_helpers::copy_data_within_device(
             src.storage().data_ptr().get()),
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
-        habana_lazy::GetNBytes(src),
+        habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
