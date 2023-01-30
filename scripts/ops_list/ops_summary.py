@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -142,13 +142,11 @@ def read_http_operators_supported(args, url):
 
     ops = sorted(ops)
     if args.verbose:
-        print(
-            "Ops read from: https://pytorch.org/TensorRT/indices/supported_ops.html"
-        )
+        print("Ops read from: {}".format(url))
         for op in ops:
             print(op)
 
-    return sorted(ops)
+    return ops
 
 
 def read_preambler_data(args, prea_path):

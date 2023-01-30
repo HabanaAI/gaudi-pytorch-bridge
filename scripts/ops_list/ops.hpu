@@ -121,6 +121,7 @@ aten::diag.out
 aten::add_.Tensor
 aten::upsample_nearest1d.vec
 aten::_foreach_acos_
+aten::isinf.out
 aten::_unsafe_view
 aten::bitwise_left_shift.Tensor
 aten::glu
@@ -289,6 +290,7 @@ aten::floor_divide_.Tensor
 aten::__irshift__.Tensor
 aten::sqrt.out
 aten::reciprocal_
+aten::nextafter_
 aten::nll_loss2d_forward.output
 aten::isinf
 aten::sin_
@@ -500,11 +502,11 @@ aten::__lshift__.Tensor
 aten::ceil_
 aten::_foreach_cosh_
 aten::logical_and_
+aten::nextafter.out
 aten::upsample_bicubic2d_backward.grad_input
 aten::copysign.Scalar_out
 aten::copy_
 aten::ne_.Tensor
-aten::native_group_norm
 aten::mul.Scalar
 aten::unique_dim
 aten::silu_
@@ -524,6 +526,7 @@ aten::equal
 aten::logical_or.out
 aten::norm.ScalarOpt_dim
 aten::repeat
+aten::nextafter
 aten::sqrt_
 aten::baddbmm.out
 aten::lerp.Tensor_out
@@ -786,6 +789,7 @@ aten::linalg_cross
 aten::replication_pad3d_backward.grad_input
 aten::sqrt
 aten::logaddexp.out
+aten::_copy_from
 aten::sigmoid_
 aten::expm1
 aten::squeeze_
@@ -811,6 +815,7 @@ aten::bitwise_or_.Tensor
 aten::hypot.out
 aten::_copy_from_and_resize
 aten::logit
+aten::max_pool2d_with_indices_backward.grad_input
 aten::vdot
 aten::_foreach_tan
 aten::remainder_.Tensor
