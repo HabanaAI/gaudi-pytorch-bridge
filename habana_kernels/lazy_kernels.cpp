@@ -7470,12 +7470,18 @@ at::Tensor& reduce_hpu_lazy_(
 at::Tensor& alltoall_hpu_lazy_out(
     const at::Tensor& inputTensor,
     int64_t comm_id,
-    at::Tensor& outputTensor) {
+    at::Tensor& outputTensor,
+    std::vector<int64_t>& outputSplitSizes,
+    std::vector<int64_t>& inputSplitSizes) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
   LazyOp<at::Tensor&> k(
-      "hccl::alltoall_out", {inputTensor, comm_id, outputTensor}, {1}, {}, 2);
+      "hccl::alltoall_out",
+      {inputTensor, comm_id, outputSplitSizes, inputSplitSizes, outputTensor},
+      {1, 2, 3},
+      {},
+      4);
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(alltoall_out, k, outputTensor)
 }
 

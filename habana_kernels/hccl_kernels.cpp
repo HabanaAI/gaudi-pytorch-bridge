@@ -13,6 +13,7 @@
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
+#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -567,10 +568,16 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input arg 0 needs to be of tensor type");
   TORCH_CHECK(inputs[1].isScalar(), "Input arg 1 needs to be of scalar type");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg 2 needs to be of tensor type");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg 2 needs to be of tensor type");
+  TORCH_CHECK(inputs[2].isIntList(), "Input arg 3 needs to be of list type");
+  TORCH_CHECK(inputs[3].isIntList(), "Input arg 4 needs to be of list type");
 
-  auto outputTensor = inputs.at(2).toTensor();
+  auto outputTensor = inputs.at(4).toTensor();
   auto inputTensor = inputs.at(0).toTensor();
+
+  outputSplitSizes = inputs.at(2).toIntVector();
+  inputSplitSizes = inputs.at(3).toIntVector();
+
   comm_id_ = inputs.at(1).toInt();
 
   if (p_context_->pt_inputs_.size() == 0)
@@ -580,10 +587,14 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
 
 void HcclAllToAllOutOperator::Serialize(std::ostream& os) const {
   serialization::serialize(os, comm_id_);
+  serialization::serialize(os, outputSplitSizes);
+  serialization::serialize(os, inputSplitSizes);
 }
 
 void HcclAllToAllOutOperator::Deserialize(std::istream& is) {
   serialization::deserialize(is, comm_id_);
+  serialization::deserialize(is, outputSplitSizes);
+  serialization::deserialize(is, inputSplitSizes);
 }
 
 void HcclAllToAllOutOperator::RunCollective(
@@ -591,37 +602,107 @@ void HcclAllToAllOutOperator::RunCollective(
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
-  std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(2)};
-  collective(
-      tensor_inputs,
-      tensor_outputs,
-      p_context_->pt_inputs_,
-      p_context_->pt_outputs_,
-      {device_id_},
-      {comm_id_},
-      async,
-      done_cb,
-      [scalar_type = scalar_type_](
-          PtTensorInfoShared& input,
-          __attribute__((unused)) PtTensorInfoShared& output,
-          const void* send_buffer,
-          void* recv_buffer,
-          std::shared_ptr<HcclCommunicator> comm,
-          synStreamHandle stream) {
-        int numRanks = comm->GetSize();
-        size_t count = input->get_numel() / numRanks;
-        auto type = getHCCLDataType(scalar_type);
-        hcclResult_t hccl_result{hcclSuccess};
-        hccl_result = hcclAlltoAll(
-            send_buffer,
-            recv_buffer,
-            count,
-            type,
-            *comm->GetHcclHandle(),
-            stream);
+  std::vector<PtTensorInfoShared> tensor_outputs = {inputs.at(4)};
 
-        return hccl_result;
-      });
+  if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+    collective(
+        tensor_inputs,
+        tensor_outputs,
+        p_context_->pt_inputs_,
+        p_context_->pt_outputs_,
+        {device_id_},
+        {comm_id_},
+        async,
+        done_cb,
+        [scalar_type = scalar_type_](
+            PtTensorInfoShared& input,
+            __attribute__((unused)) PtTensorInfoShared& output,
+            const void* send_buffer,
+            void* recv_buffer,
+            std::shared_ptr<HcclCommunicator> comm,
+            synStreamHandle stream) {
+          size_t count = input->get_numel();
+          auto type = getHCCLDataType(scalar_type);
+          hcclResult_t hccl_result{hcclSuccess};
+          hccl_result = hcclAlltoAll(
+              send_buffer,
+              recv_buffer,
+              count,
+              type,
+              *comm->GetHcclHandle(),
+              stream);
+
+          return hccl_result;
+        });
+  } else {
+    collective(
+        tensor_inputs,
+        tensor_outputs,
+        p_context_->pt_inputs_,
+        p_context_->pt_outputs_,
+        {device_id_},
+        {comm_id_},
+        async,
+        done_cb,
+        [scalar_type = scalar_type_,
+         input_t = p_context_->pt_inputs_[0],
+         output_t = p_context_->pt_outputs_[0],
+         inputSplitSizes_ = inputSplitSizes,
+         outputSplitSizes_ = inputSplitSizes](
+            PtTensorInfoShared& input,
+            __attribute__((unused)) PtTensorInfoShared& output,
+            const void* send_buffer,
+            void* recv_buffer,
+            std::shared_ptr<HcclCommunicator> comm,
+            synStreamHandle stream) {
+          int numRanks = comm->GetSize();
+          c10d::checkSplitSizes(inputSplitSizes_, input_t, numRanks);
+          c10d::checkSplitSizes(outputSplitSizes_, output_t, numRanks);
+
+          std::vector<size_t> send_lengths(numRanks);
+          std::vector<size_t> recv_lengths(numRanks);
+          std::vector<size_t> send_offsets(numRanks);
+          std::vector<size_t> recv_offsets(numRanks);
+          c10d::computeLengthsAndOffsets(
+              inputSplitSizes_, input_t, &send_lengths, &send_offsets);
+          c10d::computeLengthsAndOffsets(
+              outputSplitSizes_, output_t, &recv_lengths, &recv_offsets);
+
+          size_t ele_size = input->get_numel();
+          auto type = getHCCLDataType(scalar_type);
+          hcclResult_t hccl_result{hcclSuccess};
+          hcclGroupStart();
+          for (const auto r : c10::irange(numRanks)) {
+            if (send_lengths[r] != 0) {
+              hccl_result = hcclSend(
+                  reinterpret_cast<const unsigned char*>(send_buffer) +
+                      send_offsets[r] * ele_size,
+                  send_lengths[r],
+                  type,
+                  r,
+                  *comm->GetHcclHandle(),
+                  stream);
+              if (hccl_result != hcclSuccess)
+                return hccl_result;
+            }
+
+            if (recv_lengths[r] != 0) {
+              hccl_result = hcclRecv(
+                  reinterpret_cast<unsigned char*>(recv_buffer) +
+                      recv_offsets[r] * ele_size,
+                  recv_lengths[r],
+                  type,
+                  r,
+                  *comm->GetHcclHandle(),
+                  stream);
+              if (hccl_result != hcclSuccess)
+                return hccl_result;
+            }
+          }
+          hcclGroupEnd();
+          return hccl_result;
+        });
+  }
 }
 void HcclAllgatherOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

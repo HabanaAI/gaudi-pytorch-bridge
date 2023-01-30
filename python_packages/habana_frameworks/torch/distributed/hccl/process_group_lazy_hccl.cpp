@@ -18,7 +18,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
-#include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 namespace c10d {
 
@@ -328,11 +327,6 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
-  // TODO: current implementation ignores split sizes and assumes an even split
-  // of input/output tensor between ranks
-  TORCH_CHECK(
-      (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0),
-      "outputSplitSize and inputSpliSizes are not supported");
 
   auto data_type = outputTensor.scalar_type();
   bool cast_tensor =
@@ -347,7 +341,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     t_output = outputTensor.to(c10::ScalarType::Float);
     t_input = inputTensor.to(c10::ScalarType::Float);
   }
-  habana_lazy::alltoall_hpu_lazy_out(t_input, comm_->GetId(), t_output);
+  habana_lazy::alltoall_hpu_lazy_out(
+      t_input, comm_->GetId(), t_output, outputSplitSizes, inputSplitSizes);
   if (cast_tensor) {
     outputTensor.copy_(t_output.to(data_type));
   }

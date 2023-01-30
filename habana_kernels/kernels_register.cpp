@@ -2193,7 +2193,7 @@ TORCH_LIBRARY(hccl, m) {
   m.def(
       "reduce_(Tensor(a!) tensor, int64_t dst_rank, uint8_t reduceOp, int64_t comm_id) -> Tensor(a!)");
   m.def(
-      "alltoall_out(Tensor input_tensor, int64_t comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
+      "alltoall_out(Tensor input_tensor, int64_t comm_id,int[]  outputSplitSizes, int[] inputSplitSizes, Tensor(a!) output_tensor) -> Tensor(a!)");
   m.def(
       "allgather_out(Tensor input_tensor, int64_t comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
   m.def(

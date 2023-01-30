@@ -756,7 +756,9 @@ at::Tensor& reduce_hpu_lazy_(
 at::Tensor& alltoall_hpu_lazy_out(
     const at::Tensor& input_tensor,
     int64_t comm_id,
-    at::Tensor& output_tensor);
+    at::Tensor& output_tensor,
+    std::vector<int64_t>& outputSplitSizes,
+    std::vector<int64_t>& inputSplitSizes);
 at::Tensor& allgather_hpu_lazy_out(
     const at::Tensor& inputTensor,
     int64_t comm_id,

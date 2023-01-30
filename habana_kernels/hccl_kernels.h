@@ -140,6 +140,8 @@ class HcclAllToAllOutOperator : public CollectiveOperator {
 
  private:
   int64_t comm_id_;
+  std::vector<int64_t> outputSplitSizes;
+  std::vector<int64_t> inputSplitSizes;
 };
 
 class HcclAllgatherOutOperator : public CollectiveOperator {

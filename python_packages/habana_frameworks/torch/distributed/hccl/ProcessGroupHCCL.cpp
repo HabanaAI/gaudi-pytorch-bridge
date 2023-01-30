@@ -1009,10 +1009,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
 
-  TORCH_CHECK(
-      (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0),
-      "outputSplitSize and inputSpliSizes are not supported");
-
   c10::intrusive_ptr<Work> work;
   at::Tensor alltoall_out_tensors;
   at::Tensor alltoall_in_tensors;
@@ -1025,41 +1021,114 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     alltoall_out_tensors = outputTensor.to(c10::ScalarType::Float);
     alltoall_in_tensors = inputTensor.to(c10::ScalarType::Float);
   }
-  // Currently only support for alltoall of same size split supported
+
   std::vector<at::Tensor> inputTensors;
   std::vector<at::Tensor> outputTensors;
   inputTensors.push_back(alltoall_in_tensors);
   outputTensors.push_back(alltoall_out_tensors);
-  work = collective(
-      inputTensors,
-      outputTensors,
-      [numRanks = getSize(), rank = getRank(), this](
-          at::Tensor& input,
-          at::Tensor& output,
-          const void* send_buffer,
-          void* recv_buffer,
-          hcclComm_t& hccl_comm,
-          synStreamHandle stream) {
-        size_t count = input.numel();
-        auto type = getHCCLDataType(input.scalar_type());
-        HOST_SYNC()
-        NW_STREAM_SYNC()
-        PT_DISTRIBUTED_DEBUG(
-            "[PYT-DIST] alltoall with input_address :: ",
-            send_buffer,
-            " output_address :: ",
-            recv_buffer,
-            " elem_cnt :: ",
-            count,
-            " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
-        hcclResult_t hccl_result{hcclSuccess};
-        if (!this->emulate_distributed_) {
-          hccl_result = hcclAlltoAll(
-              send_buffer, recv_buffer, count, type, hccl_comm, stream);
-        }
-        return hccl_result;
-      });
+  if (outputSplitSizes.size() == 0 && inputSplitSizes.size() == 0) {
+    work = collective(
+        inputTensors,
+        outputTensors,
+        [numRanks = getSize(), rank = getRank(), this](
+            at::Tensor& input,
+            at::Tensor& output,
+            const void* send_buffer,
+            void* recv_buffer,
+            hcclComm_t& hccl_comm,
+            synStreamHandle stream) {
+          size_t count = input.numel();
+          auto type = getHCCLDataType(input.scalar_type());
+          HOST_SYNC()
+          NW_STREAM_SYNC()
+          PT_DISTRIBUTED_DEBUG(
+              "[PYT-DIST] alltoall with input_address :: ",
+              send_buffer,
+              " output_address :: ",
+              recv_buffer,
+              " elem_cnt :: ",
+              count,
+              " data_type :: ",
+              getHCCLDataType(input.scalar_type()));
+          hcclResult_t hccl_result{hcclSuccess};
+          if (!this->emulate_distributed_) {
+            hccl_result = hcclAlltoAll(
+                send_buffer, recv_buffer, count, type, hccl_comm, stream);
+          }
+          return hccl_result;
+        });
+  } else {
+    c10d::checkSplitSizes(inputSplitSizes, inputTensor, size_);
+    c10d::checkSplitSizes(outputSplitSizes, outputTensor, size_);
+
+    size_t numRanks = getSize();
+    work = collective(
+        inputTensors,
+        outputTensors,
+        [numRanks = getSize(), inputSplitSizes, outputSplitSizes, this](
+            at::Tensor& input,
+            at::Tensor& output,
+            const void* send_buffer,
+            void* recv_buffer,
+            hcclComm_t& hccl_comm,
+            synStreamHandle stream) {
+          std::vector<size_t> send_lengths(size_);
+          std::vector<size_t> recv_lengths(size_);
+          std::vector<size_t> send_offsets(size_);
+          std::vector<size_t> recv_offsets(size_);
+
+          c10d::computeLengthsAndOffsets(
+              inputSplitSizes, input, &send_lengths, &send_offsets);
+          c10d::computeLengthsAndOffsets(
+              outputSplitSizes, output, &recv_lengths, &recv_offsets);
+
+          size_t count = input.numel();
+          auto type = getHCCLDataType(input.scalar_type());
+          HOST_SYNC()
+          NW_STREAM_SYNC()
+          PT_DISTRIBUTED_DEBUG(
+              "[PYT-DIST] alltoall with input_address :: ",
+              send_buffer,
+              " output_address :: ",
+              recv_buffer,
+              " elem_cnt :: ",
+              count,
+              " data_type :: ",
+              getHCCLDataType(input.scalar_type()));
+          size_t ele_size = input.element_size();
+          hcclGroupStart();
+          hcclResult_t hccl_result{hcclSuccess};
+          for (const auto r : c10::irange(numRanks)) {
+            if (send_lengths[r] != 0) {
+              hccl_result = hcclSend(
+                  reinterpret_cast<const unsigned char*>(send_buffer) +
+                      send_offsets[r] * ele_size,
+                  send_lengths[r],
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+              if (hccl_result != hcclSuccess)
+                return hccl_result;
+            }
+
+            if (recv_lengths[r] != 0) {
+              hccl_result = hcclRecv(
+                  reinterpret_cast<unsigned char*>(recv_buffer) +
+                      recv_offsets[r] * ele_size,
+                  recv_lengths[r],
+                  type,
+                  r,
+                  hccl_comm,
+                  stream);
+              if (hccl_result != hcclSuccess)
+                return hccl_result;
+            }
+          }
+          hcclGroupEnd();
+          return hccl_result;
+        });
+  }
 
   if (!is_valid_hccl_dtype(data_type)) {
     work->wait();

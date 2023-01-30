@@ -27,6 +27,45 @@ def check_res(func,rank,out,exp):
             if torch.all(out.to('cpu').eq(exp)):
                 result = "Passed"
         print("{2} {3} : Rank {0} : {1} ".format(rank,result,func,exp.dtype))
+def alltoallv(rank):
+
+    from array import array
+    numprocs = world_size
+    MAX_MSG_SIZE = 2
+    allocate = lambda n: array('i', [0]) * n
+    sendbuf = allocate(MAX_MSG_SIZE*numprocs)
+    recvbuf = allocate(MAX_MSG_SIZE*numprocs)
+
+    for i in range (MAX_MSG_SIZE*numprocs):
+            sendbuf[i] = rank
+            recvbuf[i] = -1
+
+    array_int = lambda n: array('i', [0]*n)
+    s_counts = array_int(numprocs)
+    s_displs = array_int(numprocs)
+    r_counts = array_int(numprocs)
+    r_displs = array_int(numprocs)
+
+    disp = 0
+    for i in range (world_size):
+        s_counts[i] = r_counts[i] = MAX_MSG_SIZE
+        s_displs[i] = r_displs[i] = disp
+        disp = disp + MAX_MSG_SIZE
+
+    s_msg = [sendbuf, (s_counts, s_displs), MPI.INTEGER]
+    r_msg = [recvbuf, (r_counts, r_displs), MPI.INTEGER]
+
+    comm.Alltoallv(s_msg,r_msg)
+
+
+    ip_tensor = torch.IntTensor(sendbuf).to('hpu')
+    op_tensor = torch.IntTensor(recvbuf).to('hpu')
+
+
+    dist.all_to_all_single(op_tensor,ip_tensor,r_counts,s_counts)
+
+    check_res("alltoallv ",rank,op_tensor,torch.IntTensor(recvbuf))
+
 
 def alltoall(rank):
     a_size = 2
@@ -197,8 +236,6 @@ def all_gather(rank,world_size):
 myhost = os.uname()[1]
 
 
-print(" MY Rank ", rank)
-
 os.environ["WORLD_SIZE"] = str(world_size)
 os.environ["ID"] = str(rank)
 os.environ["MASTER_ADDR"] = "localhost"
@@ -214,6 +251,7 @@ all_gather(rank,world_size)
 broadcast(rank)
 send_recv(rank)
 alltoall(rank)
+alltoallv(rank)
 
 
 
