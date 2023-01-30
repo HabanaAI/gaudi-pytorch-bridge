@@ -475,6 +475,19 @@ at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
+#if IS_PYTORCH_OLDER_THAN(1, 13)
+at::Tensor sum_dim_IntList_hpu_lazy(
+    const at::Tensor& self,
+    at::IntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> dtype);
+#else
+at::Tensor sum_dim_IntList_hpu_lazy(
+    const at::Tensor& self,
+    at::OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> dtype);
+#endif
 
 std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
     const at::Tensor& self,
