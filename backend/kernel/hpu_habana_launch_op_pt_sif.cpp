@@ -46,7 +46,7 @@
 
 #include "hpu_ops/hpu_op_helper.h"
 
-#include "pytorch_helpers/util/jitgraph_utils.h"
+#include "backend/jitgraph_utils.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch::jit;

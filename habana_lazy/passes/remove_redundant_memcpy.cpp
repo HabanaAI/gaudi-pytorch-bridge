@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "remove_redundant_memcpy.h"
-#include "pytorch_helpers/util/jitgraph_utils.h"
+#include "backend/jitgraph_utils.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;

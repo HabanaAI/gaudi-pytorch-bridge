@@ -14,8 +14,8 @@
 
 #include <habana_device/hpu_cached_devices.h>
 #include <synapse_helpers/device.h>
+#include "backend/jitgraph_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
-#include "pytorch_helpers/util/jitgraph_utils.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;

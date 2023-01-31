@@ -10,7 +10,8 @@
  *
  *******************************************************************************
  */
-#include "jitgraph_utils.h"
+
+#include "backend/jitgraph_utils.h"
 
 namespace jitgraph_utils {
 

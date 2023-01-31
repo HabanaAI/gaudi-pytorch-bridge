@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include "pass_utils.h"
-#include "pytorch_helpers/util/jitgraph_utils.h"
+#include "backend/jitgraph_utils.h"
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana_lazy {

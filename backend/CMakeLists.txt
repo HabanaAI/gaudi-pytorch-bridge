@@ -1,5 +1,6 @@
 add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
   jit_graph_cache.cpp
+  jitgraph_utils.cpp
   habana_operator.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp

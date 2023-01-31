@@ -84,6 +84,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_subdirectory(pytorch_helpers)
+add_subdirectory(backend)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
@@ -117,7 +118,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
   pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/serialize/export.cpp
-  pytorch_helpers/util/jitgraph_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_out_kernels.cpp
@@ -196,7 +196,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/hpu_stage_submission.cpp
   ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
-add_subdirectory(backend)
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
