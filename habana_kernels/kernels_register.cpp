@@ -23,6 +23,7 @@
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "synapse_helpers/device_helpers.h"
 #include "synapse_helpers/env_flags.h"
 
 using namespace torch;
@@ -1677,14 +1678,104 @@ Tensor habana_cast_to_fp8_wrap(
       to_string(stochastic_rounding),
       ", seed=",
       to_string(seed));
-  auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
-  if (device_type == synDeviceGaudi2 || device_type == synDeviceGaudi3) {
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
     return habana_cast_to_fp8_lazy(input, stochastic_rounding, seed);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
 #endif
+
+std::tuple<Tensor&, Tensor&> habana_cast_to_fp8_te_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " habana_cast_to_fp8:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return habana_cast_to_fp8_te_lazy(
+        input, scale, stochastic_rounding, out, amax);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+Tensor& habana_fp8_gemm_wrap(
+    const at::Tensor& A,
+    const at::Tensor& A_scale_inv,
+    bool trans_A,
+    const at::Tensor& B,
+    const at::Tensor& B_scale_inv,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const at::Tensor& bias,
+    bool accumulate,
+    at::Tensor& out) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " habana_fp8_gemm:",
+      " A=",
+      to_string(A),
+      " A_scale_inv=",
+      to_string(A_scale_inv),
+      " trans_A=",
+      to_string(trans_A),
+      " B=",
+      to_string(B),
+      " B_scale_inv=",
+      to_string(B_scale_inv),
+      " trans_B=",
+      to_string(trans_B),
+      " out_dtype=",
+      to_string(out_dtype),
+      " bias=",
+      to_string(bias),
+      " accumulate=",
+      to_string(accumulate));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return habana_fp8_gemm_lazy(
+        A,
+        A_scale_inv,
+        trans_A,
+        B,
+        B_scale_inv,
+        trans_B,
+        D,
+        out_dtype,
+        bias,
+        accumulate,
+        out);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+at::Tensor& habana_fp8_transpose_wrap(
+    const at::Tensor& input,
+    at::Tensor& out) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(" habana_fp8_transpose:", " input=", to_string(input));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return habana_fp8_transpose_lazy(input, out);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -2190,6 +2281,12 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::identity(Tensor self) -> (Tensor)");
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
+  m.def(
+      "hpu::habana_cast_to_fp8_te(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
+  m.def(
+      "hpu::habana_fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
+  m.def(
+      "hpu::habana_fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");

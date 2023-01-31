@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,6 +24,7 @@
 #include "hpu_ops/lazy_cast.h"
 #include "kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "synapse_helpers/device_helpers.h"
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
@@ -150,7 +151,7 @@ static auto get_platform_cast_map() {
   }
 
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-  if (type == synDeviceGaudi2 || type == synDeviceGaudi3) {
+  if (synapse_helpers::device_supports_fp8(type)) {
     // fp8r152
     cast_map.insert(
         {{c10::ScalarType::Float, c10::ScalarType::Fp8r152}, "cast_f32_to_f8"});

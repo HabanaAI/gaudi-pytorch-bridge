@@ -35,6 +35,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/permute_tensors.h"
+#include "synapse_helpers/device_helpers.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
@@ -824,8 +825,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       if (device_type == synDeviceGaudi) {
         HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
       }
-      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco ||
-          device_type == synDeviceGaudi3;
+      return synapse_helpers::device_supports_fp16(device_type);
     }
     case c10::ScalarType::ComplexHalf:
     case c10::ScalarType::ComplexFloat:
@@ -835,8 +835,8 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     }
 #if IS_PYTORCH_FORK_AT_LEAST(1, 0)
     case c10::ScalarType::Fp8r152: {
-      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
-      return (device_type == synDeviceGaudi2 || device_type == synDeviceGaudi3);
+      return synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type());
     }
 #endif
     default:

@@ -17,6 +17,7 @@
 #include "habana_kernels/binary_kernels.h"
 #include "hpu_ops/common/div_round_gen.h"
 #include "hpu_ops/div_mod_util.h"
+#include "synapse_helpers/device_helpers.h"
 
 namespace habana {
 
@@ -42,9 +43,8 @@ static bool DivCommonCheck(
     case torch::kFloat64:
       return true;
     case torch::kHalf: {
-      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
-      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco ||
-          device_type == synDeviceGaudi3;
+      return synapse_helpers::device_supports_fp16(
+          synapse_helpers::HPURegistrar::get_device().type());
     }
     case torch::kInt8:
     case torch::kInt16:

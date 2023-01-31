@@ -547,14 +547,23 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
           habana_helpers::is_shape_tensor(attr.tensor_type)
               ? habana_helpers::create_shape_tensor(
                     t, graph, is_persistent, attr.tensor_type)
-              : habana_helpers::create_tensor(
-                    t,
-                    graph,
-                    is_persistent,
-                    is_external,
-                    attr.dtype,
-                    node_attr.inf_name,
-                    node_attr.inf_name));
+              : attr.syn_data_type == syn_type_na
+                  ? habana_helpers::create_tensor(
+                        t,
+                        graph,
+                        is_persistent,
+                        is_external,
+                        attr.dtype,
+                        node_attr.inf_name,
+                        node_attr.inf_name)
+                  : habana_helpers::create_tensor(
+                        t,
+                        graph,
+                        is_persistent,
+                        is_external,
+                        attr.syn_data_type,
+                        node_attr.inf_name,
+                        node_attr.inf_name));
 
       if (is_persistent) {
         const auto& impl =

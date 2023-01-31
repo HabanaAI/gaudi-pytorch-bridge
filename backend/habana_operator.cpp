@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -89,6 +89,15 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
       permuteOrder.find(target_layout) != permuteOrder.end(),
       "Unknown layout in getPermuteOrder");
   return permuteOrder.find(target_layout)->second;
+}
+
+bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
+  static const std::vector<std::string> fp8_ops{
+      "fp8_gemm_i8", "cast_to_fp8_f32", "cast_to_fp8_bf16", "fp8_transpose_i8"};
+
+  return std::any_of(fp8_ops.begin(), fp8_ops.end(), [&guid](const auto& op) {
+    return op == guid;
+  });
 }
 
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
@@ -271,15 +280,18 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
               permutation);
 
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    } else if (input.scalar_type() == c10::ScalarType::Char && isFp8Op(guid_)) {
+      // fp8 tensors are exposed to Pytorch viatorch.uint8 type, therefor for
+      // fp8 ops synTensors must have manually set syn_type_fp8_152 data type
+      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
+          input, graph, is_persistent, false, syn_type_fp8_152));
     } else {
-      auto syn_tensor_input = habana_helpers::create_tensor(
-          input, graph, is_persistent, false, c10::nullopt, idx, idx);
-      p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
+          input, graph, is_persistent, false, c10::nullopt, idx, idx));
     }
   } else {
-    auto syn_shape_input = habana_helpers::create_shape_tensor(
-        input, graph, is_persistent, shape_tensor_type, "", host_ptr);
-    p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
+    p_context_->syn_inputs_.emplace_back(habana_helpers::create_shape_tensor(
+        input, graph, is_persistent, shape_tensor_type, "", host_ptr));
   }
   p_context_->pt_inputs_.emplace_back(input);
   return p_context_->syn_inputs_.back();

@@ -293,6 +293,25 @@ at::Tensor habana_cast_to_fp8_wrap(
     int seed);
 #endif
 
+std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax);
+at::Tensor& habana_fp8_gemm_wrap(
+    const at::Tensor& A,
+    const at::Tensor& A_scale_inv,
+    bool trans_A,
+    const at::Tensor& B,
+    const at::Tensor& B_scale_inv,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const at::Tensor& bias,
+    bool accumulate,
+    at::Tensor& out);
+at::Tensor& habana_fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out);
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,

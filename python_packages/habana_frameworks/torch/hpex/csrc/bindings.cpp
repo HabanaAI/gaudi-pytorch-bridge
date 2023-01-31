@@ -149,6 +149,30 @@ optimizer_sparse_sgd_with_valid_count(
       false);
 }
 
+at::Tensor& habana_fp8_gemm_wrap_py(
+    const at::Tensor& A,
+    const at::Tensor& A_scale_inv,
+    bool trans_A,
+    const at::Tensor& B,
+    const at::Tensor& B_scale_inv,
+    bool trans_B,
+    at::Tensor& out,
+    py::object out_dtype,
+    const at::Tensor& bias,
+    bool accumulate) {
+  return habana_fp8_gemm_wrap(
+      A,
+      A_scale_inv,
+      trans_A,
+      B,
+      B_scale_inv,
+      trans_B,
+      out,
+      torch::python::detail::py_object_to_dtype(out_dtype),
+      bias,
+      accumulate,
+      out);
+}
 at::Tensor matmul_ex_wrap_py(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -285,6 +309,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &habana_cast_to_fp8_wrap,
       "Cast FP32 or BF16 to lower precission with optional stochastic rounding");
 #endif
+  m.def(
+      "cast_to_fp8_te",
+      &habana_cast_to_fp8_te_wrap,
+      "Cast FP32 or BF16 to lower precission with optional stochastic rounding");
+  m.def("fp8_gemm", &habana_fp8_gemm_wrap_py, "fp8 GEMM with inputs scaling");
+  m.def(
+      "fp8_transpose", &habana_fp8_transpose_wrap, "Transposes 2D fp8 tensor");
   m.def("matmul_ex", &matmul_ex_wrap_py, "Matmul with explicit dtype");
   m.def(
       "matmul_ex_backward",

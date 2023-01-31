@@ -1,15 +1,19 @@
 /******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/lazy/where.h"
 #include "habana_helpers/dtype_helpers.h"
+#include "synapse_helpers/device_helpers.h"
 
 namespace habana {
 FALLBACK_CHECK(
@@ -26,7 +30,7 @@ FALLBACK_CHECK(
   //  where_fwd_i32
   //  where_fwd_bf16
   //  where_fwd_f32
-  //  where_fwd_f16 only for Gaudi2/Greco
+  //  where_fwd_f16 only for Gaudi2/Gaudi3/Greco
   auto result_type = at::result_type(self, other);
   switch (result_type) {
     case torch::kBool:
@@ -35,9 +39,8 @@ FALLBACK_CHECK(
     case torch::kFloat32:
       return true;
     case torch::kHalf: {
-      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
-      return device_type == synDeviceGaudi2 || device_type == synDeviceGreco ||
-          device_type == synDeviceGaudi3;
+      return synapse_helpers::device_supports_fp16(
+          synapse_helpers::HPURegistrar::get_device().type());
     }
     default:
       return false;

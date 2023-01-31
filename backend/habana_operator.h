@@ -286,6 +286,8 @@ class HabanaOperator {
       const LayoutFormat target_layout,
       bool to_device = true);
 
+  static bool isFp8Op(const std::string& guid);
+
   //
   // Creates graph builder context, based on the device
   void CreateSynContext(int device_id, std::string node_type = "") {

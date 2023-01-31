@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,6 +24,7 @@ struct NodeAttr {
     at::ScalarType dtype{at::kFloat};
     c10::optional<int> final_result_index{c10::nullopt};
     synTensorType tensor_type{DATA_TENSOR};
+    synDataType syn_data_type{syn_type_na};
   };
 
   std::string guid;

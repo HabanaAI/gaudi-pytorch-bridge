@@ -1098,6 +1098,7 @@ class LazyOp {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::tuple_size<T>::value == m_out_shapes.size());
 
+    int i = 0;
     habana::for_each_in_tuple(tensors, [&, this](auto& tensor) {
       /* Same check happens in GetHbLazyTensor, but it's in acc thread.*/
       /* Make sure in main thread, that we get HPU tensor .*/
@@ -1108,7 +1109,9 @@ class LazyOp {
       // shape. There is mechanism to handle it at HandleLazy level, but we
       // need to set the correct shape on at::Tensor so it's propagated to
       // Python in main thread.
-      auto out_shape = m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[0];
+      auto out_shape =
+          m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[i++];
+
       if (tensor.sizes() != out_shape) {
         tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
         m_shape_was_changed_in_tuple.push_back(true);

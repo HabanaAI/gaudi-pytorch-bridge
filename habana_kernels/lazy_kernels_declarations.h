@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -806,6 +806,25 @@ at::Tensor habana_cast_to_fp8_lazy(
     bool stochastic_rounding,
     int seed);
 #endif
+std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax);
+at::Tensor& habana_fp8_gemm_lazy(
+    const at::Tensor& A,
+    const at::Tensor& A_scale_inv,
+    bool trans_A,
+    const at::Tensor& B,
+    const at::Tensor& B_scale_inv,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const at::Tensor& bias,
+    bool accumulate,
+    at::Tensor& out);
+at::Tensor& habana_fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& grad_output,
