@@ -35,13 +35,19 @@ print_cpp_files() {
 is_file_in_lists() {
     needle=$1
     shift
-    echo "$@" | xargs grep -q "$needle"
+    # echo "$@" | xargs grep -q "$needle"
+    for LIST in "$@"; do
+        PREFIX="$(dirname "$LIST")"  # e.g. .../scripts/../tests/
+        PREFIX="${PREFIX//$WORKDIR\//}"  # e.g. tests/
+        grep -q "${needle//$PREFIX\//}" "$LIST" && return 0
+    done
+    return 1
 }
 
 CPP_FILENAMES=$(print_cpp_files "$@")
 
 WORKDIR="$(dirname "$(realpath "$0")")/.." # assume we're in project_dir/scripts
-CMAKELISTS=$(find "$WORKDIR" -name CMakeLists.txt)
+mapfile -t CMAKELISTS < <(find "$WORKDIR" -name CMakeLists.txt)
 
 RET=0
 for file in $CPP_FILENAMES; do
