@@ -36,7 +36,10 @@ class HabanaParameterWrapper(torch.nn.Parameter):
         return super().__torch_function__(func, types, args, kwargs)
 
     def __del__(self):
-        del HabanaParameterWrapper.db[id(self)]
+        try:
+            del HabanaParameterWrapper.db[id(self)]
+        except:
+            pass
 
 
 def update_habana_parameter(result):
