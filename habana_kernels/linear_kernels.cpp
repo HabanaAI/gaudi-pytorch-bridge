@@ -12,6 +12,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
@@ -204,7 +205,7 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
 
   auto shape_out = habana::MMOperator::compute_output_shape(
       mat1, mat2, mat1_transposed, mat2_transposed);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       mat1,
       shape_out,
       mat1.options(),
@@ -557,7 +558,7 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
   auto shape_out = habana::BmmOperator::compute_output_shape(
       self, mat2, mat1_transposed, mat2_transposed);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       shape_out,
       self.options(),
@@ -1917,7 +1918,7 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(std::move(sumOp->GetOutputs()[0]));
   } else {
     auto memory_format = weight.suggest_memory_format();
-    Tensor bias_output = habana_helpers::createPTTensor(
+    Tensor bias_output = habana::createPTTensor(
         weight,
         {0},
         weight.options(),

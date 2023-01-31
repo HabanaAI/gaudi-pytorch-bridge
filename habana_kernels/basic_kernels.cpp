@@ -23,6 +23,7 @@
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 #include <habana_device/PinnedMemoryAllocator.h>
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
@@ -379,8 +380,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
             p_context_->syn_inputs_[1], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(output);
   } else {
-    output =
-        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+    output = habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
   p_context_->params_size_ = 0;
@@ -412,8 +412,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else {
-    output =
-        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+    output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -791,7 +790,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
         "Input slice params type expected to be integer list");
   }
   std::vector<int64_t> shape = self.sizes().vec();
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       shape,
       self.options(),
@@ -1265,7 +1264,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
   compute_params(params, inputs, graph);
 
   auto orig_t = inputs[0].toTensor();
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       orig_t,
       orig_t.sizes(),
       orig_t.options(),
@@ -1615,7 +1614,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   compute_params(params, inputs, graph, size, strides, offset);
   auto self = inputs[0].toTensor();
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       size,
       self.options(),

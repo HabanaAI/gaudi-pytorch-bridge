@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "backend/habana_operator.h"
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -548,7 +549,7 @@ void habana::OutputShapeInfRetType::AddTensor(
     const TensorMetaData& data,
     std::vector<IdxTensorTup>& v) {
   auto sif_tensor_id_ = habana::ShapeInference::ReadAndIncrementSifTensorId();
-  auto tensor = habana_helpers::nonPersistentTensor(
+  auto tensor = habana::nonPersistentTensor(
       data.sizes, data.strides, data.mf, scalarTypeToTypeMeta(data.dtype));
 
   v.emplace_back(std::make_tuple(sif_tensor_id_, tensor));

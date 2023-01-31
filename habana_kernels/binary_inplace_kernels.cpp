@@ -11,6 +11,7 @@
 #include <torch/script.h>
 #include <memory>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -168,7 +169,7 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     // add node to convert scalar to tensor
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(
@@ -203,7 +204,7 @@ habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
     // add constant node to convert 2nd input to tensor
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
@@ -314,7 +315,7 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
     // add constant node to convert 2nd input to tensor
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(
@@ -348,7 +349,7 @@ habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperator::
     // add constant node to convert 2nd input to tensor
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);

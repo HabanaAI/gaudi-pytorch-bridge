@@ -50,32 +50,6 @@ void PrintTensor(
   habana_helpers::PrintTensor(T, std::string(#T), true)
 
 namespace habana_helpers {
-struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
-  explicit StorageLessWrapperTensorImpl(
-      const at::Tensor& rep,
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
-      : TensorImpl(
-            c10::DispatchKeySet(c10::DispatchKey::HPU),
-            data_type.has_value() ? data_type.value() : rep.dtype(),
-            rep.device()) {}
-
-  explicit StorageLessWrapperTensorImpl(
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
-      : TensorImpl(
-            c10::DispatchKeySet(c10::DispatchKey::HPU),
-            data_type.value(),
-            at::kHPU) {}
-
-  void release_resources() override {}
-
-  bool has_storage() const override {
-    return false;
-  }
-
-  const at::Storage& storage() const override {
-    TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
-  }
-};
 
 int64_t tensor_numel(const at::Tensor& self);
 
@@ -94,60 +68,6 @@ at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
     const at::Tensor& self,
     unsigned num_dimensions);
-
-bool alwaysAllocOnDevice();
-
-at::Tensor nonPersistentTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options = {},
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
-
-at::Tensor nonPersistentTensor(
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
-
-at::Tensor nonPersistentTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    const at::TensorOptions& options = {},
-    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
-    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
-
-at::Tensor createPTTensor(const at::Tensor& input, bool is_persistent);
-
-at::Tensor createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    bool is_persistent);
-
-at::Tensor createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    bool is_persistent);
-
-at::Tensor createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    c10::ScalarType data_type,
-    bool is_persistent);
-
-at::Tensor createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    bool is_persistent);
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(

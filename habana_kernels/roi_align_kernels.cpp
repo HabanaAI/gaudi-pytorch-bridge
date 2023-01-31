@@ -1,6 +1,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -80,7 +81,7 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
         {num_rois.sizes()[0], input.sizes()[channel_dim], output_h, output_w});
   }
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input, out_shape, input.options(), output_metadata.at(0).persistent);
 
   // Allocate Shape Tensor
@@ -208,7 +209,7 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
   roi_params.aligned = aligned;
   roi_params.isValidCount = false;
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       grad_out,
       input_shape.sizes(),
       grad_out.options(),
@@ -281,7 +282,7 @@ void QuadTreeFwdImplOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> output_size = {
       input_shape.sizes()[0], 256, num_rois.sizes()[0] + 1};
 
-  auto quadTree_output = habana_helpers::createPTTensor(
+  auto quadTree_output = habana::createPTTensor(
       rois,
       output_size,
       rois.options(),

@@ -13,6 +13,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -72,13 +73,13 @@ void Reduce2Operator::AllocateAndAddSynapseNode(
   out_shape[dim] = 1;
   ns_Reduction::Params params{};
   params.reductionDimension = self.dim() - dim - 1;
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self, out_shape, self.options(), output_metadata.at(0).persistent);
   if (synapse_helpers::HPURegistrar::get_device().type() ==
       synDeviceType::synDeviceGreco) {
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   } else {
-    auto index = habana_helpers::createPTTensor(
+    auto index = habana::createPTTensor(
         self,
         out_shape,
         self.options(),

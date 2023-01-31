@@ -13,6 +13,7 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -96,7 +97,7 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     auto arg1 = inputs[0].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(
@@ -138,7 +139,7 @@ OutputShapeInfRetType CompareOutWrapperOperator::ComputeOutputShape(
     auto arg1 = inputs[0].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
@@ -186,7 +187,7 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
     operand = inputs[1].toTensor();
     out_shape = operand.sizes().vec();
   }
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       operand,
       IntArrayRef(out_shape.data(), out_shape.size()),
       operand.options(),
@@ -215,7 +216,7 @@ OutputShapeInfRetType CompareWrapperOperator::ComputeOutputShape(
     operand = inputs[1].toTensor();
     out_shape = operand.sizes().vec();
   }
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       operand,
       IntArrayRef(out_shape.data(), out_shape.size()),
       operand.options(),
@@ -240,7 +241,7 @@ void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
     operand = inputs[1].toTensor();
     out_shape = operand.sizes().vec();
   }
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       operand,
       IntArrayRef(out_shape.data(), out_shape.size()),
       operand.options(),
@@ -290,7 +291,7 @@ void GeOutOperator::AllocateAndAddSynapseNode(
     auto self = inputs[0].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(

@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 
+#include "backend/create_pt_tensor.h"
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -621,7 +622,7 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
       true /*is_weight_hwck*/,
       groups);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape_out,
       input.options(),
@@ -784,7 +785,7 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       true /*is_weight_hwck*/,
       groups);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape_out,
       input.options(),

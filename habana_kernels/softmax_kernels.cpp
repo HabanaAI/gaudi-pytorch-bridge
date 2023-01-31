@@ -10,6 +10,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -60,8 +61,7 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output =
-      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -96,7 +96,7 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   auto grad_output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+      habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, grad_output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -244,8 +244,8 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
         intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
 
-    auto output = habana_helpers::createPTTensor(
-        output_float, output_metadata.at(0).persistent);
+    auto output =
+        habana::createPTTensor(output_float, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
@@ -271,7 +271,7 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     p_context_->params_size_ = sizeof(params);
 
     auto output =
-        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+        habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }

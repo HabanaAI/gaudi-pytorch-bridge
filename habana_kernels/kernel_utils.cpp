@@ -13,6 +13,7 @@
 #include <torch/script.h>
 
 #include <perf_lib_layer_params.h>
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUStream.h"
@@ -634,8 +635,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     SET_SIZE_STRIDE_1D(input);
   }
 
-  auto output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   // Adding a clear for inputs as constant kernel expects no inputs
   // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway

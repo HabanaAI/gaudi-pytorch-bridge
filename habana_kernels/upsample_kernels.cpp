@@ -11,6 +11,7 @@
 
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -289,7 +290,7 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> shape_out = compute_output_shape(
       input.sizes().vec(), output_size, scales, tpc_memory_format);
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape_out,
       input.options(),
@@ -383,7 +384,7 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
   // TPC kernel supports only 4D or 5D Tensor
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&grad_output});
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       grad_output,
       grad_out_shape,
       grad_output.options(),

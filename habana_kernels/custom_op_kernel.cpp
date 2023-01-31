@@ -9,6 +9,7 @@
  */
 
 #include "habana_kernels/custom_op_kernel.h"
+#include "backend/create_pt_tensor.h"
 
 namespace habana {
 
@@ -40,7 +41,7 @@ void CustomOperator::AllocateAndAddSynapseNode(
           op_desc_.getOutputShapeFunc(i);
       result_sizes = output_shape_func(inputs);
     }
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         self,
         result_sizes,
         self.options().dtype(outputs_desc[i].dtype),

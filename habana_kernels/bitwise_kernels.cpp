@@ -11,6 +11,7 @@
 #include <torch/script.h>
 #include <memory>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
@@ -76,7 +77,7 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
     auto arg1 = inputs[1].toTensor();
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, arg1.scalar_type());
-    auto const_shape_tensor = habana_helpers::createPTTensor(
+    auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constInputs = {IValue(const_shape_tensor), inputs[2]};
     constOp->AllocateAndAddSynapseNode(
@@ -120,7 +121,7 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   // Create a constant operator to get a tensor of ones of size self
   auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, scalar_type);
-  auto const_shape_tensor = habana_helpers::createPTTensor(
+  auto const_shape_tensor = habana::createPTTensor(
       self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
   torch::jit::Stack constOp_stack = {
       IValue(const_shape_tensor), IValue(Scalar(1))};

@@ -12,6 +12,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -576,7 +577,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
       scale_grad_by_freq == false, "scale_grad_by_freq = true not supported")
 
   // create a wrapper PT tensor for the non-persistent tensor for zero filling
-  Tensor grad_temp = habana_helpers::createPTTensor(
+  Tensor grad_temp = habana::createPTTensor(
       grad,
       {num_weights, grad.size(-1)},
       grad.options(),
@@ -696,7 +697,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   */
   if (padding_idx != -1) {
     // create a wrapper PT tensor for the non-persistent tensor for zero filling
-    Tensor temp_zeros = habana_helpers::createPTTensor(
+    Tensor temp_zeros = habana::createPTTensor(
         grad_weight,
         {grad_weight.size(-1)},
         grad_weight.options(),
@@ -717,7 +718,7 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
     auto topk_indices = topkOp->GetOutputs()[1];
     // create a wrapper PT tensor for the non-persistent tensor holding
     // padding_idx
-    Tensor padding_idx_tensor = habana_helpers::createPTTensor(
+    Tensor padding_idx_tensor = habana::createPTTensor(
         topk_indices,
         {1},
         topk_indices.options(),
@@ -845,7 +846,7 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
   TORCH_CHECK(valid_count.dim() == 1, "valid count tensor should be 1D")
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       {offsets.sizes()[0] - 1, input.size(1)},
       input.options(),
@@ -1000,7 +1001,7 @@ void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(offsets.dim() == 1);
   HABANA_ASSERT(valid_count.numel() == 2);
 
-  auto out = habana_helpers::createPTTensor(
+  auto out = habana::createPTTensor(
       input,
       {offsets.numel() - 1, input.size(1)},
       input.options(),

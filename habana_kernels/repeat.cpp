@@ -10,6 +10,7 @@
 #include "repeat.h"
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
+#include "backend/create_pt_tensor.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -123,7 +124,7 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       RepeatOperator::compute_output_shape(input, rpt_cast),
       input.options(),
@@ -174,7 +175,7 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   }
   ns_TileKernel::ParamsV2 params{};
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       RepeatOperator::compute_output_shape(input, repeats),
       input.options(),
@@ -187,8 +188,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
 
     // Allocate Shape Tensor
     if (graph.is_dynamic_graph()) {
-      auto repeatsShape = habana_helpers::createPTTensor(
-          input, repeats, input.options(), false);
+      auto repeatsShape =
+          habana::createPTTensor(input, repeats, input.options(), false);
       AllocateSynapseShapeTensor(
           graph, repeatsShape, INPUT_DESCRIBING_SHAPE_TENSOR);
     }
@@ -313,7 +314,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
 
   ns_RepeatKernelGaudiTF::Params params;
   params.axis = input.dim() - 1 - dim;
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       out_shape.sizes(),
       input.options(),

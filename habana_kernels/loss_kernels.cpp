@@ -10,6 +10,7 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -121,7 +122,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   } else {
     reshaped_self_sizes.emplace_back(1);
   }
-  auto output1 = habana_helpers::createPTTensor(
+  auto output1 = habana::createPTTensor(
       self,
       reshaped_self_sizes,
       self.options(),
@@ -133,7 +134,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   // create a dummy output, we do not support weights therefore there is no
   // sum_weights tensor, but we still need to return an empty tensor to keep
   // Pytorch happy
-  auto output2 = habana_helpers::createPTTensor(
+  auto output2 = habana::createPTTensor(
       self,
       {1},
       self.options(),
@@ -199,7 +200,7 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
   } else {
     reshaped_self_sizes.emplace_back(1);
   }
-  auto output1 = habana_helpers::createPTTensor(
+  auto output1 = habana::createPTTensor(
       self,
       reshaped_self_sizes,
       self.options(),
@@ -210,7 +211,7 @@ void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
   // create a dummy output, we do not support weights therefore there is no
   // sum_weights tensor, but we still need to return an empty tensor to keep
   // Pytorch happy
-  auto output2 = habana_helpers::createPTTensor(
+  auto output2 = habana::createPTTensor(
       self,
       {1},
       self.options(),
@@ -422,8 +423,7 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
       params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output =
-      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
     AllocateSynapseShapeTensor(graph, output);
@@ -471,7 +471,7 @@ void NLLLoss2dBwdOperator::AllocateAndAddSynapseNode(
       params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -688,7 +688,7 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(param);
 
   auto sizes = MSELossFwdOperator::compute_output_shape(self, reduction);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       sizes,
       self.options(),
@@ -730,9 +730,9 @@ Tensor mse_loss_forward_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     Tensor output;
     if (reduction == at::Reduction::Reduction::None) {
-      output = habana_helpers::createPTTensor(self, true);
+      output = habana::createPTTensor(self, true);
     } else {
-      output = habana_helpers::createPTTensor(
+      output = habana::createPTTensor(
           self, {}, self.options(), self.suggest_memory_format(), true);
     }
     Op.Execute(key, pt_inputs, output);
@@ -777,8 +777,7 @@ void MSELossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output =
-      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
@@ -1049,9 +1048,9 @@ Tensor kl_div_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     Tensor output;
     if (reduction == at::Reduction::Reduction::None) {
-      output = habana_helpers::createPTTensor(self, true);
+      output = habana::createPTTensor(self, true);
     } else {
-      output = habana_helpers::createPTTensor(
+      output = habana::createPTTensor(
           self, {}, self.options(), self.suggest_memory_format(), true);
     }
     Op.Execute(key, pt_inputs, output);
@@ -1383,7 +1382,7 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
 
   // set-up input/output tensors for BCE
   auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self, sizes, self.options(), output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
@@ -1518,7 +1517,7 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(
       graph,
-      habana_helpers::createPTTensor(reshape_self->GetOutputs()[0], false),
+      habana::createPTTensor(reshape_self->GetOutputs()[0], false),
       OutputMetaData(),
       false);
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];

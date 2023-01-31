@@ -13,6 +13,7 @@
 
 #include "absl/strings/string_view.h"
 
+#include "backend/create_pt_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -160,7 +161,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
     k = inputs[1].toInt();
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
-      Tensor k_tensor = habana_helpers::createPTTensor(
+      Tensor k_tensor = habana::createPTTensor(
           self, k, self.options(), self.suggest_memory_format(), false);
       AllocateSynapseShapeTensor(graph, k_tensor);
     }
@@ -196,7 +197,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       std::vector<int64_t> input_output_sizes_vec{input_output_depth};
       IntArrayRef input_output_shape(
           input_output_sizes_vec.data(), input_output_sizes_vec.size());
-      auto arangeInputOutput = habana_helpers::createPTTensor(
+      auto arangeInputOutput = habana::createPTTensor(
           self,
           input_output_shape,
           self.options(),
@@ -387,9 +388,9 @@ OutputShapeInfRetType TopkOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 5) {
     Tensor self = inputs[0].toTensor();
-    auto values = habana_helpers::createPTTensor(
+    auto values = habana::createPTTensor(
         self, {0}, self.options(), self.suggest_memory_format(), false);
-    auto indices = habana_helpers::createPTTensor(
+    auto indices = habana::createPTTensor(
         self,
         {0},
         self.options(),
@@ -421,13 +422,13 @@ void TopkOperator::AllocateAndAddSynapseNode(
       "TopkOperator: #output_metadata should be 2");
 
   Tensor self = inputs[0].toTensor();
-  auto values = habana_helpers::createPTTensor(
+  auto values = habana::createPTTensor(
       self,
       {0},
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
-  auto indices = habana_helpers::createPTTensor(
+  auto indices = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -442,9 +443,9 @@ void TopkOperator::AllocateAndAddSynapseNode(
 
 void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
-  auto values = habana_helpers::createPTTensor(
+  auto values = habana::createPTTensor(
       self, {0}, self.options(), self.suggest_memory_format(), true);
-  auto indices = habana_helpers::createPTTensor(
+  auto indices = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -522,13 +523,13 @@ void SortOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
   inputs.emplace_back(IValue(sorted));
 
-  auto values = habana_helpers::createPTTensor(
+  auto values = habana::createPTTensor(
       self,
       {0},
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
-  auto indices = habana_helpers::createPTTensor(
+  auto indices = habana::createPTTensor(
       self,
       {0},
       self.options(),

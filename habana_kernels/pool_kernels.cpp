@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iostream>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/tensor_utils.h"
@@ -375,7 +376,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = habana_helpers::createPTTensor(
+  auto output_nhwc = habana::createPTTensor(
       input,
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
@@ -389,7 +390,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
     type = kShort;
   }
 
-  auto output_idx_nhwc = habana_helpers::createPTTensor(
+  auto output_idx_nhwc = habana::createPTTensor(
       input,
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
@@ -769,7 +770,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOperator::
     ComputeOutputShape(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[1].toTensor();
-  auto grad_input = habana_helpers::createPTTensor(input, false);
+  auto grad_input = habana::createPTTensor(input, false);
 
   // Re-order the inputs for:
   // MaxPool2dWithIndicesBackwardOutOperator in the below order:
@@ -793,7 +794,7 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input = inputs[1].toTensor();
   auto grad_input =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+      habana::createPTTensor(input, output_metadata.at(0).persistent);
 
   // Re-order the inpust for:
   // MaxPool2dWithIndicesBackwardOutOperator in the below order:
@@ -970,7 +971,7 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = habana_helpers::createPTTensor(
+  auto output_nhwc = habana::createPTTensor(
       input,
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options(),
@@ -1295,8 +1296,8 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = habana_helpers::createPTTensor(
-      input_nhwc, output_metadata.at(0).persistent);
+  auto grad_input_nhwc =
+      habana::createPTTensor(input_nhwc, output_metadata.at(0).persistent);
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(

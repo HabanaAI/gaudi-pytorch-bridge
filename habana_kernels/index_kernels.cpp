@@ -14,6 +14,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -121,7 +122,7 @@ Tensor& linspace_out_hpu(
 
   Tensor output_int;
   if (habana_helpers::is_downcast_to_int_needed(output.scalar_type())) {
-    output_int = habana_helpers::createPTTensor(
+    output_int = habana::createPTTensor(
         output,
         output.sizes(),
         output.options(),
@@ -214,7 +215,7 @@ Tensor GatherOperator::AllocateOutput(
 
   auto shape = GatherOperator::compute_output_shape(self, dim_, index);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       shape,
       self.options(),
@@ -317,7 +318,7 @@ Tensor GatherElemOperator::AllocateOutput(
 
   auto shape = GatherElemOperator::compute_output_shape(self, dim_, index);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       shape,
       self.options(),
@@ -416,8 +417,7 @@ Tensor ScatterWrapperOperator::AllocateOutput(
     torch::jit::Stack& inputs,
     const OutputMetaData& output_metadata) {
   auto self = inputs[0].toTensor();
-  auto output =
-      habana_helpers::createPTTensor(self, output_metadata.persistent);
+  auto output = habana::createPTTensor(self, output_metadata.persistent);
   return output;
 }
 
@@ -663,7 +663,7 @@ void ScatterValueWrapperOperator::AllocateAndAddSynapseNode(
   at::ScalarType scalar_type = self.scalar_type();
 
   torch::jit::Stack stack;
-  Tensor src = habana_helpers::createPTTensor(
+  Tensor src = habana::createPTTensor(
       self,
       index.sizes(),
       self.options(),
@@ -1397,7 +1397,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     stack.clear();
 
     auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
-    auto zero_t = habana_helpers::createPTTensor(
+    auto zero_t = habana::createPTTensor(
         self,
         self.sizes().vec(),
         self.options(),
@@ -1444,7 +1444,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeBoolIndices(
     p_context_->pt_outputs_.emplace_back(std::move(castOpOut->GetOutputs()[0]));
   } else {
     auto zero_op = make_operator<ConstantOperator>(device_id, self_scalar_type);
-    auto zero_t = habana_helpers::createPTTensor(
+    auto zero_t = habana::createPTTensor(
         self,
         self.sizes().vec(),
         self.options(),
@@ -1590,7 +1590,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     for (size_t i = 0; i < mul_factor_v.size(); i++) {
       auto constOp =
           make_operator<ConstantOperator>(device_id, indices_scalar_type);
-      auto const_shape_tensor = habana_helpers::createPTTensor(
+      auto const_shape_tensor = habana::createPTTensor(
           indices[0],
           {1},
           indices[0].options(),
@@ -1949,7 +1949,7 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
       isInputValid(inputs) == true, "Invalid inputs for scatter_nd_onnx");
 
   auto shape = DimVector(inp.sizes());
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       inp,
       shape,
       inp.options(),
@@ -1998,7 +1998,7 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
   auto updates = inputs[4].toTensor();
 
   auto shape = DimVector(inp.sizes());
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       inp,
       shape,
       inp.options(),
@@ -2214,7 +2214,7 @@ void Gather2dOperator::AllocateAndAddSynapseNode(
   auto shape = DimVector(input.sizes());
   shape.erase(shape.begin() + 0);
   shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape,
       input.options(),
@@ -2371,7 +2371,7 @@ Tensor SliceOperator::AllocateOutputTensor(
   auto shape = compute_output_shape(self, dim, start, end, step);
 
   // allocate output tensor
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       shape,
       self.options(),
@@ -2525,7 +2525,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     shape = compute_output_shape(self, dim, start, end, step);
   }
 
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       shape,
       self.options(),
@@ -2718,8 +2718,8 @@ void SelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
   // allocate output tensor
   auto shape = compute_output_shape(self, dim);
-  auto output = habana_helpers::createPTTensor(
-      self, shape, self.options(), memory_format, true);
+  auto output =
+      habana::createPTTensor(self, shape, self.options(), memory_format, true);
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
 }
@@ -2807,7 +2807,7 @@ Tensor select_hpu(const Tensor& self_in, int64_t dim, int64_t index) {
     // allocate output tensor
     auto shape = slice_output.sizes().vec();
     shape.erase(shape.begin() + dim);
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         self_in, shape, self_in.options(), memory_format, true);
     PT_KERNEL_END;
     return output;
@@ -2942,7 +2942,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         std::vector<int64_t> sizes_vec{
             step.toInt(), end.toInt(), start.toInt()};
         IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
-        auto idst_tensor = habana_helpers::createPTTensor(
+        auto idst_tensor = habana::createPTTensor(
             result,
             idst_sizes,
             result.options(),
@@ -2962,7 +2962,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
       // required. Arange kernel return i32 output node Cast kernel will convert
       // i32 -> (i8)
 
-      auto output_range = habana_helpers::createPTTensor(
+      auto output_range = habana::createPTTensor(
           result,
           result.sizes(),
           result.options(),
@@ -3076,7 +3076,7 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
     if (!(result.scalar_type() == ScalarType::Int ||
           result.scalar_type() == ScalarType::Float ||
           result.scalar_type() == ScalarType::BFloat16)) {
-      auto output_range = habana_helpers::createPTTensor(
+      auto output_range = habana::createPTTensor(
           result,
           result.sizes(),
           result.options(),
@@ -3214,7 +3214,7 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
         std::vector<int64_t> sizes_vec{
             step.toInt(), end.toInt(), start.toInt()};
         IntArrayRef idst_sizes(sizes_vec.data(), sizes_vec.size());
-        auto idst_tensor = habana_helpers::createPTTensor(
+        auto idst_tensor = habana::createPTTensor(
             result,
             idst_sizes,
             result.options(),
@@ -3236,7 +3236,7 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
       // required. Arange kernel return i32 output node Cast kernel will convert
       // i32 -> (i8)
 
-      auto output_range = habana_helpers::createPTTensor(
+      auto output_range = habana::createPTTensor(
           result,
           result.sizes(),
           result.options(),
@@ -3387,7 +3387,7 @@ void IndexOperator::AllocateAndAddSynapseNode(
 
   auto shape = compute_output_shape(input, tensorlist);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       IntArrayRef(shape.data(), shape.size()),
       input.options(),
@@ -3493,7 +3493,7 @@ Tensor index_hpu(const at::Tensor& input, TensorList indices) {
   if (device.get_recipe_handle_cache().isCached(key)) {
     auto shape =
         IndexOperator::compute_output_shape(input_cast, new_indices_list);
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         input_cast,
         IntArrayRef(shape.data(), shape.size()),
         input_cast.options(),
@@ -3544,21 +3544,21 @@ void Unique_Operator::AllocateAndAddSynapseNode(
   auto valid_shape = DimVector{1};
 
   // create output and valid shape tensors which are compulsory
-  auto output_feature_map = habana_helpers::createPTTensor(
+  auto output_feature_map = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       output_metadata.at(0).persistent);
-  auto valid_count = habana_helpers::createPTTensor(
+  auto valid_count = habana::createPTTensor(
       self,
       valid_shape,
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
-  auto inverse_tensor = habana_helpers::createPTTensor(
+  auto inverse_tensor = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
@@ -3621,28 +3621,28 @@ void UniqueDimOperator::AllocateAndAddSynapseNode(
   auto counts_tensor_shape = DimVector{self.sizes().vec().at(dim)};
 
   // create output and valid shape tensors which are compulsory
-  auto output_feature_map = habana_helpers::createPTTensor(
+  auto output_feature_map = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       output_metadata.at(0).persistent);
-  auto valid_count = habana_helpers::createPTTensor(
+  auto valid_count = habana::createPTTensor(
       self,
       valid_shape,
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
-  auto inverse_tensor = habana_helpers::createPTTensor(
+  auto inverse_tensor = habana::createPTTensor(
       self,
       inverse_tensor_shape,
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Long,
       output_metadata.at(2).persistent);
-  auto counts_tensor = habana_helpers::createPTTensor(
+  auto counts_tensor = habana::createPTTensor(
       self,
       counts_tensor_shape,
       self.options(),
@@ -3689,14 +3689,14 @@ void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto valid_shape = DimVector{1};
 
   // create output and valid shape tensors which are compulsory
-  auto output_feature_map = habana_helpers::createPTTensor(
+  auto output_feature_map = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       true);
-  auto valid_count = habana_helpers::createPTTensor(
+  auto valid_count = habana::createPTTensor(
       self,
       valid_shape,
       self.options(),
@@ -3744,14 +3744,14 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   // return_inverse and return_counts as false
 
   // create output and valid shape tensors which are compulsory
-  auto output_feature_map = habana_helpers::createPTTensor(
+  auto output_feature_map = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       output_metadata.at(0).persistent);
-  auto valid_count = habana_helpers::createPTTensor(
+  auto valid_count = habana::createPTTensor(
       self,
       valid_shape,
       self.options(),
@@ -3916,7 +3916,7 @@ void SqueezeOperator::AllocateAndAddSynapseNode(
 
   auto shape = SqueezeOperator::compute_output_shape(input, dim);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape,
       input.options(),
@@ -3976,7 +3976,7 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
   auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape,
       input.options(),
@@ -4012,7 +4012,7 @@ void OneHotOperator::AllocateAndAddSynapseNode(
   auto num_classes = inputs[1].toInt();
   auto shape = OneHotOperator::compute_output_shape(input, num_classes);
   OutputMetaDataVector inter_op_metadata(1);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       shape,
       input.options(),

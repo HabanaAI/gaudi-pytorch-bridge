@@ -15,6 +15,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -44,14 +45,14 @@ void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto output_shape = DimVector{elements, dimensions};
   auto shape_tensor_shape = DimVector{5};
   // Create PT output stage 2
-  auto cordinates_of_true = habana_helpers::createPTTensor(
+  auto cordinates_of_true = habana::createPTTensor(
       self,
       output_shape,
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       true);
-  auto shape_tensor = habana_helpers::createPTTensor(
+  auto shape_tensor = habana::createPTTensor(
       self,
       shape_tensor_shape,
       self.options(),
@@ -196,14 +197,14 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       (self.dim() > 4)) {
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
-    auto cordinates_of_true = habana_helpers::createPTTensor(
+    auto cordinates_of_true = habana::createPTTensor(
         self,
         output_shape,
         self.options(),
         self.suggest_memory_format(),
         c10::ScalarType::Int,
         output_metadata.at(0).persistent);
-    auto shape_tensor = habana_helpers::createPTTensor(
+    auto shape_tensor = habana::createPTTensor(
         self,
         shape_tensor_shape,
         self.options(),
@@ -237,20 +238,20 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     // scalar value coming from framework. (iv) Please consult with
     // vgoel@habana.ai before removing or modifying this shape_tensor.
     auto st_shape = compute_output_st_shape(self);
-    Tensor reshape_shape_tensor = habana_helpers::createPTTensor(
+    Tensor reshape_shape_tensor = habana::createPTTensor(
         self, st_shape, self.options(), self.suggest_memory_format(), false);
     AllocateSynapseShapeTensor(graph, reshape_shape_tensor);
 
     auto output_shape = compute_output_shape(self);
     auto shape_tensor_shape = DimVector{5};
-    auto cordinates_of_true = habana_helpers::createPTTensor(
+    auto cordinates_of_true = habana::createPTTensor(
         self,
         output_shape,
         self.options(),
         self.suggest_memory_format(),
         c10::ScalarType::Int,
         output_metadata.at(0).persistent);
-    auto shape_tensor = habana_helpers::createPTTensor(
+    auto shape_tensor = habana::createPTTensor(
         self,
         shape_tensor_shape,
         self.options(),
@@ -284,7 +285,7 @@ Tensor nonzero_hpu(const Tensor& self_in) {
   // Output required of type Int64
   if (self_in.numel() == 0) {
     auto shape = DimVector{0, dimensions};
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         self_in,
         shape,
         self_in.options(),

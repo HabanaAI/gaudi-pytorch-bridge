@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
@@ -73,7 +74,7 @@ void allocate_reduction_result(
     if (shape.size() < 4) {
       memory_format = at::MemoryFormat::Contiguous;
     }
-    result = habana_helpers::createPTTensor(
+    result = habana::createPTTensor(
         self,
         shape,
         self.options().dtype(dtype),
@@ -554,8 +555,8 @@ OutputShapeInfRetType SumDimOperator::ComputeOutputShape(
     if (output_dims < 4) {
       memory_format = at::MemoryFormat::Contiguous;
     }
-    Tensor output = habana_helpers::createPTTensor(
-        self, {0}, self.options(), memory_format, false);
+    Tensor output =
+        habana::createPTTensor(self, {0}, self.options(), memory_format, false);
     inputs.insert(inputs.begin(), IValue(output));
   }
   return ReduceOperator::ComputeOutputShape(inputs);
@@ -598,7 +599,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   if (output_dims < 4) {
     memory_format = at::MemoryFormat::Contiguous;
   }
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -767,7 +768,7 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
   if (output_dims < 4) {
     memory_format = at::MemoryFormat::Contiguous;
   }
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -857,7 +858,7 @@ void ProdDimOperator::AllocateAndAddSynapseNode(
 
   bool keepdim = inputs[2].toBool();
 
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -873,7 +874,7 @@ OutputShapeInfRetType SumOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
     Tensor self = inputs[0].toTensor();
-    Tensor output = habana_helpers::createPTTensor(
+    Tensor output = habana::createPTTensor(
         self, {0}, self.options(), at::MemoryFormat::Contiguous, false);
 
     auto ndim = self.dim();
@@ -901,7 +902,7 @@ void SumOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Sum operator");
 
   Tensor self = inputs[0].toTensor();
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -944,7 +945,7 @@ OutputShapeInfRetType MeanOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
     Tensor self = inputs[0].toTensor();
-    Tensor output = habana_helpers::createPTTensor(
+    Tensor output = habana::createPTTensor(
         self, {0}, self.options(), at::MemoryFormat::Contiguous, false);
 
     std::vector<int64_t> data;
@@ -974,7 +975,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Mean operator");
 
   Tensor self = inputs[0].toTensor();
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       {0},
       self.options(),
@@ -1223,7 +1224,7 @@ void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
   ns_Reduction::Params params{};
   params.reductionDimension = reduce_dim;
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       grad_out, dim_arr, grad_out.options(), output_metadata.at(0).persistent);
   AllocateSynapseOutputs(graph, {output}, output_metadata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -1272,7 +1273,7 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
   ns_Reduction::Params params{};
   params.reductionDimension = reduce_dim;
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       grad_out, dim_arr, grad_out.options(), output_metadata.at(0).persistent);
 
   AllocateSynapseOutputs(graph, {output}, output_metadata);
@@ -1306,7 +1307,7 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for MaxDimOperator");
 
   Tensor self = inputs[0].toTensor();
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       compute_output_shape(
           self, inputs[1].toIntList().vec(), inputs[2].toBool()), //{},

@@ -9,6 +9,7 @@
  */
 #include "habana_kernels/triangular_kernels.h"
 #include <torch/script.h>
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -99,7 +100,7 @@ void DiagOperator::AllocateAndAddSynapseNode(
 
   auto out_shape = compute_output_shape(self, diagonal);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       out_shape,
       self.options(),
@@ -168,7 +169,7 @@ Tensor DiagOutOperator::AllocateOutputTensor(
   auto shape = compute_output_shape(self, diagonal);
 
   // allocate output tensor
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       shape,
       self.options(),

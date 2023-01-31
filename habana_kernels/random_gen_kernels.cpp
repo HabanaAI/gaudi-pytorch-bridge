@@ -13,6 +13,7 @@
 #include <torch/script.h>
 #include <memory>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -159,7 +160,7 @@ OutputShapeInfRetType RandpermOperatorHT::ComputeOutputShape(
   auto shape_tensor = inputs[1].toTensor();
   auto output = inputs[3].toTensor();
   auto scalar_type = output.scalar_type();
-  auto arangeOutput = habana_helpers::createPTTensor(output, false);
+  auto arangeOutput = habana::createPTTensor(output, false);
 
   auto arangeOp = make_operator<ArangeOperatorHT>(
       this->p_context_->device_id_, scalar_type);
@@ -206,7 +207,7 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   auto shape_tensor = inputs[1].toTensor();
   auto output = inputs[3].toTensor();
   auto scalar_type = output.scalar_type();
-  auto arangeOutput = habana_helpers::createPTTensor(output, false);
+  auto arangeOutput = habana::createPTTensor(output, false);
   auto arangeOp = make_operator<ArangeOperatorHT>(
       this->p_context_->device_id_, scalar_type);
   arangeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -251,7 +252,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   auto seed_tensor = inputs[1].toTensor();
   auto output = inputs[2].toTensor();
   auto scalar_type = output.scalar_type();
-  auto arangeOutput = habana_helpers::createPTTensor(output, false);
+  auto arangeOutput = habana::createPTTensor(output, false);
   auto arangeOp =
       make_operator<ArangeOperator>(this->p_context_->device_id_, scalar_type);
   // Order of tensors
@@ -468,7 +469,7 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_RandomBernoulli::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -549,7 +550,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
   Scalar p_converted = static_cast<float>(p);
 
   // independent of self's dtype
-  Tensor self_float = habana_helpers::createPTTensor(
+  Tensor self_float = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -677,7 +678,7 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
   auto ref_tensor = inputs[0].toTensor();
   int64_t seed = inputs[2].isNone() ? get_seed_hpu(c10::nullopt)
                                     : get_seed_hpu(inputs[2].toGenerator());
-  Tensor seed_tensor = habana_helpers::createPTTensor(
+  Tensor seed_tensor = habana::createPTTensor(
       ref_tensor,
       {1},
       ref_tensor.options(),
@@ -725,14 +726,14 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_DropoutKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       output_metadata.at(0).persistent);
-  Tensor output_mask = habana_helpers::createPTTensor(
+  Tensor output_mask = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -770,14 +771,14 @@ void DropoutOperator::SetPTOutputs(
     const torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   auto self = inputs[0].toTensor();
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       self.scalar_type(),
       output_metadata.at(0).persistent);
-  Tensor output_mask = habana_helpers::createPTTensor(
+  Tensor output_mask = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -927,7 +928,7 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       " to graph failed with ",
       get_error(result).error);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       input.sizes(),
       input.options(),

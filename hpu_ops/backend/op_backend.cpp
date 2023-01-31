@@ -13,6 +13,7 @@
 
 #include "hpu_ops/op_backend.h"
 #include <c10/core/ScalarType.h>
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_helpers/cast_sequence.h"
 #include "habana_helpers/dtype_helpers.h"
@@ -171,7 +172,7 @@ void OpBackend::HandleFn(
     const auto& dtype = metadata.dtype;
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
 
-    const auto& output = habana_helpers::createPTTensor(
+    const auto& output = habana::createPTTensor(
         t, outshape, t.options().dtype(dtype), metadata.persistent);
     AllocateSynapseOutput(graph, output, metadata);
     i++;

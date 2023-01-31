@@ -16,6 +16,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
@@ -104,7 +105,7 @@ Tensor CatOperator::CheckAllocateOutput(
     out_size = inputs[2].toTensor().sizes().vec();
   }
 
-  auto out = habana_helpers::createPTTensor(
+  auto out = habana::createPTTensor(
       first_tensor,
       out_size,
       first_tensor.options().dtype(output_dtype),
@@ -515,7 +516,7 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> self_sizes, self_strides;
   std::tie(self_sizes, self_strides) =
       TransposeOperator::compute_output_shape(self, dim0_, dim1_);
-  auto out = habana_helpers::createPTTensor(
+  auto out = habana::createPTTensor(
       self,
       self_sizes,
       self_strides,
@@ -690,7 +691,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       new_sizes,
       new_strides,
@@ -873,7 +874,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     memory_format = at::MemoryFormat::Contiguous;
   }
 
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       inferred_size,
       self.options(),
@@ -1085,7 +1086,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     // to proper values.
     habana_helpers::recalc_strides(expandedStrides, expandedSizes);
 
-    result = habana_helpers::createPTTensor(
+    result = habana::createPTTensor(
         self,
         expandedSizes,
         expandedStrides,
@@ -1104,7 +1105,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     // switching policy correctly in DS shape inference passes.
     at::inferExpandGeometry(
         self.sizes(), self.strides(), IntArrayRef(expand_shape));
-    result = habana_helpers::createPTTensor(
+    result = habana::createPTTensor(
         self,
         expand_shape,
         self.options(),
@@ -1279,7 +1280,7 @@ void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   int64_t i = 0;
   std::vector<Tensor> splits(split_sizes.size());
   for (const auto& shape : shapes) {
-    splits[i++] = habana_helpers::createPTTensor(
+    splits[i++] = habana::createPTTensor(
         self, shape, self.options(), self.suggest_memory_format(), true);
   }
 

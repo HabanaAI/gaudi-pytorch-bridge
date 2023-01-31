@@ -14,6 +14,7 @@
 #include <ATen/InferSize.h>
 #include <ATen/WrapDimUtils.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "habana_device/HPUCheck.h"
@@ -43,8 +44,7 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   at::Tensor input = inputs[0].toTensor();
-  auto output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -85,7 +85,7 @@ void UnaryLikeOperator::AllocateAndAddSynapseNode(
             p_context_->syn_inputs_[0], graph, output_metadata.at(0).external));
     p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   } else {
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         inputs[0].toTensor(), output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
@@ -176,7 +176,7 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       input.sizes());
 
   auto grad_output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+      habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, grad_output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -568,7 +568,7 @@ void GeluOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
 
-  auto output1 = habana_helpers::createPTTensor(
+  auto output1 = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -578,7 +578,7 @@ void GeluOperator::AllocateAndAddSynapseNode(
   // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
   // In graph mode we want 2nd output to be non-persistent to reduce memory
   // consumption
-  auto output2 = habana_helpers::createPTTensor(
+  auto output2 = habana::createPTTensor(
       self, self.sizes(), self.options(), self.suggest_memory_format(), false);
 
   std::vector<at::Tensor> outputs{output1, output2};
@@ -600,7 +600,7 @@ void HbGeluOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
 
-  auto output1 = habana_helpers::createPTTensor(
+  auto output1 = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -610,7 +610,7 @@ void HbGeluOperator::AllocateAndAddSynapseNode(
   // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
   // In graph mode we want 2nd output to be non-persistent to reduce memory
   // consumption
-  auto output2 = habana_helpers::createPTTensor(
+  auto output2 = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
@@ -764,7 +764,7 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
     tanhOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
 
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         self,
         self.sizes(),
         self.options(),
@@ -792,7 +792,7 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
         nullptr,
         deterministic);
   } else {
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         self,
         self.sizes(),
         self.options(),
@@ -1053,8 +1053,7 @@ void ReciprocalOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Reciprocal operator");
 
   auto self = inputs[0].toTensor();
-  auto result =
-      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+  auto result = habana::createPTTensor(self, output_metadata.at(0).persistent);
   inputs.insert(inputs.begin(), IValue(result));
 
   ReciprocalOutOperator::AllocateAndAddSynapseNode(
@@ -1244,7 +1243,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
 
   } else {
     auto output =
-        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+        habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &param, sizeof(param));
   }
@@ -1322,7 +1321,7 @@ void ClampMinOperator::AllocateAndAddSynapseNode(
 
   } else {
     auto output =
-        habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+        habana::createPTTensor(self, output_metadata.at(0).persistent);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
     AddNodeToSynapseGraph(graph, &param, sizeof(param));
   }
@@ -1742,7 +1741,7 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
           " inputs for HardsigmoidOperator operator" + " but received " +
           std::to_string(inputs.size()) + " inputs.");
   ns_HardSigmoidKernel::Params param{alpha, beta};
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       inputs[0].toTensor(), output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
@@ -1998,7 +1997,7 @@ void IsnanOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
 
-  Tensor output = habana_helpers::createPTTensor(
+  Tensor output = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),

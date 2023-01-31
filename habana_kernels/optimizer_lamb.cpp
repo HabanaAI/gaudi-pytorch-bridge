@@ -10,6 +10,7 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -344,19 +345,19 @@ optimizer_lamb_phase1_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     std::vector<at::Tensor> pt_outputs;
     for (auto j = 0; j < num_params; j++) {
-      pt_outputs.push_back(habana_helpers::createPTTensor(
+      pt_outputs.push_back(habana::createPTTensor(
           weights[j],
           weights[j].sizes().vec(),
           weights[j].options(),
           weights[j].suggest_memory_format(),
           true)); // adam_step
-      pt_outputs.push_back(habana_helpers::createPTTensor(
+      pt_outputs.push_back(habana::createPTTensor(
           weights[j],
           {1},
           weights[j].options(),
           weights[j].suggest_memory_format(),
           true)); // adam_norm
-      pt_outputs.push_back(habana_helpers::createPTTensor(
+      pt_outputs.push_back(habana::createPTTensor(
           weights[j],
           {1},
           weights[j].options(),
@@ -844,7 +845,7 @@ Tensor optimizer_lamb_fused_norm_hpu(
   pt_inputs.push_back(clip_norm);
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         grad[0], {1}, grad[0].options(), grad[0].suggest_memory_format(), true);
     Op.Execute(key, pt_inputs, output);
   } else {

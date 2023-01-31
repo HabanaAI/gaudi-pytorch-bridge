@@ -26,6 +26,7 @@
 
 #include "habana_helpers/tensor_utils.h"
 
+#include "backend/create_pt_tensor.h"
 #include "backend/habana_operator.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/lazy_to_backend.h"
@@ -186,7 +187,7 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma in case we need backend end tensor in future we
     // can replace createpttensor with empty_hpu_lazy
-    *int_tensor = habana_helpers::createPTTensor(
+    *int_tensor = habana::createPTTensor(
         long_tensor,
         long_tensor.sizes(),
         long_tensor.options().dtype(c10::ScalarType::Int),
@@ -214,7 +215,7 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma
-    *long_tensor = habana_helpers::createPTTensor(
+    *long_tensor = habana::createPTTensor(
         int_tensor,
         int_tensor.sizes(),
         int_tensor.options().dtype(c10::ScalarType::Long),
@@ -280,7 +281,7 @@ Tensor habana_helpers::GenerateAndCopyTensorToHPU(
     const float value,
     bool is_persistent) {
   // Convert bias_corrections to tensors to avoid cache misses
-  Tensor val_t = habana_helpers::createPTTensor(
+  Tensor val_t = habana::createPTTensor(
       ref_tensor,
       {1},
       ref_tensor.options(),
@@ -292,181 +293,6 @@ Tensor habana_helpers::GenerateAndCopyTensorToHPU(
   copy_scalar_to_device(buffer.data(), val_t, size);
 
   return val_t;
-}
-
-bool habana_helpers::alwaysAllocOnDevice() {
-  static bool allocOnDevice = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
-  return allocOnDevice;
-}
-at::Tensor habana_helpers::nonPersistentTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    at::optional<caffe2::TypeMeta> data_type) {
-  static_cast<void>(options);
-  auto t =
-      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
-          input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-
-  if (optional_memory_format.has_value()) {
-    t.unsafeGetTensorImpl()->empty_tensor_restride(
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  } else {
-    auto memory_format =
-        input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
-    t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
-  }
-
-  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
-  return t;
-}
-
-at::Tensor habana_helpers::nonPersistentTensor(
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    at::optional<caffe2::TypeMeta> data_type) {
-  auto t =
-      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
-          data_type);
-  t.unsafeGetTensorImpl()->set_sizes_and_strides(size, strides);
-  t.unsafeGetTensorImpl()->empty_tensor_restride(
-      optional_memory_format.value_or(MemoryFormat::Contiguous));
-  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
-  return t;
-}
-
-at::Tensor habana_helpers::nonPersistentTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    at::optional<caffe2::TypeMeta> data_type) {
-  static_cast<void>(options);
-  auto t =
-      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
-          input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_and_strides(size, strides);
-  if (optional_memory_format.has_value()) {
-    t.unsafeGetTensorImpl()->empty_tensor_restride(
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  } else {
-    auto memory_format =
-        input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
-    t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
-  }
-
-  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
-  return t;
-}
-
-at::Tensor habana_helpers::createPTTensor(
-    const at::Tensor& input,
-    bool is_persistent) {
-  at::Tensor t;
-  if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(
-        input.sizes(), input.options(), input.suggest_memory_format());
-  } else {
-    t = habana_helpers::nonPersistentTensor(
-        input, input.sizes(), input.options(), input.suggest_memory_format());
-  }
-
-  return t;
-}
-
-at::Tensor habana_helpers::createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    bool is_persistent) {
-  at::Tensor t;
-  if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(size, options, input.suggest_memory_format());
-  } else {
-    t = habana_helpers::nonPersistentTensor(
-        input,
-        size,
-        options,
-        input.suggest_memory_format(),
-        options.dtype_opt());
-  }
-
-  return t;
-}
-
-at::Tensor habana_helpers::createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    bool is_persistent) {
-  at::Tensor t;
-  if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(
-        size,
-        options,
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  } else {
-    t = habana_helpers::nonPersistentTensor(
-        input,
-        size,
-        options,
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  }
-
-  return t;
-}
-
-at::Tensor habana_helpers::createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    at::IntArrayRef strides,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    bool is_persistent) {
-  at::Tensor t;
-  if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty_strided(size, strides, options);
-  } else {
-    t = habana_helpers::nonPersistentTensor(
-        input,
-        size,
-        strides,
-        options,
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  }
-
-  return t;
-}
-
-at::Tensor habana_helpers::createPTTensor(
-    const at::Tensor& input,
-    at::IntArrayRef size,
-    const at::TensorOptions& options,
-    at::optional<c10::MemoryFormat> optional_memory_format,
-    c10::ScalarType data_type,
-    bool is_persistent) {
-  at::Tensor t;
-  HABANA_ASSERT(c10::ScalarType::Undefined != data_type, "undefined dtype");
-  if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(
-        size,
-        input.options().dtype(data_type),
-        optional_memory_format.value_or(MemoryFormat::Contiguous));
-  } else {
-    t = habana_helpers::nonPersistentTensor(
-        input,
-        size,
-        options,
-        optional_memory_format.value_or(MemoryFormat::Contiguous),
-        scalarTypeToTypeMeta(data_type));
-  }
-
-  return t;
 }
 
 /******************************************************************************

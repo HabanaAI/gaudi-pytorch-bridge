@@ -16,6 +16,7 @@
 #include <memory>
 #include <tuple>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -142,8 +143,7 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   const auto momentum = in_stack[6].toDouble();
   const auto eps = in_stack[7].toDouble();
 
-  auto output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
@@ -200,19 +200,19 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     [[maybe_unused]] int64_t m,
     std::array<bool, 3> is_persistent) {
   auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       sizes[0],
       input.options(),
       input.suggest_memory_format(),
       is_persistent[0]);
-  auto istd = habana_helpers::createPTTensor(
+  auto istd = habana::createPTTensor(
       bias,
       sizes[1],
       bias.options(),
       bias.suggest_memory_format(),
       is_persistent[1]);
-  auto mean = habana_helpers::createPTTensor(
+  auto mean = habana::createPTTensor(
       weight,
       sizes[2],
       weight.options(),
@@ -352,9 +352,7 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
   // output syn tensor is non-persistent since it will be reshaped to input
   // sizes which will be marked as persistent
   AllocateSynapseOutput(
-      graph,
-      habana_helpers::createPTTensor(input_reshaped, false),
-      OutputMetaData());
+      graph, habana::createPTTensor(input_reshaped, false), OutputMetaData());
   AllocateSynapseOutput(graph, mean, output_metadata_all_outputs.at(1));
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
@@ -496,19 +494,19 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
     const Tensor& weight,
     bool is_persistent) {
   auto sizes = LayerNormBackwardOperator::getOutputSizes(input, weight);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       sizes[0],
       input.options(),
       input.suggest_memory_format(),
       is_persistent);
-  auto beta = habana_helpers::createPTTensor(
+  auto beta = habana::createPTTensor(
       weight,
       sizes[1],
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent);
-  auto gamma = habana_helpers::createPTTensor(
+  auto gamma = habana::createPTTensor(
       weight,
       sizes[2],
       weight.options(),
@@ -647,17 +645,17 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto output2 = std::get<2>(outputs);
   AllocateSynapseOutput(
       graph,
-      habana_helpers::createPTTensor(dy_reshaped, false),
+      habana::createPTTensor(dy_reshaped, false),
       OutputMetaData(),
       false);
   AllocateSynapseOutput(
       graph,
-      habana_helpers::createPTTensor(gamma_reshaped, false),
+      habana::createPTTensor(gamma_reshaped, false),
       OutputMetaData(),
       false);
   AllocateSynapseOutput(
       graph,
-      habana_helpers::createPTTensor(gamma_reshaped, false),
+      habana::createPTTensor(gamma_reshaped, false),
       OutputMetaData(),
       false);
   synapse_helpers::tensor& syn_grad_out = p_context_->syn_outputs_[0];
@@ -1037,8 +1035,8 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[2].toInt();
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
-  auto lpnorm_output = habana_helpers::createPTTensor(self, false);
-  auto retain = habana_helpers::createPTTensor(self, false);
+  auto lpnorm_output = habana::createPTTensor(self, false);
+  auto retain = habana::createPTTensor(self, false);
 
   ns_LpNormKernel::Params params{};
   params.p = p.to<float>();
@@ -1092,7 +1090,7 @@ void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be Tensor for LpNorm Operator");
 
   auto self = inputs[0].toTensor();
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       self,
       {1},
       self.options(),
@@ -1350,7 +1348,7 @@ Tensor fused_norm_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = habana_helpers::createPTTensor(
+    auto output = habana::createPTTensor(
         grad[0],
         grad[0].sizes().vec(),
         grad[0].options(),
@@ -1488,8 +1486,7 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
 
   const auto eps = in_stack[3].toDouble();
 
-  auto output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
@@ -1497,14 +1494,14 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
   auto mean_var_shape =
       InstanceNormOperator::compute_output_shape(input, memory_format);
 
-  auto current_mean = habana_helpers::createPTTensor(
+  auto current_mean = habana::createPTTensor(
       beta,
       mean_var_shape,
       beta.options(),
       c10::MemoryFormat::Contiguous,
       output_metadata.at(1).persistent);
 
-  auto current_istd = habana_helpers::createPTTensor(
+  auto current_istd = habana::createPTTensor(
       beta,
       mean_var_shape,
       beta.options(),
@@ -1629,8 +1626,7 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
       habana_helpers::name_suffix_from_type(input.scalar_type());
   SetGuid(guid);
 
-  auto output =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
@@ -1638,14 +1634,14 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
   auto grad_beta_gamma_shape =
       InstanceNormBackwardOperator::compute_output_shape(input, memory_format);
 
-  auto grad_beta = habana_helpers::createPTTensor(
+  auto grad_beta = habana::createPTTensor(
       mean,
       grad_beta_gamma_shape,
       mean.options(),
       c10::MemoryFormat::Contiguous,
       output_metadata.at(1).persistent);
 
-  auto grad_gamma = habana_helpers::createPTTensor(
+  auto grad_gamma = habana::createPTTensor(
       mean,
       grad_beta_gamma_shape,
       mean.options(),
@@ -1788,23 +1784,23 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   const auto training = in_stack[5].toBool();
   const auto momentum = in_stack[6].toDouble();
   const auto eps = in_stack[7].toDouble();
-  auto output = habana_helpers::createPTTensor(
-      pre_inputs[0], output_metadata.at(0).persistent);
+  auto output =
+      habana::createPTTensor(pre_inputs[0], output_metadata.at(0).persistent);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  auto current_mean = habana_helpers::createPTTensor(
-      pre_inputs[3], output_metadata.at(1).persistent);
-  auto current_istd = habana_helpers::createPTTensor(
-      pre_inputs[4], output_metadata.at(2).persistent);
+  auto current_mean =
+      habana::createPTTensor(pre_inputs[3], output_metadata.at(1).persistent);
+  auto current_istd =
+      habana::createPTTensor(pre_inputs[4], output_metadata.at(2).persistent);
   OutputMetaDataVector out_12_metadata =
       SelectVectorIndices(output_metadata, {1, 2});
   AllocateSynapseOutputs(graph, {current_mean, current_istd}, out_12_metadata);
 
-  auto running_mean_out = habana_helpers::createPTTensor(
-      pre_inputs[3], output_metadata.at(3).persistent);
-  auto running_var_out = habana_helpers::createPTTensor(
-      pre_inputs[4], output_metadata.at(4).persistent);
+  auto running_mean_out =
+      habana::createPTTensor(pre_inputs[3], output_metadata.at(3).persistent);
+  auto running_var_out =
+      habana::createPTTensor(pre_inputs[4], output_metadata.at(4).persistent);
   OutputMetaDataVector out_34_metadata =
       SelectVectorIndices(output_metadata, {3, 4});
   AllocateSynapseOutputs(
@@ -1945,11 +1941,11 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto momentum = inputs[7].toDouble();
   // Prepare output tensor vector
   auto grad_in_nhwc =
-      habana_helpers::createPTTensor(input, output_metadata.at(0).persistent);
+      habana::createPTTensor(input, output_metadata.at(0).persistent);
   auto grad_beta =
-      habana_helpers::createPTTensor(weight, output_metadata.at(1).persistent);
+      habana::createPTTensor(weight, output_metadata.at(1).persistent);
   auto grad_gamma =
-      habana_helpers::createPTTensor(weight, output_metadata.at(2).persistent);
+      habana::createPTTensor(weight, output_metadata.at(2).persistent);
 
   AllocateSynapseOutputs(
       graph, {grad_in_nhwc, grad_beta, grad_gamma}, output_metadata);
@@ -2014,19 +2010,19 @@ std::tuple<Tensor, Tensor, Tensor> GroupNormForwardOperator::AllocatePTOutputs(
     std::array<bool, 3> is_persistent) {
   auto sizes = GroupNormForwardOperator::getOutputSizes(
       input, normalized_shape, num_groups);
-  auto output = habana_helpers::createPTTensor(
+  auto output = habana::createPTTensor(
       input,
       sizes[0],
       input.options(),
       input.suggest_memory_format(),
       is_persistent[0]);
-  auto istd = habana_helpers::createPTTensor(
+  auto istd = habana::createPTTensor(
       bias,
       sizes[1],
       bias.options(),
       bias.suggest_memory_format(),
       is_persistent[1]);
-  auto mean = habana_helpers::createPTTensor(
+  auto mean = habana::createPTTensor(
       weight,
       sizes[2],
       weight.options(),
@@ -2360,7 +2356,7 @@ void GroupNormBackwardOperator::AllocateAndAddSynapseNode(
   c10::IntArrayRef bias_shape(bias_sizes, 1);
   // bias is not used by LN backward, but we need to provide in the stack.
   const auto bias_opt =
-      habana_helpers::createPTTensor(input, bias_shape, input.options(), false);
+      habana::createPTTensor(input, bias_shape, input.options(), false);
   AllocateSynapseInput(
       graph, bias_opt, false); // TO DO: is this allowed within an Op?
   for (auto i = 0; i < num_groups; i++) {

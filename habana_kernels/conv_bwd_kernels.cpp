@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
@@ -378,7 +379,7 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
   auto channel_dim = INPUT_3D_C_IDX;
   std::vector<OutputMetaData> out_2_metadata =
       SelectVectorIndices(output_metadata, {2});
-  auto grad_bias = habana_helpers::createPTTensor(
+  auto grad_bias = habana::createPTTensor(
       grad_out_nhwc,
       {grad_out_nhwc.size(channel_dim)},
       grad_out_nhwc.options(),
@@ -437,7 +438,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
       SelectVectorIndices(output_metadata, {2});
   auto channel_dim = INPUT_C_IDX;
   auto grad_out_nhwc = inputs[0].toTensor();
-  auto grad_bias = habana_helpers::createPTTensor(
+  auto grad_bias = habana::createPTTensor(
       grad_out_nhwc,
       {grad_out_nhwc.size(channel_dim)},
       grad_out_nhwc.options(),
@@ -506,10 +507,10 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
       {&input_nhwc, &grad_out_nhwc, &weight_hwck});
 
-  auto grad_weight = habana_helpers::nonPersistentTensor(
+  auto grad_weight = habana::nonPersistentTensor(
       weight_hwck, weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
 
-  auto grad_input_nhwc = habana_helpers::nonPersistentTensor(
+  auto grad_input_nhwc = habana::nonPersistentTensor(
       input_nhwc, input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
 
   OutputShapeInfRetType out;
@@ -702,7 +703,7 @@ OutputShapeInfRetType ConvBackwardOperator::ComputeOutputShape(
     channel_dim = INPUT_C_IDX;
   }
 
-  auto grad_bias = habana_helpers::nonPersistentTensor(
+  auto grad_bias = habana::nonPersistentTensor(
       grad_out_nhwc,
       {grad_out_nhwc.size(channel_dim)},
       grad_out_nhwc.options(),
@@ -799,7 +800,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
       {&input_nhwc, &grad_out_nhwc, &weight_hwck});
 
-  auto grad_weight = habana_helpers::createPTTensor(
+  auto grad_weight = habana::createPTTensor(
       weight_hwck,
       weight_hwck.sizes(),
       grad_out_nhwc.options(),
@@ -810,7 +811,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(grad_weight);
     hb_grad_weight->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
   }
-  auto grad_input_nhwc = habana_helpers::createPTTensor(
+  auto grad_input_nhwc = habana::createPTTensor(
       input_nhwc,
       input_nhwc.sizes(),
       grad_out_nhwc.options(),

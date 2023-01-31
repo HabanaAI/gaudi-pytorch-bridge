@@ -9,6 +9,7 @@
  */
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -39,7 +40,7 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
       "Threshold values other than 0 are not supported")
 
   auto grad_input =
-      habana_helpers::createPTTensor(self, output_metadata.at(0).persistent);
+      habana::createPTTensor(self, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, grad_input, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

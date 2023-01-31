@@ -10,6 +10,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "backend/create_pt_tensor.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -44,16 +45,16 @@ void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
 
   ns_FilterAndSqueeze::Params params{};
   params.threshold.f = threshold.toFloat();
-  auto scores = habana_helpers::createPTTensor(
+  auto scores = habana::createPTTensor(
       self, self.sizes(), self.options(), output_metadata.at(0).persistent);
-  auto box_ids = habana_helpers::createPTTensor(
+  auto box_ids = habana::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
-  auto valid_box_ids = habana_helpers::createPTTensor(
+  auto valid_box_ids = habana::createPTTensor(
       self,
       {self.sizes()[0], self.sizes()[1]},
       self.options(),
@@ -87,7 +88,7 @@ void NMSOperator::AllocateAndAddSynapseNode(
   auto iou = inputs[3].toScalar();
 
   ns_Nms::Params params{iou.toFloat()};
-  auto box_id_out = habana_helpers::createPTTensor(
+  auto box_id_out = habana::createPTTensor(
       box_ids,
       box_ids.sizes(),
       box_ids.options(),
@@ -113,12 +114,12 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   auto box_ids = inputs[0].toTensor();
   auto valid_box_ids = inputs[1].toTensor();
 
-  auto box_id_out = habana_helpers::createPTTensor(
+  auto box_id_out = habana::createPTTensor(
       box_ids,
       {static_cast<int>(box_ids.sizes()[2])},
       box_ids.options(),
       output_metadata.at(0).persistent);
-  auto valid_box_id_out = habana_helpers::createPTTensor(
+  auto valid_box_id_out = habana::createPTTensor(
       valid_box_ids,
       {1},
       valid_box_ids.options(),
@@ -148,7 +149,7 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
       output_metadata.at(1),
       false); // is_shape_tensor
 
-  auto shape_tensor = habana_helpers::createPTTensor(
+  auto shape_tensor = habana::createPTTensor(
       valid_box_ids,
       {5},
       valid_box_ids.options(),
@@ -165,14 +166,14 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
 
 void HabanaNMSOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto scores = inputs[1].toTensor();
-  auto box_id_out = habana_helpers::createPTTensor(
+  auto box_id_out = habana::createPTTensor(
       scores,
       {scores.sizes()[0]},
       scores.options().dtype(c10::ScalarType::Int),
       true);
-  auto valid_box_id_out = habana_helpers::createPTTensor(
+  auto valid_box_id_out = habana::createPTTensor(
       scores, {1}, scores.options().dtype(c10::ScalarType::Int), true);
-  auto shape_tensor = habana_helpers::createPTTensor(
+  auto shape_tensor = habana::createPTTensor(
       scores, {5}, scores.options().dtype(c10::ScalarType::Int), true);
 
   std::vector<at::Tensor> outputs{box_id_out, valid_box_id_out, shape_tensor};
@@ -402,7 +403,7 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
       (scores.sizes()[0] * max_classes) == shape_tensor_2_size,
       "Shape tensor 2 calculation mismatch for batched_nms");
 
-  auto box_id_out = habana_helpers::createPTTensor(
+  auto box_id_out = habana::createPTTensor(
       indexes,
       {static_cast<int>(indexes.sizes()[0]) * max_classes},
       indexes.options(),
@@ -413,7 +414,7 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0),
       false); // is_shape_tensor
 
-  auto shape_tensor = habana_helpers::createPTTensor(
+  auto shape_tensor = habana::createPTTensor(
       indexes, {5}, indexes.options(), output_metadata.at(1).persistent);
   AllocateSynapseOutput(graph, shape_tensor, output_metadata.at(1), false);
 
