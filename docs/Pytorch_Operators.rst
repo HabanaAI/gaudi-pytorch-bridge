@@ -168,6 +168,7 @@ isinf                                  Yes      Yes      No        No       No  
 isnan                                  Yes      Yes      Yes       No       No     torch
 isneginf                               Yes      Yes      No        No       No     torch
 isposinf                               Yes      Yes      No        No       No     torch
+kthvalue                               Yes      Yes      Yes       No       No     torch
 le                                     Yes      Yes      Yes       Yes      No     torch
 lerp                                   Yes      Yes      Yes       No       No     torch
 less                                   Yes      Yes      Yes       Yes      No     torch
@@ -455,6 +456,7 @@ isnan                                  Yes      Yes      Yes       No       No  
 isneginf                               Yes      Yes      No        No       No     torch.Tensor
 isposinf                               Yes      Yes      No        No       No     torch.Tensor
 item                                   Yes      No       No        No       No     torch.Tensor
+kthvalue                               Yes      Yes      Yes       No       No     torch.Tensor
 le                                     Yes      Yes      Yes       Yes      No     torch.Tensor
 le\_                                   Yes      Yes      Yes       Yes      No     torch.Tensor
 lerp                                   Yes      Yes      Yes       No       No     torch.Tensor

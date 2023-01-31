@@ -108,6 +108,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/index_select_gen.cpp
           backend/isfinite_isinf_isnan_gen.cpp
           backend/isposneginf_gen.cpp
+          backend/kthvalue_gen.cpp
           backend/lazy_cast.cpp
           backend/lazy_fp8_ops.cpp
           backend/leakyrelu_gen.cpp
@@ -228,6 +229,7 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
           lazy/isfinite_isinf_isnan_gen.cpp
+          lazy/kthvalue_gen.cpp
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp

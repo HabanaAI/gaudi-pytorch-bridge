@@ -84,6 +84,7 @@ add_executable(
   hpu_ops/huber_loss.cpp
   hpu_ops/hypot.cpp
   hpu_ops/index_select.cpp
+  hpu_ops/kthvalue.cpp
   hpu_ops/l1_loss.cpp
   hpu_ops/le.cpp
   hpu_ops/leakyrelu.cpp

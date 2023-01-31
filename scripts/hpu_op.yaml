@@ -3343,6 +3343,28 @@ kl_div:
   override_fn: kl_div_hpu_lazy
   acc_thread: true
 
+kthvalue:
+  custom_output_shape: KthvalueOutputShape
+  custom_fill_params: FillKthvalueParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
+  guid: kthvalue_fwd
+  op_frontend: LazyKthvalue
+  out_ids: [0, 0]
+
+kthvalue.values:
+  custom_output_shape: KthvalueOutputShape
+  custom_fill_params: FillKthvalueParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
+    Greco: [BFloat16, Float, Half, Int]
+  guid: kthvalue_fwd
+
 index_add_:
   force_default: false
   dtypes:
