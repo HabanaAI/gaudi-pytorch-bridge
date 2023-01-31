@@ -109,8 +109,6 @@ class device {
   device& operator=(device&&) = delete;
   ~device();
 
-  void SetEagerModeEnv();
-  void ResetEagerModeEnv();
   void cleanup();
   void flush_stream_events();
 
@@ -543,9 +541,6 @@ class device {
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
   std::map<size_t, uint32_t> workspace_usage_;
-  bool eager_gc_mode = false;
-  bool recipe_cache_enable = false;
-  bool shape_agnostic_enable = false;
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);
