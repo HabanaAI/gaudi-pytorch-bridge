@@ -15,6 +15,7 @@
 #include "HPUCheck.h"
 #include "HPUGuardImpl.h"
 #include "habana_helpers/kernels_accumulation.h"
+#include "habana_lazy/lazy_executor.h"
 #include "hpu_cached_devices.h"
 
 #include "habana_lazy/memlog.h"
@@ -385,6 +386,9 @@ HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
   if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
     habana_lazy::AccThread::Get().SyncAccThreadPool();
     habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
+
+    habana_lazy::HbLazyTensor::StepMarker();
+    synapse_helpers::HPURegistrar::synchronize_device();
     HPURegistrar::deleteDevices();
     habana::HPUDeviceAllocator::allocator_active_device_id = -1;
     habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
