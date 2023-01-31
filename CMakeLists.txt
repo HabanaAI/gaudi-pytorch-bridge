@@ -345,6 +345,10 @@ if (BUILD_PKGS)
     habana_frameworks/torch/hpu/memory.py
     habana_frameworks/torch/hpu/random.py
     habana_frameworks/torch/hpu/streams.py
+    habana_frameworks/torch/hpu/metrics/__init__.py
+    habana_frameworks/torch/hpu/metrics/exceptions.py
+    habana_frameworks/torch/hpu/metrics/metrics.py
+    habana_frameworks/torch/hpu/metrics/saver.py
     habana_frameworks/torch/profiler/__init__.py
     habana_frameworks/torch/profiler/ProfilerApi.py
     habana_frameworks/torch/utils/__init__.py

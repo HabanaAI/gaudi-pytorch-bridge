@@ -12,6 +12,7 @@
  */
 #include "event_dispatcher.h"
 #include <c10/util/Exception.h>
+#include <chrono>
 #include <ostream>
 #include "habana_helpers/logging.h"
 
@@ -30,7 +31,8 @@ std::shared_ptr<EventDispatcherHandle> EventDispatcher::subscribe(
 
 void EventDispatcher::publish(
     EventDispatcher::Topic topic,
-    const EventDispatcher::EventParams& params) {
+    const EventDispatcher::EventParams& params,
+    EventTsType timestamp) {
   log_publish_request(topic, params);
 
   std::lock_guard<std::mutex> ld(mutex_);
@@ -39,7 +41,7 @@ void EventDispatcher::publish(
   }
 
   for (const auto& callback_with_sub_id : subscribers_[topic]) {
-    callback_with_sub_id.second(params);
+    callback_with_sub_id.second(timestamp, params);
   }
 }
 

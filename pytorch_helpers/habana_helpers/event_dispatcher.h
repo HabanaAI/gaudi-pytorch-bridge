@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -42,7 +43,8 @@ class EventDispatcher {
 
   using EventParams =
       std::vector<std::pair<std::string, std::variant<int64_t, std::string>>>;
-  using EventCallbackFuncType = void(const EventParams&);
+  using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
+  using EventCallbackFuncType = void(EventTsType timestamp, const EventParams&);
   using EventCallback = std::function<EventCallbackFuncType>;
   using EventCallbackWithSubId = std::pair<int64_t, EventCallback>;
 
@@ -51,7 +53,10 @@ class EventDispatcher {
       const EventCallback& callback);
   void unsubscribe(Topic topic, int64_t subscribe_id);
   void unsubscribe(const std::shared_ptr<EventDispatcherHandle>& handle);
-  void publish(Topic topic, const EventParams& params);
+  void publish(
+      Topic topic,
+      const EventParams& params,
+      EventTsType timestamp = std::chrono::system_clock::now());
   void unsubscribe_all();
 
  private:
@@ -84,10 +89,11 @@ class EventDispatcherHandle
       : topic(topic), sub_id(sub_id) {}
 };
 
-void EmitEvent(
+inline void EmitEvent(
     EventDispatcher::Topic event_id,
-    const EventDispatcher::EventParams& params) {
-  EventDispatcher::Instance().publish(event_id, params);
+    const EventDispatcher::EventParams& params,
+    EventDispatcher::EventTsType timestamp = std::chrono::system_clock::now()) {
+  EventDispatcher::Instance().publish(event_id, params, timestamp);
 }
 
 inline std::ostream& operator<<(

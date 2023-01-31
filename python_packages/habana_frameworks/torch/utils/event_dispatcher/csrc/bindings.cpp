@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
 #include "pytorch_helpers/habana_helpers/event_dispatcher.h"
@@ -33,10 +34,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           [](habana_helpers::EventDispatcher& instance,
              const std::shared_ptr<habana_helpers::EventDispatcherHandle>&
                  handle) { instance.unsubscribe(handle); })
-      .def("publish", &habana_helpers::EventDispatcher::publish)
-      .def(
-          "_unsubscribe_all",
-          &habana_helpers::EventDispatcher::unsubscribe_all);
+      .def("publish", &habana_helpers::EventDispatcher::publish);
 
   py::class_<
       habana_helpers::EventDispatcherHandle,
