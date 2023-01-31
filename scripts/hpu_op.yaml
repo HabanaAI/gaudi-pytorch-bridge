@@ -1719,6 +1719,7 @@ clamp:
 
 clamp.Tensor:
   force_default: false
+  custom_output_shape: ClampOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -1741,6 +1742,7 @@ clamp_:
 
 clamp_.Tensor:
   force_default: false
+  custom_output_shape: ClampOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -1761,6 +1763,7 @@ clamp.out:
   guid: clamp_fwd
 
 clamp.Tensor_out:
+  custom_output_shape: ClampOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]

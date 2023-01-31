@@ -188,11 +188,24 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
+sizes_vec ClampOutputShape(const at::Stack& stack) {
+  auto self_sizes = stack_tensor(stack, 0).sizes();
+  bool minTensorDefined = stack.at(1).isTensor();
+  bool maxTensorDefined = stack.at(2).isTensor();
+  if (minTensorDefined && maxTensorDefined)
+    return {at::infer_size(
+        at::infer_size(self_sizes, stack_tensor(stack, 1).sizes()),
+        stack_tensor(stack, 2).sizes())};
+  else if (minTensorDefined)
+    return {at::infer_size(self_sizes, stack_tensor(stack, 1).sizes())};
+  return {at::infer_size(self_sizes, stack_tensor(stack, 2).sizes())};
+}
+
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
-  const auto& outshape = stack_tensor(stack, 0).sizes();
+  auto outshape = ComputeOutputShapes(stack)[0];
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
   if (minTensorDefined && maxTensorDefined) {
