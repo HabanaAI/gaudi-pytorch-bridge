@@ -146,8 +146,9 @@ void getCountDatatype(
       tensor_data_type = getHCCLDataType(at::kFloat);
       break;
     case at::kLong:
-      // there is implicit conversion from long to float
-      numel = (numel * sizeof(float)) / sizeof(float);
+      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+        numel = (numel * 2);
+      }
       tensor_data_type = getHCCLDataType(at::kFloat);
       break;
     case at::kDouble:
@@ -159,6 +160,23 @@ void getCountDatatype(
       break;
     default:
       break;
+  }
+}
+
+void adjustElementcount_int64(
+    c10::ScalarType scalar_type,
+    std::vector<size_t>& send_lengths,
+    std::vector<size_t>& recv_lengths,
+    size_t& ele_size) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) && scalar_type == at::kLong) {
+    for (size_t i = 0; i < send_lengths.size(); i++) {
+      send_lengths[i] = send_lengths[i] * 2;
+      recv_lengths[i] = recv_lengths[i] * 2;
+    }
+  } else {
+    if (scalar_type == at::kLong) {
+      ele_size = ele_size / 2;
+    }
   }
 }
 
@@ -1012,8 +1030,10 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
   c10::intrusive_ptr<Work> work;
   at::Tensor alltoall_out_tensors;
   at::Tensor alltoall_in_tensors;
+  auto out_scalar_t = outputTensor.scalar_type();
   auto data_type = getHCCLDataType(outputTensor.scalar_type());
-  if (is_valid_hccl_dtype(data_type)) {
+  if (is_valid_hccl_dtype(data_type) || out_scalar_t == at::kInt ||
+      out_scalar_t == at::kLong) {
     alltoall_out_tensors = outputTensor;
     alltoall_in_tensors = inputTensor;
   } else {
@@ -1037,7 +1057,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
             void* recv_buffer,
             hcclComm_t& hccl_comm,
             synStreamHandle stream) {
-          size_t count = input.numel();
+          int64_t count = input.numel();
           auto type = getHCCLDataType(input.scalar_type());
           HOST_SYNC()
           NW_STREAM_SYNC()
@@ -1051,6 +1071,10 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
               " data_type :: ",
               getHCCLDataType(input.scalar_type()));
           hcclResult_t hccl_result{hcclSuccess};
+
+          const auto scalar_type = input.scalar_type();
+          getCountDatatype(scalar_type, count, type);
+
           if (!this->emulate_distributed_) {
             hccl_result = hcclAlltoAll(
                 send_buffer, recv_buffer, count, type, hccl_comm, stream);
@@ -1076,13 +1100,13 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
           std::vector<size_t> recv_lengths(size_);
           std::vector<size_t> send_offsets(size_);
           std::vector<size_t> recv_offsets(size_);
+          const auto scalar_type = input.scalar_type();
 
           c10d::computeLengthsAndOffsets(
               inputSplitSizes, input, &send_lengths, &send_offsets);
           c10d::computeLengthsAndOffsets(
               outputSplitSizes, output, &recv_lengths, &recv_offsets);
-
-          size_t count = input.numel();
+          int64_t count = input.numel();
           auto type = getHCCLDataType(input.scalar_type());
           HOST_SYNC()
           NW_STREAM_SYNC()
@@ -1096,6 +1120,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
               " data_type :: ",
               getHCCLDataType(input.scalar_type()));
           size_t ele_size = input.element_size();
+          getCountDatatype(scalar_type, count, type);
+          adjustElementcount_int64(
+              scalar_type, send_lengths, recv_lengths, ele_size);
           hcclGroupStart();
           hcclResult_t hccl_result{hcclSuccess};
           for (const auto r : c10::irange(numRanks)) {

@@ -37,7 +37,7 @@ def alltoallv(rank):
     recvbuf = allocate(MAX_MSG_SIZE*numprocs)
 
     for i in range (MAX_MSG_SIZE*numprocs):
-            sendbuf[i] = rank
+            sendbuf[i] = 2147483637 + rank
             recvbuf[i] = -1
 
     array_int = lambda n: array('i', [0]*n)
@@ -52,23 +52,23 @@ def alltoallv(rank):
         s_displs[i] = r_displs[i] = disp
         disp = disp + MAX_MSG_SIZE
 
-    s_msg = [sendbuf, (s_counts, s_displs), MPI.INTEGER]
-    r_msg = [recvbuf, (r_counts, r_displs), MPI.INTEGER]
+    s_msg = [sendbuf, (s_counts, s_displs)]
+    r_msg = [recvbuf, (r_counts, r_displs)]
 
     comm.Alltoallv(s_msg,r_msg)
-
-
     ip_tensor = torch.IntTensor(sendbuf).to('hpu')
     op_tensor = torch.IntTensor(recvbuf).to('hpu')
-
-
     dist.all_to_all_single(op_tensor,ip_tensor,r_counts,s_counts)
-
     check_res("alltoallv ",rank,op_tensor,torch.IntTensor(recvbuf))
 
 
+    ip_tensor = torch.LongTensor(sendbuf).to('hpu')
+    op_tensor = torch.LongTensor(recvbuf).to('hpu')
+    dist.all_to_all_single(op_tensor,ip_tensor,r_counts,s_counts)
+    check_res("alltoallv ",rank,op_tensor,torch.LongTensor(recvbuf))
+
 def alltoall(rank):
-    a_size = 2
+    a_size = 3
     input = (rank+1)*numpy.arange(a_size*world_size, dtype=int)
     output = numpy.empty(world_size*a_size, dtype=int)
     exp = numpy.empty(world_size*a_size, dtype=int)
@@ -247,7 +247,6 @@ os.environ["LOCAL_RANK"]= str(rank)
 
 import habana_frameworks.torch.distributed.hccl
 dist.init_process_group("hccl", rank=rank, world_size=world_size)
-
 
 all_gather(rank,world_size)
 broadcast(rank)

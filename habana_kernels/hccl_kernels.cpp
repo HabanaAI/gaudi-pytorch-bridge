@@ -71,8 +71,9 @@ void getCountDatatype(
       tensor_data_type = getHCCLDataType(at::kFloat);
       break;
     case at::kLong:
-      // there is implicit conversion from long to float
-      numel = (numel * sizeof(float)) / sizeof(float);
+      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+        numel = (numel * 2);
+      }
       tensor_data_type = getHCCLDataType(at::kFloat);
       break;
     case at::kDouble:
@@ -84,6 +85,23 @@ void getCountDatatype(
       break;
     default:
       break;
+  }
+}
+
+void adjustElementcount_int64(
+    c10::ScalarType scalar_type,
+    std::vector<size_t>& send_lengths,
+    std::vector<size_t>& recv_lengths,
+    size_t& ele_size) {
+  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) && scalar_type == at::kLong) {
+    for (size_t i = 0; i < send_lengths.size(); i++) {
+      send_lengths[i] = send_lengths[i] * 2;
+      recv_lengths[i] = recv_lengths[i] * 2;
+    }
+  } else {
+    if (scalar_type == at::kLong) {
+      ele_size = ele_size / 2;
+    }
   }
 }
 
@@ -622,8 +640,9 @@ void HcclAllToAllOutOperator::RunCollective(
             void* recv_buffer,
             std::shared_ptr<HcclCommunicator> comm,
             synStreamHandle stream) {
-          size_t count = input->get_numel();
+          int64_t count = input->get_numel();
           auto type = getHCCLDataType(scalar_type);
+          getCountDatatype(scalar_type, count, type);
           hcclResult_t hccl_result{hcclSuccess};
           hccl_result = hcclAlltoAll(
               send_buffer,
@@ -671,6 +690,10 @@ void HcclAllToAllOutOperator::RunCollective(
 
           size_t ele_size = input->get_numel();
           auto type = getHCCLDataType(scalar_type);
+          int64_t count = input_t.numel();
+          getCountDatatype(scalar_type, count, type);
+          adjustElementcount_int64(
+              scalar_type, send_lengths, recv_lengths, ele_size);
           hcclResult_t hccl_result{hcclSuccess};
           hcclGroupStart();
           for (const auto r : c10::irange(numRanks)) {
