@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "op_logger.h"
+#include "hpu_ops/op_logger.h"
 
 namespace habana {
 template <>

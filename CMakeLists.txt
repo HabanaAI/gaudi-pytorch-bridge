@@ -240,13 +240,18 @@ else()
 endif()
 
 add_custom_command(OUTPUT
-                     ${CMAKE_BINARY_DIR}/generated/hpu_op0.cpp
-                     ${CMAKE_BINARY_DIR}/generated/hpu_op1.cpp
-                     ${CMAKE_BINARY_DIR}/generated/hpu_op2.cpp
-                     ${CMAKE_BINARY_DIR}/generated/hpu_op3.cpp
-                     ${CMAKE_BINARY_DIR}/generated/hpu_op4.cpp
+                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
+                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
+                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op2.cpp
+                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op3.cpp
+                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op4.cpp
                      ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
                      ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op3.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_op4.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
@@ -255,7 +260,7 @@ add_custom_command(OUTPUT
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
                      ${TORCH_INSTALL_PREFIX}/../torchgen/packaged/ATen/native/native_functions.yaml
-                   MAIN_DEPENDENCY scripts/gen_op.py
+                   MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h

@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <habana_device/hpu_cached_devices.h>
@@ -244,12 +247,17 @@ inline float& get<float>(fint_t& u) {
   }                                                                         \
   return lazy_op.call(self);
 
+template <typename... Args>
+inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
+  return sizeof...(Args);
+}
+
 #define RUN_TUPLE_MAYBE_WITH_ACC_THREAD(op, lazy_op)                        \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     auto tuple = lazy_op.get_result();                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
-    MAYBE_FLUSH_OP(std::tuple_size<typeof(tuple)>());                       \
+    MAYBE_FLUSH_OP(tuple_elements(tuple));                                  \
     return tuple;                                                           \
   }                                                                         \
   return lazy_op.call();
@@ -259,7 +267,7 @@ inline float& get<float>(fint_t& u) {
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
     tuple = lazy_op.get_result(tuple);                                      \
     scheduleAccTaskTuple(std::move(lazy_op), tuple);                        \
-    MAYBE_FLUSH_OP(std::tuple_size<typeof(tuple)>());                       \
+    MAYBE_FLUSH_OP(tuple_elements(tuple));                                  \
     return tuple;                                                           \
   }                                                                         \
   return lazy_op.call(tuple);

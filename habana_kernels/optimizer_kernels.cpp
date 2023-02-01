@@ -10,7 +10,6 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
-#include "../hpu_ops/reduction_template.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -19,6 +18,7 @@
 #include "habana_kernels/optimizer_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "hpu_ops/backend/reduction_template.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
 

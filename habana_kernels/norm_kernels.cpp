@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,7 +16,7 @@
 #include <memory>
 #include <tuple>
 
-#include "generated/ne.h"
+#include "generated/backend/ne.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
