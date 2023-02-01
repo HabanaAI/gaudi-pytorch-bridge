@@ -119,6 +119,7 @@ void HPUGraph::mark_step() {
       "GRAPH:: captured hblazy_tensors_ size ",
       captured_graph->hblazy_tensors_.size());
   context->getSeedTensorMap().clear();
+  context->resetGraph();
 }
 
 void HPUGraph::replay(bool async) {
@@ -168,6 +169,7 @@ void HPUGraph::replayV2(
     captured_graphs[i]->replay(async);
   }
 }
+
 HPUGraph::~HPUGraph() {
   auto& device = synapse_helpers::HPURegistrar::get_device();
 

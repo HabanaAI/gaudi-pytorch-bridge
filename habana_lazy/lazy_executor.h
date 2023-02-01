@@ -273,6 +273,16 @@ class HbExecutionContext {
     viewContext.updated_bucket_list.clear();
   }
 
+  void resetGraph() {
+    saveGraph(nullptr);
+    saveHash(0);
+    saveGraphKey(0);
+    saveOpStrs("");
+    m_input_vals.clear();
+    m_output_vals.clear();
+    m_hblazy_tensors.clear();
+  }
+
   // We want to retain some tensors for special cases where PT releases them
   // but because we are in lazy mode we actually need them for processing
   // later This should only be used in special cases and released on exit
