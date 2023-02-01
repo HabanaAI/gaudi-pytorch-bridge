@@ -98,16 +98,10 @@ unary_op_out_list = [
 
 data_type_list = [(torch.float, 0.001)]
 
-full_float_list = data_type_list + [
+full_type_list = data_type_list + [
     (torch.bfloat16, 0.01),
     (torch.float64, 0.001),
 ]
-
-full_int_list = [
-    (torch.int32, 0),
-]
-
-full_type_list = full_float_list + full_int_list
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -140,15 +134,11 @@ def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
 @pytest.mark.parametrize("unary_op, out", unary_special_op_list)
 @pytest.mark.parametrize("dtype, tol", full_type_list)
 def test_hpu_special_unary_op(unary_op, out, dtype, tol):
-    kernel_params = (
-        {
-            "input": torch.tensor(
-                [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
-            ).to(dtype)
-        }
-        if any(dtype == dt_tuple[0] for dt_tuple in full_float_list)
-        else {"input": torch.tensor([0, 1, -1]).to(dtype)}
-    )
+    kernel_params = {
+        "input": torch.tensor(
+            [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
+        ).to(dtype)
+    }
     if out is not None:
         kernel_params[out] = torch.empty(
             kernel_params["input"].size(), dtype=torch.bool
