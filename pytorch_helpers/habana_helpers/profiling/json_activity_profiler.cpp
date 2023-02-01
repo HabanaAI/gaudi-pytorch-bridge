@@ -1,16 +1,41 @@
-
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <string_view>
-
-#include "pytorch_helpers/habana_helpers/profiling/json_file_parser.h"
-#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
+#include "json_parser.h"
+#include "nlohmann/json.hpp"
+#include "synapse_profiler.h"
+#include "trace_parser.h"
 
 namespace habana {
 
-class JsonActivityProfiler : public Profiler {
+class JsonActivityProfiler : public SynapseProfiler {
  public:
-  JsonActivityProfiler() : Profiler{parser_} {}
+  JsonActivityProfiler() : SynapseProfiler(parser_) {}
+
+  void addActivity(
+      const std::string& name,
+      ActivityType type,
+      int64_t device,
+      int64_t resource,
+      uint64_t start,
+      uint64_t end) {
+    if (start > 0 && end > 0) {
+      parser_.add_event(name, type, device, resource, start, end - start);
+    }
+  }
+
+  void addDevice(const std::string& name, int64_t device) {
+    parser_.add_device_info(name, name, device, 0);
+  }
+
+  void addResource(
+      const std::string& name,
+      int64_t device,
+      int64_t resource,
+      int64_t sort_index = -1) {
+    parser_.add_resource_info(name, device, resource, sort_index, 0);
+  }
 
   static JsonActivityProfiler* instance() {
     try {
@@ -40,8 +65,21 @@ class JsonActivityProfiler : public Profiler {
       profiler->stop();
   }
 
+  static uint64_t addCustomTagBegin(const std::string& tag) {
+    auto profiler(instance());
+    if (profiler)
+      return profiler->startCustomMeasurement(tag);
+    else
+      return 0;
+  }
+  static void addCustomTagEnd(uint64_t id) {
+    auto profiler(instance());
+    if (profiler)
+      return profiler->stopCustomMeasurement(id);
+  }
+
  private:
-  JsonFileParser parser_;
+  Parser parser_;
 };
 
 void export_profiler_logs(const std::string_view& path) {
@@ -52,5 +90,11 @@ void start_profiler_session() {
 }
 void stop_profiler_session() {
   JsonActivityProfiler::stopProfilerSession();
+}
+uint64_t add_custom_tag_begin(const std::string& tag) {
+  return JsonActivityProfiler::addCustomTagBegin(tag);
+}
+void add_custom_tag_end(uint64_t id) {
+  JsonActivityProfiler::addCustomTagEnd(id);
 }
 }; // namespace habana
