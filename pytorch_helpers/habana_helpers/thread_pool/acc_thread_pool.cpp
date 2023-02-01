@@ -88,27 +88,30 @@ void AccThreadPool::executePendingTask() {
     return;
   }
 
-  AccTask task = std::move(tasks_.front());
-  tasks_.pop();
-  lock.unlock();
+  {
+    AccTask task = std::move(tasks_.front());
+    tasks_.pop();
+    lock.unlock();
 
-  // If task_in_progress_ is true then we reentered AccThread - this is
-  // situation we want to avoid
-  HABANA_ASSERT(task_in_progress_ == false);
-  task_in_progress_ = true;
+    // If task_in_progress_ is true then we reentered AccThread - this is
+    // situation we want to avoid
+    HABANA_ASSERT(task_in_progress_ == false);
+    task_in_progress_ = true;
 
-  // Run the task.
-  try {
-    DisableRunningHashUpdates disable;
-    task();
-  } catch (...) {
-    ex_ptr_ = std::current_exception();
-    running_ = false;
-    this->discardPendingTasks();
-    return;
+    // Run the task.
+    try {
+      DisableRunningHashUpdates disable;
+      task();
+    } catch (...) {
+      ex_ptr_ = std::current_exception();
+      running_ = false;
+      this->discardPendingTasks();
+      return;
+    }
+
+    task_in_progress_ = false;
   }
 
-  task_in_progress_ = false;
   --task_count_;
 }
 
