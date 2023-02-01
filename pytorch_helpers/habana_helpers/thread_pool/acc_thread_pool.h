@@ -40,6 +40,7 @@ class AccThreadPool {
   std::thread thread_;
   mutable std::mutex mutex_;
   std::atomic_bool running_;
+  std::atomic_bool stop_;
   static thread_local bool task_in_progress_;
   std::atomic<std::size_t> task_count_;
   std::exception_ptr ex_ptr_;

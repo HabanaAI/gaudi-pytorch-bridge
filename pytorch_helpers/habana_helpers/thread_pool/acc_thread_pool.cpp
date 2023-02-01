@@ -22,19 +22,20 @@ namespace habana_lazy {
 thread_local bool AccThreadPool::task_in_progress_{false};
 
 AccThreadPool::AccThreadPool()
-    : running_(true), task_count_(0), ex_ptr_(nullptr) {
+    : running_(!GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)),
+      stop_(false),
+      task_count_(0),
+      ex_ptr_(nullptr) {
   auto init_thread = []() {
     c10::setThreadName("AccThreadPool");
     at::init_num_threads();
   };
 
-  if (!GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)) {
+  if (running_) {
     thread_ = std::thread([this, init_thread]() {
       init_thread();
       this->main_loop();
     });
-  } else {
-    running_ = false;
   }
 }
 
@@ -43,7 +44,7 @@ AccThreadPool::~AccThreadPool() {
     return;
 
   // set flag to false to break main loop in the acc thread
-  running_ = false;
+  stop_ = true;
 
   try {
     thread_.join();
@@ -72,10 +73,12 @@ void AccThreadPool::run(std::function<void()>&& func) {
 }
 
 void AccThreadPool::waitWorkComplete() {
-  while (task_count_ > 0) {
-    if (!running_) {
+  if (running_) {
+    while (task_count_ > 0)
+      std::this_thread::yield();
+  } else {
+    while (task_count_ > 0)
       executePendingTask();
-    }
   }
 
   checkNoException();
@@ -104,8 +107,7 @@ void AccThreadPool::executePendingTask() {
       task();
     } catch (...) {
       ex_ptr_ = std::current_exception();
-      running_ = false;
-      this->discardPendingTasks();
+      stop_ = true;
       return;
     }
 
@@ -126,19 +128,20 @@ void AccThreadPool::discardPendingTasks() {
 }
 
 void AccThreadPool::main_loop() {
-  while (running_) {
+  while (!stop_) {
     // wait until there are available tasks in the queue or
     // accumulation thread pool is destructured
-    while (task_count_ == 0 && running_) {
+    while (task_count_ == 0 && !stop_) {
     }
 
     // break if accumulation thread pool is destructured
-    if (!running_) {
+    if (stop_) {
       break;
     }
 
     executePendingTask();
-  } // while running_
+  } // while !stop_
+  task_count_ = 0;
 }
 
 void AccThreadPool::checkNoException() {
