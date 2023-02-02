@@ -796,7 +796,7 @@ at::Tensor handleWeightTensorLayout(const Tensor& src) {
   return tensor_data;
 }
 
-void d2h_maybe_eval(const Tensor& src) {
+void d2h_maybe_eval(const Tensor& src, bool async = false) {
   if (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED) {
     auto hl_t = GetHbLazyTensor(src);
     auto id = hl_t.getTensorUniqueId();
@@ -809,32 +809,18 @@ void d2h_maybe_eval(const Tensor& src) {
 
     if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
       PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
-      HbLazyTensor::StepMarker({});
+      HbLazyTensor::StepMarker({}, nullptr, {}, async);
     }
   }
 }
 
-Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
+void copy_hpu_lazy_D2H_internal(
+    at::Tensor& self,
+    at::Tensor& _src,
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream) {
   PT_LAZY_TRACE;
 
-  habana_lazy::NoAccThread no_acc_thread;
-
-  // This situation should not occur
-  // Throwing an exception here for now to catch any cases that arise
-  TORCH_CHECK(
-      IsHbLazyTensor(src),
-      "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
-
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  context->JoinPendingLaunchThread();
-
-  // Remove this SBS check, as of now prepare sbs inputs on calls .to operator
-  // and on inplace ops that triggers this mark step, which leads to graph
-  // evaluation and we end up losing input tensor.
-  d2h_maybe_eval(src);
-
-  // handle views
-  auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
   if (!hb_tensor.isStorageAttached()) {
     auto storage = _src.storage();
@@ -860,6 +846,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
         _src.options().memory_format_opt());
     hb_tensor.SetTensorData(at_internal_tensor);
   }
+
   hb_tensor.EvaluateTensorData();
 
   // If _src is a lazy tensor make sure the execution till the point of _src
@@ -872,12 +859,6 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // can upscale it and send it back. For now we just send the 32bit
   // tensor that Habana holds
 
-  // suggest_memory_format() uses strides and sizes to determine the memory
-  // format. Depending on strided_view's stride params, the self (and src)
-  // memory format can be incorrecly mapped to ch last or ch last 3d. Refer:
-  // LazyBasicKernelTest.noncontiguous. Use backend tensors memory format to
-  // correctly identify the memory format
-  self = self.contiguous(tensor_data.suggest_memory_format());
   if (type != typeMetaToScalarType(_src.dtype())) {
     // If we need to upscale the CPU tensor using the .to for now
     // It rebinds the self reference to the new tensor
@@ -886,7 +867,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     PT_LAZY_DEBUG(
         "WARNING: We are hitting a case in H2D where the PyTorch tensor original data types mismatch.");
     self = self.to(_src.dtype());
-    self = copy_hpu_(self, tensor_data, non_blocking);
+    self = copy_hpu_(self, tensor_data, non_blocking, hpu_stream);
     self = self.to(type);
   } else {
     auto tensor_data_ = tensor_data;
@@ -902,10 +883,83 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
             tensor_data.storage());
       }
     }
-    self = copy_hpu_(self, tensor_data_, non_blocking);
+    self = copy_hpu_(self, tensor_data_, non_blocking, hpu_stream);
   }
   // No need to CreateHbLazyTensor for self as it is on CPU
   habana_lazy::PermuteTensors::handlePermutedTensor(_src, self, non_blocking);
+}
+
+void copy_hpu_lazy_D2H_async(
+    at::Tensor& self,
+    at::Tensor& _src,
+    synapse_helpers::hpuStream_t hpu_stream) {
+  PT_LAZY_TRACE;
+  if (!self.defined()) {
+    PT_LAZY_FATAL(
+        "D2H src tensor expired in non_blocking scenario. Ensure the src cpu tensor is held until data is copied.");
+    return;
+  }
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  context->JoinPendingLaunchThread(true);
+
+  context->m_async_d2h_context = true;
+  copy_hpu_lazy_D2H_internal(self, _src, true, hpu_stream);
+  context->m_async_d2h_context = false;
+}
+
+Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
+
+  habana_lazy::NoAccThread no_acc_thread;
+
+  // This situation should not occur
+  // Throwing an exception here for now to catch any cases that arise
+  TORCH_CHECK(
+      IsHbLazyTensor(src),
+      "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
+
+  bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
+
+  if (non_blocking && !is_pinned) {
+    PT_LAZY_WARN(
+        "NonBlocking D2H supported only with pinned destination tensor.");
+  }
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+
+  // if non_blocking then handle seperately as we dont want wait to finish
+  // Launch thread execution.
+  if (!non_blocking) {
+    context->JoinPendingLaunchThread();
+  }
+
+  // Remove this SBS check, as of now prepare sbs inputs on calls .to operator
+  // and on inplace ops that triggers this mark step, which leads to graph
+  // evaluation and we end up losing input tensor.
+  d2h_maybe_eval(src, (non_blocking) ? true : false);
+  // At this point markstep is executed. In non-blocking case, it will ensure do
+  // launch thread join in the async thread.
+
+  // handle views
+  auto _src = HbLazyTensorViews::HandleViewsD2H(src);
+
+  // suggest_memory_format() uses strides and sizes to determine the memory
+  // format. Depending on strided_view's stride params, the self (and src)
+  // memory format can be incorrecly mapped to ch last or ch last 3d. Refer:
+  // LazyBasicKernelTest.noncontiguous. Use backend tensors memory format to
+  // correctly identify the memory format
+  self = self.contiguous(c10::MemoryFormat::Contiguous);
+
+  // Take the async flow only if any launch thread is under execution..
+  // otherwise there wont be any wait and we dont need async d2h thread
+  if (non_blocking && context->m_launch_thread_handle.valid() &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
+    context->JoinPendingD2HThread();
+    context->m_async_d2h_handle = SingleTonD2HThreadPool::getInstance().enqueue(
+        copy_hpu_lazy_D2H_async, self, _src, c10::hpu::getCurrentHPUStream());
+  } else {
+    copy_hpu_lazy_D2H_internal(
+        self, _src, non_blocking, c10::hpu::getCurrentHPUStream());
+  }
 
   habana_lazy::StageSubmission::getInstance().setStageSubmissionFlow(
       habana_lazy::StageSubmission::Mode::SET_WHEN_D2H_COPY);
@@ -1063,15 +1117,21 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
       self.sizes(), self.strides());
   if (processed) {
-    auto internal_tensor_from_copy =
-        copy_hpu_(self_internal_tesor, new_tensor, non_blocking);
+    auto internal_tensor_from_copy = copy_hpu_(
+        self_internal_tesor,
+        new_tensor,
+        non_blocking,
+        c10::hpu::getCurrentHPUStream());
     // We should get back the same internal tensor passed to copy
     HABANA_ASSERT(
         self_internal_tesor.storage().data_ptr() ==
         internal_tensor_from_copy.storage().data_ptr());
   } else {
-    auto internal_tensor_from_copy =
-        copy_hpu_(self_internal_tesor, src, non_blocking);
+    auto internal_tensor_from_copy = copy_hpu_(
+        self_internal_tesor,
+        src,
+        non_blocking,
+        c10::hpu::getCurrentHPUStream());
     // We should get back the same internal tensor passed to copy
     HABANA_ASSERT(
         self_internal_tesor.storage().data_ptr() ==

@@ -77,6 +77,37 @@ class SingleTonExecThreadPool {
   SingleTonExecThreadPool& operator=(const SingleTonExecThreadPool&) = delete;
 };
 
+class SingleTonD2HThreadPool {
+ public:
+  static habana_helpers::ThreadPool& getInstance() {
+    static habana_helpers::ThreadPool thread_pool_obj(1);
+    return thread_pool_obj;
+  }
+
+  static void work() {
+    while (getInstance().has_work.load()) {
+      if (getInstance().m_stop || !getInstance().has_work.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+  static void queueStatus() {
+    while (getInstance().has_queued_items.load()) {
+      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
+ private:
+  SingleTonD2HThreadPool() = default;
+  SingleTonD2HThreadPool(const SingleTonD2HThreadPool&) = delete;
+  SingleTonD2HThreadPool& operator=(const SingleTonD2HThreadPool&) = delete;
+};
+
 class HbExecutionContext {
  public:
   HbExecutionContext() = default;
@@ -310,7 +341,7 @@ class HbExecutionContext {
 
   // Handle for the launch thread, only one thread is alive at a time.
   std::future<void> m_launch_thread_handle;
-  void JoinPendingLaunchThread();
+  void JoinPendingLaunchThread(bool wait_only = false);
   void HandleException() {
     if (C10_UNLIKELY(m_launch_thread_exception_handler)) {
       try {
@@ -328,6 +359,11 @@ class HbExecutionContext {
   std::exception_ptr m_launch_thread_exception_handler = nullptr;
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
+
+  // D2H thread infos
+  std::shared_future<void> m_async_d2h_handle;
+  thread_local static bool m_async_d2h_context;
+  void JoinPendingD2HThread(bool wait_only = false);
 
  private:
   GraphPtr mp_g;

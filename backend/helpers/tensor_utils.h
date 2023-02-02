@@ -22,6 +22,7 @@
 #include <c10/util/ArrayRef.h>
 #include <torch/script.h>
 
+#include <backend/synapse_helpers/device.h>
 #include <synapse_common_types.h>
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/graph.h"
@@ -69,6 +70,12 @@ void copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking);
+
+void copy_data_to_host(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream);
 
 void copy_data_to_device(
     const at::Tensor& src,

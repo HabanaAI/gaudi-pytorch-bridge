@@ -197,7 +197,11 @@ static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
 }
 
 // cpu->hpu and hpu->cpu copy implementation
-Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& copy_hpu_(
+    Tensor& self,
+    const Tensor& src,
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream) {
   PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used from
                       // other Lazy kernels
   Tensor& dst = self;
@@ -245,12 +249,13 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       // Is there any reason why this check cannot be strict equality?
       TORCH_CHECK(dst_intermediate.nbytes() >= src_contiguous.nbytes());
       habana_helpers::copy_data_to_host(
-          src_contiguous, dst_intermediate, non_blocking);
-      dst = dst_intermediate.to(dst.scalar_type());
+          src_contiguous, dst_intermediate, non_blocking, hpu_stream);
+      dst.copy_(dst_intermediate.to(dst.scalar_type()));
     } else {
       // Is there any reason why this check cannot be strict equality?
       TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
-      habana_helpers::copy_data_to_host(src_contiguous, dst, non_blocking);
+      habana_helpers::copy_data_to_host(
+          src_contiguous, dst, non_blocking, hpu_stream);
     }
     print_stride_warning(src_contiguous, dst);
   } else if (

@@ -93,12 +93,19 @@ bool HPUStream::query() const {
   /*TDB check if StepMarker is required for query */
   if (id() != getCurrentHPUStream(device_index).id()) {
     habana_lazy::HbLazyTensor::StepMarker({});
-    auto status = stream.query();
-    if (status == synSuccess)
-      return true;
-    else
-      PT_DEVICE_DEBUG("STREAM:: synStreamQuery failed with status", status);
+  } else {
+    bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
+        std::this_thread::get_id();
+    // If query is called from userthread, just do wait till the execution
+    // is over
+    habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
   }
+  auto status = stream.query();
+  if (status == synSuccess)
+    return true;
+  else
+    PT_DEVICE_DEBUG("STREAM:: synStreamQuery failed with status", status);
+
   return false;
 }
 
@@ -115,6 +122,12 @@ void HPUStream::synchronize() const {
   auto& stream = device.get_stream(hpu_stream_id);
   if (id() != getCurrentHPUStream(device_index).id()) {
     habana_lazy::HbLazyTensor::StepMarker({});
+  } else {
+    bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
+        std::this_thread::get_id();
+    // If synchronize is called from userthread, just do wait till the execution
+    // is over
+    habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
   }
   stream.synchronize();
 }

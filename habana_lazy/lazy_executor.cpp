@@ -16,6 +16,7 @@ namespace habana_lazy {
 thread_local LazyExecutionMode HbExecutionContextArena::execution_mode{
     LazyExecutionMode::kLAZY};
 thread_local bool HbExecutionContext::m_launch_thread_context{false};
+thread_local bool HbExecutionContext::m_async_d2h_context{false};
 
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
@@ -49,7 +50,7 @@ void HbExecutionContext::MarkTensorExecuting(std::shared_ptr<Data> data) {
   }
 }
 
-void HbExecutionContext::JoinPendingLaunchThread() {
+void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
   PT_LAZY_TRACE;
 
   if (m_launch_thread_handle.valid()) {
@@ -69,15 +70,37 @@ void HbExecutionContext::JoinPendingLaunchThread() {
           SingleTonExecThreadPool::queueStatus();
           m_launch_thread_handle.get();
         } else {
-          if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) &&
-              !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-            SingleTonExecThreadPool::queueStatus();
+          if (wait_only) {
+            m_launch_thread_handle.wait();
+          } else {
+            // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)
+            // &&
+            //     !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+            //   SingleTonExecThreadPool::queueStatus();
+            // }
+            m_launch_thread_handle.get();
           }
-          m_launch_thread_handle.get();
         }
     }
   }
   HandleException();
+}
+
+void HbExecutionContext::JoinPendingD2HThread(bool wait_only) {
+  if (!m_async_d2h_context && m_async_d2h_handle.valid()) {
+    AutoNoGIL gil_release;
+    // If the future is already ready when below line executes, it may
+    // create an exception. Ignore the exception as the wait is already
+    // over.
+    try {
+      if (wait_only) {
+        m_async_d2h_handle.wait();
+      } else {
+        m_async_d2h_handle.get();
+      }
+    } catch (...) {
+    }
+  }
 }
 
 void HbExecutionContext::MarkTensorExecuted(std::shared_ptr<Data> data) {

@@ -17,7 +17,8 @@
 at::Tensor& copy_hpu_(
     at::Tensor& self,
     const at::Tensor& src,
-    bool non_blocking);
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream);
 
 bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device);
 at::Tensor pin_memory_hpu(

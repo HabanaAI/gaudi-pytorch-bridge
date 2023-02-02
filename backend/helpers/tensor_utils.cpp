@@ -304,6 +304,15 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
+  return copy_data_to_host(
+      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+}
+
+void habana_helpers::copy_data_to_host(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream) {
   size_t device_id = src.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
@@ -324,7 +333,7 @@ void habana_helpers::copy_data_to_host(
         habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         is_pinned,
-        c10::hpu::getCurrentHPUStream());
+        hpu_stream);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -336,7 +345,7 @@ void habana_helpers::copy_data_to_host(
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         is_pinned,
-        c10::hpu::getCurrentHPUStream());
+        hpu_stream);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

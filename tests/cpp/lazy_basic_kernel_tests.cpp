@@ -916,3 +916,27 @@ TEST_F(LazyBasicKernelTest, viewinsert_broadcast) {
 
   EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyBasicKernelTest, noncontigD2H_nonblocking) {
+  torch::Tensor A = torch::randn({2, 2});
+  auto hA = A.to(torch::kHPU);
+  std::vector<int64_t> sz{2, 2};
+  std::vector<int64_t> str{1, 2};
+  c10::IntArrayRef sizes(sz.data(), sz.size());
+  c10::IntArrayRef strides(str.data(), str.size());
+
+  auto out = torch::as_strided(A, sz, str).relu();
+  auto hout = torch::as_strided(hA, sz, str).relu();
+
+  auto hout_cpu =
+      torch::empty_like(out).to(torch::kCPU).pin_memory(torch::kHPU);
+  HbLazyTensor::StepMarker({}, nullptr, {}, true);
+  hout_cpu.copy_(hout, true);
+
+  auto fut = std::async(std::launch::async, []() {
+    HbLazyTensor::StepMarkerFinish();
+    synapse_helpers::HPURegistrar::synchronize_device();
+  });
+  fut.get();
+  EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);
+}

@@ -1654,10 +1654,12 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   }
 }
 
-void HbLazyTensor::StepMarkerFinish() {
+void HbLazyTensor::StepMarkerFinish(bool wait_only) {
+  PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = false;
-  context->JoinPendingLaunchThread();
+  context->JoinPendingLaunchThread(wait_only);
+  context->JoinPendingD2HThread(wait_only);
 }
 
 void HbLazyTensor::IterStepMarker() {
@@ -1688,6 +1690,13 @@ void HbLazyTensor::StepMarker(
     return;
   }
 
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  if (context->m_async_d2h_context) {
+    PT_LAZY_DEBUG("StepMarker called in D2H async context, skipping");
+    HABANA_ASSERT(0, "StepMarker called in D2H async context, skipping");
+    return;
+  }
+
   // Sync accumulation thread if needed and clean up all accumulation resources
   habana_lazy::NoAccThread no_acc_thread;
   habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
@@ -1700,7 +1709,6 @@ void HbLazyTensor::StepMarker(
         "\", skipping StepMarker");
     return;
   }
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = false;
   HbLazyTensor::SyncLiveTensorsGraph(
       &device,

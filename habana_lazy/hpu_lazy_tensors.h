@@ -326,7 +326,7 @@ class HbLazyTensor {
       std::set<int64_t> bucket_id = {},
       std::set<int64_t> bucket_recent_id = {});
   static void StepMarkerBind(const std::string& device_str = {});
-  static void StepMarkerFinish();
+  static void StepMarkerFinish(bool wait_only = false);
   static void InitiateBucketRefinement();
   static void SetDynamicMode();
 
