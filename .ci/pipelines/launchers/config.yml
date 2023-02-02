@@ -1,11 +1,4 @@
 launchers:
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
-  silentMode: false
-  gerritTriggerMap:
-  - repository: pytorch-fork
-  - repository: pytorch-lightning-fork
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   silentMode: false
   gerritTriggerMap:
@@ -13,14 +6,22 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
+# Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
@@ -45,6 +46,13 @@ launchers:
     isStable: true
     files:
       - "asic_gaudi_pytorch_topology_tests---t-dg.jenkinsfile"
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
+  silentMode: false
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
   silentMode: false
   gerritTriggerMap:
@@ -59,57 +67,17 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
-  gerritTriggerMap:
-  - repository: pytorch-fork
-  - repository: pytorch-lightning-fork
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
-- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
-  gerritTriggerMap:
-  - repository: pytorch-fork
-  - repository: pytorch-lightning-fork
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
-- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op
-  gerritTriggerMap:
-  - repository: pytorch-fork
-  - repository: pytorch-lightning-fork
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
-  silentMode: true
-  gerritTriggerMap:
-  - repository: pytorch-fork
-  - repository: pytorch-lightning-fork
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
-- testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test
-  silentMode: true
-  gerritTriggerMap:
-    - repository: pytorch-fork
-    - repository: pytorch-integration
-- testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
-  silentMode: true
-  gerritTriggerMap:
-    - repository: pytorch-fork
-    - repository: pytorch-integration
-- testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_ci
-  silentMode: true
-  gerritTriggerMap:
-    - repository: pytorch-fork
-    - repository: pytorch-integration
