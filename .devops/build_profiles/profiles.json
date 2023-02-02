@@ -82,19 +82,26 @@
   },
   "pt_versions": {
     "current": {
-      "version": "1.12.0a0+git314b0ed"
+      "version": "1.13.1",
+      "default_source": "build"
     },
     "previous": {
-      "version": "1.12.0+cpu"
+      "version": null,
+      "default_source": "build"
+    },
+    "next": {
+      "version": "2.0.0",
+      "default_source": "build"
     },
     "rc": {
-      "version": "1.13.0rc3+cpu"
+      "version": null,
+      "default_source": "https://download.pytorch.org/whl/test/cpu"
     },
     "nightly": {
-      "version": "nightly"
+      "version": "nightly",
+      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     }
   },
-  "suffix": null,
   "wheels": {
     "release": {
       "wheel_name": "habana_torch_plugin",

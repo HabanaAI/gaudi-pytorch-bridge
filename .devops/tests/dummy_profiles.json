@@ -31,16 +31,20 @@
   },
   "pt_versions": {
     "current": {
-      "version": "1.2.3"
+      "version": "1.2.3",
+      "default_source": "build"
     },
     "previous": {
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "default_source": "pypi"
     },
     "rc": {
-      "version": null
+      "version": null,
+      "default_source": "pypi"
     },
     "nightly": {
-      "version": "nightly"
+      "version": "nightly",
+      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     }
   },
   "required_pt": {

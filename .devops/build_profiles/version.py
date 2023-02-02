@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ###############################################################################
-# Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,16 +12,16 @@
 ###############################################################################
 
 from __future__ import annotations
+
+import logging
+import os
 import sys
+import tempfile
 from typing import Any, Optional, Type, Union
-from pkginfo import Wheel
 
 import packaging.version
-
-import tempfile
-import logging
 import requests
-import os
+from pkginfo import Wheel
 
 log = logging.getLogger(__file__)
 
@@ -32,11 +32,8 @@ class Version(packaging.version.Version):
 
     PyPA reference for PEP-440: https://packaging.pypa.io/en/stable/version.html
     """
-    tmp_dir = tempfile.TemporaryDirectory()
 
-    def __init__(
-        self, version: Union[str, Type[sys.version_info]], label: Optional[str] = None
-    ) -> None:
+    def __init__(self, version: Union[str, Type[sys.version_info]], label: Optional[str] = None) -> None:
         """
         :param version a string in PEP-440 format or a Python system version
         :param label   optional custom symbolic label of the version. Used to generate @see Version.label.
@@ -54,9 +51,7 @@ class Version(packaging.version.Version):
             version = f"{version.major}.{version.minor}.{version.micro}"
             super().__init__(version)
         else:
-            raise TypeError(
-                f"Version must be a string or a sys.version_info: {version}"
-            )
+            raise TypeError(f"Version must be a string or a sys.version_info: {version}")
 
     def __eq__(self, other: Any) -> bool:
         try:
@@ -71,32 +66,35 @@ class Version(packaging.version.Version):
     def __repr__(self):
         if self.wheel_url:
             return f"<Version('{self}', source={self.wheel_url})>"
-        elif self.wheel_path:
+        if self.wheel_path:
             return f"<Version('{self}', source=file://{self.wheel_path})>"
-        else:
-            return super().__repr__()
+        return super().__repr__()
 
     def _handle_wheel(self, path):
         self.wheel_path = path
-        w = Wheel(path)
-        return w.version
+        whl = Wheel(path)
+        return whl.version
 
     def _handle_url(self, url):
         self.wheel_url = url
-        log.info(f"Trying to download wheel from {url} to {Version.tmp_dir.name}")
-        r = requests.get(url, stream=True)
-        if r.ok:
-            filename = url.split('/')[-1]
-            wheel_path = os.path.join(Version.tmp_dir.name, filename)
-            with open(wheel_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=1024 * 8):
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            log.info(f"Trying to download wheel from {url} to {tmp_dir.name}")
+
+            req = requests.get(url, stream=True, timeout=300)  # timeout is in secs
+
+            if not req.ok:
+                raise ConnectionError(f"Download failed: status code {req.status_code}\n{req.text}")
+
+            filename = url.split("/")[-1]
+            wheel_path = os.path.join(tmp_dir.name, filename)
+            with open(wheel_path, "wb") as downloaded_wheel:
+                for chunk in req.iter_content(chunk_size=1024 * 8):
                     if chunk:
-                        f.write(chunk)
-                        f.flush()
-                        os.fsync(f.fileno())
+                        downloaded_wheel.write(chunk)
+                        downloaded_wheel.flush()
+                        os.fsync(downloaded_wheel.fileno())
             return self._handle_wheel(wheel_path)
-        else:
-            raise ConnectionError("Download failed: status code {}\n{}".format(r.status_code, r.text))
 
     @property
     def label(self):
@@ -135,26 +133,15 @@ class Version(packaging.version.Version):
 
         if not self.is_prerelease:
             return release_matches
-        else:
-            return release_matches and self.pre == candidate.pre
+        return release_matches and self.pre == candidate.pre
 
 
 def is_official_stable_cpu_version(pt_ver: Version) -> bool:
-    return (
-        not pt_ver.is_prerelease and pt_ver.local == "cpu" and not pt_ver.is_devrelease
-    )
+    return not pt_ver.is_prerelease and pt_ver.local == "cpu" and not pt_ver.is_devrelease
 
 
 def is_official_nightly_cpu_version(pt_ver: Version) -> bool:
-    return (
-        not pt_ver.is_prerelease
-        and pt_ver.local == "cpu"
-        and len(str(pt_ver.dev)) == len("20190731")
-    )
-
-
-def is_pt_fork_version(pt_ver: Version) -> bool:
-    return pt_ver.pre == ("a", 0) and pt_ver.local.startswith("git")
+    return not pt_ver.is_prerelease and pt_ver.local == "cpu" and len(str(pt_ver.dev)) == len("20190731")
 
 
 def is_wheel_version(pt_ver: Version) -> bool:

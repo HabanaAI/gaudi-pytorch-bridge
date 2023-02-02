@@ -165,7 +165,6 @@
   "required": [
     "profiles",
     "pt_versions",
-    "flavors",
-    "wheels",
+    "wheels"
   ]
 }

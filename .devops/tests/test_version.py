@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ###############################################################################
-# Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,7 +12,6 @@
 ###############################################################################
 
 import sys
-import pytest
 
 from build_profiles.version import Version
 
@@ -36,6 +35,7 @@ def test_version_gt():
     assert Version("1.13.0") > Version("1.13.0a0")
     assert Version("1.13.0.dev20221006+cpu") > Version("1.12.1")
 
+
 def test_version_equal_to_same_string():
     assert Version("1") == "1"
     assert Version("1.12") == "1.12"
@@ -54,7 +54,7 @@ def test_version_equal_to_same_version():
 
 def test_version_unequal_to_different_git_sha():
     assert Version("1.12.0a0+git7315ac") != Version("1.12.0a0+git7890abc")
-    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")
+    assert not Version("1.12.0a0+git7315ac") == Version("1.12.0a0+git7890abc")  # pylint: disable=unneeded-not
 
 
 def test_version_losslessly_converts_to_and_from_string():
@@ -72,12 +72,12 @@ def test_significant_matches():
     assert Version("2.5").significant_matches(Version("2.5.0+git7315acd"))
     assert Version("2.5.0").significant_matches(Version("2.5.0"))
     assert Version("2.5.0").significant_matches(Version("2.5.0+git7315acd"))
-    with pytest.raises(Exception):
-        assert Version("2.5.0+cu90").significant_matches(Version("2.5.0+cu90"))
+    assert Version("2.5.0+cu90").significant_matches(Version("2.5.0+cu90"))
     assert Version("1.12.0").significant_matches(Version("1.12.0a0+git7315acd"))
     assert Version("1.12.0a0").significant_matches(Version("1.12.0a0"))
     assert not Version("1.12.0a0").significant_matches(Version("1.12.0"))
 
+
 def test_version_from_sys_version_info():
-    v = Version(sys.version_info)
-    assert v.major > 2
+    ver = Version(sys.version_info)
+    assert ver.major > 2

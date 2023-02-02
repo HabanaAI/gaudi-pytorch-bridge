@@ -223,6 +223,7 @@ else()
 endif()
 
 # Create symlink to latest build from tests dir
+# TODO: make it play nicely with building multiple versions in build.py
 add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
   ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
   ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
