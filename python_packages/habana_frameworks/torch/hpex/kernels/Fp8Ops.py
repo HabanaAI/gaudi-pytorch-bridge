@@ -28,6 +28,13 @@ def cast_to_fp8_te(x: torch.tensor, scale: torch.tensor, amax: torch.tensor, sto
     _hpex_C.cast_to_fp8_te(x, scale, stochastic, out, amax)
     return out
 
+def cast_from_fp8(x: torch.tensor, scale: torch.tensor, out_dtype: torch.dtype) -> torch.tensor:
+    # Error checking
+    if out_dtype != torch.bfloat16 and out_dtype != torch.float32:
+        raise TypeError(f"fp8 can be casted only to float32 and bfloat16, got: {out_dtype}")
+
+    return _hpex_C.cast_from_fp8(x, scale, out_dtype)
+
 def fp8_gemm(A: torch.Tensor,
              A_scale_inv: torch.Tensor,
              B: torch.Tensor,

@@ -7546,6 +7546,20 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
   RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_te, k_, result)
 }
 
+at::Tensor habana_cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    at::ScalarType out_dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k_{
+      "hpu::habana_cast_from_fp8",
+      {input, scale, out_dtype},
+      {input.sizes().vec()},
+      out_dtype};
+  RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, k_)
+}
+
 at::Tensor& habana_fp8_gemm_lazy(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,

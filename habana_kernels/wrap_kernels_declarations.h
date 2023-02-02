@@ -299,6 +299,10 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_wrap(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
+at::Tensor habana_cast_from_fp8_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    at::ScalarType out_dtype);
 at::Tensor& habana_fp8_gemm_wrap(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,

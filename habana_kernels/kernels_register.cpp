@@ -1723,6 +1723,27 @@ std::tuple<Tensor&, Tensor&> habana_cast_to_fp8_te_wrap(
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
+Tensor habana_cast_from_fp8_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    at::ScalarType out_dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " habana_cast_from_fp8:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      " out_dtype=",
+      to_string(out_dtype));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return habana_cast_from_fp8_lazy(input, scale, out_dtype);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 Tensor& habana_fp8_gemm_wrap(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,
@@ -2279,6 +2300,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
       "hpu::habana_cast_to_fp8_te(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
+  m.def(
+      "hpu::habana_cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::habana_fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(

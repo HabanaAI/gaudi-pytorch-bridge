@@ -12,38 +12,61 @@
 import torch
 import pytest
 import numpy as np
-from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8_te, fp8_gemm, fp8_transpose
+from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8_te, fp8_gemm, fp8_transpose, cast_from_fp8
 
 MASK_FLOAT32 = torch.tensor(2145386496, dtype=torch.int) # 0 11111111 11000000000000000000000b
+MASK_ROUND_FLOAT32 = torch.tensor(1048575, dtype=torch.int) # 0 00000000 00011111111111111111111b
 MASK_BFLOAT16 = torch.tensor(32736, dtype=torch.short) # 0 11111111 1100000b
+MASK_ROUND_BFLOAT16 = torch.tensor(15, dtype=torch.int) # 0 00000000 0001111b
 FP8_MAX = torch.tensor(57344*0.9, dtype=torch.float)
 
 def simulateFp8Precision(input):
     dtype = input.dtype
     if dtype == torch.float:
-        mask = MASK_FLOAT32
         int_type = torch.int
+        mask = MASK_FLOAT32
+        mask_round = MASK_ROUND_FLOAT32
+        excessive_bits = torch.tensor(21, dtype=int_type)
     else:
-        mask = MASK_BFLOAT16
         int_type = torch.short
+        mask = MASK_BFLOAT16
+        mask_round = MASK_ROUND_BFLOAT16
+        excessive_bits = torch.tensor(5, dtype=int_type)
     signs = torch.where(input < 0.0, -1.0, 1.0).to(dtype)
     asInt = input.view(int_type)
-    masked = torch.bitwise_and(asInt, mask)
+    mant_odd = torch.bitwise_and(torch.bitwise_right_shift(asInt, excessive_bits), torch.tensor(1, dtype=int_type))
+    asInt_masked = asInt + mask_round
+    asInt_odded = asInt_masked + mant_odd
+    masked = torch.bitwise_and(asInt_odded, mask)
     return masked.view(dtype)*signs
 
-@pytest.mark.parametrize("shape", [(64, 64, 768), (3, 4, 5)])
+
+@pytest.mark.parametrize("shape", [(64, 64), (3, 4, 5)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-def test_cast_to_fp8(shape, scale, dtype):
+@pytest.mark.parametrize("stochastic", [True, False])
+def test_cast_to_fp8(shape, scale, dtype, stochastic):
     hpu = torch.device("hpu")
-    input = torch.randn(shape, dtype=dtype)
-    input_fp8 = simulateFp8Precision(input)
+    input_pos = torch.rand(shape, dtype=dtype)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+
     scale = torch.tensor(scale, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    scaled_input_low_precision = simulateFp8Precision(input * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
     amax = torch.empty(1, dtype=torch.float).to(hpu)
+    casted = cast_to_fp8_te(input.to(hpu), scale.to(hpu), amax, stochastic)
+    uncasted = cast_from_fp8(casted, scale_inv.to(hpu), dtype)
 
-    result = cast_to_fp8_te(input.to(hpu), scale.to(hpu), amax, True).cpu()
-    result_ref = input_fp8*scale.to(dtype)
+    percentage_diff = torch.abs((((uncasted.cpu() - unscaled_input) / unscaled_input)*100).to(torch.int))
 
+    print(percentage_diff)
+
+    tolerance = 25 if stochastic else 0
+
+    assert np.amax(percentage_diff.numpy()) <= tolerance
     assert amax.cpu() == torch.max(input.abs())
 
 @pytest.mark.parametrize("shapeA, shapeB", [((2, 3, 4, 2), (2, 3, 4, 8)),
@@ -58,13 +81,13 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
         pytest.skip("Accumulate not supported without out_tensor")
 
     hpu = torch.device("hpu")
-    A = torch.rand(shapeA, dtype=torch.float)*10 + 30.0
+    A = torch.rand(shapeA, dtype=dtype)*10 + 30.0
     A_hpu = A.to(hpu)
-    max_A = torch.max(torch.abs(A))
+    max_A = torch.max(torch.abs(A)).to(torch.float)
 
-    B = torch.rand(shapeB, dtype=torch.float)*10 + 30.0
+    B = torch.rand(shapeB, dtype=dtype)*10 + 30.0
     B_hpu = B.to(hpu)
-    max_B = torch.max(torch.abs(B))
+    max_B = torch.max(torch.abs(B)).to(torch.float)
 
     scaleA_hpu = (FP8_MAX / max_A).to(hpu)
     scaleB_hpu = (FP8_MAX / max_B).to(hpu)

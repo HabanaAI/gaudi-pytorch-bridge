@@ -56,6 +56,28 @@ void LazyCastToFp8::AddNode(
   syn_out(1) = std::move(casted[1]);
 }
 
+LazyCastFromFp8::LazyCastFromFp8(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "cast_from_fp8_", scalar_type, {0}, {}, {}, false) {}
+
+void LazyCastFromFp8::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  auto dst_type = stack[2].toScalarType();
+  auto sizes = self.sizes();
+
+  std::string guid = dst_type == at::ScalarType::Float
+      ? "convert_from_fp8_f32"
+      : "convert_from_fp8_bf16";
+
+  auto casted = OpBackend::BuildNode(
+      this, graph, {guid, {syn_in(0), syn_in(1)}, {{sizes, dst_type, 0}}});
+
+  syn_out(0) = std::move(casted[0]);
+}
+
 LazyFp8Gemm::LazyFp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm_", scalar_type, {}, {}, {}, true) {}
 
@@ -138,6 +160,9 @@ static const auto& CastKernelRegistry =
         .add(
             "hpu::habana_cast_to_fp8_te",
             KERNEL_FN_GLOBAL(habana::LazyCastToFp8))
+        .add(
+            "hpu::habana_cast_from_fp8",
+            KERNEL_FN_GLOBAL(habana::LazyCastFromFp8))
         .add("hpu::habana_fp8_gemm", KERNEL_FN_GLOBAL(habana::LazyFp8Gemm))
         .add(
             "hpu::habana_fp8_transpose",
