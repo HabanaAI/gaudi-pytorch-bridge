@@ -1729,6 +1729,11 @@ Tensor view_dtype_hpu_lazy(const Tensor& self, ScalarType dtype) {
   int64_t self_element_size = self.element_size();
   int64_t new_element_size = static_cast<int64_t>(type_meta.itemsize());
 
+  // Handle bool dtype when self_element_size == new_element_size
+  if (self_element_size == new_element_size && dtype == c10::ScalarType::Bool) {
+    return self.to(dtype);
+  }
+
   auto new_tensor = empty_hpu_lazy(
       self.sizes(),
       self.options().dtype(type_meta),
