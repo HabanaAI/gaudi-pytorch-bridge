@@ -149,6 +149,57 @@ static const std::unordered_set<std::string> promote_list{
     "truediv",
     "stack"};
 
+Tensor cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type) {
+  // HPU in lazy mode doesn't benefit from cached casts. Potential optimization
+  // are done in GC level. Moreover, it leaves persistent tensors from cast
+  // operations, when HPU Graphs are used or .cpu() is called in the scope of
+  // autocast. Since torch.autocast has caching enabled by default, to avoid the
+  // risk of bad performance, cached casts are permanently disabled from
+  // autocast on HPU.
+  // TODO Analyze impact of cached casts when graph mode in PT 2.0 is
+  // introduced.
+#if 0
+  return cached_cast(to_type, arg, device_type);
+#else
+  if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
+    return arg.to(to_type);
+  } else {
+    return arg;
+  }
+#endif
+}
+
+// Overload to process optional<Tensor>
+inline c10::optional<Tensor> cast(
+    at::ScalarType to_type,
+    const c10::optional<Tensor>& arg,
+    DeviceType device_type = DeviceType::HPU) {
+  if (arg.has_value()) {
+    return cast(to_type, *arg, device_type);
+  } else {
+    return c10::nullopt;
+  }
+}
+
+// Overload to process TensorLists
+inline std::vector<Tensor> cast(
+    at::ScalarType to_type,
+    const TensorList& arg,
+    DeviceType device_type = DeviceType::HPU) {
+  std::vector<Tensor> vec;
+  vec.reserve(arg.size());
+  for (const auto& t : arg) {
+    vec.push_back(cast(to_type, t, device_type));
+  }
+  return vec;
+}
+
+// Template to catch non-Tensor args.
+template <typename T>
+inline T cast(at::ScalarType, T arg, DeviceType = DeviceType::HPU) {
+  return arg;
+}
+
 // Below structures are taken from pytorch/aten/src/ATen/autocast_mode.cpp
 // and adjusted/enhanced for HPU usage
 
@@ -181,8 +232,7 @@ struct WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-    return (*F)(
-        cached_cast(get_autocast_hpu_dtype(), args, DeviceType::HPU)...);
+    return (*F)(cast(get_autocast_hpu_dtype(), args, DeviceType::HPU)...);
   }
 };
 
@@ -196,7 +246,7 @@ struct WrapFunction_<
     guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
-    return (*F)(cached_cast(at::kFloat, args, DeviceType::HPU)...);
+    return (*F)(cast(at::kFloat, args, DeviceType::HPU)...);
   }
 };
 
@@ -212,14 +262,13 @@ struct WrapFunction_<
     c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::AutocastHPU);
     auto to_type =
         promote_type(get_autocast_hpu_dtype(), DeviceType::HPU, args...);
-    return (*F)(cached_cast(to_type, args, DeviceType::HPU)...);
+    return (*F)(cast(to_type, args, DeviceType::HPU)...);
   }
 };
 
 template <class Ret, class Signature, class T, class... Args>
 inline Ret cast_firstarg(Signature* F, const T& first, Args... args) {
-  return (*F)(
-      cached_cast(get_autocast_hpu_dtype(), first, DeviceType::HPU), args...);
+  return (*F)(cast(get_autocast_hpu_dtype(), first, DeviceType::HPU), args...);
 }
 
 // CastPolicy::lower_first_arg
