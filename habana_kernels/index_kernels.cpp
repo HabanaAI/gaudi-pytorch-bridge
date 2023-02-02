@@ -498,6 +498,8 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
   auto src = inputs[3].toTensor();
+  bool use_unsorted_scatter_add =
+      GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD);
 
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
@@ -519,8 +521,9 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  if (synapse_helpers::HPURegistrar::get_device().type() !=
-      synDeviceType::synDeviceGaudi) {
+  if (use_unsorted_scatter_add &&
+      synapse_helpers::HPURegistrar::get_device().type() !=
+          synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
       auto cast_op1 = make_operator<CastOperator>(
           self.device().index(), "cast_bf16_to_f32");
