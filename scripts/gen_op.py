@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # ##############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
