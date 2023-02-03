@@ -1,13 +1,20 @@
-#include "pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.h"
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 #include <chrono>
-#include <cmath>
 #include <list>
-#include <string_view>
+#include <memory>
 #include <unordered_set>
+#include "absl/strings/string_view.h"
+#define FMT_HEADER_ONLY
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#include "spdlog/common.h"
+#include "spdlog/fmt/bundled/format.h"
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic push
+#include "trace_parser.h"
 
 namespace habana {
 
@@ -169,20 +176,22 @@ struct EngineDatabase {
 };
 
 HpuTraceParser::HpuTraceParser(
+    TraceOutput& trace_output,
     long double hpu_start_time,
     long double wall_start_time)
-    : hpu_start_time_{hpu_start_time}, wall_start_time_{wall_start_time} {}
+    : trace_output_{trace_output},
+      hpu_start_time_{hpu_start_time},
+      wall_start_time_{wall_start_time} {}
 
 HpuTraceParser::~HpuTraceParser() {}
 
 void HpuTraceParser::Export(
     synTraceEvent2* events_ptr,
     size_t num_events,
-    long double wall_stop_time,
-    TraceSink& trace_sink) {
+    long double wall_stop_time) {
   engine_type_database_ = EngineDatabase::buildDatabase(events_ptr, num_events);
-  initLanes(trace_sink);
-  convertEventsToActivities(events_ptr, num_events, wall_stop_time, trace_sink);
+  initLanes();
+  convertEventsToActivities(events_ptr, num_events, wall_stop_time);
 }
 
 bool HpuTraceParser::skipEvent(const synTraceEvent2* events_ptr) {
@@ -193,15 +202,15 @@ bool HpuTraceParser::skipEvent(const synTraceEvent2* events_ptr) {
   if (engine_types.find(events_ptr->engineType) == engine_types.end())
     return true;
 
-  std::string_view name = events_ptr->name;
-  if (name.find("write to mem") != std::string_view::npos) {
+  absl::string_view name = events_ptr->name;
+  if (name.find("write to mem") != absl::string_view::npos) {
     return true;
   }
   return false;
 }
 
-void HpuTraceParser::initLanes(TraceSink& trace_sink) {
-  trace_sink.addDevice(plane_name_, device_lane_);
+void HpuTraceParser::initLanes() {
+  trace_output_.addDevice(plane_name_, device_lane_);
   auto& engine_types = engine_type_database_->engine_types_;
   for (auto& e : engine_types) {
     auto& engine_type = e.second;
@@ -209,14 +218,14 @@ void HpuTraceParser::initLanes(TraceSink& trace_sink) {
 
     if (EngineType::isHost(engine_type.name)) {
       for (auto& engine : engine_type.engines) {
-        trace_sink.addResource(
+        trace_output_.addResource(
             std::string("Synapse/") + engine.name,
             engine_type_index,
             engine_type_database_->getLine(engine.index));
       }
     } else {
       for (auto& engine : engine_type.engines) {
-        trace_sink.addResource(
+        trace_output_.addResource(
             engine.name,
             device_lane_,
             engine_type_database_->getLine(engine.index));
@@ -235,8 +244,7 @@ bool HpuTraceParser::isEventInTime(
 void HpuTraceParser::convertEventsToActivities(
     synTraceEvent2* events_ptr,
     size_t num_events,
-    long double wall_stop_time,
-    TraceSink& trace_sink) {
+    long double wall_stop_time) {
   std::unordered_map<
       uint32_t,
       std::unordered_map<uint32_t, std::list<const synTraceEvent2*>>>
@@ -257,10 +265,9 @@ void HpuTraceParser::convertEventsToActivities(
                     eventList.front()->timestamp,
                     events_ptr->timestamp,
                     wall_stop_time)) {
-              trace_sink.addCompleteActivity(
+              trace_output_.addActivity(
                   StringOrFallback(
                       events_ptr->arguments.operation, events_ptr->name),
-                  "",
                   getActivityType(events_ptr),
                   getDevice(events_ptr),
                   engine_type_database_->getLine(events_ptr->engineIndex),
@@ -279,10 +286,9 @@ void HpuTraceParser::convertEventsToActivities(
                 events_ptr->timestamp,
                 events_ptr->timestamp + events_ptr->duration,
                 wall_stop_time)) {
-          trace_sink.addCompleteActivity(
+          trace_output_.addActivity(
               StringOrFallback(
                   events_ptr->arguments.operation, events_ptr->name),
-              "",
               getActivityType(events_ptr),
               getDevice(events_ptr),
               engine_type_database_->getLine(events_ptr->engineIndex),
@@ -329,3 +335,4 @@ ActivityType HpuTraceParser::getActivityType(const synTraceEvent2* events_ptr) {
 }
 
 }; // namespace habana
+#undef FMT_HEADER_ONLY

@@ -1,6 +1,7 @@
 #include <iostream>
-#include <string_view>
-#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
+#include "absl/strings/string_view.h"
+#include "json_parser.h"
+#include "synapse_profiler.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -18,24 +19,20 @@ namespace habana {
 using namespace libkineto;
 using namespace std::chrono;
 
-class GenericTraceActivitySink : public TraceSink {
+class KinetoActivityProfiler : public SynapseProfiler {
  public:
-  GenericTraceActivitySink(std::deque<GenericTraceActivity>& activities)
-      : activities_{activities} {}
-  ~GenericTraceActivitySink() {}
+  KinetoActivityProfiler(std::deque<GenericTraceActivity>& activities)
+      : SynapseProfiler(json_parser_), activities_{activities} {}
 
-  void addCompleteActivity(
-      const std::string_view& name,
-      const std::string_view&,
+  void addActivity(
+      const std::string& name,
       habana::ActivityType type,
       int64_t device,
       int64_t resource,
       uint64_t start,
-      uint64_t end) override {
+      uint64_t end) {
     GenericTraceActivity ev{
-        defaultTraceSpan(),
-        mapHabanaTypeToKinetoType(type),
-        static_cast<std::string>(name)};
+        defaultTraceSpan(), mapHabanaTypeToKinetoType(type), name};
     ev.startTime = start;
     ev.endTime = end;
     ev.device = device;
@@ -46,17 +43,7 @@ class GenericTraceActivitySink : public TraceSink {
     activities_.push_back(ev);
   }
 
-  void addActivity(
-      const std::string_view&,
-      const std::string_view&,
-      const std::unordered_map<std::string, std::string>&,
-      habana::ActivityType,
-      int64_t,
-      int64_t,
-      uint64_t,
-      bool) override {}
-
-  void addDevice(const std::string_view& name, int64_t device) override {
+  void addDevice(const std::string& name, int64_t device) {
     GenericTraceActivity name_meta{
         defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     name_meta.startTime = 0;
@@ -64,8 +51,7 @@ class GenericTraceActivitySink : public TraceSink {
     name_meta.activityName = "process_name";
     name_meta.device = device;
     name_meta.resource = 0;
-    name_meta.addMetadata(
-        "name", std::string("\"") + static_cast<std::string>(name) + "\"");
+    name_meta.addMetadata("name", std::string("\"") + name + "\"");
     activities_.push_back(name_meta);
 
     GenericTraceActivity sort_meta{
@@ -81,11 +67,11 @@ class GenericTraceActivitySink : public TraceSink {
     activities_.push_back(sort_meta);
   }
 
-  void addResource(
-      const std::string_view& name,
+  virtual void addResource(
+      const std::string& name,
       int64_t device,
       int64_t resource,
-      int64_t sort_index = -1) override {
+      int64_t sort_index = -1) {
     GenericTraceActivity name_meta{
         defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     name_meta.startTime = 0;
@@ -93,8 +79,7 @@ class GenericTraceActivitySink : public TraceSink {
     name_meta.activityName = "thread_name";
     name_meta.device = device;
     name_meta.resource = resource;
-    name_meta.addMetadata(
-        "name", std::string("\"") + static_cast<std::string>(name) + "\"");
+    name_meta.addMetadata("name", std::string("\"") + name + "\"");
     activities_.push_back(name_meta);
 
     GenericTraceActivity sort_meta{
@@ -107,9 +92,6 @@ class GenericTraceActivitySink : public TraceSink {
     sort_meta.addMetadata("sort_index", std::to_string(sort_index));
     activities_.push_back(sort_meta);
   }
-
-  void addDeviceDetails(
-      const std::unordered_map<std::string, std::string>&) override {}
 
  private:
   const TraceSpan& defaultTraceSpan() {
@@ -129,15 +111,16 @@ class GenericTraceActivitySink : public TraceSink {
     }
     return libkineto::ActivityType::HPU_OP;
   }
+
   std::deque<GenericTraceActivity>& activities_;
+  Parser json_parser_;
 };
 
 class ProfilerSession : public libkineto::IActivityProfilerSession {
  public:
   explicit ProfilerSession(int64_t, int64_t) {
     status_ = TraceStatus::READY;
-    sink_ = std::make_unique<GenericTraceActivitySink>(activities_);
-    profiler_ = std::make_unique<Profiler>(*sink_);
+    profiler_ = std::make_unique<KinetoActivityProfiler>(activities_);
   }
 
   void start() override {
@@ -168,8 +151,7 @@ class ProfilerSession : public libkineto::IActivityProfilerSession {
 
  private:
   std::deque<GenericTraceActivity> activities_;
-  std::unique_ptr<GenericTraceActivitySink> sink_;
-  std::unique_ptr<Profiler> profiler_;
+  std::unique_ptr<KinetoActivityProfiler> profiler_;
 };
 
 class ActivityProfiler : public libkineto::IActivityProfiler {
@@ -202,7 +184,7 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
       const KINETO_NAMESPACE::Config&) override {
     auto env = std::getenv("HABANA_PROFILE");
     bool hpu_profiling_available =
-        (env != nullptr) && (std::string_view{env} != "0");
+        (env != nullptr) && (absl::string_view{env} != "0");
     bool hpu_profiling_requested =
         activity_types.find(libkineto::ActivityType::HPU_OP) !=
             activity_types.end() ||
@@ -215,9 +197,9 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
             std::make_unique<ProfilerSession>(start_time_ms, duration_ms);
         return session;
       } else {
-        std::cerr << "Tensorboard callback for HPU hardware profiling disabled"
-                     ". To enable set \"HABANA_PROFILE\""
-                  << std::endl;
+        std::cerr
+            << "Tensorboard callback for HPU hardware profiling disabled. To enable set \"HABANA_PROFILE\""
+            << std::endl;
       }
     }
     return nullptr;
@@ -235,7 +217,7 @@ std::unique_ptr<IActivityProfiler> register_activity_profiler() {
   return std::make_unique<ActivityProfiler>();
 }
 
-auto register_activity_sink_factory = [] {
+auto register_activity_profiler_factory = [] {
   libkineto::api().registerProfilerFactory(register_activity_profiler);
   return 0;
 };
