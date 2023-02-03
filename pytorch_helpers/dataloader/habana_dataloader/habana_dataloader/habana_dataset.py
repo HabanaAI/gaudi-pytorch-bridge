@@ -560,6 +560,8 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     if kwargs["benchmark"]:  # Just to make sure the number of examples is large enough for benchmark run.
         if mode == "train":
             nbs = kwargs["train_batches"]
+        elif mode == "test":
+            nbs = kwargs["test_batches"]
         else:
             raise ValueError("Unsupported mode {} for benchmark!".format(mode))
 
@@ -579,7 +581,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     }
 
     if kwargs["benchmark"]:
-        if mode == "train":
+        if mode == "train" or mode=="test":
             pipeline = "BenchmarkPipeline_Train"
         else:
             raise ValueError("Unsupported mode {} for benchmark!".format(mode))
@@ -609,3 +611,4 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     iterator = HPUUnet3DPytorchIterator(mediapipe=pipeline)
 
     return iterator
+
