@@ -1804,9 +1804,21 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
 #endif
 
 Tensor hpu_wrap::linear(
-    const Tensor& input,
+    const Tensor& input_,
     const Tensor& weight,
     const c10::optional<Tensor>& bias_opt) {
+  // Workaround to avoid going via autograd override in case
+  // the input is 1D. Even if PT_HPU_ENABLE_COMPOUND_LOWERING_OPS
+  // is set as false, (and hence Linear autograd override is not
+  // called, execution will still encounter autograd override.
+  // This is because in this case exec will go through the matmul
+  // path when input is 1D. But matmul has autograd override.
+  // So make input 2d and make exec go via addmm path instead of
+  // via matmul path.
+  auto input = input_;
+  if (input_.dim() == 1) {
+    input = input_.unsqueeze(0);
+  }
   PT_KERNEL_DEBUG(
       "HpuOp linear:",
       " input=",
@@ -1821,7 +1833,11 @@ Tensor hpu_wrap::linear(
         : c10::MaybeOwned<Tensor>::owned(c10::in_place);
     if (input.dim() == 2 && bias->defined()) {
       // Fused op is marginally faster.
-      return at::addmm(*bias, input, weight.t());
+      auto output = at::addmm(*bias, input, weight.t());
+      if (input_.dim() == 1) {
+        output = output.squeeze(0);
+      }
+      return output;
     }
     auto output = at::matmul(input, weight.t());
     if (bias->defined()) {
