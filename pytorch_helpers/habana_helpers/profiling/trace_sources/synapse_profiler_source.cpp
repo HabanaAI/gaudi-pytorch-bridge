@@ -1,4 +1,4 @@
-#include "synapse_profiler.h"
+#include "pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.h"
 #include <vector>
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 
@@ -31,8 +31,7 @@ uint64_t get_memory_size() {
   return total_mem;
 }
 
-SynapseProfiler::SynapseProfiler(HPUDetailsConsumer& hpu_details_consumer)
-    : hpu_details_consumer_(hpu_details_consumer) {
+SynapseProfilerSource::SynapseProfilerSource() {
   auto env = std::getenv("HABANA_PROFILE");
   bool hpu_profiling_available =
       (env != nullptr) && (absl::string_view{env} != "0");
@@ -43,17 +42,15 @@ SynapseProfiler::SynapseProfiler(HPUDetailsConsumer& hpu_details_consumer)
   }
 }
 
-void SynapseProfiler::start() {
+void SynapseProfilerSource::start() {
   // Necessary to initialize the device to use synapse api calls
   HABANAGuardImpl h;
   h.getDevice();
-  init_hpu_details(hpu_details_consumer_);
   uint64_t hpu_start_time_ns{};
   synProfilerGetCurrentTimeNS(&hpu_start_time_ns);
   long double hpu_start_time = hpu_start_time_ns / 1000.0L;
   long double wall_start_time = getTimeUs();
-  parser_ =
-      std::make_unique<HpuTraceParser>(*this, hpu_start_time, wall_start_time);
+  parser_ = std::make_unique<HpuTraceParser>(hpu_start_time, wall_start_time);
 
   synStatus status = synProfilerStart(synTraceAll, 0);
   if (status != synSuccess) {
@@ -61,7 +58,7 @@ void SynapseProfiler::start() {
   }
 }
 
-void SynapseProfiler::stop() {
+void SynapseProfilerSource::stop() {
   uint64_t wall_stop_time_ns{};
   synProfilerGetCurrentTimeNS(&wall_stop_time_ns);
   wall_stop_time_ = wall_stop_time_ns / 1000;
@@ -69,10 +66,14 @@ void SynapseProfiler::stop() {
   if (status != synSuccess) {
     std::cerr << "synProfilerStop failed" << std::endl;
   }
-  convertLogs();
 }
 
-void SynapseProfiler::convertLogs() {
+void SynapseProfilerSource::extract(TraceSink& output) {
+  initHpuDetails(output);
+  convertLogs(output);
+}
+
+void SynapseProfilerSource::convertLogs(TraceSink& output) {
   size_t size{}, count{};
   getLogsSize(size, count);
   if (count == 0) {
@@ -86,10 +87,10 @@ void SynapseProfiler::convertLogs() {
   if (!getEntries(size, count, events.data())) {
     return;
   }
-  parser_->Export(events.data(), count - 1, wall_stop_time_);
+  parser_->Export(events.data(), count - 1, wall_stop_time_, output);
 }
 
-void SynapseProfiler::getLogsSize(size_t& size, size_t& count) {
+void SynapseProfilerSource::getLogsSize(size_t& size, size_t& count) {
   auto status = synProfilerGetTrace2(
       synTraceAll, 0, synTraceFormatTEF, nullptr, &size, &count);
   if (status != synSuccess) {
@@ -97,7 +98,7 @@ void SynapseProfiler::getLogsSize(size_t& size, size_t& count) {
   }
 }
 
-bool SynapseProfiler::getEntries(size_t& size, size_t& count, void* out) {
+bool SynapseProfilerSource::getEntries(size_t& size, size_t& count, void* out) {
   auto status = synProfilerGetTrace2(
       synTraceAll, 0, synTraceFormatTEF, out, &size, &count);
   if (status != synSuccess) {
@@ -107,30 +108,10 @@ bool SynapseProfiler::getEntries(size_t& size, size_t& count, void* out) {
   return true;
 }
 
-void SynapseProfiler::init_hpu_details(
-    HPUDetailsConsumer& hpu_details_consumer) {
+void SynapseProfilerSource::initHpuDetails(TraceSink& output) {
   auto name = get_device_name();
   auto memory = get_memory_size();
-  hpu_details_consumer.add_device_details(
+  output.addDeviceDetails(
       {{"name", name}, {"totalGlobalMem", std::to_string(memory)}});
-}
-
-uint64_t SynapseProfiler::startCustomMeasurement(const std::string& tag) {
-  static uint64_t id{0};
-  uint64_t time;
-  synProfilerGetCurrentTimeNS(&time);
-  custom_measurements_[++id] = std::make_pair(time, tag);
-  return id;
-}
-
-void SynapseProfiler::stopCustomMeasurement(uint64_t id) {
-  auto custom_measurement_it = custom_measurements_.find(id);
-  if (custom_measurement_it != custom_measurements_.end()) {
-    synProfilerAddCustomMeasurement(
-        custom_measurement_it->second.second.c_str(),
-        custom_measurement_it->second.first);
-  } else {
-    std::cerr << "custom measurement " << id << " not found" << std::endl;
-  }
 }
 } // namespace habana

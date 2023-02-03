@@ -1,51 +1,28 @@
 #pragma once
 
 #include <strings.h>
-#include <deque>
 #include <memory>
+#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
 #include "synapse_api.h"
 
 namespace habana {
 struct EngineDatabase;
 
-enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET };
-
-struct TraceOutput {
-  virtual ~TraceOutput(){};
-  virtual void addActivity(
-      const std::string& name,
-      habana::ActivityType type,
-      int64_t device,
-      int64_t resource,
-      uint64_t start,
-      uint64_t end) = 0;
-
-  virtual void addDevice(const std::string& name, int64_t device) = 0;
-
-  virtual void addResource(
-      const std::string& name,
-      int64_t device,
-      int64_t resource,
-      int64_t sort_index = -1) = 0;
-};
-
 class HpuTraceParser {
  public:
-  HpuTraceParser(
-      TraceOutput& trace_output,
-      long double hpu_start_time,
-      long double wall_start_time);
+  HpuTraceParser(long double hpu_start_time, long double wall_start_time);
 
   ~HpuTraceParser();
 
   void Export(
       synTraceEvent2* events_ptr,
       size_t num_events,
-      long double wall_stop_time);
+      long double wall_stop_time,
+      TraceSink& trace_sink);
 
  private:
   bool skipEvent(const synTraceEvent2* events_ptr);
-  void initLanes();
+  void initLanes(TraceSink& trace_sink);
   bool isEventInTime(
       long double start,
       long double end,
@@ -53,12 +30,12 @@ class HpuTraceParser {
   void convertEventsToActivities(
       synTraceEvent2* events_ptr,
       size_t num_events,
-      long double wall_stop_time);
+      long double wall_stop_time,
+      TraceSink& trace_sink);
   int64_t timeStampHpuToTB(long double t);
   int64_t getDevice(const synTraceEvent2* events_ptr);
   bool isEventKernel(const synTraceEvent2* events_ptr);
   ActivityType getActivityType(const synTraceEvent2* events_ptr);
-  TraceOutput& trace_output_;
   const std::string plane_name_ = "/device:HPU:0";
   long double hpu_start_time_;
   long double wall_start_time_;

@@ -110,11 +110,13 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
   pytorch_helpers/habana_helpers/cast_sequence.cpp
-  pytorch_helpers/habana_helpers/profiling/synapse_profiler.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_parser.cpp
   pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
   pytorch_helpers/habana_helpers/event_dispatcher.cpp
+  pytorch_helpers/habana_helpers/profiling/profiling.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_logger_source.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/serialize/export.cpp
   pytorch_helpers/util/jitgraph_utils.cpp
   habana_kernels/basic_kernels.cpp
