@@ -25,9 +25,9 @@ TEST(ACC_ThreadPoolTest, single_task) {
   std::atomic_bool task_done{false};
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_done]() { task_done = true; });
+  acc_thread_pool->run([&task_done]() { task_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
 
@@ -39,15 +39,15 @@ TEST(ACC_ThreadPoolTest, single_task_async) {
   std::atomic_bool task_done{false};
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_done]() { task_done = true; });
+  acc_thread_pool->run([&task_done]() { task_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
 
   EXPECT_EQ(false, task_done);
 
-  acc_thread_pool.waitWorkComplete();
+  acc_thread_pool->waitWorkComplete();
 
   EXPECT_EQ(true, task_done);
 
@@ -59,17 +59,17 @@ TEST(ACC_ThreadPoolTest, single_task_async_discard) {
   std::atomic_bool task_done{false};
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_done]() { task_done = true; });
+  acc_thread_pool->run([&task_done]() { task_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
   EXPECT_EQ(false, task_done);
 
-  acc_thread_pool.discardPendingTasks();
+  acc_thread_pool->discardPendingTasks();
   EXPECT_EQ(false, task_done);
 
-  acc_thread_pool.waitWorkComplete();
+  acc_thread_pool->waitWorkComplete();
   EXPECT_EQ(false, task_done);
 
   UNSET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING);
@@ -82,11 +82,11 @@ TEST(ACC_ThreadPoolTest, many_tasks) {
 
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_one_done]() { task_one_done = true; });
-  acc_thread_pool.run([&task_two_done]() { task_two_done = true; });
-  acc_thread_pool.run([&task_three_done]() { task_three_done = true; });
+  acc_thread_pool->run([&task_one_done]() { task_one_done = true; });
+  acc_thread_pool->run([&task_two_done]() { task_two_done = true; });
+  acc_thread_pool->run([&task_three_done]() { task_three_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
 
@@ -103,11 +103,11 @@ TEST(ACC_ThreadPoolTest, many_tasks_async) {
 
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_one_done]() { task_one_done = true; });
-  acc_thread_pool.run([&task_two_done]() { task_two_done = true; });
-  acc_thread_pool.run([&task_three_done]() { task_three_done = true; });
+  acc_thread_pool->run([&task_one_done]() { task_one_done = true; });
+  acc_thread_pool->run([&task_two_done]() { task_two_done = true; });
+  acc_thread_pool->run([&task_three_done]() { task_three_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
 
@@ -115,7 +115,7 @@ TEST(ACC_ThreadPoolTest, many_tasks_async) {
   EXPECT_EQ(false, task_two_done);
   EXPECT_EQ(false, task_three_done);
 
-  acc_thread_pool.waitWorkComplete();
+  acc_thread_pool->waitWorkComplete();
   EXPECT_EQ(true, task_one_done);
   EXPECT_EQ(true, task_two_done);
   EXPECT_EQ(true, task_three_done);
@@ -130,23 +130,23 @@ TEST(ACC_ThreadPoolTest, many_tasks_async_discard) {
 
   std::chrono::milliseconds sleep_time_ms{50};
 
-  habana_lazy::AccThreadPool acc_thread_pool;
+  auto acc_thread_pool = habana_lazy::CreateAccThreadPool();
 
-  acc_thread_pool.run([&task_one_done]() { task_one_done = true; });
-  acc_thread_pool.run([&task_two_done]() { task_two_done = true; });
-  acc_thread_pool.run([&task_three_done]() { task_three_done = true; });
+  acc_thread_pool->run([&task_one_done]() { task_one_done = true; });
+  acc_thread_pool->run([&task_two_done]() { task_two_done = true; });
+  acc_thread_pool->run([&task_three_done]() { task_three_done = true; });
 
   std::this_thread::sleep_for(sleep_time_ms);
   EXPECT_EQ(false, task_one_done);
   EXPECT_EQ(false, task_two_done);
   EXPECT_EQ(false, task_three_done);
 
-  acc_thread_pool.discardPendingTasks();
+  acc_thread_pool->discardPendingTasks();
   EXPECT_EQ(false, task_one_done);
   EXPECT_EQ(false, task_two_done);
   EXPECT_EQ(false, task_three_done);
 
-  acc_thread_pool.waitWorkComplete();
+  acc_thread_pool->waitWorkComplete();
   EXPECT_EQ(false, task_one_done);
   EXPECT_EQ(false, task_two_done);
   EXPECT_EQ(false, task_three_done);

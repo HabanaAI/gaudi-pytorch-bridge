@@ -12,6 +12,7 @@
  */
 #include <ATen/Parallel.h>
 #include <c10/util/thread_name.h>
+#include <future>
 
 #include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_graph_hash_disabler.h"
@@ -19,31 +20,74 @@
 
 namespace habana_lazy {
 
-thread_local bool AccThreadPool::task_in_progress_{false};
+std::unique_ptr<AccThreadPoolBase> CreateAccThreadPool() {
+  if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING))
+    return std::make_unique<AccNoThread>();
+  else {
+    int thread_ver = GET_ENV_FLAG_NEW(PT_HPU_ACC_THREAD_VERSION);
+    switch (thread_ver) {
+      case 0:
+        return std::make_unique<AccThreadPool>();
+      case 1:
+        return std::make_unique<AccThreadPoolFast<BlockingQueue>>();
+      default:
+        return std::make_unique<AccThreadPoolFast<LockFreeQueue>>();
+    }
+  }
+}
+
+// ////////////////////////////////////////////////
+
+void AccNoThread::run(AccTask&& func) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  tasks_.emplace(std::move(func));
+}
+
+void AccNoThread::waitWorkComplete() {
+  // If task_in_progress_ is true then we reentered AccThread - this is
+  // situation we want to avoid
+  HABANA_ASSERT(task_in_progress_ == false);
+  task_in_progress_ = true;
+
+  while (!tasks_.empty()) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    AccTask task = std::move(tasks_.front());
+    tasks_.pop();
+    lock.unlock();
+    DisableRunningHashUpdates disable;
+    task();
+  }
+
+  task_in_progress_ = false;
+}
+
+void AccNoThread::discardPendingTasks() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  std::queue<AccTask> empty_queue;
+  tasks_.swap(empty_queue);
+}
+
+bool AccNoThread::inAccThreadContext() const {
+  return task_in_progress_;
+}
+
+// //////////////////////////////////////////////
 
 AccThreadPool::AccThreadPool()
-    : running_(!GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING)),
-      stop_(false),
-      task_count_(0),
-      ex_ptr_(nullptr) {
+    : stop_(false), task_count_(0), ex_ptr_(nullptr) {
   auto init_thread = []() {
     c10::setThreadName("AccThreadPool");
     at::init_num_threads();
   };
 
-  if (running_) {
-    thread_ = std::thread([this, init_thread]() {
-      init_thread();
-      this->main_loop();
-    });
-  }
+  thread_ = std::thread([this, init_thread]() {
+    init_thread();
+    this->main_loop();
+  });
 }
 
 AccThreadPool::~AccThreadPool() {
-  if (!thread_.joinable())
-    return;
-
-  // set flag to false to break main loop in the acc thread
+  // set flag to true to break main loop in the acc thread
   stop_ = true;
 
   try {
@@ -58,7 +102,7 @@ bool AccThreadPool::inThreadPool() const {
 }
 
 bool AccThreadPool::inAccThreadContext() const {
-  return inThreadPool() || task_in_progress_;
+  return inThreadPool();
 }
 
 void AccThreadPool::run(std::function<void()>&& func) {
@@ -73,13 +117,8 @@ void AccThreadPool::run(std::function<void()>&& func) {
 }
 
 void AccThreadPool::waitWorkComplete() {
-  if (running_) {
-    while (task_count_ > 0)
-      std::this_thread::yield();
-  } else {
-    while (task_count_ > 0)
-      executePendingTask();
-  }
+  while (task_count_ > 0)
+    std::this_thread::yield();
 
   checkNoException();
 }
@@ -96,11 +135,6 @@ void AccThreadPool::executePendingTask() {
     tasks_.pop();
     lock.unlock();
 
-    // If task_in_progress_ is true then we reentered AccThread - this is
-    // situation we want to avoid
-    HABANA_ASSERT(task_in_progress_ == false);
-    task_in_progress_ = true;
-
     // Run the task.
     try {
       DisableRunningHashUpdates disable;
@@ -110,21 +144,13 @@ void AccThreadPool::executePendingTask() {
       stop_ = true;
       return;
     }
-
-    task_in_progress_ = false;
   }
 
   --task_count_;
 }
 
 void AccThreadPool::discardPendingTasks() {
-  HABANA_ASSERT(running_ == false);
-  std::queue<AccTask> empty_queue;
-  {
-    std::unique_lock<std::mutex> lock(mutex_);
-    tasks_.swap(empty_queue);
-  }
-  task_count_ = 0;
+  HABANA_ASSERT(false, "discardPendingTasks supported only for sync mode");
 }
 
 void AccThreadPool::main_loop() {
@@ -156,5 +182,106 @@ void AccThreadPool::checkNoException() {
         "Exception in acc thread pool task has been thrown: ", ex.what());
   }
 }
+
+// /////////////////////////////////////////////////////////////////////
+template <template <typename> typename Queue>
+AccThreadPoolFast<Queue>::AccThreadPoolFast() : stop_(false), ex_ptr_(nullptr) {
+  auto init_thread = []() {
+    c10::setThreadName("AccThreadPool");
+    at::init_num_threads();
+  };
+  thread_ = std::thread([this, init_thread]() {
+    init_thread();
+    this->main_loop();
+  });
+}
+
+template <template <typename> typename Queue>
+AccThreadPoolFast<Queue>::~AccThreadPoolFast() {
+  // set flag to true to break main loop in the acc thread
+  tasks_.push({[this]() { stop_ = true; }});
+  try {
+    thread_.join();
+  } catch (const std::exception& ex) {
+    PT_BRIDGE_WARN("Exception in acc thread pool destructor: ", ex.what());
+  }
+}
+
+template <template <typename> typename Queue>
+bool AccThreadPoolFast<Queue>::inThreadPool() const {
+  return thread_.get_id() == std::this_thread::get_id();
+}
+
+template <template <typename> typename Queue>
+bool AccThreadPoolFast<Queue>::inAccThreadContext() const {
+  return inThreadPool();
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::run(std::function<void()>&& func) {
+  checkNoException();
+  tasks_.push(std::move(func));
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::waitWorkComplete() {
+  checkNoException();
+
+  std::promise<void> last_task;
+  std::future<void> work_compelete = last_task.get_future();
+  tasks_.push({[&last_task]() { last_task.set_value(); }, true});
+  work_compelete.wait();
+
+  checkNoException();
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::executePendingTask(
+    std::function<void()>&& task) {
+  try {
+    DisableRunningHashUpdates disable;
+    task();
+  } catch (...) {
+    ex_ptr_ = std::current_exception();
+    stop_ = true;
+    return;
+  }
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::discardPendingTasks() {
+  HABANA_ASSERT(false, "discardPendingTasks supported only for sync mode");
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::main_loop() {
+  while (!stop_) {
+    executePendingTask(std::move(tasks_.pop().fun_));
+  }
+  // in case of exception has been thrown
+  while (!tasks_.empty()) {
+    auto task = std::move(tasks_.pop());
+    if (task.intra_task_)
+      task.fun_();
+  }
+}
+
+template <template <typename> typename Queue>
+void AccThreadPoolFast<Queue>::checkNoException() {
+  try {
+    if (ex_ptr_) {
+      std::rethrow_exception(ex_ptr_);
+    }
+  } catch (const std::exception& ex) {
+    PT_BRIDGE_FATAL(
+        "Exception in acc thread pool task has been thrown: ", ex.what());
+  } catch (...) {
+    PT_BRIDGE_FATAL("Exception in acc thread pool task has been thrown");
+  }
+  ex_ptr_ = nullptr;
+}
+
+template class AccThreadPoolFast<LockFreeQueue>;
+template class AccThreadPoolFast<BlockingQueue>;
 
 } // namespace habana_lazy

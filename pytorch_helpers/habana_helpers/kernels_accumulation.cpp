@@ -74,21 +74,23 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
 
 thread_local bool AccThread::acc_thread_allowed = true;
 
+AccThread::AccThread() : thread_pool(CreateAccThreadPool()) {}
+
 AccThread& AccThread::Get() {
   static AccThread acc_thread; // single thread only
   return acc_thread;
 }
 
 bool AccThread::inAccThreadContext() const {
-  return thread_pool.inAccThreadContext();
+  return thread_pool->inAccThreadContext();
 }
 
 void AccThread::run(std::function<void()>&& func) {
-  thread_pool.run(std::move(func));
+  thread_pool->run(std::move(func));
 }
 
 void AccThread::discardPendingTasks() {
-  thread_pool.discardPendingTasks();
+  thread_pool->discardPendingTasks();
 }
 
 void AccThread::PushCleanupTask(std::function<void()>&& task) {
@@ -116,7 +118,7 @@ void AccThread::ExecuteAllCleanupTasks() {
   }
 
   PT_LAZY_TRACE
-  std::queue<AccThreadPool::AccTask> empty;
+  std::queue<AccThreadPoolBase::AccTask> empty;
   {
     std::unique_lock<std::mutex> lock(cleanup_mutex);
     // let's assume for now, that bodies of cleanup funcs are empty
@@ -128,7 +130,7 @@ void AccThread::SyncAccThreadPool() {
   if (CanUseAccThreadInternal()) {
     PT_LAZY_TRACE
     PT_LAZY_PARALLEL_ACC_DEBUG("Synchronizing accumulation thread ...");
-    thread_pool.waitWorkComplete();
+    thread_pool->waitWorkComplete();
   }
 }
 

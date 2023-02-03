@@ -431,6 +431,17 @@ ENV_STRUCT_DEFINITION(PT_HPU_EAGER_TENSOR_POOL_SIZE, unsigned, 1000);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_SORT_INDEX_IN_SCATTER_ADD, bool, false);
 
+// clang-format off
+// This is temporary variable, just to find out best solution for accumulation
+// thread
+// 0 - default accumulation thread
+// 1 - accumulation thread without spinning, coould be slower but consume less
+// CPU time
+// 2 - accumulation thread with spinning and mutexes is not used,
+// the fastest solution, but could consume more CPU time
+// clang-format on
+ENV_STRUCT_DEFINITION(PT_HPU_ACC_THREAD_VERSION, int, 0);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,

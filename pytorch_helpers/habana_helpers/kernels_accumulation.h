@@ -60,11 +60,11 @@ class AccThread {
   static thread_local bool acc_thread_allowed;
 
  private:
-  AccThread() = default;
+  AccThread();
   std::queue<std::function<void()>> cleanup_tasks;
   std::mutex cleanup_mutex;
   static const std::unordered_set<std::string> SupportedNonAutogenOps;
-  AccThreadPool thread_pool;
+  std::unique_ptr<AccThreadPoolBase> thread_pool;
 
   bool CanUseAccThreadInternal();
 };
