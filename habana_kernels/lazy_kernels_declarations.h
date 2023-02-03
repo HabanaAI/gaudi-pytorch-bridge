@@ -339,6 +339,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_hpu_lazy(
     bool training,
     double momentum,
     double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_legit_hpu_lazy(
+    const at::Tensor& input_,
+    const c10::optional<at::Tensor>& weight_tensor,
+    const c10::optional<at::Tensor>& bias_tensor,
+    at::Tensor& running_mean_,
+    at::Tensor& running_var,
+    bool training,
+    double momentum,
+    double eps);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_bwd_hpu_lazy(
     const at::Tensor& grad_out,
     const at::Tensor& input,

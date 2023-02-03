@@ -4201,6 +4201,27 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   }
 }
 
+std::tuple<Tensor, Tensor, Tensor> batch_norm_legit_hpu_lazy(
+    const Tensor& input_,
+    const c10::optional<at::Tensor>& weight_tensor,
+    const c10::optional<at::Tensor>& bias_tensor,
+    at::Tensor& running_mean_,
+    at::Tensor& running_var_,
+    bool training,
+    double momentum,
+    double eps) {
+  PT_LAZY_TRACE;
+  return batch_norm_hpu_lazy(
+      input_,
+      weight_tensor,
+      bias_tensor,
+      running_mean_,
+      running_var_,
+      training,
+      momentum,
+      eps);
+}
+
 std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> batch_norm_bwd_preprocess(
     const Tensor& input_,
     const Tensor& grad_out_,

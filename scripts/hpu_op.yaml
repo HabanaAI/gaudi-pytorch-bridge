@@ -4642,6 +4642,15 @@ nansum.out:
   op_template: reduction
   op_backend: NansumList
 
+_native_batch_norm_legit:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+    Greco: [BFloat16, Float, Half]
+  override_fn: batch_norm_legit_hpu_lazy
+  acc_thread: true
+
 native_batch_norm:
   dtypes:
     Gaudi: [BFloat16, Float]

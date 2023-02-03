@@ -247,6 +247,16 @@ struct _dispatch_fallback<
       OpSupportLevel osl,
       at::ScalarType result_dtype,
       ParameterTypes... args) {
+    const std::index_sequence_for<ParameterTypes...> indices{};
+    return ::std::move(call(osl, result_dtype, args..., indices));
+  }
+
+  template <std::size_t... Indices>
+  static ReturnType call(
+      OpSupportLevel osl,
+      at::ScalarType result_dtype,
+      ParameterTypes... args,
+      std::index_sequence<Indices...>) {
     PT_FALLBACK_TRACE
     assert(!osl); // should never be called for op that is supported
     if (osl == OpSupportLevel::Value::unsupported_dtype) {
@@ -254,11 +264,15 @@ struct _dispatch_fallback<
         bool arg_changed = false;
         // cast_args evaluate first, each may toggle `arg_changed` that is
         // eventually passed to redispatch
+        auto params = std::make_tuple(args...);
+        auto partial_cast_arg = [&arg_changed](auto... argument) {
+          return std::make_tuple(
+              cast_arg(arg_changed, at::ScalarType::Float, argument)...);
+        };
+        auto casted_params = std::apply(partial_cast_arg, params);
         auto result{
             redispatch_if_any_arg_changed<Op, ReturnType, ParameterTypes...>::
-                call(
-                    arg_changed,
-                    cast_arg(arg_changed, at::ScalarType::Float, args)...)};
+                call(arg_changed, std::get<Indices>(casted_params)...)};
         if (arg_changed)
           return cast_result<ReturnType>::cast(result_dtype, result);
         else
