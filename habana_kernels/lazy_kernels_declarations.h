@@ -867,4 +867,14 @@ native_group_norm_backward_hpu_lazy(
     int64_t group,
     std::array<bool, 3> output_mask);
 at::Tensor habana_random_seed_lazy(const at::Tensor& input);
+std::vector<at::Tensor> habana_permute_1D_sparse_data_lazy(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights);
+std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights);
 } // namespace habana_lazy

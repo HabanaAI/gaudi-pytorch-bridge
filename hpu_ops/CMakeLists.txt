@@ -101,6 +101,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/erfc_gen.cpp
           backend/exponential_gen.cpp
           backend/eye_gen.cpp
+          backend/fbgemm.cpp
           backend/fill_gen.cpp
           backend/flip_gen.cpp
           backend/floor_divide_gen.cpp

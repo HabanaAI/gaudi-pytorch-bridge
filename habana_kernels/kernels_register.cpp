@@ -1810,6 +1810,48 @@ Tensor habana_random_seed_wrap(const at::Tensor& input) {
   return habana_random_seed_lazy(input);
 }
 
+std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " permute_1D_sparse_data:",
+      " permute=",
+      to_string(permute),
+      " lengths=",
+      to_string(lengths),
+      " indices=",
+      to_string(indices),
+      " weights=",
+      to_string(weights));
+
+  return habana_permute_1D_sparse_data_lazy(permute, lengths, indices, weights);
+}
+
+std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " permute_2D_sparse_data:",
+      " permute=",
+      to_string(permute),
+      " lengths=",
+      to_string(lengths),
+      " indices=",
+      to_string(indices),
+      " weights=",
+      to_string(weights));
+
+  return habana_permute_2D_sparse_data_lazy(permute, lengths, indices, weights);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2254,6 +2296,14 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
+  m.def(
+      "hpu::habana_permute_1D_sparse_data(Tensor permute, Tensor lengths, Tensor indices, Tensor? weights=None) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::habana_permute_1D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::habana_permute_2D_sparse_data(Tensor permute, Tensor lengths, Tensor indices, Tensor? weights=None) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::habana_permute_2D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

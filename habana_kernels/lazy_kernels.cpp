@@ -7553,4 +7553,121 @@ at::Tensor& set_(at::Tensor&) {
   std::terminate();
 }
 
+template <
+    typename Tout,
+    bool is1D,
+    bool hasWeights = (std::tuple_size_v<Tout> == 3)>
+std::vector<at::Tensor> habana_permute_1D_2D_sparse_data_helper_lazy(
+    const std::vector<at::IValue>& inputs) {
+  class Kernel : public LazyOp<Tout> {
+   public:
+    Kernel(const std::string& op_name, const std::vector<at::IValue>& inputs)
+        : LazyOp<Tout>(
+              op_name,
+              inputs,
+              std::vector<std::vector<int64_t>>(),
+              -1) {}
+
+   private:
+    std::vector<at::IValue>& get_inputs() {
+      return LazyOp<Tout>::get_inputs();
+    }
+
+    Tout get_result_overrideable() override {
+      const auto& inputs = get_inputs();
+      auto lengths = inputs[1].toTensor();
+      auto indices = inputs[2].toTensor();
+
+      auto create_res = [&](Tensor in) {
+        // Applies to lenghts only
+        if (is1D && in.dim() == 2) {
+          auto shape = in.sizes().vec();
+          auto shape_new = {shape[0] * shape[1]};
+          return empty_hpu_lazy(
+              shape_new, in.options(), in.suggest_memory_format(), false);
+        }
+
+        return empty_hpu_lazy(
+            in.sizes(), in.options(), in.suggest_memory_format(), false);
+      };
+
+      if constexpr (hasWeights)
+        return {
+            create_res(lengths),
+            create_res(indices),
+            create_res(inputs[3].toTensor())};
+      else
+        return {create_res(lengths), create_res(indices)};
+    };
+  };
+
+  std::string hpu_op_name = "hpu::habana_permute_";
+  hpu_op_name += is1D ? "1D" : "2D";
+  hpu_op_name += hasWeights ? "_sparse_data" : "_sparse_data_without_weights";
+
+  Kernel k{hpu_op_name, inputs};
+
+  std::vector<at::Tensor> out_v;
+  auto out = k.get_result();
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
+    if constexpr (hasWeights)
+      op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+    else
+      op.call(std::tie(out_v[0], out_v[1]));
+  };
+
+  std::vector<at::Tensor> res_vec{std::get<0>(out), std::get<1>(out)};
+  if constexpr (hasWeights)
+    res_vec.emplace_back(std::get<02>(out));
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(
+      habana_permute_1D_sparse_data, func, res_vec)
+}
+
+std::vector<at::Tensor> habana_permute_1D_sparse_data_lazy(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  std::vector<at::IValue> inputs = {permute, lengths, indices};
+
+  if (weights) {
+    inputs.push_back(weights);
+    return habana_permute_1D_2D_sparse_data_helper_lazy<
+        std::tuple<Tensor, Tensor, Tensor>,
+        true>(inputs);
+  } else {
+    return habana_permute_1D_2D_sparse_data_helper_lazy<
+        std::tuple<Tensor, Tensor>,
+        true>(inputs);
+  }
+}
+
+std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  std::vector<at::IValue> inputs = {permute, lengths, indices};
+
+  if (weights) {
+    inputs.push_back(weights);
+    return habana_permute_1D_2D_sparse_data_helper_lazy<
+        std::tuple<Tensor, Tensor, Tensor>,
+        false>(inputs);
+  } else {
+    return habana_permute_1D_2D_sparse_data_helper_lazy<
+        std::tuple<Tensor, Tensor>,
+        false>(inputs);
+  }
+}
+
 } // namespace habana_lazy

@@ -341,4 +341,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "random_seed",
       &habana_random_seed,
       "Sets random seed in the LFSR register");
+  m.def(
+      "permute_1D_sparse_data",
+      &habana_permute_1D_sparse_data_wrap,
+      "Permute 1D sparse data");
+  m.def(
+      "permute_2D_sparse_data",
+      &habana_permute_2D_sparse_data_wrap,
+      "Permute 2D sparse data");
 }
