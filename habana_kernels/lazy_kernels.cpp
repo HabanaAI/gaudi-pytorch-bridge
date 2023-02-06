@@ -839,10 +839,23 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // handle views
   auto _src = HbLazyTensorViews::HandleViewsD2H(src);
   auto hb_tensor = GetHbLazyTensor(_src);
-  if (!hb_tensor.isStorageAttached() && _src.storage().data_ptr() != nullptr) {
+  if (!hb_tensor.isStorageAttached()) {
     auto storage = _src.storage();
+    if (storage.data_ptr() == nullptr) {
+      c10 ::Allocator* allocator;
+      allocator = habana::getHABANADeviceAllocator();
+      int64_t nelements = multiply_integers(_src.sizes());
+      int elem_size = _src.dtype().itemsize();
+      int64_t size_bytes = nelements * elem_size;
+      storage = c10::make_intrusive<StorageImpl>(
+          c10::StorageImpl::use_byte_size_t(),
+          size_bytes,
+          allocator->allocate(nelements * elem_size),
+          allocator,
+          true);
+    }
     auto at_internal_tensor = AtenInternalHbTensor(
-        c10::Storage(storage),
+        std::move(storage),
         _src.dtype(),
         DATA_TENSOR,
         _src.sizes(),
