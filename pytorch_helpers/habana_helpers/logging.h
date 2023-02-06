@@ -282,7 +282,8 @@ class PtLogger {
     LAZY_EAGER = 0x80000,
     MEMLOG = 0x100000,
     EXEC_THREAD = 0x200000,
-    CUSTOM = 0x400000 // Don't use it in checkin code.
+    EAGER = 0x400000,
+    CUSTOM = 0x800000 // Don't use it in checkin code.
   };
 };
 
@@ -325,6 +326,8 @@ inline std::string DebugString(const PtLogger::ModuleMask& mod) {
       return std::string("MEMLOG");
     case PtLogger::ModuleMask::EXEC_THREAD:
       return std::string("EXEC_THREAD");
+    case PtLogger::ModuleMask::EAGER:
+      return std::string("EAGER");
     case PtLogger::ModuleMask::CUSTOM:
       return std::string("CUSTOM");
     default:
@@ -536,6 +539,8 @@ class PTFuncLog {
 
 #define PT_MOD_TRACE(MOD, PNAME, NAME) PT_MOD_SCOPE(MOD, PNAME, NAME)
 
+#define PT_EAGER_TRACE PT_MOD_TRACE(EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+
 #define PT_LAZY_TRACE PT_MOD_TRACE(LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_LAZY_TRACE_WITH_NAME(name) PT_MOD_TRACE(LAZY, name, name)
 #define PT_BRIDGE_TRACE PT_MOD_TRACE(BRIDGE, __PRETTY_FUNCTION__, __FUNCTION__)
@@ -590,6 +595,8 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+#define PT_EAGER_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::EAGER, __VA_ARGS__)
 #define PT_LAZY_PARALLEL_ACC_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::PARALLEL_ACC, __VA_ARGS__)
 #define PT_MEMLOG_DEBUG(...) \

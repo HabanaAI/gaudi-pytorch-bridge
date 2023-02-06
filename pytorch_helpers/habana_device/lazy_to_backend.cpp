@@ -27,8 +27,9 @@ void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
 
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
     get_memory_permutation(const at::Tensor& tensor) {
+  // It should be handled in SW-122018
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-    PT_BRIDGE_WARN(
+    PT_EAGER_DEBUG(
         "Skipping permutations for EagerOp with duplicate inputs...");
     return {synapse_helpers::layouts::MemoryPermutation{}, false};
   }

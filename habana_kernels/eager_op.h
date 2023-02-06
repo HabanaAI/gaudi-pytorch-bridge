@@ -58,7 +58,7 @@ class EagerOp {
       const std::vector<at::IValue>& inputs,
       std::set<size_t> metadata_indices = {},
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0) noexcept
+      int out_index = 0)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
@@ -69,7 +69,7 @@ class EagerOp {
   explicit EagerOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes) noexcept
+      std::vector<std::vector<int64_t>> out_shapes)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_shapes{std::move(out_shapes)},
@@ -82,7 +82,7 @@ class EagerOp {
       const std::vector<at::IValue>& inputs,
       const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
           out_shapes_fn,
-      int out_index = 0) noexcept
+      int out_index = 0)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_index{out_index} {
@@ -96,7 +96,7 @@ class EagerOp {
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       std::vector<std::vector<int64_t>> out_shapes,
-      const c10::ScalarType scalar_type) noexcept
+      const c10::ScalarType scalar_type)
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_shapes{std::move(out_shapes)},
@@ -318,6 +318,7 @@ class EagerOp {
 
   void set_inputs(const std::vector<at::IValue>& inputs) {
     auto inputsHpu = inputs;
+    size_t idx = 0;
     for (auto& t : inputsHpu) {
       if (t.isTensor() && t.toTensor().defined() &&
           t.toTensor().device().type() != c10::DeviceType::HPU) {
@@ -329,10 +330,13 @@ class EagerOp {
         } else {
           HABANA_ASSERT(
               0,
-              "Got unexpected tensor as input to HPU Op. Tensor: ",
+              "Got unexpected tensor as input at index ",
+              idx,
+              " to HPU Op. Tensor: ",
               tensor.toString());
         }
       }
+      ++idx;
     }
     m_inputs = inputsHpu;
   }

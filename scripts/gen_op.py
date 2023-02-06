@@ -917,15 +917,23 @@ def frontend(
         )
 
     is_eager_op_supported = False
-    if is_eager_op(fname, rtype, sig) and op_frontend_class == "LazyOp":
-        is_eager_op_supported = True
-        op_frontend_class = "eager::EagerOp"
-
+    if _IS_EAGER:
+        if is_eager_op(fname, rtype, sig, ctxop):
+            is_eager_op_supported = True
+            op_frontend_class = "eager::EagerOp"
+        else:
+            # for not supported eager ops in Eager compilation, return an exception in the op code
+            code += "  HABANA_ASSERT(0, \"Frontend Op {} not supported with new Eager mode\");\n".format(sig)
+            code += "  std::terminate(); // just to avoid compilation errors of missing return..\n"
+            code += "  // ANYTHING BELOW IS JUST FOR REFERENCE WHEN MIGRATING TO EAGER OP\n\n"
 
     if ctxop.get_override_fn():
-        code += "  return habana_lazy::{}({})".format(
+        code_line = "  return habana_lazy::{}({})".format(
             ctxop.get_override_fn(), ", ".join(param_vars)
         )
+        if _IS_EAGER:
+            code += "  // MOVE TO EAGER: {}\n".format(code_line)
+        code += code_line
     else:
         out_dtype = ctxop.get_out_dtype()
         if out_dtype:
@@ -933,9 +941,12 @@ def frontend(
                 out_dtype, aten_opname, out_dtype
             )
 
-        code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
+        code_line = '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
+        if _IS_EAGER and not is_eager_op_supported:
+            code += "  // MOVE TO EAGER: {}\n".format(code_line)
+        code += code_line
 
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -954,7 +965,7 @@ def frontend(
                 ", ".join(extract_reduction_vars_indices(param_vars))
             )
 
-        if is_acc_thread_supported(fname, ctxop, rtype, sig) and not is_eager_op_supported:
+        if not is_eager_op_supported and is_acc_thread_supported(fname, ctxop, rtype, sig):
             if is_inplace_or_out_op(fname):
                 if rtype.startswith("::std::tuple<at::Tensor"):
                     code += "  auto tuple = {};\n".format(lazyop_call_args)
@@ -1220,8 +1231,10 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
         )
 
 # helper function to determine if op supports eager::EagerOp
-def is_eager_op(fname, rtype, sig):
-    if not _IS_EAGER:
+def is_eager_op(fname, rtype, sig, ctxop):
+    assert _IS_EAGER, "Function to be used only in Eager mode"
+
+    if ctxop.get_op_frontend_class() != "LazyOp":
         return False
 
     if is_inplace_or_out_op(fname):

@@ -1677,6 +1677,11 @@ void HbLazyTensor::StepMarker(
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+    PT_BRIDGE_WARN("StepMarker invoked in PT_HPU_EAGER_OPS=1 mode. Ignoring..");
+    return;
+  }
+
   if (!synapse_helpers::HPURegistrar::isInitialized()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");

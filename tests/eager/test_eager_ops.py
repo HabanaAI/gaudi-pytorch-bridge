@@ -76,7 +76,8 @@ def test_pow_variants():
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
 
-# in case of out op, only empty tensor are resized, non-empty different shapes are causing an exception
+# in case of out op, only empty HPU tensor are resized
+# non-empty different shapes or CPU out tensors are causing an exception
 def test_out_empty_or_throw():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.5))
     hpu_tensor = cpu_tensor.to("hpu")
@@ -86,6 +87,9 @@ def test_out_empty_or_throw():
 
     with pytest.raises(RuntimeError):
         torch.pow(hpu_tensor, 2.0, out=hpu_out_wrong_shape)
+
+    with pytest.raises(RuntimeError):
+        torch.pow(hpu_tensor, 2.0, out=cpu_out_empty)
 
     torch.pow(hpu_tensor, 2.0, out=hpu_out_empty)
     torch.pow(cpu_tensor, 2.0, out=cpu_out_empty)
