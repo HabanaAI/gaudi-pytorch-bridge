@@ -10,7 +10,6 @@
 #
 ###############################################################################
 
-import datetime
 import pytest
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
@@ -18,6 +17,7 @@ from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, Even
 @pytest.fixture(scope="function")
 def evt_disp():
     evt_disp = EventDispatcher.instance()
+    evt_disp._unsubscribe_all()
     yield evt_disp
 
 
@@ -37,96 +37,100 @@ class CallbackFn:
 
     @property
     def callback(self):
-        def fn(timestamp, params):
-            print(f"Handler fn called {self._name}, timestamp: {timestamp}")
+        def fn(params):
+            print(f"Handler fn called {self._name}")
             self._hit_count += 1
             self._params_log.append(params)
 
         return fn
 
 
-@pytest.mark.forked
-class TestEventDispatcher:
-    def test_simple(self, evt_disp):
-        callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
+def test_simple(evt_disp):
+    callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
 
-        for c in callbacks:
-            evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback)
+    for c in callbacks:
+        evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback)
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+    evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")])
 
-        assert all([c.hit_count == 1 for c in callbacks])
+    assert all([c.hit_count == 1 for c in callbacks])
 
-    def test_subscribe_and_partially_unsubscribe(self, evt_disp):
-        callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
 
-        # unsubscribe even callbacks
-        for h in handles[::2]:
-            evt_disp.unsubscribe(h)
+def test_subscribe_and_partially_unsubscribe(evt_disp):
+    callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
+    handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+    # unsubscribe even callbacks
+    for h in handles[::2]:
+        evt_disp.unsubscribe(h)
 
-        # check if unsubscribed callbacks weren't called
-        assert all([c.hit_count == 0 for c in callbacks[::2]])
+    evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")])
 
-        # check if rest callbacks were called once
-        assert all([c.hit_count == 1 for c in callbacks[1::2]])
+    # check if unsubscribed callbacks weren't called
+    assert all([c.hit_count == 0 for c in callbacks[::2]])
 
-    def test_subscribe_and_unsubscribe_all(self, evt_disp):
-        callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
+    # check if rest callbacks were called once
+    assert all([c.hit_count == 1 for c in callbacks[1::2]])
 
-        for h in handles:
-            evt_disp.unsubscribe(h)
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+def test_subscribe_and_unsubscribe_all(evt_disp):
+    callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
+    handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
 
-        assert all([c.hit_count == 0 for c in callbacks])
+    for h in handles:
+        evt_disp.unsubscribe(h)
 
-    def test_subscribe_and_publish_different_event(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
+    evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")])
 
-        evt_disp.subscribe(EventId.GRAPH_COMPILATION, callback.callback)
+    assert all([c.hit_count == 0 for c in callbacks])
 
-        evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
 
-        assert callback.hit_count == 0
+def test_subscribe_and_publish_different_event(evt_disp):
+    callback = CallbackFn(f"Handler!")
 
-    def test_publish_in_loop(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
-        evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
+    evt_disp.subscribe(EventId.GRAPH_COMPILATION, callback.callback)
 
-        for _ in range(100):
-            evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
+    evt_disp.publish(EventId.CUSTOM_EVENT, [])
 
-        assert callback.hit_count == 100
+    assert callback.hit_count == 0
 
-    def test_publish_then_unsubscribe_some_and_publish_again(self, evt_disp):
-        callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks]
 
-        evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
+def test_publish_in_loop(evt_disp):
+    callback = CallbackFn(f"Handler!")
+    evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
 
-        # check if all callbacks were called once
-        assert all([c.hit_count == 1 for c in callbacks])
+    for _ in range(100):
+        evt_disp.publish(EventId.CUSTOM_EVENT, [])
 
-        # unsubscribe even callbacks
-        for h in handles[::2]:
-            evt_disp.unsubscribe(h)
+    assert callback.hit_count == 100
 
-        evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
 
-        # check if even callbacks were called once
-        assert all([c.hit_count == 1 for c in callbacks[::2]])
+def test_publish_then_unsubscribe_some_and_publish_again(evt_disp):
+    callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
+    handles = [evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks]
 
-        # check if odd callbacks were called twice
-        assert all([c.hit_count == 2 for c in callbacks[1::2]])
+    evt_disp.publish(EventId.CUSTOM_EVENT, [])
 
-    def test_parameters(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
-        evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
+    # check if all callbacks were called once
+    assert all([c.hit_count == 1 for c in callbacks])
 
-        evt_disp.publish(EventId.CUSTOM_EVENT, [("param1", 1234), ("param2", "test")], datetime.datetime.now())
-        assert callback.hit_count == 1
-        assert callback.params_log[0] == [("param1", 1234), ("param2", "test")]
+    # unsubscribe even callbacks
+    for h in handles[::2]:
+        evt_disp.unsubscribe(h)
+
+    evt_disp.publish(EventId.CUSTOM_EVENT, [])
+
+    # check if even callbacks were called once
+    assert all([c.hit_count == 1 for c in callbacks[::2]])
+
+    # check if odd callbacks were called twice
+    assert all([c.hit_count == 2 for c in callbacks[1::2]])
+
+
+def test_parameters(evt_disp):
+    callback = CallbackFn(f"Handler!")
+    evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
+
+    evt_disp.publish(EventId.CUSTOM_EVENT, [("param1", 1234), ("param2", "test")])
+    assert callback.hit_count == 1
+    assert callback.params_log[0] == [("param1", 1234), ("param2", "test")]

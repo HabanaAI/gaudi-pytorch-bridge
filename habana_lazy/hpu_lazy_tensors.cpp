@@ -34,7 +34,6 @@
 
 #include "habana_kernels/random_gen_kernels.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
-#include "pytorch_helpers/habana_helpers/event_dispatcher.h"
 #include "pytorch_helpers/synapse_helpers/devmem_logger.h"
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 
@@ -1649,9 +1648,6 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   } else {
     StepMarker(device_str);
   }
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::MARK_STEP,
-      habana_helpers::EventDispatcher::EventParams());
 }
 
 void HbLazyTensor::StepMarkerFinish() {

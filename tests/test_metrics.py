@@ -10,23 +10,19 @@
 #
 ###############################################################################
 
-from contextlib import contextmanager
-import datetime
-import json
-import os
 import pytest
 import torch
-from habana_frameworks.torch.hpu.metrics import metric_global, metric_localcontext, MetricNotFound, metrics_dump
+from habana_frameworks.torch.hpu.metrics import metric_global, metric_localcontext, MetricNotFound
 from habana_frameworks.torch.utils.event_dispatcher import *
-import multiprocessing
+import multiprocessing as mp
 from multiprocessing import Process, Queue
 
 
-@pytest.fixture(scope="module", autouse=True)
-def set_multiprocess_start_method():
-    # set spawn start method to not inherit already imported modules in child
-    # processes used in metrics tests
-    multiprocessing.set_start_method('spawn')
+@pytest.fixture(scope="function")
+def gc_metric():
+    m = metric_global("gc")
+    m.reset()
+    yield m
 
 
 def compute_single_step(shape, device):
@@ -39,365 +35,122 @@ def compute_single_step(shape, device):
     summed = t1 + t2
     out = summed * multiplied
 
-    # move results to CPU, so compilation is enforced
     out = out.to(device="cpu")
 
 
-class TestMetricsAPI:
-    @pytest.fixture(scope="function")
-    def gc_metric(self):
-        m = metric_global("graph_compilation")
-        m.reset()
-        yield m
+def test_graph_compilation_metric_different_shapes_in_loop(gc_metric):
+    shapes = [[10, 20, x] for x in range(1, 11)]
+    device = torch.device('hpu')
 
-    def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric):
-        shapes = [[10, 20, x] for x in range(1, 11)]
-        device = torch.device('hpu')
+    torch.random.manual_seed(42)
 
-        torch.random.manual_seed(42)
-
-        last_total_time = 0
-        for curr_iter, shape in enumerate(shapes):
-            compute_single_step(shape, device)
-            gc_metric_dict = dict(gc_metric.stats())
-            assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
-            assert gc_metric_dict["TotalTime"] > last_total_time
-            last_total_time = gc_metric_dict["TotalTime"]
-
-            print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
-
-    def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric):
-        device = torch.device('hpu')
-        shape = [1, 2, 3]
-        torch.random.manual_seed(42)
-
-        total_time_of_last_iter = -1
-        for curr_iter in range(10):
-            compute_single_step(shape, device)
-            gc_metric_dict = dict(gc_metric.stats())
-            assert gc_metric_dict["TotalNumber"] == 1
-            assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
-
-            print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
-
-    @staticmethod
-    def _worker_graph_compilation_metric_zero_at_beginning(q):
-        from habana_frameworks.torch.hpu import metric_global
-        metric = metric_global("graph_compilation")
-        metric_dict = dict(metric.stats())
-        q.put(metric_dict)
-
-    def test_graph_compilation_metric_zero_at_beginning(self):
-        """
-        Spawns fresh process and verifies if metric are equal 0 at beginning.
-        """
-        q = Queue()
-        p = Process(target=TestMetricsAPI._worker_graph_compilation_metric_zero_at_beginning, args=(q,))
-        p.start()
-        metric_dict = q.get(timeout=10)
-        p.join()
-
-        assert metric_dict["TotalNumber"] == 0
-        assert metric_dict["TotalTime"] == 0
-        assert metric_dict["AvgTime"] == 0
-
-    def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(self, gc_metric):
-        device = torch.device('hpu')
-        shape = [3, 2, 1]
-        torch.random.manual_seed(42)
-
-        ed = EventDispatcher.instance()
-
-        h1 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}"))
-        h2 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}"))
-
+    last_total_time = 0
+    for curr_iter, shape in enumerate(shapes):
         compute_single_step(shape, device)
+        gc_metric_dict = dict(gc_metric.stats())
+        assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
+        assert gc_metric_dict["TotalTime"] > last_total_time
+        last_total_time = gc_metric_dict["TotalTime"]
 
+        print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
+
+
+def test_graph_compilation_metric_same_shape_in_loop(gc_metric):
+    device = torch.device('hpu')
+    shape = [1, 2, 3]
+    torch.random.manual_seed(42)
+
+    total_time_of_last_iter = -1
+    for curr_iter in range(10):
+        compute_single_step(shape, device)
         gc_metric_dict = dict(gc_metric.stats())
         assert gc_metric_dict["TotalNumber"] == 1
-        assert gc_metric_dict["TotalTime"] > 0
-        assert gc_metric_dict["AvgTime"] > 0
+        assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
 
-        print(f"GC metric: {gc_metric.stats()}")
-
-    def test_metric_context_manager(self, gc_metric):
-        shapes = [[10, 30, x] for x in range(1, 11)]
-        device = torch.device('hpu')
-
-        torch.random.manual_seed(42)
-
-        shapes = iter(shapes)
-
-        with metric_localcontext("graph_compilation") as outer_gc_metric:
-            with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(3)]
-            assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
-
-            with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(2)]
-            assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
-
-            with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(3)]
-            assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
-
-            with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(2)]
-            assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
-
-        assert dict(outer_gc_metric.stats())["TotalNumber"] == 10
-
-        gc_metric_dict = dict(gc_metric.stats())
-        assert gc_metric_dict["TotalNumber"] == 10
-
-    def test_get_nonexisting_global_metric(self):
-        metric = metric_global("non-existing metric")
-        assert metric is None
-
-    def test_get_nonexisting_local_metric(self):
-        with pytest.raises(MetricNotFound):
-            with metric_localcontext("non-existing") as m:
-                pass
+        print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
 
 
-def set_flag_in_env(name: str, value):
-    if value is None:
-        # Nothing to do here
-        return
-    elif isinstance(value, str):
-        os.environ[name] = value
-    elif isinstance(value, bool):
-        os.environ[name] = str(int(value))
-    elif isinstance(value, int):
-        os.environ[name] = str(value)
-    else:
-        assert False, f"Value '{value}' invalid or not supported"
+def _worker_graph_compilation_metric_zero_at_beginning(q):
+    from habana_frameworks.torch.hpu import metric_global
+    metric = metric_global("gc")
+    metric_dict = dict(metric.stats())
+    q.put(metric_dict)
 
 
-@contextmanager
-def env_var_in_scope(vars={}):
-    orig_vars = {}
-    for key in vars.keys():
-        orig_vars[key] = os.environ.get(key, None)
-        set_flag_in_env(key, vars[key])
-    try:
-        yield
-    finally:
-        for key in orig_vars.keys():
-            # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+def test_graph_compilation_metric_zero_at_beginning():
+    """
+    Spawns fresh process and verifies if metric are equal 0 at beginning.
+    """
+    mp.set_start_method('spawn')
+
+    q = Queue()
+    p = Process(target=_worker_graph_compilation_metric_zero_at_beginning, args=(q,))
+    p.start()
+    metric_dict = q.get(timeout=10)
+    p.join()
+
+    assert metric_dict["TotalNumber"] == 0
+    assert metric_dict["TotalTime"] == 0
+    assert metric_dict["AvgTime"] == 0
 
 
-class TestMetricsDump:
-    @pytest.fixture(scope="function")
-    def runner(self):
-        """Runner runs each function in separate process, so every time metrics
-        are being initialized separately. Runner takes environment variables
-        as parameter, so each run can be executed with separate set of
-        environmental variables.
-        """
-        def runner_func(worker_function, *args, env={}, **kwargs):
-            with env_var_in_scope(env):
-                p = Process(target=worker_function, args=args, kwargs=kwargs)
-                p.start()
-                p.join(timeout=30)
+def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(gc_metric):
+    device = torch.device('hpu')
+    shape = [3, 2, 1]
+    torch.random.manual_seed(42)
 
-        yield runner_func
+    ed = EventDispatcher.instance()
 
-    @staticmethod
-    def _sample_worker_process():
-        device = torch.device('hpu')
-        torch.random.manual_seed(42)
+    h1 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda p: print(f">>> lambda1 <<< {p}"))
+    h2 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda p: print(f">>> lambda2 <<< {p}"))
 
-        compute_single_step([3, 2, 1], device)
-        compute_single_step([3, 2, 12], device)
-        compute_single_step([3, 2, 123], device)
+    compute_single_step(shape, device)
 
-        m = metric_global("graph_compilation")
-        print(f"name={m.name()}, stats={m.stats()}")
+    gc_metric_dict = dict(gc_metric.stats())
+    assert gc_metric_dict["TotalNumber"] == 1
+    assert gc_metric_dict["TotalTime"] > 0
+    assert gc_metric_dict["AvgTime"] > 0
 
-    @pytest.mark.parametrize("base_name,multinode,expected_base_name",
-                             [("metric_file", False, "metric_file"),
-                              ("metric_file.txt", False, "metric_file.txt"),
-                              ("metric_file", True, "metric_file-rank0"),
-                              ("metric_file.json", True, "metric_file-rank0.json"),
-                              ("metric_file.txt.json", True, "metric_file.txt-rank0.json")])
-    def test_metric_file_with_correct_name_is_created(self, runner, tmp_path, base_name, multinode, expected_base_name):
-        metric_file_user_input = f"{tmp_path}/{base_name}"
-        metric_file_target = f"{tmp_path}/{expected_base_name}"
+    print(f"GC metric: {gc_metric.stats()}")
 
-        assert not os.path.exists(metric_file_target)
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file_user_input,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit"}
-        if multinode:
-            env_vars["RANK"] = "0"
 
-        runner(TestMetricsDump._sample_worker_process, env=env_vars)
+def test_metric_context_manager(gc_metric):
+    shapes = [[10, 30, x] for x in range(1, 11)]
+    device = torch.device('hpu')
 
-        assert os.path.exists(metric_file_target)
+    torch.random.manual_seed(42)
 
-    @staticmethod
-    def _parse_text_obj(lines, curr_line, curr_root, curr_root_indent=0):
-        OBJ_NAME_MAP = {
-            "Metric name": "metric_name",
-            "Generated on": "generated_on",
-            "Triggered by": "triggered_by",
-            "Statistics": "statistics"
-        }
+    shapes = iter(shapes)
 
-        while curr_line < len(lines):
-            line = lines[curr_line]
-            if line == "":
-                # end of object
-                break
+    with metric_localcontext("gc") as outer_gc_metric:
+        with metric_localcontext("gc") as inner_gc_metric:
+            [compute_single_step(next(shapes), device) for i in range(3)]
+        assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
-            key, value = line.split(":", maxsplit=1)
-            value = value.strip()
-            indent = key.count("\t")
-            assert curr_root_indent == indent
-            key = key.strip()
-            if key in OBJ_NAME_MAP:
-                key = OBJ_NAME_MAP[key]
+        with metric_localcontext("gc") as inner_gc_metric:
+            [compute_single_step(next(shapes), device) for i in range(2)]
+        assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
-            if value == "":  # new sub-object
-                curr_root[key] = {}
-                curr_line = TestMetricsDump._parse_text_obj(lines, curr_line + 1, curr_root[key], curr_root_indent + 1)
-            else:
-                curr_root[key] = value
-                curr_line += 1
-        return curr_line
+        with metric_localcontext("gc") as inner_gc_metric:
+            [compute_single_step(next(shapes), device) for i in range(3)]
+        assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
-    @staticmethod
-    def _parse_text(payload):
-        lines = payload.split("\n")
+        with metric_localcontext("gc") as inner_gc_metric:
+            [compute_single_step(next(shapes), device) for i in range(2)]
+        assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
-        metrics = []
-        num_processed_lines = 0
+    assert dict(outer_gc_metric.stats())["TotalNumber"] == 10
 
-        while num_processed_lines < len(lines):
-            root = {}
-            num_processed_lines = TestMetricsDump._parse_text_obj(lines, num_processed_lines, root, 0)
-            num_processed_lines += 1
-            if root:
-                metrics.append(root)
+    gc_metric_dict = dict(gc_metric.stats())
+    assert gc_metric_dict["TotalNumber"] == 10
 
-        assert num_processed_lines >= len(lines)
-        return metrics
 
-    @staticmethod
-    def _parse_json(payload):
-        return json.loads(payload)
+def test_get_nonexisting_global_metric():
+    metric = metric_global("non-existing metric")
+    assert metric is None
 
-    @staticmethod
-    def _parse_dump(payload, format):
-        if format == "text":
-            return TestMetricsDump._parse_text(payload)
-        if format == "json":
-            return TestMetricsDump._parse_json(payload)
-        return None
 
-    @pytest.mark.parametrize("format", ["json", "text"])
-    def test_metric_dump_on_process_exit(self, runner, tmp_path, format):
-        metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit",
-                    "HABANA_PT_METRICS_FILE_FORMAT": format}
-
-        runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
-            payload = f.read()
-        parsed = TestMetricsDump._parse_dump(payload, format)
-
-        assert len(parsed) == 1
-        metric = parsed[0]
-        assert metric["metric_name"] == "graph_compilation"
-        assert metric["triggered_by"] == "process_exit"
-        assert int(metric["statistics"]["TotalNumber"]) == 3
-        assert int(metric["statistics"]["TotalTime"]) > 0
-
-        # check generated_on field if is in iso format
-        assert datetime.datetime.fromisoformat(metric["generated_on"])
-
-    @pytest.mark.parametrize("format", ["json", "text"])
-    def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
-        metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
-                    "HABANA_PT_METRICS_FILE_FORMAT": format}
-
-        runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
-            payload = f.read()
-        parsed = TestMetricsDump._parse_dump(payload, format)
-
-        assert len(parsed) == 4  # 3 metrics chanages + process exit
-        prev_total_time = 0
-        prev_generated_on = None
-        for idx, metric_on_metric_change in enumerate(parsed[:3]):
-            assert metric_on_metric_change["metric_name"] == "graph_compilation"
-            assert metric_on_metric_change["triggered_by"] == "metric_change"
-            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
-            assert int(metric_on_metric_change["statistics"]["TotalTime"]) > prev_total_time
-            prev_total_time = int(metric_on_metric_change["statistics"]["TotalTime"])
-
-            curr_generated_on = datetime.datetime.fromisoformat(metric_on_metric_change["generated_on"])
-            if prev_generated_on is not None:
-                assert curr_generated_on > prev_generated_on
-            prev_generated_on = curr_generated_on
-
-        metric_on_process_exit = parsed[3]
-        last_metric_on_metric_change = parsed[2]
-        assert metric_on_process_exit["metric_name"] == "graph_compilation"
-        assert metric_on_process_exit["triggered_by"] == "process_exit"
-        assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
-        assert int(metric_on_process_exit["statistics"]["TotalTime"]) == int(
-            last_metric_on_metric_change["statistics"]["TotalTime"])
-
-    def test_metric_if_defaults_are_correct(self, runner, tmp_path):
-        metric_file = f"{tmp_path}/metric.json"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file}
-
-        runner(TestMetricsDump._sample_worker_process, env=env_vars)
-        with open(metric_file, "r") as f:
-            payload = f.read()
-        parsed = TestMetricsDump._parse_dump(payload, "json")
-
-        assert len(parsed) == 1
-        metric = parsed[0]
-        assert metric["metric_name"] == "graph_compilation"
-        assert metric["triggered_by"] == "process_exit"
-        assert int(metric["statistics"]["TotalNumber"]) == 3
-        assert int(metric["statistics"]["TotalTime"]) > 0
-
-        # check generated_on field if is in iso format
-        assert datetime.datetime.fromisoformat(metric["generated_on"])
-
-    @staticmethod
-    def _sample_worker_process_with_manual_metric_dump(metric_file, metric_format):
-        device = torch.device('hpu')
-        torch.random.manual_seed(42)
-
-        compute_single_step([3, 2, 1], device)
-        compute_single_step([3, 2, 12], device)
-
-        metrics_dump(metric_file, metric_format)
-
-    @pytest.mark.parametrize("format", ["json", "text"])
-    def test_manual_metric_dump(self, runner, tmp_path, format):
-        metric_file = f"{tmp_path}/metric.{format}"
-        runner(TestMetricsDump._sample_worker_process_with_manual_metric_dump, metric_file, format)
-
-        with open(metric_file, "r") as f:
-            payload = f.read()
-
-        parsed = TestMetricsDump._parse_dump(payload, format)
-        assert len(parsed) == 1
-        metric = parsed[0]
-        assert metric["metric_name"] == "graph_compilation"
-        assert metric["triggered_by"] == "user"
-        assert int(metric["statistics"]["TotalNumber"]) == 2
-        assert int(metric["statistics"]["TotalTime"]) > 0
+def test_get_nonexisting_local_metric():
+    with pytest.raises(MetricNotFound):
+        with metric_localcontext("non-existing") as m:
+            pass
