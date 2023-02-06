@@ -22,7 +22,7 @@ using JitValue = torch::jit::Value;
 
 std::shared_ptr<torch::jit::Graph> create_simple_JIT(
     const at::Symbol& symbol,
-    const std::vector<at::Tensor>& inputs,
+    const SmallTensorVector& inputs,
     const std::vector<OutputSpec>& outputs,
     const habana_lazy::ir::MetaData& metadata) {
   auto graph = std::make_shared<torch::jit::Graph>();

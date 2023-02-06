@@ -419,6 +419,9 @@ ENV_STRUCT_DEFINITION(PT_ENABLE_INT64_SUPPORT, bool, false);
 
 // streams
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GENERIC_STREAM, bool, false);
+// 2.0 support
+ENV_STRUCT_DEFINITION(PT_HPU_EAGER_TENSOR_POOL_SIZE, unsigned, 1000);
+ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP, bool, false);
 
 // Method for string env variables
 const char* getenv_by_type_new(

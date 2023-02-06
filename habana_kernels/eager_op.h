@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "backend/jit_graph_cache.h"
+#include "habana_eager/eager_tensor.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
@@ -31,6 +32,8 @@
 #define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
 #endif
 
+using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
+
 namespace habana {
 namespace eager {
 
@@ -43,7 +46,7 @@ struct OutputSpec {
 // helper function to create JIT graph with single node defined by input symbol
 std::shared_ptr<torch::jit::Graph> create_simple_JIT(
     const at::Symbol& symbol,
-    const std::vector<at::Tensor>& inputs,
+    const SmallTensorVector& inputs,
     const std::vector<OutputSpec>& outputs,
     const habana_lazy::ir::MetaData& metadata);
 
@@ -178,12 +181,13 @@ class EagerOp {
 
  private:
   torch::jit::Stack run(const std::vector<OutputSpec>& out_spec) {
-    std::vector<at::Tensor> input_pt_vec;
+    SmallTensorVector input_pt_vec, input_backend_pt_vec;
     habana_lazy::ir::MetaData metadata;
     create_inputs(input_pt_vec, metadata);
+    convert_inputs_to_backend_tensors(input_pt_vec, input_backend_pt_vec);
 
     auto graph =
-        create_simple_JIT(m_symbol, input_pt_vec, {out_spec}, metadata);
+        create_simple_JIT(m_symbol, input_backend_pt_vec, {out_spec}, metadata);
 
     habana_lazy::exec::HlExec hlexec{};
 
@@ -191,9 +195,9 @@ class EagerOp {
     // stack is used for both inputs to synapse lowering and outputs from
     // synapse lowering, therefore allocate memory which is max of input
     // and output size - out is 1, so size(inputs)
-    stack.reserve(input_pt_vec.size());
+    stack.reserve(input_backend_pt_vec.size());
 
-    for (const auto& in : input_pt_vec) {
+    for (const auto& in : input_backend_pt_vec) {
       stack.emplace_back(in);
     }
 
@@ -248,7 +252,7 @@ class EagerOp {
   }
 
   void create_inputs(
-      std::vector<at::Tensor>& input_pt_vec,
+      SmallTensorVector& input_pt_vec,
       habana_lazy::ir::MetaData& metadata) {
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
@@ -293,6 +297,18 @@ class EagerOp {
         HABANA_ASSERT(0);
       }
     }
+  }
+
+  void convert_inputs_to_backend_tensors(
+      SmallTensorVector& input_pt_vec,
+      SmallTensorVector& input_backend_pt_vec) {
+    std::transform(
+        input_pt_vec.begin(),
+        input_pt_vec.end(),
+        std::back_inserter(input_backend_pt_vec),
+        [](at::Tensor& t_) {
+          return HbEagerTensorPool::getInstance().get_backend_tensor(t_);
+        });
   }
 
  protected:

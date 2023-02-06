@@ -118,6 +118,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
   pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/serialize/export.cpp
+  habana_eager/eager_tensor.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_out_kernels.cpp

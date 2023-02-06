@@ -109,3 +109,13 @@ def test_duplicate_input_pow():
     result_cpu = cpu_out
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+def test_eager_backend_pool():
+    cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
+    result_cpu = torch.relu(cpu_tensor)
+    # Launch the op in a loop to check the backend pool
+    for i in range(2000):
+        hpu_tensor = cpu_tensor.to("hpu")
+        result_hpu = torch.relu(hpu_tensor).to("cpu")
+        assert torch.equal(result_hpu, result_cpu)
+

@@ -624,6 +624,10 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool);
 
 // Stream
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_GENERIC_STREAM, bool);
+// 2.0 support
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_EAGER_TENSOR_POOL_SIZE, unsigned);
+ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP, bool);
+
 } // namespace new_style
 
 // ****************************************************************************
