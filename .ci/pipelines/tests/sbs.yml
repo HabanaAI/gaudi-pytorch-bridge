@@ -3,7 +3,7 @@ common:
     testCommand: run_pytorch_qa_tests
     loadLKD: true
     testXMLOutputKey: --xml
-    releaseFlag: false    
+    releaseFlag: false
   envVars:
     LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
     CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
@@ -27,4 +27,8 @@ testsMap:
   Test_pytorch_modules_gaudi2_asic_sbs:
     stages:
       Run sbs tests gaudi2 asic:
-        filter: -a pt_sbs_gaudi2 
+        filter: -a pt_sbs_gaudi2
+  Test_pytorch_modules_gaudi_asic_sbs:
+    stages:
+      Run sbs tests gaudi2 asic:
+        filter: -a pt_dependency_sbs
