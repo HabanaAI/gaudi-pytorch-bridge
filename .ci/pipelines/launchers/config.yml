@@ -13,7 +13,7 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: asic_gaudi_pytorch_sbs_tests---t-dg
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
