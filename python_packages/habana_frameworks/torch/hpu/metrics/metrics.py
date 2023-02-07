@@ -10,20 +10,36 @@
 #
 ###############################################################################
 import abc
-from typing import Sequence, Tuple
-import habana_frameworks.torch.utils.event_dispatcher as ed
+import atexit
 from contextlib import contextmanager
+from typing import Sequence, Tuple
+
+from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
+from .saver import MetricSaver, MetricDumpFormat, MetricDumpTrigger
+from .exceptions import MetricNotFound
 
 
-class _MetricManager(object):
+class MetricManager(object):
     def __init__(self) -> None:
         self._metrics_types = {}
         self._global_metrics = []
+        self._metric_saver = MetricSaver()
+
+        atexit.register(self._at_exit_callback)
+
+        def mark_step_event_callback_fn(timestamp, event_params):
+            self._metric_saver.process_trigger(MetricDumpTrigger.mark_step,
+                                               self._global_metrics)
+
+        EventDispatcher.instance().subscribe(EventId.MARK_STEP,
+                                             mark_step_event_callback_fn)
 
     def register(self, name, metric_class):
         assert name not in self._metrics_types, f"Metric with given name ({name}) is already registered"
+
         self._metrics_types[name] = metric_class
         self._global_metrics.append(metric_class())
+        self._global_metrics[-1].on_metric_change(self._metric_saver.metric_change_callback)
 
     def get_global_metric(self, name: str):
         metrics = [m for m in self._global_metrics if m.name() == name]
@@ -37,12 +53,20 @@ class _MetricManager(object):
         else:
             raise MetricNotFound(f"Metric with given name ({name}) doesn't exist.")
 
+    def _at_exit_callback(self):
+        self._metric_saver.process_trigger(MetricDumpTrigger.process_exit, self._global_metrics)
+        self._metric_saver.close()
 
-class MetricNotFound(Exception):
-    pass
+    def store_global_metrics(self, file_name, format):
+        saver = MetricSaver(file_name, triggers=[MetricDumpTrigger.user], format=format)
+        saver.process_trigger(MetricDumpTrigger.user, self._global_metrics)
+        saver.close()
 
 
 class Metric(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self._metric_change_callback = None
+
     @abc.abstractmethod
     def name(self) -> str:
         """Returns metric name.
@@ -74,6 +98,15 @@ class Metric(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    def on_metric_change(self, callback) -> None:
+        """Registers callback called on every metric change.
+        """
+        self._metric_change_callback = callback
+
+    def notify(self, timestamp, event_params):
+        if self._metric_change_callback:
+            self._metric_change_callback(timestamp, self.name(), self.stats())
+
 
 class GraphCompilationMetric(Metric):
     _TOTAL_NUMBER_TAG = "TotalNumber"
@@ -82,26 +115,27 @@ class GraphCompilationMetric(Metric):
     _DURATION_EVENT_PARAM_NAME = "duration"
 
     def __init__(self):
+        super().__init__()
         self._total_num_of_compilation = 0
         self._total_time_of_compilation = 0
-        self._ed = ed.EventDispatcher.instance()
+        self._ed = EventDispatcher.instance()
         self._handle = None
         self.start()
 
-    def _get_callback_fn(self):
-        def callback_fn(event_params):
+    def _get_event_callback_fn(self):
+        def callback_fn(timestamp, event_params):
             event_params = dict(event_params)
             self._total_num_of_compilation += 1
             self._total_time_of_compilation += event_params[self._DURATION_EVENT_PARAM_NAME]
-
+            self.notify(timestamp, event_params)
         return callback_fn
 
     def name(self):
-        return "gc"
+        return "graph_compilation"
 
     def start(self):
         if not self._handle:
-            self._handle = self._ed.subscribe(ed.EventId.GRAPH_COMPILATION, self._get_callback_fn())
+            self._handle = self._ed.subscribe(EventId.GRAPH_COMPILATION, self._get_event_callback_fn())
 
     def stop(self):
         if self._handle:
@@ -125,8 +159,8 @@ class GraphCompilationMetric(Metric):
         self.stop()
 
 
-_metric_mgr = _MetricManager()
-_metric_mgr.register("gc", GraphCompilationMetric)
+_metric_mgr = MetricManager()
+_metric_mgr.register("graph_compilation", GraphCompilationMetric)
 
 
 def metric_global(name: str) -> Metric:
@@ -144,7 +178,7 @@ def metric_localcontext(name: str) -> Metric:
 
       Example usage:
       ```python
-      with metric_localcontext("gc") as gc_local_metric:
+      with metric_localcontext("graph_compilation") as gc_local_metric:
         # do some work
         print(gc_local_metric)
     """
@@ -154,3 +188,9 @@ def metric_localcontext(name: str) -> Metric:
         yield metric
     finally:
         metric.stop()
+
+
+def metrics_dump(file_name: str, format: MetricDumpFormat = MetricDumpFormat.json) -> None:
+    """Stores global metrics in given file.
+    """
+    _metric_mgr.store_global_metrics(file_name, format=format)

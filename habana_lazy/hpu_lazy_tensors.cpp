@@ -15,6 +15,7 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
@@ -1641,6 +1642,9 @@ void HbLazyTensor::StepMarkerBind(const std::string& device_str) {
   PT_LAZY_TRACE;
   PT_IRGRAPH_DEBUG("step marker due to host step marker");
   PT_LAZY_DEBUG("step marker due to host step marker");
+
+  habana_helpers::EmitEvent(habana_helpers::EventDispatcher::Topic::MARK_STEP);
+
   StageSubmission::getInstance().resetStageSubmissionFlow();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {

@@ -45,6 +45,7 @@ include_dirs = [
 
 libraries = [
     "habana_pytorch_plugin",
+    "habana_pytorch_backend"
 ]
 
 extra_compile_args = [

@@ -23,7 +23,7 @@
 #include <type_traits>
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
-#include "habana_helpers/event_dispatcher.h"
+#include "backend/helpers/event_dispatcher.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/stat_collection.h"
 #include "synapse_helpers/device.h"

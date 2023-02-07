@@ -112,7 +112,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/cast_sequence.cpp
   pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
-  pytorch_helpers/habana_helpers/event_dispatcher.cpp
   pytorch_helpers/habana_helpers/profiling/profiling.cpp
   pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_logger_source.cpp
   pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
@@ -347,6 +346,10 @@ if (BUILD_PKGS)
     habana_frameworks/torch/hpu/memory.py
     habana_frameworks/torch/hpu/random.py
     habana_frameworks/torch/hpu/streams.py
+    habana_frameworks/torch/hpu/metrics/__init__.py
+    habana_frameworks/torch/hpu/metrics/exceptions.py
+    habana_frameworks/torch/hpu/metrics/metrics.py
+    habana_frameworks/torch/hpu/metrics/saver.py
     habana_frameworks/torch/profiler/__init__.py
     habana_frameworks/torch/profiler/ProfilerApi.py
     habana_frameworks/torch/utils/__init__.py
