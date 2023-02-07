@@ -1,12 +1,14 @@
 ###############################################################################
-# Copyright (C) 2020 HabanaLabs, Ltd.
+# Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
-################################################################################
-cmake_minimum_required(VERSION 3.10)
+###############################################################################
 
 set(SYNAPSE_LOGGER_SRCS
   ./synapse_logger.cpp
@@ -17,9 +19,9 @@ add_library(pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
 target_compile_options(pytorch_synapse_logger
   PRIVATE -Wall -Wextra -Werror)
 set_target_properties(pytorch_synapse_logger PROPERTIES PREFIX "")
-target_include_directories(pytorch_synapse_logger PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(pytorch_synapse_logger PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(pytorch_synapse_logger SYSTEM
+                           PRIVATE $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(pytorch_synapse_logger PRIVATE ${CMAKE_DL_LIBS})
 add_custom_command(TARGET pytorch_synapse_logger POST_BUILD
   COMMENT "Creating pytorch_synapse_logger symbolic link in $ENV{BUILD_ROOT_LATEST}"
@@ -66,11 +68,10 @@ target_compile_options(_py_pytorch_synapse_logger
 set_target_properties(_py_pytorch_synapse_logger PROPERTIES PREFIX "")
 target_compile_options(_py_pytorch_synapse_logger PRIVATE -fno-exceptions)
 target_compile_definitions(_py_pytorch_synapse_logger PUBLIC -DBINARY_NAME="_py_pytorch_synapse_logger.so")
-target_include_directories(_py_pytorch_synapse_logger PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${PYTHON_INCLUDE_DIR}
-  ${NumPy_INCLUDE_DIR}
-  $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(_py_pytorch_synapse_logger PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(
+  _py_pytorch_synapse_logger SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR} ${NumPy_INCLUDE_DIR}
+                                            $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
 
 separate_debug_symbols(_py_pytorch_synapse_logger)
 target_link_libraries(_py_pytorch_synapse_logger

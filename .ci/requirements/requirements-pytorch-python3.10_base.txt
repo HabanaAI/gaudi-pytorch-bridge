@@ -1,7 +1,10 @@
 #common
+cmake>=3.25
 protobuf==3.19.5
 regex==2020.10.28
 pandas==1.4.1
+wheel
+yamllint
 
 # Below pkgs are required for pytorch-fork
 cffi==1.14.6

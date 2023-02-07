@@ -1,14 +1,14 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
-# confidential information and is subject to the confidentiality and license
-# agreements under which it was provided.
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
-# ##############################################################################
-
+###############################################################################
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -186,24 +186,26 @@ add_library(habana_pytorch_backend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
           )
 target_include_directories(habana_pytorch_backend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend_ops PUBLIC "$ENV{SPDLOG_ROOT}")
+  PUBLIC
+    ${PROJECT_SOURCE_DIR})
+target_include_directories(habana_pytorch_backend_ops SYSTEM
+  PUBLIC
+    $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
 target_compile_definitions(habana_pytorch_backend_ops PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_backend_ops PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch_backend_ops PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
-target_include_directories(habana_pytorch_backend_ops PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
+target_include_directories(habana_pytorch_backend_ops PRIVATE ${PROJECT_SOURCE_DIR}/pytorch_helpers)
 target_include_directories(habana_pytorch_backend_ops PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch_backend_ops
   PRIVATE
-  habana_serialization
+    habana_serialization
     torch
-    json
+    nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
+    npu::spdlog
 )
 
 add_library(habana_pytorch_frontend_ops OBJECT
@@ -266,23 +268,27 @@ add_library(habana_pytorch_frontend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
           ${CMAKE_BINARY_DIR}/generated/hpu_autocast_ops.cpp
           ${CMAKE_BINARY_DIR}/generated/wrap_kernels_registrations.cpp)
+
 target_include_directories(habana_pytorch_frontend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_frontend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_frontend_ops
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_frontend_ops PUBLIC "$ENV{SPDLOG_ROOT}")
+  PUBLIC
+    ${PROJECT_SOURCE_DIR})
+target_include_directories(habana_pytorch_frontend_ops SYSTEM
+  PUBLIC
+    $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
+
 target_compile_definitions(habana_pytorch_frontend_ops PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_frontend_ops PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch_frontend_ops PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
-target_include_directories(habana_pytorch_frontend_ops PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
+target_include_directories(habana_pytorch_frontend_ops PRIVATE ${PROJECT_SOURCE_DIR}/pytorch_helpers)
 target_include_directories(habana_pytorch_frontend_ops PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch_frontend_ops
   PRIVATE
   habana_serialization
     torch
-    json
+    nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
+    npu::spdlog
 )

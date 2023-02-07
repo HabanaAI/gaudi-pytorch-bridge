@@ -1,15 +1,16 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
-# confidential information and is subject to the confidentiality and license
-# agreements under which it was provided.
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
-# ##############################################################################
+###############################################################################
 
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 if(POLICY CMP0076)
   cmake_policy(SET CMP0076 OLD)
 endif()
@@ -67,7 +68,6 @@ if(NOT "${torch_flags}" STREQUAL "")
   add_compile_options("${torch_flags}")
 endif()
 
-add_subdirectory(cmake/json)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 include(pt_ver)
@@ -197,26 +197,28 @@ add_library(habana_pytorch_plugin SHARED
   ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
 add_subdirectory(hpu_ops)
-target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
+target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin
   PRIVATE
-    habana_pytorch_frontend_ops
     habana_serialization
-    torch
-    habana_pytorch_backend
-    json
     tensor_comparator_core
+    nlohmann_json::nlohmann_json
+  PUBLIC
+    habana_pytorch_backend
+    habana_pytorch_frontend_ops
+    torch
     absl::hash
+    npu::spdlog
 )
 
-target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
-target_include_directories(habana_pytorch_plugin PRIVATE ${PYTHON_INCLUDE_DIR} ${CMAKE_BINARY_DIR})
+target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
+target_include_directories(habana_pytorch_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
 if (DEFINED ENV{KINETO_ROOT})
-  target_include_directories(habana_pytorch_plugin PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
+  target_include_directories(habana_pytorch_plugin SYSTEM PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
 else()
   message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
 endif()
@@ -234,7 +236,8 @@ option(BUILD_TESTS "Build gtest binaries" ON)
 if (BUILD_TESTS)
   add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/"
                    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/
-                   EXCLUDE_FROM_ALL)
+                   EXCLUDE_FROM_ALL
+                   SYSTEM)
   add_subdirectory(tests/cpp)
 endif()
 

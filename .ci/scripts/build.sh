@@ -1,14 +1,16 @@
-#!/bin/bash
-#
-# Copyright (C) 2021 HabanaLabs, Ltd.
+#!/usr/bin/env bash
+###############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
-# Author: Ramesh Babu <rbabu@habana.ai>
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
+###############################################################################
 
-# --- helper functions ---
 function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
@@ -778,20 +780,7 @@ build_pytorch_fork()
         $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
     fi
 
-    # Installing CMAKE explicitly inorder to make the version
-    # compatible while using Ninja
-    # torch-1.11.0 has a requirement of cmake >= 3.13 to be used
-    # along with Ninja. Default cmake in U18 is 3.10.2 and this causes a
-    # failure in pytorch-fork compilation. Tracked in SW-82482
-    # cmake 3.20.2 is working in case of pytorch-fork build as per
-    # empirical analysis.
-    echo "Installing CMAKE 3.20.2"
-    $__python_cmd -m pip install cmake==3.20.2
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Error: Cmake installation failed, exiting!"
-        return $__result
-    fi
+    unset CMAKE_ROOT  # we're using CMake from requirements files
 
     pushd $PYTORCH_FORK_ROOT
     git submodule sync
@@ -1597,7 +1586,6 @@ install_requirements_pytorch()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    install_cmd=($__pip_cmd install ninja wheel yamllint)
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-${__python_cmd}_base.txt)
     if ! __running_in_venv; then
         cmd+=(--user)

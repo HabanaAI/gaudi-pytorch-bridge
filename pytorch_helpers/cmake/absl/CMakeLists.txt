@@ -10,13 +10,14 @@
 #
 ###############################################################################
 
-add_library(pytorch_synapse_utils_shim STATIC synapse_utils_shim.cpp)
+set(CMAKE_CXX_CLANG_TIDY "")
+set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "")
 
-target_include_directories(pytorch_synapse_utils_shim SYSTEM
-                           PUBLIC $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>)
+set(CMAKE_CXX_FLAGS -w)
+set(CMAKE_CXX_STANDARD 17)
 
-target_compile_options(pytorch_synapse_utils_shim PRIVATE -Wall -Wextra -Werror)
+set(BUILD_TESTING OFF)
 
-target_link_libraries(pytorch_synapse_utils_shim PUBLIC ${CMAKE_DL_LIBS} SynapseUtils pytorch_synapse_shim)
+add_subdirectory($ENV{THIRD_PARTIES_ROOT}/abseil-cpp absl SYSTEM)
 
-export(TARGETS pytorch_synapse_utils_shim FILE pytorch_synapse_utils_shimConfig.cmake)
+include(ExportAbseil)

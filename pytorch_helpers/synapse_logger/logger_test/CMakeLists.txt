@@ -49,7 +49,7 @@ set_target_properties(tpc_kernels PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 
 add_executable(Test test.cxx ../compare.cxx)
-target_include_directories(Test PRIVATE $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(Test SYSTEM PRIVATE $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(Test PRIVATE Synapse)
 set_target_properties(Test PROPERTIES
   CXX_STANDARD 17

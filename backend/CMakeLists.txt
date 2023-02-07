@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
   jit_graph_cache.cpp
   jitgraph_utils.cpp
@@ -29,25 +41,27 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
 target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
 target_link_libraries(habana_pytorch_backend
   PUBLIC
-  habana_pytorch_backend_ops
+    habana_pytorch_backend_ops
+    pytorch_synapse_helpers
   PRIVATE
-  habana_serialization
+    habana_serialization
     torch
-    json
+    nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
     ${PYTORCH_SYNAPSE_UTILS_LIB}
-    pytorch_synapse_helpers
     # tensor_comparator_core
     -lstdc++fs
+    npu::spdlog
 )
-target_include_directories(habana_pytorch_backend
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend
-   PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(habana_pytorch_backend PUBLIC "$ENV{SPDLOG_ROOT}")
+
+target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(
+  habana_pytorch_backend SYSTEM
+  PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+         $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
+         $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
+
 target_compile_definitions(habana_pytorch_backend PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)
 target_compile_features(habana_pytorch_backend PUBLIC cxx_std_14) # still required as this is transitive

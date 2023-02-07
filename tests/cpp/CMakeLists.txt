@@ -1,19 +1,19 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited. This file contains Habana Labs, Ltd. proprietary and
-# confidential information and is subject to the confidentiality and license
-# agreements under which it was provided.
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
-# ##############################################################################
-
-include(ExternalProject)
+###############################################################################
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-add_executable(test_pt_integration
+add_executable(
+  test_pt_integration
   acc_thread_pool_tests.cpp
   compute_shapes.cpp
   debug_utils_tests.cpp
@@ -226,16 +226,8 @@ add_executable(test_pt_integration
   user_stream_tests.cpp
   view_utils_tests.cpp)
 
-target_include_directories(
-  test_pt_integration
-  SYSTEM PUBLIC
-  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/abseil-cpp"
-  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/googletest/include"
-  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/json/single_include"
-  "$ENV{PYTORCH_MODULES_ROOT_PATH}"
-  "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
-  "$ENV{SYNAPSE_ROOT}/include"
-)
+target_link_libraries(test_pt_integration PRIVATE habana_pytorch_plugin gtest nlohmann_json::nlohmann_json
+                                                  absl::strings)
 target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 
 find_package(Python COMPONENTS Interpreter Development)
@@ -255,26 +247,28 @@ if(NOT PYTHON3_LIB)
 endif()
 
 if(NOT PYTHON3_LIB)
-  message(FATAL_ERROR  "This ENV does not have python3, python3.8 or python3.10 lib, which is essential!!!")
+  message(FATAL_ERROR "This ENV does not have python3, python3.8 or python3.10 lib, which is essential!!!")
 endif()
 
 configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
-SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
-target_link_libraries(test_pt_integration PRIVATE
-  "${PYTHON3_LIB}"
-  torch
-  habana_pytorch_backend
-  habana_pytorch_plugin
-  gtest
-  gtest_main
-  util
-  pthread
-  stdc++
-  stdc++fs
-  dl)
-target_include_directories(test_pt_integration PUBLIC "$ENV{SPDLOG_ROOT}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
+target_link_libraries(
+  test_pt_integration
+  PRIVATE "${PYTHON3_LIB}"
+          torch
+          habana_pytorch_backend
+          habana_pytorch_plugin
+          gtest
+          gtest_main
+          util
+          pthread
+          stdc++
+          stdc++fs
+          dl
+          npu::spdlog)
 
-add_custom_command(TARGET test_pt_integration POST_BUILD COMMAND
-  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>
-  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>
-)
+add_custom_command(
+  TARGET test_pt_integration
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>
+          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>)

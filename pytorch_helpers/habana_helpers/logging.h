@@ -19,8 +19,8 @@
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#include "spdlog/fmt/bundled/format.h"
-#include "spdlog/spdlog.h"
+#include <spdlog/fmt/bundled/format.h>
+#include <spdlog/spdlog.h>
 #pragma GCC diagnostic pop
 #include <absl/strings/str_format.h>
 
