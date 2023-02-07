@@ -242,5 +242,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          std::vector<at::Tensor>& static_inputs,
          std::vector<at::Tensor>& inputs,
          bool async = false) { graph.replayV2(static_inputs, inputs, async); });
+  m.def("enable_dynamic_shape", []() {
+    habana_helpers::EnableRefineDynamicShape();
+  });
+  m.def("disable_dynamic_shape", []() {
+    habana_helpers::DisableRefineDynamicShape();
+  });
   m.doc() = "This module registers hpu backend.";
 }

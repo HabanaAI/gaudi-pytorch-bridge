@@ -127,6 +127,12 @@ def set_autocast_hpu_dtype(dtype) -> None:
 def get_autocast_hpu_dtype() -> Any:
     return _hpu_C.get_autocast_hpu_dtype()
 
+def enable_dynamic_shape():
+    _hpu_C.enable_dynamic_shape()
+
+def disable_dynamic_shape():
+    _hpu_C.disable_dynamic_shape()
+
 def is_bf16_supported():
     r"""Check if bf16 is supported."""
     if is_available():
