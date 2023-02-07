@@ -893,7 +893,20 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     self = copy_hpu_(self, tensor_data, non_blocking);
     self = self.to(type);
   } else {
-    self = copy_hpu_(self, tensor_data, non_blocking);
+    auto tensor_data_ = tensor_data;
+    if (_src.dtype() != tensor_data.dtype()) {
+      auto id = GetHbLazyTensorId(_src);
+      auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+      if (params_ptr != nullptr && params_ptr->optype == kStridedOpViewDtype) {
+        tensor_data_ =
+            at::empty_like(self, _src.options(), _src.suggest_memory_format());
+        tensor_data_.unsafeGetTensorImpl()->set_storage_keep_dtype(
+            tensor_data.storage());
+      }
+    }
+    self = copy_hpu_(self, tensor_data_, non_blocking);
   }
   // No need to CreateHbLazyTensor for self as it is on CPU
   habana_lazy::PermuteTensors::handlePermutedTensor(_src, self, non_blocking);
@@ -1748,18 +1761,12 @@ Tensor view_dtype_hpu_lazy(const Tensor& self, ScalarType dtype) {
     return self.to(dtype);
   }
 
-  auto new_tensor = empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(type_meta),
-      self.suggest_memory_format(),
-      false,
-      DATA_TENSOR,
-      self);
+  auto new_tensor = view_hpu_lazy(self, fromIntArrayRefUnchecked(self.sizes()));
   auto* impl = new_tensor.unsafeGetTensorImpl();
+  impl->set_storage_and_dtype(self.storage(), type_meta);
   if (self_element_size == new_element_size) {
     impl->set_storage_offset(self.storage_offset());
     impl->set_sizes_and_strides(self.sizes(), self.strides());
-
   } else if (self.dim() == 0) {
     TORCH_CHECK(
         false,
@@ -1828,6 +1835,15 @@ Tensor view_dtype_hpu_lazy(const Tensor& self, ScalarType dtype) {
     impl->set_sizes_and_strides(new_sizes, new_strides);
   }
 
+  auto hb_tensor = GetHbLazyTensor(new_tensor);
+  hb_tensor.setTensorOriginalType(dtype);
+  {
+    auto id = GetHbLazyTensorId(new_tensor);
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+    params_ptr->optype = kStridedOpViewDtype;
+  }
   return new_tensor;
 }
 

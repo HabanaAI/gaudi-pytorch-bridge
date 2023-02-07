@@ -368,6 +368,7 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
     add_asstrided_node = false;
     switch (params.optype) {
       case kStridedOpView:
+      case kStridedOpViewDtype:
         out = add_view_lazy(recent_orig_t, params.sizes, t_opt);
         break;
       case kStridedOpSlice:
@@ -1288,6 +1289,7 @@ size_t HbLazyTensorViews::updateViewHash(int64_t id, size_t hash) {
 
     switch (optype) {
       case kStridedOpView:
+      case kStridedOpViewDtype:
       case kStridedOpPermute:
         for (auto& s : params_ptr->sizes) {
           hash = at::hash_combine(hash, s);

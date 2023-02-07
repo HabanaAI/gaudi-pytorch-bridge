@@ -30,7 +30,8 @@ enum StridedOPType {
   kStridedOpSqueeze,
   kStridedOpUnsqueeze,
   kStridedOpExpand,
-  kStridedOpIdentity
+  kStridedOpIdentity,
+  kStridedOpViewDtype
 };
 
 enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
