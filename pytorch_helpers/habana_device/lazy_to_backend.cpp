@@ -25,14 +25,14 @@ std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
     PT_BRIDGE_WARN(
         "Skipping permutations for EagerOp with duplicate inputs...");
-    return {synapse_helpers::layouts::MemoryPermutation{}, true};
+    return {synapse_helpers::layouts::MemoryPermutation{}, false};
   }
   auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
   if (hb_weight_impl)
     return {
         hb_weight_impl->GetMemoryPermutation(),
         hb_weight_impl->GetDontAllowPermutation()};
-  return {synapse_helpers::layouts::MemoryPermutation{}, true};
+  return {synapse_helpers::layouts::MemoryPermutation{}, false};
 }
 
 bool lazy_to_backend::is_lazy_inference_call_context() {
