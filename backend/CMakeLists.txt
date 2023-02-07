@@ -32,6 +32,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   helpers/compilation_statistics.cpp
   helpers/tensor_shape.cpp
   helpers/tensor_info.cpp
+  helpers/tensor_utils.cpp
   helpers/create_tensor.cpp
   helpers/event_dispatcher.cpp
   )

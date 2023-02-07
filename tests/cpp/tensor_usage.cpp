@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,8 +18,8 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 
+#include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 

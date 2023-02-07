@@ -10,19 +10,17 @@
  *
  *******************************************************************************
  */
-#include <torch/script.h>
+#pragma once
 
-#include "backend/helpers/tensor_utils.h"
-#include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/logging.h"
+#include <ATen/core/Tensor.h>
 
-using namespace torch;
+namespace habana_helpers {
+at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
 
-Scalar _local_scalar_dense_hpu(const Tensor& self) {
-  PT_KERNEL_BEGIN;
-  Scalar r = habana_helpers::_local_scalar_dense_internal(self);
-  PT_KERNEL_END;
+at::Tensor cast_tensor_to_long(const at::Tensor& int_tensor);
 
-  return r;
-}
+void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
+c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
+
+at::Tensor downcast_to_int_if_needed(const at::Tensor& in);
+} // namespace habana_helpers

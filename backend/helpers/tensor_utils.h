@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -57,13 +57,6 @@ std::vector<int64_t> infer_size(c10::IntArrayRef shape, int64_t numel);
 
 at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
 
-at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
-
-at::Tensor cast_tensor_to_long(const at::Tensor& int_tensor);
-
-synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
-c10::ScalarType synapse_to_pytorch_type(const synDataType type);
-
 at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
     const at::Tensor& self,
@@ -98,7 +91,6 @@ void copy_data_within_device(
     const at::Tensor& dst,
     bool non_blocking);
 
-void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
 void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
 void copy_scalars_to_device(
     const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list);
@@ -130,10 +122,7 @@ void recalc_strides(
     const std::vector<int64_t>& self_sizes);
 
 bool is_supported_type(c10::ScalarType type);
-c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
 bool is_shape_tensor(synTensorType shape_tensor);
 std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
-
-at::Tensor downcast_to_int_if_needed(const at::Tensor& in);
 
 } // namespace habana_helpers

@@ -21,6 +21,7 @@
 #include "synapse_helpers/env_flags.h"
 
 #include <pybind11/chrono.h>
+#include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -30,7 +31,6 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
-#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "pytorch_helpers/synapse_helpers/device_context.h"
 
 using namespace synapse_helpers;

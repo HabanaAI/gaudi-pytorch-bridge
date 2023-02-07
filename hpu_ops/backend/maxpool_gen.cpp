@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,11 +12,11 @@
  */
 
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/tensor_utils.h"
 #include "generated/backend/max_pool2d_with_indices.h"
 #include "generated/backend/max_pool2d_with_indices_backward.h"
 #include "generated/backend/max_pool3d_with_indices.h"
 #include "generated/backend/max_pool3d_with_indices_backward.h"
-#include "habana_helpers/tensor_utils.h"
 
 namespace habana {
 

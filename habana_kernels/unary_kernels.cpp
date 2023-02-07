@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
@@ -17,9 +20,10 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
+#include "backend/helpers/tensor_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
-#include "habana_helpers/tensor_utils.h"
+#include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"

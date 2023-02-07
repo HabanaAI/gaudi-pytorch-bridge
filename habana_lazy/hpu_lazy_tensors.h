@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,9 +18,9 @@
 #include <c10/core/Device.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "backend/helpers/tensor_utils.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/misc_utils.h"
-#include "habana_helpers/tensor_utils.h"
 #include "ir.h"
 #include "ir_utils.h"
 #include "view.h"

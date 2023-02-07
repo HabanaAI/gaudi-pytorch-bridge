@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 
+#include "backend/helpers/tensor_utils.h"
 #include "habana_device/HPUAllocator.h"
-#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 
 namespace habana {
 namespace eager {

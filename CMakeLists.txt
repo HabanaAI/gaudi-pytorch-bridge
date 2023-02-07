@@ -103,7 +103,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp
-  pytorch_helpers/habana_helpers/tensor_utils.cpp
+  pytorch_helpers/habana_helpers/frontend_utils.cpp
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp

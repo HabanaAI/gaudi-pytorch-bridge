@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -17,6 +17,7 @@
 #include <mutex>
 
 #include "habana_device/HPUCheck.h"
+#include "habana_device/HPUStream.h"
 #include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
@@ -24,7 +25,7 @@
 #include "backend/helpers/graph.h"
 #include "habana_helpers/pt_version_check.h"
 
-#include "habana_helpers/tensor_utils.h"
+#include "backend/helpers/tensor_utils.h"
 
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_operator.h"
@@ -32,14 +33,11 @@
 #include "backend/lazy_to_backend.h"
 #include "habana_kernels/kernel_utils.h"
 
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/lazy_executor.h"
-#include "habana_lazy/permute_tensors.h"
 #include "synapse_helpers/device_helpers.h"
 #include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
-#include "dtype_helpers.h"
+//#include "dtype_helpers.h"
 
 using namespace torch;
 
@@ -174,68 +172,6 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   return Op.GetOutputs()[0];
 }
 
-/*************************************************************************
- * @brief This helper function casts a long tensor to int (on CPU)
- ************************************************************************/
-at::Tensor habana_helpers::cast_tensor_to_integer(
-    const at::Tensor& long_tensor) {
-  // TODO Remove this cast on CPU when int64_t->int32 cast available on
-  // HPU
-
-  auto int_tensor = std::make_unique<at::Tensor>();
-  if (!habana_lazy::isDeviceInLoweringMode() &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    // if not in lowering mode just return a tensor storageless wrapper as a
-    // placeholder to avoid dma in case we need backend end tensor in future we
-    // can replace createpttensor with empty_hpu_lazy
-    *int_tensor = habana::createPTTensor(
-        long_tensor,
-        long_tensor.sizes(),
-        long_tensor.options().dtype(c10::ScalarType::Int),
-        long_tensor.suggest_memory_format(),
-        long_tensor.scalar_type(),
-        false);
-  } else {
-    if (long_tensor.scalar_type() == c10::ScalarType::Long) {
-      *int_tensor = long_tensor.to("cpu")
-                        .to(c10::ScalarType::Int)
-                        .to(long_tensor.device(), c10::attr::non_blocking);
-    } else {
-      *int_tensor = long_tensor;
-    }
-  }
-
-  return *int_tensor;
-}
-
-at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
-  // TODO Remove this cast on CPU when int32->int64_t cast available on
-  // HPU
-  auto long_tensor = std::make_unique<at::Tensor>();
-  if (!habana_lazy::isDeviceInLoweringMode() &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    // if not in lowering mode just return a tensor storageless wrapper as a
-    // placeholder to avoid dma
-    *long_tensor = habana::createPTTensor(
-        int_tensor,
-        int_tensor.sizes(),
-        int_tensor.options().dtype(c10::ScalarType::Long),
-        int_tensor.suggest_memory_format(),
-        int_tensor.scalar_type(),
-        false);
-  } else {
-    if (int_tensor.scalar_type() == c10::ScalarType::Int) {
-      *long_tensor = int_tensor.to("cpu")
-                         .to(c10::ScalarType::Long)
-                         .to(int_tensor.device(), c10::attr::non_blocking);
-    } else {
-      *long_tensor = int_tensor;
-    }
-  }
-
-  return *long_tensor;
-}
-
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
   if (hpu_tensor.defined()) {
     return hpu_tensor.to(at::DeviceType::CPU);
@@ -294,38 +230,6 @@ Tensor habana_helpers::GenerateAndCopyTensorToHPU(
   copy_scalar_to_device(buffer.data(), val_t, size);
 
   return val_t;
-}
-
-/******************************************************************************
- * @brief helper function for copying data from device to host
- * @param[in] src - source tensor in device
- * @param[in] size - transfer data size in bytes
- * @param[out] dst_ptr - destination memory address in cpu
- *****************************************************************************/
-void habana_helpers::copy_scalar_to_host(
-    const at::Tensor& src,
-    void* dst_ptr,
-    uint32_t size) {
-  std::atomic<bool> copyDone{false};
-  bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
-
-  auto syn_error =
-      synapse_helpers::HPURegistrar::get_device(src.device().index())
-          .copy_data_to_host(
-              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-              dst_ptr,
-              reinterpret_cast<synapse_helpers::device_ptr>(
-                  src.storage().data_ptr().get()),
-              size,
-              [&copyDone]() { copyDone = true; },
-              is_pinned,
-              c10::hpu::getCurrentHPUStream());
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
-
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
-  }
 }
 
 /******************************************************************************
@@ -845,34 +749,6 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
   return false;
 }
 
-c10::Scalar habana_helpers::_local_scalar_dense_internal(
-    const at::Tensor& self) {
-  Scalar r;
-  // Note:
-  // 1. This macro expands to more types than HPU supports,
-  //   but that should not be an issue issue.
-  // 2. Pytorch uses this function to check a specific emement of a tensor
-  //   eg. embedding_bag validates the first value offsets to be 0 using this
-  //   function
-  // 3. A TORCH_CHECK is added to ensure that the size at source
-  //   matches with the destination.
-
-  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
-      at::ScalarType::Bool,
-      at::ScalarType::BFloat16,
-      self.scalar_type(),
-      "_local_scalar_dense",
-      [&] {
-        scalar_t val;
-        TORCH_CHECK(
-            elementSize(self.scalar_type()) == sizeof(val),
-            " source and destination size mismatch");
-        habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
-        r = Scalar(val);
-      });
-  return r;
-}
-
 bool habana_helpers::is_shape_tensor(synTensorType shape_tensor) {
   switch (shape_tensor) {
     case SHAPE_TENSOR:
@@ -900,10 +776,4 @@ std::vector<int64_t> habana_helpers::calculate_strides(
     }
   }
   return strides;
-}
-
-at::Tensor habana_helpers::downcast_to_int_if_needed(const at::Tensor& in) {
-  return habana_helpers::is_downcast_to_int_needed(in.scalar_type())
-      ? habana_helpers::cast_tensor_to_integer(in)
-      : in;
 }

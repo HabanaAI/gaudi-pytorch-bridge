@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,11 +12,11 @@
  */
 
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/tensor_utils.h"
 #include "generated/backend/nll_loss2d_backward.h"
 #include "generated/backend/nll_loss2d_forward.h"
 #include "generated/backend/nll_loss_backward.h"
 #include "generated/backend/nll_loss_forward.h"
-#include "habana_helpers/tensor_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
