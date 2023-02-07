@@ -1919,7 +1919,7 @@ def generate(args):
     if _IS_EAGER:
         fgens = [x for x in fgens if x.dispatch and not x.default]
 
-    num_shards = 5
+    num_shards = 10
     num_fgens_per_shard = len(fgens) // num_shards
     gen_file_idx = 0
     dtype_defs = ""
