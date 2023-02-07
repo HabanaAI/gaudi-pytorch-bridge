@@ -9,6 +9,8 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
     silentMode: true
 # PyTorch full graph tests
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_perf
+    silentMode: true
   - testToLaunch: asic_gaudi_pytorch_perf_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_sbs_tests---t-dg
   - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
