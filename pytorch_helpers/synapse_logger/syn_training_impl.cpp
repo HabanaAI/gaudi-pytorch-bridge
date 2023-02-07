@@ -63,6 +63,7 @@ SYN_API_PTR(synMemCopyAsyncMultiple);
 SYN_API_PTR(synDeviceGetCount);
 SYN_API_PTR(synDeviceGetCountByDeviceType);
 SYN_API_PTR(synDeviceAcquireByDeviceType);
+SYN_API_PTR(synDeviceAcquireByModuleId);
 SYN_API_PTR(synDeviceAcquire);
 SYN_API_PTR(synDriverGetVersion);
 SYN_API_PTR(synDeviceGetName);
@@ -72,10 +73,12 @@ SYN_API_PTR(synTensorDestroy);
 SYN_API_PTR(synConstTensorCreate);
 SYN_API_PTR(synNodeCreate);
 SYN_API_PTR(synNodeCreateWithId);
+SYN_API_PTR(synNodeSetDeterministic);
 SYN_API_PTR(synNodeDependencySet);
 SYN_API_PTR(synGraphCompile);
 SYN_API_PTR(synGraphCreate);
 SYN_API_PTR(synGraphCreateEager);
+SYN_API_PTR(synGraphDuplicate);
 SYN_API_PTR(synGraphDestroy);
 SYN_API_PTR(synMemsetD32Async);
 SYN_API_PTR(synMemsetD8Async);
@@ -87,6 +90,7 @@ SYN_API_PTR(synHostUnmap);
 SYN_API_PTR(synDeviceMalloc);
 SYN_API_PTR(synDeviceFree);
 SYN_API_PTR(synDeviceGetAttribute);
+SYN_API_PTR(synRecipeDestroy);
 SYN_API_PTR(synInitialize);
 SYN_API_PTR(synDestroy);
 SYN_API_PTR(synDeviceRelease);
@@ -98,6 +102,10 @@ SYN_API_PTR(synProfilerGetTrace2);
 SYN_API_PTR(synConfigurationSet);
 SYN_API_PTR(synConfigurationGet);
 SYN_API_PTR(synSectionCreate);
+SYN_API_PTR(synSectionGetRMW);
+SYN_API_PTR(synSectionSetRMW);
+SYN_API_PTR(synSectionGetPersistent);
+SYN_API_PTR(synSectionSetPersistent);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorHandleCreate);
@@ -114,6 +122,18 @@ SYN_API_PTR(synTensorSetPermutation);
 SYN_API_PTR(synSectionSetConst);
 SYN_API_PTR(synSectionSetGroup);
 SYN_API_PTR(synRecipeSectionGetProp);
+SYN_API_PTR(synRecipeSerialize);
+SYN_API_PTR(synRecipeDeSerialize);
+SYN_API_PTR(synRecipeGetAttribute);
+SYN_API_PTR(synProfilerGetCurrentTimeNS);
+SYN_API_PTR(synProfilerAddCustomMeasurement);
+SYN_API_PTR(synTensorExtExtractExecutionOrder);
+SYN_API_PTR(synTensorGetExternal);
+SYN_API_PTR(synTensorSetDeviceFullLayout);
+SYN_API_PTR(synTensorSetQuantizationData);
+SYN_API_PTR(synTensorGetQuantizationData);
+SYN_API_PTR(synTensorSetAllowPermutation);
+SYN_API_PTR(synTensorGetHostPtr);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceSynchronize);
@@ -137,6 +157,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceGetCount);
   SYN_API_INIT_PTR(synDeviceGetCountByDeviceType);
   SYN_API_INIT_PTR(synDeviceAcquireByDeviceType);
+  SYN_API_INIT_PTR(synDeviceAcquireByModuleId);
   SYN_API_INIT_PTR(synDeviceAcquire);
   SYN_API_INIT_PTR(synDriverGetVersion);
   SYN_API_INIT_PTR(synDeviceGetName);
@@ -146,10 +167,12 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synConstTensorCreate);
   SYN_API_INIT_PTR(synNodeCreate);
   SYN_API_INIT_PTR(synNodeCreateWithId);
+  SYN_API_INIT_PTR(synNodeSetDeterministic);
   SYN_API_INIT_PTR(synNodeDependencySet);
   SYN_API_INIT_PTR(synGraphCompile);
   SYN_API_INIT_PTR(synGraphCreate);
   SYN_API_INIT_PTR(synGraphCreateEager);
+  SYN_API_INIT_PTR(synGraphDuplicate);
   SYN_API_INIT_PTR(synGraphDestroy);
   SYN_API_INIT_PTR(synMemsetD32Async);
   SYN_API_INIT_PTR(synMemsetD8Async);
@@ -161,6 +184,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceMalloc);
   SYN_API_INIT_PTR(synDeviceFree);
   SYN_API_INIT_PTR(synDeviceGetAttribute);
+  SYN_API_INIT_PTR(synRecipeDestroy);
   SYN_API_INIT_PTR(synInitialize);
   SYN_API_INIT_PTR(synDestroy);
   SYN_API_INIT_PTR(synDeviceRelease);
@@ -172,6 +196,10 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synConfigurationSet);
   SYN_API_INIT_PTR(synConfigurationGet);
   SYN_API_INIT_PTR(synSectionCreate);
+  SYN_API_INIT_PTR(synSectionGetRMW);
+  SYN_API_INIT_PTR(synSectionSetRMW);
+  SYN_API_INIT_PTR(synSectionGetPersistent);
+  SYN_API_INIT_PTR(synSectionSetPersistent);
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorHandleCreate);
@@ -188,6 +216,18 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionSetConst);
   SYN_API_INIT_PTR(synSectionSetGroup);
   SYN_API_INIT_PTR(synRecipeSectionGetProp);
+  SYN_API_INIT_PTR(synRecipeSerialize);
+  SYN_API_INIT_PTR(synRecipeDeSerialize);
+  SYN_API_INIT_PTR(synRecipeGetAttribute);
+  SYN_API_INIT_PTR(synProfilerGetCurrentTimeNS);
+  SYN_API_INIT_PTR(synProfilerAddCustomMeasurement);
+  SYN_API_INIT_PTR(synTensorExtExtractExecutionOrder);
+  SYN_API_INIT_PTR(synTensorGetExternal);
+  SYN_API_INIT_PTR(synTensorSetDeviceFullLayout);
+  SYN_API_INIT_PTR(synTensorSetQuantizationData);
+  SYN_API_INIT_PTR(synTensorGetQuantizationData);
+  SYN_API_INIT_PTR(synTensorSetAllowPermutation);
+  SYN_API_INIT_PTR(synTensorGetHostPtr);
 }
 
 } // namespace lib_synapse
@@ -223,6 +263,13 @@ synStatus synInitialize() {
   API_LOG_CALL();
   // Directly calling synInitialize() due to null backend functionality
   synStatus status = lib_synapse::synInitialize();
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synDestroy() {
+  API_LOG_CALL();
+  synStatus status = lib_synapse::synDestroy();
   API_LOG_RESULT();
   return status;
 }
@@ -312,6 +359,28 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
 }
 
 synStatus SYN_API_CALL synEventMapTensor(
+    synEventHandle* eventHandle,
+    size_t numOfEvents,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synRecipeHandle recipeHandle) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG_X(eventHandle),
+      ARG(numOfEvents),
+      ARG_X(launchTensorsInfo),
+      ARG(recipeHandle));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synEventMapTensorExt,
+      eventHandle,
+      numOfEvents,
+      launchTensorsInfo,
+      recipeHandle)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synEventMapTensorExt(
     synEventHandle* eventHandle,
     size_t numOfEvents,
     const synLaunchTensorInfoExt* launchTensorsInfo,
@@ -451,6 +520,40 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
   return status;
 }
 
+synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
+    const synStreamHandle streamHandle,
+    const synLaunchTensorInfoExt* launchTensorsInfoExt,
+    const uint32_t numberOfTensors,
+    uint64_t pWorkspace,
+    const synRecipeHandle pRecipeHandle,
+    synEventHandle* eventHandleList,
+    const uint32_t numberOfEvents,
+    uint32_t flags) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(streamHandle),
+      ARG(launchTensorsInfoExt),
+      ARG(numberOfTensors),
+      ARG_X(pWorkspace),
+      ARG(pRecipeHandle),
+      ARG(eventHandleList),
+      ARG(numberOfEvents),
+      ARG(flags));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synLaunchWithExternalEventsExt,
+      streamHandle,
+      launchTensorsInfoExt,
+      numberOfTensors,
+      pWorkspace,
+      pRecipeHandle,
+      eventHandleList,
+      numberOfEvents,
+      flags)
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synWorkspaceGetSize(
     uint64_t* pWorkspaceSize,
     const synRecipeHandle recipeHandle) {
@@ -568,6 +671,18 @@ synStatus SYN_API_CALL synDeviceAcquireByDeviceType(
   API_LOG_CALL(ARG(pDeviceId), ARG(deviceType));
   synStatus status =
       lib_synapse::synDeviceAcquireByDeviceType(pDeviceId, deviceType);
+  API_LOG_RESULT(S_ARG(pDeviceId));
+  synapse_logger::logger.last_acquired_id(*pDeviceId);
+  return status;
+}
+
+synStatus SYN_API_CALL
+synDeviceAcquireByModuleId(synDeviceId* pDeviceId, const synModuleId moduleId) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(pDeviceId), ARG(moduleId));
+  synStatus status =
+      lib_synapse::synDeviceAcquireByModuleId(pDeviceId, moduleId);
   API_LOG_RESULT(S_ARG(pDeviceId));
   synapse_logger::logger.last_acquired_id(*pDeviceId);
   return status;
@@ -745,6 +860,49 @@ synStatus SYN_API_CALL synSectionCreate(
   return status;
 }
 
+synStatus SYN_API_CALL
+synSectionGetRMW(synSectionHandle sectionHandle, bool* sectionIsRMW) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsRMW));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSectionGetRMW, sectionHandle, sectionIsRMW);
+  return status;
+}
+
+synStatus SYN_API_CALL
+synSectionSetRMW(synSectionHandle sectionHandle, bool sectionIsRMW) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsRMW));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSectionSetRMW, sectionHandle, sectionIsRMW);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synSectionGetPersistent(
+    synSectionHandle sectionHandle,
+    bool* sectionIsPersistent) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsPersistent));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synSectionGetPersistent, sectionHandle, sectionIsPersistent);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synSectionSetPersistent(
+    synSectionHandle sectionHandle,
+    bool sectionIsPersistent) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsPersistent));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synSectionSetPersistent, sectionHandle, sectionIsPersistent);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synSectionDestroy(synSectionHandle sectionHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(sectionHandle));
@@ -787,6 +945,26 @@ synSectionSetGroup(synSectionHandle sectionHandle, uint64_t sectionGroup) {
   return status;
 }
 
+synStatus SYN_API_CALL synProfilerGetCurrentTimeNS(uint64_t* nanoTime) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(nanoTime));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synProfilerGetCurrentTimeNS, nanoTime);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synProfilerAddCustomMeasurement(const char* description, uint64_t nanoTime) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(description), ARG(nanoTime));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synProfilerAddCustomMeasurement, description, nanoTime);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synRecipeSectionGetProp(
     const synRecipeHandle pRecipeHandle,
     const synSectionId sectionId,
@@ -801,6 +979,145 @@ synStatus SYN_API_CALL synRecipeSectionGetProp(
       sectionId,
       prop,
       propertyPtr)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeSerialize(
+    const synRecipeHandle recipeHandle,
+    const char* recipeFileName) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(recipeHandle), ARG(recipeFileName));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synRecipeSerialize, recipeHandle, recipeFileName);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeDeSerialize(
+    synRecipeHandle* pRecipeHandle,
+    const char* recipeFileName) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(pRecipeHandle), ARG(recipeFileName));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synRecipeDeSerialize, pRecipeHandle, recipeFileName);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeGetAttribute(
+    uint64_t* retVal,
+    const synRecipeAttribute* recipeAttr,
+    const unsigned querySize,
+    const synRecipeHandle recipeHandle) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(retVal), ARG(recipeAttr), ARG(querySize), ARG(recipeHandle));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synRecipeGetAttribute,
+      retVal,
+      recipeAttr,
+      querySize,
+      recipeHandle);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorExtExtractExecutionOrder(
+    const synRecipeHandle recipeHandle,
+    uint32_t numOfExternalTensors,
+    uint64_t* tensorIds) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(recipeHandle), ARG(numOfExternalTensors), ARG(tensorIds));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorExtExtractExecutionOrder,
+      recipeHandle,
+      numOfExternalTensors,
+      tensorIds);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synTensorGetExternal(const synTensor tensor, bool* isExternal) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(isExternal));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorGetExternal, tensor, isExternal);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetDeviceFullLayout(
+    synTensor tensor,
+    const synTensorDeviceFullLayout* layout) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(layout));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceFullLayout, tensor, layout);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetQuantizationData(
+    synTensor tensor,
+    synQuantizationProperty prop,
+    void* propVal,
+    uint64_t propSize) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(prop), ARG(propVal), ARG(propSize));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorSetQuantizationData,
+      tensor,
+      prop,
+      propVal,
+      propSize);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorGetQuantizationData(
+    synTensor tensor,
+    synQuantizationProperty prop,
+    void* propVal,
+    uint64_t propSize) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(prop), ARG(propVal), ARG(propSize));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorGetQuantizationData,
+      tensor,
+      prop,
+      propVal,
+      propSize);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synTensorSetAllowPermutation(synTensor tensor, int8_t allowPermutation) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(allowPermutation));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorSetAllowPermutation, tensor, allowPermutation);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorGetHostPtr(
+    synTensor tensor,
+    void** hostPtr,
+    uint64_t* size,
+    synDataType* dataType) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(hostPtr), ARG(size), ARG(dataType));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorGetHostPtr, tensor, hostPtr, size, dataType);
   API_LOG_RESULT();
   return status;
 }
@@ -929,6 +1246,23 @@ synStatus SYN_API_CALL synNodeCreateWithId(
   return status;
 }
 
+synStatus SYN_API_CALL synNodeSetDeterministic(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const bool useDeterministic) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(useDeterministic));
+
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeSetDeterministic,
+      graphHandle,
+      nodeId,
+      useDeterministic);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus synNodeDependencySet(
     const synGraphHandle graphHandle,
     const synNodeId* pBlockingNodesIdList,
@@ -998,6 +1332,27 @@ synStatus SYN_API_CALL synGraphCreateEager(
   API_LOG_CALL(ARG(pGraphHandle), ARG(deviceType));
   synStatus status = lib_synapse::synGraphCreateEager(pGraphHandle, deviceType);
   API_LOG_RESULT(S_ARG(pGraphHandle));
+  return status;
+}
+
+synStatus SYN_API_CALL synGraphDuplicate(
+    synGraphHandle graphHandle,
+    synGraphHandle* newGraphHandle,
+    synTensorHandleMap* tensorsMap,
+    uint32_t* numTensors,
+    synNodeHandleMap* nodesMap,
+    uint32_t* numNodes) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(graphHandle),
+      ARG(newGraphHandle),
+      ARG(tensorsMap),
+      ARG(numTensors),
+      ARG(nodesMap),
+      ARG(numNodes));
+  synStatus status = lib_synapse::synGraphDuplicate(
+      graphHandle, newGraphHandle, tensorsMap, numTensors, nodesMap, numNodes);
+  API_LOG_RESULT();
   return status;
 }
 
@@ -1132,6 +1487,14 @@ synStatus SYN_API_CALL synDeviceGetAttribute(
   API_LOG_CALL(ARG(retVal), ARG(deviceAttr), ARG_X(querySize), ARG(deviceId));
   synStatus status = lib_synapse::synDeviceGetAttribute(
       retVal, deviceAttr, querySize, deviceId);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeDestroy(synRecipeHandle recipeHandle) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(recipeHandle));
+  synStatus status = lib_synapse::synRecipeDestroy(recipeHandle);
   API_LOG_RESULT();
   return status;
 }

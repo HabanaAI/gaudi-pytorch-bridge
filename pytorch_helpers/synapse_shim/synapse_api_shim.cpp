@@ -157,7 +157,7 @@ class LoggerSynapseApi {
  public:
   LoggerSynapseApi() : synapse_logger_lib_handle_{nullptr} {
     synapse_logger_lib_handle_ =
-        dlopen("synapse_logger.so", RTLD_LOCAL | RTLD_NOW);
+        dlopen("pytorch_synapse_logger.so", RTLD_LOCAL | RTLD_NOW);
     CHECK_NULL(synapse_logger_lib_handle_);
     LoggerSynapseApi& loader{*this};
     SYN_API_SYMBOL_VISIT(INIT_SYN_FUNC);
