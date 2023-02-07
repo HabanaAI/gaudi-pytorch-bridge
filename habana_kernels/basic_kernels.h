@@ -188,6 +188,27 @@ class SliceInsertOperator : public habana::HabanaOperator {
       const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
       const habana::OutputMetaDataVector& output_metadata) override;
 };
+class SliceScatterOperator : public SliceInsertOperator {
+ public:
+  SliceScatterOperator(int device_id, c10::ScalarType scalarType)
+      : SliceInsertOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
+};
+
+class SelectScatterOperator : public SliceScatterOperator {
+ public:
+  SelectScatterOperator(int device_id, c10::ScalarType scalarType)
+      : SliceScatterOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
+};
 
 class StridedInsertOperator : public habana::HabanaOperator {
  public:
@@ -241,6 +262,17 @@ class StridedInsertClOperator : public StridedInsertOperator {
          habana::LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
+};
+
+class AsStridedScatterOperator : public StridedInsertOperator {
+ public:
+  AsStridedScatterOperator(int device_id, c10::ScalarType scalarType)
+      : StridedInsertOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override;
 };
 
 // As Strided

@@ -31,6 +31,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -812,6 +813,63 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
+// slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt?
+// end=None, SymInt step=1) -> Tensor
+void SliceScatterOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  auto dim = inputs[2].toInt();
+  auto start_opt = inputs[3].to<c10::optional<int64_t>>();
+  auto end_opt = inputs[4].to<c10::optional<int64_t>>();
+  int64_t start = start_opt.value_or(0);
+  int64_t end = end_opt.value_or(INT64_MAX);
+  auto step = inputs[5].toInt();
+  c10::List params = {dim, start, end, step};
+  Stack inputs_mod = {inputs[0], inputs[1], IValue(params)};
+  SliceInsertOperator::AllocateAndAddSynapseNode(
+      graph, inputs_mod, output_metadata);
+}
+
+// func: select_scatter(Tensor self, Tensor src, int dim, int index) -> Tensor
+void SelectScatterOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  // select = slice -> squeeze
+  // consequently select_scatter = unsqueeze->slice_scatter
+  auto insert_t = inputs[1].toTensor();
+  auto dim = inputs[2].toInt();
+  auto unsqueezeOp = make_operator<UnsqueezeOperator>(
+      insert_t.device().index(), insert_t.scalar_type());
+  unsqueezeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+  Stack unsqueeze_inputs = {IValue(insert_t), IValue(dim)};
+  unsqueezeOp->AllocateAndAddSynapseNode(
+      graph, unsqueeze_inputs, OutputMetaDataVector(1));
+
+  auto index = inputs[3].toInt();
+  int64_t start = index;
+  int64_t end = index + 1;
+  int64_t step = 1;
+
+  Stack inputs_mod = {
+      inputs[0],
+      IValue(unsqueezeOp->GetOutputs()[0]),
+      IValue(dim),
+      IValue(start),
+      IValue(end),
+      IValue(step)};
+
+  auto slicescatterOp = make_operator<SliceScatterOperator>(
+      insert_t.device().index(), insert_t.scalar_type());
+  slicescatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  slicescatterOp->SetSynapseInput(unsqueezeOp->GetSynOutputs()[0]);
+  slicescatterOp->AllocateAndAddSynapseNode(graph, inputs_mod, output_metadata);
+  synapse_helpers::tensor& slice_scatter_out =
+      slicescatterOp->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(slice_scatter_out);
+  p_context_->pt_outputs_.emplace_back(slicescatterOp->GetOutputs()[0]);
+}
 
 bool StridedInsertOperator::verifyViewMemoryAccess(
     at::Tensor& real,
@@ -1308,6 +1366,29 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   }
 }
 
+// as_strided_scatter(Tensor self, Tensor src, SymInt[] size, SymInt[] stride,
+// SymInt? storage_offset=None) -> Tensor
+void AsStridedScatterOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const habana::OutputMetaDataVector& output_metadata) {
+  std::cout << __func__ << std::endl;
+  TORCH_CHECK(
+      inputs.size() >= 5,
+      "Incorrect number of arguments for AsStridedScatterOperator op");
+  auto storage_offset_opt = inputs[4].to<c10::optional<int64_t>>();
+  auto storage_offset =
+      storage_offset_opt.value_or(inputs[0].toTensor().storage_offset());
+  Stack inputs_mod = {inputs[0], inputs[1], inputs[3], IValue(storage_offset)};
+
+  StridedInsertOperator::AllocateAndAddSynapseNode(
+      graph, inputs_mod, output_metadata);
+}
+
+// TODO CPU backend is not reusing the memory for as_strided_scatter. Is PT ok
+// with memory reuse for other backends?
+// AsStridedScatterOperator::ReuseMemoryAndAddSynapseNode()
+
 bool StridedViewOperator::verifyViewMemoryAccess(
     at::Tensor& real,
     at::Tensor& view,
@@ -1732,4 +1813,9 @@ static auto& BasicKernelsKernelRegistry =
         .add(
             "hpu::as_strided_layout",
             KERNEL_FN_GLOBAL(AsStridedLayoutOperator))
-        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator));
+        .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator))
+        .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
+        .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
+        .add(
+            "aten::as_strided_scatter",
+            KERNEL_FN_GLOBAL(AsStridedScatterOperator));
