@@ -106,8 +106,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/huber_loss_gen.cpp
           backend/index_gen.cpp
           backend/index_select_gen.cpp
-          backend/isfinite_isinf_gen.cpp
-          backend/isnan_gen.cpp
+          backend/isfinite_isinf_isnan_gen.cpp
           backend/isposneginf_gen.cpp
           backend/lazy_cast.cpp
           backend/lazy_fp8_ops.cpp
@@ -229,8 +228,7 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/geometric_gen.cpp
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
-          lazy/isfinite_isinf_gen.cpp
-          lazy/isnan_gen.cpp
+          lazy/isfinite_isinf_isnan_gen.cpp
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp

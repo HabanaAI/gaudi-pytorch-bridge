@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1033,7 +1033,7 @@ TEST_F(LazyUnaryKernelTest, CopyD2D) {
 
 // Also validates ComputeOutputShape for GUID atan2_fwd_f32
 template <bool outMode, class F>
-static void TestInfNan(bool ndims, F ptFun) {
+static void TestInfNan(bool ndims, c10::ScalarType dType, F ptFun) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -1045,16 +1045,28 @@ static void TestInfNan(bool ndims, F ptFun) {
     dimensions = {4, 5, 3};
   }
 
-  torch::Tensor A = torch::rand(dimensions);
+  torch::Tensor A;
+  switch (dType) {
+    case torch::kInt32:
+      A = torch::randint(1000, dimensions);
+      break;
+    case torch::kFloat32:
+    case torch::kBFloat16: {
+      A = torch::rand(dimensions);
 
-  static const std::array<float, 5> special = {
-      0.0, -0.0, INFINITY, -INFINITY, NAN};
+      static const std::array<float, 5> special = {
+          0.0, -0.0, INFINITY, -INFINITY, NAN};
 
-  auto ptr = (float*)A.data_ptr();
-  for (auto v : special) {
-    *ptr++ = v;
+      auto ptr = (float*)A.data_ptr();
+      for (auto v : special) {
+        *ptr++ = v;
+      }
+    } break;
+    default:
+      EXPECT_TRUE(false);
   }
 
+  A = A.to(dType);
   auto hA = A.to(torch::kHPU);
 
   Tensor expected;
@@ -1088,70 +1100,78 @@ static void TestInfNan(bool ndims, F ptFun) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyUnaryKernelTest, IsNanFwdF32) {
-  TestInfNan<false>(false, [](auto A) { return torch::isnan(A); });
-}
+#define TEST_CASE(                                            \
+    testName,                                                 \
+    outFlag,                                                  \
+    ndFlag,                                                   \
+    torchNode,                                                \
+    torchDtype,                                               \
+    lambdaParams,                                             \
+    lambdaCall)                                               \
+  TEST_F(LazyUnaryKernelTest, Is##testName) {                 \
+    TestInfNan<outFlag>(ndFlag, torchDtype, [] lambdaParams { \
+      return torch::is##torchNode lambdaCall;                 \
+    });                                                       \
+  }
 
-TEST_F(LazyUnaryKernelTest, IsNanFwdF32Nd) {
-  TestInfNan<false>(true, [](auto A) { return torch::isnan(A); });
-}
+#define TEST_WITH_ND(                                                   \
+    testName, outFlag, torchNode, torchDtype, lambdaParams, lambdaCall) \
+  TEST_CASE(                                                            \
+      testName,                                                         \
+      outFlag,                                                          \
+      false,                                                            \
+      torchNode,                                                        \
+      torchDtype,                                                       \
+      lambdaParams,                                                     \
+      lambdaCall)                                                       \
+  TEST_CASE(                                                            \
+      testName##Nd,                                                     \
+      outFlag,                                                          \
+      true,                                                             \
+      torchNode,                                                        \
+      torchDtype,                                                       \
+      lambdaParams,                                                     \
+      lambdaCall)
 
-TEST_F(LazyUnaryKernelTest, IsInfFwdF32) {
-  TestInfNan<false>(false, [](auto A) { return torch::isinf(A); });
-}
+#define TEST_DTYPES(testName, outFlag, torchNode, lambdaParams, lambdaCall) \
+  TEST_WITH_ND(                                                             \
+      testName##F32,                                                        \
+      outFlag,                                                              \
+      torchNode,                                                            \
+      torch::kFloat32,                                                      \
+      lambdaParams,                                                         \
+      lambdaCall)                                                           \
+  TEST_WITH_ND(                                                             \
+      testName##BF16,                                                       \
+      outFlag,                                                              \
+      torchNode,                                                            \
+      torch::kBFloat16,                                                     \
+      lambdaParams,                                                         \
+      lambdaCall)                                                           \
+  TEST_WITH_ND(                                                             \
+      testName##I32,                                                        \
+      outFlag,                                                              \
+      torchNode,                                                            \
+      torch::kInt32,                                                        \
+      lambdaParams,                                                         \
+      lambdaCall)
 
-TEST_F(LazyUnaryKernelTest, IsInfFwdF32Nd) {
-  TestInfNan<false>(true, [](auto A) { return torch::isinf(A); });
-}
+#define TEST_(testName, torchNode) \
+  TEST_DTYPES(testName, false, torchNode, (auto A), (A))
 
+#define TEST_OUT(testName, torchNode) \
+  TEST_DTYPES(                        \
+      testName##Out, true, torchNode##_out, (auto out, auto A), (out, A))
+
+#define TEST_WITH_OUT(testName, torchNode) \
+  TEST_(testName, torchNode)               \
+  TEST_OUT(testName, torchNode)
+
+TEST_(Finite, finite)
+TEST_(Nan, nan)
+TEST_(Inf, inf)
 #if IS_PYTORCH_AT_LEAST(1, 13)
-TEST_F(LazyUnaryKernelTest, IsInfFwdF32Out) {
-  TestInfNan<true>(false, [](auto out, auto A) { torch::isinf_out(out, A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsInfFwdF32OutNd) {
-  TestInfNan<true>(true, [](auto out, auto A) { torch::isinf_out(out, A); });
-}
+TEST_OUT(Inf, inf)
 #endif
-
-TEST_F(LazyUnaryKernelTest, IsPosInfFwdF32) {
-  TestInfNan<false>(false, [](auto A) { return torch::isposinf(A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsPosInfFwdF32Nd) {
-  TestInfNan<false>(true, [](auto A) { return torch::isposinf(A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsPosInfFwdF32Out) {
-  TestInfNan<true>(
-      false, [](auto out, auto A) { torch::isposinf_out(out, A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsPosInfFwdF32OutNd) {
-  TestInfNan<true>(true, [](auto out, auto A) { torch::isposinf_out(out, A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsNegInfFwdF32) {
-  TestInfNan<false>(false, [](auto A) { return torch::isneginf(A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsNegInfFwdF32Nd) {
-  TestInfNan<false>(true, [](auto A) { return torch::isneginf(A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsNegInfFwdF32Out) {
-  TestInfNan<true>(
-      false, [](auto out, auto A) { torch::isneginf_out(out, A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsNegInfFwdF32OutNd) {
-  TestInfNan<true>(true, [](auto out, auto A) { torch::isneginf_out(out, A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsFiniteFwdF32) {
-  TestInfNan<false>(false, [](auto A) { return torch::isfinite(A); });
-}
-
-TEST_F(LazyUnaryKernelTest, IsFiniteFwdF32Nd) {
-  TestInfNan<false>(true, [](auto A) { return torch::isfinite(A); });
-}
+TEST_WITH_OUT(Neginf, neginf)
+TEST_WITH_OUT(Posinf, posinf)

@@ -12,10 +12,11 @@
  */
 #include "generated/lazy/isfinite.h"
 #include "generated/lazy/isinf.h"
+#include "generated/lazy/isnan.h"
 
 namespace habana {
 template <>
-IsFiniteInf<at::Tensor>::IsFiniteInf(
+IsFiniteInfNan<at::Tensor>::IsFiniteInfNan(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
@@ -24,7 +25,7 @@ IsFiniteInf<at::Tensor>::IsFiniteInf(
 }
 
 template <>
-at::Tensor IsFiniteInf<at::Tensor>::get_result_overrideable() {
+at::Tensor IsFiniteInfNan<at::Tensor>::get_result_overrideable() {
   return {};
 }
 
