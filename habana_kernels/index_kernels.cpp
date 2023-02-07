@@ -1168,7 +1168,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   auto indices_scalar_type = indices[0].scalar_type();
   std::vector<Tensor> cat_input;
   auto cat_op = make_operator<CatOperator>(device_id, indices_scalar_type);
-
   Stack stack;
   for (size_t i = 0; i < indices.size(); i++) {
     // broadcast index tensor to largest index tensor size
@@ -1201,7 +1200,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   // Create index tensor of shape [num_updates, dimensionality of indices]
   stack = {IValue(cat_input), IValue(-1)};
   cat_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-
   auto concatenated_indices = cat_op->GetOutputs()[0];
   stack.clear();
 
@@ -1209,9 +1207,14 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   auto rank_inp = self.ndimension();
   auto rank_idx = concatenated_indices.sizes().vec()[1];
   std::vector<int64_t> value_upd_dim{concatenated_indices.sizes().vec()[0]};
+
+  if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
+    value_upd_dim.clear();
+    value_upd_dim = values.sizes().vec();
+  }
+
   for (int i = rank_idx; i < rank_inp; i++)
     value_upd_dim.push_back(self.sizes().vec()[i]);
-
   auto values_scalar_type = values.scalar_type();
   auto bcastOp =
       make_operator<BroadcastOperator>(device_id, values_scalar_type);
@@ -1220,7 +1223,23 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   bcastOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   auto broadcasted_values = bcastOp->GetOutputs()[0];
   stack.clear();
+  std::shared_ptr<HabanaOperator> reshape_or_identity_op;
+  if ((int)indices.size() == self.dim()) {
+    reshape_or_identity_op =
+        make_operator<ReshapeOperator>(device_id, values_scalar_type);
+    std::vector<int64_t> reshape_bcast_size(
+        {concatenated_indices.sizes().vec()[0]});
+    stack = {IValue(bcastOp->GetOutputs()[0]), IValue(reshape_bcast_size)};
 
+    reshape_or_identity_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    reshape_or_identity_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    // auto reshape_or_identity_values =
+    // reshape_or_identity_op->GetOutputs()[0];
+    stack.clear();
+  } else {
+    reshape_or_identity_op = bcastOp;
+  }
   std::shared_ptr<HabanaOperator> scatter_op;
   auto self_scalar_type = self.scalar_type();
 
@@ -1228,10 +1247,12 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     scatter_op =
         make_operator<ScatterNdONNXOperator>(device_id, self_scalar_type);
     stack = {
-        IValue(self), IValue(concatenated_indices), IValue(broadcasted_values)};
+        IValue(self),
+        IValue(concatenated_indices),
+        IValue(reshape_or_identity_op->GetOutputs()[0])};
     scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
-    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(reshape_or_identity_op->GetSynOutputs()[0]);
 
     scatter_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
     stack.clear();
@@ -1277,7 +1298,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     stack.clear();
 
     std::vector<int64_t> reshape_size({1, (int64_t)mul_factor_v.size()});
-
     auto ReshapeOp2 =
         make_operator<ReshapeOperator>(device_id, indices_scalar_type);
     stack = {IValue(cat_op2->GetOutputs()[0]), IValue(reshape_size)};
@@ -1286,7 +1306,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
     auto mul_factor_const_t = ReshapeOp2->GetOutputs()[0];
-
     auto mul_op = make_operator<MulOperator>(device_id, indices_scalar_type);
     stack = {IValue(cat_op->GetOutputs()[0]), IValue(mul_factor_const_t)};
 
@@ -1296,7 +1315,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
 
     mul_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
     stack.clear();
-
     std::vector<int64_t> dim_arr({1});
     auto dtype = mul_op->GetOutputs()[0].scalar_type();
     auto sum_op = make_operator<SumDimOperator>(device_id, dtype);
@@ -1310,7 +1328,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     stack.clear();
 
     auto ravelled_indices = sum_op->GetOutputs()[0];
-
     auto sort_op = make_operator<TopkOperator>(device_id, "topk");
     sort_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
     stack = {
@@ -1324,7 +1341,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
 
     auto sorted_results = sort_op->GetOutputs()[0];
     auto permutation = sort_op->GetOutputs()[1].to(torch::kInt);
-
     auto index_select_op =
         make_operator<IndexSelectOperator>(device_id, indices_scalar_type);
     //  auto grouped_indices =
@@ -1335,7 +1351,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     index_select_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
-
     std::vector<int64_t> reshape_size2({permutation.sizes().vec()[0], 1});
     // auto update_locs =
     //     at::reshape(permutation, {permutation.sizes().vec()[0], 1});
@@ -1347,7 +1362,6 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     reshape_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
-
     // auto permutation = Reshape_op->GetOutputs()[0];
     scatter_op = make_operator<ScatterNdOperator>(device_id, self_scalar_type);
 
@@ -1356,18 +1370,17 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         IValue(concatenated_indices),
         IValue(index_select_op->GetOutputs()[0]),
         IValue(reshape_op->GetOutputs()[0]),
-        IValue(broadcasted_values)};
+        IValue(reshape_or_identity_op->GetOutputs()[0])};
 
     scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(index_select_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(reshape_op->GetSynOutputs()[0]);
-    scatter_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(reshape_or_identity_op->GetSynOutputs()[0]);
 
     scatter_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
     stack.clear();
-
     auto add_op = make_operator<AddOperator>(device_id, self_scalar_type);
     stack = {IValue(self), IValue(scatter_op->GetOutputs()[0]), IValue(1)};
     add_op->SetSynapseInput(p_context_->syn_inputs_[0]);

@@ -51,7 +51,6 @@ static std::vector<int64_t> CalcCatOutSize(
     for (unsigned i = 0; i < tensor_count; i++)
       out_size[dim] += tensors->at(i)[dim];
   }
-
   return out_size;
 }
 
@@ -61,8 +60,10 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
   }
   const at::Tensor input = stack_tensor(stack, 0);
   auto indices = stack.at(1).toTensorList().vec();
+  auto adv_index_dims = stack.at(2).toIntList();
   sizes_vec shape = std::vector<std::vector<int64_t>>{
-      {IndexOperator::compute_output_shape(input, indices)}};
+      {habana::ComputeOutputShapeWithAdvIndexing(
+          input, indices, adv_index_dims, false)}};
   return shape;
 }
 
@@ -71,7 +72,7 @@ void IndexHabanaOperator::AddNode(
     const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   c10::List<at::Tensor> indices = stack.at(1).toTensorList();
-
+  auto adv_index_dims = stack.at(2).toIntList();
   // for this particular indices configuration gather_mxnet throws GC
   // compilation error, therefore use simple gather for now
   if (indices.size() == 1 && indices.get(0).dim() == 1) {
@@ -100,7 +101,6 @@ void IndexHabanaOperator::AddNode(
   }
 
   auto tensorlist = stack[1].toTensorList().vec();
-
   auto max_size = broadcast_size(tensorlist);
   auto scalar_type = tensorlist[0].scalar_type();
 
@@ -119,7 +119,6 @@ void IndexHabanaOperator::AddNode(
 
     cat_input_tensor.emplace_back(
         ReshapeHelper(graph, bcastOp.get(), expanded_size, scalar_type));
-
     cat_input_synTensor.emplace_back(
         cat_input_tensor[cat_input_tensor.size() - 1].get());
     cat_input_index.emplace_back(
@@ -134,7 +133,6 @@ void IndexHabanaOperator::AddNode(
 
   synConcatenateParams concat_params{};
   concat_params.axis = dim;
-
   auto catop1 = BuildOp(
       graph,
       "concat",
@@ -145,14 +143,19 @@ void IndexHabanaOperator::AddNode(
 
   auto catop = std::move(catop1.at(0));
 
-  auto shape = IndexOperator::compute_output_shape(self, tensorlist);
+  auto shape = habana::ComputeOutputShapeWithAdvIndexing(
+      self, tensorlist, adv_index_dims, false);
   auto indexOp = BuildOp(
       graph,
       "gather_nd_mxnet_fwd_" +
           habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), catop.get()},
-      {{shape, ScalarType(), 0}});
-  syn_out(0) = std::move(indexOp[0]);
+      {{shape, ScalarType()}});
+  auto final_shape = habana::ComputeOutputShapeWithAdvIndexing(
+      self, tensorlist, adv_index_dims, true);
+  auto index_out =
+      ReshapeHelper(graph, indexOp[0].get(), final_shape, ScalarType(), 0);
+  syn_out(0) = std::move(index_out);
 }
 
 } // namespace habana

@@ -61,6 +61,8 @@
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
+#define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
+
 using namespace habana;
 using namespace at;
 
@@ -2879,17 +2881,340 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(scatter_add_, func, self)
 }
 
+static bool check_for_advanced_indexing(
+    const c10::List<c10::optional<at::Tensor>>& indices) {
+  bool advanced_indexing = false;
+  c10::ScalarType prev_scalar_type = c10::ScalarType::Long;
+  bool first_scalar = true;
+
+  if (indices.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
+    for (c10::optional<at::Tensor> input_ind : indices) {
+      auto input = input_ind.value_or(Tensor());
+      if (!input.defined()) {
+        advanced_indexing = true;
+        break;
+      } else {
+        // if we are indexing using a mixture of long and boolean indices,then
+        // also we will work in advanced indexing mode
+        auto cur_scalar_type = input.scalar_type();
+        if (first_scalar) {
+          first_scalar = false;
+          prev_scalar_type = cur_scalar_type;
+        } else {
+          if (prev_scalar_type != cur_scalar_type) {
+            advanced_indexing = true;
+            break;
+          }
+        }
+        prev_scalar_type = cur_scalar_type;
+      }
+    }
+  }
+  return advanced_indexing;
+}
+
+static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
+    const c10::List<c10::optional<at::Tensor>>& indices) {
+  std::vector<c10::optional<at::Tensor>> bool_indices_vec;
+  at::Tensor t_nz;
+  bool has_bool_mask = false;
+  for (c10::optional<at::Tensor> input_ind : indices) {
+    auto input_temp = input_ind.value_or(Tensor());
+    Tensor input;
+    if (input.defined() &&
+        (input_temp.device().type() != c10::DeviceType::HPU)) {
+      input = input_temp.to(c10::kHPU);
+    } else {
+      input = input_temp;
+    }
+    if (!input.defined()) {
+      bool_indices_vec.emplace_back(input);
+    } else {
+      auto cur_scalar_type = input.scalar_type();
+      if (cur_scalar_type == c10::ScalarType::Bool) {
+        has_bool_mask = true;
+        auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(input);
+        t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
+        std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+        c10::IntArrayRef dims_sz(dims_sz_vec);
+        auto nz_indices =
+            habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
+        for (auto i : c10::irange((int)nz_indices.size())) {
+          auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
+          bool_indices_vec.emplace_back(nzi);
+        }
+      }
+    }
+  }
+  if (has_bool_mask) {
+    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    return bool_mask_indices;
+  } else {
+    return indices;
+  }
+}
+
+static C10_UNUSED int hasContiguousSubspace(
+    c10::ArrayRef<c10::IValue> indices_ival) {
+  bool explicit_indices_together = false;
+  int index_tensor_groups = 0;
+  int index_tensor_group_start = 0;
+  int dim = 0;
+  for (auto input : indices_ival) {
+    auto o1 = input.toOptional<at::Tensor>();
+    if (o1.has_value() && !o1->defined()) {
+      if (explicit_indices_together) {
+        explicit_indices_together = false;
+      }
+    } else if (o1.has_value() && o1->defined()) {
+      if (!explicit_indices_together) {
+        index_tensor_group_start = dim;
+        index_tensor_groups++;
+      }
+      explicit_indices_together = true;
+    }
+    dim++;
+  }
+  if (index_tensor_groups <= 1)
+    return index_tensor_group_start;
+  else
+    return 0;
+}
+
+// Transposes the tensor and indices together so that all the non-null indices
+// index the first k dimensions of the tensor. Returns the transposed tensor
+// and the reordered indices. For example:
+// transposeToFront(tensor, {nullptr, a, nullptr, b})
+// returns
+// tensor.permute([1, 3, 0, 2]), {a, b, nullptr, nullptr}
+static C10_UNUSED std::tuple<at::Tensor, std::vector<c10::optional<at::Tensor>>>
+transposeToFront(const at::Stack& stack) {
+  const at::Tensor self = stack_tensor(stack, 0);
+  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
+  std::vector<int64_t> dims;
+  std::vector<c10::optional<at::Tensor>> transposedIndices;
+  std::vector<c10::optional<at::Tensor>> indices;
+  for (const auto& index_opt : indices_ival) {
+    auto o1 = index_opt.toOptional<at::Tensor>();
+    if (o1.has_value() && o1.value().defined()) {
+      const auto& index = o1.value();
+      indices.emplace_back(std::move(index));
+    } else {
+      indices.emplace_back(c10::nullopt);
+    }
+  }
+  dims.reserve(self.dim());
+  for (const auto i : c10::irange(self.dim())) {
+    if (indices[i].has_value()) {
+      dims.push_back(i);
+      transposedIndices.emplace_back(indices[i]);
+    }
+  }
+  for (const auto i : c10::irange(self.dim())) {
+    if (!indices[i].has_value()) {
+      dims.push_back(i);
+      transposedIndices.emplace_back(c10::nullopt);
+    }
+  }
+  return std::make_tuple(self.permute(dims), std::move(transposedIndices));
+}
+
+static std::tuple<at::Tensor, std::vector<at::Tensor>>
+generate_advanced_indexing_indices_list(const at::Stack& stack) {
+  at::Tensor self = stack_tensor(stack, 0);
+  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
+
+  std::vector<c10::optional<at::Tensor>> indices;
+  // if the non-null indices are not all adjacent, transpose self and indices
+  // together so that they're adjacent at the front
+  for (const auto& index_opt : indices_ival) {
+    auto o1 = index_opt.toOptional<at::Tensor>();
+    if (o1.has_value() && o1.value().defined()) {
+      const auto& index = o1.value();
+      indices.emplace_back(std::move(index));
+    } else {
+      indices.emplace_back(c10::nullopt);
+    }
+  }
+  auto self_sizes = self.sizes().vec();
+  std::vector<at::Tensor> indices_list;
+  int64_t explicit_index_count = 0;
+  int64_t broadcast_to_size = 1;
+  int64_t i = 0;
+  std::vector<int64_t> broadcast_to_shape;
+  int64_t index_t_sizes[self.dim()];
+  bool index_all_elems[self.dim()];
+  for (auto index_input : indices) {
+    auto input = index_input;
+    if (input.has_value() &&
+        (input.value().scalar_type() != c10::ScalarType::Bool)) {
+      // lowest_defined_index = i;
+      auto cur_index_dim_size = input.value().sizes().vec()[0];
+      if (cur_index_dim_size >= broadcast_to_size) {
+        broadcast_to_size = cur_index_dim_size;
+        broadcast_to_shape = input.value().sizes().vec();
+      }
+      index_all_elems[i] = false;
+      index_t_sizes[i] = input.value().sizes()[0];
+      explicit_index_count++;
+    } else if (!input.has_value()) {
+      index_t_sizes[i] = self_sizes[i];
+      index_all_elems[i] = true;
+    }
+    i++;
+  }
+  // account for any trailing dims that are not specified to be
+  // indexed explicitly, but need to be taken care of.
+  for (; i < self.dim(); i++) {
+    index_all_elems[i] = true;
+  }
+
+  int64_t repeats_needed[self.dim()];
+  int64_t repeat_interleaves_needed[self.dim()];
+  for (i = 0; i < self.dim(); i++) {
+    repeats_needed[i] = 1;
+    int64_t total_elements_above = 1;
+    bool explicit_index_above = false;
+    for (int j = 0; j < i; j++) {
+      total_elements_above *= (index_all_elems[j]) ? self_sizes[j] : 1;
+      if (!index_all_elems[j]) {
+        explicit_index_above = true;
+      }
+    }
+    repeats_needed[i] = total_elements_above;
+    if (index_all_elems[i] && explicit_index_above) {
+      repeats_needed[i] *= broadcast_to_size;
+    } else if (!index_all_elems[i] && (1 == index_t_sizes[i])) {
+      repeats_needed[i] *= broadcast_to_size;
+    }
+
+    repeat_interleaves_needed[i] = 1;
+    int64_t total_elements_below = 1;
+    bool explicit_index_below = false;
+    for (int j = i + 1; j < self.dim(); j++) {
+      total_elements_below *= (index_all_elems[j]) ? self_sizes[j] : 1;
+      if (!index_all_elems[j]) {
+        explicit_index_below = true;
+      }
+    }
+    if (index_all_elems[i] && explicit_index_below && !explicit_index_above) {
+      total_elements_below *= broadcast_to_size;
+    }
+    repeat_interleaves_needed[i] = total_elements_below;
+  }
+
+  // Now create all indices tensors and insert into list using repeats_needed
+  // and repeat_interleaves_needed. Note that in Boolean mask indexing method we
+  // have to create indices from the mask using nonzero and squeeze as done in
+  // previous code block.
+  for (int dim = 0; dim < self.dim(); dim++) {
+    at::Tensor it;
+    if (index_all_elems[dim]) {
+      std::vector<int64_t> shape{self.sizes().vec()[dim]};
+      c10::IntArrayRef arange_size(shape.data(), shape.size());
+      at::TensorOptions options =
+          self.options().dtype(c10::ScalarType::Long).device(c10::kHPU);
+      auto generated_index_tensor =
+          habana_lazy::empty_hpu_lazy(arange_size, options, c10::nullopt);
+      generated_index_tensor = at::arange(
+          0,
+          self.sizes().vec()[dim],
+          1,
+          c10::ScalarType::Long,
+          c10::nullopt,
+          c10::kHPU,
+          c10::nullopt);
+      it = generated_index_tensor;
+      auto it_repeat_interleave =
+          it.repeat_interleave(repeat_interleaves_needed[dim]);
+      indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
+    } else if (indices[dim].has_value()) {
+      auto input_temp = indices[dim].value();
+      Tensor in_t;
+      if (input_temp.defined() &&
+          (input_temp.device().type() != c10::DeviceType::HPU)) {
+        in_t = input_temp.to(c10::kHPU);
+      } else {
+        in_t = input_temp;
+      }
+      // auto input = indices[dim];
+      // at::Tensor in_t = input.value();
+      auto it_repeat_interleave =
+          in_t.repeat_interleave(repeat_interleaves_needed[dim]);
+      indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
+    }
+  }
+  // return indices_list;
+  return std::make_tuple(self, std::move(indices_list));
+}
+
 Tensor& _index_put_impl_hpu_lazy_(
     Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
+    const c10::List<c10::optional<at::Tensor>>& indices_in,
     const Tensor& value,
     bool accumulate,
     [[maybe_unused]] const bool unsafe) {
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
+  c10::List<c10::optional<at::Tensor>> indices;
+  bool advanced_indexing = check_for_advanced_indexing(indices_in);
+  if (advanced_indexing) {
+    // if we have boolean mask tensors, convert them to long int indices
+    indices = check_for_boolean_advanced_indexing(indices_in);
+  } else {
+    indices = indices_in;
+  }
+  std::vector<at::Tensor> indices_vec;
+  TORCH_CHECK(
+      self.dim() <= MAX_DIMS_FOR_ADVANCED_INDEXING,
+      "index_put op doesn't support more than ",
+      MAX_DIMS_FOR_ADVANCED_INDEXING,
+      " dims");
+  at::Tensor self_permuted = self;
+  if (advanced_indexing) {
+    at::Stack stack;
+    stack.emplace_back(self);
+    stack.emplace_back(c10::IValue(indices));
+    std::tie(self_permuted, indices_vec) =
+        generate_advanced_indexing_indices_list(stack); //(self, indices_in);
+  } else {
+    for (c10::optional<at::Tensor> input_ind : indices) {
+      auto input_temp = input_ind.value_or(Tensor());
+      at::Tensor input;
+      if (input_temp.defined() &&
+          (input_temp.device().type() != c10::DeviceType::HPU)) {
+        input = input_temp.to(c10::kHPU);
+      } else {
+        input = input_temp;
+      }
+      if (input.defined()) {
+        indices_vec.push_back(input);
+      } else {
+        HABANA_ASSERT(
+            0 &&
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+      }
+    }
+  }
+
+  // handle views for tensorlist indices
+  at::TensorList indices_in_list(indices_vec);
+  auto indices_out_vec =
+      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
+  std::vector<c10::optional<at::Tensor>> indices_out_opt_vec;
+  for (auto ind : indices_out_vec) {
+    if (ind.defined()) {
+      indices_out_opt_vec.emplace_back(ind);
+    } else {
+      indices_out_opt_vec.emplace_back(c10::nullopt);
+    }
+  }
+  c10::List<c10::optional<at::Tensor>> indices_out_opt_list(
+      indices_out_opt_vec);
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
-  return index_put_hpu_lazy_(self, indices, value, accumulate);
+  index_put_hpu_lazy_(self_permuted, indices_out_opt_list, value, accumulate);
+  return self;
 }
 
 Tensor slice_shape_tensor(const Tensor& shape_tensor) {

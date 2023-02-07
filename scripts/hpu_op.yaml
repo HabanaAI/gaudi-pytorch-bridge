@@ -3357,11 +3357,10 @@ index.Tensor:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half]
-  fallback_check: [IndexFallbackCheck, indices]
   guid: index
   op_backend: IndexHabanaOperator
   op_frontend: LazyIndex
-  schema_args: "(Tensor self, Tensor[] indices) -> Tensor"
+  schema_args: "(Tensor self, Tensor[] indices, int[8] advanced_indexing_dims) -> Tensor"
   out_ids: [0]
 
 isfinite:

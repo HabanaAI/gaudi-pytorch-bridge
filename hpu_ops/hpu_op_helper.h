@@ -141,6 +141,12 @@ inline float& get<float>(fint_t& u) {
   return u.f;
 }
 
+std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
+    const at::Tensor& input,
+    at::TensorList indices,
+    c10::List<int64_t> adv_index_dims,
+    bool get_adv_indexing_out_shape);
+
 } // namespace habana
 
 #define PARAMS_STUB(structname) \
