@@ -36,6 +36,15 @@
 using namespace torch;
 using namespace habana;
 
+auto CatOutOperator::CreateParamsAndAddToContext(int64_t axis) {
+  synConcatenateParams params;
+  params.axis = axis;
+  p_context_->params_.emplace<synConcatenateParams>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  return params;
+}
+
 void CatOutOperator::validate_cat_tensor_dim_sizes(
     const std::vector<std::vector<int64_t>>* tensors,
     int64_t dim) {
@@ -154,10 +163,10 @@ void CatOperator::AllocateAndAddSynapseNode(
       p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);
     }
   }
-  p_context_->params_.emplace<int64_t>(kernel_dim);
-  p_context_->params_size_ = sizeof(kernel_dim);
+
+  auto params = CreateParamsAndAddToContext(kernel_dim);
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &kernel_dim, sizeof(kernel_dim));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 
   // Revert input stack
   inputs.pop_back();
@@ -322,8 +331,7 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   auto kernel_dim = (out.ndimension() - dim) - 1;
   auto output_dtype = out.scalar_type();
 
-  p_context_->params_.emplace<int64_t>(kernel_dim);
-  p_context_->params_size_ = sizeof(kernel_dim);
+  auto params = CreateParamsAndAddToContext(kernel_dim);
 
   int64_t numTensors = p_context_->syn_inputs_.size();
   std::vector<synTensor> syn_inputs;
@@ -359,8 +367,8 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
-      &kernel_dim,
-      sizeof(kernel_dim),
+      &params,
+      sizeof(params),
       guid_,
       nullptr,
       nullptr,

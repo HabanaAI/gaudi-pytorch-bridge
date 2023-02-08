@@ -38,6 +38,9 @@ class CatOutOperator : public habana::HabanaOperator {
       const std::vector<std::vector<int64_t>>* tensors,
       int64_t dim);
 
+ protected:
+  auto CreateParamsAndAddToContext(int64_t axis);
+
  private:
   int64_t CheckAllocateOutput(torch::jit::Stack& inputs);
 };
