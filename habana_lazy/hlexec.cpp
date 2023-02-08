@@ -19,6 +19,7 @@
 
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/synapse_helpers/device.h"
 #include "habana_bridge/program/executor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -37,7 +38,6 @@
 #include "passes/transform_graph.h"
 #include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
-#include "synapse_helpers/device.h"
 #include "visualize.h"
 
 namespace habana_lazy {

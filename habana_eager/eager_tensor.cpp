@@ -12,7 +12,7 @@
  */
 
 #include "eager_tensor.h"
-#include "synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h"
 
 namespace habana {
 namespace eager {

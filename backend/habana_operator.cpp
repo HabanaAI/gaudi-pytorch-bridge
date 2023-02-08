@@ -17,13 +17,13 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/lazy_to_backend.h"
+#include "backend/synapse_helpers/device.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/layout_utils.h"
+#include "backend/synapse_helpers/tensor_builder_base.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "synapse_helpers/device.h"
-#include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/layout_utils.h"
-#include "synapse_helpers/tensor_builder_base.h"
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 

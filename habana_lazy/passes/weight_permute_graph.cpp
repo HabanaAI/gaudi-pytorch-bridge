@@ -1,18 +1,21 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "weight_permute_graph.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "pass_utils.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "torch/csrc/jit/ir/ir.h"
 using namespace torch::jit;
 namespace habana_lazy {

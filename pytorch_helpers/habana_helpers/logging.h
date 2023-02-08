@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020-2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -14,8 +17,8 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
-#include "pytorch_helpers/synapse_helpers/runtime_tracing.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/runtime_tracing.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"

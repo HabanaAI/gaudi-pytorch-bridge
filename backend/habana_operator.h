@@ -15,12 +15,12 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_shape.h"
+#include "backend/synapse_helpers/device_types.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/habana_tensor.h"
+#include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
 #include "include/habanalabs/hpu_custom_op.h"
-#include "synapse_helpers/device_types.h"
-#include "synapse_helpers/graph.h"
-#include "synapse_helpers/habana_tensor.h"
-#include "synapse_helpers/layout_utils.h"
 
 #include <ATen/Tensor.h>
 #include <c10/util/ArrayRef.h>

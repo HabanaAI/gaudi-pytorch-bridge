@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,8 +23,8 @@
 #include <thread>
 #include <vector>
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/habana_helpers/thread_queue.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_helpers {
 

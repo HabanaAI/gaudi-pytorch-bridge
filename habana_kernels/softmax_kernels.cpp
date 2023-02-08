@@ -15,12 +15,12 @@
 
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/softmax_kernels.h"
-#include "synapse_helpers/recipe.h"
 
 #include <algorithm>
 

@@ -20,8 +20,8 @@
 #include <c10/macros/Macros.h>
 #include <c10/util/Optional.h>
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/layout_utils.h"
 #include "hpu_lazy_tensors.h"
-#include "pytorch_helpers/synapse_helpers/layout_utils.h"
 
 namespace habana_lazy {
 

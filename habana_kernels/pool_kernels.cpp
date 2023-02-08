@@ -21,6 +21,7 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/layout_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_kernels/conv_pool_utils.h"
 #include "habana_kernels/kernel_utils.h"
@@ -28,7 +29,6 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/tensor_impl.h"
-#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;

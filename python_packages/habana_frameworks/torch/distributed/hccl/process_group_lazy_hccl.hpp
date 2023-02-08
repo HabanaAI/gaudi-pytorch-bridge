@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,8 +18,8 @@
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 
+#include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 using Work = c10d_ver::Work;
 

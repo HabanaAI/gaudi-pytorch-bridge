@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,7 +19,7 @@
 #include <string>
 
 #include <ATen/Tensor.h>
-#include "synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h"
 namespace habana {
 
 // Returns if the input is a ZST

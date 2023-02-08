@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,11 +25,11 @@
 
 #include "torch/csrc/jit/ir/ir.h"
 
+#include "backend/synapse_helpers/habana_tensor.h"
+#include "backend/synapse_helpers/stream.h"
+#include "backend/synapse_helpers/time_slot.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
-#include "pytorch_helpers/synapse_helpers/habana_tensor.h"
-#include "pytorch_helpers/synapse_helpers/stream.h"
-#include "pytorch_helpers/synapse_helpers/time_slot.h"
 
 namespace habana {
 struct RecipeValueSpec;

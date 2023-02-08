@@ -21,6 +21,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/frontend_utils.h"
@@ -33,7 +34,6 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/unary_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 using namespace torch::jit;

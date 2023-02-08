@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "tensor_impl.h"
 #include <c10/core/Device.h>
@@ -13,10 +16,10 @@
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <torch/csrc/api/include/torch/version.h>
 #include "aten_lazy_bridge.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/hpu_op_helper.h"
-#include "synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
 

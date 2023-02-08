@@ -21,6 +21,7 @@
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/ne.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -37,7 +38,6 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-#include "synapse_helpers/layout_utils.h"
 
 using namespace torch;
 using namespace habana;

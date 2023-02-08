@@ -23,9 +23,9 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 

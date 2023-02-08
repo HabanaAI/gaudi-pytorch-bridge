@@ -13,11 +13,11 @@
 
 #include "habana_helpers/frontend_utils.h"
 #include "backend/create_pt_tensor.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/permute_tensors.h"
-#include "synapse_helpers/env_flags.h"
 
 /*************************************************************************
  * @brief This helper function casts a long tensor to int (on CPU)

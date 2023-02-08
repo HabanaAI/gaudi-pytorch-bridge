@@ -28,13 +28,13 @@
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/time_slot.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/recipe_cache.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "synapse_common_types.h"
-#include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/graph.h"
-#include "synapse_helpers/time_slot.h"
 
 #define PGM_LRU_MAX_EAGER_NRECIPES 100000
 #define PGM_LRU_MAX_LAZY_NRECIPES 30000

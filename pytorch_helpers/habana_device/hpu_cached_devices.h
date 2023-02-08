@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -14,16 +14,16 @@
 
 #include <c10/util/Exception.h>
 #include <synapse_api_types.h>
+#include "backend/synapse_helpers/device.h"
 #include "habana_helpers/dynamic_shape_info.h"
-#include "synapse_helpers/device.h"
 
 #include <array>
 #include <memory>
 #include <thread>
 
+#include "backend/synapse_helpers/device.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/PinnedMemoryAllocator.h"
-#include "synapse_helpers/device.h"
 
 namespace synapse_helpers {
 class HPURegistrar {

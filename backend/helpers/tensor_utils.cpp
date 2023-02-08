@@ -12,9 +12,9 @@
  */
 #include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
-#include <synapse_helpers/graph.h>
 #include <algorithm>
 #include <mutex>
+#include "backend/synapse_helpers/graph.h"
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUStream.h"
@@ -33,9 +33,9 @@
 #include "backend/lazy_to_backend.h"
 #include "habana_kernels/kernel_utils.h"
 
-#include "synapse_helpers/device_helpers.h"
-#include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/util.h"
+#include "backend/synapse_helpers/device_helpers.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/util.h"
 
 //#include "dtype_helpers.h"
 

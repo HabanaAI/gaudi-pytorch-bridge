@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -13,8 +13,8 @@
 #pragma once
 #include <ATen/core/Tensor.h>
 #include <c10/core/TensorImpl.h>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "synapse_helpers/env_flags.h"
 namespace habana_helpers {
 
 inline bool is_downcast_to_int_needed(at::ScalarType dtype) {

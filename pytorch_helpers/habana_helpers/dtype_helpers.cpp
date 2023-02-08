@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -13,8 +13,8 @@
 
 #include "dtype_helpers.h"
 #include <ATen/native/TypeProperties.h>
+#include "backend/synapse_helpers/env_flags.h"
 #include "logging.h"
-#include "synapse_helpers/env_flags.h"
 
 namespace habana_helpers {
 

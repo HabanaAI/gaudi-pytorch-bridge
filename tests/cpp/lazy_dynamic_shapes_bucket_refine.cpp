@@ -24,9 +24,9 @@
 
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 

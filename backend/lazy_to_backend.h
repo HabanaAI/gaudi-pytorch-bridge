@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -13,7 +13,7 @@
 
 #pragma once
 #include <ATen/Tensor.h>
-#include "synapse_helpers/layout_utils.h"
+#include "backend/synapse_helpers/layout_utils.h"
 namespace lazy_to_backend {
 bool is_const_tensor(const at::Tensor& tensor);
 

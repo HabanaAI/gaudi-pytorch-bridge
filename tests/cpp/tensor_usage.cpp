@@ -21,7 +21,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging.h"
 
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h"
 
 class TensorUsage : public ::testing::Test {
  public:

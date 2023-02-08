@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,9 +13,9 @@
 
 #include <iostream>
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/habana_helpers/dynamic_shape_info.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_helpers {
 thread_local bool m_enable_refine_dynamic_shape{

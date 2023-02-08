@@ -1,12 +1,14 @@
 ###############################################################################
-# Copyright (C) 2020 HabanaLabs, Ltd.
+# Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
-# Unauthorized copying of this file, via any medium is strictly prohibited.
-# Proprietary and confidential.
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
 #
-################################################################################
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+###############################################################################
 
 if (BUILD_DIST)
  message ("Building only pytorch_helpers for the usage in distributed")
@@ -30,7 +32,6 @@ if (BUILD_DIST)
  if(MANYLINUX)
  add_subdirectory(synapse_shim)
  endif()
- add_subdirectory(synapse_helpers)
  add_subdirectory(habana_helpers)
 
  find_package(NumPy)
@@ -44,7 +45,6 @@ else ()
  if(MANYLINUX)
  add_subdirectory(synapse_shim)
  endif()
- add_subdirectory(synapse_helpers)
  add_subdirectory(habana_helpers)
 
  find_package(PythonLibs REQUIRED)

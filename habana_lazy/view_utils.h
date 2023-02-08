@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,8 +15,8 @@
 #include <tuple>
 #include <utility>
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
 

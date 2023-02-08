@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -15,6 +15,8 @@
 #include <perf_lib_layer_params.h>
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/synapse_helpers/device_helpers.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUStream.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -24,8 +26,6 @@
 #include "hpu_ops/lazy_cast.h"
 #include "kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "synapse_helpers/device_helpers.h"
-#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 

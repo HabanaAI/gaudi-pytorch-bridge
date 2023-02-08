@@ -1,17 +1,20 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
 #include <habana_device/hpu_cached_devices.h>
-#include <synapse_helpers/device.h>
-#include <synapse_helpers/graph.h>
+#include "backend/synapse_helpers/device.h"
+#include "backend/synapse_helpers/graph.h"
 
 namespace habana_helpers {
 static synapse_helpers::graph create_graph(

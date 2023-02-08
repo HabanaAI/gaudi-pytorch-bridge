@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
@@ -9,11 +21,11 @@
 #include <fstream>
 #include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_cache.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
 #include "pytorch_helpers/habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
-#include "synapse_helpers/env_flags.h"
 
 using namespace std;
 using namespace habana;

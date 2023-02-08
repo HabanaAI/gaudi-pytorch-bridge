@@ -1,23 +1,26 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
 #include "backend/helpers/tensor_info.h"
+#include "backend/synapse_helpers/stream.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
-#include "pytorch_helpers/synapse_helpers/stream.h"
 
 int GetDeviceType() {
   auto& device = synapse_helpers::HPURegistrar::get_device();

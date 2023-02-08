@@ -23,9 +23,9 @@
 #include <torch/script.h>
 
 #include <synapse_common_types.h>
-#include <synapse_helpers/device_types.h>
-#include <synapse_helpers/graph.h>
-#include <synapse_helpers/habana_tensor.h>
+#include "backend/synapse_helpers/device_types.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/habana_tensor.h"
 
 // set to 5 considering tensors upto 5d are most common case where we would like
 // to use SmallVector to avoid heap allocation

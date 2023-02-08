@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -17,6 +17,7 @@
 
 #include <c10_ver/core/SymIntArrayRef.h>
 #include "backend/jit_graph_cache.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -30,7 +31,6 @@
 #include "hpu_ops/hpu_op_helper.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "resize.h"
 
 #include "habana_lazy/memlog.h"

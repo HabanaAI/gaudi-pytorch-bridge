@@ -1,16 +1,20 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "habana_lazy/permute_tensors.h"
 #include <c10/core/Storage.h>
 #include <cstddef>
+#include "backend/synapse_helpers/layout_utils.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -19,7 +23,6 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
-#include "synapse_helpers/layout_utils.h"
 
 using namespace synapse_helpers::layouts;
 using namespace habana_lazy;

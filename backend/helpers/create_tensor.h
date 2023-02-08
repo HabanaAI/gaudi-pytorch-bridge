@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -15,10 +15,10 @@
 #include <c10/util/ArrayRef.h>
 #include <tuple>
 
+#include "backend/synapse_helpers/device_types.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/habana_tensor.h"
 #include "habana_helpers/pt_version_check.h"
-#include "synapse_helpers/device_types.h"
-#include "synapse_helpers/graph.h"
-#include "synapse_helpers/habana_tensor.h"
 
 namespace habana_helpers {
 

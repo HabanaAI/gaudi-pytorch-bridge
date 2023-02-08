@@ -19,14 +19,14 @@
 #include <algorithm>
 #include <memory>
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/habana_tensor.h"
+#include "backend/synapse_helpers/synapse_error.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUGuardImpl.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
-#include "synapse_helpers/habana_tensor.h"
-#include "synapse_helpers/synapse_error.h"
 
 using namespace synapse_helpers;
 class SynapseHelpersMemoryTest : public ::testing::Test {

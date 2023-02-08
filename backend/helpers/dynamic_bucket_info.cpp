@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,8 +25,8 @@
 #include "backend/kernel/hpu_habana_cache.h"
 
 #include "backend/helpers/compilation_statistics.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/habana_device/HPUCheck.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace synapse_helpers;
 namespace habana_helpers {

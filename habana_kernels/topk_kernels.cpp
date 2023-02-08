@@ -18,6 +18,7 @@
 
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/index_kernels.h"
@@ -27,7 +28,6 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
-#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 

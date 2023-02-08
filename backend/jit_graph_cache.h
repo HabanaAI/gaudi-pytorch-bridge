@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,12 +12,12 @@
  */
 #pragma once
 #include <synapse_api.h>
-#include <synapse_helpers/device.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
 #include "backend/habana_operator.h"
 #include "backend/kernel/hpu_habana_cache.h"
+#include "backend/synapse_helpers/device.h"
 
 namespace habana {
 

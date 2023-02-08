@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -17,10 +17,10 @@
 #include <utility>
 #include <vector>
 #include "backend/kernel/hpu_habana_cache.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/deserializers.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/serializers.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_helpers;
 using json = nlohmannV340::json;

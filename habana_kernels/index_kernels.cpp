@@ -22,6 +22,7 @@
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/synapse_helpers/tensor_builder_base.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/frontend_utils.h"
@@ -40,7 +41,6 @@
 #include "habana_lazy/tensor_impl.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-#include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
 using namespace habana;

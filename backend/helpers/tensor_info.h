@@ -25,9 +25,9 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 
-#include "synapse_helpers/device_types.h"
-#include "synapse_helpers/graph.h"
-#include "synapse_helpers/habana_tensor.h"
+#include "backend/synapse_helpers/device_types.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/habana_tensor.h"
 
 class PtTensorInfo;
 

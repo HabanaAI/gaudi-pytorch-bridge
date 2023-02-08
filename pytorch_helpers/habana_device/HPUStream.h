@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -21,7 +21,7 @@
 #include "hpu_cached_devices.h"
 
 #include <synapse_api_types.h>
-#include <synapse_helpers/device.h>
+#include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
 #include "habana_lazy/hpu_lazy_tensors.h"

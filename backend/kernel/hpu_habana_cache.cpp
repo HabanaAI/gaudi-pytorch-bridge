@@ -30,11 +30,11 @@
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 
+#include "backend/synapse_helpers/devmem_logger.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/event.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
-#include "synapse_helpers/devmem_logger.h"
-#include "synapse_helpers/env_flags.h"
-#include "synapse_helpers/event.h"
 
 #include "habana_kernels/hccl_kernels.h"
 

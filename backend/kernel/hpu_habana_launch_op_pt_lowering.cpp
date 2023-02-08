@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,10 +13,10 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use

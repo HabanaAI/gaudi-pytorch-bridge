@@ -15,6 +15,7 @@
 
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/binary_inplace_kernels.h"
@@ -24,7 +25,6 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "simple_generic_kernel.h"
-#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 using namespace habana;

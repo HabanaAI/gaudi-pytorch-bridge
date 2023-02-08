@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,8 +16,8 @@
 #include <absl/types/span.h>
 #include <dlfcn.h>
 #include <link.h>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "synapse_helpers/env_flags.h"
 
 #include <fcntl.h>
 #include <sys/mman.h>

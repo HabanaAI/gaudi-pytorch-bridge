@@ -14,10 +14,10 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
-#include "synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 

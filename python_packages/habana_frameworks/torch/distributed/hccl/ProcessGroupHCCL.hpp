@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,8 +25,8 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include "backend/synapse_helpers/device_context.h"
 #include "process_group_lazy_hccl.hpp"
-#include "pytorch_helpers/synapse_helpers/device_context.h"
 
 using Work = c10d_ver::Work;
 

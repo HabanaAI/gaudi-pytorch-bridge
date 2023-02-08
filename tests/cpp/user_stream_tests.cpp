@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,12 +14,12 @@
 #include <math.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
-#include "synapse_helpers/env_flags.h"
 
 #include <functional>
 #include <future>

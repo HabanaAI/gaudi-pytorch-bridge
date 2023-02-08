@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -11,9 +11,9 @@
  *******************************************************************************
  */
 
+#include "backend/synapse_helpers/device_helpers.h"
 #include "generated/lazy/where.h"
 #include "habana_helpers/dtype_helpers.h"
-#include "synapse_helpers/device_helpers.h"
 
 namespace habana {
 FALLBACK_CHECK(

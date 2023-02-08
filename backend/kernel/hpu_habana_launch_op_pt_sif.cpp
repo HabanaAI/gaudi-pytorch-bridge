@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -47,7 +50,7 @@
 #include "hpu_ops/hpu_op_helper.h"
 
 #include "backend/jitgraph_utils.h"
-#include "synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;

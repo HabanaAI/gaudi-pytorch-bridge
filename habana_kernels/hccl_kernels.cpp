@@ -15,6 +15,7 @@
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/create_tensor.h"
+#include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -22,7 +23,6 @@
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
-#include "pytorch_helpers/synapse_helpers/hccl_communicator.h"
 
 #include <hccl.h>
 #include <hccl_types.h>

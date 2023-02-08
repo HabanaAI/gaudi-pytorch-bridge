@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -33,10 +33,10 @@
 #include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
+#include "backend/synapse_helpers/devmem_logger.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
-#include "pytorch_helpers/synapse_helpers/devmem_logger.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 

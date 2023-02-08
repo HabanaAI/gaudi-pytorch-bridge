@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,12 +12,12 @@
  */
 
 #include "hpu_ops/common/div_round_gen.h"
+#include "backend/synapse_helpers/device_helpers.h"
 #include "generated/lazy/div.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/binary_kernels.h"
 #include "hpu_ops/common/div_round_gen.h"
 #include "hpu_ops/div_mod_util.h"
-#include "synapse_helpers/device_helpers.h"
 
 namespace habana {
 

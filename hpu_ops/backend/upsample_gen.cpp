@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
@@ -19,7 +20,6 @@
 #include "generated/backend/upsample_nearest2d_backward.h"
 #include "generated/backend/upsample_nearest3d.h"
 #include "generated/backend/upsample_nearest3d_backward.h"
-#include "synapse_helpers/layout_utils.h"
 
 using namespace synapse_helpers::layouts;
 

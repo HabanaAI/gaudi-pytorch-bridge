@@ -1,15 +1,19 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <thread>
 
+#include "backend/synapse_helpers/util.h"
 #include "habana_helpers/dynamic_shape_info.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -17,7 +21,6 @@
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_device/HPUGraph.h"
-#include "synapse_helpers/util.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 enum LazyExecutionMode { kLAZY, kLOWERING };

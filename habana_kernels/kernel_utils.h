@@ -15,18 +15,18 @@
 #include <c10/util/ArrayRef.h>
 #include <synapse_api.h>
 #include <synapse_api_types.h>
-#include <synapse_helpers/habana_tensor.h>
 #include <torch/script.h>
 #include <string>
 #include <unordered_map>
+#include "backend/synapse_helpers/habana_tensor.h"
 
 #include <perf_lib_layer_params.h>
-#include <synapse_helpers/graph.h>
-#include <synapse_helpers/recipe.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 #include "backend/habana_operator.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/graph.h"
+#include "backend/synapse_helpers/recipe.h"
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {

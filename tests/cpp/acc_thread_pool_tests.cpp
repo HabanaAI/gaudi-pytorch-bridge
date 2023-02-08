@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,8 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/thread_pool/acc_thread_pool.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 TEST(ACC_ThreadPoolTest, single_task) {
   std::atomic_bool task_done{false};

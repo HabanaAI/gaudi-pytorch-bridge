@@ -12,6 +12,8 @@
  */
 #include <torch/library.h>
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/device_helpers.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -23,8 +25,6 @@
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "synapse_helpers/device_helpers.h"
-#include "synapse_helpers/env_flags.h"
 
 using namespace torch;
 using namespace at;

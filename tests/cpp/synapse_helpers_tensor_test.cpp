@@ -19,10 +19,10 @@
 #include <memory>
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/habana_tensor.h"
+#include "backend/synapse_helpers/synapse_error.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
-#include "synapse_helpers/habana_tensor.h"
-#include "synapse_helpers/synapse_error.h"
 
 TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   using namespace synapse_helpers;
