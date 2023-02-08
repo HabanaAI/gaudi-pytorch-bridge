@@ -279,6 +279,16 @@ def enable_fuse_bn_relu_optimization(flag) -> None:
             "Please use habana_frameworks.torch.utils.debug._enable_fuse_bn_relu_optimization")
     htdebug._enable_fuse_bn_relu_optimization(flag)
 
+def enable_bn_param_recalculation(flag) -> None:
+    warnings.warn("habana_frameworks.torch.core.enable_bn_param_recalculation is deprecated. "
+            "Please use habana_frameworks.torch.utils.debug._enable_bn_param_recalculation")
+    htdebug._enable_bn_param_recalculation(flag)
+
+def enable_fuse_conv_bn_optimization(flag) -> None:
+    warnings.warn("habana_frameworks.torch.core.enable_fuse_conv_bn_optimization is deprecated. "
+            "Please use habana_frameworks.torch.utils.debug._enable_fuse_conv_bn_optimization")
+    htdebug._enable_fuse_conv_bn_optimization(flag)
+
 def enable_permute_pass(flag) -> None:
     warnings.warn("habana_frameworks.torch.core.enable_permute_pass is deprecated. "
             "Please use habana_frameworks.torch.utils.debug._enable_permute_pass")

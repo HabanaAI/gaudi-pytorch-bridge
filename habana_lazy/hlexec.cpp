@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include <torch/csrc/jit/passes/frozen_conv_folding.h>
 #include <torch/csrc/jit/passes/peephole.h>
 
 #include "backend/jit_graph_cache.h"
@@ -25,6 +26,7 @@
 #include "habana_lazy/lazy_arg_spec.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
+#include "passes/fold_conv_batchnorm.h"
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
 #include "passes/permute_graph.h"
@@ -320,12 +322,108 @@ void HlExec::PruneDuplicateGraphInputs(
   }
 }
 
+/**
+ * This method prunes the redundant inputs from the input stack in lazy cache
+ * hit case
+ */
+void HlExec::deleteRedundantInputsFromInputStack(torch::jit::Stack& stack) {
+  PT_LAZY_TRACE;
+
+  std::vector<size_t> indices_for_deletion;
+
+  for (size_t i = 0; i < stack.size(); i++) {
+    auto tensor = stack[i].toTensor();
+    auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+    if (impl->isRedundant()) {
+      indices_for_deletion.push_back(i);
+    }
+  }
+
+  if (!indices_for_deletion.empty()) {
+    std::sort(indices_for_deletion.rbegin(), indices_for_deletion.rend());
+    for (size_t i = 0; i < indices_for_deletion.size(); i++) {
+      size_t idx = indices_for_deletion.at(i);
+      stack.erase(stack.cbegin() + idx);
+    }
+  }
+}
+
+/**
+ * This method prunes the redundant inputs from the JIT IR Graph and the stack
+ */
+void HlExec::SearchAndDeleteRedundantInputs(
+    ir::PostOrderData& po_data,
+    torch::jit::Stack& stack,
+    std::vector<torch::jit::Value*>& redundant_inputs) {
+  PT_LAZY_TRACE;
+
+  std::vector<size_t> indices_for_deletion;
+  std::vector<size_t> po_data_input_indices_for_deletion;
+  auto jit_ir_graph_inputs = mp_g_->inputs();
+
+  for (auto r_value_in : redundant_inputs) {
+    size_t idx = 0;
+    for (auto value_in : jit_ir_graph_inputs) {
+      if (r_value_in->unique() == value_in->unique()) {
+        indices_for_deletion.emplace_back(idx);
+      }
+      idx++;
+    }
+  }
+
+  for (auto r_value_in : redundant_inputs) {
+    size_t idx = 0;
+    for (auto value_in : po_data.inputs) {
+      std::string str1 = r_value_in->debugName();
+      std::string str2 = value_in.ToString();
+      if (str1.compare(str2) == 0) {
+        // std::cout << "~~~ po_data_input_indices_for_deletion ~~~\n"
+        //           << r_value_in->debugName()
+        //           << ", "
+        //           << value_in.ToString()
+        //           << std::endl
+        //           << std::flush;
+        po_data_input_indices_for_deletion.emplace_back(idx);
+      }
+      idx++;
+    }
+  }
+
+  if (!indices_for_deletion.empty()) {
+    std::sort(indices_for_deletion.rbegin(), indices_for_deletion.rend());
+    for (auto i : indices_for_deletion) {
+      mp_g_->eraseInput(i);
+
+      auto tensor = stack[i].toTensor();
+      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      impl->setRedundant();
+
+      stack.erase(stack.cbegin() + i);
+    }
+  }
+
+  if (!po_data_input_indices_for_deletion.empty()) {
+    std::sort(
+        po_data_input_indices_for_deletion.rbegin(),
+        po_data_input_indices_for_deletion.rend());
+    for (auto i : po_data_input_indices_for_deletion) {
+      po_data.inputs.erase(po_data.inputs.cbegin() + i);
+    }
+  }
+
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
+  // Save po_data input and output to context for perf mode
+  if (context->getCapturing() &&
+      context->updateInputsRequired(po_data_input_indices_for_deletion)) {
+    context->updateInputs(po_data.inputs);
+  }
+}
+
 /*
  * Get the JIT graph fron cache, or create it
  */
-void HlExec::GetOrCreate(
-    const ir::PostOrderData& po_data,
-    torch::jit::Stack& stack) {
+void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
 
   size_t num_inputs = po_data.inputs.size();
@@ -365,9 +463,20 @@ void HlExec::GetOrCreate(
       // Create a JIT graph from the post order graph
       // Optimization is done during Create() itself
       [&]() -> void {
+        std::vector<torch::jit::Value*> redundant_inputs;
         mp_g_ = std::make_shared<Graph>();
-        Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
+        Create(
+            po_data.post_order,
+            po_data.inputs,
+            po_data.outputs,
+            orig_stack,
+            redundant_inputs);
+
         PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
+        if (!redundant_inputs.empty()) {
+          SearchAndDeleteRedundantInputs(po_data, stack, redundant_inputs);
+        }
+
         at::ArrayRef<torch::jit::IValue> input_refs =
             torch::jit::last(stack, mp_g_->inputs().size());
         mp_g_and_meta_data_ =
@@ -434,6 +543,11 @@ void HlExec::GetOrCreate(
     PT_IRGRAPH_DEBUG("JIT Cache hit");
     mp_g_ = mp_g_and_meta_data_->get_cached_graph();
     HABANA_ASSERT(mp_g_ != nullptr);
+
+    if (mp_g_->inputs().size() != stack.size()) {
+      deleteRedundantInputsFromInputStack(stack);
+    }
+
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
       at::ArrayRef<torch::jit::IValue> input_refs =
           torch::jit::last(stack, mp_g_->inputs().size());
@@ -513,7 +627,8 @@ void HlExec::Create(
     const ir::NodePtrList& nodes,
     const ir::ValueList& inputs,
     const ir::ValueList& outputs,
-    torch::jit::Stack& stack) {
+    torch::jit::Stack& stack,
+    std::vector<torch::jit::Value*>& redundant_inputs) {
   PT_LAZY_TRACE;
   LazyOutputToJitValueMap ir_map;
 
@@ -647,10 +762,12 @@ void HlExec::Create(
   }
 
   // Optimize the graph based on the passes enabled
-  Optimize(stack);
+  Optimize(stack, redundant_inputs);
 }
 
-void HlExec::Optimize(torch::jit::Stack& stack) {
+void HlExec::Optimize(
+    torch::jit::Stack& stack,
+    std::vector<torch::jit::Value*>& redundant_inputs) {
   PT_LAZY_TRACE;
   visualize::DumpPreGraph(mp_g_, m_g_hash_);
 
@@ -725,6 +842,18 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
     replace_views_with_reshapes(mp_g_);
     visualize::DumpOptimizedGraph(
         mp_g_, m_g_hash_, "replace_views_with_reshapes");
+  }
+
+  if (OptPassCfg::GetInstance()->IsEnabledFuseConvBn()) {
+    PT_LAZY_DEBUG("[Inference] FoldConvBatchnorm called!");
+    FoldConvBatchnorm(mp_g_, stack, redundant_inputs);
+    PT_LAZY_DEBUG("[Inference] FoldConvBatchnorm applied!");
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fold_conv_bn");
+  }
+
+  if (!redundant_inputs.empty()) {
+    PT_LAZY_DEBUG(
+        "[HlExec::Optimize] redundant_inputs size: ", redundant_inputs.size());
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledBnParamRecalc()) {

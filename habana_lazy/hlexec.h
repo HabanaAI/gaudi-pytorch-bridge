@@ -100,6 +100,9 @@ class OptPassCfg {
   void SetBnParamRecalc(const bool flag) {
     pass.enable_bn_param_recalculation = flag;
   }
+  void SetFuseConvBn(const bool flag) {
+    pass.enable_fuse_conv_bn_optimization = flag;
+  }
 
   bool IsEnabledDeadCodeElimination() const {
     return pass.enable_eliminate_dead_code;
@@ -145,6 +148,11 @@ class OptPassCfg {
         pass.enable_bn_param_recalculation;
     return flag;
   }
+  bool IsEnabledFuseConvBn() const {
+    bool flag = GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+        pass.enable_fuse_conv_bn_optimization;
+    return flag;
+  }
 
   void SetDefaultOptFlags() {
     pass.enable_eliminate_dead_code = true;
@@ -158,6 +166,7 @@ class OptPassCfg {
     pass.enable_replace_inplace_ops = true;
     pass.enable_replace_views = true;
     pass.enable_bn_param_recalculation = false;
+    pass.enable_fuse_conv_bn_optimization = false;
     pass.enable_weight_permute_pass = false;
   }
 
@@ -180,6 +189,7 @@ class OptPassCfg {
       pass.enable_replace_inplace_ops = false;
       pass.enable_replace_views = false;
       pass.enable_bn_param_recalculation = false;
+      pass.enable_fuse_conv_bn_optimization = false;
       pass.enable_weight_permute_pass = false;
     }
   }
@@ -205,6 +215,7 @@ class OptPassCfg {
     bool enable_replace_inplace_ops;
     bool enable_replace_views;
     bool enable_bn_param_recalculation;
+    bool enable_fuse_conv_bn_optimization;
   };
 
   struct PassCfg pass;
@@ -248,6 +259,20 @@ class HlExec {
       std::vector<bool>& is_duplicate_vec);
 
   /**
+   * This method prunes the redundant inputs from the input stack in lazy cache
+   * hit case
+   */
+  void deleteRedundantInputsFromInputStack(torch::jit::Stack& stack);
+
+  /**
+   * This method prunes the redundant inputs from the JIT IR Graph and the stack
+   */
+  void SearchAndDeleteRedundantInputs(
+      ir::PostOrderData& po_data,
+      torch::jit::Stack& stack,
+      std::vector<torch::jit::Value*>& redundant_inputs);
+
+  /**
    * This method gets an optimized JIT IR graph from cache
    * or creates the JIT IR Graph
    * Inputs:
@@ -257,13 +282,15 @@ class HlExec {
    *   outputs: Lazy value pointers representing output tensors
    *   str: post order graph string
    */
-  void GetOrCreate(const ir::PostOrderData& po_data, torch::jit::Stack& stack);
+  void GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack);
 
   /**
    * This method calls torch::jit optimizer passes.
    * Optionally, habana specific optimzers can be added.
    */
-  void Optimize(torch::jit::Stack& stack);
+  void Optimize(
+      torch::jit::Stack& stack,
+      std::vector<torch::jit::Value*>& redundant_inputs);
 
   /**
    * This method calls the Habana Graph Lowering kernel
@@ -349,7 +376,8 @@ class HlExec {
       const ir::NodePtrList& nodes,
       const ir::ValueList& inputs,
       const ir::ValueList& outputs,
-      torch::jit::Stack& stack);
+      torch::jit::Stack& stack,
+      std::vector<torch::jit::Value*>& redundant_inputs);
 
   void CreateNodeBcastMap(const ir::NodePtrList& nodes);
   GraphPtr mp_g_;

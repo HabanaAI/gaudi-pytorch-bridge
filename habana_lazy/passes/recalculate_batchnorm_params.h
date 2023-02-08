@@ -18,6 +18,27 @@
 
 namespace habana_lazy {
 using Graph = torch::jit::Graph;
+using Node = torch::jit::Node;
+
+HbInternalTensorImpl* GetBackEndTensorImpl(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Stack& stack,
+    Node* node,
+    const int idx);
+
+void* GetDataInHostBuffer(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Stack& stack,
+    Node* node,
+    const int idx);
+
+void UpdateDataInDeviceMem(
+    std::shared_ptr<Graph>& graph,
+    torch::jit::Stack& stack,
+    Node* node,
+    const int idx,
+    void* host_ptr);
+
 void RecalculateBatchnormParams(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack);

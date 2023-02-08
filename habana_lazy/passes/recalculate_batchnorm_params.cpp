@@ -272,11 +272,6 @@ void UpdateDataInDeviceMem(
   while (!copyDone) {
     std::this_thread::yield();
   }
-
-  if (idx != -1) {
-    auto value = node->input(idx);
-    value->setDebugName(value->debugName() + "_fused_bn");
-  }
 }
 
 /* Note:

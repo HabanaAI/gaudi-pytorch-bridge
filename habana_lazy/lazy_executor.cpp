@@ -112,6 +112,18 @@ void HbExecutionContext::saveInputsAndOutputs(
     m_hblazy_tensors.emplace_back((tensors)[i]);
   }
 }
+
+bool HbExecutionContext::updateInputsRequired(std::vector<size_t>& indices) {
+  return (!m_input_vals.empty() && !indices.empty());
+}
+
+void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
+  m_input_vals.clear();
+  for (auto& val : inputVals) {
+    m_input_vals.emplace_back(val);
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(

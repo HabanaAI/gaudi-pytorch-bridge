@@ -324,6 +324,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   void set_min_max(const std::vector<T>& min, const std::vector<T>& max);*/
   ShapeTensorStruct& get_shape_struct();
 
+  void setRedundant() {
+    m_is_redundant = true;
+  }
+
+  bool isRedundant() {
+    return m_is_redundant;
+  }
+
  private:
   c10::IntArrayRef sizes;
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
@@ -345,6 +353,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   int id_;
   HostDataType dt_type_;
   ShapeTensorStruct shape_tensor_struct_;
+  bool m_is_redundant = false;
 };
 
 } // namespace habana_lazy

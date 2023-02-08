@@ -28,6 +28,12 @@ def _enable_fuse_t_mm_optimization(flag) -> None:
 def _enable_fuse_bn_relu_optimization(flag) -> None:
     _debug_C.enable_fuse_bn_relu_optimization(flag)
 
+def _enable_bn_param_recalculation(flag) -> None:
+    _debug_C.enable_bn_param_recalculation(flag)
+
+def _enable_fuse_conv_bn_optimization(flag) -> None:
+    _debug_C.enable_fuse_conv_bn_optimization(flag)
+
 def _enable_permute_pass(flag) -> None:
     _debug_C.enable_permute_pass(flag)
 
