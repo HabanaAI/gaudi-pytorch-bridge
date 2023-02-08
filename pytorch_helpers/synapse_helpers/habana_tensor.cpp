@@ -411,9 +411,11 @@ synapse_error_o tensor::create() {
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
 
-  status = synTensorSetDeviceDataType(tensor_, data_type_);
-  SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "Set device data type failed", status, cleanup());
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_)) {
+    status = synTensorSetDeviceDataType(tensor_, data_type_);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "Set device data type failed", status, cleanup());
+  }
 
   if (permutation_.size()) {
     HABANA_ASSERT(
