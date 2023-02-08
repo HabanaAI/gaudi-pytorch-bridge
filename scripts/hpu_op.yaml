@@ -2877,7 +2877,7 @@ gelu:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-    Greco: [Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: Gelu
   out_ids: [0]
 
@@ -2887,7 +2887,7 @@ gelu_:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-    Greco: [Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: Gelu
   inplace_ids: [0]
 
@@ -2896,7 +2896,7 @@ gelu.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-    Greco: [Float, Half]
+    Greco: [BFloat16, Float, Half]
   op_backend: Gelu
 
 gelu_backward:
