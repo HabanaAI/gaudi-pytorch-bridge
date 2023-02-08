@@ -2824,38 +2824,6 @@ Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fill_, k, self)
 }
 
-Tensor& masked_fill_hpu_lazy_(
-    Tensor& self,
-    const Tensor& mask,
-    const Tensor& value) {
-  PT_LAZY_TRACE;
-  // TPC doesn't support inplace where natively
-  // Implement using out of place where followed by D2D copy
-  // TODO revisit once strided mem copy feature is mature
-  LazyOp<Tensor> where_op(
-      "aten::where",
-      {mask, value, self},
-      nullptr,
-      2 /*output metadata is picked from self*/);
-  auto masked_fill_func_ = [self, where_op = std::move(where_op)]() mutable {
-    Tensor where_out = where_op.call();
-    // add a control edge as we add a loop using d2d copy back to self
-    auto hl_self = GetOrCreateHbLazyTensor(self);
-    // Adding memcpy to copy the output back to self as this is an inplace op
-    AddMemcpy(where_out, self);
-  };
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(masked_fill_, masked_fill_func_, self)
-}
-
-Tensor& masked_fill_scalar_hpu_lazy_(
-    Tensor& self,
-    const Tensor& mask,
-    const Scalar& value) {
-  PT_LAZY_TRACE;
-  auto value_tensor = get_tensor_for_scalar(value.toDouble(), self.options());
-  return masked_fill_hpu_lazy_(self, mask, value_tensor);
-}
-
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,

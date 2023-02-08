@@ -207,14 +207,6 @@ at::Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const at::Tensor& offsets_bwd,
     const at::Tensor& valid_count_bwd);
 at::Tensor& fill_hpu_lazy_(at::Tensor& self, const at::Scalar& value);
-at::Tensor& masked_fill_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& mask,
-    const at::Tensor& value);
-at::Tensor& masked_fill_scalar_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& mask,
-    const at::Scalar& value);
 at::Tensor scatter_add_src_hpu_lazy(
     const at::Tensor& self,
     int64_t dim_,

@@ -4216,8 +4216,9 @@ masked_fill_.Scalar:
       self: [BFloat16, Float, Half]
       mask: [Int, Char]
       value: [BFloat16, Float, Half]
-  override_fn: masked_fill_scalar_hpu_lazy_
-  acc_thread: true
+  guid: where
+  op_backend: MaskedFill
+  inplace_ids: [0]
 
 masked_fill_.Tensor:
   dtypes:
@@ -4237,8 +4238,9 @@ masked_fill_.Tensor:
       self: [BFloat16, Float, Half]
       mask: [Int, Char]
       value: [BFloat16, Float, Half]
-  override_fn: masked_fill_hpu_lazy_
-  acc_thread: true
+  guid: where
+  op_backend: MaskedFill
+  inplace_ids: [0]
 
 max:
   custom_output_shape: AllAnyOutputShape
