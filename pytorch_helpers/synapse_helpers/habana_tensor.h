@@ -118,7 +118,7 @@ class tensor final {
 
   class shape_t {
    public:
-    using dimension_size_t = unsigned;
+    using dimension_size_t = int64_t;
     struct dimension_count_t {
       explicit dimension_count_t(unsigned arg = 0) : value{arg} {}
       bool operator==(const dimension_count_t& rhs) const {
