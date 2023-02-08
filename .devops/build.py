@@ -1202,7 +1202,7 @@ def get_cmake_configurations(args) -> Dict[str, str]:
     cmake_flags = CMakeFlags(["-GNinja"] + (args.cmake_flag if args.cmake_flag else []))
     if args.no_swig:
         cmake_flags.set_if_missing("SWIG", "")
-    if args.no_tidy:
+    if not args.tidy:
         cmake_flags.set_if_missing("CLANG_TIDY", "")
     if args.no_iwyu:
         cmake_flags.set_if_missing("IWYU", "")
@@ -1456,7 +1456,7 @@ def parse_args():
         help="Build without swig even if it's available",
     )
     parser.add_argument(
-        "-y", "--no-tidy", action="store_true", help="Build without clang-tidy"
+        "--tidy", action="store_true", help="Build with clang-tidy"
     )
     parser.add_argument(
         "--no-iwyu", action="store_true", help="Build without Include What You Use"

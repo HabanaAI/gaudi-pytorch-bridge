@@ -46,7 +46,7 @@ def test_get_args_for_profile():
     test1_args = [
         "-c",
         "-r",
-        "--no-tidy",
+        "--tidy",
         "--recreate-venv=as_needed",
         "--manylinux",
         "--python-versions=3.8",

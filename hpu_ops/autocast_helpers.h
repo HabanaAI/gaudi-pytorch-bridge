@@ -59,7 +59,7 @@ static const std::unordered_set<std::string> default_lower_ops{
     "conv_transpose3d",
     "dot",
     "dropout",
-    "feature_dropout"
+    "feature_dropout",
     "group_norm",
     "instance_norm",
     "layer_norm",

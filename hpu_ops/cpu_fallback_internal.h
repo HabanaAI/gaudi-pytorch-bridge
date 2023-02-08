@@ -356,18 +356,20 @@ struct _dispatch_fallback<
                     arg_changed,
                     cast_input,
                     cast_arg(arg_changed, at::ScalarType::Float, args)...)};
-        if (arg_changed)
-          return t = at::autocast::cached_cast(
-                     t.scalar_type(), new_tensor, at::DeviceType::HPU);
-        else
-          return t = new_tensor;
+        if (arg_changed) {
+          t.copy_(at::autocast::cached_cast(
+              t.scalar_type(), new_tensor, at::DeviceType::HPU));
+        } else {
+          t.copy_(new_tensor);
+        }
+        return t;
       }
     }
 
     return at_ver::native::call_fallback_fn_symint<&cpu_fallback, Op>::call(
         t, args...);
   }
-}; // namespace habana
+};
 
 void submit_result(at::Tensor& src, at::Tensor& dst);
 

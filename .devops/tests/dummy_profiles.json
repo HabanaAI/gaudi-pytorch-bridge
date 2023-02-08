@@ -3,7 +3,7 @@
     "test1": {
       "pt_versions": ["previous", "current"],
       "additional_build_flags": [
-        "-c", "-r", "--no-tidy", "--recreate-venv=as_needed", "--manylinux",
+        "-c", "-r", "--tidy", "--recreate-venv=as_needed", "--manylinux",
         "--python-versions=3.8"
       ]
     },

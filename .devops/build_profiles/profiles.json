@@ -7,7 +7,6 @@
       "additional_build_flags": [
         "-c",
         "-r",
-        "--no-tidy",
         "--no-iwyu",
         "--recreate-venv=as_needed",
         "--manylinux",
@@ -23,7 +22,6 @@
       "additional_build_flags": [
         "-c",
         "-r",
-        "--no-tidy",
         "--no-iwyu",
         "--recreate-venv=as_needed",
         "-v",
@@ -38,7 +36,6 @@
       "additional_build_flags": [
         "-c",
         "-r",
-        "--no-tidy",
         "--no-iwyu",
         "--recreate-venv=force",
         "--manylinux",
@@ -54,7 +51,6 @@
       "additional_build_flags": [
         "-c",
         "-r",
-        "--no-tidy",
         "--no-iwyu",
         "--recreate-venv=force",
         "-v",
@@ -68,7 +64,6 @@
       "additional_build_flags": [
         "-c",
         "-r",
-        "--no-tidy",
         "--no-iwyu",
         "--recreate-venv=force",
         "--manylinux",
