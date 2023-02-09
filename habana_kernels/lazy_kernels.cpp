@@ -2437,6 +2437,34 @@ Tensor constant_pad_hpu_lazy(
   IntArrayRef pad = makeArrayRef(pad_int);
 #endif
 
+  auto ndim = self.dim();
+  auto lpad = pad.size() / 2;
+
+  auto ldiff = ndim - lpad;
+  bool all_pads_non_positive = true;
+
+  auto self_clone = self;
+  for (const auto i : c10::irange(ldiff, ndim)) {
+    auto pad_index = 2 * (ndim - i - 1);
+    if (pad[pad_index] < 0) {
+      self_clone = self_clone.narrow(
+          i, -pad[pad_index], self_clone.size(i) + pad[pad_index]);
+    } else if (pad[pad_index] != 0) {
+      all_pads_non_positive = false;
+    }
+    if (pad[pad_index + 1] < 0) {
+      self_clone =
+          self_clone.narrow(i, 0, self_clone.size(i) + pad[pad_index + 1]);
+    } else if (pad[pad_index + 1] != 0) {
+      all_pads_non_positive = false;
+    }
+  }
+  // if none of the pads are positive we can return the result
+  // of calling .narrow()
+  if (all_pads_non_positive) {
+    return self_clone.clone();
+  }
+
   auto sizes = PadOperator::compute_output_shape(self, pad);
   auto out = empty_hpu_lazy(
       sizes, self.options(), self.suggest_memory_format(), false);
