@@ -14,14 +14,16 @@
 function pytorch_functions_help()
 {
     echo -e "\n- The following is a list of available functions for PyTorch"
-    echo -e "build_pytorch_fork           -    Build the habana pytorch fork"
-    echo -e "build_pytorch_lightning_fork -    Build the habana pytorch lightning fork"
-    echo -e "build_pytorch_vision_fork    -    Build the habana pytorch vision fork"
-    echo -e "build_pytorch_modules        -    Build habana pytorch intergation modules"
-    echo -e "build_pytorch_dist           -    Build habana pytorch distrubuted modules"
-    echo -e "build_pytorch_tb_plugin      -    Build habana pytorch tensorboard plugin"
-    echo -e "run_pytorch_qa_tests         -    Run pytorch QA tests"
-    echo -e "run_pytorch_modules_tests    -    Run pytorch modules tests"
+    echo -e "build_pytorch_fork             -   Build the habana pytorch fork"
+    echo -e "build_pytorch_lightning_fork   -   Build the habana pytorch lightning fork"
+    echo -e "build_pytorch_vision_fork      -   Build the habana pytorch vision fork"
+    echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
+    echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
+    echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
+    echo -e "build_habana_lightning_plugins -   Build habana lightning plugin"
+    echo -e "run_pytorch_qa_tests           -   Run pytorch QA tests"
+    echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
+    echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
 }
 
 function pytorch_usage()
@@ -46,6 +48,21 @@ function pytorch_usage()
     fi
 
     if [ $1 == "build_pytorch_lightning_fork" ]; then
+        echo -e "\n usage: $1 [options]\n"
+
+        echo -e "options:\n"
+        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
+        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
+        echo -e "  -a,  --build-all            Python only code, option ignored"
+        echo -e "  -r,  --release              Python only code, option ignored"
+        echo -e "  -d,  --debug                Python only code, option ignored"
+        echo -e "       --install              will install the package"
+        echo -e "       --dist                 create a wheel distribution/default"
+        echo -e "       --py-version           Python version"
+        echo -e "  -h,  --help                 Prints this help"
+    fi
+
+    if [ $1 == "build_habana_lightning_plugins" ]; then
         echo -e "\n usage: $1 [options]\n"
 
         echo -e "options:\n"
@@ -153,6 +170,21 @@ function pytorch_usage()
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
         echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+    fi
+
+    if [ $1 == "run_habana_lightning_tests" ]; then
+        echo -e "\nusage: $1 [options]\n"
+        echo -e "options:\n"
+        echo -e "  -l,  --list-tests                   List the available tests"
+        echo -e "  -s,  --specific-test TEST           Run TEST"
+        echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
+        echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
+        echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
+        echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
+        echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
+        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+        echo -e "  -h,  --help                         Prints this help"
     fi
 }
 
@@ -1593,6 +1625,94 @@ install_requirements_pytorch()
     fi
     "${install_cmd[@]}"
     "${cmd[@]}"
+}
+
+run_habana_lightning_tests()
+{
+    local __habana_lightning_tests_exe="python -m pytest"
+    local __scriptname=$(__get_func_name)
+    local __xml=""
+    local __ld_lib="$BUILD_ROOT_RELEASE"
+    local __print_tests=""
+    local __py_filter=""
+    local __failures=""
+    local __marker=""
+    local __verbose=""
+    local __test_status=0
+    local __suite_type="all"
+    local __dut="gaudi"
+    local __spdlog=3
+
+    # parameter while-loop
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -l  | --list-tests )
+            __print_tests="yes"
+            ;;
+        -s  | --specific-test )
+            shift
+            __py_filter="-k $1"
+            ;;
+        -m  | --maxfail )
+            shift
+            __failures="--maxfail=$1"
+            ;;
+        -p  | --pdb )
+            shift
+            __pdb="--pdb"
+            ;;
+        -t | --suite-type )
+            shift
+            __suite_type="$1"
+            ;;
+	     --dut )
+            shift
+            __dut="$1"
+            ;;
+        -spdlog )
+            shift
+            __spdlog=$1
+            ;;
+        -x  | --xml )
+            shift
+            __xml="$1"
+            ;;
+        -a | --marker )
+            shift
+            __marker="-m \"$1\""
+            ;;
+        -h  | --help )
+            usage $__scriptname
+            return 0
+            ;;
+        *)
+            echo "The parameter $1 is not allowed"
+            usage $__scriptname
+            return 1 # error
+            ;;
+        esac
+        shift
+    done
+
+    if [ -n "$__print_tests" ]; then
+        pushd $HABANA_LIGHTNING_PLUGINS_ROOT/tests/
+        echo "python tests:"
+        ${__habana_lightning_tests_exe} --collectonly
+        __test_status=$?
+        popd
+        return $__test_status
+    fi
+
+    if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
+        pushd $HABANA_LIGHTNING_PLUGINS_ROOT/tests/
+        (set -x; eval ${__habana_lightning_tests_exe} -v $__failures $__py_filter --junit-xml=$__xml ${__marker})
+        __test_status=$?
+        popd
+    fi
+
+    # return error code of the tests
+    return ${__test_status}
 }
 
 install_requirements_pytest()
