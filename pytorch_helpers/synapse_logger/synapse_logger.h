@@ -32,6 +32,7 @@
 #include "object_dump.h"
 #include "synapse_api_types.h"
 #include "synapse_common_types.h"
+#include "synapse_logger_observer.h"
 
 enum ErrorLevel { S_ERROR = 0, S_INFO = 1, S_TRACE = 2 };
 
@@ -109,6 +110,7 @@ class SynapseLogger {
   }
 
   void log(absl::string_view payload);
+  void on_log(std::string_view name, std::string_view args, bool begin);
   void dump_host_data(
       const void* ptr,
       int byte_size,
@@ -120,6 +122,7 @@ class SynapseLogger {
   void disable();
   void lazy_open();
   void disable_mask();
+  void register_event_observer(SynapseLoggerObserver* observer);
 
   void dump_reference(
       const std::string& ref,
@@ -235,6 +238,11 @@ class SynapseLogger {
   bool is_enabled(data_dump_category cat) {
     return (0 != (source_cat_mask_ & static_cast<uint64_t>(cat)));
   }
+
+  bool is_event_logger_enabled() {
+    return observer_ != nullptr && observer_->enabled();
+  }
+
   bool should_use_null_backend() {
     return use_null_backend_;
   }
@@ -290,6 +298,7 @@ class SynapseLogger {
   std::atomic_bool optimize_trace_{false};
   static void command_signal_handler(int);
   bool dev_attr_recorded;
+  SynapseLoggerObserver* observer_{nullptr};
 };
 
 extern SynapseLogger logger;

@@ -1,16 +1,34 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
 #pragma once
 
 #include <strings.h>
 #include <memory>
-#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
+#include "backend/profiling/profiling.h"
 #include "synapse_api.h"
 
 namespace habana {
+namespace profile {
+
 struct EngineDatabase;
 
 class HpuTraceParser {
  public:
-  HpuTraceParser(long double hpu_start_time, long double wall_start_time);
+  HpuTraceParser(
+      long double hpu_start_time,
+      long double wall_start_time,
+      unsigned offset_);
 
   ~HpuTraceParser();
 
@@ -48,5 +66,7 @@ class HpuTraceParser {
   long double wall_start_time_;
   pid_t device_lane_{0};
   std::unique_ptr<EngineDatabase> engine_type_database_;
+  unsigned offset_{};
 };
+}; // namespace profile
 }; // namespace habana

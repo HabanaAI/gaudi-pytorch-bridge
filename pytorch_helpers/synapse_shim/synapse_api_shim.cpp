@@ -155,13 +155,23 @@ void EnableSynapseApi() {
  */
 class LoggerSynapseApi {
  public:
-  LoggerSynapseApi() : synapse_logger_lib_handle_{nullptr} {
+  LoggerSynapseApi(synapse_logger::SynapseLoggerObserver* observer)
+      : synapse_logger_lib_handle_{nullptr} {
     synapse_logger_lib_handle_ =
         dlopen("pytorch_synapse_logger.so", RTLD_LOCAL | RTLD_NOW);
     CHECK_NULL(synapse_logger_lib_handle_);
     LoggerSynapseApi& loader{*this};
     SYN_API_SYMBOL_VISIT(INIT_SYN_FUNC);
-    HCCL_API_SYMBOL_VISIT(INIT_HCCL_FUNC);
+    // HCCL_API_SYMBOL_VISIT(INIT_HCCL_FUNC);
+    if (observer) {
+      using register_synapse_logger_oberver_t =
+          void(synapse_logger::SynapseLoggerObserver*);
+      auto register_synapse_logger_oberver =
+          (register_synapse_logger_oberver_t*)dlsym(
+              synapse_logger_lib_handle_, "register_synapse_logger_oberver");
+      CHECK_NULL(register_synapse_logger_oberver);
+      register_synapse_logger_oberver(observer);
+    }
   }
   ~LoggerSynapseApi() {
     if (synapse_logger_lib_handle_ != nullptr)
@@ -184,7 +194,7 @@ class LoggerSynapseApi {
   hccl_api_t hccl_api_;
 };
 
-void EnableSynapseApiLogger() {
-  static LoggerSynapseApi instance;
+void EnableSynapseApiLogger(synapse_logger::SynapseLoggerObserver* observer) {
+  static LoggerSynapseApi instance{observer};
   instance.Install();
 }

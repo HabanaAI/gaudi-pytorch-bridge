@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <iostream>
 #include <sstream>
+#include <string_view>
 
 struct synTensorDescriptor;
 namespace synapse_logger {
@@ -28,7 +29,9 @@ enum class data_dump_category : unsigned {
 };
 
 bool logger_is_enabled(data_dump_category cat);
+bool log_observer_is_enabled();
 void log(const absl::string_view payload);
+void on_log(std::string_view name, std::string_view args, bool begin);
 
 class ostr_int_t {
  public:

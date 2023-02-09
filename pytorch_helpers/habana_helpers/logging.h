@@ -17,6 +17,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/runtime_tracing.h"
 #define FMT_HEADER_ONLY
@@ -255,7 +256,8 @@ class PtLogger {
     TRACE = 0x2,
     DEBUG = 0x4,
     PROFILE = 0x8,
-    RUNTIME_PROFILE = 0x10
+    RUNTIME_PROFILE = 0x10,
+    TENSORBOARD = 0x20
   };
 
   enum ModuleMask {
@@ -355,6 +357,7 @@ class PTFuncLog {
       std::clog << message;
     }
     synapse_helpers::trace_start(name.data());
+    habana::profile::bridge::trace_start(name);
   }
   ~PTFuncLog() {
     if (isActive) {
@@ -363,6 +366,7 @@ class PTFuncLog {
       std::clog << message;
     }
     synapse_helpers::trace_end(name.data());
+    habana::profile::bridge::trace_end(name);
   }
 };
 

@@ -233,6 +233,16 @@ inline void concat_args([[maybe_unused]] std::ostream& out) {}
 
 #define API_LOG_RESULT(...)                                                  \
   do {                                                                       \
+    if (synapse_logger::log_observer_is_enabled()) {                         \
+      synapse_logger::ostr_t out{synapse_logger::get_ostr()};                \
+      out << "status:" << std::dec << status;                                \
+      if (!synapse_logger::is_status_success((status))) {                    \
+        out << R"(, "cname":"bad")";                                         \
+      }                                                                      \
+      comma_maybe(out, ##__VA_ARGS__);                                       \
+      concat_args(out, ##__VA_ARGS__);                                       \
+      synapse_logger::on_log(__FUNCTION__, out.str(), false);                \
+    }                                                                        \
     if (!synapse_logger::logger_is_enabled(                                  \
             synapse_logger::data_dump_category::SYNAPSE_API_CALL)) {         \
       break;                                                                 \
@@ -251,6 +261,11 @@ inline void concat_args([[maybe_unused]] std::ostream& out) {}
 
 #define API_LOG_CALL(...)                                            \
   do {                                                               \
+    if (synapse_logger::log_observer_is_enabled()) {                 \
+      synapse_logger::ostr_t out{synapse_logger::get_ostr()};        \
+      concat_args(out, ##__VA_ARGS__);                               \
+      synapse_logger::on_log(__FUNCTION__, out.str(), true);         \
+    }                                                                \
     if (!synapse_logger::logger_is_enabled(                          \
             synapse_logger::data_dump_category::SYNAPSE_API_CALL)) { \
       break;                                                         \

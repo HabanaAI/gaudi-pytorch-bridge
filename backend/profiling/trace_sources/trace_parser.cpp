@@ -1,4 +1,17 @@
-#include "pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.h"
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
+#include "backend/profiling/trace_sources/trace_parser.h"
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
@@ -8,8 +21,10 @@
 #include <list>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 
 namespace habana {
+namespace profile {
 
 using namespace std::chrono;
 
@@ -87,8 +102,11 @@ struct EngineType {
 };
 
 struct EngineDatabase {
+  EngineDatabase(unsigned offset) : offset_{offset} {}
+
   std::unordered_map<uint32_t, EngineType> engine_types_;
   std::unordered_map<uint32_t, uint32_t> line_info_;
+  unsigned offset_{};
 
   uint32_t getLine(uint32_t index) {
     auto it = line_info_.find(index);
@@ -101,7 +119,7 @@ struct EngineDatabase {
   void setLine(const EngineType& engine_type, uint32_t index) {
     const auto seperator = 1000;
     auto idx = EngineType::getIdx(engine_type.name);
-    line_info_[index] = idx * seperator + index;
+    line_info_[index] = idx * seperator + index + offset_;
   }
 
   bool isEngineTypeHost(uint32_t engine_type) {
@@ -133,8 +151,10 @@ struct EngineDatabase {
   }
   static std::unique_ptr<EngineDatabase> buildDatabase(
       synTraceEvent* events_ptr,
-      size_t num_events) {
-    std::unique_ptr<EngineDatabase> result = std::make_unique<EngineDatabase>();
+      size_t num_events,
+      unsigned offset) {
+    std::unique_ptr<EngineDatabase> result =
+        std::make_unique<EngineDatabase>(offset);
     auto& engine_types = result->engine_types_;
 
     // Create host engine type first
@@ -176,8 +196,11 @@ struct EngineDatabase {
 
 HpuTraceParser::HpuTraceParser(
     long double hpu_start_time,
-    long double wall_start_time)
-    : hpu_start_time_{hpu_start_time}, wall_start_time_{wall_start_time} {}
+    long double wall_start_time,
+    unsigned offset)
+    : hpu_start_time_{hpu_start_time},
+      wall_start_time_{wall_start_time},
+      offset_{offset} {}
 
 HpuTraceParser::~HpuTraceParser() {}
 
@@ -186,7 +209,8 @@ void HpuTraceParser::Export(
     size_t num_events,
     long double wall_stop_time,
     TraceSink& trace_sink) {
-  engine_type_database_ = EngineDatabase::buildDatabase(events_ptr, num_events);
+  engine_type_database_ =
+      EngineDatabase::buildDatabase(events_ptr, num_events, offset_);
   initLanes(trace_sink);
   convertEventsToActivities(events_ptr, num_events, wall_stop_time, trace_sink);
 }
@@ -248,10 +272,11 @@ void HpuTraceParser::processActivity(
   if (isEventInTime(event_start_time, event_end_time, wall_stop_time)) {
     auto start = timeStampHpuToTB(event_start_time);
     auto end = timeStampHpuToTB(event_end_time);
+    std::string name =
+        StringOrFallback(events_ptr->arguments.operation, events_ptr->name);
 
     trace_sink.addCompleteActivity(
-        {StringOrFallback(events_ptr->arguments.operation, events_ptr->name),
-         nullptr,
+        {name,
          {},
          getActivityType(events_ptr),
          getDevice(events_ptr),
@@ -266,9 +291,7 @@ void HpuTraceParser::processActivity(
 
     if (enqueue_events_ptr != nullptr && enqueue_events_ptr != events_ptr) {
       trace_sink.addFlowEvent(
-          StringOrFallback(
-              events_ptr->arguments.operation,
-              events_ptr->name), // name
+          name,
           "enqueue", // category
           {getDevice(enqueue_events_ptr),
            engine_type_database_->getLine(enqueue_events_ptr->engineIndex),
@@ -377,4 +400,5 @@ ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
   return ActivityType::RUNTIME;
 }
 
+}; // namespace profile
 }; // namespace habana

@@ -1,8 +1,22 @@
-#include "pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.h"
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
+#include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include <vector>
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 
 namespace habana {
+namespace profile {
 
 static int64_t getTimeUs() {
   return std::chrono::duration_cast<std::chrono::microseconds>(
@@ -50,7 +64,8 @@ void SynapseProfilerSource::start() {
   synProfilerGetCurrentTimeNS(&hpu_start_time_ns);
   long double hpu_start_time = hpu_start_time_ns / 1000.0L;
   long double wall_start_time = getTimeUs();
-  parser_ = std::make_unique<HpuTraceParser>(hpu_start_time, wall_start_time);
+  parser_ = std::make_unique<HpuTraceParser>(
+      hpu_start_time, wall_start_time, offset_);
 
   synStatus status = synProfilerStart(synTraceAll, 0);
   if (status != synSuccess) {
@@ -71,6 +86,14 @@ void SynapseProfilerSource::stop() {
 void SynapseProfilerSource::extract(TraceSink& output) {
   initHpuDetails(output);
   convertLogs(output);
+}
+
+TraceSourceVariant SynapseProfilerSource::get_variant() {
+  return TraceSourceVariant::SYNAPSE_PROFILER;
+}
+
+void SynapseProfilerSource::set_offset(unsigned offset) {
+  offset_ = offset;
 }
 
 void SynapseProfilerSource::convertLogs(TraceSink& output) {
@@ -114,4 +137,5 @@ void SynapseProfilerSource::initHpuDetails(TraceSink& output) {
   output.addDeviceDetails(
       {{"name", name}, {"totalGlobalMem", std::to_string(memory)}});
 }
+} // namespace profile
 } // namespace habana

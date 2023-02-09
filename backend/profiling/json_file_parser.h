@@ -1,18 +1,33 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
 #pragma once
 #include <fstream>
 #include <string>
 #include <string_view>
+#include "backend/profiling/profiling.h"
 #include "nlohmann/json.hpp"
-#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
 
 namespace habana {
+namespace profile {
 
 class JsonFileParser : public TraceSink {
  public:
   JsonFileParser() = default;
+  ~JsonFileParser() override = default;
 
   void addActivity(
-      Activity activity,
+      const Activity& activity,
       const std::optional<RecipeInfo>& recipeInfo,
       uint64_t time,
       bool begin) override {
@@ -37,8 +52,8 @@ class JsonFileParser : public TraceSink {
   }
 
   void addFlowEvent(
-      const std::string_view& name,
-      const std::string_view& cat,
+      std::string_view name,
+      std::string_view cat,
       const Flow& start,
       const Flow& finish) {
     auto flow_start = construct_flow(
@@ -49,7 +64,7 @@ class JsonFileParser : public TraceSink {
     addToEvents(flow_end);
   }
 
-  void addDevice(const std::string_view& name, int64_t id) override {
+  void addDevice(std::string_view name, int64_t id) override {
     nlohmannV340::json process_name;
     process_name["name"] = "process_name";
     process_name["ph"] = "M";
@@ -80,7 +95,7 @@ class JsonFileParser : public TraceSink {
   }
 
   void addResource(
-      const std::string_view& name,
+      std::string_view name,
       int64_t deviceId,
       int64_t id,
       int64_t sortIndex) override {
@@ -164,9 +179,6 @@ class JsonFileParser : public TraceSink {
     runtime["pid"] = activity.device;
     runtime["tid"] = activity.resource;
     runtime["ts"] = ts;
-    if (activity.func != nullptr) {
-      runtime["func"] = activity.func;
-    }
 
     nlohmannV340::json args;
 
@@ -194,8 +206,8 @@ class JsonFileParser : public TraceSink {
     return runtime;
   }
   nlohmannV340::json construct_flow(
-      const std::string_view& name,
-      const std::string_view& cat,
+      std::string_view name,
+      std::string_view cat,
       int64_t pid,
       int64_t tid,
       int64_t ts,
@@ -232,4 +244,5 @@ class JsonFileParser : public TraceSink {
   nlohmannV340::json traceEvents_;
   nlohmannV340::json deviceProperties_;
 };
+}; // namespace profile
 }; // namespace habana

@@ -418,6 +418,11 @@ ENV_STRUCT_DEFINITION(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING, bool, false);
 // Enable int64 support
 ENV_STRUCT_DEFINITION(PT_ENABLE_INT64_SUPPORT, bool, false);
 
+// Enable profiling synapse logs
+ENV_STRUCT_DEFINITION(PT_PROFILE_SYNAPSE_LOGS, bool, false);
+// Enable profiling bridge logs
+ENV_STRUCT_DEFINITION(PT_PROFILE_BRIDGE_LOGS, bool, false);
+
 // streams
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GENERIC_STREAM, bool, false);
 // 2.0 support

@@ -109,12 +109,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
-  pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
-  pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
-  pytorch_helpers/habana_helpers/profiling/profiling.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_logger_source.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/serialize/export.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
@@ -210,11 +204,6 @@ target_link_libraries(habana_pytorch_plugin
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
 target_include_directories(habana_pytorch_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
-if (DEFINED ENV{KINETO_ROOT})
-  target_include_directories(habana_pytorch_plugin SYSTEM PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
-else()
-  message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
-endif()
 
 # Create symlink to latest build from tests dir
 # TODO: make it play nicely with building multiple versions in build.py
@@ -255,12 +244,6 @@ add_library(habana_pytorch2_plugin SHARED
   pytorch_helpers/habana_helpers/kernels_accumulation.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/misc_utils.cpp
-  pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
-  pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
-  pytorch_helpers/habana_helpers/profiling/profiling.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_logger_source.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
-  pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
   pytorch_helpers/habana_helpers/stats.cpp
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp

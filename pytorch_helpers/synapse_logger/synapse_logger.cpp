@@ -178,6 +178,18 @@ void SynapseLogger::log(absl::string_view payload) {
   }
 }
 
+void SynapseLogger::on_log(
+    std::string_view name,
+    std::string_view args,
+    bool begin) {
+  if (observer_) {
+    pid_t tid = syscall(__NR_gettid);
+    pid_t pid = getpid();
+    int64_t dtime = NowMicros();
+    observer_->on_log(name, args, pid, tid, dtime, begin);
+  }
+}
+
 void SynapseLogger::dump_host_data(
     const void* ptr,
     int byte_size,
@@ -217,6 +229,11 @@ void SynapseLogger::disable() {
 void SynapseLogger::disable_mask() {
   source_cat_mask_ = 0;
 }
+
+void SynapseLogger::register_event_observer(SynapseLoggerObserver* observer) {
+  observer_ = observer;
+}
+
 void SynapseLogger::restart() {
   {
     std::lock_guard<std::mutex> tlock(transfer_lock_);
@@ -435,11 +452,24 @@ bool logger_is_enabled(data_dump_category cat) {
   return logger.is_enabled(cat);
 }
 
+bool log_observer_is_enabled() {
+  return logger.is_event_logger_enabled();
+}
+
 void log(absl::string_view payload) {
   logger.log(payload);
 }
 
+void on_log(std::string_view name, std::string_view args, bool begin) {
+  logger.on_log(name, args, begin);
+}
+
 std::string getSynapseLibPath() {
   return logger.getSynapseLibPath();
+}
+
+extern "C" void register_synapse_logger_oberver(
+    synapse_logger::SynapseLoggerObserver* observer) {
+  logger.register_event_observer(observer);
 }
 } // namespace synapse_logger

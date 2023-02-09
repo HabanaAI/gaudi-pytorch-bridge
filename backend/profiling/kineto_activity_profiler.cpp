@@ -1,6 +1,19 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
 #include <iostream>
 #include <string_view>
-#include "pytorch_helpers/habana_helpers/profiling/profiling.h"
+#include "backend/profiling/profiling.h"
 #define FMT_HEADER_ONLY
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -14,6 +27,7 @@
 #pragma GCC diagnostic pop
 
 namespace habana {
+namespace profile {
 
 using namespace libkineto;
 using namespace std::chrono;
@@ -37,16 +51,19 @@ class GenericTraceActivitySink : public TraceSink {
     ev.endTime = end;
     ev.device = activity.device;
     ev.resource = activity.resource;
-    if (activity.type == habana::ActivityType::KERNEL) {
+    if (activity.type == ActivityType::KERNEL) {
       ev.addMetadata("device", activity.device);
     }
     activities_.push_back(ev);
   }
 
-  void addActivity(Activity, const std::optional<RecipeInfo>&, uint64_t, bool)
-      override {}
+  void addActivity(
+      const Activity&,
+      const std::optional<RecipeInfo>&,
+      uint64_t,
+      bool) override {}
 
-  void addDevice(const std::string_view& name, int64_t device) override {
+  void addDevice(std::string_view name, int64_t device) override {
     GenericTraceActivity name_meta{
         defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
     name_meta.startTime = 0;
@@ -72,7 +89,7 @@ class GenericTraceActivitySink : public TraceSink {
   }
 
   void addResource(
-      const std::string_view& name,
+      std::string_view name,
       int64_t device,
       int64_t resource,
       int64_t sort_index = -1) override {
@@ -102,8 +119,8 @@ class GenericTraceActivitySink : public TraceSink {
       const std::unordered_map<std::string, std::string>&) override {}
 
   virtual void addFlowEvent(
-      const std::string_view&,
-      const std::string_view&,
+      std::string_view,
+      std::string_view,
       const Flow&,
       const Flow&) override {}
 
@@ -112,15 +129,15 @@ class GenericTraceActivitySink : public TraceSink {
     static TraceSpan span(0, 0, "PyTorch Profiler", "");
     return span;
   }
-  libkineto::ActivityType mapHabanaTypeToKinetoType(habana::ActivityType type) {
+  libkineto::ActivityType mapHabanaTypeToKinetoType(ActivityType type) {
     switch (type) {
-      case habana::ActivityType::KERNEL:
+      case ActivityType::KERNEL:
         return libkineto::ActivityType::CONCURRENT_KERNEL;
-      case habana::ActivityType::RUNTIME:
+      case ActivityType::RUNTIME:
         return libkineto::ActivityType::HPU_OP;
-      case habana::ActivityType::MEMCPY:
+      case ActivityType::MEMCPY:
         return libkineto::ActivityType::GPU_MEMCPY;
-      case habana::ActivityType::MEMSET:
+      case ActivityType::MEMSET:
         return libkineto::ActivityType::GPU_MEMSET;
     }
     return libkineto::ActivityType::HPU_OP;
@@ -235,5 +252,6 @@ auto register_activity_sink_factory = [] {
   libkineto::api().registerProfilerFactory(register_activity_profiler);
   return 0;
 };
+}; // namespace profile
 }; // namespace habana
 #undef FMT_HEADER_ONLY

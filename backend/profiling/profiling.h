@@ -1,31 +1,49 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************
+ */
+
 #pragma once
 
 #include <strings.h>
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 
 namespace habana {
+namespace profile {
 
 enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET };
+enum class TraceSourceVariant : unsigned {
+  SYNAPSE_PROFILER = 0,
+  SYNAPSE_LOGGER = 10000,
+  BRIDGE_LOGS = 20000
+};
 
-struct TraceSource;
+class TraceSource;
 
 struct Activity {
-  const char* name;
-  const char* func;
+  std::string_view name;
   std::unordered_map<std::string, std::string> args;
-  habana::ActivityType type;
+  ActivityType type;
   int64_t device;
   int64_t resource;
 };
 
 struct RecipeInfo {
   uint16_t recipeId;
-  const char* recipeName;
+  std::string_view recipeName;
   uint64_t streamHandle;
   uint64_t eventHandle;
 };
@@ -40,7 +58,7 @@ class TraceSink {
  public:
   virtual ~TraceSink(){};
   virtual void addActivity(
-      Activity activity,
+      const Activity& activity,
       const std::optional<RecipeInfo>& recipeInfo,
       uint64_t time,
       bool begin) = 0;
@@ -52,15 +70,15 @@ class TraceSink {
       uint64_t end) = 0;
 
   virtual void addFlowEvent(
-      const std::string_view& name,
-      const std::string_view& cat,
+      std::string_view name,
+      std::string_view cat,
       const Flow& start,
       const Flow& finish) = 0;
 
-  virtual void addDevice(const std::string_view& name, int64_t device) = 0;
+  virtual void addDevice(std::string_view name, int64_t device) = 0;
 
   virtual void addResource(
-      const std::string_view& name,
+      std::string_view name,
       int64_t device,
       int64_t resource,
       int64_t sort_index = -1) = 0;
@@ -75,6 +93,8 @@ class TraceSource {
   virtual void start() = 0;
   virtual void stop() = 0;
   virtual void extract(TraceSink& output) = 0;
+  virtual TraceSourceVariant get_variant() = 0;
+  virtual void set_offset(unsigned offset) = 0;
 };
 
 class Profiler {
@@ -85,6 +105,13 @@ class Profiler {
 
  private:
   TraceSink& trace_sink_;
-  std::vector<std::unique_ptr<TraceSource>> trace_sources_;
+  std::list<std::unique_ptr<TraceSource>> trace_sources_;
 };
+
+namespace bridge {
+void trace_start(std::string_view id);
+void trace_end(std::string_view id);
+}; // namespace bridge
+
+}; // namespace profile
 }; // namespace habana
