@@ -582,7 +582,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
         "lbls": lbls,
         "dim": kwargs["dim"],
         "seed": kwargs["seed"],
-        # "meta": kwargs["meta"],
+        "meta": kwargs["meta"],
         "patch_size": kwargs["patch_size"],
         "oversampling": kwargs["oversampling"],
     }
@@ -608,7 +608,9 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
         device="cpu"
         num_threads=2 #as of now it is only supported for "cpu"
     else:
-        raise ValueError("Unsupported mode {}!".format(mode))
+        pipeline = "TestPipeline"
+        device="cpu"
+        num_threads=2 #as of now it is only supported for "cpu"
 
     num_instances = kwargs["num_device"]
     instance_id = int(os.getenv("LOCAL_RANK", "0"))
@@ -617,7 +619,8 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     pipeline = Unet3dMediaPipe(a_device=device, a_batch_size=batch_size, a_prefetch_count=3,
                                a_num_instances=num_instances, a_instance_id=instance_id,
                                a_pipeline=pipeline,a_num_threads=num_threads, **pipe_kwargs)
-    if mode == "eval":
+
+    if device == "cpu":
         from habana_frameworks.mediapipe.plugins.iterator_pytorch import CPUUnet3DPytorchIterator
         iterator = CPUUnet3DPytorchIterator(mediapipe=pipeline)
         return iterator
