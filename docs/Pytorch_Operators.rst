@@ -204,6 +204,7 @@ nansum                                 Yes      No       No        No       No  
 narrow                                 Yes      No       No        No       No     torch
 ne                                     Yes      Yes      Yes       No       No     torch
 neg                                    Yes      Yes      No        No       No     torch
+nextafter                              Yes      Yes      No        No       No     torch
 nonzero                                Yes      Yes      Yes       No       Yes    torch
 norm                                   Yes      Yes      No        No       No     torch
 normal                                 Yes      Yes      No        No       No     torch
@@ -504,6 +505,7 @@ new_empty_strided                      Yes      Yes      Yes       Yes      No  
 new_full                               Yes      Yes      Yes       Yes      No     torch.Tensor
 new_ones                               Yes      Yes      Yes       Yes      No     torch.Tensor
 new_zeros                              Yes      Yes      Yes       Yes      No     torch.Tensor
+nextafter                              Yes      Yes      No        No       No     torch.Tensor
 nonzero                                Yes      Yes      Yes       No       Yes    torch.Tensor
 norm                                   Yes      Yes      No        No       No     torch.Tensor
 normal\_                               Yes      Yes      No        No       No     torch.Tensor
