@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include <torch/library.h>
-
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -23,6 +22,7 @@
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "pytorch_helpers/habana_helpers/tensor_utils.h"
 #include "synapse_helpers/device_helpers.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -690,11 +690,10 @@ Tensor hpu_wrap::instance_norm(
       " cudnn_enabled=",
       to_string(cudnn_enabled));
   // Note: Legacy eager mode is not supported
-  auto weight = weight_opt.value_or(Tensor());
-  auto bias = bias_opt.value_or(Tensor());
-
-  TORCH_CHECK(weight.defined(), "undefined weight is not supported");
-  TORCH_CHECK(bias.defined(), "undefined bias is not supported");
+  auto weight = weight_opt.value_or(
+      at::ones(input.sizes().vec()[1]).to(torch::kFloat32).to(torch::kHPU));
+  auto bias = bias_opt.value_or(
+      at::zeros(input.sizes().vec()[1]).to(torch::kFloat32).to(torch::kHPU));
 
   auto running_mean = running_mean_opt.value_or(Tensor());
   auto running_var = running_var_opt.value_or(Tensor());
@@ -719,9 +718,22 @@ Tensor hpu_wrap::instance_norm(
         const Tensor& weight, // gamma
         const Tensor& bias, // beta
         double eps) {
-      Tensor output, mean, istd;
-      std::tie(output, mean, istd) =
-          instance_norm_hpu_lazy(input, weight, bias, eps);
+      auto input_maybe_reshaped = input;
+      const auto is_3d = input.dim() == 3;
+      if (is_3d) {
+        auto new_shape = input.sizes().vec();
+        new_shape.push_back(1);
+        input_maybe_reshaped = at::reshape(input, new_shape);
+      }
+      Tensor output_maybe_reshaped, output, mean, istd;
+      std::tie(output_maybe_reshaped, mean, istd) =
+          instance_norm_hpu_lazy(input_maybe_reshaped, weight, bias, eps);
+
+      if (is_3d) {
+        output = at::reshape(output_maybe_reshaped, input.sizes());
+      } else {
+        output = output_maybe_reshaped;
+      }
 
       ctx->save_for_backward({input, mean, istd, weight});
 

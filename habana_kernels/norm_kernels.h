@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -140,7 +140,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
+      const OutputMetaDataVector& output_metadata) override;
 
   void preProcessInputs(
       synapse_helpers::graph& graph,
@@ -433,9 +433,8 @@ class InstanceNormOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
     kernel_meta_data_.tpc_input_order = {0, 2, 1};
-
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -469,7 +468,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
