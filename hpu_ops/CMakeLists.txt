@@ -109,8 +109,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/isfinite_isinf_gen.cpp
           backend/isnan_gen.cpp
           backend/isposneginf_gen.cpp
-          backend/l1_loss_backward_gen.cpp
-          backend/l1_loss_gen.cpp
           backend/lazy_cast.cpp
           backend/lazy_fp8_ops.cpp
           backend/leakyrelu_gen.cpp
