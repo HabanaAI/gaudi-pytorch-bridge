@@ -92,25 +92,12 @@ function pytorch_usage()
         echo -e "  -h,  --help                 Prints this help"
     fi
 
-    if [ $1 == "build_pytorch_modules" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Overwrite number of jobs"
-        echo -e "  -c   --configure            Configure before build"
-        echo -e "  -a,  --build-all            Build both debug and release build"
-        echo -e "  -r,  --release              Build only release build"
-        echo -e "  -y,  --no-tidy              Skip running clang-tidy during build"
-        echo -e "  -s,  --sanitize             Build with sanitize flags on"
-        echo -e "  -v,  --verbose              Build with verbose"
-        echo -e "  -h,  --help                 Prints this help"
-        echo -e "  -n,  --no-ext-build         Skip wheel build for extensions"
-        echo -e "       --pt-version           Build for given pytorch version"
-        echo -e "       --py-version           Python version"
-        echo -e "  -i,  --install-ext          Install extensions"
-        echo -e "  -l,  --no_cpp_tests         do not build cpp tests"
-        echo -e "       --op-stats             Generate Operator statistics"
-        echo -e "       --upstream_compile     compile for upstream workspace"
+    if [ "$1" == "build_pytorch_modules" ]; then
+        "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py --help
+        echo -e ""
+        echo -e "Additionally:"
+        echo -e "       --op-stats             Generate operator statistics"
+        echo -e "       --recursive            Build all NPU stack dependencies beforehand"
     fi
 
     if [ $1 == "build_pytorch_dist" ]; then
@@ -196,33 +183,16 @@ build_pytorch_modules()
 
     local __jobs=${NUMBER_OF_JOBS}
     local __all=""
-    local __debug="yes"
     local __configure=""
     local __release=""
-    local __no_tidy=""
-    local __sanitize="OFF"
-    local __verbose=""
     local __build_res=0
-    local __skip_ext_build="OFF"
-    local __build_ext="ON"
-    local __install_ext="OFF"
-    local __whl_params="bdist_wheel"
-    local __pt_vers=""
-    local __pt_mod_tag="pytorch_integration_tags"
-    local __pt_integ_vers="pytorch_integration_version"
-    local __default_vers="default_vers"
-    local __def_vers=""
     local __pytorch_module_name="pytorch_bridge"
     local __recursive=""
     local __result=""
-    local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
-    local __build_cpp_tests="ON"
     local  __generate_op_stats="false"
-    local __build_with_shim="ON"
-    local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
-    local __build_manylinux_whl="false"
-    local __set_py_vers="false"
-    local __upstream_compile="false"
+
+    local __variables_to_build
+    __variables_to_build=$(echo "$@" | sed s/" --recursive"// | sed s/" --op-stats"//)
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -243,54 +213,13 @@ build_pytorch_modules()
             return 0
             ;;
         -r  | --release )
-            __debug=""
             __release="yes"
             ;;
         --recursive )
             __recursive="yes"
             ;;
-        -y  | --no-tidy )
-            __no_tidy="yes"
-            ;;
-        -s  | --sanitize )
-            __sanitize="ON"
-            ;;
-        -n  | --no-ext-build)
-            __build_ext="OFF"
-            __skip_ext_build=""
-            ;;
-        -i  | --install-ext)
-            __install_ext="ON"
-            __whl_params="install"
-            ;;
-        -v  | --verbose )
-            __verbose="-v"
-            ;;
-        --pt-version )
-             __pt_vers=$2
-            ;;
-        --py-version )
-             set_python_version $2
-             __set_py_vers="true"
-            ;;
-        -l  | --no_cpp_tests )
-             __build_cpp_tests="OFF"
-            ;;
         --op-stats )
              __generate_op_stats="true"
-            ;;
-        --no_shim )
-             __build_with_shim="OFF"
-            ;;
-        --manylinux )
-            __build_manylinux_whl="true"
-            __build_with_shim="ON"
-            ;;
-        --upstream_compile )
-            __upstream_compile="true"
-            ;;
-        *)
-            __argument=$1
             ;;
         esac
         shift
@@ -310,10 +239,6 @@ build_pytorch_modules()
         install_pkg+=(--user)
     fi
     "${install_pkg[@]}"
-
-    #Somehow we are creating .debug file, which is bug
-    #Needs more investigation and avoid creating .debug file
-    rm -rf $BUILD_ROOT_LATEST/.debug
 
     if [ -n "$KINETO_ROOT" ]; then
         echo "git submodule update for kineto"
@@ -347,51 +272,6 @@ build_pytorch_modules()
         return $__result
     fi
 
-    __def_vers=$(grep  -A3 $__pt_integ_vers $__ver_path | grep $__default_vers | cut -d':' -f 2)
-    if [ -n "$__pt_vers" ] && [ "$__def_vers" != "$__pt_vers" ]; then
-        __branch=$(grep -A3 $__pt_mod_tag  __ver_path | grep $__pt_vers | awk -F $__pt_vers '{print $2}' | cut -d':' -f 2)
-        if [ $__result -ne 0 ]; then
-            echo "version $__pt_vers  not found!"
-            __conda deactivate
-            popd
-            restore_python_version
-            return $__result
-        fi
-        echo " tag $__branch"
-        git fetch $__branch
-        echo "git checkout $__branch"
-        git checkout $__branch
-        __result=$?
-        if [ $__result -ne 0 ]; then
-            echo "git checkout $__branch failed!"
-            __conda deactivate
-            popd
-            restore_python_version
-            return $__result
-        fi
-    fi
-
-    if [ "$__pt_vers" == "" ]; then
-        echo "Default branch will be compiled"
-    fi
-
-    popd
-
-    if [ -n "$__all" ]; then
-        __debug="yes"
-        __release="yes"
-    fi
-
-    CLANG_TIDY_DEFINE=""
-    if [ ! -z "$__no_tidy" ]; then
-        CLANG_TIDY_DEFINE="-DCLANG_TIDY="
-    fi
-
-    UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=OFF"
-    if [ "z${__upstream_compile}" == "ztrue" ];then
-        UPSTREAM_COMPILE="-DUPSTREAM_COMPILE=ON"
-    fi
-
     if [ -n "$__recursive" ]; then
         local __release_par=""
         local __configure_par=""
@@ -422,89 +302,9 @@ build_pytorch_modules()
         fi
     fi
 
-    if [ -n "$__debug" ]; then
-        echo -e "Building in debug mode"
-        if [ ! -d $PYTORCH_MODULES_DEBUG_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_MODULES_DEBUG_BUILD ]; then
-                rm -rf $PYTORCH_MODULES_DEBUG_BUILD
-            fi
-            mkdir -p $PYTORCH_MODULES_DEBUG_BUILD/pkgs
-            __pt_pkg_dir=$PYTORCH_MODULES_DEBUG_BUILD/pkgs
-        fi
-
-        _verify_exists_dir "$PYTORCH_MODULES_DEBUG_BUILD" $PYTORCH_MODULES_DEBUG_BUILD
-
-        (set -x; cmake \
-            -H$PYTORCH_MODULES_ROOT_PATH -B$PYTORCH_MODULES_DEBUG_BUILD \
-            -DCMAKE_PREFIX_PATH="`$__python_cmd -c "import os, torch; print(os.path.dirname(torch.__file__))"`" \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -GNinja \
-            -DPYTHON_EXECUTABLE="$(which $__python_cmd)" \
-            -DBUILD_PKGS=$__build_ext \
-            -DINSTALL_PKGS=$__install_ext \
-            -DBUILD_TESTS=$__build_cpp_tests \
-            -DMANYLINUX=$__build_with_shim \
-            $CLANG_TIDY_DEFINE \
-            $UPSTREAM_COMPILE \
-            -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
-            -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
-            -DSANITIZER=$__sanitize)
-        cmake --build $PYTORCH_MODULES_DEBUG_BUILD -- $__verbose -j$__jobs
-        __build_res=$?
-        if [ $__build_res -ne 0 ]; then
-            restore_python_version
-            return $__build_res
-        fi
-
-        cp -fs $PYTORCH_MODULES_DEBUG_BUILD/*.so $BUILD_ROOT_DEBUG
-
-        if [ -z "$__all" ]; then
-            cp -fs $PYTORCH_MODULES_DEBUG_BUILD/*.so $BUILD_ROOT_LATEST
-        fi
-    fi
+    "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
 
     if [ -n "$__release" ]; then
-        echo "Building in release mode"
-        if [ ! -d $PYTORCH_MODULES_RELEASE_BUILD ]; then
-            __configure="yes"
-        fi
-
-        if [ -n "$__configure" ]; then
-            if [ -d $PYTORCH_MODULES_RELEASE_BUILD ]; then
-                rm -rf $PYTORCH_MODULES_RELEASE_BUILD
-            fi
-            mkdir -p $PYTORCH_MODULES_RELEASE_BUILD/pkgs
-            __pt_pkg_dir=$PYTORCH_MODULES_RELEASE_BUILD/pkgs
-        fi
-
-        _verify_exists_dir "$PYTORCH_MODULES_RELEASE_BUILD" $PYTORCH_MODULES_RELEASE_BUILD
-
-        (set -x; cmake \
-            -H$PYTORCH_MODULES_ROOT_PATH -B$PYTORCH_MODULES_RELEASE_BUILD \
-            -DCMAKE_PREFIX_PATH="`$__python_cmd -c "import os, torch; print(os.path.dirname(torch.__file__))"`" \
-            -GNinja \
-            -DPYTHON_EXECUTABLE="$(which $__python_cmd)" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_PKGS=$__build_ext \
-            -DINSTALL_PKGS=$__install_ext \
-            -DBUILD_TESTS=$__build_cpp_tests \
-            -DMANYLINUX=$__build_with_shim \
-            $CLANG_TIDY_DEFINE \
-            $UPSTREAM_COMPILE \
-            -DPYTHON_INCLUDE_DIR=$($__python_cmd -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
-            -DPYTHON_LIBRARY=$($__python_cmd -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
-            -DSANITIZER=$__sanitize)
-        cmake --build $PYTORCH_MODULES_RELEASE_BUILD -- $__verbose -j$__jobs
-        __build_res=$?
-        if [ $__build_res -ne 0 ]; then
-            restore_python_version
-            return $__build_res
-        fi
-
         if [ "z$__generate_op_stats" == "ztrue" ]; then
             printf "\n\nGenerating Operator statistics....\n\n"
             OP_DECLARATION_PATH=$($__pip_cmd show torch | grep "Location:" | sed "s/Location: //")/torch/include/ATen/RegistrationDeclarations.h
@@ -516,25 +316,8 @@ build_pytorch_modules()
             mv consolidate_ops_list.csv unique_ops_list.csv unique_ops_list2.csv summary.csv \
                     consolidate_ops_list.json unique_ops_list.json unique_ops_list2.json summary.json $HABANA_LOGS/
         fi
-
-        cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE
-        cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_LATEST
-    fi
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        __install_auditwheel
-        rm -rf $__pt_pkg_dir/wheelhouse
-        for whlfile in $__pt_pkg_dir/*linux_x86_64.whl; do
-            bash -c "$__python_cmd $__auditwheel repair $whlfile -w $__pt_pkg_dir/wheelhouse"
-            if [ $? -eq 0 ]; then
-                rm -f ${whlfile}
-            fi
-        done
-        cp -f $__pt_pkg_dir/wheelhouse/*.whl $__pt_pkg_dir
-        rm -rf $__pt_pkg_dir/wheelhouse
     fi
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
-    return 0
 }
 
 build_pytorch_dist()

@@ -738,7 +738,7 @@ def prepare_build_dirs(
 
         create_ctest_target(pmake)
         create_collect_binaries_target(
-            pmake, wheels_per_build_envs, cmake_configurations, ("all",)
+            pmake, wheels_per_build_envs, cmake_configurations
         )
 
     return cmake_build_configs, wheel_configs
@@ -761,8 +761,8 @@ def target_absdir(py_ver, pt_ver, cmake_config, target=None):
 
 
 def create_collect_binaries_target(
-    pmake, wheels_per_build_envs, cmake_configurations, targets
-):
+    pmake, wheels_per_build_envs, cmake_configurations
+) -> None:
     """Using pmake produce gnu-makefile with the following dependency pattern:
     <target> <- $PYTORCH_MODULES_RELEASE_BUILD/<target> <- pytorch/py3.6/pt1.12.0a0/Release/<target>
                                                         <- pytorch/py3.6/pt1.12.0a0/Debug/<target>
@@ -773,7 +773,6 @@ def create_collect_binaries_target(
         pmake: fn used to write Makefile
         wheels_per_build_envs: result
         cmake_configurations: cmake flags
-        targets: Iterable of targets
     """
     py_ver = list(wheels_per_build_envs.keys())[0].py_ver
     lib_versions = set()
@@ -785,52 +784,53 @@ def create_collect_binaries_target(
         f"Artifacts built for python{py_ver} will be used by collect binaries targets."
     )
 
+    destinations = []
     for cmake_config in cmake_configurations.keys():
         destination = os.environ[f"PYTORCH_MODULES_{cmake_config.upper()}_BUILD"]
-        for target in targets:
-            # all rules are phony because these are not actual files
-            pmake(f".PHONY: {destination}/{target}")
-            deps = " ".join(
-                target_reldir(py_ver, pt_ver_and_src.version.label, cmake_config, target)
-                for pt_ver_and_src in lib_versions
-            )
-            pmake(f"{destination}/{target}: {deps}")
-            pmake(f"\tDESTINATION=$(dir $@);\\")
-            pmake(f"\tset -x;\\")
-            pmake(f"\trm -r $$DESTINATION;\\")
-            pmake(f"\tmkdir -p $$DESTINATION && \\")
-            # TODO: uncomment once we merge versioned .so's
-            # for pt_ver_and_src in lib_versions:
-            #     source = target_absdir(py_ver, pt_ver_and_src.version.label, cmake_config)
-            #     pmake(
-            #         f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\'
-            #     )
-            #     pmake(f"\tcp -f {source}/*.so.{pt_ver_and_src.version}* $$DESTINATION &&\\")
-            source = target_absdir(py_ver, next(iter(lib_versions)).version.label, cmake_config)
-            pmake(f'\techo "Copying remaining targets from {source} to $$DESTINATION" &&\\')
-            pmake(f"\tcp -f {source}/*.so* $$DESTINATION && \\")
-            pmake(f"\tcp -f {source}/*.py $$DESTINATION && \\")
-            cmake_config_upper = cmake_config.upper()
-            pmake(
-                '\tfind -D exec $${DESTINATION} "(" -name "*.so*" -o -name "*.py" ")" '
-                '-a -not -name "libtorch.so*" '
-                "-exec cp -fs {} "
-                f"$$BUILD_ROOT_{cmake_config_upper} \;"
-                r" -exec cp -fs {} $$BUILD_ROOT_LATEST \;"
-            )
-            pmake(f"{target}: {destination}/{target}")
+        destinations.append(destination)
+        # all rules are phony because these are not actual files
+        pmake(f".PHONY: {destination}/all {destination}/wheel_install")
+        pmake(".SECONDEXPANSION:")  # GNU Make specific hax to expand $$ in prerequisite list
+        pmake(f"{destination}/all {destination}/wheel_install: intermediate/$$(notdir $$@)")
+        pmake("\tDESTINATION=$(dir $@);\\")
+        pmake("\tset -x;\\")
+        pmake("\trm $$DESTINATION/*.so*;\\")
+        pmake("\trm $$DESTINATION/*.py;\\")
+        pmake("\trm $$DESTINATION/test_*;\\")
+        pmake("\tmkdir -p $$DESTINATION && \\")
+        # TODO: uncomment once we merge versioned .so's
+        # for pt_ver_and_src in lib_versions:
+        #     source = target_absdir(py_ver, pt_ver_and_src.version.label, cmake_config)
+        #     pmake(
+        #         f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\'
+        #     )
+        #     pmake(f"\tcp -f {source}/*.so.{pt_ver_and_src.version}* $$DESTINATION &&\\")
+        source = target_absdir(py_ver, next(iter(lib_versions)).version.label, cmake_config)
+        pmake(f'\techo "Copying remaining targets from {source} to $$DESTINATION" &&\\')
+        pmake(f"\tcp -fs {source}/*.so* $$DESTINATION && \\")
+        pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
+        pmake(f"\tcp -fs {source}/test_* $$DESTINATION && \\")
+        cmake_config_upper = cmake_config.upper()
+        pmake(
+            '\tfind -D exec $${DESTINATION} "(" -name "*.so*" -o -name "*.py" ")" '
+            '-a -not -name "libtorch.so*" '
+            "-exec cp -fs {} "
+            f"$$BUILD_ROOT_{cmake_config_upper} \;"
+            r" -exec cp -fs {} $$BUILD_ROOT_LATEST \;"
+        )
 
+    pmake("all wheel_install: " + " ".join(f"{single_destination}/$$@" for single_destination in destinations))
+    top_level_linux_wheel_targets = " ".join(
+        f"wheel_{wheel_target.wheel_name}/linux" for wheel_target in list(wheels_per_build_envs.values())[0]
+    )
+    pmake("intermediate/wheel_install: " + top_level_linux_wheel_targets)
 
-# TODO: linking to latest
-# if building debug:
-#     cp -fs $PYTORCH_MODULES_DEBUG_BUILD/*.so $BUILD_ROOT_DEBUG;
-#     if [ -z "$__all" ]; then
-#         cp -fs $PYTORCH_MODULES_DEBUG_BUILD/*.so $BUILD_ROOT_LATEST;
-#     fi;
-# if building release:
-#     cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_RELEASE;
-#     cp -fs $PYTORCH_MODULES_RELEASE_BUILD/*.so $BUILD_ROOT_LATEST;
-# fi;
+    deps = " ".join(
+        target_reldir(py_ver, pt_ver_and_src.version.label, cmake_config, "all")
+        for pt_ver_and_src in lib_versions
+        for cmake_config in cmake_configurations.keys()
+    )
+    pmake(f"intermediate/all: {deps}")
 
 
 def create_wheel_target_for_single_python(
@@ -952,6 +952,7 @@ def add_target_for_moving_wheels_to_wheelhouse(wheel_configs, pmake, wheelhouse)
         [f"{wheel_config.file_path_pattern}" for wheel_config in wheel_configs]
     )
 
+    # TODO: depend on intermediate/wheel_install
     moving_target = "wheel/put_in_wheelhouse"
     pmake(f".PHONY: {moving_target}")
     pmake(f"{moving_target}: {' '.join(linux_targets)}")
@@ -1046,13 +1047,13 @@ def prepare_single_build_directory(
     )
     pmake(f".PHONY: {subtarget}/all {subtarget}/wheel {subtarget}/ctest")
     pmake(f"{subtarget}/all:")
-    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target $(notdir $@)")
+    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))")
     pmake(f"SUBNAMES += {subtarget}")
     for build_env in build_envs:
         pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
-    wheel_installs = [
-        f"\t{'-' if build_env.optional else ''}cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) && echo $@ is finished"
+    wheel_installs = [  # TODO: replace `all` with `install`
+        f"\t{'-' if build_env.optional else ''}cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target all && echo $@ is finished"
         for build_env in build_envs
     ]
     pmake("\n".join(wheel_installs))
@@ -1621,19 +1622,14 @@ class ManylinuxRunner(object):
         sp.check_call(command, shell=True)
 
 
-def gather_wheel_targets(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, List]:
-    wheel_targets = set()
-    selected_wheel_configs = []
+def select_targets_and_configs(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, List]:
+    if args.no_ext_build:
+        return {"all"}, []
 
-    platform = (
-        "linux" if os.environ.get("AUDITWHEEL_POLICY", None) is None else "manylinux"
-    )
+    if os.environ.get("AUDITWHEEL_POLICY"):
+        return {"wheel/manylinux"}, wheel_configs
 
-    if not args.no_ext_build:
-        selected_wheel_configs.extend(wheel_configs)
-        for config in wheel_configs:
-            wheel_targets.add(f"{config.target}/" + platform)
-    return wheel_targets, selected_wheel_configs
+    return {"wheel_install"}, wheel_configs
 
 
 def _fix_venv_dirs_if_manylinux(venv_dirs: Sequence[str]) -> Sequence[str]:
@@ -1888,14 +1884,14 @@ def main():
             clean=args.configure,
         )
 
-        wheel_targets, selected_wheel_configs = gather_wheel_targets(
+        selected_targets, selected_wheel_configs = select_targets_and_configs(
             args, wheel_configs
         )
 
         build(
             build_dir,
             jobs=args.jobs,
-            targets=wheel_targets,
+            targets=selected_targets,
             verbose=args.verbose,
             extra_make_flags=("--no-print-directory",),
             use_icecc=args.use_icecc,
