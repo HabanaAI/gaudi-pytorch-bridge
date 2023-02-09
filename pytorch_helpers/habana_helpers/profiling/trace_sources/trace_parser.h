@@ -27,13 +27,6 @@ class HpuTraceParser {
       long double start,
       long double end,
       long double wall_stop_time);
-  void processActivity(
-      long double event_start_time,
-      long double event_end_time,
-      long double wall_stop_time,
-      synTraceEvent2* events_ptr,
-      synTraceEvent2* enqueue_events_ptr,
-      TraceSink& trace_sink);
   void convertEventsToActivities(
       synTraceEvent2* events_ptr,
       size_t num_events,

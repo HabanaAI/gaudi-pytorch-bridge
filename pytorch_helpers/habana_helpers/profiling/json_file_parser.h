@@ -11,42 +11,52 @@ class JsonFileParser : public TraceSink {
  public:
   JsonFileParser() = default;
 
-  void addActivity(
-      Activity activity,
-      const std::optional<RecipeInfo>& recipeInfo,
-      uint64_t time,
-      bool begin) override {
-    if (time > 0) {
-      auto event = constructEvent(activity, recipeInfo, time);
-      event["ph"] = begin ? "B" : "E";
-      addToEvents(event);
-    }
-  }
-
   void addCompleteActivity(
-      const Activity& activity,
-      const std::optional<RecipeInfo>& recipeInfo,
+      const std::string_view& name,
+      const std::string_view& func,
+      ActivityType category,
+      int64_t pid,
+      int64_t tid,
       uint64_t start,
       uint64_t end) override {
     if (start > 0 && end > 0) {
-      auto event = constructEvent(activity, recipeInfo, start);
-      event["ph"] = "X";
-      event["dur"] = (int64_t)(end - start);
+      auto event = constructEvent(
+          name,
+          func,
+          mapActivityTypeToString(category),
+          pid,
+          tid,
+          start,
+          (int64_t)(end - start));
+      if (category == ActivityType::KERNEL) {
+        event["args"]["device"] = pid;
+      }
       addToEvents(event);
     }
   }
 
-  void addFlowEvent(
+  void addActivity(
       const std::string_view& name,
-      const std::string_view& cat,
-      const Flow& start,
-      const Flow& finish) {
-    auto flow_start = construct_flow(
-        name, cat, start.device, start.resource, start.time, true);
-    auto flow_end = construct_flow(
-        name, cat, finish.device, finish.resource, finish.time, false);
-    addToEvents(flow_start);
-    addToEvents(flow_end);
+      const std::string_view& func,
+      const std::unordered_map<std::string, std::string>& args,
+      habana::ActivityType category,
+      int64_t pid,
+      int64_t tid,
+      uint64_t time,
+      bool begin) override {
+    if (time > 0) {
+      auto event = constructEvent(
+          name, func, mapActivityTypeToString(category), pid, tid, time, begin);
+      if (category == ActivityType::KERNEL) {
+        event["args"]["device"] = pid;
+      }
+      if (!args.empty()) {
+        for (auto kv : args) {
+          event["args"][kv.first] = kv.second;
+        }
+      }
+      addToEvents(event);
+    }
   }
 
   void addDevice(const std::string_view& name, int64_t id) override {
@@ -152,69 +162,47 @@ class JsonFileParser : public TraceSink {
   void addToEvents(const nlohmannV340::json& obj) {
     traceEvents_.push_back(obj);
   }
-
   nlohmannV340::json constructEvent(
-      const Activity& activity,
-      const std::optional<RecipeInfo>& recipeInfo,
-      int64_t ts) {
-    nlohmannV340::json runtime;
-
-    runtime["cat"] = mapActivityTypeToString(activity.type),
-    runtime["name"] = activity.name;
-    runtime["pid"] = activity.device;
-    runtime["tid"] = activity.resource;
-    runtime["ts"] = ts;
-    if (activity.func != nullptr) {
-      runtime["func"] = activity.func;
-    }
-
-    nlohmannV340::json args;
-
-    if (recipeInfo) {
-      args["recipeId"] = recipeInfo->recipeId;
-      args["recipeName"] = recipeInfo->recipeName;
-      args["streamHandle"] = recipeInfo->streamHandle;
-      args["eventHandle"] = recipeInfo->eventHandle;
-    }
-
-    if (activity.type == ActivityType::KERNEL) {
-      args["device"] = activity.device;
-    }
-
-    if (!activity.args.empty()) {
-      for (auto kv : activity.args) {
-        args[kv.first] = kv.second;
-      }
-    }
-
-    if (!args.empty()) {
-      runtime["args"] = args;
-    }
-
-    return runtime;
-  }
-  nlohmannV340::json construct_flow(
       const std::string_view& name,
+      const std::string_view& func,
       const std::string_view& cat,
       int64_t pid,
       int64_t tid,
       int64_t ts,
-      bool start) {
-    nlohmannV340::json flow;
-    flow["ph"] = start ? "s" : "f";
-    flow["cat"] = cat;
-    flow["name"] = name;
-    flow["ts"] = ts;
-    flow["pid"] = pid;
-    flow["tid"] = tid;
-    flow["bp"] = "e"; // if binding point is not set to enclosing slice ("e")
-                      // flow will end in the first event after timestamp
-    flow["id"] = flow_id_counter;
-    if (!start)
-      flow_id_counter++;
-    return flow;
+      int64_t dur) {
+    nlohmannV340::json runtime;
+    runtime["ph"] = "X";
+    runtime["cat"] = cat;
+    runtime["name"] = name;
+    runtime["pid"] = pid;
+    runtime["tid"] = tid;
+    runtime["ts"] = ts;
+    runtime["dur"] = dur;
+    if (!func.empty()) {
+      runtime["func"] = func;
+    }
+    return runtime;
   }
-
+  nlohmannV340::json constructEvent(
+      const std::string_view& name,
+      const std::string_view& func,
+      const std::string_view& cat,
+      int64_t pid,
+      int64_t tid,
+      int64_t ts,
+      bool begin) {
+    nlohmannV340::json runtime;
+    runtime["ph"] = begin ? "B" : "E";
+    runtime["cat"] = cat;
+    runtime["name"] = name;
+    runtime["pid"] = pid;
+    runtime["tid"] = tid;
+    runtime["ts"] = ts;
+    if (!func.empty()) {
+      runtime["func"] = func;
+    }
+    return runtime;
+  }
   std::string mapActivityTypeToString(ActivityType type) {
     switch (type) {
       case ActivityType::KERNEL:
@@ -228,7 +216,6 @@ class JsonFileParser : public TraceSink {
     }
     return "Runtime";
   }
-  uint64_t flow_id_counter = 0;
   nlohmannV340::json traceEvents_;
   nlohmannV340::json deviceProperties_;
 };

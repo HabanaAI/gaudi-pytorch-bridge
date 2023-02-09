@@ -19,12 +19,6 @@ const char* StringOrFallback(const char* main, const char* fallback) {
   return (main == nullptr or std::strlen(main) == 0) ? fallback : main;
 }
 
-bool Contains(const char* haystack, const char* needle) {
-  return (
-      haystack != nullptr && needle != nullptr &&
-      std::strstr(haystack, needle) != nullptr);
-}
-
 struct EngineType {
   struct Engine {
     uint32_t index;
@@ -238,107 +232,64 @@ bool HpuTraceParser::isEventInTime(
   return start > hpu_start_time_ && end < wall_stop_time;
 }
 
-void HpuTraceParser::processActivity(
-    long double event_start_time,
-    long double event_end_time,
-    long double wall_stop_time,
-    synTraceEvent2* events_ptr,
-    synTraceEvent2* enqueue_events_ptr,
-    TraceSink& trace_sink) {
-  if (isEventInTime(event_start_time, event_end_time, wall_stop_time)) {
-    auto start = timeStampHpuToTB(event_start_time);
-    auto end = timeStampHpuToTB(event_end_time);
-
-    trace_sink.addCompleteActivity(
-        {StringOrFallback(events_ptr->arguments.operation, events_ptr->name),
-         nullptr,
-         {},
-         getActivityType(events_ptr),
-         getDevice(events_ptr),
-         engine_type_database_->getLine(events_ptr->engineIndex)},
-        std::make_optional<RecipeInfo>(
-            {events_ptr->arguments.recipeId,
-             events_ptr->arguments.recipeName,
-             events_ptr->arguments.streamHandle,
-             events_ptr->arguments.eventHandle}),
-        start,
-        end);
-
-    if (enqueue_events_ptr != nullptr && enqueue_events_ptr != events_ptr) {
-      trace_sink.addFlowEvent(
-          StringOrFallback(
-              events_ptr->arguments.operation,
-              events_ptr->name), // name
-          "enqueue", // category
-          {getDevice(enqueue_events_ptr),
-           engine_type_database_->getLine(enqueue_events_ptr->engineIndex),
-           timeStampHpuToTB(enqueue_events_ptr->timestamp)},
-          {getDevice(events_ptr),
-           engine_type_database_->getLine(events_ptr->engineIndex),
-           start});
-    }
-  }
-}
-
 void HpuTraceParser::convertEventsToActivities(
     synTraceEvent2* events_ptr,
     size_t num_events,
     long double wall_stop_time,
     TraceSink& trace_sink) {
-  struct ActiveEvent {
-    synTraceEvent2* begin_;
-    synTraceEvent2* enqueue_;
-  };
-  using ActiveEventsMap = std::unordered_map<
+  std::unordered_map<
       uint32_t,
-      std::unordered_map<uint32_t, std::list<ActiveEvent>>>;
-  using ActiveEnqueueEventsMap = std::unordered_map<uint32_t, synTraceEvent2*>;
-  ActiveEventsMap activeEvents;
-  ActiveEnqueueEventsMap activeEnqueueEvents;
-
+      std::unordered_map<uint32_t, std::list<const synTraceEvent2*>>>
+      activeEvents;
   for (size_t i{}; i < num_events; i++, events_ptr++) {
-    if (skipEvent(events_ptr)) {
-      continue;
-    }
-
-    if (events_ptr->arguments.recipeId != 0 &&
-        Contains(events_ptr->name, "enqueueWithExternalEvents")) {
-      activeEnqueueEvents[events_ptr->arguments.recipeId] = events_ptr;
-    }
-
-    switch (events_ptr->type) {
-      case EventType::begin: {
-        // store begin info, don't add anything
+    if (!skipEvent(events_ptr)) {
+      if (events_ptr->type == EventType::begin ||
+          events_ptr->type == EventType::end) {
         auto& eventList =
             activeEvents[events_ptr->engineIndex][events_ptr->contextId];
-        ActiveEvent activeEvent{
-            events_ptr, activeEnqueueEvents[events_ptr->arguments.recipeId]};
-        eventList.push_back(activeEvent);
-      } break;
-      case EventType::end: {
-        // combine begin info with this event and activity
-        auto& eventList =
-            activeEvents[events_ptr->engineIndex][events_ptr->contextId];
-        if (!eventList.empty()) {
-          processActivity(
-              eventList.front().begin_->timestamp,
-              events_ptr->timestamp,
-              wall_stop_time,
-              events_ptr,
-              eventList.front().enqueue_,
-              trace_sink);
-          eventList.pop_front();
+        if (events_ptr->type == EventType::begin) {
+          eventList.push_back(events_ptr);
+        } else {
+          if (!eventList.empty()) {
+            auto start = timeStampHpuToTB(eventList.front()->timestamp);
+            auto end = timeStampHpuToTB(events_ptr->timestamp);
+            if (isEventInTime(
+                    eventList.front()->timestamp,
+                    events_ptr->timestamp,
+                    wall_stop_time)) {
+              trace_sink.addCompleteActivity(
+                  StringOrFallback(
+                      events_ptr->arguments.operation, events_ptr->name),
+                  "",
+                  getActivityType(events_ptr),
+                  getDevice(events_ptr),
+                  engine_type_database_->getLine(events_ptr->engineIndex),
+                  start,
+                  end);
+            }
+            eventList.pop_front();
+          }
         }
-      } break;
-      case EventType::complete: {
-        processActivity(
-            events_ptr->timestamp,
-            events_ptr->timestamp + events_ptr->duration,
-            wall_stop_time,
-            events_ptr,
-            activeEnqueueEvents[events_ptr->arguments.recipeId],
-            trace_sink);
-      } break;
+        continue;
+      } else if (events_ptr->type == EventType::complete) {
+        auto start = timeStampHpuToTB(events_ptr->timestamp);
+        auto end =
+            timeStampHpuToTB(events_ptr->timestamp + events_ptr->duration);
+        if (isEventInTime(
+                events_ptr->timestamp,
+                events_ptr->timestamp + events_ptr->duration,
+                wall_stop_time)) {
+          trace_sink.addCompleteActivity(
+              StringOrFallback(
+                  events_ptr->arguments.operation, events_ptr->name),
+              "",
+              getActivityType(events_ptr),
+              getDevice(events_ptr),
+              engine_type_database_->getLine(events_ptr->engineIndex),
+              start,
+              end);
+        }
+      }
     }
   }
 }
