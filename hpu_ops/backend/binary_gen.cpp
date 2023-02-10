@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/_foreach_add.h"
@@ -126,7 +129,10 @@ void ForeachBinary::AddNode(
   const auto& selfs = stack[0].toTensorList();
   if (stack.at(1).isTensorList()) {
     const auto& others = stack[1].toTensorList();
-    auto alpha = stack[2].toScalar();
+    at::optional<at::Scalar> alpha;
+    if (stack.size() > 2) {
+      alpha = stack[2].toScalar();
+    }
     for (auto i = 0u; i < selfs.size(); ++i) {
       const auto& self = selfs[i];
       const auto& other = others[i];

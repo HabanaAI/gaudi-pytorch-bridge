@@ -341,6 +341,69 @@ _foreach_log2_:
   inplace_ids: [0]
   op_backend: Foreach
 
+_foreach_mul.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  op_frontend: ForeachBinaryFE
+  out_ids: [0]
+
+_foreach_mul.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  op_frontend: ForeachBinaryFE
+  out_ids: [0]
+
+_foreach_mul.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  op_frontend: ForeachBinaryFE
+  out_ids: [0]
+
+_foreach_mul_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_mul_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_mul_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
+    Greco: [BFloat16, Float, Short, Int, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
 _foreach_neg:
   dtypes: [BFloat16, Float, Int]
   guid: neg_fwd

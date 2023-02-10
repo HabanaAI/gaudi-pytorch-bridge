@@ -1012,12 +1012,14 @@ def frontend(
                         fname
                     )
                 elif rtype == "void" and "TensorList" in sig:
-                    assert (
-                        sig.count("TensorList") == 1
-                    ), f"Only 1 TensorList input supported for inplace ops. Sig: {sig}"
-                    code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
-                        fname, param_vars[0]
-                    )
+                    if sig.count("TensorList") <= 2:
+                        code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
+                            fname, param_vars[0]
+                        )
+                    else:
+                        raise Exception(
+                            f"Only up to 2 TensorList inputs are supported. Sig: {sig}"
+                        )
                 elif rtype.startswith("const at::Tensor"):
                     code += "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
                         fname, lazyop_call_args
