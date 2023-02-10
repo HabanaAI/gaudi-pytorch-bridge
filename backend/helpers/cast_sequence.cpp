@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,16 +8,16 @@
  * and is subject to the confidentiality and license agreements under which it
  * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
+#include "backend/helpers/cast_sequence.h"
 #include <vector>
 
-#include "cast_sequence.h"
-#include "enum_mapping_table.h"
+#include "backend/helpers/enum_mapping_table.h"
 #include "logging.h"
-#include "pt_version_check.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana_helpers {
 

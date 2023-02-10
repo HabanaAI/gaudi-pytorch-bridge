@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,7 +12,7 @@
  */
 
 #include "hpu_ops/lazy_cast.h"
-#include "habana_helpers/cast_sequence.h"
+#include "backend/helpers/cast_sequence.h"
 
 namespace habana {
 

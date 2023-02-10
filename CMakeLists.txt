@@ -110,7 +110,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
-  pytorch_helpers/habana_helpers/cast_sequence.cpp
   pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
   pytorch_helpers/habana_helpers/profiling/profiling.cpp
