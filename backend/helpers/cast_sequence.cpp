@@ -296,4 +296,24 @@ std::vector<CastTypes> get_cast_sequence(CastTypes cast_types) {
   return get_cast_sequence(cast_types, device.type());
 }
 
+CastF32RoundMode_t get_cast_rounding_mode(
+    c10::ScalarType dst_dtype,
+    const bool stochastic_rounding_override) {
+#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+  if ((stochastic_rounding_override ||
+       GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
+      dst_dtype == at::kFp8r152) {
+    return CAST_ROUND_SR;
+  }
+#else
+  (void)stochastic_rounding_override;
+#endif
+
+  if (c10::isIntegralType(dst_dtype, true)) {
+    return CAST_ROUND_ZERO;
+  }
+
+  return CAST_ROUND_HALF_NE;
+}
+
 } // namespace habana_helpers

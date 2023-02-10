@@ -13,6 +13,7 @@
 #pragma once
 #include <ATen/Tensor.h>
 #include <absl/types/optional.h>
+#include <perf_lib_layer_params.h>
 #include <synapse_common_types.h>
 #include <cstdint>
 
@@ -55,4 +56,7 @@ at::ScalarType CastTypeToDataType(CastType ct);
 
 std::vector<CastTypes> get_cast_sequence(CastTypes cast_types);
 
+CastF32RoundMode_t get_cast_rounding_mode(
+    c10::ScalarType dst_dtype,
+    const bool stochastic_rounding_override = false);
 } // namespace habana_helpers

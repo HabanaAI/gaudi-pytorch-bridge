@@ -37,6 +37,7 @@ auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
 } // namespace
 
 namespace habana {
+
 static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   const auto& ival = stack.at(index);
   auto type =

@@ -35,10 +35,6 @@ at::ScalarType getInternalDtype(at::ScalarType dtype);
 std::optional<std::string> direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key);
 
-CastF32RoundMode_t get_cast_rounding_mode(
-    c10::ScalarType dst_dtype,
-    const bool stochastic_rounding_override = false);
-
 // Check whether long is supported on Synapse side for given guid name
 bool isLongTypeSupported(const std::string& guid);
 

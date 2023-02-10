@@ -14,6 +14,7 @@
 
 #include <perf_lib_layer_params.h>
 #include "backend/create_pt_tensor.h"
+#include "backend/helpers/cast_sequence.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/recipe.h"
@@ -178,26 +179,6 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
     return iter->second;
   }
   return {};
-}
-
-CastF32RoundMode_t habana_helpers::get_cast_rounding_mode(
-    c10::ScalarType dst_dtype,
-    const bool stochastic_rounding_override) {
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-  if ((stochastic_rounding_override ||
-       GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
-      dst_dtype == at::kFp8r152) {
-    return CAST_ROUND_SR;
-  }
-#else
-  (void)stochastic_rounding_override;
-#endif
-
-  if (c10::isIntegralType(dst_dtype, true)) {
-    return CAST_ROUND_ZERO;
-  }
-
-  return CAST_ROUND_HALF_NE;
 }
 
 bool habana_helpers::isLongTypeSupported(const std::string& guid) {
