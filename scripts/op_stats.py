@@ -335,8 +335,8 @@ def main(args):
     l_op_decl = f_op_decl.readlines()
     f_op_decl.close()
     p1 = os.path.join(args.gen_files_path, 'wrap_kernels_registrations.cpp')
-    p2 = args.gen_files_path
-    f_manual_ops_decl = open(p1, 'r')
+    p2 = os.path.join(args.gen_files_path, 'backend')
+    f_manual_ops_decl =open(p1, 'r')
     l_manual_ops_decl = f_manual_ops_decl.readlines()
     f_manual_ops_decl.close()
     l_auto_ops_decl = combine_auto_generated_files(p2)
@@ -406,9 +406,8 @@ def main(args):
     valid_auto_ops_decl = []
     auto_op_dict = {}
     for line in l_auto_ops_decl:
-        # if "m.impl(" in line and "HpuOp" in line:
-        if "m.impl(" in line:
-            op_name = line.split('m.impl("')[1].split('",')[0]
+        if "REGISTER_HPU_BACKEND" in line:
+            op_name = line.split('.REGISTER_HPU_BACKEND("')[1].split('",')[0]
             # Skip adding to "auto" ops list if op is registered as part of auto code,
             #  but is actually manual op overridden in yaml
             if is_op_overridden_in_yaml(op_name, manual_ops_override_list):
