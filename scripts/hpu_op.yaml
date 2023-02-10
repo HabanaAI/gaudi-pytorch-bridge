@@ -2076,9 +2076,9 @@ cumsum:
   force_default: false
   custom_fill_params: FillCumsumParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Int, Half, Char]
+    Gaudi3: [BFloat16, Float, Int, Half, Char]
     Greco: [BFloat16, Float, Half]
   guid: cumsum_fwd
   op_frontend: LazyCumsum

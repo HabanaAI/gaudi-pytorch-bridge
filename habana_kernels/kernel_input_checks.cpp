@@ -12,6 +12,7 @@
  */
 
 #include "habana_kernels/kernel_input_checks.h"
+#include <c10/core/ScalarType.h>
 #include "habana_helpers/pt_version_check.h"
 
 std::unordered_map<
@@ -1727,19 +1728,27 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         },
         {
             "cumsum",
-            {{at::ScalarType::Int,
-              at::ScalarType::Long,
-              at::ScalarType::Double,
-              at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+            {{
+                at::ScalarType::Int,
+                at::ScalarType::Long,
+                at::ScalarType::Double,
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+                at::ScalarType::Bool,
+                at::ScalarType::Char,
+            }},
         },
         {
             "cumsum_",
-            {{at::ScalarType::Int,
-              at::ScalarType::Long,
-              at::ScalarType::Double,
-              at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+            {{
+                at::ScalarType::Int,
+                at::ScalarType::Long,
+                at::ScalarType::Double,
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+                at::ScalarType::Bool,
+                at::ScalarType::Char,
+            }},
         },
         {
             "diag",
