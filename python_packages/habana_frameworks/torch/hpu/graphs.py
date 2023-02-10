@@ -511,20 +511,34 @@ class GraphModel(torch.nn.Module):
 class ModuleCacher(torch.nn.Module):
     def __init__(self, max_graphs=10):
         super(ModuleCacher, self).__init__()
-        self.model_dict = {}
         self.max_graphs = max_graphs
+        self.model_dict = {}
+        self.input_count_dict = {}
+        self.priority_keys = []
+        self.is_capturing = False
+        self.iteration_cnt = -1
         self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
         # Variables for statistics collection
+        self.cached_hits_dict = {}
+        self.uncached_hits = 0
         self.forward_cnt = 0
-        self.orig_graph_hits_cnt = 0
-        self.hpu_graph_hits_cnt = 0
-        self.hpu_graph_hit_stats = {}
         self.set_iterations_call_cnt = 0
 
     def set_iteration_count(self, iter_num):
         self.forward_cnt = iter_num
         self.set_iterations_call_cnt += 1
 
+    def cache_replay(self, input_id, *args, **kwargs):
+        self.cached_hits_dict[input_id] = self.cached_hits_dict.get(input_id, 0) + 1
+        graph_model = self.model_dict[input_id]
+        output = graph_model.graph_forward(*args, **kwargs)
+        return output
+
+    def cache_insert(self, input_id, *args, **kwargs):
+        graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
+        graph_model.init_hpu_graph(*args, **kwargs)
+        self.model_dict[input_id] = graph_model
+        return self.cache_replay(input_id, *args, **kwargs)
 
     def forward(self, *args, **kwargs):
         input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
@@ -533,47 +547,94 @@ class ModuleCacher(torch.nn.Module):
         if self.have_grad_accumulation and self.forward_cnt == 0:
             input_id = input_hash((input_id, self.forward_cnt+1,))
 
-        if use_cache and input_id in self.model_dict:
-            self.hpu_graph_hit_stats[input_id] += 1
-            self.hpu_graph_hits_cnt += 1
-            graph_model = self.model_dict[input_id]
-            output = graph_model.graph_forward(*args, **kwargs)
-            return output
+        if use_cache:
+            if input_id in self.model_dict:
+                return self.cache_replay(input_id, *args, **kwargs)
 
-        elif use_cache and len(self.model_dict) < self.max_graphs:
-            graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
-            graph_model.init_hpu_graph(*args, **kwargs)
-            self.model_dict[input_id] = graph_model
-            self.hpu_graph_hit_stats[input_id] = 0
-            return self.forward(*args, **kwargs)
+            if len(self.model_dict) < self.max_graphs:
+                return self.cache_insert(input_id, *args, **kwargs)
 
-        else:
-            self.orig_graph_hits_cnt += 1
-            return self.orig_model(*args, **kwargs)
+        self.uncached_hits += 1
+        return self.orig_model(*args, **kwargs)
 
-    def __call__(self, model, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, verbose=False):
+    def capture_start(self):
+        self.is_capturing = True
+
+    def record(self, input_id):
+        self.input_count_dict[input_id] = self.input_count_dict.get(input_id, 0) + 1
+
+    def capture_end(self):
+        self.priority_keys = sorted(self.input_count_dict.keys(), key=lambda x:self.input_count_dict[x], reverse=True)[:self.max_graphs]
+        self.is_capturing = False
+        if self.verbose:
+            self.log_stats()
+        self.input_count_dict = {}
+
+    def forward_lfs(self, *args, **kwargs):
+        self.iteration_cnt += 1
+
+        input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
+        use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode and not self.is_capturing
+
+        if self.have_grad_accumulation and self.forward_cnt == 0:
+            input_id = input_hash((input_id, self.forward_cnt+1,))
+
+        if self.is_capturing:
+            self.record(input_id)
+
+        if self.verbose and self.iteration_cnt % self.log_frequency == 0:
+            self.log_stats()
+
+        if use_cache:
+            if input_id in self.model_dict:
+               return self.cache_replay(input_id, *args, **kwargs)
+
+            if input_id in self.priority_keys:
+                return self.cache_insert(input_id, *args, **kwargs)
+
+        self.uncached_hits += 1
+        return self.orig_model(*args, **kwargs)
+
+    def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False):
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
-        self.model = model
-        self.model.forward = self.forward
         self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
+        self.model = model
+        self.use_lfu = use_lfu
+        if self.use_lfu:
+            self.model.forward = self.forward_lfs
+        else:
+            self.model.forward = self.forward
         self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
         self.have_grad_accumulation = have_grad_accumulation
         self.model.set_iteration_count = self.set_iteration_count
+        self.model.capture_start = self.capture_start
+        self.model.capture_end = self.capture_end
         self.verbose = verbose
+        self.log_frequency = log_frequency
         return self.model
+
+    def log_stats(self):
+        print("HPU Graph Statistics")
+        print("  Configs")
+        print("    Max graphs                :-", self.max_graphs)
+        print("    LFU Cache                 :-", self.use_lfu)
+        print("    Async execution config    :-", self.asynchronous)
+        print("    Grad accumulation config  :-", self.have_grad_accumulation)
+        print("    Set iteration calls       :-", self.set_iterations_call_cnt)
+        print("  Cache info ")
+        print("    No. of HPUGraphs cached   :-", len(self.model_dict))
+        print("    Priority keys             :-", self.priority_keys)
+        print("    Input hash v. cached hits :-", self.cached_hits_dict)
+        print("    Total cached hits         :-", sum(self.cached_hits_dict.values()))
+        print("    Uncached hits             :-", self.uncached_hits)
+        print("    Total forwards executed   :-", sum(self.cached_hits_dict.values()) + self.uncached_hits)
+        if self.use_lfu and self.input_count_dict:
+            print("    Input hash v. count         :", self.input_count_dict)
+
 
     def __del__(self):
         if self.verbose:
-            print("HPU Graph Statistics")
-            print(" Maximum graphs cache config    :", self.max_graphs)
-            print(" Async execution config         :", self.asynchronous)
-            print(" Grad accumulation config       :", self.have_grad_accumulation)
-            print(" Set iteration calls            :", self.set_iterations_call_cnt)
-            print(" No of HPUGraphs cached         :", len(self.model_dict))
-            print(" HPUGraphs hash/hit counts      :", self.hpu_graph_hit_stats)
-            print(" Original model graphs executed :", self.orig_graph_hits_cnt)
-            print(" HPUGraph cache executed        :", self.hpu_graph_hits_cnt)
-            print(" Total graphs executed          :", self.hpu_graph_hits_cnt + self.orig_graph_hits_cnt)
+            self.log_stats()
