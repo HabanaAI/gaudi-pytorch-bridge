@@ -1,8 +1,21 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "common_functions_norm_kernel_tests.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -16,28 +29,10 @@ using namespace at;
 
 class LazyNormKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
-  auto input_tensor =
-      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
-  at::Tensor weight =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tWeight = weight.to(torch::kHPU);
-  at::Tensor bias =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tBias = bias.to(torch::kHPU);
-  auto results =
-      torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
-
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
-  auto results_cpu =
-      torch::native_layer_norm(input_tensor, {1, 3, 4, 4}, weight, bias, 0.01);
-  at::Tensor result_cpu = std::get<0>(results_cpu);
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
-}
+LAYER_NORM_TEST(LazyNormKernelTest, Forward)
+LAYER_NORM_TEST(LazyNormKernelTest, Backward)
+LAYER_NORM_TEST(LazyNormKernelTest, BackwardGal)
+LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
 
 TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
@@ -189,109 +184,6 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
           allclose(hgrad_in_hpu, grad_in, 0.01, 0.01),
       true);
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
-}
-
-TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
-  auto input_grad =
-      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
-  auto input =
-      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaIn = input.to(torch::kHPU);
-  auto mean =
-      torch::arange(10, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 1});
-  auto var = torch::arange(10, torch::dtype(torch::kFloat).requires_grad(false))
-                 .reshape({10, 1});
-  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
-  torch::Tensor tHabanaVar = var.to(torch::kHPU);
-  auto gamma =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw
-  torch::Tensor tGamma = gamma.to(torch::kHPU);
-  auto bias =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw
-  torch::Tensor tBias = bias.to(torch::kHPU);
-
-  auto results = torch::native_layer_norm_backward(
-      tHabanaGrad,
-      tHabanaIn,
-      {1, 3, 4, 4},
-      tHabanaMean,
-      tHabanaVar,
-      tGamma,
-      tBias,
-      {true, true, true});
-
-  auto results_cpu = torch::native_layer_norm_backward(
-      input_grad,
-      input,
-      {1, 3, 4, 4},
-      mean,
-      var,
-      gamma,
-      bias,
-      {true, true, true});
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
-
-  at::Tensor result_cpu = std::get<0>(results_cpu);
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
-}
-
-TEST_F(LazyNormKernelTest, LayerNormBackwardExecute_gal) {
-  auto input_grad =
-      torch::ones({24}, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({2, 3, 4}); // nchw
-  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
-  auto input =
-      torch::arange(24, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({2, 3, 4}); // nchw
-  torch::Tensor tHabanaIn = input.to(torch::kHPU);
-  auto mean = torch::ones({6}, torch::dtype(torch::kFloat).requires_grad(false))
-                  .reshape({2, 3});
-  auto var = torch::ones({6}, torch::dtype(torch::kFloat).requires_grad(false))
-                 .reshape({2, 3});
-  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
-  torch::Tensor tHabanaVar = var.to(torch::kHPU);
-
-  auto gamma =
-      torch::ones({4}, torch::dtype(torch::kFloat).requires_grad(false));
-  // .reshape({4});
-  torch::Tensor tGamma = gamma.to(torch::kHPU);
-  auto bias =
-      torch::ones({4}, torch::dtype(torch::kFloat).requires_grad(false));
-  // .reshape({4});
-  torch::Tensor tBias = bias.to(torch::kHPU);
-
-  auto results_cpu = torch::native_layer_norm_backward(
-      input_grad, input, 4, mean, var, gamma, bias, {true, true, true});
-
-  auto results = torch::native_layer_norm_backward(
-      tHabanaGrad,
-      tHabanaIn,
-      4,
-      tHabanaMean,
-      tHabanaVar,
-      tGamma,
-      tBias,
-      {true, true, true});
-
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
-
-  at::Tensor result_cpu = std::get<0>(results_cpu);
-
-  // Print Both Tensor contents:
-  //   std::clog << "\n\n\n\nLazy Result: " << std::endl;
-  //   PrintATenTensor(result_lazy);
-  //   std::clog << result_lazy << std::endl;
-  //   std::clog << "\n\n\n\nCPU Result: " << std::endl;
-  //   PrintATenTensor(result_cpu);
-  //   std::clog << result_cpu << std::endl;
-
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
 // Also validates ComputeOutputShape for BatchNormFwd
@@ -932,67 +824,6 @@ TEST_F(LazyNormKernelTest, NormScalarDimDtypeOutTest) {
   torch::norm_out(Out, A, 1, dimarr, false, at::kFloat);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
-}
-
-TEST_F(LazyNormKernelTest, LayerNormFwdBwdExecute) {
-  auto input_tensor =
-      torch::arange(16, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({2, 1, 2, 4}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
-  at::Tensor weight =
-      torch::arange(8, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 2, 4}); // nchw;
-  torch::Tensor tWeight = weight.to(torch::kHPU);
-  at::Tensor bias =
-      torch::arange(8, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 2, 4}); // nchw;
-  torch::Tensor tBias = bias.to(torch::kHPU);
-  auto results =
-      torch::native_layer_norm(tHabanaX, {1, 2, 4}, tWeight, tBias, 0.01);
-
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
-  auto results_cpu =
-      torch::native_layer_norm(input_tensor, {1, 2, 4}, weight, bias, 0.01);
-  at::Tensor result_cpu = std::get<0>(results_cpu);
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
-
-  // Backward
-
-  auto input_grad =
-      torch::arange(16, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({2, 1, 2, 4}); // nchw
-  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
-  auto mean = std::get<1>(results_cpu);
-  auto var = std::get<2>(results_cpu);
-  torch::Tensor tHabanaMean = std::get<1>(results);
-  torch::Tensor tHabanaVar = std::get<2>(results);
-  auto gamma = weight; // nchw
-  torch::Tensor tGamma = tWeight;
-
-  auto results_bwd = torch::native_layer_norm_backward(
-      tHabanaGrad,
-      tHabanaX,
-      {1, 2, 4},
-      tHabanaMean,
-      tHabanaVar,
-      tGamma,
-      tBias,
-      {true, true, true});
-
-  auto results_bwd_cpu = torch::native_layer_norm_backward(
-      input_grad,
-      input_tensor,
-      {1, 2, 4},
-      mean,
-      var,
-      gamma,
-      bias,
-      {true, true, true});
-  at::Tensor result_bwd_lazy = (std::get<0>(results_bwd)).to(torch::kCPU);
-
-  at::Tensor result_bwd_cpu = std::get<0>(results_bwd_cpu);
-
-  EXPECT_EQ(allclose(result_bwd_lazy, result_bwd_cpu, 0.01, 0.01), true);
 }
 
 TEST_F(LazyNormKernelTest, GroupNormFwdBwdExecute) {

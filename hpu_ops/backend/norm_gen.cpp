@@ -10,14 +10,18 @@
  *
  *******************************************************************************
  */
-
 #include "generated/backend/linalg_vector_norm.h"
+#include "generated/backend/native_layer_norm.h"
+#include "generated/backend/native_layer_norm_backward.h"
 #include "generated/backend/norm.h"
+#include "habana_kernels/norm_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 #define INF std::numeric_limits<float>::infinity()
 namespace habana {
+
+namespace sh = synapse_helpers;
 
 sizes_vec NormOutputShape(const at::Stack&) {
   return {{}};
@@ -53,9 +57,7 @@ std::shared_ptr<void> FillPFormNormOpParams(
   return params;
 }
 
-void NormHabanaOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto self = stack.at(0).toTensor();
   const auto p = stack.at(1).toScalar();
   const auto dtype = stack.at(2).toScalarType();
@@ -77,7 +79,7 @@ void NormHabanaOperator::AddNode(
           {{outshape, dtype}});
 
       std::vector<synTensor> reduction_inputs = {mul[0].get()};
-      std::vector<synapse_helpers::tensor> reshape;
+      std::vector<sh::tensor> reshape;
 
       if (n_dims > 1) {
         auto reshape_outshape = self.numel();
@@ -116,7 +118,7 @@ void NormHabanaOperator::AddNode(
 
   } else {
     auto reshape_outshape = self.numel();
-    std::vector<synapse_helpers::tensor> reshape;
+    std::vector<sh::tensor> reshape;
     if (n_dims > 1) {
       reshape.emplace_back(
           ReshapeHelper(graph, input, reshape_outshape, dtype));
@@ -158,9 +160,9 @@ void NormHabanaOperator::AddNode(
   }
 }
 
-static synapse_helpers::tensor L0NormPreprocess(
+static sh::tensor L0NormPreprocess(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     std::vector<synTensor> input,
     const at::IntArrayRef inputshape,
     const at::ScalarType& dtype) {
@@ -181,9 +183,9 @@ static synapse_helpers::tensor L0NormPreprocess(
       op, graph, not_equal[0].get(), inputshape, torch::kBool, dtype);
 }
 
-static synapse_helpers::tensor NegPosInfNormPreprocess(
+static sh::tensor NegPosInfNormPreprocess(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     std::vector<synTensor> input,
     const at::IntArrayRef inputshape,
     const at::ScalarType& dtype) {
@@ -239,9 +241,9 @@ void NormCheck(const at::ScalarType& dtype) {
       dtype);
 }
 
-static synapse_helpers::tensor NormCommon(
+static sh::tensor NormCommon(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     synTensor input_tensor,
     at::ScalarType dtype,
     const torch::Tensor& self,
@@ -255,9 +257,9 @@ static synapse_helpers::tensor NormCommon(
   auto self_shape = self.sizes().vec();
   struct vec_norm_inputs {
     std::string guid;
-    std::function<synapse_helpers::tensor(
+    std::function<sh::tensor(
         OpBackend*,
-        synapse_helpers::graph&,
+        sh::graph&,
         std::vector<synTensor>,
         const at::IntArrayRef,
         const at::ScalarType&)>
@@ -419,7 +421,7 @@ static synapse_helpers::tensor NormCommon(
   }
 }
 
-void VecNormOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void VecNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto optional_dtype = stack.at(4).toOptional<at::ScalarType>();
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
@@ -449,9 +451,7 @@ void VecNormOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(result);
 }
 
-void NormOpWithDtype::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void NormOpWithDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
   std::vector<int64_t> dim = stack.at(2).toIntVector();
@@ -474,9 +474,7 @@ void NormOpWithDtype::AddNode(
   syn_out(0) = std::move(result);
 }
 
-void NormOpWithOutDtype::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void NormOpWithOutDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
   std::vector<int64_t> dim = stack.at(2).toIntList().vec();
@@ -498,9 +496,7 @@ void NormOpWithOutDtype::AddNode(
   syn_out(0) = std::move(result);
 }
 
-void NormOpScalar::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void NormOpScalar::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto ord = stack.at(1).toScalar();
 
@@ -517,4 +513,291 @@ void NormOpScalar::AddNode(
       false /* norm */);
   syn_out(0) = std::move(result);
 }
+
+sizes_vec LayerNormOutputShape(const at::Stack& stack) {
+  auto input = stack[0].toTensor();
+  auto normalized_shape = stack[1].toIntList();
+
+  const auto input_shape = input.sizes();
+  auto output_sizes = input_shape.vec();
+  const int axis = input.dim() - normalized_shape.size();
+  std::vector<int64_t> shape_mean_rstd = output_sizes;
+  for (size_t i = axis; i < shape_mean_rstd.size(); ++i) {
+    shape_mean_rstd[i] = 1;
+  }
+  return {output_sizes, shape_mean_rstd, shape_mean_rstd};
+}
+
+static sh::tensor CreateLayerNormBiasWeightTensor(
+    OpBackend* op,
+    sh::graph& graph,
+    const OpBackend::TensorsPair& input,
+    const c10::optional<OpBackend::TensorsPair>& weightOrBiasOpt,
+    int64_t constant_numel,
+    float constant_value,
+    std::array<int64_t, 1>& weightOrBias_shape) {
+  if (weightOrBiasOpt) {
+    weightOrBias_shape = {weightOrBiasOpt->pt_t.numel()};
+    auto weightOrBias = OpBackend::BuildReshape(
+        op,
+        graph,
+        weightOrBiasOpt->sh_t.get(),
+        weightOrBias_shape,
+        weightOrBiasOpt->pt_t.scalar_type());
+    return weightOrBias;
+  } else {
+    weightOrBias_shape = {constant_numel};
+    auto weightOrBias = OpBackend::BuildConstant(
+        op,
+        graph,
+        constant_value,
+        input.pt_t.scalar_type(),
+        weightOrBias_shape);
+    return weightOrBias;
+  }
+}
+
+void LayerNormHabanaOperator::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "LayerNormHabanaOperator::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto normalized_shape = getNextInput<std::vector<int64_t>>(stackGetter);
+  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto eps = getNextInput<double>(stackGetter);
+
+  const auto input_shape = input.pt_t.sizes();
+  const auto input_ndim = input.pt_t.dim();
+  const int normalized_ndim = normalized_shape.size();
+
+  auto use_tpc_affine_path =
+      !weightOpt && !biasOpt && (input_ndim == 4) && (normalized_ndim == 3);
+
+  int64_t normalized_shape_numel = c10::multiply_integers(
+      normalized_shape.cbegin(), normalized_shape.cend());
+
+  int64_t weightOrBias_constant_numel = use_tpc_affine_path
+      ? input_shape[input_ndim - 1]
+      : normalized_shape_numel;
+
+  std::array<int64_t, 1> weightOrBias_shape = {};
+  sh::tensor weight = CreateLayerNormBiasWeightTensor(
+      this,
+      graph,
+      input,
+      weightOpt,
+      weightOrBias_constant_numel,
+      1.0f,
+      weightOrBias_shape);
+
+  sh::tensor bias = CreateLayerNormBiasWeightTensor(
+      this,
+      graph,
+      input,
+      biasOpt,
+      weightOrBias_constant_numel,
+      0.0f,
+      weightOrBias_shape);
+
+  sh::tensor* localInput = &input.sh_t;
+
+  if (input_ndim < normalized_ndim ||
+      !input_shape.slice(input_ndim - normalized_ndim)
+           .equals(normalized_shape)) {
+    std::stringstream ss;
+    ss << "Given normalized_shape=" << normalized_shape
+       << ", expected input with shape [*";
+    for (auto size : normalized_shape) {
+      ss << ", " << size;
+    }
+    ss << "], but got input of size" << input_shape;
+    AT_ERROR(ss.str());
+  }
+
+  const int64_t axis = input_ndim - normalized_ndim;
+  int64_t m =
+      c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n =
+      c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+
+  // Storage for only 1 element
+  // If more are necessary replace with vector, as in Bwd case
+  std::optional<sh::tensor> storage;
+
+  int64_t input_reshaped_shape[] = {1, 1, m, n};
+  if (!use_tpc_affine_path) {
+    storage = ReshapeHelper(
+        graph,
+        localInput->get(),
+        input_reshaped_shape,
+        input.pt_t.scalar_type());
+    localInput = &(*storage);
+  }
+
+  ns_LayerNormKernel::ParamsNorm params_norm{};
+  ns_LayerNormKernel::Params params{};
+  void* paramsPtr = nullptr;
+  size_t paramsSize = 0;
+
+  if (use_tpc_affine_path) {
+    params_norm.eps = static_cast<float>(eps);
+    params_norm.epsValid = true;
+    params_norm.NormAxisBmp =
+        (1 << normalized_ndim) - 1; // normalize across CWH
+    params_norm.ParamAxisBmp = 1;
+    paramsPtr = &params_norm;
+    paramsSize = sizeof(params_norm);
+  } else {
+    params.eps = static_cast<float>(eps);
+    params.epsValid = true;
+    paramsPtr = &params;
+    paramsSize = sizeof(params);
+  }
+
+  auto outputShapes = LayerNormOutputShape(stack);
+  int64_t mean_rstd_shape[] = {1, 1, m, 1};
+
+  std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
+  for (int i = 0; i < outputShapes.size(); ++i) {
+    if (use_tpc_affine_path) {
+      node_output_attr.push_back({outputShapes[i], ScalarType(), i});
+    } else {
+      node_output_attr.push_back(
+          {i == 0 ? input_reshaped_shape : mean_rstd_shape, ScalarType()});
+    }
+  }
+
+  auto ln = BuildOp(
+      graph,
+      guid_,
+      {localInput->get(), bias.get(), weight.get()},
+      node_output_attr,
+      paramsPtr,
+      paramsSize);
+
+  for (size_t i = 0; i < ln.size(); ++i) {
+    if (use_tpc_affine_path) {
+      syn_out(i) = std::move(ln[i]);
+    } else {
+      auto reshaped =
+          ReshapeHelper(graph, ln[i].get(), outputShapes[i], ScalarType(), i);
+      syn_out(i) = std::move(reshaped);
+    }
+  }
+}
+
+sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
+  auto input = stack[1].toTensor();
+  auto input_size = input.sizes().vec();
+
+  std::vector<int64_t> weight_size;
+  if (stack[5].isTensor()) {
+    auto weight = stack[5].toTensor();
+    weight_size = weight.sizes().vec();
+  } else {
+    weight_size = stack[2].toIntList().vec();
+  }
+
+  return {input_size, weight_size, weight_size};
+}
+
+static void CheckMeanRstdSizes(
+    const char* label,
+    const OpBackend::TensorsPair& meanOrRstd) {
+  TORCH_CHECK(
+      meanOrRstd.pt_t.sizes().size() <= 4,
+      "Input ",
+      label,
+      " for LayerNormBackward is over 4 dims - unsupported!");
+}
+
+void LayerNormBwdHabanaOperator::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "LayerNormBwdHabanaOperator::AddNode");
+  auto grad_out = getNextInput<TensorsPair>(stackGetter);
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto normalized_shape = getNextInput<std::vector<int64_t>>(stackGetter);
+  auto mean = getNextInput<TensorsPair>(stackGetter);
+  auto rstd = getNextInput<TensorsPair>(stackGetter);
+  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto output_mask = getNextInput<c10::List<bool>>(stackGetter);
+
+  CheckMeanRstdSizes("mean", mean);
+  CheckMeanRstdSizes("rstd", rstd);
+
+  const auto input_shape = input.pt_t.sizes();
+  const auto input_ndim = input.pt_t.dim();
+  const int normalized_ndim = normalized_shape.size();
+  const int axis = input_ndim - normalized_ndim;
+  int64_t m =
+      c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n =
+      c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+  std::array<int64_t, 4> sizes_as_4D = {1, 1, m, n};
+
+  std::vector<sh::tensor> storage;
+  // Manual handling of reserved size - maximum number of calls to
+  // storage.push_back
+  storage.reserve(4);
+
+  for (int i = 0; i < 2; ++i) {
+    const auto& src = (i == 0) ? grad_out : input;
+    storage.push_back(ReshapeHelper(
+        graph, src.sh_t.get(), sizes_as_4D, src.pt_t.scalar_type()));
+  }
+
+  const auto& grad_out_as_4D = storage[0];
+  const auto& input_as_4D = storage[1];
+
+  std::array<int64_t, 1> weightShape = {};
+  sh::tensor weight = CreateLayerNormBiasWeightTensor(
+      this,
+      graph,
+      input,
+      weightOpt,
+      c10::multiply_integers(
+          normalized_shape.cbegin(), normalized_shape.cend()),
+      1.0f,
+      weightShape);
+
+  std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
+  for (int i = 0; i < 2; ++i) {
+    const auto& src = (i == 0) ? mean : rstd;
+    storage.push_back(ReshapeHelper(
+        graph, src.sh_t.get(), mean_rstd_as_4D, src.pt_t.scalar_type()));
+  }
+
+  const auto& mean_as_4D = storage[storage.size() - 2];
+  const auto& rstd_as_4D = storage.back();
+
+  auto outputShapes = LayerNormBwdOutputShape(stack);
+
+  ns_LayerNormKernel::Params params;
+  params.epsValid = false;
+
+  auto lnbwd = BuildOp(
+      graph,
+      guid_,
+      {input_as_4D.get(),
+       grad_out_as_4D.get(),
+       mean_as_4D.get(),
+       rstd_as_4D.get(),
+       weight.get()},
+      {{sizes_as_4D, ScalarType()},
+       {weightShape, ScalarType()},
+       {weightShape, ScalarType()}},
+      &params,
+      sizeof(params));
+
+  static std::array<int, 3> outIds = {0, 2, 1};
+  for (size_t i = 0; i < outIds.size(); ++i) {
+    auto reshaped = ReshapeHelper(
+        graph, lnbwd[i].get(), outputShapes[i], ScalarType(), outIds[i]);
+    syn_out(outIds[i]) = std::move(reshaped);
+  }
+}
+
 } // namespace habana

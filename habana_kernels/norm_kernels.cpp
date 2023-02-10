@@ -2308,10 +2308,6 @@ static auto& NormKernelsKernelRegistry =
             KERNEL_FN(BatchNormBackwardOperator))
         .add("hpu::fused_norm_", KERNEL_FN(FusedNormOperator))
         .add("hpu::fused_norm_lazy", KERNEL_FN(FusedNormLazyOperator))
-        .add("aten::native_layer_norm", KERNEL_FN(LayerNormOperator))
-        .add(
-            "aten::native_layer_norm_backward",
-            KERNEL_FN(LayerNormBackwardOperator))
         .add("hpu::instance_norm", KERNEL_FN(InstanceNormOperator))
         .add(
             "hpu::instance_norm_backward",

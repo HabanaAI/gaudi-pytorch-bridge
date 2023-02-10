@@ -16,6 +16,7 @@
 #include <torch/torch.h>
 #include <stdexcept>
 #include "backend/synapse_helpers/env_flags.h"
+#include "common_functions_norm_kernel_tests.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_lazy_test_infra.h"
@@ -353,28 +354,7 @@ TEST_F(EagerKernelTest, Isnan0DTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST_F(EagerKernelTest, LayerNormForwardExecute) {
-  auto input_tensor =
-      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
-  at::Tensor weight =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tWeight = weight.to(torch::kHPU);
-  at::Tensor bias =
-      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tBias = bias.to(torch::kHPU);
-  auto results =
-      torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
-
-  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
-  auto results_cpu =
-      torch::native_layer_norm(input_tensor, {1, 3, 4, 4}, weight, bias, 0.01);
-  at::Tensor result_cpu = std::get<0>(results_cpu);
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
-}
+LAYER_NORM_TEST(EagerKernelTest, Forward)
 
 TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
