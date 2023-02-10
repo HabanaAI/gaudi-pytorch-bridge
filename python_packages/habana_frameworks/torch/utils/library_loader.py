@@ -6,6 +6,7 @@ import os
 import sys
 import torch
 import atexit
+import subprocess
 from habana_frameworks.torch import _hpu_C
 
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
@@ -62,7 +63,16 @@ def is_habana_avaialble():
         if result.find('Habana') != -1:
             status = True
     except Exception as e:
-        status = False
+        # Workaround to mitigate hl-smi usage on simulators
+        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ['true', 'True', '1']:
+            print("Enabling Gaudi Simulator As Habana Device !!")
+            p = subprocess.Popen(['pgrep', 'coral'],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            num_cards = sum(1 for _ in p.stdout)
+            if num_cards >= 1:
+                status = True
+            else:
+                status = False
     if enable_console == False:
         os.environ["ENABLE_CONSOLE"] = 'false'
     return status
@@ -80,7 +90,16 @@ def is_habana_available():
         if result.find('Habana') != -1:
             status = True
     except Exception as e:
-        status = False
+        # Workaround to mitigate hl-smi usage on simulators
+        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ['true', 'True', '1']:
+            print("Enabling Gaudi Simulator As Habana Device !!")
+            p = subprocess.Popen(['pgrep', 'coral'],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            num_cards = sum(1 for _ in p.stdout)
+            if num_cards >= 1:
+                status = True
+            else:
+                status = False
     if enable_console == False:
         os.environ["ENABLE_CONSOLE"] = 'false'
     return status
