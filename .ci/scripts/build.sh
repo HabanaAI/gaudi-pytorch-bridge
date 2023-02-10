@@ -303,6 +303,11 @@ build_pytorch_modules()
     fi
 
     "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py $__variables_to_build
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        echo "Failed to run build.py. Exit code: " $__result
+        return $__result
+    fi
 
     if [ -n "$__release" ]; then
         if [ "z$__generate_op_stats" == "ztrue" ]; then
