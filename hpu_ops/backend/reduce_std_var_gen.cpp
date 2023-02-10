@@ -1,18 +1,21 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
+#include "backend/helpers/lowering_util.h"
 #include "generated/backend/std.h"
 #include "generated/backend/std_mean.h"
 #include "generated/backend/var.h"
 #include "generated/backend/var_mean.h"
-#include "habana_kernels/lowering_util.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/hpu_op_helper.h"
 

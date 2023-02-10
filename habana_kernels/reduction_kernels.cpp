@@ -19,6 +19,7 @@
 
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/lowering_util.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
@@ -26,7 +27,6 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/lowering_util.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"

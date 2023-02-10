@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "hpu_ops/backend/reduction_template.h"
-#include "habana_kernels/lowering_util.h"
+#include "backend/helpers/lowering_util.h"
 #include "hpu_ops/common/reduction_template.h"
 #include "hpu_ops/hpu_op_helper.h"
 
