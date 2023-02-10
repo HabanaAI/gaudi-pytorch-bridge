@@ -55,8 +55,6 @@ int64_t tensor_numel(const at::Tensor& self);
 
 std::vector<int64_t> infer_size(c10::IntArrayRef shape, int64_t numel);
 
-at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
-
 at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
     const at::Tensor& self,
@@ -73,8 +71,6 @@ std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
 std::string name_suffix_from_type(
     const c10::ScalarType pt_type,
     bool use_int64 = false);
-
-at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 
 void copy_data_to_host(
     const at::Tensor& src,
