@@ -36,7 +36,7 @@ class SynapseProfilerApi:
         self.profiler_start_call.restype = c_int
         self.profiler_stop_call = return_c_func(self.full_path, 'synProfilerStop')
         self.profiler_stop_call.restype = c_int
-        self.profiler_get_trace_call = return_c_func(self.full_path, 'synProfilerGetTrace2')
+        self.profiler_get_trace_call = return_c_func(self.full_path, 'synProfilerGetTrace')
         self.profiler_get_trace_call.restype = c_int
         self.profiler_sync_call = return_c_func(self.full_path, 'synDeviceSynchronize')
         self.profiler_sync_call.restype = c_int

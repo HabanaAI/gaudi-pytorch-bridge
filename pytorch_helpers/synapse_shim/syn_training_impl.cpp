@@ -440,14 +440,14 @@ synProfilerStop(const synTraceType type, const synDeviceId deviceId) {
   return syn_api->synProfilerStop(type, deviceId);
 }
 
-synStatus SYN_API_CALL synProfilerGetTrace2(
+synStatus SYN_API_CALL synProfilerGetTrace(
     const synTraceType type,
     const synDeviceId deviceId,
     const synTraceFormat format,
     void* buffer,
     size_t* size,
     size_t* numEntries) {
-  return syn_api->synProfilerGetTrace2(
+  return syn_api->synProfilerGetTrace(
       type, deviceId, format, buffer, size, numEntries);
 }
 

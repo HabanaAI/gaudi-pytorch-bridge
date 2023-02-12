@@ -15,13 +15,13 @@ class HpuTraceParser {
   ~HpuTraceParser();
 
   void Export(
-      synTraceEvent2* events_ptr,
+      synTraceEvent* events_ptr,
       size_t num_events,
       long double wall_stop_time,
       TraceSink& trace_sink);
 
  private:
-  bool skipEvent(const synTraceEvent2* events_ptr);
+  bool skipEvent(const synTraceEvent* events_ptr);
   void initLanes(TraceSink& trace_sink);
   bool isEventInTime(
       long double start,
@@ -31,18 +31,18 @@ class HpuTraceParser {
       long double event_start_time,
       long double event_end_time,
       long double wall_stop_time,
-      synTraceEvent2* events_ptr,
-      synTraceEvent2* enqueue_events_ptr,
+      synTraceEvent* events_ptr,
+      synTraceEvent* enqueue_events_ptr,
       TraceSink& trace_sink);
   void convertEventsToActivities(
-      synTraceEvent2* events_ptr,
+      synTraceEvent* events_ptr,
       size_t num_events,
       long double wall_stop_time,
       TraceSink& trace_sink);
   int64_t timeStampHpuToTB(long double t);
-  int64_t getDevice(const synTraceEvent2* events_ptr);
-  bool isEventKernel(const synTraceEvent2* events_ptr);
-  ActivityType getActivityType(const synTraceEvent2* events_ptr);
+  int64_t getDevice(const synTraceEvent* events_ptr);
+  bool isEventKernel(const synTraceEvent* events_ptr);
+  ActivityType getActivityType(const synTraceEvent* events_ptr);
   const std::string plane_name_ = "/device:HPU:0";
   long double hpu_start_time_;
   long double wall_start_time_;
