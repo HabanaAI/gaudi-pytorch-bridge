@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import torch
 import warnings
 from os import environ
@@ -6,6 +7,7 @@ from collections import deque
 from functools import wraps
 from typing import Union
 import datetime
+import contextlib
 import habana_frameworks.torch.utils.debug as htdebug
 import habana_frameworks.torch.utils.experimental as htexp
 import habana_frameworks.torch.hpu.random as rand_hpu
@@ -13,6 +15,14 @@ from habana_frameworks.torch.utils import _experimental_C
 from torch.fx import symbolic_trace
 
 from torch.functional import Tensor
+
+@contextlib.contextmanager
+def e_handler():
+    try:
+        yield
+    except Exception as e:
+        pass
+
 name_stack = deque()
 module_dict = dict()
 is_inference = environ.get('PT_HPU_INFERENCE_MODE')
@@ -84,9 +94,18 @@ def handle_quant_stats(model=None):
                    pass
 
 def hpu_initialize(model=None, optimizer=None, args=None):
+    if "PT_HPU_INFERENCE_MODE" not in environ:
+        environ["PT_HPU_INFERENCE_MODE"] = "1"
+        is_inference = environ.get('PT_HPU_INFERENCE_MODE')
+    if "PT_HPU_MATMUL3D_2D_RESHAPE" not in environ:
+        environ["PT_HPU_MATMUL3D_2D_RESHAPE"] = "1"
+    # media WA to not convert imagenet label tensor to int64
+    if "GRECO_INFERENCE" not in environ:
+        environ["GRECO_INFERENCE"] = "1"
     if model is not None:
         read_min_max_overwrite()
-        handle_quant_stats(model)
+        with e_handler():
+            handle_quant_stats(model)
 
 def pre_fwd_hook(module, input):
     #handle the naming mismatch issue with a temp fix, till we
