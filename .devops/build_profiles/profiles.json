@@ -86,7 +86,7 @@
     },
     "next": {
       "version": "2.0.0",
-      "default_source": "build"
+      "default_source": "-r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pt2.0.txt"
     },
     "rc": {
       "version": null,

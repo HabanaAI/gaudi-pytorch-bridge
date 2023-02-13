@@ -364,6 +364,7 @@ def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
 def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
     """Returns a tuple with pip arguments required for installing the PT wheel."""
     version, source = version_and_source
+    source = source.strip()
     if version != "nightly" and is_wheel_version(version):
         return (version.wheel_path,)
 
@@ -375,6 +376,10 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
     args = ("--pre",) if version == "nightly" or version.is_prerelease else tuple()
 
     if source != "pypi":
+        if source.startswith("-r"):
+            # a requirements file. Assume it contains the required PT version. Allow env variables.
+            return args + (os.path.expandvars(source),)
+
         # source must be an index_url
         args += ("--extra-index-url", source)
 
