@@ -1815,7 +1815,7 @@ def print_build_summary(cmake_build_configs, selected_wheel_configs, args):
 def install_wheels_in_venvs(selected_wheel_configs):
     for wheel_config in selected_wheel_configs:
         wheel_list = glob.glob(wheel_config.file_path_pattern)
-        if len(wheel_list == 1):
+        if len(wheel_list) == 1:
             for venv in wheel_config.venv_dirs:
                 run(
                     "python3",
