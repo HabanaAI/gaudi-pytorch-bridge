@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -322,11 +322,11 @@ bool OptimizedJITGraphAndMetaData::get_is_control_edge_processing_required() {
   return is_control_edge_processing_required;
 }
 
-// LazyGraphCache Functions
+// JitGraphCache Functions
 //==========================
-LazyGraphCache::LazyGraphCache() : m_mutex{} {}
+JitGraphCache::JitGraphCache() : m_mutex{} {}
 
-std::shared_ptr<habana::OptimizedJITGraphAndMetaData> LazyGraphCache::
+std::shared_ptr<habana::OptimizedJITGraphAndMetaData> JitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
@@ -338,7 +338,7 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> LazyGraphCache::
   return nullptr;
 }
 
-void LazyGraphCache::Add(
+void JitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
@@ -347,7 +347,7 @@ void LazyGraphCache::Add(
   m_cache_map.emplace(key, val);
 }
 
-void LazyGraphCache::RemoveGraph(size_t key) {
+void JitGraphCache::RemoveGraph(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
@@ -355,7 +355,7 @@ void LazyGraphCache::RemoveGraph(size_t key) {
   }
 }
 
-bool LazyGraphCache::IsCached(size_t key) {
+bool JitGraphCache::IsCached(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (!m_cache_map.empty() && iter != m_cache_map.end()) {
@@ -364,23 +364,23 @@ bool LazyGraphCache::IsCached(size_t key) {
   return false;
 }
 
-bool LazyGraphCache::Empty() {
+bool JitGraphCache::Empty() {
   return (m_cache_map.size() == 0);
 }
 
-void LazyGraphCache::Clear() {
+void JitGraphCache::Clear() {
   m_cache_map.clear();
 }
 
-LazyGraphCache::~LazyGraphCache() {
+JitGraphCache::~JitGraphCache() {
   Clear();
 }
 
-// OptimizedLazyGraphCache Functions
+// OptimizedJitGraphCache Functions
 //==========================
-OptimizedLazyGraphCache::OptimizedLazyGraphCache() : m_mutex{} {}
+OptimizedJitGraphCache::OptimizedJitGraphCache() : m_mutex{} {}
 
-std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedLazyGraphCache::
+std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedJitGraphCache::
     GetOptimizedJITGraphAndMetaData(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
@@ -392,7 +392,7 @@ std::shared_ptr<habana::OptimizedJITGraphAndMetaData> OptimizedLazyGraphCache::
   return nullptr;
 }
 
-void OptimizedLazyGraphCache::Add(
+void OptimizedJitGraphCache::Add(
     size_t key,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val) {
   TORCH_CHECK(!IsCached(key), "This key is already cached!");
@@ -401,7 +401,7 @@ void OptimizedLazyGraphCache::Add(
   m_cache_map.emplace(key, val);
 }
 
-void OptimizedLazyGraphCache::RemoveGraph(size_t key) {
+void OptimizedJitGraphCache::RemoveGraph(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (iter != m_cache_map.end()) {
@@ -409,7 +409,7 @@ void OptimizedLazyGraphCache::RemoveGraph(size_t key) {
   }
 }
 
-bool OptimizedLazyGraphCache::IsCached(size_t key) {
+bool OptimizedJitGraphCache::IsCached(size_t key) {
   std::unique_lock<std::mutex> lck(m_mutex);
   auto iter = m_cache_map.find(key);
   if (!m_cache_map.empty() && iter != m_cache_map.end()) {
@@ -418,15 +418,15 @@ bool OptimizedLazyGraphCache::IsCached(size_t key) {
   return false;
 }
 
-bool OptimizedLazyGraphCache::Empty() {
+bool OptimizedJitGraphCache::Empty() {
   return (m_cache_map.size() == 0);
 }
 
-void OptimizedLazyGraphCache::Clear() {
+void OptimizedJitGraphCache::Clear() {
   m_cache_map.clear();
 }
 
-OptimizedLazyGraphCache::~OptimizedLazyGraphCache() {
+OptimizedJitGraphCache::~OptimizedJitGraphCache() {
   Clear();
 }
 

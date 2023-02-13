@@ -1506,7 +1506,7 @@ class LazyOp {
       PT_LAZY_DEBUG("Optimized Lazy Eager Key :: ", lazy_eager_key);
       if (lazy_eager_key != 0) {
         IsCached =
-            habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
+            habana::OptimizedJitGraphCache::GetOptimizedJitCache().IsCached(
                 lazy_eager_key);
       }
     }

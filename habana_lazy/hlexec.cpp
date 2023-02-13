@@ -421,7 +421,37 @@ void HlExec::SearchAndDeleteRedundantInputs(
 }
 
 /*
- * Get the JIT graph fron cache, or create it
+ * Get the JIT graph from cache, or create it.
+ *
+ * Given a hash_code derived from LazyArgumentSpec for a
+ * post order graph and inputs, this cache can be looked up
+ * for finding an optimize JIT graph.
+ *
+ * On a cache miss, the caller is expected to create the optimized
+ * JIT graph and add to cache.
+ *
+ * Cache Lookup
+ * ============
+ * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
+ * auto jit_graph_and_meta_data =
+ * habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(las.hashCode());
+ *
+ * Cache hit
+ * =========
+ * if (jit_graph_and_metat_data != nullptr) lower_jit_graph(...)
+ *
+ * Cache miss handling
+ * ===================
+ * // Create a JIT graph from the post order graph
+ * auto jit_graph = Create(post_order_graph, input_tensors);
+ * // Create a LazyArgumentSpec
+ * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
+ * // Compute meta data for JIT graph and store in cache along with JIT graph
+ * auto jit_graph_and_meta_data =
+ * std::make_shared<habana::OptimizedJITGraphAndMetaData>(jit_graph,
+ * input_refs); habana::JitGraphCache::GetJitCache().Add(las.hashCode,
+ * jit_graph_and_meta_data); lower_jit_graph(...)
+ *
  */
 void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
@@ -507,7 +537,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
   // To not read the normal cache for optimized eager
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 || !optimized_lazy_eager_key) {
     mp_g_and_meta_data_ =
-        habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+        habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
             m_g_hash_);
   }
 
@@ -528,8 +558,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
       PT_IRGRAPH_DEBUG("JIT Cache miss");
       // Cache miss handling
       // ===================
-      habana::LazyGraphCache::GetLazyCache().Add(
-          m_g_hash_, mp_g_and_meta_data_);
+      habana::JitGraphCache::GetJitCache().Add(m_g_hash_, mp_g_and_meta_data_);
     }
   } else {
     PT_LAZY_DEBUG(
@@ -558,10 +587,10 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
 
   if (optimized_lazy_eager_key != 0) {
     bool IsOptimizedLazyEagerCached =
-        habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().IsCached(
+        habana::OptimizedJitGraphCache::GetOptimizedJitCache().IsCached(
             optimized_lazy_eager_key);
     if (IsOptimizedLazyEagerCached == false) {
-      habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().Add(
+      habana::OptimizedJitGraphCache::GetOptimizedJitCache().Add(
           optimized_lazy_eager_key, mp_g_and_meta_data_);
       // To Do - To incorporate the Graph index change
       PT_LAZY_DEBUG(

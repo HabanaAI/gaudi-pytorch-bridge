@@ -1079,7 +1079,7 @@ void LaunchSyncTensorsGraph(
             "Removing Optimized JIT IR Graph with :: key ",
             lazy_eager_info.optimizedLazyEagerKey,
             " from the Optimized JIT Cache");
-        habana::OptimizedLazyGraphCache::GetOptimizedLazyCache().RemoveGraph(
+        habana::OptimizedJitGraphCache::GetOptimizedJitCache().RemoveGraph(
             lazy_eager_info.optimizedLazyEagerKey);
       }
     } catch (...) {
@@ -1128,7 +1128,7 @@ void LaunchSyncTensorsGraph(
             ", graph_index ",
             visualize::GetGraphIndex(launch_info.hlexec.GetGraphHash()),
             " from  the JIT Cache");
-        habana::LazyGraphCache::GetLazyCache().RemoveGraph(
+        habana::JitGraphCache::GetJitCache().RemoveGraph(
             launch_info.hlexec.GetGraphHash());
       }
     } catch (...) {
@@ -1178,7 +1178,7 @@ void SetupExecutionFromRunningHash(
   hlexec.set_fwd_graph_hash(fwd_running_hash);
 
   auto mp_g_and_meta_data_ =
-      habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(
+      habana::JitGraphCache::GetJitCache().GetOptimizedJITGraphAndMetaData(
           fwd_running_hash);
 
   if (mp_g_and_meta_data_ != nullptr) {
@@ -1343,7 +1343,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     HABANA_ASSERT(lazyFrontEndInfo != nullptr);
     lazy_op_name = lazyFrontEndInfo->get_lazy_op_name();
     optimized_path_jit_ir_and_mdata =
-        habana::OptimizedLazyGraphCache::GetOptimizedLazyCache()
+        habana::OptimizedJitGraphCache::GetOptimizedJitCache()
             .GetOptimizedJITGraphAndMetaData(optimized_lazy_eager_key);
     PT_LAZY_DEBUG(
         "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);

@@ -33,7 +33,7 @@ void ComputeGraphHashCode(
     std::vector<bool> node_bcast_details = {});
 
 /**
- * LazyGraphCache
+ * JitGraphCache
  * ----------------
  *
  * Description
@@ -263,55 +263,25 @@ struct OptimizedJITGraphAndMetaData {
 };
 
 /**
- * LazyGraphCache
- *
- * This is the Lazy Graph cache.
- * Given a hash_code derived from LazyArgumentSpec for a
- * post order graph and inputs, this cache can be looked up
- * for finding an optimize JIT graph.
- *
- * On a cache miss, the caller is expected to create the optimized
- * JIT graph and add to cache.
- *
- * Cache Lookup
- * ============
- * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
- * auto jit_graph_and_meta_data =
- * habana::LazyGraphCache::GetLazyCache().GetOptimizedJITGraphAndMetaData(las.hashCode());
- *
- * Cache hit
- * =========
- * if (jit_graph_and_metat_data != nullptr) lower_jit_graph(...)
- *
- * Cache miss handling
- * ===================
- * // Create a JIT graph from the post order graph
- * auto jit_graph = Create(post_order_graph, input_tensors);
- * // Create a LazyArgumentSpec
- * auto las = LazyArgumentSpec(true, post_order_graph, input_tensors);
- * // Compute meta data for JIT graph and store in cache along with JIT graph
- * auto jit_graph_and_meta_data =
- * std::make_shared<habana::OptimizedJITGraphAndMetaData>(jit_graph,
- * input_refs); habana::LazyGraphCache::GetLazyCache().Add(las.hashCode,
- * jit_graph_and_meta_data); lower_jit_graph(...)
+ * JitGraphCache
  *
  */
-class LazyGraphCache {
+class JitGraphCache {
  public:
-  static LazyGraphCache& GetLazyCache() {
-    static LazyGraphCache* mp_instance;
+  static JitGraphCache& GetJitCache() {
+    static JitGraphCache* mp_instance;
     if (!mp_instance) {
-      mp_instance = new LazyGraphCache();
+      mp_instance = new JitGraphCache();
     }
     return *mp_instance;
   }
 
-  LazyGraphCache(const LazyGraphCache&) = delete;
-  LazyGraphCache(LazyGraphCache&&) = delete;
-  LazyGraphCache& operator=(const LazyGraphCache&) = delete;
-  LazyGraphCache& operator=(LazyGraphCache&&) = delete;
+  JitGraphCache(const JitGraphCache&) = delete;
+  JitGraphCache(JitGraphCache&&) = delete;
+  JitGraphCache& operator=(const JitGraphCache&) = delete;
+  JitGraphCache& operator=(JitGraphCache&&) = delete;
 
-  ~LazyGraphCache();
+  ~JitGraphCache();
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
   GetOptimizedJITGraphAndMetaData(size_t key);
@@ -324,7 +294,7 @@ class LazyGraphCache {
   void Clear();
 
  private:
-  explicit LazyGraphCache();
+  explicit JitGraphCache();
 
   std::mutex m_mutex;
   // Cache stores a JIT graph shared_ptr and meta data for a given hash key
@@ -334,22 +304,22 @@ class LazyGraphCache {
       m_cache_map;
 };
 
-class OptimizedLazyGraphCache {
+class OptimizedJitGraphCache {
  public:
-  static OptimizedLazyGraphCache& GetOptimizedLazyCache() {
-    static OptimizedLazyGraphCache* optimized_mp_instance;
+  static OptimizedJitGraphCache& GetOptimizedJitCache() {
+    static OptimizedJitGraphCache* optimized_mp_instance;
     if (!optimized_mp_instance) {
-      optimized_mp_instance = new OptimizedLazyGraphCache();
+      optimized_mp_instance = new OptimizedJitGraphCache();
     }
     return *optimized_mp_instance;
   }
 
-  OptimizedLazyGraphCache(const OptimizedLazyGraphCache&) = delete;
-  OptimizedLazyGraphCache(OptimizedLazyGraphCache&&) = delete;
-  OptimizedLazyGraphCache& operator=(const OptimizedLazyGraphCache&) = delete;
-  OptimizedLazyGraphCache& operator=(OptimizedLazyGraphCache&&) = delete;
+  OptimizedJitGraphCache(const OptimizedJitGraphCache&) = delete;
+  OptimizedJitGraphCache(OptimizedJitGraphCache&&) = delete;
+  OptimizedJitGraphCache& operator=(const OptimizedJitGraphCache&) = delete;
+  OptimizedJitGraphCache& operator=(OptimizedJitGraphCache&&) = delete;
 
-  ~OptimizedLazyGraphCache();
+  ~OptimizedJitGraphCache();
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
   GetOptimizedJITGraphAndMetaData(size_t key);
@@ -362,7 +332,7 @@ class OptimizedLazyGraphCache {
   void Clear();
 
  private:
-  explicit OptimizedLazyGraphCache();
+  explicit OptimizedJitGraphCache();
 
   std::mutex m_mutex;
 
