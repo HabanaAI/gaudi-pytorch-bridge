@@ -218,6 +218,9 @@ bool FuseConvBatchnorm(
 
       auto conv_w_hb_tensor = GetBackEndTensorImpl(graph, stack, nw, iw);
       auto conv_w = GetDataInHostBuffer(graph, stack, nw, iw);
+      if (!conv_w_hb_tensor || !conv_w) {
+        continue;
+      }
 
       auto conv_w_permutation = conv_w_hb_tensor->GetMemoryPermutation();
       PT_LAZY_DEBUG(
@@ -234,6 +237,9 @@ bool FuseConvBatchnorm(
 
       int idx_bias = 1;
       auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
+      if (!bn_b) {
+        continue;
+      }
       redundant_inputs.emplace_back(bn->input(idx_bias));
       PT_LAZY_DEBUG(
           "[FuseConvBatchnorm] redundant_input: ",
@@ -241,6 +247,10 @@ bool FuseConvBatchnorm(
 
       int idx_weight = 2;
       auto bn_w = GetDataInHostBuffer(graph, stack, bn, idx_weight);
+      if (!bn_w) {
+        redundant_inputs.pop_back();
+        continue;
+      }
       redundant_inputs.emplace_back(bn->input(idx_weight));
       PT_LAZY_DEBUG(
           "[FuseConvBatchnorm] redundant_input: ",
@@ -248,6 +258,11 @@ bool FuseConvBatchnorm(
 
       int idx_running_mean = 3;
       auto bn_rm = GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
+      if (!bn_rm) {
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
+        continue;
+      }
       redundant_inputs.emplace_back(bn->input(idx_running_mean));
       PT_LAZY_DEBUG(
           "[FuseConvBatchnorm] redundant_input: ",
@@ -255,6 +270,12 @@ bool FuseConvBatchnorm(
 
       int idx_running_var = 4;
       auto bn_rv = GetDataInHostBuffer(graph, stack, bn, idx_running_var);
+      if (!bn_rv) {
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
+        continue;
+      }
       redundant_inputs.emplace_back(bn->input(idx_running_var));
       PT_LAZY_DEBUG(
           "[FuseConvBatchnorm] redundant_input: ",
@@ -274,6 +295,10 @@ bool FuseConvBatchnorm(
           conv_w_permutation.empty());
       if (!status) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] Compute unsuccessful!");
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
+        redundant_inputs.pop_back();
         continue;
       }
 

@@ -299,41 +299,30 @@ void RecalculateBatchnormParams(
 
       auto bn_b_hb_tensor = GetBackEndTensorImpl(graph, stack, bn, idx_bias);
       auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
-      if (bn_b) {
-        // std::cout << "[RecalculateBatchnormParams] [KM-bn_b-1] " << bn_b <<
-        // std::endl << std::flush; std::cout << "[RecalculateBatchnormParams]
-        // [KM-bn_b-2] " << ((float*)bn_b)[0] << ", " << ((float*)bn_b)[1] <<
-        // std::endl << std::flush;
+      if (!bn_b_hb_tensor || !bn_b) {
+        continue;
       }
 
       int idx_weight = 2;
       auto bn_w = GetDataInHostBuffer(graph, stack, bn, idx_weight);
-      if (bn_w) {
-        // std::cout << "[RecalculateBatchnormParams] [KM-bn_w-1] " << bn_w <<
-        // std::endl << std::flush; std::cout << "[RecalculateBatchnormParams]
-        // [KM-bn_w-2] " << ((float*)bn_w)[0] << ", " << ((float*)bn_w)[1] <<
-        // std::endl << std::flush;
+      if (!bn_w) {
+        continue;
       }
 
       int idx_running_mean = 3;
       auto bn_rm = GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
-      if (bn_rm) {
-        // std::cout << "[RecalculateBatchnormParams] [KM-bn_rm-1] " << bn_rm <<
-        // std::endl << std::flush; std::cout << "[RecalculateBatchnormParams]
-        // [KM-bn_rm-2] " << ((float*)bn_rm)[0] << ", " << ((float*)bn_rm)[1] <<
-        // std::endl << std::flush;
+      if (!bn_rm) {
+        continue;
       }
 
       int idx_running_var = 4;
       auto bn_rv = GetDataInHostBuffer(graph, stack, bn, idx_running_var);
-      if (bn_rv) {
-        // std::cout << "[RecalculateBatchnormParams] [KM-bn_rv-1] " << bn_rv <<
-        // std::endl << std::flush; std::cout << "[RecalculateBatchnormParams]
-        // [KM-bn_rv-2] " << ((float*)bn_rv)[0] << ", " << ((float*)bn_rv)[1] <<
-        // std::endl << std::flush;
+      if (!bn_rv) {
+        continue;
       }
 
       auto bn_eps = constant_as<double>(bn->namedInput("eps")).value();
+
       // std::cout << "[RecalculateBatchnormParams] [recompute batchnorm Params]
       // with bn_eps = " << bn_eps << std::endl << std::flush;
       auto status = recomputeBatchnormParams(
@@ -343,6 +332,7 @@ void RecalculateBatchnormParams(
           (float*)bn_w,
           (float*)bn_b,
           bn_eps);
+
       if (!status) {
         // std::cout << "[RecalculateBatchnormParams] [recompute batchnorm
         // Params ERROR!] " << std::endl << std::flush;
