@@ -41,7 +41,8 @@ void CumsumHabanaOperator::AddNode(
     dtype = at::ScalarType::Float;
   }
 
-  if (dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char) {
+  if (dtype == at::ScalarType::Bool || dtype == at::ScalarType::Char ||
+      dtype == at::ScalarType::Byte) {
     dtype = at::ScalarType::Int;
   }
 
