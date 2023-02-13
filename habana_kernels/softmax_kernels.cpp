@@ -104,95 +104,6 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-/** log_softmax (forward pass) implementation for Habana device
- * @params [In] self: Input tensor. 2-4D. bf16, fp32
- * @params [In] dim: Dimension along which softmax will be computed
- * @params [In] half_to_float:
- */
-Tensor log_softmax_hpu(
-    const Tensor& self,
-    const int64_t dim,
-    const bool half_to_float) {
-  PT_KERNEL_BEGIN;
-
-  TORCH_CHECK(
-      !half_to_float,
-      "softmax with half to float conversion is not supported on HPU");
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "logsoftmax_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // create the operator
-  LogSoftmaxOperator Op(device_id, scalar_type);
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(dim), IValue(half_to_float)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // Build Params for the graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-
-  return out.at(0);
-}
-
-/** log_softmax (backward pass) implementation for Habana device
- * @params [In] grad: Backward pass Input tensor. 2-4D. bf16, fp32
- * @params [In] output: Forward pass Output tensor. 2-4D. bf16, fp32
- * @params [In] dim: Dimension along which softmax will be computed
- * @params [In] input: Forward pass Input tensor. 2-4D. bf16, fp32
- */
-Tensor log_softmax_backward_hpu(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    const Tensor& input) {
-  PT_KERNEL_BEGIN;
-
-  size_t device_id = grad.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = grad.scalar_type();
-  std::string node_type =
-      "logsoftmax_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // create the operator
-  LogSoftmaxBackwardOperator Op(device_id, scalar_type);
-  std::vector<c10::IValue> stack = {
-      IValue(grad), IValue(output), IValue(dim), IValue(input)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{grad, output, input};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty(
-        input.sizes(), input.options(), input.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // create graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-
-  return out.at(0);
-}
-
 void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -307,17 +218,6 @@ void SoftmaxIntOperator::SetPTOutputs(torch::jit::Stack& inputs) {
         self.suggest_memory_format());
     HabanaOperator::SetPTOutput(output);
   }
-}
-
-Tensor softmax_int_hpu(
-    const Tensor& self,
-    int64_t dim,
-    c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
-  static_cast<void>(dtype);
-  auto result = torch::_softmax(self, dim, false);
-  PT_KERNEL_END;
-  return result;
 }
 
 static auto& SoftmaxKernelsKernelRegistry =

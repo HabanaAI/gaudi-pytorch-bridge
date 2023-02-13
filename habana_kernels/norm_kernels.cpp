@@ -47,66 +47,6 @@ bool is_5d_tensor(const std::vector<int64_t>& shape_in) {
   return shape_in.size() == DIM5;
 }
 
-Tensor batch_norm_resize(
-    const Tensor& input,
-    uint num_out_dim,
-    c10::MemoryFormat memory_format) {
-  auto num_in_dim = input.dim();
-  Tensor input_resize = at::alias(input.to(DeviceType::HPU));
-
-  auto shape = DimVector(input_resize.sizes());
-  auto strides = DimVector(input_resize.strides());
-  switch (memory_format) {
-    case c10::MemoryFormat::ChannelsLast: {
-      if (num_out_dim > num_in_dim) {
-        auto last = shape.back();
-        shape.pop_back();
-        // Create view_sizes initialized to part which has size=1 for upper dims
-        auto view_sizes = std::vector<int64_t>(num_out_dim - num_in_dim, 1);
-        // and append to shape
-        shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
-        shape.push_back(last);
-        input_resize = input_resize.view(shape);
-      } else if (num_out_dim < num_in_dim) {
-        // Remove the additional x1 dimensions
-        // TODO: The logic here won't work when size of any intermediate
-        // (non-start,end) dimensions is 1
-        std::vector<int64_t> new_shape;
-        new_shape.push_back(shape[0]);
-        for (uint cnt = 1; cnt < num_out_dim - 1; cnt++) {
-          if (1 != shape.back())
-            new_shape.push_back(shape[cnt]);
-        }
-        new_shape.push_back(shape[num_out_dim - 1]);
-        input_resize = input_resize.view(new_shape);
-      }
-      break;
-    }
-    case c10::MemoryFormat::Contiguous: {
-      if (num_out_dim > num_in_dim) {
-        // Create view_sizes initialized to part which has size=1 for upper dims
-        auto view_sizes = std::vector<int64_t>(num_out_dim - num_in_dim, 1);
-        // and append to shape
-        shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
-        input_resize = input_resize.view(shape);
-      } else if (num_out_dim < num_in_dim) {
-        // Remove the additional x1 dimensions
-        std::vector<int64_t> new_shape;
-        for (uint cnt = 0; cnt < num_out_dim; cnt++) {
-          new_shape.push_back(shape[cnt]);
-        }
-        input_resize = input_resize.view(new_shape);
-      }
-      break;
-    }
-    default:
-      TORCH_CHECK(
-          false,
-          "Unsupported memory format. Supports only ChannelsLast, Contiguous");
-  }
-  return input_resize;
-}
-
 /**********************************************************************
 *@brief Pushes the optional tensor to device if defined.Otherwise,
 * create an empty device tensor
@@ -1319,69 +1259,6 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(std::move(mul1->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(mul1->GetOutputs()[0]);
   }
-}
-
-Tensor fused_norm_hpu(
-    std::vector<Tensor>& grad,
-    const Tensor& max_norm_t,
-    float norm_type = 2.0) {
-  PT_KERNEL_BEGIN;
-
-  size_t device_id = grad[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto scalar_type = grad[0].scalar_type();
-  std::string node_type =
-      "fused_norm_" + habana_helpers::name_suffix_from_type(scalar_type);
-  FusedNormOperator Op(device_id, scalar_type);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(grad), IValue(max_norm_t), IValue(norm_type)};
-
-  std::vector<at::Tensor> pt_inputs;
-  auto num_params = static_cast<int>(grad.size());
-  pt_inputs.reserve(num_params);
-  for (auto j = 0; j < num_params; j++) {
-    pt_inputs.push_back(grad[j]);
-  }
-  pt_inputs.push_back(max_norm_t);
-
-  size_t key = Op.GetRecipeKey(node_type, stack, true);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = habana::createPTTensor(
-        grad[0],
-        grad[0].sizes().vec(),
-        grad[0].options(),
-        grad[0].suggest_memory_format(),
-        true);
-    std::vector<at::Tensor> pt_outputs;
-    pt_outputs.push_back(output);
-    for (auto j = 0; j < num_params; j++) {
-      pt_outputs.push_back(grad[j]);
-    }
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(pt_outputs);
-    Op.Execute(key);
-  } else {
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    OutputMetaDataVector output_metadata(num_params + 1);
-    for (auto& md : output_metadata) {
-      md.persistent = true;
-    }
-    Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    // compile and execute the graph
-    Op.Compile(graph);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(
-      out.size() == ((unsigned)num_params + 1), "Incorrect size of outputs");
-  SET_SIZE_STRIDE_1D(out.at(0));
-
-  PT_KERNEL_END;
-  return out[0];
 }
 
 std::vector<int64_t> InstanceNormOperator::compute_output_shape(

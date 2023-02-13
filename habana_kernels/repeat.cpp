@@ -204,39 +204,6 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = self.scalar_type();
-  size_t device_id = self.device().index();
-  // Create the operator
-  RepeatOperator Op(device_id, scalar_type);
-  std::string node_type =
-      "tile_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {c10::IValue(self), c10::IValue(repeats)};
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty(
-        RepeatOperator::compute_output_shape(self, repeats),
-        self.options(),
-        self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    // Create Graph
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  auto output = out.at(0);
-  PT_KERNEL_END;
-  return output;
-}
-
 std::vector<int64_t> RepeatInlvOperator::compute_output_shape(
     const at::Tensor& input,
     int64_t dim,

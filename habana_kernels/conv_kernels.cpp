@@ -960,17 +960,15 @@ void ConvOperator::AllocateAndAddSynapseNode(
   auto is_conv_3d = is_5d_tensor(pt_inputs);
 
   if (!bias.defined()) {
-    auto populateOp =
-        [&](const std::shared_ptr<habana::HabanaOperator>& scOp) {
-          scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-          scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-          scOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+    auto populateOp = [&](const std::shared_ptr<habana::HabanaOperator>& scOp) {
+      scOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      scOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+      scOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 
-          p_context_->syn_outputs_.emplace_back(
-              std::move(scOp->GetSynOutputs()[0]));
-          p_context_->pt_outputs_.emplace_back(
-              std::move(scOp->GetOutputs()[0]));
-        };
+      p_context_->syn_outputs_.emplace_back(
+          std::move(scOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(std::move(scOp->GetOutputs()[0]));
+    };
     if (is_conv_3d) {
       auto scOp = make_operator<SpatialConv3DOperator>(
           this->p_context_->device_id_, input.scalar_type());
@@ -1094,131 +1092,6 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto output = at::empty(shape_out, input.options(), memory_format);
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
-}
-
-Tensor convolution_hpu(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool transposed,
-    IntArrayRef output_padding,
-    int64_t groups) {
-  PT_KERNEL_BEGIN;
-  std::vector<at::Tensor> inputs{input, weight};
-  if (bias.defined()) {
-    inputs.push_back(bias);
-  }
-  // convert tensors to synapse memory format
-  Tensor input_nhwc = input;
-  Tensor weight_hwck = weight;
-  auto is_conv_3d = is_5d_tensor(inputs);
-  int64_t pos_in[4] = {
-      LayoutFormatDims::N,
-      LayoutFormatDims::H,
-      LayoutFormatDims::W,
-      LayoutFormatDims::C};
-  int64_t pos_w[4] = {
-      LayoutFormatDims::H,
-      LayoutFormatDims::W,
-      LayoutFormatDims::C,
-      LayoutFormatDims::N};
-  int64_t pos_in_3d[5] = {
-      LayoutFormatWithDepthDims::N,
-      LayoutFormatWithDepthDims::D,
-      LayoutFormatWithDepthDims::H,
-      LayoutFormatWithDepthDims::W,
-      LayoutFormatWithDepthDims::C};
-  int64_t pos_w_3d[5] = {
-      LayoutFormatWithDepthDims::D,
-      LayoutFormatWithDepthDims::H,
-      LayoutFormatWithDepthDims::W,
-      LayoutFormatWithDepthDims::C,
-      LayoutFormatWithDepthDims::N};
-
-  std::vector<const at::Tensor*> pt_in{&input};
-  std::vector<at::Tensor*> pt_out{&input_nhwc};
-  IntArrayRef new_dim_pos_in = pos_in;
-  IntArrayRef new_dim_pos_w = pos_w;
-  if (is_conv_3d) {
-    new_dim_pos_in = pos_in_3d;
-    new_dim_pos_w = pos_w_3d;
-  }
-  std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_w};
-  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
-  habana_helpers::change_tensors_to_memory_format(
-      pt_out, pt_in, pt_new_pos, memory_format);
-  // habana_helpers::change_tensor_strides(&weight_hwck, &weight,
-  // &new_dim_pos_w);
-
-  auto convolution = [&] {
-    size_t device_id = input.device().index();
-    at::ScalarType scalar_type = input.scalar_type();
-    std::string node_type =
-        is_conv_3d ? "spatial_convolution3d" : "spatial_convolution";
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    // Create the operator
-    ConvOperator Op(device_id, scalar_type);
-
-    // Build Params for the graph
-    std::vector<c10::IValue> stack = {
-        IValue(input_nhwc),
-        IValue(weight_hwck),
-        IValue(bias),
-        IValue(stride),
-        IValue(padding),
-        IValue(dilation),
-        IValue(transposed),
-        IValue(output_padding),
-        IValue(groups)};
-    size_t key = Op.GetRecipeKey(node_type, stack);
-
-    // Assign Inputs to the Operator
-    std::vector<at::Tensor> pt_inputs{input_nhwc, weight_hwck};
-    if (bias.defined()) {
-      pt_inputs.emplace_back(bias);
-    }
-
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      Op.Execute(key, pt_inputs, stack);
-    } else {
-      OutputMetaDataVector output_metadata(1);
-      output_metadata.at(0).persistent = true;
-      Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-    }
-
-    std::vector<at::Tensor> out = Op.GetOutputs();
-    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-    return out[0];
-  };
-
-  Tensor output;
-  auto output_nhwc = convolution();
-  pt_in = {&output_nhwc};
-  pt_out = {&output};
-  int64_t pos_out[4] = {
-      LayoutFormatDims::N,
-      LayoutFormatDims::W,
-      LayoutFormatDims::C,
-      LayoutFormatDims::H};
-  int64_t pos_out_3d[5] = {
-      LayoutFormatWithDepthDims::N,
-      LayoutFormatWithDepthDims::W,
-      LayoutFormatWithDepthDims::C,
-      LayoutFormatWithDepthDims::D,
-      LayoutFormatWithDepthDims::H};
-
-  IntArrayRef new_dim_pos_out = pos_out;
-  if (is_conv_3d) {
-    new_dim_pos_out = pos_out_3d;
-  }
-  pt_new_pos = {&new_dim_pos_out};
-  habana_helpers::change_tensors_to_memory_format(
-      pt_out, pt_in, pt_new_pos, memory_format);
-  PT_KERNEL_END;
-  return output;
 }
 
 static auto& ConvKernelsKernelRegistry = habana::KernelRegistry().add(

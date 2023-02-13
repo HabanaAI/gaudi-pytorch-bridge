@@ -278,45 +278,6 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-/** @brief Function implementing torch.nn.functional.pad(input, pad,
- * mode='constant', value=0)
- *  @param self N-dimensional input tensor
- *  @param pad m-elements tuple, where m/2 ≤ input dimensions and m is even
- *  @param value fill value for "constant" padding
- */
-Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "pad_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-
-  PadOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(pad), IValue(value)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void EmbeddingOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -479,73 +440,6 @@ OutputShapeInfRetType EmbeddingOperator::ComputeOutputShape(
     out.MoveToOutput(std::move(out_tensor));
   }
   return out;
-}
-
-/** @brief simple lookup table that looks up embeddings in a fixed dictionary
- * and size.
- * @param weight (Tensor) The embedding matrix with number of rows equal to the
- * maximum possible index + 1, and number of columns equal to the embedding size
- * @param indices (LongTensor)  Tensor containing indices into the embedding
- * matrix
- * @param padding_idx (int, optional) If given, pads the output with the
- * embedding vector at padding_idx (initialized to zeros) whenever it encounters
- * the index
- * @param scale_grad_by_freq (boolean, optional) If given, this will scale
- * gradients by the inverse of frequency of the words in the mini-batch
- * @param sparse (boolean, optional)  If True, gradient w.r.t. weight will be a
- * sparse tensor.
- */
-Tensor embedding_hpu(
-    const Tensor& weight,
-    const Tensor& indices_in,
-    int64_t padding_idx,
-    bool scale_grad_by_freq,
-    bool sparse) {
-  PT_KERNEL_BEGIN;
-
-  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
-  at::ScalarType scalar_type = weight.scalar_type();
-  std::string node_type =
-      "embedding_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  size_t device_id = weight.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  EmbeddingOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(weight),
-      IValue(indices),
-      IValue(padding_idx),
-      IValue(scale_grad_by_freq),
-      IValue(sparse)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{weight, indices};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto size = indices.sizes().vec();
-    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
-    for (auto d : weight.sizes().slice(1)) {
-      size.push_back(d);
-    }
-    auto result =
-        at::empty(size, weight.options(), weight.suggest_memory_format());
-    Op.Execute(key, pt_inputs, result);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
@@ -764,69 +658,6 @@ void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
   }
 }
 
-/** @brief Function implements embedding backward (for dense-tensors)
- * @param grad (Tensor) Input gradient for bwd pass
- * @param indices (LongTensor) Tensor containing indices into the embedding
- * matrix
- * @param num_weights (int) Number fo rows in the weight tensor
- * @param padding_idx (int, optional) If given, pads the output with the
- * embedding vector at padding_idx (initialized to zeros) whenever it encounters
- * the index. NOTE: Currently not supported (not used in cpu implementation
- * also)
- * @param scale_grad_by_freq (boolean, optional) [[maybe_unused]]: If given,
- * this will scale gradients by the inverse of frequency of the words in the
- * mini-batch
- */
-Tensor embedding_dense_backward_hpu(
-    const Tensor& grad,
-    const Tensor& indices_in,
-    int64_t num_weights,
-    int64_t padding_idx,
-    bool scale_grad_by_freq) {
-  PT_KERNEL_BEGIN;
-
-  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
-  at::ScalarType scalar_type = grad.scalar_type();
-  std::string node_type = "embedding_dense_bwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = grad.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  EmbeddingDenseBackwardOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(grad),
-      IValue(indices),
-      IValue(num_weights),
-      IValue(padding_idx),
-      IValue(scale_grad_by_freq)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{grad, indices};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto grad_weight = at::empty(
-        {num_weights, grad.size(-1)},
-        grad.options(),
-        grad.suggest_memory_format());
-    Op.Execute(key, pt_inputs, grad_weight);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  PT_KERNEL_END;
-
-  return out.at(0);
-}
-
 void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -858,83 +689,6 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
-/**********************************************************
-*@brief
-@param [in]  input 2D tensor, FP32/FP16
-@param [in]  indices 0-1D, FP32/FP16
-@param [in]  offsets 0-1D, FP32/FP16
-@param [in]  valid_count  - contains 2 elements namely valid_count_offsets and
-valid_count_indices
-**********************************************************/
-Tensor embedding_bag_sum_hpu(
-    const Tensor& input,
-    const Tensor& indices_in,
-    const Tensor& offsets_in,
-    const Tensor& valid_count_in,
-    int64_t kernel_mode) {
-  PT_KERNEL_BEGIN;
-
-  // Convert index tensor from 0D to 1D if required
-  if (indices_in.dim() == 0) {
-    SET_SIZE_STRIDE_1D(indices_in);
-  }
-
-  // Convert offsets tensor from 0D to 1D if required
-  if (offsets_in.dim() == 0) {
-    SET_SIZE_STRIDE_1D(offsets_in);
-  }
-
-  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
-  auto offsets = habana_helpers::downcast_to_int_if_needed(offsets_in);
-  auto valid_count = habana_helpers::downcast_to_int_if_needed(valid_count_in);
-
-  at::ScalarType scalar_type = input.scalar_type();
-  std::string node_type;
-
-  // TODO kernel selection
-  /*
-  if (kernel_mode == 0) {
-    node_type = "embedding_bag_sum_2d_fwd_" +
-        habana_helpers::name_suffix_from_type(scalar_type);
-    ;
-  } else {
-    node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
-        habana_helpers::name_suffix_from_type(scalar_type);
-    ;
-  }
-  */
-
-  size_t device_id = input.device().index();
-
-  EmbeddingBagSumOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{input, indices, offsets, valid_count};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input),
-      IValue(indices),
-      IValue(offsets),
-      IValue(valid_count),
-      IValue(kernel_mode)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void EmbeddingBagSumForwardOperator::AllocateSynapseInputs(
@@ -1016,76 +770,6 @@ void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-/**********************************************************
-*@brief
-@param [in]  input 2D tensor, FP32/BF16
-@param [in]  indices_fwd 0-1D, i32
-@param [in]  offsets_fwd 0-1D, i32
-@param [in]  valid_count_offsets. Needed because offsets_fwd is a persistent
-tensor across epochs its size can be larger than the valid_count_offset
-@param [in]  indices_bwd 0-1D, i32
-@param [in]  offsets_bwd 0-1D, i32
-@param [in]  valid_count_bwd, i32
-@param [in]  grad_weight FP32/BF16
-**********************************************************/
-Tensor embedding_bag_sum_fwd_hpu(
-    const Tensor& input,
-    const Tensor& indices_fwd,
-    const Tensor& offsets_fwd,
-    const Tensor& valid_count,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd,
-    const Tensor& grad_weight) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = input.scalar_type();
-  // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_2d_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-  size_t device_id = input.device().index();
-
-  EmbeddingBagSumForwardOperator Op(device_id, scalar_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      input,
-      indices_fwd,
-      offsets_fwd,
-      valid_count,
-      indices_bwd,
-      offsets_bwd,
-      valid_count_bwd,
-      grad_weight};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input),
-      IValue(indices_fwd),
-      IValue(offsets_fwd),
-      IValue(valid_count),
-      IValue(indices_bwd),
-      IValue(offsets_bwd),
-      IValue(valid_count_bwd),
-      IValue(grad_weight)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<Tensor> out = Op.GetOutputs();
-  HABANA_ASSERT(out.size() == 1);
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& inputs,
@@ -1161,63 +845,6 @@ void EmbeddingBagSumBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-/**********************************************************
-*@brief
-@param [in/out] out
-@param [in]  input 2D tensor, FP32/BF16
-@param [in]  indices_fwd 0-1D, i32
-@param [in]  offsets_fwd 0-1D, i32
-@param [in]  1D, i32
-@param [in]  indices_bwd 0-1D, i32
-@param [in]  offsets_bwd 0-1D, i32
-@param [in]  valid_count_bwd, i32
-**********************************************************/
-Tensor& embedding_bag_sum_bwd_out_hpu(
-    Tensor& out,
-    const Tensor& input,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = input.scalar_type();
-  // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-  size_t device_id = indices_bwd.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  EmbeddingBagSumBackwardOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(out),
-      IValue(input),
-      IValue(indices_bwd),
-      IValue(offsets_bwd),
-      IValue(valid_count_bwd)};
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    std::vector<at::Tensor> pt_inputs_slice =
-        std::vector<at::Tensor>(pt_inputs.begin() + 1, pt_inputs.end());
-    Op.Execute(key, pt_inputs_slice, out);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  PT_KERNEL_END;
-  return out;
-}
-
 void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1255,66 +882,6 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
   p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin());
 
   AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
-/**********************************************************
-*@brief
-@param [in/out] out
-@param [in]  input 2D tensor, FP32/BF16
-@param [in]  indices_fwd 0-1D, i32
-@param [in]  offsets_fwd 0-1D, i32
-@param [in]  1D, i32
-@param [in]  indices_bwd 0-1D, i32
-@param [in]  offsets_bwd 0-1D, i32
-@param [in]  valid_count_bwd, i32
-@param [in]  kernel_mode,  scalar, i64
-**********************************************************/
-Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
-    Tensor& out,
-    const Tensor& input,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd,
-    int64_t kernel_mode) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = input.scalar_type();
-  // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-  size_t device_id = indices_bwd.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  EmbeddingBagSumBwdKernelModeOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(out),
-      IValue(input),
-      IValue(indices_bwd),
-      IValue(offsets_bwd),
-      IValue(valid_count_bwd),
-      IValue(kernel_mode)};
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    std::vector<at::Tensor> pt_inputs_slice =
-        std::vector<at::Tensor>(pt_inputs.begin() + 1, pt_inputs.end());
-    Op.Execute(key, pt_inputs_slice, out);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  PT_KERNEL_END;
-  return out;
 }
 
 static auto& EmbeddingKernelsKernelRegistry =

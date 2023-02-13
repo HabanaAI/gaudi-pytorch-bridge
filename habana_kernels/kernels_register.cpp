@@ -1915,17 +1915,6 @@ struct LinearFunction : public torch::autograd::Function<LinearFunction> {
     return linear_non2d_bwd_hpu_lazy(grad_output[0], input, weight, bias_opt);
   }
 };
-#if IS_PYTORCH_AT_LEAST(1, 13)
-::std::tuple<Tensor, Tensor, Tensor> linear_backward(
-    const Tensor& self,
-    const Tensor& grad_output,
-    const Tensor& weight,
-    [[maybe_unused]] ::std::array<bool, 3> output_mask) {
-  auto result =
-      linear_non2d_bwd_hpu_lazy(grad_output, self, weight, c10::nullopt);
-  return std::tie(result[0], result[1], result[2]);
-}
-#endif
 
 Tensor hpu_wrap::linear(
     const Tensor& input,

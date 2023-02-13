@@ -427,47 +427,6 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-at::Tensor habana_nms_hpu(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    float iou_threshold) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = scores.scalar_type();
-  std::string node_type =
-      "habana_nms_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = scores.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{boxes, scores};
-  float score_threshold{-std::numeric_limits<float>::max()};
-  std::vector<c10::IValue> stack = {
-      IValue(boxes),
-      IValue(scores),
-      IValue(Scalar(iou_threshold)),
-      IValue(Scalar(score_threshold))};
-  // Create the operator
-  HabanaNMSOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(3);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    output_metadata.at(2).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 3, "Incorrect size of outputs");
-
-  // Extract correct output using shape information.
-  auto output = out.at(0).slice(0l, 0l, out.at(1).item().toLong(), 1l);
-  PT_KERNEL_END;
-  return output;
-}
-
 static auto& NMSKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(

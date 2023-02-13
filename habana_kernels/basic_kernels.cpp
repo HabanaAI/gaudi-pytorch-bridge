@@ -594,20 +594,6 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-Tensor as_strided_hpu(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
-  // DeviceGuard omitted
-  return at::native::as_strided_tensorimpl(self, size, stride, storage_offset);
-}
-
-Tensor view_hpu(const Tensor& self, IntArrayRef size) {
-  // DeviceGuard omitted
-  return at::native::view(self, size);
-}
-
 static inline Device ensure_has_index(c10::optional<at::Device> device) {
   const c10::impl::DeviceGuardImplInterface* impl =
       c10::impl::getDeviceGuardImpl((*device).type());

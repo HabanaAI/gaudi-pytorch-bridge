@@ -343,50 +343,6 @@ void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
-std::tuple<Tensor&, Tensor&> topk_out_hpu(
-    Tensor& values,
-    Tensor& indices,
-    const Tensor& self,
-    int64_t k,
-    int64_t dim_,
-    bool largest,
-    bool sorted) {
-  PT_KERNEL_BEGIN;
-
-  std::string node_type = "topk";
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {
-      IValue(self),
-      IValue(k),
-      IValue(dim_),
-      IValue(largest),
-      IValue(sorted),
-      IValue(values),
-      IValue(indices)};
-  TopkOutOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-
-  } else {
-    // Build Params for the graph
-    OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::forward_as_tuple(out.at(0), out.at(1));
-}
 OutputShapeInfRetType TopkOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 5) {
@@ -461,42 +417,6 @@ void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
   TopkOutOperator::SetPTOutputs(inputs);
 }
-std::tuple<Tensor, Tensor> topk_hpu(
-    const Tensor& self,
-    int64_t k,
-    int64_t dim,
-    bool largest,
-    bool sorted) {
-  PT_KERNEL_BEGIN;
-
-  std::string node_type = "topk";
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(k), IValue(dim), IValue(largest), IValue(sorted)};
-  TopkOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Build Params for the graph
-    OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::forward_as_tuple(out.at(0), out.at(1));
-}
 
 void SortOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -562,51 +482,6 @@ void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   inputs.push_back(IValue(indices));
 
   TopkOutOperator::SetPTOutputs(inputs);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for sort OP
- *        out_sorted, out_indices = torch.sort(self, dim, descending)
- * @param [out] sorted - output tensor, 1-4D, FP32
- * @param [out] indices - output tensor, 1-4D, I32
- * @param [in] self - input tensor, 1-4D, FP32
- * @param [in] dim - along which dimension to sort, int64_t, default = -1
- * @param [in] descending - sorting order (ascending or descending), bool,
- *default = false
- ************************************************************************/
-std::tuple<Tensor, Tensor> sort_hpu(
-    const Tensor& self,
-    int64_t dim,
-    bool descending) {
-  PT_KERNEL_BEGIN;
-
-  std::string node_type = "topk";
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(dim), IValue(descending)};
-  SortOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Build Params for the graph
-    OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::forward_as_tuple(out.at(0), out.at(1));
 }
 
 static auto& TopkKernelsKernelRegistry =

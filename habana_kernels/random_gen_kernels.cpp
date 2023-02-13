@@ -306,50 +306,6 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   }
 }
 
-/*******************************************************************
-*@brief Implements uniform distribution generation kernel
-*INPUTS
-@param[in, out] self - output tensor with uniform distributed values, 2D/3D/4D,
-bf16/FP32
-@param[in] from - lower bound
-@param[in] to - upper bound
-@param[in] gen - Generator class for seed (optional)
-*******************************************************************/
-Tensor& uniform_hpu(
-    Tensor& self,
-    double from = 0,
-    double to = 1,
-    c10::optional<Generator> gen = c10::nullopt) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type = "random_uniform_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-
-  UniformOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  int64_t seed = get_seed_hpu(gen);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(from), IValue(to), IValue(seed)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return self;
-}
-
 void NormalOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -400,50 +356,6 @@ void NormalOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-/*******************************************************************
-*@brief Implements normal distribution generation kernel
-*INPUTS
-@param[in, out] self - output tensor with normal distributed values, 2D/3D/4D,
-bf16/FP32
-@param[in] mean, default = 0
-@param[in] std, default = 1
-@param[in] gen - Generator class for seed (optional)
-*******************************************************************/
-Tensor& normal_hpu(
-    Tensor& self,
-    double mean = 0,
-    double std = 1,
-    c10::optional<Generator> gen = c10::nullopt) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "random_normal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-
-  NormalOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  int64_t seed = get_seed_hpu(gen);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(mean), IValue(std), IValue(seed)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return self; // out.at(0);
-}
-
 void BernoulliOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -481,47 +393,6 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-/*******************************************************************
-*@brief Implements Bernoulli distribution generation kernel
-@param[in] self - output tensor with probablities, 1-4D,
-BF16/FP32
-@param[in] gen - Generator class for seed (optional)
-@param[out] - Tensor same shape as self with 0/1 entries generated based on
-input probabilities , I16/I32, 1-4D
-*******************************************************************/
-Tensor bernoulli_hpu(const Tensor& self, c10::optional<Generator> gen) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type = "random_bernoulli_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-
-  BernoulliOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  int64_t seed = get_seed_hpu(gen);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(seed)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void BernoulliScalarOperator::AllocateAndAddSynapseNode(
@@ -619,51 +490,6 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
         std::move(memcopyOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(memcopyOp->GetOutputs()[0]));
   }
-}
-
-/*******************************************************************
-*@brief Implements Bernoulli distribution generation kernel
-*INPUTS self.bernoulli_(p=0.5, *, generator=None) → Tensor
-*Fills each location of self with an independent sample from
-Bernoulli(p).
-@param[in, out] self - output tensor with probablities, 1-4D,
-BF16/FP32.
-@param[in] gen - Generator class for seed (optional)
-*******************************************************************/
-Tensor& bernoulli_scalar_hpu(
-    Tensor& self,
-    double p,
-    c10::optional<Generator> gen) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type = "random_bernoulli_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-
-  BernoulliScalarOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  std::vector<at::Tensor> pt_inputs{self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  int64_t seed = get_seed_hpu(gen);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(p), IValue(seed)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return self;
 }
 
 /*
@@ -792,57 +618,6 @@ void DropoutOperator::SetPTOutputs(
   HabanaOperator::SetPTOutputs(pt_outputs);
 }
 
-/*******************************************************************
-*@brief Implements Dropout kernel
-@param[in] self - input tensor on which Dropout is applied
-@param[in] p - probability of dropped out connections
-@param[in] gen - Generator class for seed (optional)
-*This function is probably not going to be called as the
-*aten::_fused_dropout() kernel should be called only in graph mode
-*******************************************************************/
-std::tuple<Tensor, Tensor> fused_dropout_hpu(
-    const Tensor& self,
-    double p,
-    c10::optional<Generator> gen) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "dropout_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  DropoutOperator Op(device_id, scalar_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-  // Build Params for the graph
-  auto seed_tensor = habana::get_seed_tensor_hpu(gen);
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(p), IValue(seed_tensor)};
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self, seed_tensor};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  OutputMetaDataVector output_metadata(2);
-  output_metadata.at(0).persistent = true;
-  output_metadata.at(1).persistent = true;
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(stack, output_metadata);
-    Op.Execute(key);
-  } else {
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::tuple<Tensor, Tensor>(out.at(0), out.at(1));
-}
-
 Tensor process_random_shuffle_op(
     const std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,
@@ -869,21 +644,6 @@ Tensor process_random_shuffle_op(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   return out[0];
-}
-
-Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed) {
-  PT_KERNEL_BEGIN;
-
-  auto self_hpu = self.to(c10::DeviceType::HPU);
-  auto seed_hpu = seed.to(c10::DeviceType::HPU);
-
-  std::vector<at::Tensor> pt_inputs{self_hpu, seed_hpu};
-  torch::jit::Stack stack{IValue(self_hpu)};
-
-  auto output = process_random_shuffle_op(pt_inputs, stack, "random_shuffle");
-
-  PT_KERNEL_END;
-  return output;
 }
 
 void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(

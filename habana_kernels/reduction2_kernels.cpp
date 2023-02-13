@@ -205,61 +205,6 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(out_pt_t);
 }
 
-std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
-    const at::Tensor& self,
-    int64_t dim,
-    bool keepdim) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_max_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(keepdim)};
-  // Create the operator
-  MaxDimOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto out_shape = MaxDimOperator::compute_output_shape(
-        self, c10::maybe_wrap_dim(dim, self.dim()), keepdim);
-    Tensor output1, output2;
-    if (out_shape.size() < 4) {
-      output1 =
-          at::empty(out_shape, self.options(), at::MemoryFormat::Contiguous);
-      output2 = at::empty(
-          out_shape,
-          self.options().dtype(c10::ScalarType::Int),
-          at::MemoryFormat::Contiguous);
-    } else {
-      output1 =
-          at::empty(out_shape, self.options(), self.suggest_memory_format());
-      output2 = at::empty(
-          out_shape,
-          self.options().dtype(c10::ScalarType::Int),
-          self.suggest_memory_format());
-    }
-    std::vector<at::Tensor> v{output1, output2};
-    Op.Execute(key, pt_inputs, v);
-  } else {
-    OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::make_tuple(out.at(0), out.at(1));
-}
-
 void MaxOperator::ReduceSingle(
     synapse_helpers::graph& graph,
     Tensor& input,
@@ -306,42 +251,6 @@ void MaxOperator::AllocateAndAddSynapseNode(
   p_context_->syn_outputs_.emplace_back(
       std::move(reshape_op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(reshape_op->GetOutputs()[0]));
-}
-
-Tensor max_hpu(const at::Tensor& self) {
-  PT_KERNEL_BEGIN;
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "reduce_max_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self)};
-  // Create the operator
-  MaxOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto out_shape = MaxOperator::compute_output_shape();
-    auto output =
-        at::empty(out_shape, self.options(), self.suggest_memory_format());
-    std::vector<at::Tensor> v{output};
-    Op.Execute(key, pt_inputs, v);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void MinOperator::ReduceSingle(
@@ -391,40 +300,4 @@ void MinOperator::AllocateAndAddSynapseNode(
   p_context_->syn_outputs_.emplace_back(
       std::move(reshape_op->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(reshape_op->GetOutputs()[0]));
-}
-
-Tensor min_hpu(const at::Tensor& self) {
-  PT_KERNEL_BEGIN;
-  CONVERT_0D_TO_1D(self)
-  at::ScalarType scalar_type = self.scalar_type();
-
-  std::string node_type =
-      "reduce_min_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self)};
-  // Create the operator
-  MinOperator Op(device_id, scalar_type);
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto out_shape = MinOperator::compute_output_shape();
-    auto output =
-        at::empty(out_shape, self.options(), self.suggest_memory_format());
-    std::vector<at::Tensor> v{output};
-    Op.Execute(key, pt_inputs, v);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  CONVERT_1D_TO_0D(self, out.at(0))
-  PT_KERNEL_END;
-  return out.at(0);
 }

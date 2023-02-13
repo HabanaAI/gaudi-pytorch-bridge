@@ -132,66 +132,6 @@ void process_generic_tensor_binary_out_op(
   }
 }
 
-/*************************************************************************
- * @brief Kernel implementation for out = torch.mul(out, self, other)
- * @param self - first input
- * @param other - second input
- * out = self * other
- ************************************************************************/
-
-Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
-  if (other.dim() == 0) {
-    SET_SIZE_STRIDE_1D(other);
-  }
-
-  auto self_hpu = get_hpu_tensor(self);
-  auto other_hpu = get_hpu_tensor(other);
-
-  std::vector<at::Tensor> pt_inputs{out, self_hpu, other_hpu};
-  torch::jit::Stack stack{IValue(out), IValue(self_hpu), IValue(other_hpu)};
-  process_generic_tensor_binary_out_op<habana::MulOutOperator>(
-      pt_inputs, stack, "mult");
-
-  PT_KERNEL_END;
-  return out;
-}
-
-/****************************************************************************
- * @brief Kernel implementation for result = torch.div(input, denom, out=out)
- * @param result - output
- * @param self - first input
- * @param other - second input
- ***************************************************************************/
-Tensor& div_tensor_hpu_out(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_KERNEL_BEGIN;
-
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
-  if (other.dim() == 0) {
-    SET_SIZE_STRIDE_1D(other);
-  }
-
-  auto self_hpu = get_hpu_tensor(self);
-  auto other_hpu = get_hpu_tensor(other);
-
-  std::vector<at::Tensor> pt_inputs{out, self_hpu, other_hpu};
-  torch::jit::Stack stack{IValue(out), IValue(self_hpu), IValue(other_hpu)};
-  process_generic_tensor_binary_out_op<habana::DivOutOperator>(
-      pt_inputs, stack, "div");
-
-  PT_KERNEL_END;
-  return out;
-}
-
 // Using autogen's OpBackend for mul_out as it has fixes for type promotion
 namespace habana {
 struct mul_out : OpBackend {

@@ -75,91 +75,6 @@ static void check_matmul_params(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
 }
 
-// output = mat1 x mat2
-void synapse_matmul(
-    const Tensor& output,
-    const Tensor& mat1,
-    const Tensor& mat2) {
-  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
-                      // in other kernels
-  const auto device_id = mat1.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "gemm";
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(output), IValue(mat1), IValue(mat2)};
-  size_t key = habana_helpers::getRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> pt_inputs{mat1, mat2};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    habana_helpers::execute_recipe(
-        {mat1.data_ptr(), mat2.data_ptr()},
-        {output.data_ptr()},
-        {reinterpret_cast<synapse_helpers::device_ptr>(
-             mat1.storage().data_ptr().get()),
-         reinterpret_cast<synapse_helpers::device_ptr>(
-             mat2.storage().data_ptr().get())},
-        {reinterpret_cast<synapse_helpers::device_ptr>(
-            output.storage().data_ptr().get())},
-        pt_inputs,
-        device_id,
-        key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // graph_handle scope
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    { // tensors scope
-      std::vector<synapse_helpers::tensor> syn_helper_inputs,
-          syn_helper_outputs;
-      std::vector<synTensor> syn_inputs, syn_outputs;
-
-      syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat1, graph, true, false));
-      syn_inputs.push_back(
-          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-      syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat2, graph, true, false));
-      syn_inputs.push_back(
-          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-
-      std::tie(syn_helper_outputs, syn_outputs) =
-          habana_helpers::create_tensors(
-              std::vector<at::Tensor>{output}, graph, true, false);
-
-      { // add node
-        synGEMMParams params{0, 0};
-        graph.add_node(
-            std::move(syn_inputs),
-            std::move(syn_outputs),
-            (void*)&params,
-            sizeof(params),
-            std::move(node_type),
-            nullptr,
-            nullptr,
-            nullptr,
-            false);
-      }
-
-      habana_helpers::compile_and_run(
-          std::move(graph),
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          {mat1.data_ptr(), mat2.data_ptr()},
-          {output.data_ptr()},
-          {reinterpret_cast<synapse_helpers::device_ptr>(
-               mat1.storage().data_ptr().get()),
-           reinterpret_cast<synapse_helpers::device_ptr>(
-               mat2.storage().data_ptr().get())},
-          {reinterpret_cast<synapse_helpers::device_ptr>(
-              output.storage().data_ptr().get())},
-          pt_inputs,
-          device_id,
-          key);
-    }
-  }
-  PT_OTHER_OPS_END;
-}
-
 std::vector<int64_t> habana::MMOperator::compute_output_shape(
     at::Tensor self,
     at::Tensor other,
@@ -218,36 +133,6 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   synGEMMParams params{mat1_transposed, mat2_transposed};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-/*****************************************************************************************************
- *@brief Implements torch.mm(mat1, mat2) → Tensor
- *@param mat1 : the first matrix to be multiplied
- *@param mat2 : the second matrix to be multiplied
- *****************************************************************************************************/
-at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
-  PT_KERNEL_BEGIN;
-  const auto device_id = mat1.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "gemm";
-  torch::jit::Stack stack = {c10::IValue(mat1), c10::IValue(mat2)};
-  habana::MMOperator op(device_id);
-  size_t key = op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> inputs = {mat1, mat2};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto shape_out = habana::MMOperator::compute_output_shape(mat1, mat2);
-    auto output = at::empty(shape_out, mat1.options());
-    op.Execute(key, inputs, output);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void habana::AddmmOperator::AllocateAndAddSynapseNode(
@@ -315,65 +200,6 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
 }
 
-/*****************************************************************************************************
- *@brief Implements torch.addmm(input, mat1, mat2, *, beta=1, alpha=1, out=None)
- *→ Tensor
- *@param self : matrix to be added
- *@param mat1 : the first matrix to be multiplied
- *@param mat2 : the second matrix to be multiplied
- *@param beta : multiplier for input (β)
- *@param alpha : multiplier for mat1 @ mat2mat1@mat2 (α)
- *****************************************************************************************************/
-Tensor addmm_hpu(
-    const Tensor& self,
-    const Tensor& mat1,
-    const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-
-  check_matmul_params(mat1, mat2, false, false, &self);
-
-  TORCH_CHECK(
-      self.sizes().size() == 1,
-      "Bias must be 1D tensor, but it has ",
-      self.sizes().size(),
-      " dimensions.");
-  TORCH_CHECK(
-      self.size(0) == mat2.size(1),
-      "Sizes don't match, ",
-      self.size(0),
-      " vs ",
-      mat2.size(1));
-
-  const auto device_id = mat1.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  ScalarType scalar_type = mat1.scalar_type();
-
-  std::string node_type =
-      "gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  habana::AddmmOperator op(device_id, scalar_type);
-
-  std::vector<at::Tensor> inputs = {self, mat1, mat2};
-  torch::jit::Stack stack = {
-      IValue(self), IValue(mat1), IValue(mat2), IValue(beta), IValue(alpha)};
-
-  size_t key = op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
-    op.Execute(key, inputs, output);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void habana::BmmOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -402,37 +228,6 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   synGEMMParams params{mat1_transposed, mat2_transposed};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-/*****************************************************************************************************
- * @brief Implements batched matrix multiplication _out version
- * @param[in] self - First Tensor, 3D, NHW, bf16/FP32
- * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
- * @param[in,out] out - Result tensor, 3D, NHC, bf16/FP32
- *****************************************************************************************************/
-Tensor& batch_gemm_out_hpu(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& mat2) {
-  PT_KERNEL_BEGIN;
-
-  const auto device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "batch_gemm";
-  torch::jit::Stack stack = {IValue(out), IValue(self), IValue(mat2)};
-  habana::BmmOutOperator op(device_id, self.scalar_type());
-  std::vector<at::Tensor> pt_inputs{self, mat2};
-
-  size_t key = op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    op.Execute(key, pt_inputs, out);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  PT_KERNEL_END;
-  return out;
 }
 
 std::vector<int64_t> habana::BmmOperator::compute_output_shape(
@@ -575,40 +370,6 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
 }
 
 /*****************************************************************************************************
- * @brief Implements batched matrix multiplication
- * @param[in] self - First Tensor, 3D, NHW, bf16/FP32
- * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
- * @param[out] output - Result tensor, 3D, NHC, bf16/FP32
- *****************************************************************************************************/
-
-Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
-  PT_KERNEL_BEGIN;
-
-  const auto device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "batch_gemm";
-  torch::jit::Stack stack = {IValue(self), IValue(mat2)};
-  habana::BmmOperator op(device_id, self.scalar_type());
-  std::vector<at::Tensor> pt_inputs{self, mat2};
-
-  size_t key = op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto shape_out = habana::BmmOperator::compute_output_shape(self, mat2);
-    auto out = at::empty(shape_out, self.options());
-    op.Execute(key, pt_inputs, out);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> output = op.GetOutputs();
-  TORCH_CHECK(output.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return output.at(0);
-}
-
-/*****************************************************************************************************
 *@brief Implements torch.dot(vector,vector)
 self - 1D m
 other - 1D m
@@ -688,35 +449,6 @@ void habana::DotOperator::AllocateAndAddSynapseNode(
       std::move(ReShapeOp_out->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(
       std::move(ReShapeOp_out->GetOutputs()[0]));
-}
-
-Tensor dot_hpu(const Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-
-  const auto device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type = "dot";
-  torch::jit::Stack stack = {c10::IValue(self), c10::IValue(other)};
-  habana::DotOperator op(device_id);
-  size_t key = op.GetRecipeKey(node_type, stack);
-
-  std::vector<at::Tensor> inputs = {self, other};
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output = at::empty({1, 1}, self.options());
-    op.Execute(key, inputs, output);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    op.CreateGraphAndCompile(key, inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  // PT expects 0-D
-  SET_SIZE_STRIDE_0D(out.at(0));
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 /*****************************************************************************************************
@@ -1278,45 +1010,6 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
   }
 }
 
-Tensor matmul_hpu(const Tensor& tensor1, const Tensor& tensor2) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = tensor1.scalar_type();
-  std::string node_type =
-      "matmul" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = tensor1.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  habana::MatMulOperator Op(device_id);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(tensor1), IValue(tensor2)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{tensor1, tensor2};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto shape_out =
-        habana::MatMulOperator::compute_output_shape(tensor1, tensor2);
-    auto output = at::empty(shape_out, tensor1.options());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void habana::MatmulBackwardOperator::MatBwTranspose(
     synapse_helpers::graph& graph,
     HabanaOperatorPtr Op,
@@ -1687,50 +1380,6 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->syn_outputs_.emplace_back(
       std::move(gradsum1->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(gradsum1->GetOutputs()[0]));
-}
-
-std::tuple<Tensor, Tensor> matmul_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = grad_output.scalar_type();
-  std::string node_type =
-      "matmul_backward" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = grad_output.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  habana::MatmulBackwardOperator Op(device_id);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(grad_output), IValue(self), IValue(other)};
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{grad_output, self, other};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto output1 = at::empty(self.sizes(), self.options());
-    auto output2 = at::empty(other.sizes(), other.options());
-    std::vector<at::Tensor> v{output1, output2};
-    Op.Execute(key, pt_inputs, v);
-  } else {
-    habana::OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return std::make_tuple(out.at(0), out.at(1));
 }
 
 void habana::LinearForwardOperator::AllocateAndAddSynapseNode(

@@ -3559,46 +3559,6 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         },
 };
 
-void hpu_check_inputs(
-    const std::string& op,
-    const std::vector<at::Tensor>& tensors) {
-  const auto& supported_types = op_info.at(op);
-  auto supported_types_size = supported_types.size();
-  bool global_constraint = supported_types.size() == 1;
-  TORCH_CHECK(
-      global_constraint || supported_types_size >= tensors.size(),
-      "input dtype check failed due to insufficient amount of tensors registered as constraints for op: ",
-      op,
-      ". op defined with: ",
-      supported_types_size,
-      " tensors, however it has ",
-      tensors.size(),
-      " tensors.");
-  size_t i = 0;
-  for (const auto& tensor : tensors) {
-    if (!tensor.defined()) {
-      continue;
-    }
-    const auto& dtype = tensor.scalar_type();
-
-    // When same types are applicable to all input tensors, use the only one
-    // defined
-    size_t j = (supported_types_size == 1) ? 0 : i;
-    TORCH_CHECK(
-        supported_types.at(j).count(dtype),
-        "Tensor input ",
-        i + 1,
-        " passed to ",
-        op,
-        " is expected to be of type(s): ",
-        supported_types,
-        ", but got ",
-        dtype,
-        ".");
-    i++;
-  }
-}
-
 OpSupportLevel hpu_check_inputs_impl(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {

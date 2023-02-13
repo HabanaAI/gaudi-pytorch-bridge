@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -66,9 +66,3 @@ at::Tensor slice(
     int64_t dim);
 
 } // namespace hpu_wrap
-
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_backward(
-    const at::Tensor& self,
-    const at::Tensor& grad_output,
-    const at::Tensor& weight,
-    ::std::array<bool, 3> output_mask);

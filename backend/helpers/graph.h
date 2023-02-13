@@ -17,7 +17,7 @@
 #include "backend/synapse_helpers/graph.h"
 
 namespace habana_helpers {
-static synapse_helpers::graph create_graph(
+static inline synapse_helpers::graph create_graph(
     int device_id,
     std::string name,
     bool dry_run = false) {

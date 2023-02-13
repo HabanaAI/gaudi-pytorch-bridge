@@ -67,55 +67,6 @@ void fill_constant_hpu(Tensor& self, Scalar value) {
   }
 }
 
-Tensor& fill_hpu_(Tensor& self, const Scalar& value) {
-  PT_KERNEL_BEGIN;
-  auto self_dims = self.dim();
-  if (self_dims == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
-  auto dtype = habana_helpers::scalar_type(value);
-
-  TORCH_CHECK(dtype != c10::ScalarType::Bool);
-
-  switch (self.element_size()) {
-    case 1: {
-      TORCH_CHECK(value.isIntegral(false));
-      auto memset_val = value.to<unsigned char>();
-      synapse_fill(self, memset_val);
-    } break;
-    case 2: {
-      if (self.scalar_type() == c10::ScalarType::BFloat16) {
-        fill_constant_hpu(self, value);
-      } else {
-        auto memset_val = value.to<int16_t>();
-        synapse_fill(self, memset_val);
-      }
-    } break;
-    case 4:
-      fill_constant_hpu(self, value);
-      break;
-    case 8: {
-      // Even though HPU doesnt support long/double. Intermediate tensors in
-      // embedding_bag used by PyT needs this fill functionality
-      if (value.isIntegral(true)) {
-        uint64_t memset_val = value.to<long>();
-        synapse_fill(self, memset_val);
-      } else {
-        // double
-        double memset_val = value.to<double>();
-        synapse_fill(self, memset_val);
-      }
-    } break;
-    default:
-      PT_KERNEL_WARN("Unsupported data type used in fill");
-  }
-  if (self_dims == 0) {
-    SET_SIZE_STRIDE_0D(self);
-  }
-  PT_KERNEL_END;
-  return self;
-}
-
 /** @brief Function implementing torch.Tensor.masked_fill_(mask, value)
  * @param self: (fp32/bf16, 1-4D) Input tensor
  * @param mask: (BoolTensor) the boolean mask
@@ -161,19 +112,4 @@ Tensor& masked_fill_hpu_(
 
   PT_KERNEL_END;
   return self;
-}
-
-/** @brief Function implementing torch.Tensor.masked_fill_(mask, value)
- * @param self: (fp32/bf16, 1-4D) Input tensor
- * @param mask: (BoolTensor) the boolean mask
- * @param value: (float) the value to fill with
- */
-Tensor& masked_fill_scalar_hpu_(
-    Tensor& self,
-    const Tensor& mask,
-    const Scalar& value) {
-  // convert scalar fill value to device tensor
-  auto value_tensor = habana_helpers::scalar_to_device_tensor(value, self, 0);
-
-  return masked_fill_hpu_(self, mask, value_tensor);
 }

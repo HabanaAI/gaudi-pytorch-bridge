@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
@@ -85,48 +88,6 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
 }
 
-Tensor addcmul_hpu(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "addcmul_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  AddcmulOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(tensor1), IValue(tensor2), IValue(alpha)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self, tensor1, tensor2};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto result =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, result);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 /*************************************************************************
  * @brief Kernel implementation for torch.addcdiv_(self,tensor1,tensor2,alpha)
  * @param [in] self - input tensor, 1-4D, FP32/BF16
@@ -185,46 +146,4 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
 
   p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
-}
-
-Tensor addcdiv_hpu(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    const Scalar& alpha) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "addcdiv_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  // create the operator
-  AddcdivOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(tensor1), IValue(tensor2), IValue(alpha)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self, tensor1, tensor2};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto result =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.Execute(key, pt_inputs, result);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }

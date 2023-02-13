@@ -172,89 +172,6 @@ void CatOperator::AllocateAndAddSynapseNode(
   inputs.pop_back();
 }
 
-/*************************************************************************
- * @brief Kernel implementation for torch.cat(tensors, dim)
- * @param tensors - tensor list/tuple of inputs
- * @param dim - dimension along which to concatenate the tensors
- ************************************************************************/
-Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
-  PT_KERNEL_BEGIN;
-
-  const size_t device_id = in_tensors[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  const auto orig_scalar_type = in_tensors[0].scalar_type();
-  const std::string node_type = "concat";
-  std::vector<at::Tensor> pt_inputs;
-  // Create operator
-  auto mod_scalar_type = in_tensors[0].scalar_type();
-
-  // Assign Tensor Inputs to the Operator
-  std::vector<c10::IValue> stack;
-  std::vector<at::Tensor> tensors;
-  for (unsigned i = 0; i < in_tensors.size(); i++) {
-    if (habana_helpers::is_downcast_to_int_needed(
-            in_tensors[i].scalar_type())) {
-      tensors.push_back(habana_helpers::cast_tensor_to_integer(in_tensors[i]));
-      pt_inputs.push_back(tensors[i]);
-      mod_scalar_type = tensors[i].scalar_type();
-    } else {
-      tensors.push_back(in_tensors[i]);
-      pt_inputs.push_back(in_tensors[i]);
-    }
-  }
-
-  // Handle duplicate tensors. GC runtime expects each input to a Synapse graph
-  // to be unique, therefore check if we have same tensor(s) given as input more
-  // than once, replace duplicated tensor with its clone. Note this a eager mode
-  // only solution where performance is not a concern, in graph mode this will
-  // be handled as part of lowering of JIT graph to synapse graph.
-  std::vector<void*> tensor_dptr;
-  for (unsigned i = 0; i < tensors.size(); i++) {
-    auto iter = std::find(
-        tensor_dptr.begin(), tensor_dptr.end(), tensors[i].data_ptr());
-    if (iter != tensor_dptr.end()) {
-      auto clone = tensors[i].clone();
-      tensors[i] = clone;
-      pt_inputs[i] = clone;
-    }
-    tensor_dptr.push_back(tensors[i].data_ptr());
-  }
-
-  TensorList out_tensorlist(tensors);
-
-  CatOperator Op(device_id, mod_scalar_type);
-  // Push tensorlist as it is
-  stack.push_back(IValue(out_tensorlist));
-  stack.push_back(IValue(dim_));
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    OutputMetaData md;
-    md.persistent = true;
-    auto out = Op.CheckAllocateOutput(stack, md);
-    Op.Execute(key, pt_inputs, out);
-  } else {
-    // Build Params for the graph
-    // AllocateAndAddSynapseNode() should be given all inputs in
-    // same order as in the schema function signature
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> outputs = Op.GetOutputs();
-  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
-
-  Tensor output;
-  if (orig_scalar_type == c10::ScalarType::Long) {
-    output = habana_helpers::cast_tensor_to_long(outputs.front());
-  } else {
-    output = std::move(outputs.front());
-  }
-  PT_KERNEL_END;
-  return output;
-}
-
 int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
   TORCH_CHECK(
       inputs.size() == 3,
@@ -384,71 +301,6 @@ void CatOutOperator::SetPTOutput(torch::jit::Stack& inputs) {
   CheckAllocateOutput(inputs);
   auto out = inputs[2].toTensor();
   HabanaOperator::SetPTOutput(out);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for torch.cat(tensors, dim, out=result)
- * @param result - result of concatenate
- * @param tensors - tensor list/tuple of inputs
- * @param dim - dimension along which to concatenate the tensors
- ************************************************************************/
-Tensor& cat_hpu_out(
-    Tensor& result,
-    const TensorList tensors,
-    int64_t dim_ = 0) {
-  PT_KERNEL_BEGIN;
-  size_t device_id = tensors[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = tensors[0].scalar_type();
-  std::string node_type = "concat";
-
-  // Create operator
-  CatOutOperator Op(device_id, scalar_type);
-
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<c10::IValue> stack;
-  for (unsigned i = 0; i < tensors.size(); i++) {
-    pt_inputs.push_back(tensors[i]);
-  }
-  // Tensorlist should be pushed as it is
-  stack.push_back(IValue(tensors));
-  stack.push_back(IValue(dim_));
-
-  auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
-  if (result.numel() == 0 && result.sizes().vec() != out_size) {
-    auto tht_result = result.unsafeGetTensorImpl();
-    THHTensor_resizeNd(tht_result, out_size.size(), out_size.data(), nullptr);
-  } else if (result.sizes().vec() != out_size) {
-    HABANA_ASSERT(
-        false && "result size is not matching with expected output size");
-  }
-  pt_inputs.push_back(result);
-  stack.push_back(IValue(result));
-
-  /*Cache generation requires unique parameter distinctions which are not
-   * guaranteed by tensors alone for ops like cat/cat.out because their guids
-   * are same. cat and cat.out have same guid "concat". In habanaqa tests the
-   * "cat" tests with 3 inputs generate same cache-key as "cat.out" test with 2
-   * inputs + 1 out tensor. This causes cat.out to use same cached recipe as
-   * cat. So, we set outOp=true for cache key generation.
-   */
-  size_t key =
-      Op.GetRecipeKey(node_type, stack, /*inPlaceOp*/ false, /*outOp*/ true);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // Build Params for the graph
-    // AllocateAndAddSynapseNode() should be given all inputs in same order
-    // as in the schema function signature
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return result;
 }
 
 /****************************************************************************
@@ -584,24 +436,6 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
   return out.at(0);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for 2D torch.t(self,dim0,dim1)
- * @param self - input
- * @param dim0 - first dimension to swap
- * @param dim0 - second dimension to swap
- ************************************************************************/
-Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
-  PT_KERNEL_BEGIN;
-  if ((1 == self.dim())) {
-    Tensor out = self;
-    PT_KERNEL_END;
-    return out;
-  }
-  auto ret = transpose_hpu(self, 0, 1);
-  PT_KERNEL_END;
-  return ret;
 }
 
 inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
@@ -753,63 +587,6 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
     output.unsafeGetTensorImpl()->set_sizes_and_strides(
         swapped_sizes, swapped_strides);
   }
-}
-
-Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
-  PT_KERNEL_BEGIN;
-  TORCH_CHECK(
-      dims_.size() == static_cast<size_t>(self.dim()),
-      "Number of dims in tensor don't match in permute");
-
-  auto permute = [&] {
-    size_t device_id = self.device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    at::ScalarType scalar_type = self.scalar_type();
-    std::string node_type =
-        "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-    // Create the operator
-    PermuteOperator Op(device_id, scalar_type);
-    // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(self), IValue(dims_)};
-    std::vector<at::Tensor> pt_inputs{self};
-    size_t key = Op.GetRecipeKey(node_type, stack);
-
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      auto self_sizes = self.sizes().vec();
-      // calculate new sizes and strides after permute for out tensor
-      auto new_sizes = self.sizes().vec();
-      auto new_strides = self.strides().vec();
-      new_sizes[new_sizes.size() - 1] = self_sizes[dims_[new_sizes.size() - 1]];
-      new_strides[new_sizes.size() - 1] = 1;
-      for (int i = new_strides.size() - 2; i >= 0; i--) {
-        new_sizes[i] = self_sizes[dims_[i]];
-        new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
-      }
-      auto output = at::empty_strided(new_sizes, new_strides, self.options());
-      Op.Execute(key, pt_inputs, output);
-    } else {
-      habana::OutputMetaDataVector output_metadata(1);
-      output_metadata.at(0).persistent = true;
-      // compile and execute the graph
-      Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-    }
-
-    std::vector<at::Tensor> out = Op.GetOutputs();
-    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-    PT_KERNEL_END;
-    return out.at(0);
-  };
-
-  if ((self.dim() <= 5) &&
-      is_hpu_supported_transpose_type(self.scalar_type())) {
-    return permute();
-  }
-
-  // HPU won't support permute for larger num of dims - do it on CPU
-  auto ret =
-      self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
-  PT_KERNEL_END;
-  return ret;
 }
 
 OutputShapeInfRetType ReshapeOperator::ComputeOutputShape(
@@ -1126,73 +903,6 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for torch.Tensor.expand(*sizes)
- * @param self - input that needs to be expanded to a larger size.
- * @param dims_ - expanded dim sizes
- * NOTE: Tensor can be also expanded to a larger number of dimensions, and the
- * new ones will be appended at the front. For the new dimensions, the size
- * cannot be set to -1. We are using expand for braodcast op implementation
- * and we differ from the PyTorch expand that says "does not allocate new
- * memory, but only creates a new view on the existing tensor where a dimension
- * of size one is expanded to a larger size by setting the stride to 0. "
- ************************************************************************/
-Tensor expand_hpu(const Tensor& self_in, IntArrayRef size, bool implicit) {
-  PT_KERNEL_BEGIN;
-
-  const auto orig_scalar_type = self_in.scalar_type();
-  const std::string node_type = "broadcast";
-
-  const size_t device_id = self_in.device().index();
-  Tensor self;
-  if (habana_helpers::is_downcast_to_int_needed(self_in.scalar_type())) {
-    self = habana_helpers::cast_tensor_to_integer(self_in);
-  } else {
-    self = self_in;
-  }
-
-  BroadcastOperator Op(device_id, orig_scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Convert index tensor from 0D to 1D if required
-  if (self.dim() == 0) {
-    SET_SIZE_STRIDE_1D(self);
-  }
-
-  // Return early for trivial case
-  if (self.sizes().equals(size)) {
-    PT_KERNEL_END;
-    return self;
-  }
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(size), IValue(implicit)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> outputs = Op.GetOutputs();
-  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
-
-  Tensor out;
-  if (orig_scalar_type == c10::ScalarType::Long) {
-    out = habana_helpers::cast_tensor_to_long(outputs.front());
-  } else {
-    out = std::move(outputs.front());
-  }
-  PT_KERNEL_END;
-  return out;
-}
-
 void SplitWithSizeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -1294,45 +1004,6 @@ void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   }
 
   HabanaOperator::SetPTOutputs(splits);
-}
-
-/**
- * @brief This function implements torch.split_with_size()
- * @param self - [fp32/bf16] Input tensor
- * @param split_sizes - [Int[]] List of sizes to be used for split along given
- * dim
- * @param dim - [Int] dim along which tensor is to be split
- */
-std::vector<Tensor> split_with_sizes_hpu(
-    const Tensor& self,
-    IntArrayRef split_sizes,
-    int64_t dim) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type = "split_with_sizes";
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  SplitWithSizeOperator Op(device_id, scalar_type);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(split_sizes), IValue(dim)};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    habana::OutputMetaDataVector output_metadata(split_sizes.size());
-    for (auto& md : output_metadata) {
-      md.persistent = true;
-    }
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<Tensor> out = Op.GetOutputs();
-
-  PT_KERNEL_END;
-  return out;
 }
 
 static auto& TensorShapeKernelsKernelRegistry =

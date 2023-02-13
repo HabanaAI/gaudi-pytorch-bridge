@@ -46,14 +46,6 @@ using namespace torch;
 using namespace habana;
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
-namespace {
-auto upcast_to_long_if_needed(const Tensor& in, c10::ScalarType original_type) {
-  return habana_helpers::is_downcast_to_int_needed(original_type)
-      ? habana_helpers::cast_tensor_to_long(in)
-      : in;
-}
-} // namespace
-
 void LinspaceOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto result = inputs[3].toTensor();
   HabanaOperator::SetPTOutput(result);
@@ -110,63 +102,6 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
 
   p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
-}
-
-Tensor& linspace_out_hpu(
-    const Scalar& start,
-    const Scalar& end,
-    int64_t steps,
-    Tensor& output) {
-  PT_KERNEL_BEGIN;
-
-  auto shape = DimVector({steps});
-  auto tht_result = output.unsafeGetTensorImpl();
-  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
-  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
-
-  Tensor output_int;
-  if (habana_helpers::is_downcast_to_int_needed(output.scalar_type())) {
-    output_int = habana::createPTTensor(
-        output,
-        output.sizes(),
-        output.options(),
-        output.suggest_memory_format(),
-        c10::ScalarType::Int,
-        true);
-  }
-
-  at::ScalarType scalar_type = output.scalar_type();
-
-  std::string node_type = "linspace_out_" + NO_TPC +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = output.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  LinspaceOutOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<at::Tensor> pt_inputs;
-  std::vector<c10::IValue> stack = {IValue(start), IValue(end), IValue(steps)};
-
-  stack.push_back(IValue(output));
-  pt_inputs.emplace_back(output);
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return output;
 }
 
 /*************************************************************************
@@ -620,26 +555,6 @@ Tensor scatter_src_hpu(
   return out.at(0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for scatter_.src(Tensor(a!) self, int dim,
- *Tensor index, Tensor src) -> Tensor(a!)
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - dimension along which to index
- * @param index - Tensor used to index into self
- * @param src -Tensor with values to be updated (of same type as self)
- ************************************************************************/
-Tensor& scatter_inplace_src_hpu(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_KERNEL_BEGIN;
-  auto out = scatter_src_hpu(self, dim_, index, src);
-  self.copy_(out);
-  PT_KERNEL_END;
-  return self;
-}
-
 void ScatterValueWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -748,26 +663,6 @@ Tensor scatter_value_hpu(
 }
 
 /*************************************************************************
- * @brief Kernel implementation for scatter_.value(Tensor(a!) self, int dim,
- *Tensor index, Tensor src) -> Tensor(a!)
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - dimension along which to index
- * @param index - Tensor used to index into self
- * @param value - Scalar with values to be updated (of same type as self)
- ************************************************************************/
-Tensor& scatter_inplace_value_hpu(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Scalar& value) {
-  PT_KERNEL_BEGIN;
-  auto out = scatter_value_hpu(self, dim_, index, value);
-  self.copy_(out);
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for torch.scatter_add
  * @param self - Input tensor 1-4D bf16/fp32
  * @param dim - dimension along which to index
@@ -810,28 +705,6 @@ Tensor scatter_add_src_hpu(
   PT_KERNEL_END;
 
   return out.at(0);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for scatter_add_(Tensor(a!) self, int dim,
- * Tensor index, Tensor src) -> Tensor(a!)
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - dimension along which to index
- * @param index - Tensor used to index into self
- * @param src -Tensor with values to be updated (of same type as self)
- ************************************************************************/
-Tensor& scatter_add_inplace_src_hpu(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_KERNEL_BEGIN;
-
-  auto out = scatter_add_src_hpu(self, dim_, index, src);
-  self.copy_(out);
-
-  PT_KERNEL_END;
-  return self;
 }
 
 void IndexAddOperator::AllocateAndAddSynapseNode(
@@ -1264,24 +1137,6 @@ Tensor index_add_hpu(
 
   PT_KERNEL_END;
   return out.at(0);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for index_add(dim, index, tensor) → Tensor
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - dimension along which to index
- * @param indices - Tensor used to index into self
- * @param source -Tensor with values to be updated (of same type as self)
- ************************************************************************/
-Tensor& index_add_hpu_(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& indices,
-    const Tensor& source) {
-  PT_KERNEL_BEGIN;
-  self.copy_(index_add_hpu(self, dim_, indices, source));
-  PT_KERNEL_END;
-  return self;
 }
 
 // brodcast index tensor shape and get the correct shape and size
@@ -2112,46 +1967,6 @@ Tensor index_put_hpu(
   return out.at(0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for index_put(indices, value, accumulate=False)
- *→ Tensor
- * @param self - Input tensor 1-4D bf16/fp32
- * @param indices - Tensors used to index into self
- * @param value - Tensor with values to be updated (of same type as self)
- * @param accumulate - Flag to indicate whether to accumulate into self
- ************************************************************************/
-Tensor& index_put_hpu_(
-    at::Tensor& self,
-    TensorList indices,
-    const at::Tensor& value,
-    bool accumulate) {
-  PT_KERNEL_BEGIN;
-
-  // We need a Scatter-ND TPC kernel to support all input configurations
-  // possible for this operator. Also Boolean indexing needs "nonzero"
-  // operation. Until TPC supports all these
-  // https://jira.habana-labs.com/browse/SW-37171, fallback to CPU
-  c10::List<c10::optional<at::Tensor>> indices_list{};
-  auto tensorlist = indices.vec();
-  indices_list.reserve(tensorlist.size());
-  for (size_t i = 0; i < tensorlist.size(); i++) {
-    indices_list.push_back(c10::make_optional(tensorlist[i]));
-  }
-  if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
-      (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
-    at::native::call_fallback_fn<&cpu_fallback, ATEN_OP(index_put_)>::call(
-        self, indices_list, value, accumulate);
-    PT_KERNEL_END;
-    return self;
-  }
-
-  auto temp = index_put_hpu(self, indices, value, accumulate);
-  self.copy_(temp);
-
-  PT_KERNEL_END;
-  return self;
-}
-
 void IndexSelectOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -2226,62 +2041,6 @@ void Gather2dOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
-/*************************************************************************
- * @brief Kernel implementation for gather2d custom OP
- * @param self - Input tensor 2D fp32
- * @param indices - 1D tensor containing the indices to index
- * @param validCount - number of valid indices in indices tensor
- ************************************************************************/
-Tensor gather2d_hpu(
-    const Tensor& input,
-    const Tensor& indices_in,
-    int64_t validCount) {
-  PT_KERNEL_BEGIN;
-
-  // Convert index tensor from 0D to 1D if required
-  if (indices_in.dim() == 0) {
-    SET_SIZE_STRIDE_1D(indices_in);
-  }
-
-  auto indices = habana_helpers::downcast_to_int_if_needed(indices_in);
-
-  // This conversion from scalar to tensor not done within
-  // AllocateAndAddSynapseNode because graph mode does not have
-  // support for DMA handling.
-  auto validCount_int = at::empty({1}, indices.options());
-  validCount_int.fill_(static_cast<int32_t>(validCount));
-
-  at::ScalarType scalar_type = input.scalar_type();
-  std::string node_type = "gather_with_valid_count_2d_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = input.device().index();
-
-  Gather2dOperator Op(device_id, node_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{input, indices, validCount_int};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input), IValue(indices), IValue(validCount)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 void NarrowOperator::AllocateAndAddSynapseNode(
@@ -2574,85 +2333,6 @@ void SliceOperator::AllocateAndAddSynapseNode(
   }
 }
 
-/*************************************************************************
- * @brief Kernel implementation for torch slice operator
- * @param self - Input tensor
- * @param dim - Axis to slice
- * @param start - index of first element in given axis
- * @param end - index of last element in given axis
- * @param steps - number of elements to stride in given axis
- ************************************************************************/
-Tensor slice_hpu(
-    const Tensor& self_in,
-    int64_t dim,
-    c10::optional<int64_t> start,
-    c10::optional<int64_t> end,
-    int64_t step) {
-  PT_KERNEL_BEGIN;
-
-  // Handling the case where slice recieves NULL self_in tensor.
-  // Although tensor is NULL, still output is expected of correct size
-  if (self_in.numel() == 0) {
-    SliceOperator slice_op(self_in.device().index(), self_in.scalar_type());
-    OutputMetaData md;
-    md.persistent = true;
-    auto slice_output = slice_op.AllocateOutputTensor(
-        self_in, dim, start.value(), end.value(), step, md);
-    PT_KERNEL_END;
-    return slice_output;
-  }
-
-  auto self = habana_helpers::downcast_to_int_if_needed(self_in);
-  // for handling trivial cases, fall-back to simple tensor meta-data
-  // manipulation done in CPU implementation. This was added because
-  // distributed MNIST stops working if run synapse version of slice
-  // which creates new storage for output storage
-  if (self.dim() <= 1) {
-    PT_KERNEL_END;
-    return at::native::slice(self_in, dim, start, end, step);
-  }
-
-  // WA for https://jira.habana-labs.com/browse/SW-37197
-  auto dim_orig = dim;
-  if ((dim == self.dim() - 1) && (step > 1)) {
-    self = self.transpose(self.dim() - 1, self.dim() - 2);
-    dim = self.dim() - 2;
-  }
-
-  at::ScalarType scalar_type = self.scalar_type();
-
-  std::string node_type = "slice";
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  SliceOperator Op(device_id, scalar_type);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {
-      IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> outputs = Op.GetOutputs();
-  TORCH_CHECK(outputs.size() == 1, "Incorrect size of outputs");
-  auto output =
-      upcast_to_long_if_needed(outputs.front(), self_in.scalar_type());
-
-  // WA for https://jira.habana-labs.com/browse/SW-37197
-  if ((dim_orig == self.dim() - 1) && (step > 1)) {
-    output = output.transpose(self.dim() - 1, self.dim() - 2);
-  }
-
-  PT_KERNEL_END;
-  return output;
-}
-
 std::vector<int64_t> SelectOperator::compute_output_shape(
     const Tensor& self,
     int64_t& dim) {
@@ -2784,67 +2464,6 @@ void SelectOperator::AllocateAndAddSynapseNode(
 
     p_context_->pt_outputs_.emplace_back(slice_op->GetOutputs()[0]);
   }
-}
-
-/*************************************************************************
- * @brief Kernel implementation for torch select operator
- * @param self - Input tensor
- * @param dim - Axis to slice
- * @param index - index the element in given axis
- ************************************************************************/
-
-Tensor select_hpu(const Tensor& self_in, int64_t dim, int64_t index) {
-  PT_KERNEL_BEGIN;
-
-  // Handling the case where select recieves NULL self_in tensor.
-  // Although tensor is NULL, still output is expected of correct size
-  if (self_in.numel() == 0) {
-    auto start = index;
-    auto end = index + 1;
-    int64_t step = 1;
-    SliceOperator slice_op(self_in.device().index(), self_in.scalar_type());
-    auto slice_output = slice_op.AllocateOutputTensor(
-        self_in, dim, start, end, step, OutputMetaData());
-    // case for select op where tensor dimension is reduced
-    // only rank 4 tensor can have channels last format
-    at::MemoryFormat memory_format = at::MemoryFormat::Contiguous;
-    // allocate output tensor
-    auto shape = slice_output.sizes().vec();
-    shape.erase(shape.begin() + dim);
-    auto output = habana::createPTTensor(
-        self_in, shape, self_in.options(), memory_format, true);
-    PT_KERNEL_END;
-    return output;
-  }
-  auto self = habana_helpers::downcast_to_int_if_needed(self_in);
-
-  at::ScalarType scalar_type = self.scalar_type();
-
-  std::string node_type = "slice";
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  SelectOperator Op(device_id, scalar_type);
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(index)};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> outputs = Op.GetOutputs();
-  HABANA_ASSERT(outputs.size() == 1);
-
-  auto output =
-      upcast_to_long_if_needed(outputs.front(), self_in.scalar_type());
-
-  PT_KERNEL_END;
-  return output;
 }
 
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -3423,109 +3042,6 @@ void IndexOperator::AllocateAndAddSynapseNode(
       deterministic);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for index
- * @param input - Input tensor 2D fp32
- * @param indices - TensorList for indices
- ************************************************************************/
-Tensor index_hpu(const at::Tensor& input, TensorList indices) {
-  PT_KERNEL_BEGIN;
-  // fallback to cpu for boolean indexing
-  if (indices[0].scalar_type() == c10::ScalarType::Bool) {
-    c10::List<c10::optional<at::Tensor>> indices_list{};
-    auto tensorlist = indices.vec();
-    indices_list.reserve(tensorlist.size());
-    for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_list.push_back(c10::make_optional(tensorlist[i]));
-    }
-    FALLBACK_IF_UNSUPPORTED_OP2_O(index, PARAMS2(input, indices_list), Tensor)
-  }
-
-  // if there is only 1 indices tensor, then operation is equivalent to gather
-  // 1d. Since gather_nd_mxnet is throwing a TPC error for 4d input in such
-  // cases, therefore call "gather" TPC kernel instead
-  // Note that we can remove these work-arounds once TPC kernel for index
-  // operation is available https://jira.habana-labs.com/browse/SW-37171
-  if (indices.size() == 1 && indices[0].dim() == 1) {
-    Tensor output;
-    if (habana_helpers::is_downcast_to_int_needed(input.scalar_type())) {
-      auto input_i32 = habana_helpers::cast_tensor_to_integer(input);
-      output = gather_src_hpu(input_i32, 0, indices[0], false);
-      output = habana_helpers::cast_tensor_to_long(output);
-    } else {
-      output = gather_src_hpu(input, 0, indices[0], false);
-    }
-    PT_KERNEL_END;
-    return output;
-  }
-
-  // cast input to fp32 int32 not supported yet
-  Tensor input_cast;
-  if (input.scalar_type() == c10::ScalarType::Long ||
-      input.scalar_type() == c10::ScalarType::Int) {
-    auto input_i32 = habana_helpers::cast_tensor_to_integer(input);
-    input_cast = habana_helpers::hpu_cast_tensor(
-        input_i32, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-  } else {
-    input_cast = input;
-  }
-  at::ScalarType scalar_type = input_cast.scalar_type();
-  std::string node_type = "gather_nd_mxnet_fwd_" +
-      habana_helpers::name_suffix_from_type(scalar_type);
-
-  size_t device_id = input_cast.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  IndexOperator Op(device_id, scalar_type);
-
-  std::vector<at::Tensor> pt_inputs{input_cast};
-
-  std::vector<at::Tensor> indices_cast;
-
-  for (const auto& t : indices) {
-    indices_cast.emplace_back(habana_helpers::downcast_to_int_if_needed(t));
-  }
-
-  pt_inputs.insert(pt_inputs.end(), indices_cast.begin(), indices_cast.end());
-  TensorList new_indices_list{indices_cast};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input_cast), IValue(new_indices_list)};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto shape =
-        IndexOperator::compute_output_shape(input_cast, new_indices_list);
-    auto output = habana::createPTTensor(
-        input_cast,
-        IntArrayRef(shape.data(), shape.size()),
-        input_cast.options(),
-        input_cast.suggest_memory_format(),
-        true);
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-
-  if (input.scalar_type() == c10::ScalarType::Long ||
-      input.scalar_type() == c10::ScalarType::Int) {
-    auto output = habana_helpers::hpu_cast_tensor(
-        out.at(0), at::scalarTypeToTypeMeta(c10::ScalarType::Int));
-    output = upcast_to_long_if_needed(output, input.scalar_type());
-    PT_KERNEL_END;
-    return output;
-  }
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void Unique_Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -3808,59 +3324,6 @@ OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
       c10::ScalarType::Int,
       self.suggest_memory_format()));
   return out;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for torch.unique operator
- * @param self - Input tensor
- * @param sorted - Whether to sort the unique elements
- * @param return_inverse - To return the indices for where elements in the
- *  original input end in result
- * @param return_counts - To return counts for each unique element
- ************************************************************************/
-std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
-    const Tensor& self_in,
-    bool sorted,
-    bool return_inverse,
-    bool return_counts) {
-  PT_KERNEL_BEGIN;
-
-  auto self = habana_helpers::downcast_to_int_if_needed(self_in);
-  std::string node_type = "unique2";
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
-  UniqueOperator Op(device_id, self.scalar_type());
-  std::vector<at::Tensor> pt_inputs{self};
-  std::vector<c10::IValue> stack = {
-      IValue(self),
-      IValue(sorted),
-      IValue(return_inverse),
-      IValue(return_counts)};
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    OutputMetaDataVector output_metadata(2);
-    output_metadata.at(0).persistent = true;
-    output_metadata.at(1).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect Size of outputs returned for unique");
-  auto end = out.at(1).item<int64_t>();
-  auto result = out.at(0).slice(0, 0, end, 1);
-
-  result = upcast_to_long_if_needed(result, self.scalar_type());
-
-  // These are optional tensors which shall be populated only when we start
-  // supporting return_inverse and return_counts
-  Tensor inverse_indices;
-  Tensor counts;
-  PT_KERNEL_END;
-  return std::make_tuple(result, inverse_indices, counts);
 }
 
 std::vector<int64_t> SqueezeOperator::compute_output_shape(
