@@ -1922,10 +1922,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
   if (is_jit_cached_graph_info_available == false) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-      persistence_marker_pass_data_ptr_ =
-          std::move(PersistenceMarkerPass(this).VisitGraph(jit_ir_graph));
-    }
+    persistence_marker_pass_data_ptr_ =
+        std::move(PersistenceMarkerPass(this).VisitGraph(jit_ir_graph));
   }
 
   habana::ShapeInference::ResetSifTensorId();

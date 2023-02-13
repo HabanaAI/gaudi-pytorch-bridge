@@ -32,8 +32,7 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   // HPU
 
   auto int_tensor = std::make_unique<at::Tensor>();
-  if (!habana_lazy::isDeviceInLoweringMode() &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+  if (!habana_lazy::isDeviceInLoweringMode()) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma in case we need backend end tensor in future we
     // can replace createpttensor with empty_hpu_lazy

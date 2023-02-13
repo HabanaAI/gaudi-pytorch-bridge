@@ -193,6 +193,9 @@ void dumpEnvSettings() {
         << "=============================HABANA PT BRIDGE CONFIGURATION =========================== "
         << "\n";
     std::clog << " PT_HPU_LAZY_MODE = " << GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)
+              << (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0
+                      ? " is set but no longer supported"
+                      : "")
               << "\n";
     std::clog << " PT_HPU_LAZY_EAGER_OPTIM_CACHE = "
               << GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) << "\n";

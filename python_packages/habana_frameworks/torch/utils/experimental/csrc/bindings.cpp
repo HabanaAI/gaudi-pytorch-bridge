@@ -29,11 +29,7 @@ int GetDeviceType() {
 
 intptr_t GetDataPtr(const at::Tensor& t) {
   void* data_ptr;
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-    data_ptr = habana_lazy::HbLazyTensor::lazyTensorDataPtr(t);
-  } else {
-    data_ptr = reinterpret_cast<void*>(t.storage().data_ptr().get());
-  }
+  data_ptr = habana_lazy::HbLazyTensor::lazyTensorDataPtr(t);
 
   if (data_ptr) {
     size_t device_id = t.device().index();
