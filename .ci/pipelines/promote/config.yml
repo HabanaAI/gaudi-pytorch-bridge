@@ -38,7 +38,6 @@ orchestratorConfig:
 # Dtype validation <End>
 # Subgraph validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_sub_graph_other
-    silentMode: true
 # Subgraph validation <End>
 # PyTorch Operators and feature validation <End>
 # deepspeed-fork <Start>
