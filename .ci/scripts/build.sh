@@ -159,6 +159,20 @@ function pytorch_usage()
         echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
     fi
 
+    if [ $1 == "run_pytorch_lightning_qa_tests" ]; then
+        echo -e "\nusage: $1 [options]\n"
+        echo -e "options:\n"
+        echo -e "  -l,  --list-tests                   List the available tests"
+        echo -e "  -s,  --specific-test TEST           Run TEST"
+        echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
+        echo -e "       --no-color                     Disable colors in output"
+        echo -e "  -h,  --help                         Prints this help"
+        echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
+        echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
+        echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
+        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+    fi
+
     if [ $1 == "run_habana_lightning_tests" ]; then
         echo -e "\nusage: $1 [options]\n"
         echo -e "options:\n"
@@ -1496,6 +1510,105 @@ run_habana_lightning_tests()
         pushd $HABANA_LIGHTNING_PLUGINS_ROOT/tests/
         (set -x; eval ${__habana_lightning_tests_exe} -v $__failures $__py_filter --junit-xml=$__xml ${__marker})
         __test_status=$?
+        popd
+    fi
+
+    # return error code of the tests
+    return ${__test_status}
+}
+
+
+run_pytorch_lightning_qa_tests()
+{
+    local __pytorch_lightning_qa_tests_exe="python -m pytest"
+    local __scriptname=$(__get_func_name)
+    local __xml=""
+    local __ld_lib="$BUILD_ROOT_RELEASE"
+    local __print_tests=""
+    local __py_filter=""
+    local __failures=""
+    local __marker=""
+    local __verbose=""
+    local __test_status=0
+    local __suite_type="all"
+    local __dut="gaudi"
+    local __spdlog=3
+
+    # parameter while-loop
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -l  | --list-tests )
+            __print_tests="yes"
+            ;;
+        -s  | --specific-test )
+            shift
+            __py_filter="-k $1"
+            ;;
+        -m  | --maxfail )
+            shift
+            __failures="--maxfail=$1"
+            ;;
+        -p  | --pdb )
+            shift
+            __pdb="--pdb"
+            ;;
+        -t | --suite-type )
+            shift
+            __suite_type="$1"
+            ;;
+	     --dut )
+            shift
+            __dut="$1"
+            ;;
+        -spdlog )
+            shift
+            __spdlog=$1
+            ;;
+        -x  | --xml )
+            shift
+            __xml="$1"
+            ;;
+        -a | --marker )
+            shift
+            __marker="-m \"$1\""
+            ;;
+        -h  | --help )
+            usage $__scriptname
+            return 0
+            ;;
+        *)
+            echo "The parameter $1 is not allowed"
+            usage $__scriptname
+            return 1 # error
+            ;;
+        esac
+        shift
+    done
+
+    if [ -n "$__print_tests" ]; then
+        pushd $PYTORCH_LIGHTNING_FORK_ROOT/tests/
+        echo "python tests:"
+        ${__pytorch_lightning_qa_tests_exe} --collectonly tests_pytorch/accelerators/test_hpu.py  tests_pytorch/plugins/precision/hpu/test_hpu.py
+        __test_status=$?
+        popd
+        return $__test_status
+    fi
+
+    if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
+        pushd $PYTORCH_LIGHTNING_FORK_ROOT/tests/
+
+        echo "Executing Single card HPU test"
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/accelerators/test_hpu.py --forked --junit-xml=$__xml ${__marker})
+        ((__test_status=__test_status || $?))
+
+        echo "Executing HPU Precision test"
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/plugins/precision/hpu/test_hpu.py --hmp-bf16 \
+                'tests_pytorch/plugins/precision/hpu/ops_bf16.txt' --hmp-fp32 \
+                'tests_pytorch/plugins/precision/hpu/ops_fp32.txt' --forked \
+                --junit-xml=$__xml ${__marker})
+        ((__test_status=__test_status || $?))
+
         popd
     fi
 
