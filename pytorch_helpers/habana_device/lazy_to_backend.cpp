@@ -20,6 +20,11 @@ bool lazy_to_backend::is_const_tensor(const at::Tensor& tensor) {
   return hb_tensor->IsConstTensor();
 }
 
+void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
+  const auto& hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
+  return hb_tensor->get_host_ptr();
+}
+
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
     get_memory_permutation(const at::Tensor& tensor) {
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {

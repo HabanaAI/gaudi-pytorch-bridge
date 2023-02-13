@@ -477,8 +477,34 @@ void HbInternalTensorImpl::set_host_data(
   dt_type_ = dt_type;
 }
 
+void HbInternalTensorImpl::SetConstTensor(bool is_const_tensor) {
+  is_const_tensor_ = is_const_tensor;
+  PT_LAZY_DEBUG(
+      "constant section host_ptr : ",
+      get_host_ptr(),
+      " size: ",
+      numel() * itemsize(),
+      " is_const_tensor_ : ",
+      is_const_tensor_);
+  if (is_const_tensor_ && (get_host_ptr() == nullptr)) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto status =
+        device.get_host_memory().malloc(&host_ptr_, numel() * itemsize());
+    HABANA_ASSERT(status == synSuccess);
+    PT_LAZY_DEBUG(
+        "constant section host_ptr : ",
+        get_host_ptr(),
+        " size: ",
+        numel() * itemsize());
+  }
+}
+
 void* HbInternalTensorImpl::get_host_ptr() const {
   return host_ptr_;
+}
+
+void HbInternalTensorImpl::set_host_ptr(void* host_ptr) {
+  host_ptr_ = host_ptr;
 }
 
 void* HbInternalTensorImpl::get_compile_host_ptr() const {

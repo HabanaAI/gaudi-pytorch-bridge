@@ -233,8 +233,13 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  ConcreteBuilder& mark_const_section(const bool is_const_section = true) {
+  ConcreteBuilder& mark_const_section(
+      const bool is_const_section = true,
+      void* host_ptr = nullptr) {
     is_const_section_ = is_const_section;
+    if (is_const_section_) {
+      host_ptr_ = host_ptr;
+    }
     HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
     return static_cast<ConcreteBuilder&>(*this);
   }

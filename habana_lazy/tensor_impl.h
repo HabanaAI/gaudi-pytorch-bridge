@@ -233,6 +233,8 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
 
+  void SetConstTensor(bool is_const_tensor);
+
   c10::IntArrayRef GetTensorSize() const {
     return sizes;
   }
@@ -247,12 +249,16 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     tensor_layout = layout;
   }
 
-  bool IsConstTensor() const {
-    return is_const_tensor_;
+  bool IsDataInHostMemory() const {
+    return is_data_in_host_memory_;
   }
 
-  void SetConstTensor(bool is_const_tensor) {
-    is_const_tensor_ = is_const_tensor;
+  void SetDataInHostMemory(bool is_data_in_host_memory) {
+    is_data_in_host_memory_ = is_data_in_host_memory;
+  }
+
+  bool IsConstTensor() const {
+    return is_const_tensor_;
   }
 
   synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
@@ -312,6 +318,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   void set_compile_host_ptr(const HbInternalTensorImpl* impl);
 
   void* get_host_ptr() const;
+  void set_host_ptr(void*);
   void* get_compile_host_ptr() const;
   size_t get_host_size() const;
   size_t get_host_el_size() const;
@@ -340,6 +347,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   LayoutFormat tensor_layout = LayoutFormat::kNCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
   bool is_const_tensor_ = false;
+  bool is_data_in_host_memory_ = false;
 
   // Memory permutation represents how tensor layout is set in memory
   synapse_helpers::layouts::MemoryPermutation m_memory_permutation;

@@ -449,8 +449,6 @@ synapse_error_o tensor::create() {
         shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
 
     if (is_const_section_) {
-      auto err = synHostMalloc(device_id_, total_size_bytes_, 0, &host_ptr_);
-      HABANA_ASSERT(err != synOutOfHostMemory);
       host_ptr_size_ = total_size_bytes_;
       status = synTensorSetHostPtr(
           tensor_, host_ptr_, total_size_bytes_, data_type_, false);
@@ -532,7 +530,6 @@ tensor::~tensor() {
 void tensor::cleanup() {
   if (tensor_) {
     if (is_const_section_ && host_ptr_) {
-      synHostFree(device_id_, host_ptr_, 0);
       host_ptr_ = nullptr;
     }
     PT_SYNHELPER_DEBUG("cleaning ", *this);

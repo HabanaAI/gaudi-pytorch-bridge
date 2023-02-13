@@ -225,8 +225,12 @@ synapse_helpers::tensor create_tensor(
   }
 
   bool const_section = false;
+  void* host_ptr = nullptr;
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
     const_section = lazy_to_backend::is_const_tensor(tensor);
+    if (const_section) {
+      host_ptr = lazy_to_backend::host_ptr_for_const_tensor(tensor);
+    }
   }
 
   auto builder =
@@ -239,7 +243,7 @@ synapse_helpers::tensor create_tensor(
           .mark_external(external)
           .with_permutation(permutation)
           .with_dont_allow_permutation(dont_allow_permutation)
-          .mark_const_section(const_section)
+          .mark_const_section(const_section, host_ptr)
           .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
   // Add a check to validate the inference_range
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {

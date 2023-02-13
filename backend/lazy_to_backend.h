@@ -16,6 +16,7 @@
 #include "backend/synapse_helpers/layout_utils.h"
 namespace lazy_to_backend {
 bool is_const_tensor(const at::Tensor& tensor);
+void* host_ptr_for_const_tensor(const at::Tensor& tensor);
 
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
 get_memory_permutation(const at::Tensor& tensor);
