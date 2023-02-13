@@ -216,6 +216,23 @@ class LinearForwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+class Linear2DBackwardOperator : public HabanaOperator {
+ public:
+  Linear2DBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "linear_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 class LinearBackwardOperator : public HabanaOperator {
  public:
   LinearBackwardOperator(int device_id) : HabanaOperator("linear_bwd") {
