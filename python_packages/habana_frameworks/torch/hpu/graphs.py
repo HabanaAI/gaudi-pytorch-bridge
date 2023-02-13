@@ -363,7 +363,7 @@ def wrap_in_hpu_graph(module, asynchronous=False):
 
 class TensorPacker:
     def __init__(self, is_out_pack=False, verbose=False):
-        self._is_out_pack = is_out_pack #Whether the pack/unpack is for output of graph forward
+        self._is_out_pack = is_out_pack # Whether the pack/unpack is for output of graph forward
         self._verbose = verbose
 
     class Index:
@@ -452,6 +452,7 @@ class GraphModel(torch.nn.Module):
         self.func_parameters = self.process_function_signature(self.model.forward)
         self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
+
     def forward(self, *args):
         full_args = self.input_packer.unpack(args, self.input_meta)
         outs = self.model(**full_args)
@@ -482,15 +483,15 @@ class GraphModel(torch.nn.Module):
 
         UNSUPPORTED = [
             inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.VAR_POSITIONAL,
-            inspect.Parameter.KEYWORD_ONLY
+            inspect.Parameter.VAR_POSITIONAL
         ]
         for key in list(func_parameters):
             assert func_parameters[key].kind not in UNSUPPORTED, \
-                "Unsupported argument types : {0}".format(UNSUPPORTED)
+                "Unsupported argument type : {0}".format(func_parameters[key].kind)
             if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
                 print("[WARNING] Variable keyword arguments will not be supported.")
                 del func_parameters[key]
+                continue
             func_parameters[key] = func_parameters[key].default
         return func_parameters
 
@@ -541,11 +542,15 @@ class ModuleCacher(torch.nn.Module):
         return self.cache_replay(input_id, *args, **kwargs)
 
     def forward(self, *args, **kwargs):
+        self.iteration_cnt += 1
         input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode
 
         if self.have_grad_accumulation and self.forward_cnt == 0:
             input_id = input_hash((input_id, self.forward_cnt+1,))
+
+        if self.verbose and self.iteration_cnt % self.log_frequency == 0:
+            self.log_stats()
 
         if use_cache:
             if input_id in self.model_dict:
