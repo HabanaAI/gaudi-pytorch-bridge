@@ -206,7 +206,7 @@ build_pytorch_modules()
     local  __generate_op_stats="false"
 
     local __variables_to_build
-    __variables_to_build=$(echo "$@" | sed s/" --recursive"// | sed s/" --op-stats"//)
+    __variables_to_build=$(echo "$@" | sed s/" --recursive"// | sed s/" --op-stats"// | sed s/" --no-tidy"//)
 
     # parameter while-loop
     while [ -n "$1" ];
