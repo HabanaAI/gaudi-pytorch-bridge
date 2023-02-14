@@ -1,42 +1,47 @@
 orchestratorConfig:
   cron: "H H/3 * * *"
   testConfig:
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
-    silentMode: false
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
     runInSanitizer: true
     runInCodeCoverage: true
+# Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
     silentMode: true
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
+    silentMode: true
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
 # PyTorch full graph tests
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_perf
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_sbs
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_topology
     silentMode: true
   - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_accuracy
-    silentMode: true
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_sbs
-    silentMode: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_distributed
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op
     runInSanitizer: true
     runInCodeCoverage: true
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_single_op_dynamic
     runInSanitizer: true
     runInCodeCoverage: true
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
+    silentMode: true
+    runInSanitizer: true
+    runInCodeCoverage: true
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
     runInSanitizer: true
     runInCodeCoverage: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite
 # Dtype validation <Start>
-  - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite_dtype
+  - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
 # Dtype validation <End>
 # Subgraph validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_sub_graph_other
@@ -47,10 +52,5 @@ orchestratorConfig:
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
 # deepspeed-fork <End>
-# Run only in sanitizer
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
-    silentMode: true
-    runInSanitizer: true
-    runInCodeCoverage: true
 stepConfig:
   jobTimeout: '300'
