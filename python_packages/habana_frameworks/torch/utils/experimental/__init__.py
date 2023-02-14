@@ -6,35 +6,52 @@ import habana_frameworks.torch.hpu.memory as htmem
 
 _model_params_initialized = False
 _optim_state_initialized = False
+_available = False
+
+def _is_available() -> bool:
+    # Checks hpu.is_available() and caches it locally
+    global _available
+    if not _available:
+        _available = hpu.is_available()
+        hpu.init()
+    return _available
 
 def _data_ptr(t) -> int:
     # Note: Ensure whether _data_ptr(t) is returning a valid pointer, this function
     # can return null pointer as well.
     # Eg: if the size of tensor is [0], this will return null
-    if hpu.is_available():
-        hpu.init()
-        return _experimental_C.data_ptr(t)
+    if _is_available():
+        try:
+            return _experimental_C.data_ptr(t)
+        except:
+            return 0
     else:
         return 0
 
 def _get_device_type() -> int:
-    if hpu.is_available():
-        hpu.init()
-        return _experimental_C.get_device_type()
+    if _is_available():
+        try:
+            return _experimental_C.get_device_type()
+        except:
+            return -1
     else:
         return -1
 
 def _compute_stream() -> int:
-    if hpu.is_available():
-        hpu.init()
-        return _experimental_C.compute_stream()
+    if _is_available():
+        try:
+            return _experimental_C.compute_stream()
+        except:
+            return 0
     else:
         return 0
 
 def _record_param(name, t_start, t_size, is_param=False, is_grad=False, is_optim_state=False):
-    if hpu.is_available():
-          hpu.init()
-          _experimental_C.record_param(name, is_param, is_grad, is_optim_state, t_start, t_size)
+    if _is_available():
+          try:
+              _experimental_C.record_param(name, is_param, is_grad, is_optim_state, t_start, t_size)
+          except:
+              pass
 
 def _is_model_param_initialized() -> bool:
    return _model_params_initialized
