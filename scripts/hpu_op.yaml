@@ -4193,6 +4193,12 @@ max_pool2d_with_indices:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   op_backend: MaxPool2DWithIndicesOut
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  synapse_layouts:
+  - [WHCN]
+  - [WHCN, WHCN]
   op_frontend: LazyMaxPool
   out_ids: [0, 0]
   force_default: false

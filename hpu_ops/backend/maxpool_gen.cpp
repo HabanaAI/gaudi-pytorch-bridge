@@ -572,43 +572,20 @@ void MaxPool2DWithIndicesOut::AddNode(
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack);
   const torch::Tensor& self = stack.at(0).toTensor();
-  const auto& transpose_inputshape =
-      TransposeShape(self.sizes().vec(), MaxpoolVariant::MAXPOOL2D);
-  const auto& transpose_outshape =
-      TransposeShape(out_shape[0], MaxpoolVariant::MAXPOOL2D);
   size_t size = 0;
   const auto& params = FillParams(stack, size);
 
-  // Transpose params
-  synTransposeParams trans_params = GenerateTransposePermutation(self.dim());
-
-  // TPC expects inputs in N H W C or H W C format so we use transpose guid for
-  // reordering.
-  std::vector<std::vector<int>> permutation_order =
-      GetTransposePermutationOrder(MaxpoolVariant::MAXPOOL2D, self.dim());
-
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[0], self.dim());
   auto index_type = FindIndexType(self.scalar_type());
   std::string name = std::string();
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
     name = habana_helpers::get_tensor_range(syn_in(0), graph);
-
-  auto input_transpose = ShapeTranspose(
-      this,
-      graph,
-      {syn_in(0)},
-      transpose_inputshape,
-      ScalarType(),
-      trans_params,
-      c10::nullopt,
-      name);
 
   // maxpool2d guid will return tuple of tensors except greco device
   // (indices tensor, output tensor)
   // For greco device, only `output tensor` will be returned
 
   const bool greco_device = is_greco_device();
+  const bool is_dynamic = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attr;
   int64_t maxpool_out_index;
@@ -620,50 +597,55 @@ void MaxPool2DWithIndicesOut::AddNode(
         p_context_,
         IsOutputPersistent(1),
         GetOutputMetaData(1).external);
-    output_attr.push_back({transpose_outshape, ScalarType()});
+    if (is_dynamic)
+      output_attr.push_back({out_shape[0], ScalarType()});
+    else
+      output_attr.push_back({out_shape[0], ScalarType(), 0});
     maxpool_out_index = 0;
   } else {
-    output_attr.push_back({transpose_outshape, index_type});
-    output_attr.push_back({transpose_outshape, ScalarType()});
+    if (is_dynamic) {
+      output_attr.push_back({out_shape[1], index_type});
+      output_attr.push_back({out_shape[0], ScalarType()});
+    } else {
+      output_attr.push_back({out_shape[1], index_type, 1});
+      output_attr.push_back({out_shape[0], ScalarType(), 0});
+    }
     maxpool_out_index = 1;
   }
 
   auto maxpool2d = BuildOp(
       graph,
       "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {input_transpose[0].get()},
+      {syn_in(0)},
       output_attr,
       params.get(),
       size,
       name);
 
-  // After aplying maxpool2d, need to change the order of both indices and
-  // output tensor to N C H W or C H W format
-  trans_params = ChangeTransposePermutation(
-      trans_params, permutation_order[1], self.dim());
-
-  auto output = ShapeTranspose(
-      this,
-      graph,
-      {maxpool2d[maxpool_out_index].get()},
-      out_shape[maxpool_out_index],
-      ScalarType(),
-      trans_params,
-      0,
-      name);
-  syn_out(0) = std::move(output.at(0));
+  // Identity Kernel was added in dynamic case alone
+  // Without this, we will get tensor missing error.
+  if (is_dynamic) {
+    auto output = BuildOp(
+        graph,
+        "identity",
+        {maxpool2d[maxpool_out_index].get()},
+        {{out_shape[maxpool_out_index], ScalarType(), 0}});
+    syn_out(0) = std::move(output.at(0));
+  } else {
+    syn_out(0) = std::move(maxpool2d[maxpool_out_index]);
+  }
 
   if (!greco_device) {
-    auto output_indx = ShapeTranspose(
-        this,
-        graph,
-        {maxpool2d[0].get()},
-        out_shape[0],
-        index_type,
-        trans_params,
-        1,
-        name);
-    syn_out(1) = std::move(output_indx.at(0));
+    if (is_dynamic) {
+      auto output_indx = BuildOp(
+          graph,
+          "identity",
+          {maxpool2d[0].get()},
+          {{out_shape[1], index_type, 1}});
+      syn_out(1) = std::move(output_indx.at(0));
+    } else {
+      syn_out(1) = std::move(maxpool2d[0]);
+    }
   }
 }
 
