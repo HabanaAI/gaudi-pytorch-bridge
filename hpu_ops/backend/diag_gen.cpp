@@ -51,10 +51,9 @@ sizes_vec DiagOutShape(const at::Stack& stack) {
       size = std::min(m, n) -
           abs(diagonal); // https://jira.habana-labs.com/browse/SW-65273 (R>C)
     } else if (diagonal > 0) { // diagonal > 0 R>C/ R=C/ R<C
-      size = std::max(m, n) -
-          abs(diagonal); // https://jira.habana-labs.com/browse/SW-65151 (R<C)
+      size = n - diagonal;
     } else { // diagonal < 0 R>C/ R=C/ R<C
-      size = m - abs(diagonal);
+      size = m + diagonal;
     }
     output_shape.push_back(size);
   }
