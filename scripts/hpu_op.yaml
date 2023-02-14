@@ -4679,7 +4679,7 @@ mv:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half]
-  op_backend: MvOp
+  guid: mv_fwd
   out_ids: [0]
 
 mv.out:
@@ -4690,7 +4690,7 @@ mv.out:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half]
-  op_backend: MvOp
+  guid: mv_fwd
 
 nan_to_num:
   force_default: false
