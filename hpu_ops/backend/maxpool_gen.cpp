@@ -591,8 +591,6 @@ void MaxPool2DWithIndicesOut::AddNode(
       trans_params, permutation_order[0], self.dim());
   auto index_type = FindIndexType(self.scalar_type());
   std::string name = std::string();
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
-    name = habana_helpers::get_tensor_range(syn_in(0), graph);
 
   auto input_transpose = ShapeTranspose(
       this,

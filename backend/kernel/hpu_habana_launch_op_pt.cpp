@@ -1670,7 +1670,6 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                     cast_u.user->scope()->name().toUnqualString() &&
                 strcmp(cast_u.user->scope()->name().toUnqualString(), "") !=
                     0) {
-              // auto bias_idx = 0;
               if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
                 PT_BRIDGE_DEBUG(
                     ": Transpose has same scope as : ",
@@ -1681,12 +1680,27 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                 auto value_in = node->input(0);
 
                 if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                  PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+                  PT_BRIDGE_DEBUG(": wt not present is it bf16 test ? ");
                   continue;
                 }
                 auto tensor = value_to_ivalue[value_in]->toTensor();
                 auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
                 impl->SetConstTensor(true);
+                // Setting Bias
+                if (mm_node->input(0)->node()) {
+                  PT_BRIDGE_DEBUG(
+                      "set bias from : ",
+                      mm_node->input(0)->node()->kind().toUnqualString(),
+                      " as const");
+                  value_in = mm_node->input(0)->node()->input(0);
+                  if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
+                    PT_BRIDGE_DEBUG(": bias not present, is it bf16 test ? ");
+                    continue;
+                  }
+                  auto tensor = value_to_ivalue[value_in]->toTensor();
+                  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+                  impl->SetConstTensor(true);
+                }
               }
               if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
                 PT_BRIDGE_DEBUG(
