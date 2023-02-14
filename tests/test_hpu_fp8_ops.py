@@ -40,7 +40,6 @@ def simulateFp8Precision(input):
     masked = torch.bitwise_and(asInt_odded, mask)
     return masked.view(dtype)*signs
 
-
 @pytest.mark.parametrize("shape", [(64, 64), (3, 4, 5)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -56,8 +55,8 @@ def test_cast_to_fp8(shape, scale, dtype, stochastic):
     scaled_input_low_precision = simulateFp8Precision(input * scale)
     unscaled_input = scaled_input_low_precision * scale_inv
 
-    amax = torch.empty(1, dtype=torch.float).to(hpu)
-    casted = cast_to_fp8_te(input.to(hpu), scale.to(hpu), amax, stochastic)
+    amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    casted = cast_to_fp8_te(input.to(hpu), scale.to(hpu), amax[1][2], stochastic)
     uncasted = cast_from_fp8(casted, scale_inv.to(hpu), dtype)
 
     percentage_diff = torch.abs((((uncasted.cpu() - unscaled_input) / unscaled_input)*100).to(torch.int))
@@ -67,7 +66,7 @@ def test_cast_to_fp8(shape, scale, dtype, stochastic):
     tolerance = 25 if stochastic else 0
 
     assert np.amax(percentage_diff.numpy()) <= tolerance
-    assert amax.cpu() == torch.max(input.abs())
+    assert amax.cpu()[1][2] == torch.max(input.abs())
 
 @pytest.mark.parametrize("shapeA, shapeB", [((2, 3, 4, 2), (2, 3, 4, 8)),
                                             ((5, 10, 6), (5, 10, 18)),
@@ -95,8 +94,8 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
     scaleAInv = torch.reciprocal(scaleA_hpu)
     scaleBInv = torch.reciprocal(scaleB_hpu)
 
-    amax_A = torch.empty((1,), dtype=torch.float).to(hpu)
-    amax_B = torch.empty((1,), dtype=torch.float).to(hpu)
+    amax_A = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    amax_B = torch.empty((2, 3), dtype=torch.float).to(hpu)
 
     rank = len(shapeA)
     out_shape = shapeA[0:(rank-2)] + (shapeA[-1],) + (shapeB[-1],)
@@ -106,8 +105,8 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
     out = torch.full(out_shape, 1000.0, dtype=dtype)
     out_hpu = out.to(hpu) if out_tensor else None
 
-    A8 = cast_to_fp8_te(A_hpu, scaleA_hpu, amax_A, False)
-    B8 = cast_to_fp8_te(B_hpu, scaleB_hpu, amax_B, False)
+    A8 = cast_to_fp8_te(A_hpu, scaleA_hpu, amax_A[1][2], False)
+    B8 = cast_to_fp8_te(B_hpu, scaleB_hpu, amax_B[0][1], False)
 
     maybe_result = fp8_gemm(A8, scaleAInv, B8, scaleBInv, out_dtype=dtype, out=out_hpu, bias=bias_tensor_hpu, use_bias=bias, accumulate=accumulate)
     result_ref = torch.matmul(A.transpose(-2, -1), B)

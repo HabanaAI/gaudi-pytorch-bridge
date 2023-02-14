@@ -7593,13 +7593,39 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
     at::Tensor& amax) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
-      "hpu::habana_cast_to_fp8_te",
-      {input, scale, stochastic_rounding, out, amax},
-      {input.sizes().vec(), amax.sizes().vec()},
-      c10::ScalarType::Char};
+  auto func = [input, scale, stochastic_rounding, out, amax]() mutable {
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    auto id = GetHbLazyTensorId(amax);
+    {
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+
+      if (params_ptr != nullptr) {
+        at::Tensor amax_temp = at::empty({1}, amax.options());
+
+        LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
+            "hpu::habana_cast_to_fp8_te",
+            {input, scale, stochastic_rounding, out, amax_temp},
+            {input.sizes().vec(), amax.sizes().vec()},
+            c10::ScalarType::Char};
+        auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax_temp);
+        k_.call(result);
+        strided_insert_hpu_lazy(amax, amax_temp);
+      } else {
+        LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
+            "hpu::habana_cast_to_fp8_te",
+            {input, scale, stochastic_rounding, out, amax},
+            {input.sizes().vec(), amax.sizes().vec()},
+            c10::ScalarType::Char};
+        auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
+        k_.call(result);
+      }
+    }
+  };
   auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8_te, k_, result)
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cast_to_fp8_te, func, result)
 }
 
 at::Tensor habana_cast_from_fp8_lazy(
