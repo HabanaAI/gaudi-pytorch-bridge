@@ -11,29 +11,6 @@
 #include "generated/backend/mish.h"
 #include "generated/backend/mish_backward.h"
 namespace habana {
-
-void Mish::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto softplus_out = BuildOp(
-      graph,
-      "softplus_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0)},
-      {{outshape, ScalarType()}});
-
-  auto tanh_out = BuildOp(
-      graph,
-      "tanh_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {softplus_out[0].get()},
-      {{outshape, ScalarType()}});
-
-  auto output = BuildOp(
-      graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0), tanh_out[0].get()},
-      {{outshape, ScalarType(), 0}});
-  syn_out(0) = std::move(output[0]);
-}
-
 void Mishbackward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
