@@ -12,6 +12,7 @@
  */
 
 #include "supported_dtypes.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
@@ -45,7 +46,9 @@ SupportedDtypes::~SupportedDtypes() {
 }
 
 bool SupportedDtypes::count(at::ScalarType type) const {
-  return m_dtypes.count(type);
+  return m_dtypes.count(type) ||
+      (!GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
+       type == at::ScalarType::Long && m_dtypes.count(at::ScalarType::Int));
 }
 
 bool SupportedDtypes::count(const at::Tensor& tensor) const {

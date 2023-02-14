@@ -361,8 +361,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             dtypes = set(dtypes)
             if "Float" in dtypes:
                 dtypes.add("Double")
-            if "Int" in dtypes:
-                dtypes.add("Long")
             if "Char" in dtypes:
                 dtypes.add("Bool")
 
@@ -1552,11 +1550,10 @@ def generate_dtype_macro(dtypes):
                 dtypes_set
             ), "Found same dtype defined more than once!"
 
-            assert not any(x in dtypes_set for x in ["Double", "Long", "Bool"]), (
-                "Double, Long and Bool are not natively supported, they are "
-                "treated as Float, Int and Char respectively. For instance if "
-                "Float is a supported dtype, Double is added as a supported dtype "
-                "by the script."
+            assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
+                "Double and Bool are not natively supported, they are treated as "
+                "Float and Char respectively. For instance if Float is a supported "
+                "dtype, Double is added as a supported dtype by the script."
             )
 
             # TODO: Workaround for Fp8r152 in upstream. Needs to be fixed elsewhere.
@@ -1564,8 +1561,6 @@ def generate_dtype_macro(dtypes):
                 dtypes.remove("Fp8r152")
             if "Float" in dtypes:
                 dtypes.append("Double")
-            if "Int" in dtypes:
-                dtypes.append("Long")
             if "Char" in dtypes:
                 dtypes.append("Bool")
             code.append(
