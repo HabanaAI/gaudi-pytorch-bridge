@@ -26,7 +26,6 @@
 #include "habana_kernels/optimizer_lamb.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-#include "simple_generic_kernel.h"
 
 using namespace torch;
 using namespace habana;

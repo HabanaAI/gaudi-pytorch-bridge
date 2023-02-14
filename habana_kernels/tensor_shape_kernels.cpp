@@ -27,7 +27,6 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
@@ -398,44 +397,6 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  PT_KERNEL_BEGIN;
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  // Create operator
-  TransposeOperator Op(device_id, scalar_type);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(dim0_), IValue(dim1_)};
-  std::vector<at::Tensor> pt_inputs{self};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    // handle negative dimensions (backward indexing) in pytorch
-    int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
-    int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
-    auto self_sizes = self.sizes().vec();
-    auto self_strides = self.strides().vec();
-    std::swap(self_sizes[dim0], self_sizes[dim1]);
-    // Recalculate the strides to account for transpose size changes
-    // In effect, keep the tensor contiguous.
-    habana_helpers::recalc_strides(self_strides, self_sizes);
-    auto output = at::empty_strided(self_sizes, self_strides, self.options());
-    Op.Execute(key, pt_inputs, output);
-  } else {
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
-  return out.at(0);
 }
 
 inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {

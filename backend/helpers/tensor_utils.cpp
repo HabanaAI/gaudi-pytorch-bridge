@@ -89,15 +89,6 @@ void habana_helpers::PrintTensor(
 }
 
 /*************************************************************************
- * @brief compute number of elements in a tensor
- ************************************************************************/
-int64_t habana_helpers::tensor_numel(const at::Tensor& self) {
-  auto shape_vec = self.sizes().vec();
-  return std::accumulate(
-      shape_vec.cbegin(), shape_vec.cend(), 1, std::multiplies<int64_t>());
-}
-
-/*************************************************************************
  * @brief Infers the size of a dim with size -1, if it exists.
  ************************************************************************/
 std::vector<int64_t> habana_helpers::infer_size(
@@ -113,39 +104,6 @@ std::vector<int64_t> habana_helpers::infer_size(
       shape_vec.cbegin(), shape_vec.cend(), [](int64_t x) { return x == -1; });
   auto inferred_size = cond ? at::infer_size(shape, numel) : shape_vec;
   return inferred_size;
-}
-
-at::Tensor habana_helpers::scalar_to_device_tensor(
-    const at::Scalar& scalar,
-    const at::Tensor& self,
-    const unsigned num_dimensions) {
-  auto options = self.options();
-  TORCH_CHECK(
-      options.device().type() == c10::DeviceType::HPU,
-      "Wrong device: ",
-      options.device().type());
-  auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
-
-  auto self_scalar_type = self.scalar_type();
-  if (self_scalar_type == c10::ScalarType::BFloat16) {
-    auto val = scalar.to<at::BFloat16>();
-    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
-  } else if (
-      self_scalar_type == c10::ScalarType::Float ||
-      self_scalar_type == c10::ScalarType::Double) {
-    auto val = scalar.to<float>();
-    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
-  } else if (
-      self_scalar_type == c10::ScalarType::Int ||
-      self_scalar_type == c10::ScalarType::Long) {
-    auto val = scalar.to<int>();
-    copy_scalar_to_device(&val, output, habana_helpers::GetNBytes(output));
-  } else {
-    PT_KERNEL_FATAL(
-        "Unsupported data type of scalar when attempting to convert it to a tensor");
-  }
-
-  return output;
 }
 
 Tensor habana_helpers::GenerateAndCopyTensorToHPU(

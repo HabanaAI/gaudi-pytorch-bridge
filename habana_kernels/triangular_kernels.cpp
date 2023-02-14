@@ -20,7 +20,6 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;

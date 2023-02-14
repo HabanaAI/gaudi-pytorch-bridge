@@ -26,7 +26,6 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/threshold_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-#include "simple_generic_kernel.h"
 using namespace synapse_helpers::layouts;
 
 using namespace torch;
@@ -367,35 +366,6 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
-
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
-}
-
-std::vector<int64_t> MSELossBwdOperator::compute_output_shape(
-    const Tensor& self) {
-  return self.sizes().vec();
-}
-
-void MSELossBwdOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect size of inputs expected for mse_loss operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
-
-  auto self = inputs[1].toTensor();
-  int64_t reduction = inputs[3].toInt();
-
-  ns_MSELossKernel::Params param = synapse_mse_loss_params_builder(reduction);
-  p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
-  p_context_->params_size_ = sizeof(param);
-
-  auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));

@@ -25,7 +25,6 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
 

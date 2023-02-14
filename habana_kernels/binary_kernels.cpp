@@ -26,28 +26,9 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
-
-/** @brief if the tensor is in CPU push it to HPU. Further if the CPU tensor is
- *of double dtype typecast to float.
- **/
-inline Tensor get_hpu_tensor(Tensor input) {
-  Tensor output;
-  if (input.device().type() == c10::DeviceType::CPU) {
-    if (input.scalar_type() == c10::ScalarType::Double) {
-      output = input.to(c10::ScalarType::Float).to(c10::DeviceType::HPU);
-    } else {
-      output = input.to(c10::DeviceType::HPU);
-    }
-  } else {
-    output = input;
-  }
-
-  return output;
-}
 
 std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
     const Tensor& arg1,

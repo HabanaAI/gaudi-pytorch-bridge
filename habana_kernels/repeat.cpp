@@ -20,7 +20,6 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/dynamic_shape_info.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"

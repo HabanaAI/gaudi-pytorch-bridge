@@ -35,7 +35,6 @@
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 
@@ -45,28 +44,6 @@ using namespace habana;
 bool is_5d_tensor(const std::vector<int64_t>& shape_in) {
   const uint64_t DIM5 = 5;
   return shape_in.size() == DIM5;
-}
-
-/**********************************************************************
-*@brief Pushes the optional tensor to device if defined.Otherwise,
-* create an empty device tensor
-@param input - Optional 1D tensor
-@param size - size of 1D tensor. used in case the tensor is not defined
-@param device - Device param
-@param output - 1D HPU tensor
-**********************************************************************/
-inline Tensor get_batch_norm_optional_tensors(
-    const Tensor& input,
-    uint size,
-    Device device) {
-  Tensor output;
-  if (input.defined() == true) {
-    return input.to(DeviceType::HPU);
-  } else {
-    output = at::empty(
-        {size}, TensorOptions().dtype(c10::ScalarType::Float).device(device));
-  }
-  return output;
 }
 
 void BatchNormInfOperator::AllocateAndAddSynapseNode(

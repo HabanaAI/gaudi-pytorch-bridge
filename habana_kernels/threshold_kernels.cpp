@@ -17,7 +17,6 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/threshold_kernels.h"
 
 using namespace torch;

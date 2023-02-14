@@ -29,7 +29,6 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/passes/transform_graph.h"

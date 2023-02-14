@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "backend/habana_operator.h"
@@ -31,30 +34,6 @@ class LogSoftmaxOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
-};
-
-class LogSoftmaxBackwardOperator : public HabanaOperator {
- public:
-  LogSoftmaxBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "logsoftmax_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    // For logsoftmax_bwd_ kernel, the node inputs are in order {grad, output,
-    // input} The synapse graph needs only the grad and output, and in the order
-    // {output, grad}. p_context_->pt_inputs_ and p_context_->syn_inputs_ are
-    // modified here to ensure this.
-    kernel_meta_data_.tpc_input_order = {1, 0};
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };
 
 // Sofmax Operator

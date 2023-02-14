@@ -26,7 +26,6 @@
 #include "habana_kernels/conv_pool_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/pool_kernels.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/tensor_impl.h"
 
@@ -325,18 +324,6 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
   avg_pool_params.includePadding = include_padding;
 
   return avg_pool_params;
-}
-
-/**
- * @brief Fill Adaptive Average pooling params structure
- */
-ns_AdaptiveAvgPool::Params synapse_adaptive_avg_pool_params_builder(
-    const IntArrayRef& output_size) {
-  ns_AdaptiveAvgPool::Params adaptive_avg_pool_params{};
-  adaptive_avg_pool_params.outputHeight = output_size[0];
-  adaptive_avg_pool_params.outputWidth = output_size[1];
-
-  return adaptive_avg_pool_params;
 }
 
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(

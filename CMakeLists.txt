@@ -120,7 +120,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_out_kernels.cpp
-  habana_kernels/binary_composite_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/bitwise_kernels.cpp
   habana_kernels/compare_kernels.cpp
@@ -129,7 +128,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
-  habana_kernels/fill_kernels.cpp
   habana_kernels/eager_op.cpp
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp
@@ -152,7 +150,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/reduction2_kernels.cpp
   habana_kernels/repeat.cpp
   habana_kernels/roi_align_kernels.cpp
-  habana_kernels/simple_generic_kernel.cpp
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp

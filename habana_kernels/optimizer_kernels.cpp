@@ -24,7 +24,6 @@
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "simple_generic_kernel.h"
 
 using namespace torch;
 using namespace habana;

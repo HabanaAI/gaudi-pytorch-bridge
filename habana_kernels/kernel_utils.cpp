@@ -296,11 +296,6 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
   return out_size;
 }
 
-std::string habana_helpers::unique_recipe_name_generator(
-    std::string recipe_name) {
-  static std::unordered_map<std::string, unsigned> map;
-  return recipe_name + std::to_string(map[recipe_name]++);
-}
 namespace {
 struct ResourceHolder {
   std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;

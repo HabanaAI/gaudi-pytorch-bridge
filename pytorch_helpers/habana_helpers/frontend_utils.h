@@ -26,6 +26,4 @@ at::Tensor downcast_to_int_if_needed(const at::Tensor& in);
 
 at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
 
-at::Tensor to_cpu(const at::Tensor& hpu_tensor);
-
 } // namespace habana_helpers

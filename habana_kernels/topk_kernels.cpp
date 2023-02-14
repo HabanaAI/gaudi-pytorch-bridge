@@ -25,7 +25,6 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
 

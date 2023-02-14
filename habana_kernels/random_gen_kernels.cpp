@@ -26,7 +26,6 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/resize.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "lazy_kernels.h"
 
 using namespace torch;
@@ -492,35 +491,6 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
   }
 }
 
-/*
-Generate a seed value and push that as a tensor to HPU
-*/
-at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
-    torch::jit::Stack& inputs,
-    bool is_persistent) {
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be Tensor for DropoutOperator Operator");
-  // Using below approach of filling a buffer on HOST and then copying
-  // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
-  // TODO revert to synMemSet once SW-11757 is resolved
-  auto ref_tensor = inputs[0].toTensor();
-  int64_t seed = inputs[2].isNone() ? get_seed_hpu(c10::nullopt)
-                                    : get_seed_hpu(inputs[2].toGenerator());
-  Tensor seed_tensor = habana::createPTTensor(
-      ref_tensor,
-      {1},
-      ref_tensor.options(),
-      at::MemoryFormat::Contiguous,
-      c10::ScalarType::Int,
-      is_persistent);
-  auto size = seed_tensor.numel() * seed_tensor.element_size();
-  std::vector<int> buffer(size, (int)seed);
-
-  habana_helpers::copy_scalar_to_device(buffer.data(), seed_tensor, size);
-  return seed_tensor;
-}
-
 void DropoutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -616,34 +586,6 @@ void DropoutOperator::SetPTOutputs(
       output_metadata.at(1).persistent);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
   HabanaOperator::SetPTOutputs(pt_outputs);
-}
-
-Tensor process_random_shuffle_op(
-    const std::vector<at::Tensor>& pt_inputs,
-    torch::jit::Stack& stack,
-    const std::string& node_guid) {
-  size_t device_id = pt_inputs[0].device().index();
-  at::ScalarType scalar_type = pt_inputs[0].scalar_type();
-  std::string node_type =
-      node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  RandomShuffleOperator Op(device_id, scalar_type);
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    Op.Execute(key, pt_inputs, stack);
-  } else {
-    // both inputs are not required, just to match graph mode stack
-    OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    // compile and execute the graph
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  return out[0];
 }
 
 void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(

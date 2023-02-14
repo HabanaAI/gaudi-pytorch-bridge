@@ -29,7 +29,6 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/nonzero_kernel.h"
-#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 using namespace habana;

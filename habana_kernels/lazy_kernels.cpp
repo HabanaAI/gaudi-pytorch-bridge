@@ -118,10 +118,6 @@ bool is_inplace(at::Symbol symbol) {
   return is_inplace;
 }
 
-bool to_lower_as_strided() {
-  return GET_ENV_FLAG_NEW(PT_HPU_LOWER_AS_STRIDED);
-}
-
 void dumpViewTableMemoryStat() {
   PT_LAZY_TRACE;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
@@ -5060,13 +5056,6 @@ native_group_norm_backward_hpu_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm_backward, op)
 }
 #endif
-
-Tensor fill_0d_val(const Tensor& self, const c10::Scalar& val) {
-  std::vector<int64_t> size = {};
-  at::Tensor empty_tensor =
-      empty_hpu_lazy(size, self.options(), self.suggest_memory_format(), true);
-  return fill_hpu_lazy_(empty_tensor, val);
-}
 
 std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
     const Tensor& input,

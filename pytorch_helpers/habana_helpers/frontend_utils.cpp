@@ -205,11 +205,3 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   PT_KERNEL_END;
   return Op.GetOutputs()[0];
 }
-
-at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
-  if (hpu_tensor.defined()) {
-    return hpu_tensor.to(at::DeviceType::CPU);
-  }
-
-  return hpu_tensor;
-}

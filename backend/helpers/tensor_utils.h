@@ -51,14 +51,7 @@ void PrintTensor(
 
 namespace habana_helpers {
 
-int64_t tensor_numel(const at::Tensor& self);
-
 std::vector<int64_t> infer_size(c10::IntArrayRef shape, int64_t numel);
-
-at::Tensor scalar_to_device_tensor(
-    const at::Scalar& scalar,
-    const at::Tensor& self,
-    unsigned num_dimensions);
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(

@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <algorithm>
 
@@ -31,41 +34,6 @@ int64_t compute_output_size(
     // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
     return ((input - 1) * stride - 2 * pad + dilation * (filter - 1) + 1);
   }
-}
-
-void check_pool_params(
-    const at::Tensor& input,
-    const at::IntArrayRef kernel,
-    const at::IntArrayRef stride,
-    const at::IntArrayRef padding,
-    const at::IntArrayRef dilation,
-    bool ceil_mode) {
-  TORCH_CHECK(
-      input.device().type() == c10::DeviceType::HPU,
-      "input is not habana at::Tensor");
-
-  TORCH_CHECK(
-      (input.ndimension() == 4),
-      "pool2d: non-empty 4D tensor expected for input");
-
-  static_cast<void>(ceil_mode);
-
-  TORCH_CHECK(
-      kernel.size() == 1 || kernel.size() == 2,
-      "pool2d: kernel_size must either be a single int, or a tuple of two ints");
-
-  TORCH_CHECK(
-      stride.empty() || stride.size() == 1 || stride.size() == 2,
-      "pool2d: stride must either be omitted, a single int, or a tuple of two ints");
-
-  TORCH_CHECK(
-      padding.size() == 1 || padding.size() == 2,
-      "pool2d: padding must either be a single int, or a tuple of two ints");
-
-  TORCH_CHECK(
-      std::all_of(
-          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
-      "pool2d: dilation not supported, only valid value is 1");
 }
 
 void check_convolution_params(
@@ -137,15 +105,5 @@ void check_convolution_params(
       "input at::Tensor dimension count !=  ",
       input_dims);
 }
-
-std::vector<int64_t> hack_pytorch_nhwc_shapes(
-    const at::IntArrayRef& sizes,
-    bool hack_shapes) {
-  if (hack_shapes)
-    // pytorch data format is NCHW, synapse require NHWC
-    return std::vector<int64_t>{sizes[0], sizes[2], sizes[3], sizes[1]};
-  else
-    return sizes.vec();
-};
 
 } // namespace habana_helpers

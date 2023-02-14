@@ -19,7 +19,6 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/softmax_kernels.h"
 
 #include <algorithm>
@@ -66,41 +65,6 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
 
   auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-std::vector<int64_t> LogSoftmaxBackwardOperator::compute_output_shape(
-    const Tensor& input) {
-  return input.sizes().vec();
-}
-
-void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect size of input expected for softmax operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isInt(), "Input type expected to be int");
-  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
-
-  at::Tensor grad = inputs[0].toTensor();
-  at::Tensor output = inputs[1].toTensor();
-  int dim = inputs[2].toInt();
-  at::Tensor input = inputs[3].toTensor();
-
-  dim = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
-
-  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim)};
-
-  p_context_->params_.emplace<ns_Softmax::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
-  auto grad_output =
-      habana::createPTTensor(input, output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, grad_output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

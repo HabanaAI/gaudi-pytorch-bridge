@@ -53,8 +53,6 @@ std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,
     const at::Tensor& arg2);
 
-std::string unique_recipe_name_generator(std::string recipe_name);
-
 void compile_and_run(
     synapse_helpers::graph&& graph,
     const std::vector<std::string>& input_names,

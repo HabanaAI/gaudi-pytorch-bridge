@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 
@@ -25,14 +28,6 @@ int64_t compute_output_size(
     const bool ceil_mode,
     const bool transposed);
 
-void check_pool_params(
-    const at::Tensor& input,
-    const at::IntArrayRef kernel,
-    const at::IntArrayRef stride,
-    const at::IntArrayRef padding,
-    const at::IntArrayRef dilation,
-    bool ceil_mode);
-
 void check_convolution_params(
     const std::vector<at::Tensor>& inputs,
     const at::IntArrayRef stride,
@@ -43,8 +38,4 @@ void check_convolution_params(
     const int input_channel = 1,
     const int weight_channel = 1,
     const bool is_conv_3d = false);
-
-std::vector<int64_t> hack_pytorch_nhwc_shapes(
-    const at::IntArrayRef& sizes,
-    bool hack_shapes);
 } // namespace habana_helpers

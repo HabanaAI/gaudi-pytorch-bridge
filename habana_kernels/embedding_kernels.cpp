@@ -27,7 +27,6 @@
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/index_kernels.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
