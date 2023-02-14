@@ -101,16 +101,6 @@ batch_norm_backward_reduce(
     double momentum,
     double eps,
     const at::Tensor& counts);
-::std::tuple<at::Tensor, at::Tensor> _weight_norm_interface(
-    const at::Tensor& v_in,
-    const at::Tensor& g_in,
-    int64_t dim);
-::std::tuple<at::Tensor, at::Tensor> _weight_norm_interface_backward(
-    const at::Tensor& grad_w,
-    const at::Tensor& saved_v,
-    const at::Tensor& saved_g,
-    const at::Tensor& saved_norms,
-    int64_t dim);
 at::Tensor instance_norm(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight,

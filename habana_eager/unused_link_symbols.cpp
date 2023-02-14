@@ -95,22 +95,6 @@ at::Tensor hpu_wrap::repeat_interleave(
   EAGER_NOT_SUPPORTED;
 }
 
-std::tuple<at::Tensor, at::Tensor> hpu_wrap::_weight_norm_interface(
-    const at::Tensor&,
-    const at::Tensor&,
-    int64_t) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<at::Tensor, at::Tensor> hpu_wrap::_weight_norm_interface_backward(
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    int64_t) {
-  EAGER_NOT_SUPPORTED;
-}
-
 Tensor hpu_wrap::_efficientzerotensor(
     IntArrayRef,
     c10::optional<ScalarType>,

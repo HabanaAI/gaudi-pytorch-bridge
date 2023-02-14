@@ -10,6 +10,8 @@
  *
  *******************************************************************************
  */
+#include "generated/backend/_weight_norm_interface.h"
+#include "generated/backend/_weight_norm_interface_backward.h"
 #include "generated/backend/linalg_vector_norm.h"
 #include "generated/backend/native_layer_norm.h"
 #include "generated/backend/native_layer_norm_backward.h"
@@ -800,4 +802,316 @@ void LayerNormBwdHabanaOperator::AddNode(
   }
 }
 
+sizes_vec WeightNormOutputShape(const at::Stack& stack) {
+  const torch::Tensor& v_in = stack_tensor(stack, 0);
+  const torch::Tensor& g_in = stack_tensor(stack, 1);
+  auto dim = stack.at(2).toInt();
+  auto shapes = at::infer_size(v_in.sizes(), g_in.sizes());
+  auto norm_shapes = v_in.sizes()[dim];
+  return {shapes, {norm_shapes}};
+}
+
+void WeightNormOp::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto v_in = stack_tensor(stack, 0);
+  auto g_in = stack_tensor(stack, 1);
+  auto dim = stack.at(2).toInt();
+
+  /*
+  NOTE:
+  We use the CPU implementation that follows the "non-fused" (ie., assumes
+  can_use_fused=0) path.
+  */
+  TORCH_CHECK(
+      v_in.device() == g_in.device(),
+      "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
+      "on ",
+      v_in.device(),
+      " and g_in is on ",
+      g_in.device());
+
+  auto outsize_norm_op = v_in.sizes()[dim];
+
+  std::vector<int64_t> dim_to_norm;
+  for (int64_t i = 0; i < v_in.ndimension(); ++i) {
+    if (i != dim) // skip given dimension
+      dim_to_norm.push_back(i);
+  }
+
+  at::Scalar ord = 2.0;
+
+  // align with cuda behavior, keep norm in 'Float' when g is 'BFloat16'
+  const auto dtype = (g_in.scalar_type() == at::ScalarType::BFloat16)
+      ? at::ScalarType::Float
+      : g_in.scalar_type();
+
+  std::vector<synapse_helpers::tensor> normOp;
+  if (dtype != v_in.scalar_type()) {
+    auto cast_bf16_to_float =
+        CastHelper(graph, syn_in(0), v_in.sizes(), v_in.scalar_type(), dtype);
+
+    normOp.emplace_back(NormCommon(
+        this,
+        graph,
+        cast_bf16_to_float.get(),
+        dtype,
+        v_in,
+        dim_to_norm,
+        false,
+        ord,
+        {{outsize_norm_op, dtype, 1}},
+        false));
+  } else {
+    normOp.emplace_back(NormCommon(
+        this,
+        graph,
+        syn_in(0),
+        ScalarType(),
+        v_in,
+        dim_to_norm,
+        false,
+        ord,
+        {{outsize_norm_op, ScalarType(), 1}},
+        false));
+  }
+  auto outsize_div_op = at::infer_size(g_in.sizes(), outsize_norm_op);
+  const std::string opStringSuffix =
+      "_fwd_" + habana_helpers::name_suffix_from_type(ScalarType());
+  auto divOp = BuildOp(
+      graph,
+      "div" + opStringSuffix,
+      {syn_in(1), normOp[0].get()},
+      {{outsize_div_op, ScalarType()}});
+
+  auto outsize_mul_op = at::infer_size(v_in.sizes(), outsize_div_op);
+  auto mulOp = BuildOp(
+      graph,
+      "mult" + opStringSuffix,
+      {syn_in(0), divOp.at(0).get()},
+      {{outsize_mul_op, ScalarType(), 0}});
+
+  syn_out(0) = std::move(mulOp[0]);
+  syn_out(1) = std::move(normOp[0]);
+}
+
+sizes_vec WeightNormBwdOutputShape(const at::Stack& stack) {
+  const torch::Tensor& grad_w = stack_tensor(stack, 0);
+  const torch::Tensor& saved_v = stack_tensor(stack, 1);
+  const torch::Tensor& saved_g = stack_tensor(stack, 2);
+  const torch::Tensor& saved_norms = stack_tensor(stack, 3);
+  auto dim = stack.at(4).toInt();
+  int64_t last_dim = saved_v.dim() - 1;
+  int64_t last_size = saved_v.size(last_dim);
+  std::vector<int64_t> bcast_size(saved_v.dim(), 1);
+  if (dim == 0) {
+    bcast_size[0] = saved_v.size(0);
+  } else {
+    bcast_size[last_dim] = last_size;
+  }
+  auto shapes1 = at::infer_size(grad_w.sizes(), saved_v.sizes());
+  auto shapes2 = at::infer_size(saved_norms.sizes(), saved_g.sizes());
+  auto shapes3 = at::infer_size(shapes1, shapes2);
+  auto shapes = at::infer_size(shapes3, bcast_size);
+  return {shapes, bcast_size};
+}
+
+void WeightNormBwdOp::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const torch::Tensor& grad_w = stack_tensor(stack, 0);
+  const torch::Tensor& saved_v = stack_tensor(stack, 1);
+  const torch::Tensor& saved_g = stack_tensor(stack, 2);
+  const torch::Tensor& saved_norms = stack_tensor(stack, 3);
+  auto dim = stack.at(4).toInt();
+
+  // In Functions.cpp, the HardshrinkBackward object supplies
+  // "grad.contiguous()" as the first argument, so grad_w should be contiguous
+  // here. All these checks should succeed:
+  TORCH_CHECK(grad_w.is_contiguous(), "grad_w must be contiguous");
+  TORCH_CHECK(saved_v.is_contiguous(), "saved_v must be contiguous");
+  TORCH_CHECK(saved_g.is_contiguous(), "saved_g must be contiguous");
+  TORCH_CHECK(saved_norms.is_contiguous(), "saved_norms must be contiguous");
+
+  int64_t last_dim = saved_v.dim() - 1;
+  int64_t last_size = saved_v.size(last_dim);
+
+  // Like weight_norm_fused_backward, weight_norm_differentiable_backward should
+  // only ever be called through a WeightNormFusedBackward object, so we expect
+  // that dim == 0 || dim == saved_v.size(-1)
+  TORCH_CHECK(
+      dim == 0 || dim == last_dim,
+      "Expected dim to be the first or last dimension");
+
+  // saved_g and saved_norms are already shaped to broadcast over the correct
+  // dimensions
+
+  // ...but saved_norms might be Float when saved_g and saved_v are half.
+  // To consider:  saved_norms.to(..., True );
+
+  /////auto norms = saved_norms.to(saved_g.scalar_type());
+  std::vector<synapse_helpers::tensor> norms_cast;
+  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
+    norms_cast.emplace_back(CastHelper(
+        graph,
+        syn_in(3),
+        saved_norms.sizes(),
+        saved_norms.scalar_type(),
+        saved_g.scalar_type()));
+  }
+  std::vector<synapse_helpers::tensor> per_dim_sums;
+  std::vector<synapse_helpers::tensor> divOp21;
+  std::vector<synapse_helpers::tensor> mulOp22;
+  std::vector<synapse_helpers::tensor> divOp23;
+  std::vector<synapse_helpers::tensor> mulOp24;
+  std::vector<synapse_helpers::tensor> subOp25;
+  std::vector<synapse_helpers::tensor> grad_v;
+  std::vector<synapse_helpers::tensor> grad_g;
+  std::vector<int64_t> bcast_size(saved_v.dim(), 1);
+
+  // Analytic backward path using differentiable primitive ops
+  if (dim == 0) {
+    bcast_size[0] = saved_v.size(0);
+
+    auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
+    auto mulOp11 = BuildOp(
+        graph,
+        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0), syn_in(1)},
+        {{outsize_mulOp11, ScalarType()}});
+
+    std::vector<int64_t> reshape_outshape;
+    reshape_outshape.push_back(saved_v.size(0));
+
+    if (grad_w.numel() > saved_v.numel()) {
+      reshape_outshape.push_back(grad_w.numel() / saved_v.size(0));
+    } else {
+      reshape_outshape.push_back(saved_v.numel() / saved_v.size(0));
+    }
+
+    auto reshapeOp12 =
+        ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, ScalarType());
+
+    ns_Reduction::Params reduce_params{};
+    int axis = 1;
+    reduce_params.reductionDimension = reshape_outshape.size() - axis - 1;
+
+    int reductionDimension = reshape_outshape.size() - axis - 1;
+    reduce_params.reductionDimension = reductionDimension;
+    auto sumOp13 = BuildOp(
+        graph,
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {reshapeOp12.get()},
+        {{{reshape_outshape[reductionDimension]}, ScalarType()}},
+        &reduce_params,
+        sizeof(reduce_params));
+
+    per_dim_sums.emplace_back(
+        ReshapeHelper(graph, sumOp13[0].get(), bcast_size, ScalarType()));
+  } else {
+    bcast_size[last_dim] = last_size;
+    auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
+    auto mulOp11 = BuildOp(
+        graph,
+        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0), syn_in(1)},
+        {{outsize_mulOp11, ScalarType()}});
+
+    std::vector<int64_t> reshape_outshape;
+    if (grad_w.numel() > saved_v.numel()) {
+      reshape_outshape.push_back(grad_w.numel() / last_size);
+    } else {
+      reshape_outshape.push_back(saved_v.numel() / last_size);
+    }
+    reshape_outshape.push_back(last_size);
+
+    auto reshapeOp12 =
+        ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, ScalarType());
+
+    ns_Reduction::Params reduce_params{};
+    int axis = 0;
+    int reductionDimension = reshape_outshape.size() - axis - 1;
+    reduce_params.reductionDimension = reductionDimension;
+
+    auto sumOp13 = BuildOp(
+        graph,
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {reshapeOp12.get()},
+        {{{reshape_outshape[reductionDimension]}, ScalarType()}},
+        &reduce_params,
+        sizeof(reduce_params));
+
+    per_dim_sums.emplace_back(
+        ReshapeHelper(graph, sumOp13[0].get(), bcast_size, ScalarType()));
+  }
+
+  auto outsize_divOp21 = at::infer_size(saved_g.sizes(), saved_norms.sizes());
+  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
+    divOp21 = BuildOp(
+        graph,
+        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(2), norms_cast[0].get()},
+        {{outsize_divOp21, ScalarType()}});
+
+    mulOp22 = BuildOp(
+        graph,
+        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {norms_cast[0].get(), norms_cast[0].get()},
+        {{saved_norms.sizes(), ScalarType()}});
+  } else {
+    divOp21 = BuildOp(
+        graph,
+        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(2), syn_in(3)},
+        {{outsize_divOp21, ScalarType()}});
+
+    mulOp22 = BuildOp(
+        graph,
+        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(3), syn_in(3)},
+        {{saved_norms.sizes(), ScalarType()}});
+  }
+  divOp23 = BuildOp(
+      graph,
+      "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      {per_dim_sums[0].get(), mulOp22[0].get()},
+      {{bcast_size, ScalarType()}});
+
+  auto outsize_mulOp24 = at::infer_size(saved_v.sizes(), bcast_size);
+  mulOp24 = BuildOp(
+      graph,
+      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      {syn_in(1), divOp23[0].get()},
+      {{outsize_mulOp24, ScalarType()}});
+
+  auto outsize_subOp25 = at::infer_size(grad_w.sizes(), outsize_mulOp24);
+  subOp25 = BuildOp(
+      graph,
+      "sub_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      {syn_in(0), mulOp24[0].get()},
+      {{outsize_subOp25, ScalarType()}});
+
+  auto outsize_grad_v = at::infer_size(outsize_divOp21, outsize_subOp25);
+  grad_v = BuildOp(
+      graph,
+      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      {divOp21[0].get(), subOp25[0].get()},
+      {{outsize_grad_v, ScalarType(), 0}});
+  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
+    grad_g = BuildOp(
+        graph,
+        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {per_dim_sums[0].get(), norms_cast[0].get()},
+        {{bcast_size, ScalarType(), 1}});
+  } else {
+    grad_g = BuildOp(
+        graph,
+        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {per_dim_sums[0].get(), syn_in(3)},
+        {{bcast_size, ScalarType(), 1}});
+  }
+
+  syn_out(0) = std::move(grad_v.at(0));
+  syn_out(1) = std::move(grad_g.at(0));
+}
 } // namespace habana
