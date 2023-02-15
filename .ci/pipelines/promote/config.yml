@@ -11,6 +11,8 @@ orchestratorConfig:
 # PyTorch full graph tests
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_topology
+    silentMode: true
   - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_accuracy
     silentMode: true

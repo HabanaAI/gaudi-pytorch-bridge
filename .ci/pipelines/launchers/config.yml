@@ -27,6 +27,13 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_topology
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
 - testToLaunch: asic_gaudi_pytorch_topology_tests---t-dg
   silentMode: false
   gerritTriggerMap:
