@@ -24,6 +24,7 @@
 
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/lazy_to_backend.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_serialization/cache_version.h"
@@ -769,19 +770,18 @@ void RecipeValueSpec::update_output_permutation() {
       }
       auto permute_or_empty =
           is_identity_perm ? std::vector<uint8_t>() : permute_vec;
-      auto hb_internal_tensor =
-          habana_lazy::GetHbInternalTensorImpl(outputs.at(count)->toTensor());
-      PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER SHAPE AGNOSTIC] Synapse returned persistent tensorId=",
+      at::Tensor& tensor{outputs.at(count)->toTensor()};
+      PT_BACKEND_DEBUG_TENSOR(
+          tensor,
+          "[LAZY EAGER SHAPE AGNOSTIC] Synapse returned persistent tensorId=%d"
+          " HbInternal address: %s"
+          " HbInternal storage address: %s"
+          "; info.tensorPermutation = {%s}",
           info.tensorId,
-          " HbInternal address: : ",
-          hb_internal_tensor,
-          " HbInternal storage address: : ",
-          hb_internal_tensor->data(),
-          "; info.tensorPermutation = {",
-          VecToString(permute_vec),
-          "}\n");
-      hb_internal_tensor->SetMemoryPermutation(permute_or_empty);
+          lazy_to_backend::FormatTokens::ImplPtr,
+          lazy_to_backend::FormatTokens::DataPtr,
+          VecToString(permute_vec));
+      lazy_to_backend::set_memory_permutations(tensor, permute_or_empty);
       count++;
     }
   }
@@ -873,39 +873,6 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  auto create_empty_tensor{[](const PtTensorInfo& ti) -> at::Tensor {
-    auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
-    auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-    PT_BRIDGE_DEBUG(
-        "Cache created a BE tensor, HbInternal address: ", hb_internal_tensor);
-    TORCH_CHECK(
-        hb_internal_tensor != nullptr,
-        "Tensor for ",
-        ti.get_ir_name(),
-        " does not have HbInternalTensor");
-    auto internal_lf = hb_internal_tensor->GetTensorLayout();
-    auto internal_lf_new = ti.getHbInternalLayoutFormat();
-    if (internal_lf != internal_lf_new) {
-      PT_BRIDGE_DEBUG(
-          "For ",
-          ti.get_ir_name(),
-          " updating HbInternalTensorImpl layout from ",
-          internal_lf,
-          " to ",
-          internal_lf_new);
-      hb_internal_tensor->SetTensorLayout(internal_lf_new);
-    }
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      PT_BRIDGE_DEBUG(
-          "Setting synapse permutation as saved in the cache to the output tensor id: ",
-          ti.get_tensor_id(),
-          " permutation: ",
-          VecToString(ti.getHbInternalPermute()));
-      hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
-    }
-    return pt_tensor;
-  }};
-
   bool enable_shape_agnostic_graph =
       ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH));
@@ -924,16 +891,12 @@ void RecipeValueSpec::update_patching_table(
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
       auto& tensor = input.toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      PT_BRIDGE_DEBUG(
-          "Cache input HbInternal address: ",
-          impl,
-          " storage address : ",
-          impl->data(),
-          " permute: ",
-          VecToString(impl->GetMemoryPermutation()));
-      bool is_shape_tensor = impl && impl->isShapeTensor();
-      if (false == is_shape_tensor) {
+
+      std::vector<uint8_t> permutation;
+      bool dont_allow_permutation = false;
+      std::tie(permutation, dont_allow_permutation) =
+          lazy_to_backend::get_memory_permutation(tensor);
+      if (false == lazy_to_backend::is_shape_tensor(tensor)) {
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
@@ -943,11 +906,12 @@ void RecipeValueSpec::update_patching_table(
               ridx,
               synapse_orig_to_new_handle,
               input.toTensor().sizes().vec(),
-              impl->GetMemoryPermutation());
+              permutation);
           dtinfos_patched_count++;
         }
       } else {
-        dtensorinfos->at(ridx)->set_host_ptr(impl->get_host_ptr());
+        dtensorinfos->at(ridx)->set_host_ptr(
+            lazy_to_backend::get_host_ptr(tensor));
       }
       ridx++;
     } else if (input.isTensorList()) {
@@ -955,21 +919,17 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(t);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
-        auto impl = habana_lazy::GetHbInternalTensorImpl(t);
-        PT_BRIDGE_DEBUG(
-            "Cache input HbInternal address: ",
-            impl,
-            " storage address : ",
-            impl->data(),
-            " permute: ",
-            VecToString(impl->GetMemoryPermutation()));
+        std::vector<uint8_t> permutation;
+        bool dont_allow_permutation = false;
+        std::tie(permutation, dont_allow_permutation) =
+            lazy_to_backend::get_memory_permutation(t);
         if (enable_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
               synapse_orig_to_new_handle,
               t.sizes().vec(),
-              impl->GetMemoryPermutation());
+              permutation);
           dtinfos_patched_count++;
         }
         ridx++;
@@ -1091,7 +1051,7 @@ void RecipeValueSpec::update_patching_table(
 
       intermediate_tensors.push_back(pt_intermediate);
     } else {
-      auto pt_intermediate = create_empty_tensor(ti);
+      auto pt_intermediate = lazy_to_backend::create_empty_tensor(ti);
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
           tshape);
@@ -1164,16 +1124,16 @@ void RecipeValueSpec::update_patching_table(
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto tshape{ti.get_shape()};
-    auto pt_output = create_empty_tensor(ti);
+    auto pt_output = lazy_to_backend::create_empty_tensor(ti);
     if (enable_shape_agnostic_graph) {
-      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_output);
-      PT_BRIDGE_DEBUG(
-          "output HbInternal address: ",
-          impl,
-          " storage address : ",
-          impl->data(),
-          " permute: ",
-          VecToString(impl->GetMemoryPermutation()));
+      PT_BACKEND_DEBUG_TENSOR(
+          pt_output,
+          "output HbInternal address: %s"
+          " storage address : %s"
+          " permute: %s",
+          lazy_to_backend::FormatTokens::ImplPtr,
+          lazy_to_backend::FormatTokens::DataPtr,
+          lazy_to_backend::FormatTokens::Permutations);
     }
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache hit :: Creating new output with shape : ",

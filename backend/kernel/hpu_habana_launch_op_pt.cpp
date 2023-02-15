@@ -30,6 +30,7 @@
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
 
+#include "backend/lazy_to_backend.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/tensor_builder.h"
@@ -3006,31 +3007,29 @@ void RecipeValueSpec::create_outdup(
     }
   }
 
-  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_outdup);
-  if (impl) {
-    if (!ti.get_allow_permutation()) {
-      impl->SetMemoryPermutation({});
-      PT_BRIDGE_DEBUG(
-          "Resetting tensor ",
-          ti.get_tensor_id(),
-          " permutation because it is not allowed permutation (cache hit flow)");
-    } else {
-      PT_BRIDGE_DEBUG(
-          "Setting tensor ",
-          ti.get_tensor_id(),
-          " permutation from the TensorInfo cache record: ",
-          VecToString(ti.getHbInternalPermute()),
-          " old permutation was: ",
-          impl->GetMemoryPermutation());
-      impl->SetMemoryPermutation(ti.getHbInternalPermute());
-    }
-    PT_LAZY_EAGER_DEBUG(
-        " duplicate output HbInternal address : ",
-        impl,
-        " storage address : ",
-        impl->data());
+  if (!ti.get_allow_permutation()) {
+    lazy_to_backend::set_memory_permutations(pt_outdup, {});
+    PT_BRIDGE_DEBUG(
+        "Resetting tensor ",
+        ti.get_tensor_id(),
+        " permutation because it is not allowed permutation (cache hit flow)");
+  } else {
+    PT_BACKEND_DEBUG_TENSOR(
+        pt_outdup,
+        "Setting tensor %d "
+        " permutation from the TensorInfo cache record: %s"
+        " old permutation was: %s",
+        ti.get_tensor_id(),
+        VecToString(ti.getHbInternalPermute()),
+        lazy_to_backend::FormatTokens::Permutations);
+    lazy_to_backend::set_memory_permutations(
+        pt_outdup, ti.getHbInternalPermute());
   }
-
+  PT_BACKEND_DEBUG_TENSOR(
+      pt_outdup,
+      " duplicate output HbInternal address : %s  storage address : %s",
+      lazy_to_backend::FormatTokens::ImplPtr,
+      lazy_to_backend::FormatTokens::DataPtr);
   ti.patch(pt_outdup);
 
   IValPtrShared ivpsh = std::make_shared<IVal>(pt_outdup);

@@ -13,6 +13,7 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
+#include "backend/lazy_to_backend.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -201,49 +202,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       if (iter != synapse_to_pt_tensor.end()) {
         // updating the permute on the internal hb lazy tensor
         if (iter->second->isTensor()) {
-          auto& tensor = iter->second->toTensor();
-          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          PT_BRIDGE_DEBUG(
-              "Updating the PT tensor HbInternalTensorImpl address: ",
-              impl,
-              " storage address : ",
-              impl->data(),
-              " with permutation: ",
-              VecToString(permute_or_empty),
-              " old permutation was: ",
-              VecToString(impl->GetMemoryPermutation()));
-          if (impl) {
-            if (permute_vec.size() != tensor.sizes().size()) {
-              PT_BRIDGE_WARN(
-                  "wrong permute size - info.tensorId=",
-                  tensor_id,
-                  " tensor name: ",
-                  info.tensorName,
-                  "  permute_vec.size = ",
-                  permute_vec.size(),
-                  "  PT tensor shape.dims =",
-                  tensor.sizes().size(),
-                  " PT shape: ",
-                  VecToString(tensor.sizes().vec()),
-                  " synapse returned tensor dims: ",
-                  info.tensorDims,
-                  " synapse returned tensor shape: ",
-                  VecToString(std::vector<uint64_t>(
-                      info.tensorMaxSize,
-                      info.tensorMaxSize + info.tensorDims)));
-              HABANA_ASSERT(permute_vec.empty());
-            }
-            impl->SetMemoryPermutation(permute_or_empty);
-          } else {
-            // It should be handled in SW-122018
-            if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-              PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
-              continue;
-            }
-            TORCH_CHECK(
-                false,
-                "Failed to update permutation because the BE tensor has no internal impl");
-          }
+          lazy_to_backend::set_memory_permutations(
+              iter->second->toTensor(), permute_or_empty, &info);
         } else {
           TORCH_CHECK(
               false,
@@ -281,24 +241,12 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       if (iter != synapse_to_pt_tensor.end()) {
         // updating the permute on the internal hb lazy tensor
         if (iter->second->isTensor()) {
-          auto& tensor = iter->second->toTensor();
-          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          if (impl) {
-            impl->SetMemoryPermutation({});
-            PT_BRIDGE_DEBUG(
-                "Resetting tensor ",
-                info->get_tensor_id(),
-                " permutation because it is not allowed permutation")
-          } else {
-            // It should be handled in SW-122018
-            if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-              PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
-              continue;
-            }
-            TORCH_CHECK(
-                false,
-                "Failed to reset the permutation because the BE tensor has no internal impl");
-          }
+          PT_BRIDGE_DEBUG(
+              "Resetting tensor ",
+              info->get_tensor_id(),
+              " permutation because it is not allowed permutation");
+          lazy_to_backend::set_memory_permutations(
+              iter->second->toTensor(), {});
         }
       } else {
         TORCH_CHECK(false, "Failed to find PT tensor to update permutation");
