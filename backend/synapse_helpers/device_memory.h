@@ -106,6 +106,7 @@ class device_memory {
   std::shared_ptr<synapse_helpers::synchronous_counter>
       threads_in_defragmenter_critical_section_ =
           std::make_shared<synapse_helpers::synchronous_counter>();
+  void record(void* ptr, size_t size, bool alloc);
 
   MemoryReporter mem_reporter;
 };

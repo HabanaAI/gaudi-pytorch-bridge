@@ -45,6 +45,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   profiling/trace_sources/synapse_profiler_source.cpp
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
+  profiling/trace_sources/memory_source.cpp
   program/components/cache.cpp
   program/components/executor.cpp
   program/components/program.cpp

@@ -14,6 +14,7 @@
 #include "backend/profiling/profiling.h"
 #include <stdexcept>
 #include "backend/profiling/trace_sources/bridge_logs_source.h"
+#include "backend/profiling/trace_sources/memory_source.h"
 #include "backend/profiling/trace_sources/synapse_logger_source.h"
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -28,6 +29,9 @@ Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {
   }
   if (GET_ENV_FLAG_NEW(PT_PROFILE_BRIDGE_LOGS)) {
     trace_sources_.emplace_back(std::make_unique<BridgeLogsSource>());
+  }
+  if (GET_ENV_FLAG_NEW(PT_PROFILE_MEMORY)) {
+    trace_sources_.emplace_back(std::move(std::make_unique<MemorySource>()));
   }
 
   // simple trace grouping by log category

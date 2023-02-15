@@ -18,6 +18,7 @@
 #include <utility>
 
 #include <synapse_api.h>
+#include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -245,6 +246,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
   }
 
   log_synDeviceMalloc(ptr, size, status);
+  record(*v_ptr, size, true);
   return status;
 }
 
@@ -258,6 +260,7 @@ synStatus device_memory::free(void* free_ptr) {
     if (reinterpret_cast<uint64_t>(free_ptr) == workspace_allocation_) {
       status = deallocate(free_ptr);
       log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+      record(free_ptr, 0, false);
       return status;
     }
 
@@ -278,6 +281,7 @@ synStatus device_memory::free(void* free_ptr) {
     status = deallocate(free_ptr);
   }
   log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+  record(free_ptr, 0, false);
   return status;
 }
 
@@ -316,6 +320,7 @@ void* device_memory::workspace_alloc(
           req_size);
 
       deallocate(ptr);
+      record(ptr, 0, false);
     }
     void* v_ptr{nullptr};
     alloc(&v_ptr, actual_size, true);
@@ -324,6 +329,7 @@ void* device_memory::workspace_alloc(
       suballoc_->print_pool_stats();
       log_synDeviceAllocFail(device_, true, req_size);
     }
+    record(v_ptr, ws_size, true);
     log_synDeviceMemStats(*this);
     return v_ptr;
   } else {
@@ -378,6 +384,7 @@ void* device_memory::workspace_alloc(
       if (v_ptr != nullptr) {
         workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
         ws_size = block_align(req_size);
+        record(v_ptr, req_size - ws_size, true);
         log_synDeviceMemStats(*this);
       } else {
         workspace_allocation_ = 0;
@@ -970,6 +977,25 @@ bool device_memory::is_memory_available(
 
 synapse_helpers::MemoryReporter* device_memory::get_memory_reporter() {
   return &mem_reporter;
+}
+
+void device_memory::record(void* ptr, size_t size, bool alloc) {
+  if (habana::profile::memory::enabled()) {
+    MemoryStats stats;
+    get_memory_stats(&stats);
+    if (alloc) {
+      habana::profile::memory::recordAllocation(
+          reinterpret_cast<uint64_t>(ptr),
+          size,
+          stats.bytes_in_use,
+          stats.memory_limit);
+    } else {
+      habana::profile::memory::recordDeallocation(
+          reinterpret_cast<uint64_t>(ptr),
+          stats.bytes_in_use,
+          stats.memory_limit);
+    }
+  }
 }
 
 } // namespace synapse_helpers

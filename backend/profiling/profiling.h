@@ -24,11 +24,12 @@
 namespace habana {
 namespace profile {
 
-enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET };
+enum class ActivityType { KERNEL, RUNTIME, MEMCPY, MEMSET, CPU_INSTANT_EVENT };
 enum class TraceSourceVariant : unsigned {
   SYNAPSE_PROFILER = 0,
   SYNAPSE_LOGGER = 10000,
-  BRIDGE_LOGS = 20000
+  BRIDGE_LOGS = 20000,
+  MEMORY_LOGS = 30000
 };
 
 class TraceSource;
@@ -75,6 +76,17 @@ class TraceSink {
       const Flow& start,
       const Flow& finish) = 0;
 
+  virtual void addMemoryEvent(
+      int64_t device,
+      int64_t resource,
+      int64_t time,
+      uint64_t addr,
+      int64_t bytes,
+      int64_t device_id,
+      int64_t device_type,
+      uint64_t total_allocated,
+      uint64_t total_reserved) = 0;
+
   virtual void addDevice(std::string_view name, int64_t device) = 0;
 
   virtual void addResource(
@@ -85,6 +97,9 @@ class TraceSink {
 
   virtual void addDeviceDetails(
       const std::unordered_map<std::string, std::string>& device_details) = 0;
+
+  virtual void addDeviceDetails(
+      const std::unordered_map<std::string, int64_t>& device_details) = 0;
 };
 
 class TraceSource {

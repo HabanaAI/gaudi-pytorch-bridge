@@ -39,6 +39,7 @@ def register_habana_activity_profiler():
             import os
             os.environ["PT_PROFILE_SYNAPSE_LOGS"] = str(debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities)
             os.environ["PT_PROFILE_BRIDGE_LOGS"] = str(debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities)
+            os.environ["PT_PROFILE_MEMORY"] = str(profile_memory)
 
             super().__init__(
                 activities=activities,

@@ -63,6 +63,17 @@ class GenericTraceActivitySink : public TraceSink {
       uint64_t,
       bool) override {}
 
+  virtual void addMemoryEvent(
+      int64_t,
+      int64_t,
+      int64_t,
+      uint64_t,
+      int64_t,
+      int64_t,
+      int64_t,
+      uint64_t,
+      uint64_t) override {}
+
   void addDevice(std::string_view name, int64_t device) override {
     GenericTraceActivity name_meta{
         defaultTraceSpan(), libkineto::ActivityType::HPU_META_OP, ""};
@@ -117,6 +128,9 @@ class GenericTraceActivitySink : public TraceSink {
 
   void addDeviceDetails(
       const std::unordered_map<std::string, std::string>&) override {}
+
+  virtual void addDeviceDetails(
+      const std::unordered_map<std::string, int64_t>&) override {}
 
   virtual void addFlowEvent(
       std::string_view,

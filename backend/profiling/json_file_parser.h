@@ -55,13 +55,36 @@ class JsonFileParser : public TraceSink {
       std::string_view name,
       std::string_view cat,
       const Flow& start,
-      const Flow& finish) {
-    auto flow_start = construct_flow(
+      const Flow& finish) override {
+    auto flow_start = constructFlow(
         name, cat, start.device, start.resource, start.time, true);
-    auto flow_end = construct_flow(
+    auto flow_end = constructFlow(
         name, cat, finish.device, finish.resource, finish.time, false);
     addToEvents(flow_start);
     addToEvents(flow_end);
+  }
+
+  void addMemoryEvent(
+      int64_t device,
+      int64_t resource,
+      int64_t time,
+      uint64_t addr,
+      int64_t bytes,
+      int64_t device_id,
+      int64_t device_type,
+      uint64_t total_allocated,
+      uint64_t total_reserved) override {
+    auto memory_event = constructMemoryEvent(
+        device,
+        resource,
+        time,
+        addr,
+        bytes,
+        device_id,
+        device_type,
+        total_allocated,
+        total_reserved);
+    addToEvents(memory_event);
   }
 
   void addDevice(std::string_view name, int64_t id) override {
@@ -122,11 +145,16 @@ class JsonFileParser : public TraceSink {
   virtual void addDeviceDetails(
       const std::unordered_map<std::string, std::string>& device_details)
       override {
-    nlohmannV340::json device_property;
     for (auto& key_value : device_details) {
-      device_property[key_value.first] = key_value.second;
+      deviceProperties_[key_value.first] = key_value.second;
     }
-    deviceProperties_.push_back(device_property);
+  }
+
+  virtual void addDeviceDetails(
+      const std::unordered_map<std::string, int64_t>& device_details) override {
+    for (auto& key_value : device_details) {
+      deviceProperties_[key_value.first] = key_value.second;
+    }
   }
 
   nlohmannV340::json& getCreateArray(
@@ -151,10 +179,7 @@ class JsonFileParser : public TraceSink {
 
     if (!deviceProperties_.empty()) {
       auto& deviceProperties = getCreateArray(json_file, "deviceProperties");
-      deviceProperties.insert(
-          deviceProperties.end(),
-          deviceProperties_.begin(),
-          deviceProperties_.end());
+      deviceProperties.push_back(deviceProperties_);
     }
 
     {
@@ -205,7 +230,7 @@ class JsonFileParser : public TraceSink {
 
     return runtime;
   }
-  nlohmannV340::json construct_flow(
+  nlohmannV340::json constructFlow(
       std::string_view name,
       std::string_view cat,
       int64_t pid,
@@ -221,10 +246,43 @@ class JsonFileParser : public TraceSink {
     flow["tid"] = tid;
     flow["bp"] = "e"; // if binding point is not set to enclosing slice ("e")
                       // flow will end in the first event after timestamp
-    flow["id"] = flow_id_counter;
+    flow["id"] = flow_id_counter_;
     if (!start)
-      flow_id_counter++;
+      flow_id_counter_++;
     return flow;
+  }
+  nlohmannV340::json constructMemoryEvent(
+      int64_t pid,
+      int64_t tid,
+      int64_t ts,
+      uint64_t addr,
+      int64_t bytes,
+      int64_t device_id,
+      int64_t device_type,
+      uint64_t total_allocated,
+      uint64_t total_reserved) {
+    nlohmannV340::json memory_event;
+    memory_event["cat"] =
+        mapActivityTypeToString(ActivityType::CPU_INSTANT_EVENT);
+    memory_event["name"] = "[memory]";
+    memory_event["ph"] = "i";
+    memory_event["pid"] = pid;
+    memory_event["s"] = "t";
+    memory_event["tid"] = tid;
+    memory_event["ts"] = ts;
+
+    profiler_event_index_++;
+    nlohmannV340::json args;
+    args["Addr"] = addr;
+    args["Bytes"] = bytes;
+    args["Device Id"] = device_id;
+    args["Device Type"] = device_type;
+    args["Profiler Event Index"] = profiler_event_index_;
+    args["Total Allocated"] = total_allocated;
+    args["Total Reserved"] = total_reserved;
+
+    memory_event["args"] = args;
+    return memory_event;
   }
 
   std::string mapActivityTypeToString(ActivityType type) {
@@ -237,10 +295,13 @@ class JsonFileParser : public TraceSink {
         return "Memcpy";
       case ActivityType::MEMSET:
         return "Memset";
+      case ActivityType::CPU_INSTANT_EVENT:
+        return "cpu_instant_event";
     }
     return "Runtime";
   }
-  uint64_t flow_id_counter = 0;
+  uint64_t flow_id_counter_ = 0;
+  uint64_t profiler_event_index_ = 0;
   nlohmannV340::json traceEvents_;
   nlohmannV340::json deviceProperties_;
 };

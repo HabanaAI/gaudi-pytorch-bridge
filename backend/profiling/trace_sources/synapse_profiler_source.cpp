@@ -134,8 +134,8 @@ bool SynapseProfilerSource::getEntries(size_t& size, size_t& count, void* out) {
 void SynapseProfilerSource::initHpuDetails(TraceSink& output) {
   auto name = get_device_name();
   auto memory = get_memory_size();
-  output.addDeviceDetails(
-      {{"name", name}, {"totalGlobalMem", std::to_string(memory)}});
+  output.addDeviceDetails({{"name", name}});
+  output.addDeviceDetails({{"totalGlobalMem", memory}});
 }
 } // namespace profile
 } // namespace habana
