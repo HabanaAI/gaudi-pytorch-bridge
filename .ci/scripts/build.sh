@@ -96,7 +96,6 @@ function pytorch_usage()
         "${PYTORCH_MODULES_ROOT_PATH}"/.devops/build.py --help
         echo -e ""
         echo -e "Additionally:"
-        echo -e "       --op-stats             Generate operator statistics"
         echo -e "       --recursive            Build all NPU stack dependencies beforehand"
     fi
 
@@ -206,7 +205,7 @@ build_pytorch_modules()
     local  __generate_op_stats="false"
 
     local __variables_to_build
-    __variables_to_build=$(echo "$@" | sed s/" --recursive"// | sed s/" --op-stats"// | sed s/" --no-tidy"//)
+    __variables_to_build=$(echo "$@" | sed s/" --recursive"// | sed s/" --no-tidy"//)
 
     # parameter while-loop
     while [ -n "$1" ];

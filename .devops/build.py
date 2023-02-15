@@ -661,6 +661,7 @@ def prepare_build_dirs(
     cmake_configurations,
     pt_modules_root,
     clean=False,
+    op_stats=False,
 ) -> Tuple[List, List[WheelConfig]]:
     """
     Prepares build dirs for requested configurations
@@ -670,6 +671,7 @@ def prepare_build_dirs(
         cmake_configurations: CMake flags
         pt_modules_root : pytorch-integration root directory
         clean: whether to remove build directories to rebuild from scratch
+        op_stats: whether to create directory symbolic links required for gathering operator statistics
     Returns: A tuple of 3 lists:
              - CMake build configurations,
              - wheel configurations,
@@ -736,6 +738,15 @@ def prepare_build_dirs(
                     current_ver_build_dir,
                     cmake_flags,
                 )
+
+            if op_stats and cmake_config == "Release":
+                log.info("Files from %s will be used for gathering op stats", current_ver_build_dir)
+                src = os.path.join(current_ver_build_dir, "generated")
+                dst = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "generated")
+                if os.path.islink(src):
+                    os.remove(src)
+                os.symlink(src, dst)
+                op_stats = False
 
         wheel_configs = create_wheel_targets(
             wheels_per_build_envs, whl_build_dir, pmake
@@ -1321,7 +1332,6 @@ class SmartFormatter(argparse.RawDescriptionHelpFormatter):
         return argparse.HelpFormatter._split_lines(self, text, width)
 
 
-# TODO: ensure all args from original PT script are supported
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Build Habana PT modules for multiple PyTorch versions.",
@@ -1459,6 +1469,11 @@ def parse_args():
         "--no-swig",
         action="store_true",
         help="Build without swig even if it's available",
+    )
+    parser.add_argument(
+        "--op-stats",
+        action="store_true",
+        help="Generate operator statistics",
     )
     parser.add_argument(
         "--tidy", action="store_true", help="Build with clang-tidy"
@@ -1887,6 +1902,7 @@ def main():
             cmake_configurations,
             pt_modules_root,
             clean=args.configure,
+            op_stats=args.op_stats,
         )
 
         selected_targets, selected_wheel_configs = select_targets_and_configs(
