@@ -658,7 +658,7 @@ def prepare_build_envs(
 def prepare_build_dirs(
     build_root_dir,
     wheels_per_build_envs,
-    cmake_configurations,
+    cmake_configurations: Dict,
     pt_modules_root,
     clean=False,
     op_stats=False,
@@ -749,7 +749,7 @@ def prepare_build_dirs(
                 op_stats = False
 
         wheel_configs = create_wheel_targets(
-            wheels_per_build_envs, whl_build_dir, pmake
+            wheels_per_build_envs, whl_build_dir, cmake_configurations.keys(), pmake
         )
 
         create_ctest_target(pmake)
@@ -858,6 +858,7 @@ def create_wheel_target_for_single_python(
     serializer,
     pt_vers: Sequence[VersionAndSource],
     venv_dirs,
+    cmake_configuration: str
 ):
     venv_dir = venv_dirs[0]
     pt_wheel_vers = ",".join(map(lambda x: str(x.version), pt_vers))
@@ -868,31 +869,36 @@ def create_wheel_target_for_single_python(
     whl_source_dir = wheel_name_and_src.src_dir
     activate = f"source {venv_dir}/bin/activate" if venv_dir != "." else "true"
 
+    cmake_configuration = cmake_configuration.upper()
+    pkgs_dir = f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs/"
+
     pmake(f".PHONY: {wheel_target}/linux")
     pmake(f"{wheel_target}/linux:\n\t")
 
-    new_serializer = f"py{py_ver}/{wheel_name}/{wheel_target}/linux_serial"
-    pmake(f".PHONY: py{py_ver}/{wheel_name}/{wheel_target}/linux {new_serializer}")
+    platform_wheel = f"py{py_ver}/{wheel_name}/{wheel_target}/{cmake_configuration}/linux"
+    new_serializer = f"py{py_ver}/{wheel_name}/{wheel_target}{cmake_configuration}/linux_serial"
+    pmake(f".PHONY: {platform_wheel} {new_serializer}")
     pmake(
-        f"py{py_ver}/{wheel_name}/{wheel_target}/linux {new_serializer}:"
-        f"$(addsuffix /wheel_install, $(SUBNAMES_PY_{py_ver}_RELEASE))|${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs"
+        f"{platform_wheel} {new_serializer}: "
+        f"$(addsuffix /wheel_install, $(SUBNAMES_PY_{py_ver}_{cmake_configuration})) | "
+        f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs"
     )
     pmake(
         f"\t{'-' if optional else ''}cd $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir} && {activate} &&\\"
     )
     pmake(
-        f'\tRELEASE_VERSION="{get_release_version()}" PT_WHEEL_VERS="{pt_wheel_vers}" PT_WHEEL_NAME="{full_wheel_name}" '
-        f"PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} "  # TODO: use a separate build dir for each wheel version built (one per python)
+        f'\tRELEASE_VERSION="{get_release_version()}" PT_WHEEL_VERS="{pt_wheel_vers}" '
+        f'PT_WHEEL_NAME="{full_wheel_name}" PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} '
         f"python3 setup.py --verbose bdist_wheel &&\\"
     )
     pmake(
-        f"\tmv $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl ${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs/"
+        f"\tmv $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl {pkgs_dir}"
     )
 
     pmake(f"{new_serializer}: {serializer}")
 
     expected_wheel_pattern = (
-        f"{os.environ['PYTORCH_MODULES_RELEASE_BUILD']}/pkgs/"
+        f"{os.environ[f'PYTORCH_MODULES_{cmake_configuration}_BUILD']}/pkgs/"
         f"{full_wheel_name.replace('-', '_')}-*-cp{str(py_ver).replace('.', '')}*.whl"
     )
 
@@ -914,7 +920,7 @@ def create_wheel_target_for_single_python(
 
 
 def create_wheel_targets(
-    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, pmake
+    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, cmake_configurations: Sequence[str], pmake,
 ) -> List[WheelConfig]:
     """Returns a list of wheel configs to be built"""
     wheel_configs = []
@@ -930,22 +936,24 @@ def create_wheel_targets(
         py_ver, wheel_name_and_src, optional = key
         pt_vers = pt_vers_config[(py_ver, wheel_name_and_src)]
 
-        serializer, wheel_config = create_wheel_target_for_single_python(
-            pmake,
-            py_ver,
-            wheel_name_and_src,
-            optional,
-            whl_build_dir,
-            serializer,
-            pt_vers,
-            venv_dirs,
-        )
-        wheel_configs.append(wheel_config)
+        for configuration in cmake_configurations:
+            serializer, wheel_config = create_wheel_target_for_single_python(
+                pmake,
+                py_ver,
+                wheel_name_and_src,
+                optional,
+                whl_build_dir,
+                serializer,
+                pt_vers,
+                venv_dirs,
+                configuration,
+            )
+            wheel_configs.append(wheel_config)
 
     pmake(
-        f"${{PYTORCH_MODULES_RELEASE_BUILD}} ${{PYTORCH_MODULES_DEBUG_BUILD}}:\n\tmkdir $@"
+        "${PYTORCH_MODULES_RELEASE_BUILD} ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs "
+        "${PYTORCH_MODULES_DEBUG_BUILD} ${PYTORCH_MODULES_DEBUG_BUILD}/pkgs:\n\tmkdir -p $@"
     )
-    pmake(f"${{PYTORCH_MODULES_RELEASE_BUILD}}/pkgs:\n\tmkdir -p $@\n")
 
     create_wheel_finalization_target(wheel_configs, pmake)
 
