@@ -20,7 +20,7 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUStream.h"
-#include "habana_kernels/eager_op.h"
+#include "habana_eager/ops/eager_op.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "pytorch_helpers/habana_helpers/logging.h"

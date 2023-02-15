@@ -10,23 +10,25 @@
  *
  *******************************************************************************
  */
+#include "habana_eager/ops/eager_op.h"
+#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
-#include "view.h"
-#include <ATen/InferSize.h>
-#include <ATen/TensorUtils.h>
+#include <torch/csrc/jit/ir/ir.h>
 
 namespace habana {
 namespace eager {
-at::Tensor view(const at::Tensor& self, c10::SymIntArrayRef size) {
-  auto inferred_size = at::infer_size_dv(size, self.numel());
-  auto stride = at::detail::computeStride(
-      self.sym_sizes(), self.sym_strides(), inferred_size);
-  TORCH_CHECK(
-      stride.has_value(),
-      "view size is "
-      "not compatible with input tensor's size and stride (at least one dimension"
-      " spans across two contiguous subspaces). Use .reshape(...) instead.");
-  return alias_with_sizes_and_strides(self, inferred_size, *stride);
+torch::jit::Stack EagerOpBase::run(const std::vector<OutputSpec>& out_spec) {
+  SmallTensorVector input_pt_vec, input_backend_pt_vec;
+  habana::eager::MetaDataMap metadata;
+  create_inputs(input_pt_vec, metadata);
+  convert_inputs_to_backend_tensors(input_pt_vec, input_backend_pt_vec);
+
+  habana::eager::EagerExec hlexec{
+      m_symbol, input_backend_pt_vec, out_spec, std::move(metadata)};
+
+  // Launch the execution
+  return hlexec.launch();
 }
+
 } // namespace eager
 } // namespace habana

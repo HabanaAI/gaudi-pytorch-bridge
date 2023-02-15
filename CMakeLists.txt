@@ -116,8 +116,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
   pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
   pytorch_helpers/serialize/export.cpp
-  habana_eager/eager_tensor.cpp
-  habana_eager/eager_exec.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_out_kernels.cpp
@@ -129,7 +127,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
-  habana_kernels/eager_op.cpp
   habana_kernels/hccl_kernels.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/nonzero_kernel.cpp
@@ -228,6 +225,116 @@ add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
   $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
 )
 
+
+add_subdirectory(habana_eager)
+
+
+file(GLOB habana_pytorch2_plugin_ops_passes
+  hpu_ops/lazy/*_gen.cpp
+  habana_lazy/passes/*.cpp
+  hpu_ops/lazy/topk_util.cpp
+)
+
+# workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
+add_library(habana_pytorch2_plugin SHARED
+  habana_bridge/program/cache.cpp
+  habana_bridge/program/splitter.cpp
+  habana_bridge/program/program.cpp
+  habana_bridge/program/strategy.cpp
+  habana_bridge/program/executor.cpp
+  habana_bridge/program/eager_splitting_strategy.cpp
+  habana_bridge/program/naive_rpo_scheduling_strategy.cpp
+  pytorch_helpers/habana_device/HPUAllocator.cpp
+  pytorch_helpers/habana_device/HPUGraph.cpp
+  pytorch_helpers/habana_device/HPUStream.cpp
+  pytorch_helpers/habana_device/lazy_to_backend.cpp
+  pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
+  pytorch_helpers/habana_helpers/dtype_helpers.cpp
+  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
+  pytorch_helpers/habana_helpers/frontend_utils.cpp
+  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
+  pytorch_helpers/habana_helpers/logging.cpp
+  pytorch_helpers/habana_helpers/misc_utils.cpp
+  pytorch_helpers/habana_helpers/profiling/json_activity_profiler.cpp
+  pytorch_helpers/habana_helpers/profiling/kineto_activity_profiler.cpp
+  pytorch_helpers/habana_helpers/profiling/profiling.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_logger_source.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/synapse_profiler_source.cpp
+  pytorch_helpers/habana_helpers/profiling/trace_sources/trace_parser.cpp
+  pytorch_helpers/habana_helpers/signal_handler.cpp
+  pytorch_helpers/habana_helpers/stats.cpp
+  pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
+  pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+  pytorch_helpers/serialize/export.cpp
+  habana_kernels/basic_kernels.cpp
+  habana_kernels/binary_kernels.cpp
+  habana_kernels/fallback_helper.cpp
+  habana_kernels/index_kernels.cpp
+  habana_kernels/kernel_utils.cpp
+  habana_kernels/nonzero_kernel.cpp
+  habana_kernels/pool_kernels.cpp
+  habana_kernels/random_gen_kernels.cpp
+  habana_kernels/reduction_kernels.cpp
+  habana_kernels/repeat.cpp
+  habana_kernels/tensor_shape_kernels.cpp
+  habana_kernels/topk_kernels.cpp
+  habana_lazy/aten_lazy_bridge.cpp
+  habana_lazy/debug_utils.cpp
+  habana_lazy/hlexec.cpp
+  habana_lazy/hpu_lazy_tensors.cpp
+  habana_lazy/hpu_stage_submission.cpp
+  habana_lazy/ir_utils.cpp
+  habana_lazy/ir.cpp
+  habana_lazy/lazy_arg_spec.cpp
+  habana_lazy/lazy_executor.cpp
+  habana_lazy/lazy_graph_hash_builder.cpp
+  habana_lazy/lazy_graph_hash_disabler.cpp
+  habana_lazy/lazy_storage.cpp
+  habana_lazy/memlog.cpp
+  habana_lazy/sbs_debug.cpp
+  habana_lazy/sbs_runner.cpp
+  habana_lazy/tensor_impl.cpp
+  habana_lazy/view_utils.cpp
+  habana_lazy/visualize.cpp
+  ${habana_pytorch2_plugin_ops_passes}
+  ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
+)
+target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
+target_compile_definitions(habana_pytorch2_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
+#TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
+target_compile_options(habana_pytorch2_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
+# Link against LibTorch and synapse
+target_link_libraries(habana_pytorch2_plugin
+  PRIVATE
+    habana_serialization
+    tensor_comparator_core
+    nlohmann_json::nlohmann_json
+  PUBLIC
+    habana_pytorch_backend
+    habana_pytorch2_frontend
+    torch
+    absl::hash
+    npu::spdlog
+)
+
+target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
+target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
+if (DEFINED ENV{KINETO_ROOT})
+  target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
+else()
+  message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
+endif()
+
+# Create symlink to latest build from tests dir
+# TODO: make it play nicely with building multiple versions in build.py
+add_custom_command(TARGET habana_pytorch2_plugin POST_BUILD COMMAND
+  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
+  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
+  $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+)
+
+
 option(BUILD_TESTS "Build gtest binaries" ON)
 if (BUILD_TESTS)
   add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/"
@@ -257,7 +364,7 @@ function(build_or_install_wheel PACKAGE)
   add_custom_command(OUTPUT ${OUTPUT}
                     COMMAND ${PIP} ${PIPARGS}
                     COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
-                    DEPENDS habana_pytorch_plugin
+                    DEPENDS habana_pytorch_plugin habana_pytorch2_plugin
                     DEPENDS ${DEPS})
   add_custom_target(${name} ALL DEPENDS ${OUTPUT})
 endfunction()

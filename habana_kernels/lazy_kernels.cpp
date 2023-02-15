@@ -56,9 +56,6 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
-#include "hpu_ops/eager/as_strided.h"
-#include "hpu_ops/eager/set.h"
-#include "hpu_ops/eager/view.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
@@ -1464,10 +1461,6 @@ Tensor as_strided_hpu_lazy2(
     SymIntArrayRef size,
     SymIntArrayRef stride,
     c10::optional<SymInt> offset) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-    return habana::eager::as_strided(self, size, stride, offset);
-  }
-
   PT_LAZY_TRACE;
   auto storage_offset_val =
       offset.has_value() ? offset.value().expect_int() : self.storage_offset();
@@ -1647,9 +1640,6 @@ at::Tensor& set_source_Storage_storage_offset(
     at::SymInt storage_offset,
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-    return habana::eager::set_(self, source, storage_offset, size, stride);
-  }
   return set_source_Storage_storage_offset(
       self,
       source,
@@ -1719,9 +1709,6 @@ Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
   auto size_ = size;
 #else
 Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-    return habana::eager::view(self_, size);
-  }
   PT_LAZY_TRACE;
   auto size_ = C10_AS_INTARRAYREF_SLOW(size);
 #endif
@@ -5638,180 +5625,6 @@ void InitSizesAndStrides(
   }
 }
 
-Tensor empty_hpu_lazy(
-    IntArrayRef size,
-    const TensorOptions& options,
-    c10::optional<MemoryFormat> optional_memory_format,
-    bool create_storage,
-    synTensorType tensor_type,
-    c10::optional<std::reference_wrapper<const at::Tensor>> base_view,
-    bool is_strided) {
-  PT_LAZY_TRACE;
-  c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
-      ? optional_memory_format
-      : options.memory_format_opt();
-  auto original_dtype = options.dtype();
-  auto type = typeMetaToScalarType(original_dtype);
-  auto shape_tensor = habana_helpers::is_shape_tensor(tensor_type);
-  TORCH_CHECK(
-      options.pinned_memory() == false,
-      "habana allocator doesn't supported pinned memory");
-  c10::Allocator* allocator = habana::getHABANADeviceAllocator();
-  HABANA_ASSERT(habana_helpers::is_supported_type(type));
-
-  // Dont allocate 8 bytes for double/long as we are anyway going to cast at
-  // CPU and then copy to device @ 4byts per element
-  type = habana_helpers::is_downcast_to_int_needed(type) ? c10::ScalarType::Int
-                                                         : type;
-  type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
-  auto new_dtype = scalarTypeToTypeMeta(type);
-
-  if (create_storage || shape_tensor) {
-    Tensor at_internal_tensor;
-    int64_t size_bytes = 0;
-
-    if (is_strided && base_view.has_value()) {
-      const auto& base = base_view.value().get();
-      const auto& storage = base.storage();
-      at_internal_tensor = AtenInternalHbTensor(
-          std::move(c10::Storage(storage)),
-          new_dtype,
-          tensor_type,
-          base.sizes(),
-          c10::nullopt,
-          mem_format);
-    } else {
-      int64_t nelements = multiply_integers(size);
-      // we dont create a full storage for shape tensors but we need a backend
-      // impl to get meta data
-      if (shape_tensor) {
-        nelements =
-            (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
-      }
-      int elem_size = new_dtype.itemsize();
-      size_t storage_size_bytes = nelements * elem_size;
-      size_bytes = nelements * original_dtype.itemsize();
-      auto storage_impl = c10::make_intrusive<StorageImpl>(
-          c10::StorageImpl::use_byte_size_t(),
-          size_bytes,
-          allocator->allocate(storage_size_bytes),
-          allocator,
-          /*resizeable=*/true);
-      at_internal_tensor = AtenInternalHbTensor(
-          std::move(storage_impl),
-          new_dtype,
-          tensor_type,
-          size,
-          c10::nullopt,
-          mem_format);
-    }
-
-    // backend tensor should always be contiguous as per view table design
-    std::vector<int64_t> contig_strides = at_internal_tensor.strides().vec();
-    if (contig_strides.size()) {
-      habana_helpers::recalc_strides(
-          contig_strides, at_internal_tensor.sizes().vec());
-      IntArrayRef new_strides = contig_strides;
-      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          at_internal_tensor.sizes(), new_strides);
-    }
-
-    // set metadata that its a shape tensor
-    if (shape_tensor) {
-      habana_lazy::HbInternalTensorImpl* impl =
-          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-      if (impl) {
-        impl->setTensorType(tensor_type);
-      }
-    }
-
-    Tensor at_tensor;
-    bool is_in_lowering_mode = false;
-    if (habana_lazy_executor.getExecutionMode() ==
-        LazyExecutionMode::kLOWERING) {
-      is_in_lowering_mode = true;
-    }
-
-    // This call could have come from a .to call and not from a lowering
-    // context. In such case, create the lazt tensor.
-    if (!is_in_lowering_mode) {
-      HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-          size, 0, options.device(), typeMetaToScalarType(original_dtype));
-
-      hb_tensor.SetIsStrided(is_strided);
-
-      // The lazy tensor will have a reference to the internal tensor
-      hb_tensor.SetTensorData(at_internal_tensor);
-
-      // Keep a pointer to the storageless tensor from the internal tensor
-      auto at_internal_impl = GetHbInternalTensorImpl(at_internal_tensor);
-      HABANA_ASSERT(at_internal_impl != nullptr);
-
-      // Any lazy tensor created with storage should be marked as executed
-      if (create_storage) {
-        hb_tensor.getDataPtr()->execution_status = kEXECUTION_COMPLETE;
-        if (size_bytes == 0) {
-          PT_LAZY_DEBUG("empty_hpu_lazy: size_bytes is zero!");
-          hb_tensor.created_as_zero_size_tensor = true;
-        }
-      }
-
-      at_tensor = AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format);
-
-      // As its an inplace op and we want this op to execute
-      // we want to wind back status of this tensor to registered
-      // so that when post order is created, we actually execute it
-      // auto context =
-      //    habana_lazy_executor.getDeviceExecutionContext(
-      //        options.device().index());
-      // context->MarkTensorStatus(
-      //    hb_tensor.getDataPtr(),
-      //    LazyTensorExecutionStatus::kINPUT);
-      // hb_tensor.IrInitAsInputNode();
-    }
-
-    // If we are not from lowering context, return the storageless one.
-    if (!is_in_lowering_mode) {
-      // Note: storage() api call also sets the front end storage()
-      if (create_storage && at_tensor.numel()) {
-        if (!is_strided) {
-          TORCH_CHECK(
-              (at_tensor.storage().data_ptr() &&
-               (at_tensor.data_ptr() != nullptr)),
-              "t_updated tensor is expected to be have storage and valid data_ptr ",
-              at_tensor.storage().data_ptr(),
-              " ",
-              at_tensor.data_ptr());
-        }
-      }
-      return at_tensor;
-    } else {
-      // else return the internal tensor with storage
-      return at_internal_tensor;
-    }
-  } else {
-    HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-        size, 0, options.device(), typeMetaToScalarType(original_dtype));
-    if (base_view.has_value()) {
-      const auto& base = base_view.value().get();
-      const auto& storage = base.storage();
-      auto key_set = base.key_set();
-      return (AtenFromHbLazyTensor(
-          std::move(hb_tensor),
-          storage,
-          key_set,
-          tensor_type,
-          size,
-          c10::nullopt,
-          mem_format));
-    } else {
-      return (AtenFromHbLazyTensor(
-          std::move(hb_tensor), tensor_type, size, c10::nullopt, mem_format));
-    }
-  }
-}
-
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
@@ -7710,6 +7523,34 @@ at::Tensor habana_random_seed_lazy(const at::Tensor& input) {
   };
   Kernel kernel{input, std::move(out_shape)};
   return kernel.call();
+}
+
+at::Tensor _copy_from(const at::Tensor&, const at::Tensor&, bool) {
+  HABANA_ASSERT(
+      false,
+      "This function should not be called in lazy flow. Something went wrong.");
+  std::terminate();
+}
+
+at::Tensor& set_source_Storage(at::Tensor&, at::Storage) {
+  HABANA_ASSERT(
+      false,
+      "This function should not be called in lazy flow. Something went wrong.");
+  std::terminate();
+}
+
+at::Tensor& set_source_Tensor(at::Tensor&, const at::Tensor&) {
+  HABANA_ASSERT(
+      false,
+      "This function should not be called in lazy flow. Something went wrong.");
+  std::terminate();
+}
+
+at::Tensor& set_(at::Tensor&) {
+  HABANA_ASSERT(
+      false,
+      "This function should not be called in lazy flow. Something went wrong.");
+  std::terminate();
 }
 
 } // namespace habana_lazy

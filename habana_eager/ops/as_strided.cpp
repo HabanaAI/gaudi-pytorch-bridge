@@ -10,22 +10,26 @@
  *
  *******************************************************************************
  */
-#include "habana_kernels/eager_op.h"
+
+#include "habana_eager/ops/as_strided.h"
+#include <ATen/native/Resize.h>
 
 namespace habana {
 namespace eager {
-torch::jit::Stack EagerOpBase::run(const std::vector<OutputSpec>& out_spec) {
-  SmallTensorVector input_pt_vec, input_backend_pt_vec;
-  habana::eager::MetaDataMap metadata;
-  create_inputs(input_pt_vec, metadata);
-  convert_inputs_to_backend_tensors(input_pt_vec, input_backend_pt_vec);
 
-  habana::eager::EagerExec hlexec{
-      m_symbol, input_backend_pt_vec, out_spec, std::move(metadata)};
-
-  // Launch the execution
-  return hlexec.launch();
+at::Tensor as_strided(
+    const at::Tensor& self,
+    c10::SymIntArrayRef size,
+    c10::SymIntArrayRef stride,
+    c10::optional<c10::SymInt> storage_offset_) {
+  auto storage_offset = storage_offset_.value_or(self.storage_offset());
+  auto result = at::detail::make_tensor<at::TensorImpl>(
+      c10::TensorImpl::VIEW,
+      c10::Storage(self.storage()),
+      self.key_set(),
+      self.dtype());
+  at::native::setStrided(result, size, stride, storage_offset);
+  return result;
 }
-
 } // namespace eager
 } // namespace habana

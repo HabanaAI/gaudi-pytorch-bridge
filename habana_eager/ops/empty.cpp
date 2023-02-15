@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-
+#include "habana_eager/ops/empty.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_device/HPUAllocator.h"
 

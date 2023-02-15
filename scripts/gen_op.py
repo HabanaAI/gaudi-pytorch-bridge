@@ -26,9 +26,6 @@ from collections import defaultdict
 from yaml import Loader
 from packaging.version import Version
 
-# Temporary flag, remove libraries are split
-_IS_EAGER = os.environ.get("PT_HPU_EAGER_OPS", "0").lower() in ["1", "true"]
-
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
     ntuple = collections.namedtuple(typename, field_names)
@@ -843,6 +840,7 @@ def frontend(
     meta_vars,
     lazyop_call_args,
     sig,
+    is_eager_frontend
 ):
     ns = "hpu" if ctxop.custom_schema() else "aten"
     aten_opname = get_aten_opname(aten_sig)
@@ -951,9 +949,9 @@ def frontend(
         )
 
     is_eager_op_supported = False
-    if _IS_EAGER:
-        if is_eager_op(fname, rtype, sig, ctxop):
-            is_eager_op_supported = True
+    if is_eager_frontend:
+        is_eager_op_supported = is_eager_op(fname, rtype, sig, ctxop)
+        if is_eager_op_supported:
             op_frontend_class = "eager::EagerOp"
         else:
             # for not supported eager ops in Eager compilation, return an exception in the op code
@@ -967,14 +965,14 @@ def frontend(
         code_line = "  return habana_lazy::{}({})".format(
             ctxop.get_override_fn(), ", ".join(param_vars)
         )
-        if _IS_EAGER:
+        if is_eager_frontend:
             code += "  // MOVE TO EAGER: {}\n".format(code_line)
         code += code_line
     else:
         code_line = '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
-        if _IS_EAGER and not is_eager_op_supported:
+        if is_eager_frontend and not is_eager_op_supported:
             code += "  // MOVE TO EAGER: {}\n".format(code_line)
         code += code_line
 
@@ -1274,8 +1272,6 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
 
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
-    assert _IS_EAGER, "Function to be used only in Eager mode"
-
     if ctxop.get_op_frontend_class() != "LazyOp":
         return False
 
@@ -1295,6 +1291,8 @@ def is_eager_op(fname, rtype, sig, ctxop):
             return False
         elif rtype == "bool":
             return False
+        elif rtype == "void":
+            return False
         else:
             return True
 
@@ -1308,7 +1306,7 @@ def is_inplace_or_out_op(opname):
         return opname.endswith("_")
 
 
-def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params):
+def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend):
     opname = get_aten_opname(aten_sig)
     ctxop = ctx.get_op(opname)
     op_frontend = "{} {{\n".format(sig)
@@ -1387,6 +1385,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
         meta_param_vars,
         lazyop_call_args,
         sig,
+        is_eager_frontend
     )
 
     if ctxop.get_override_fn():
@@ -1428,7 +1427,7 @@ def get_op_group(opname):
     return opgroup
 
 
-def get_hpu_wrapper(fndef, ctx):
+def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False):
     tree = _PARSER.parse(fndef.cpp_sig)
     xtree = _XPARSER.parse(fndef.cpp_sig)
     mapsig = create_map_sig(xtree, fndef.cpp_sig)
@@ -1455,11 +1454,11 @@ def get_hpu_wrapper(fndef, ctx):
             print("{} has dispatch=False".format(opname))
 
         op_frontend, op_backend, cname, ctxop, fc_params = generate_code(
-            ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params
+            ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend
         )
 
         # Use default flag from pytorch when force_default is not defined or in eager flow
-        if ctxop.force_default() is None or _IS_EAGER:
+        if ctxop.force_default() is None or is_eager_frontend:
             default = fndef.default
         else:
             default = ctxop.force_default()
@@ -1782,7 +1781,7 @@ def _print_missed_override_error(overridden, mapsig, cpp_sig, mapsig_key):
             print("Note: override with same function name exists: ", o)
 
 
-def gen_manual_op_registrations(fgens, args):
+def gen_manual_op_registrations(fgens, args, out_dir, is_eager_frontend=False):
     overrides = parse_local_overrides(args.hputype)
     pt_ver_overrides = parse_local_overrides(args.pt_ver_hputype)
     _ensure_no_registrations_are_present_in_both(overrides, pt_ver_overrides)
@@ -1794,9 +1793,9 @@ def gen_manual_op_registrations(fgens, args):
             mapsig_key = get_mapsig_key(mapsig)
             if mapsig_key not in overridden:
                 # In eager flow, we skip non mandatory ops registration without asserting here
-                if not _IS_EAGER:
+                if not is_eager_frontend:
                     misses += 1
-                _print_missed_override_error(overridden, mapsig, cpp_sig, mapsig_key)
+                    _print_missed_override_error(overridden, mapsig, cpp_sig, mapsig_key)
         return misses == 0
 
     aten_code = "TORCH_LIBRARY_IMPL(aten, HPU, m) {\n"
@@ -1805,9 +1804,6 @@ def gen_manual_op_registrations(fgens, args):
     )
     overridden = set()
     for fgen in fgens:
-        if _IS_EAGER and not (fgen.dispatch and not fgen.default):
-            continue
-
         mapsig_key = get_mapsig_key(fgen.mapsig)
         if mapsig_key in overrides:
             override_fn = "hpu_wrap::{}".format(fgen.func)
@@ -1844,14 +1840,14 @@ namespace habana {{
             gen=os.path.basename(sys.argv[0]),
             regs=regs,
         ),
-        file=gen_cpp_output_file(args, "wrap_kernels_registrations"),
+        file=gen_cpp_output_file(args, out_dir + "/" + "wrap_kernels_registrations"),
     )
 
 
 # Generate file with all potential ops for autocast. The actual ops registered
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
-def generate_autocast_ops(fgens, args):
+def generate_autocast_ops(fgens, args, out_dir):
     op_registration = '  KERNEL({function_name}, "{op_name}", {signature})\n'
     replacements = (
         ("::std::tuple<at::Tensor,at::Tensor>", "tuple_2_tensors"),
@@ -1937,7 +1933,7 @@ def generate_autocast_ops(fgens, args):
             gen=os.path.basename(sys.argv[0]),
             ops_registrations=ops_registrations,
         ),
-        file=gen_cpp_output_file(args, "hpu_autocast_ops"),
+        file=gen_cpp_output_file(args, out_dir + "/" + "hpu_autocast_ops"),
     )
 
 
@@ -1947,25 +1943,41 @@ def generate(args):
 
     fgens = []
     fgens_manual = []
+    fgens_eager = []
+    fgens_manual_eager = []
     fgen_files = defaultdict(list)
     ctx = Context(args.functions, args.yaml)
+    ctx_eager = Context(args.functions, args.yaml)
 
     for ts in fndefs:
         try:
+            # print("generating ", ts)
             fgen = get_hpu_wrapper(ts, ctx)
+            # print("generated ", ts)
             if fgen.ctxop:
                 fgens.append(fgen)
+                if fgen.dispatch and not fgen.default:
+                    # print("generating eager ", ts)
+                    fgens_eager.append(get_hpu_wrapper(ts, ctx_eager, is_eager_frontend=True))
+                    # print("generated eager ", ts)
                 fgen_files[fgen.opgroup].append(fgen)
             else:
+                if fgen.dispatch and not fgen.default:
+                    fgens_manual_eager.append(get_hpu_wrapper(ts, ctx_eager, is_eager_frontend=True))
                 fgens_manual.append(fgen)
         except Exception as e:
             print("Failed to generate op {}: {}".format(ts, e), file=sys.stderr)
             errors.append(e)
+            raise
 
-    gen_manual_op_registrations(fgens_manual, args)
-    generate_autocast_ops(fgens + fgens_manual, args)
+    gen_manual_op_registrations(fgens_manual, args, "lazy")
+    gen_manual_op_registrations(fgens_manual_eager, args, "eager", is_eager_frontend=True)
 
-    print("Generated {} ops from {}".format(len(fgens), args.yaml), file=sys.stdout)
+    generate_autocast_ops(fgens + fgens_manual, args, "lazy")
+    generate_autocast_ops(fgens_eager + fgens_manual_eager, args, "eager")
+
+    print("Generated {} lazy ops from {}".format(len(fgens), args.yaml), file=sys.stdout)
+    print("Generated {} nonlazy ops from {}".format(len(fgens_eager), args.yaml), file=sys.stdout)
     assert len(errors) == 0, "Found {} errors: {}".format(len(errors), errors)
 
     if len(ctx.op_data) != len(fgens):
@@ -1974,9 +1986,24 @@ def generate(args):
             if op not in fgen_data:
                 print("Cannot generate {}, skipping it...".format(op), file=sys.stderr)
 
-    if _IS_EAGER:
-        fgens = [x for x in fgens if x.dispatch and not x.default]
+    generate_backend(fgens, fgen_files)
 
+    lazy_inclusions = '#include "habana_kernels/lazy_kernels_declarations.h"\n' \
+                      '#include "habana_kernels_ver/lazy_kernels_declarations.h"\n' \
+                      '#include "hpu_ops/cpu_fallback.h"\n' \
+                      '#include "hpu_ops/lazy/reduction_template.h"\n' \
+                      '#include "hpu_ops/op_validator.h"\n'
+    eager_inclusions = '#include "habana_kernels/lazy_kernels_declarations.h"\n' \
+                       '#include "habana_kernels_ver/lazy_kernels_declarations.h"\n' \
+                       '#include "hpu_ops/cpu_fallback.h"\n' \
+                       '#include "hpu_ops/lazy/reduction_template.h"\n' \
+                       '#include "hpu_ops/op_validator.h"\n' \
+                       '#include "habana_eager/ops/eager_op.h"\n'
+
+    generate_frontend(fgens, fgen_files, lazy_inclusions, "lazy")
+    generate_frontend(fgens_eager, fgen_files, eager_inclusions, "eager")
+
+def generate_backend(fgens, fgen_files):
     num_shards = 10
     num_fgens_per_shard = len(fgens) // num_shards
     gen_file_idx = 0
@@ -2009,34 +2036,8 @@ def generate(args):
         if (
             (gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0
         ) or (idx + 1) == len(fgens):
-            lazy_inclusions = (
-                "\n"
-                '#include "habana_kernels/lazy_kernels_declarations.h"\n'
-                '#include "habana_kernels_ver/lazy_kernels_declarations.h"\n'
-                '#include "hpu_ops/cpu_fallback.h"\n'
-                '#include "hpu_ops/lazy/reduction_template.h"\n'
-                '#include "hpu_ops/op_validator.h"\n'
-            )
-            backend_inclusions = (
-                "\n" '#include "hpu_ops/backend/reduction_template.h"\n'
-            )
-
-            print(
-                _CPP_HEADER.format(
-                    gen=os.path.basename(sys.argv[0]),
-                    header_inclusions=lazy_inclusions
-                    + header_inclusions
-                    + ('#include "habana_kernels/eager_op.h"' if _IS_EAGER else ""),
-                    dtype_defs=dtype_defs,
-                    funcs=functions,
-                    op_backend="",
-                    kr_regs="",
-                    torch_regs=torch_library_impl(torch_regs),
-                    custom_schema_regs=torch_library_fragment(custom_schema_regs),
-                    file_idx=gen_file_idx,
-                ),
-                file=gen_cpp_output_file(args, "lazy/hpu_op{}".format(gen_file_idx)),
-            )
+            backend_inclusions = '\n' \
+                            '#include "hpu_ops/backend/reduction_template.h"\n'
             print(
                 _CPP_HEADER.format(
                     gen=os.path.basename(sys.argv[0]),
@@ -2059,13 +2060,88 @@ def generate(args):
             kr_regs = ""
             custom_schema_regs = ""
 
-    frontend_class_headers = {}
     backend_class_headers = {}
 
     for fgen_file, ffgens in fgen_files.items():
         op_backend_classes = generate_op_backend_hclasses(
             ffgens, backend_class_headers, fgen_file
         )
+
+        header_decls = generate_header_decls(ffgens)
+
+        # Create output file ...
+        print(
+            _H_HEADER.format(
+                op=fgen_file,
+                gen=os.path.basename(sys.argv[0]),
+                op_backend_classes=op_backend_classes,
+                op_frontend_classes="",
+                header_decls=header_decls,
+            ),
+            file=gen_h_output_file(args, "backend/" + fgen_file),
+        )
+
+
+def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
+    num_shards = 10
+    num_fgens_per_shard = len(fgens) // num_shards
+    gen_file_idx = 0
+    dtype_defs = ""
+    functions = ""
+    torch_regs = ""
+    op_backend = ""
+    kr_regs = ""
+    custom_schema_regs = ""
+    header_inclusions = ""
+    # TODO only iwyu
+    for h in fgen_files.keys():
+        header_inclusions += '#include "' + h + '.h"\n'
+    for idx, fgen in enumerate(fgens):
+        (
+            _dtype_defs,
+            _functions,
+            _torch_regs,
+            _op_backend,
+            _kr_regs,
+            _custom_schema_regs,
+        ) = generate_all(fgen)
+        dtype_defs += _dtype_defs
+        functions += _functions
+        torch_regs += _torch_regs
+        op_backend += _op_backend
+        kr_regs += _kr_regs
+        custom_schema_regs += _custom_schema_regs
+
+        if (
+            (gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0
+        ) or (idx + 1) == len(fgens):
+            frontend_inclusions = '\n' + frontend_inclusions + '\n'
+
+            print(
+                _CPP_HEADER.format(
+                    gen=os.path.basename(sys.argv[0]),
+                    header_inclusions=frontend_inclusions + header_inclusions,
+                    dtype_defs=dtype_defs,
+                    funcs=functions,
+                    op_backend="",
+                    kr_regs="",
+                    torch_regs=torch_library_impl(torch_regs),
+                    custom_schema_regs=torch_library_fragment(custom_schema_regs),
+                    file_idx=gen_file_idx,
+                ),
+                file=gen_cpp_output_file(args, "{}/hpu_op{}".format(out_dir, gen_file_idx)),
+            )
+            gen_file_idx += 1
+            dtype_defs = ""
+            functions = ""
+            torch_regs = ""
+            op_backend = ""
+            kr_regs = ""
+            custom_schema_regs = ""
+
+    frontend_class_headers = {}
+
+    for fgen_file, ffgens in fgen_files.items():
         op_frontend_classes = generate_op_frontend_hclasses(
             ffgens, frontend_class_headers, fgen_file
         )
@@ -2081,17 +2157,7 @@ def generate(args):
                 op_frontend_classes=op_frontend_classes,
                 header_decls=header_decls,
             ),
-            file=gen_h_output_file(args, "lazy/" + fgen_file),
-        )
-        print(
-            _H_HEADER.format(
-                op=fgen_file,
-                gen=os.path.basename(sys.argv[0]),
-                op_backend_classes=op_backend_classes,
-                op_frontend_classes="",
-                header_decls=header_decls,
-            ),
-            file=gen_h_output_file(args, "backend/" + fgen_file),
+            file=gen_h_output_file(args, out_dir + "/" + fgen_file),
         )
 
 

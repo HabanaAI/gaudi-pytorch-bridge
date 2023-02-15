@@ -10,11 +10,11 @@
  *
  *******************************************************************************
  */
-
-#include "set.h"
-#include <ATen/native/Resize.h>
+#include "habana_eager/ops/set.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/resize.h"
+
+#include <ATen/native/Resize.h>
 
 namespace habana {
 namespace eager {

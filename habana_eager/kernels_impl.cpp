@@ -1,0 +1,77 @@
+
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+#include "habana_eager/ops/as_strided.h"
+#include "habana_eager/ops/empty.h"
+#include "habana_eager/ops/set.h"
+#include "habana_eager/ops/view.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_kernels_ver/wrap_kernels_declarations.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+
+#include "habana_helpers/logging.h"
+
+using namespace at;
+
+#define EAGER_NOT_SUPPORTED                                                   \
+  HABANA_ASSERT(                                                              \
+      false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
+  std::terminate();
+
+Tensor hpu_wrap::empty(
+    SymIntArrayRef size,
+    c10::optional<ScalarType> dtype,
+    c10::optional<Layout> layout,
+    c10::optional<Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<MemoryFormat> optional_memory_format) {
+  PT_EAGER_TRACE;
+  return habana::eager::empty(
+      size, dtype, layout, device, pin_memory, optional_memory_format);
+}
+
+Tensor hpu_wrap::empty_strided(
+    SymIntArrayRef size,
+    SymIntArrayRef stride,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  PT_EAGER_TRACE;
+  return habana::eager::empty_strided(
+      size, stride, dtype, layout, device, pin_memory);
+}
+
+Tensor habana_lazy::view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
+  PT_EAGER_TRACE;
+  return habana::eager::view(self_, size);
+}
+
+Tensor habana_lazy::as_strided_hpu_lazy2(
+    const Tensor& self,
+    SymIntArrayRef size,
+    SymIntArrayRef stride,
+    c10::optional<SymInt> offset) {
+  PT_EAGER_TRACE;
+  return habana::eager::as_strided(self, size, stride, offset);
+}
+
+at::Tensor& habana_lazy::set_source_Storage_storage_offset(
+    at::Tensor& self,
+    at::Storage source,
+    at::SymInt storage_offset,
+    at::SymIntArrayRef size,
+    at::SymIntArrayRef stride) {
+  return habana::eager::set_(self, source, storage_offset, size, stride);
+}
