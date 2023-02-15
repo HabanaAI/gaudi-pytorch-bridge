@@ -392,8 +392,6 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
   auto src = inputs[3].toTensor();
-  bool use_unsorted_scatter_add =
-      GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD);
 
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
@@ -415,9 +413,8 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  if (use_unsorted_scatter_add &&
-      synapse_helpers::HPURegistrar::get_device().type() !=
-          synDeviceType::synDeviceGaudi) {
+  if (synapse_helpers::HPURegistrar::get_device().type() !=
+      synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
       auto cast_op1 = make_operator<CastOperator>(
           self.device().index(), "cast_bf16_to_f32");
@@ -448,13 +445,22 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
       unsorted_scatter_add_op->AllocateAndAddSynapseNode(graph, stack, md);
 
       cast_scalar_type = c10::ScalarType::BFloat16;
+      // since cast is the last operator in this path, we need to use the
+      // incoming output_metadata for the cast_op3->AllocateAndAddSynapseNode.
+      // At the same time, cast operator needs the dtpe to be set in output meta
+      // data. dtype may not be set in the incoming output_metadata if
+      // ScatterAdd operator is used as an intermediate op. Eg. in
+      // EmbeddingDenseBackward operator. So, use the incoming output_metadata,
+      // but set the dtype correctly.
+      OutputMetaData md_updated = output_metadata[0];
+      md_updated.dtype = cast_scalar_type;
       auto cast_op3 = make_operator<CastOperator>(
           self.device().index(), "cast_f32_to_bf16");
       std::vector<c10::IValue> cast_stack3{
           IValue(unsorted_scatter_add_op->GetOutputs()[0]),
           IValue(cast_scalar_type)};
       cast_op3->SetSynapseInput(unsorted_scatter_add_op->GetSynOutputs()[0]);
-      cast_op3->AllocateAndAddSynapseNode(graph, cast_stack3, output_metadata);
+      cast_op3->AllocateAndAddSynapseNode(graph, cast_stack3, {md_updated});
       p_context_->syn_outputs_[0] = std::move(cast_op3->GetSynOutputs()[0]);
       p_context_->pt_outputs_[0] = std::move(cast_op3->GetOutputs()[0]);
       return;
