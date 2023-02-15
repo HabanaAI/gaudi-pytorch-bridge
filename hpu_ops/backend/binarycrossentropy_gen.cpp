@@ -15,6 +15,7 @@
 #include "generated/backend/binary_cross_entropy_backward.h"
 #include "generated/backend/binary_cross_entropy_with_logits.h"
 #include "hpu_ops/hpu_op_helper.h"
+#include "hpu_ops/op_backend.h"
 
 constexpr int64_t index_of_fwd_weight_tensor = 2;
 constexpr int64_t index_of_fwd_mode = 3;
@@ -184,7 +185,7 @@ void BinaryCrossEntropyBwd::AddNode(
       graph,
       "neg_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(index_of_grad)},
-      {{{1}, ScalarType()}});
+      {{stack.at(index_of_grad).toTensor().sizes().vec(), ScalarType()}});
 
   auto bce_bwd = BuildOp(
       graph,
