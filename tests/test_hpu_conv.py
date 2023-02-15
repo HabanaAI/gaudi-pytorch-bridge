@@ -1,3 +1,14 @@
+# ******************************************************************************
+# Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ******************************************************************************
 import torch
 import torch.nn as nn
 import numpy as np
@@ -57,30 +68,30 @@ conv3d_test_case_list = [
 ]
 
 conv_transpose_test_case_list = [
-    # N, H, W, C, R, S, K, str, pad, bias
-    (8, 28, 28, 3, 2, 2, 16, 1, 1, False),
-    (64, 28, 28, 1, 5, 5, 20, 1, 0, True),
-    (64, 11, 11, 20, 5, 5, 50, 1, 0, True)
+    # N, H, W, C, R, S, K, str, pad, out_pad, bias
+    (8, 28, 28, 3, 2, 2, 16, 1, 1, 0, False),
+    (64, 28, 28, 1, 5, 5, 20, 2, 0, 1, True),
+    (64, 11, 11, 20, 5, 5, 50, 1, 0, 0, True)
 ]
 
 conv_transpose3d_test_case_list = [
-    # N, D, H, W, C, T, R, S, K, stride, padding, bias
+    # N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias
     # UNet3D layer
-    (1, 4, 4, 4, 320, 2, 2, 2, 320, 2, 0, True),
-    (1, 8, 8, 8, 320, 2, 2, 2, 256, 2, 0, False)
+    (1, 4, 4, 4, 320, 2, 2, 2, 320, 2, 0, 1, True),
+    (1, 8, 8, 8, 320, 2, 2, 2, 256, 2, 0, 0, False)
 ]
 
 data_type_list = [
   (torch.float, 0.001)
 ]
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
-def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, out_pad, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
-    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, out_pad, 1, bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward
     out_cpu_nchw = kernel_nchw(input_nchw)
@@ -95,8 +106,8 @@ def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
     tt = out_nchw_hpu.to(cpu)
     np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
-def test_hpu_conv_transpose3d(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d(N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
@@ -106,6 +117,7 @@ def test_hpu_conv_transpose3d(N, D, H, W, C, T, R, S, K, stride, padding, bias):
         kernel_size=(T, R, S),
         stride=stride,
         padding=padding,
+        output_padding=out_pad,
         bias=bias)
 
     kernel_copy = deepcopy(kernel_nchw)
@@ -122,13 +134,13 @@ def test_hpu_conv_transpose3d(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     tt = out_nchw_hpu.to(cpu)
     np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
-def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, out_pad, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
-    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, out_pad, 1, bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward
     out_cpu_nchw = kernel_nchw(input_nchw)
@@ -143,8 +155,8 @@ def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
     tt = out_nhwc_hpu.to(cpu)
     np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
-def test_hpu_conv_transpose3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
@@ -154,6 +166,7 @@ def test_hpu_conv_transpose3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding,
         kernel_size=(T, R, S),
         stride=stride,
         padding=padding,
+        output_padding=out_pad,
         bias=bias)
 
     kernel_copy = deepcopy(kernel_nchw)
@@ -170,13 +183,13 @@ def test_hpu_conv_transpose3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding,
     tt = out_nhwc_hpu.to(cpu)
     np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
-def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, out_pad, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
-    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, out_pad, 1, bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward
     out_cpu_nchw = kernel_nchw(input_nchw)
@@ -203,8 +216,8 @@ def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
             out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
-def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
@@ -214,6 +227,7 @@ def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding
         kernel_size=(T, R, S),
         stride=stride,
         padding=padding,
+        output_padding=out_pad,
         bias=bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward
@@ -241,13 +255,13 @@ def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
             out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
-def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, out_pad, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
-    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, out_pad, 1, bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward
     out_cpu_nchw = kernel_nchw(input_nchw)
@@ -275,8 +289,8 @@ def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding,
             out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 
-@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
-def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, out_pad, bias):
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
@@ -286,6 +300,7 @@ def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, 
         kernel_size=(T, R, S),
         stride=stride,
         padding=padding,
+        output_padding=out_pad,
         bias=bias)
     kernel_copy = deepcopy(kernel_nchw)
     #cpu forward

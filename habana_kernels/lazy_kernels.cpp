@@ -2361,6 +2361,7 @@ Tensor convolution_hpu_lazy(
           padding.vec(),
           stride.vec(),
           dilation.vec(),
+          output_padding.vec(),
           false,
           transposed,
           c10::MemoryFormat::Contiguous,

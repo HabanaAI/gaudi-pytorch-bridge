@@ -127,6 +127,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     std::vector<int64_t> pad,
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
+    std::vector<int64_t> output_padding,
     const bool ceil_mode,
     const bool transposed,
     const int64_t groups) {
@@ -142,6 +143,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
                       pad,
                       stride,
                       dilation,
+                      output_padding,
                       ceil_mode,
                       transposed,
                       groups)
@@ -151,6 +153,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
                       pad,
                       stride,
                       dilation,
+                      output_padding,
                       ceil_mode,
                       transposed,
                       groups);
@@ -162,6 +165,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
     std::vector<int64_t> pad,
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
+    std::vector<int64_t> output_padding,
     const bool ceil_mode,
     const bool transposed,
     const int64_t groups) {
@@ -179,6 +183,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
       pad,
       stride,
       dilation,
+      output_padding,
       INPUT_H_IDX,
       WEIGHT_KERNEL_R_IDX,
       CONV2D_KERNEL_HIEGHT_ATTRIBUTE_IDX,
@@ -189,6 +194,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
       pad,
       stride,
       dilation,
+      output_padding,
       INPUT_W_IDX,
       WEIGHT_KERNEL_S_IDX,
       CONV2D_KERNEL_WIDTH_ATTRIBUTE_IDX,
@@ -206,6 +212,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
     std::vector<int64_t> pad,
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
+    std::vector<int64_t> output_padding,
     const bool ceil_mode,
     const bool transposed,
     const int64_t groups) {
@@ -223,6 +230,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
       pad,
       stride,
       dilation,
+      output_padding,
       INPUT_3D_D_IDX,
       WEIGHT_KERNEL_3D_Q_IDX,
       CONV3D_KERNEL_DEPTH_ATTRIBUTE_IDX,
@@ -233,6 +241,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
       pad,
       stride,
       dilation,
+      output_padding,
       INPUT_3D_H_IDX,
       WEIGHT_KERNEL_3D_R_IDX,
       CONV3D_KERNEL_HIEGHT_ATTRIBUTE_IDX,
@@ -243,6 +252,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
       pad,
       stride,
       dilation,
+      output_padding,
       INPUT_3D_W_IDX,
       WEIGHT_KERNEL_3D_S_IDX,
       CONV3D_KERNEL_WIDTH_ATTRIBUTE_IDX,
@@ -261,6 +271,7 @@ int64_t ConvOperator::compute_output_single_dim(
     std::vector<int64_t> padding,
     std::vector<int64_t> strides,
     std::vector<int64_t> dilation,
+    std::vector<int64_t> output_padding,
     unsigned input_idx,
     unsigned kernel_idx,
     unsigned attributes_idx,
@@ -270,8 +281,9 @@ int64_t ConvOperator::compute_output_single_dim(
   const auto dil = dilation[attributes_idx];
   const auto filter = shape_wt[kernel_idx];
   const auto stride = strides[attributes_idx];
+  const auto output_pad = output_padding[attributes_idx];
   return habana_helpers::compute_output_size(
-      input, pad, dil, filter, stride, false, transposed);
+      input, pad, dil, filter, stride, output_pad, false, transposed);
 }
 
 /**
@@ -293,6 +305,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     std::vector<int64_t> pad,
     std::vector<int64_t> stride,
     std::vector<int64_t> dilation,
+    std::vector<int64_t> output_padding,
     const bool ceil_mode,
     const bool transposed,
     c10::MemoryFormat memory_format,
@@ -313,6 +326,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
         pad,
         stride,
         dilation,
+        output_padding,
         ceil_mode,
         transposed,
         groups);
@@ -370,27 +384,51 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const auto dil_D = dilation[0];
     const auto filter_D = shape_wt[p_dim_pos_wt[0]];
     const auto stride_D = stride[0];
+    const auto output_pad_D = output_padding[0];
 
     const auto output_D = habana_helpers::compute_output_size(
-        input_D, pad_D, dil_D, filter_D, stride_D, false, transposed);
+        input_D,
+        pad_D,
+        dil_D,
+        filter_D,
+        stride_D,
+        output_pad_D,
+        false,
+        transposed);
 
     const auto input_H = shape_in[p_dim_pos_in[2]];
     const auto pad_H = pad[1];
     const auto dil_H = dilation[1];
     const auto filter_H = shape_wt[p_dim_pos_wt[1]];
     const auto stride_H = stride[1];
+    const auto output_pad_H = output_padding[1];
 
     const auto output_H = habana_helpers::compute_output_size(
-        input_H, pad_H, dil_H, filter_H, stride_H, false, transposed);
+        input_H,
+        pad_H,
+        dil_H,
+        filter_H,
+        stride_H,
+        output_pad_H,
+        false,
+        transposed);
 
     const auto input_W = shape_in[p_dim_pos_in[3]];
     const auto pad_W = pad[2];
     const auto dil_W = dilation[2];
     const auto filter_W = shape_wt[p_dim_pos_wt[2]];
     const auto stride_W = stride[2];
+    const auto output_pad_W = output_padding[2];
 
     const auto output_W = habana_helpers::compute_output_size(
-        input_W, pad_W, dil_W, filter_W, stride_W, false, transposed);
+        input_W,
+        pad_W,
+        dil_W,
+        filter_W,
+        stride_W,
+        output_pad_W,
+        false,
+        transposed);
 
     auto K = shape_wt[p_dim_pos_wt[4]];
     int64_t out_filter = K;
@@ -459,17 +497,34 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const auto dil_H = dilation[0];
     const auto filter_H = shape_wt[p_dim_pos_wt[0]];
     const auto stride_H = stride[0];
+    const auto output_pad_H = output_padding[0];
 
     const auto output_H = habana_helpers::compute_output_size(
-        input_H, pad_H, dil_H, filter_H, stride_H, false, transposed);
+        input_H,
+        pad_H,
+        dil_H,
+        filter_H,
+        stride_H,
+        output_pad_H,
+        false,
+        transposed);
 
     const auto input_W = shape_in[p_dim_pos_in[2]];
     const auto pad_W = pad[1];
     const auto dil_W = dilation[1];
     const auto filter_W = shape_wt[p_dim_pos_wt[1]];
     const auto stride_W = stride[1];
+    const auto output_pad_W = output_padding[1];
+
     const auto output_W = habana_helpers::compute_output_size(
-        input_W, pad_W, dil_W, filter_W, stride_W, false, transposed);
+        input_W,
+        pad_W,
+        dil_W,
+        filter_W,
+        stride_W,
+        output_pad_W,
+        false,
+        transposed);
 
     auto K = shape_wt[p_dim_pos_wt[3]];
     int64_t out_filter = K;
@@ -518,6 +573,7 @@ OutputShapeInfRetType SpatialConv3DOperator::ComputeOutputShape(
       padding,
       stride,
       dilation,
+      output_padding,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast3d,
@@ -617,6 +673,7 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
       padding,
       stride,
       dilation,
+      output_padding,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast3d,
@@ -657,7 +714,7 @@ OutputShapeInfRetType SpatialConvOperator::ComputeOutputShape(
   const auto padding = inputs[4].toIntList().vec();
   const auto dilation = inputs[5].toIntList().vec();
   const bool transposed = inputs[6].toBool();
-  // const auto output_padding = inputs[7].toIntList().vec();
+  const auto output_padding = inputs[7].toIntList().vec();
   const int64_t groups = inputs[8].toInt();
 
   c10::MemoryFormat memory_format =
@@ -671,6 +728,7 @@ OutputShapeInfRetType SpatialConvOperator::ComputeOutputShape(
       padding,
       stride,
       dilation,
+      output_padding,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast,
@@ -780,6 +838,7 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       padding,
       stride,
       dilation,
+      output_padding,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast,
@@ -1065,6 +1124,7 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto padding = inputs[4].toIntList().vec();
   const auto dilation = inputs[5].toIntList().vec();
   const bool transposed = inputs[6].toBool();
+  const auto output_padding = inputs[7].toIntList().vec();
   const int64_t groups = inputs[8].toInt();
 
   c10::MemoryFormat memory_format =
@@ -1081,6 +1141,7 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       padding,
       stride,
       dilation,
+      output_padding,
       false,
       transposed,
       format,

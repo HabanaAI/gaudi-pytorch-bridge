@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "backend/habana_operator.h"
@@ -57,6 +60,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> pad,
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
+      std::vector<int64_t> output_padding,
       const bool ceil_mode,
       const bool transposed,
       c10::MemoryFormat memory_format,
@@ -70,6 +74,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> pad,
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
+      std::vector<int64_t> output_padding,
       const bool ceil_mode,
       const bool transposed,
       const int64_t groups);
@@ -81,6 +86,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> pad,
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
+      std::vector<int64_t> output_padding,
       const bool ceil_mode,
       const bool transposed,
       const int64_t groups);
@@ -91,6 +97,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> pad,
       std::vector<int64_t> stride,
       std::vector<int64_t> dilation,
+      std::vector<int64_t> output_padding,
       const bool ceil_mode,
       const bool transposed,
       const int64_t groups);
@@ -101,6 +108,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> padding,
       std::vector<int64_t> strides,
       std::vector<int64_t> dilation,
+      std::vector<int64_t> output_padding,
       unsigned input_idx,
       unsigned kernel_idx,
       unsigned attributes_idx,

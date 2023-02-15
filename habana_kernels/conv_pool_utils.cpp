@@ -24,6 +24,7 @@ int64_t compute_output_size(
     const int64_t dilation,
     const int64_t filter,
     const int64_t stride,
+    const int64_t output_pad,
     const bool ceil_mode,
     const bool transposed) {
   TORCH_CHECK(!ceil_mode, "ceil_mode is not yet supported");
@@ -32,7 +33,9 @@ int64_t compute_output_size(
   } else {
     // conv2d fwd output shape computation done as per formula provided below
     // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-    return ((input - 1) * stride - 2 * pad + dilation * (filter - 1) + 1);
+    return (
+        (input - 1) * stride - 2 * pad + dilation * (filter - 1) + output_pad +
+        1);
   }
 }
 

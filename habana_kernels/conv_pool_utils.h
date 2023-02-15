@@ -25,6 +25,7 @@ int64_t compute_output_size(
     const int64_t dilation,
     const int64_t filter,
     const int64_t stride,
+    const int64_t output_pad,
     const bool ceil_mode,
     const bool transposed);
 
