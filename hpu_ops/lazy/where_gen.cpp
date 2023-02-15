@@ -35,6 +35,7 @@ FALLBACK_CHECK(
   switch (result_type) {
     case torch::kBool:
     case torch::kInt32:
+    case torch::kInt64:
     case torch::kBFloat16:
     case torch::kFloat32:
       return true;
