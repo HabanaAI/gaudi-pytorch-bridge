@@ -34,8 +34,25 @@
 
 using namespace torch;
 using namespace habana;
+std::vector<int64_t> CatOperator::compute_output_shape(
+    const at::TensorList tensors,
+    int64_t dim_) {
+  int64_t dim = at::maybe_wrap_dim(
+      dim_,
+      tensors[0].dim(),
+      /*wrap_scalar=*/true);
 
-auto CatOutOperator::CreateParamsAndAddToContext(int64_t axis) {
+  auto in_tensor_count = tensors.size();
+  auto first_tensor = tensors[0];
+  auto out_size = first_tensor.sizes().vec();
+  out_size[dim] = 0;
+  for (unsigned i = 0; i < in_tensor_count; i++) {
+    out_size[dim] += tensors[i].sizes()[dim];
+  }
+  return out_size;
+}
+
+auto CatOperator::CreateParamsAndAddToContext(int64_t axis) {
   synConcatenateParams params;
   params.axis = axis;
   p_context_->params_.emplace<synConcatenateParams>(params);
@@ -44,7 +61,7 @@ auto CatOutOperator::CreateParamsAndAddToContext(int64_t axis) {
   return params;
 }
 
-void CatOutOperator::validate_cat_tensor_dim_sizes(
+void CatOperator::validate_cat_tensor_dim_sizes(
     const std::vector<std::vector<int64_t>>* tensors,
     int64_t dim) {
   unsigned i = 0;
@@ -95,7 +112,7 @@ Tensor CatOperator::CheckAllocateOutput(
   for (unsigned i = 0; i < tensor_count; i++)
     tensors_size.emplace_back(tensors.get(i).sizes().vec());
 
-  CatOutOperator::validate_cat_tensor_dim_sizes(&tensors_size, dim);
+  validate_cat_tensor_dim_sizes(&tensors_size, dim);
   if (dim != dim_) {
     inputs[1] = IValue(dim);
   }
@@ -170,138 +187,6 @@ void CatOperator::AllocateAndAddSynapseNode(
   // Revert input stack
   inputs.pop_back();
 }
-
-int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for catout operator");
-  TORCH_CHECK(
-      inputs[0].isTensorList(), "Input arg1 type expected to be tensor list");
-  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be int");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-
-  auto tensors = inputs[0].toTensorList();
-  auto dim_ = inputs[1].toInt();
-
-  int64_t dim = at::maybe_wrap_dim(
-      dim_,
-      tensors.get(0).dim(),
-      /*wrap_scalar=*/true);
-
-  std::vector<std::vector<int64_t>> tensors_size;
-  auto tensor_count = tensors.size();
-  for (unsigned i = 0; i < tensor_count; i++)
-    tensors_size.emplace_back(tensors.get(i).sizes().vec());
-
-  CatOutOperator::validate_cat_tensor_dim_sizes(&tensors_size, dim);
-
-  return dim;
-}
-
-std::vector<int64_t> CatOutOperator::compute_output_shape(
-    const at::TensorList tensors,
-    int64_t dim_) {
-  int64_t dim = at::maybe_wrap_dim(
-      dim_,
-      tensors[0].dim(),
-      /*wrap_scalar=*/true);
-
-  auto in_tensor_count = tensors.size();
-  auto first_tensor = tensors[0];
-  auto out_size = first_tensor.sizes().vec();
-  out_size[dim] = 0;
-  for (unsigned i = 0; i < in_tensor_count; i++) {
-    out_size[dim] += tensors[i].sizes()[dim];
-  }
-  return out_size;
-}
-
-OutputShapeInfRetType CatOutOperator::ComputeOutputShape(
-    torch::jit::Stack& inputs) {
-  auto tensors = inputs[0].toTensorVector();
-  auto dim_ = inputs[1].toInt();
-
-  // Convert "c10::List<at::Tensor>" to "at::TensorList"
-  auto out_shape = CatOutOperator::compute_output_shape(tensors, dim_);
-
-  auto metaData = TensorMetaData(
-      out_shape,
-      HabanaOperator::CalculateStrides(
-          out_shape, tensors[0].suggest_memory_format()),
-      tensors[0].scalar_type(),
-      tensors[0].suggest_memory_format());
-  OutputShapeInfRetType out_dup;
-  out_dup.AddOutputTensor(metaData);
-  out_dup.AddDupTensor(metaData);
-  return out_dup;
-}
-
-void CatOutOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  static_cast<void>(output_metadata);
-  auto dim = CheckAllocateOutput(inputs);
-  auto tensors = inputs[0].toTensorList();
-  auto out = inputs[2].toTensor();
-  auto kernel_dim = (out.ndimension() - dim) - 1;
-  auto output_dtype = out.scalar_type();
-
-  auto params = CreateParamsAndAddToContext(kernel_dim);
-
-  int64_t numTensors = p_context_->syn_inputs_.size();
-  std::vector<synTensor> syn_inputs;
-
-  for (int i = 0; i < (numTensors - 1); i++) {
-    const auto& tensor = tensors.get(i);
-    if (habana_helpers::getInternalDtype(tensor.scalar_type()) !=
-        habana_helpers::getInternalDtype(output_dtype)) {
-      auto cast = make_operator<CastOperator>(p_context_->device_id_, "");
-      cast->SetSynapseInput(GetSynInputs()[i]);
-      at::Stack stack{tensor, output_dtype};
-      OutputMetaData md;
-      md.dtype = output_dtype;
-      cast->AllocateAndAddSynapseNode(graph, stack, {md});
-      p_context_->syn_input_orig_.emplace_back(
-          std::move(p_context_->syn_inputs_[i]));
-      p_context_->syn_inputs_[i] = std::move(cast->GetSynOutputs()[0]);
-    }
-    syn_inputs.push_back(p_context_->syn_inputs_[i].ref().get());
-  }
-
-  p_context_->syn_outputs_.emplace_back(
-      habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[numTensors - 1],
-          graph,
-          output_metadata.at(0).external));
-  p_context_->pt_outputs_.emplace_back(out);
-  p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cend());
-
-  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
-  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
-
-  graph.add_node(
-      std::move(syn_inputs),
-      std::move(syn_outputs),
-      &params,
-      sizeof(params),
-      guid_,
-      nullptr,
-      nullptr,
-      nullptr,
-      deterministic);
-}
-
-void CatOutOperator::SetPTOutput(const Tensor& out) {
-  HabanaOperator::SetPTOutput(out);
-}
-
-void CatOutOperator::SetPTOutput(torch::jit::Stack& inputs) {
-  CheckAllocateOutput(inputs);
-  auto out = inputs[2].toTensor();
-  HabanaOperator::SetPTOutput(out);
-}
-
 /****************************************************************************
  * @brief Kernel implementation for N-D out = torch.transpose(self,dim0,dim1)
  * @param self - input

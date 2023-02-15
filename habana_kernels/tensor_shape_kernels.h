@@ -12,43 +12,11 @@
 
 //
 // Cat Operator
-class CatOutOperator : public habana::HabanaOperator {
- public:
-  CatOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("concat") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutput(torch::jit::Stack& inputs) override;
-  virtual void SetPTOutput(const at::Tensor& out) override;
-  static std::vector<int64_t> compute_output_shape(
-      const at::TensorList tensors,
-      int64_t dim);
-
-  static void validate_cat_tensor_dim_sizes(
-      const std::vector<std::vector<int64_t>>* tensors,
-      int64_t dim);
-
- protected:
+class CatOperator : public habana::HabanaOperator {
   auto CreateParamsAndAddToContext(int64_t axis);
 
- private:
-  int64_t CheckAllocateOutput(torch::jit::Stack& inputs);
-};
-
-class CatOperator : public CatOutOperator {
  public:
-  CatOperator(int device_id, c10::ScalarType scalarType)
-      : CatOutOperator(device_id, scalarType) {
+  CatOperator(int device_id, c10::ScalarType) : HabanaOperator("concat") {
     this->CreateSynContext(device_id);
   }
 
@@ -63,6 +31,12 @@ class CatOperator : public CatOutOperator {
   at::Tensor CheckAllocateOutput(
       torch::jit::Stack& inputs,
       const habana::OutputMetaData& output_metadata);
+  static std::vector<int64_t> compute_output_shape(
+      const at::TensorList tensors,
+      int64_t dim_);
+  static void validate_cat_tensor_dim_sizes(
+      const std::vector<std::vector<int64_t>>* tensors,
+      int64_t dim);
 };
 
 //

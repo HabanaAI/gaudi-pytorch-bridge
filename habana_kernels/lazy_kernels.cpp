@@ -5934,8 +5934,7 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   }
 
   // calculate output shape
-  auto output_shape =
-      CatOutOperator::compute_output_shape(non_empty_list, dim_);
+  auto output_shape = CatOperator::compute_output_shape(non_empty_list, dim_);
   auto output_dtype =
       at::native::result_type(static_cast<ITensorListRef>(tensors));
 
@@ -5976,51 +5975,6 @@ Tensor cat_hpu_lazy(const at::ITensorListRef& _tensors, int64_t dim_) {
   };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cat, op_func, out);
-}
-
-Tensor& cat_hpu_lazy_out(
-    const at::ITensorListRef& _tensors,
-    int64_t dim_,
-    Tensor& result) {
-  TensorList tensors = _tensors.toUnboxed();
-  auto non_empty_list = filter(tensors, is_nonempty_tensor);
-  if (non_empty_list.empty()) {
-    return result;
-  }
-
-  std::vector<Tensor> tensors_copy;
-  std::copy(tensors.begin(), tensors.end(), std::back_inserter(tensors_copy));
-  auto out_size = CatOutOperator::compute_output_shape(non_empty_list, dim_);
-  auto out_shape_change = result.sizes() != out_size;
-
-  handle_collective(_tensors);
-  auto func = [result,
-               tensors = std::move(tensors_copy),
-               dim_,
-               out_size,
-               out_shape_change]() mutable {
-    auto t_list = HbLazyTensorViews::HandleViewsTensorList(tensors);
-    t_list = filter(t_list, is_nonempty_tensor);
-    if (t_list.empty())
-      return;
-
-    const TensorList view_list{t_list};
-
-    LazyOp<at::Tensor&> k{"aten::cat", {view_list, dim_, result}, {out_size}};
-    if (out_shape_change) {
-      k.set_shape_changed();
-    }
-    k.call(result);
-  };
-
-  auto result_func = [out_shape_change, &out_size](at::Tensor& result) {
-    if (out_shape_change) {
-      result.unsafeGetTensorImpl()->set_sizes_contiguous(out_size);
-    }
-  };
-
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(
-      cat_out, func, result, result_func);
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {

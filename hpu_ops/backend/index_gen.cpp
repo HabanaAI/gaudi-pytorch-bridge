@@ -37,7 +37,7 @@ static std::vector<int64_t> CalcCatOutSize(
   int64_t dim =
       at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
 
-  CatOutOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
+  CatOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
 
   if (dim != *dim_inp) {
     *dim_inp = dim;
