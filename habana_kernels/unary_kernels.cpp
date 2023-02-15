@@ -27,7 +27,6 @@
 #include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
-#include "habana_kernels/binary_out_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/unary_kernels.h"
@@ -636,57 +635,6 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-void SiluOutOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  const int64_t correctInputSize = 2;
-  TORCH_CHECK(
-      inputs.size() == correctInputSize,
-      "Incorrect size ",
-      inputs.size(),
-      " provided as input, while expected size is ",
-      correctInputSize,
-      " for SiluOutOperator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for SiluOutOperator");
-
-  auto self = inputs[0].toTensor();
-  auto out = inputs[1].toTensor();
-
-  at::ScalarType scalar_type = self.scalar_type();
-  size_t device_id = self.device().index();
-
-  SigmoidOperator Op(device_id, scalar_type);
-
-  Op.SetSynapseInput(p_context_->syn_inputs_[0]);
-
-  std::vector<c10::IValue> stack{IValue(self)};
-  Op.AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-
-  auto output_sigmoid = Op.GetOutputs()[0];
-
-  stack.clear();
-
-  // Create MulOut operator
-  MulOutOperator mulOutOp(this->p_context_->device_id_, scalar_type);
-  mulOutOp.SetSynapseInput(p_context_->syn_inputs_[1]);
-  mulOutOp.SetSynapseInput(p_context_->syn_inputs_[0]);
-  mulOutOp.SetSynapseInput(Op.GetSynOutputs()[0]);
-
-  stack.emplace_back(IValue(out));
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(Op.GetOutputs()[0]));
-
-  mulOutOp.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-  stack.clear();
-
-  p_context_->syn_outputs_.emplace_back(std::move(mulOutOp.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(mulOutOp.GetOutputs()[0]));
-}
-
-// TODO:use SiluOutOperator to implement it - avoid duplication of code
 void SiluOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

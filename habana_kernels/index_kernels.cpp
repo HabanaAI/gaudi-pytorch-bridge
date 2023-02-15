@@ -470,64 +470,6 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-void ScatterValueWrapperOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect size of inputs for scatter_value operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input 0 type expected to be Tensor for scatter-value operator");
-  TORCH_CHECK(
-      inputs[1].isInt(),
-      "Input 1 type expected to be int64_t for scatter_value operator");
-  TORCH_CHECK(
-      inputs[2].isTensor(),
-      "Input 2 type expected to be Tensor for scatter_value operator");
-  TORCH_CHECK(
-      inputs[3].isScalar(),
-      "Input 3 type expected to be Scalar for scatter_value operator");
-
-  auto self = inputs[0].toTensor();
-  auto dim = inputs[1].toInt();
-  auto index = inputs[2].toTensor();
-  auto value = inputs[3].toScalar();
-  at::ScalarType scalar_type = self.scalar_type();
-
-  torch::jit::Stack stack;
-  Tensor src = habana::createPTTensor(
-      self,
-      index.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      scalar_type,
-      false);
-
-  // Create Constant Operator to convert scalar to tensor
-  auto constOp = make_operator<ConstantOperator>(
-      this->p_context_->device_id_, scalar_type);
-  stack = {IValue(src), IValue(value)};
-  constOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-  stack.clear();
-  auto scatterOp = make_operator<ScatterWrapperOperator>(
-      this->p_context_->device_id_, scalar_type, "scatter_fwd_", _inplace);
-  stack = {
-      IValue(self),
-      IValue(dim),
-      IValue(index),
-      IValue(constOp->GetOutputs()[0])};
-
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  scatterOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
-  scatterOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-  p_context_->syn_outputs_.emplace_back(
-      std::move(scatterOp->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
-}
-
 void IndexAddOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -1723,41 +1665,6 @@ void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   bool sparse_grad = false;
   inputs.emplace_back(IValue(sparse_grad));
   GatherOperator::SetPTOutputs(inputs);
-}
-
-void Gather2dOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for gather2d operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isInt(), "Input arg4 type expected to be integer");
-
-  auto input = inputs[0].toTensor();
-  auto indices = inputs[1].toTensor();
-  auto validCount = inputs[2].toInt();
-
-  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
-
-  TORCH_CHECK(
-      indices.numel() >= validCount,
-      "validCount cannot be greater than number of indices provided")
-  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
-
-  auto shape = DimVector(input.sizes());
-  shape.erase(shape.begin() + 0);
-  shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = habana::createPTTensor(
-      input,
-      shape,
-      input.options(),
-      input.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 void NarrowOperator::AllocateAndAddSynapseNode(

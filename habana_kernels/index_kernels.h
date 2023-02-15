@@ -1,34 +1,18 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "backend/habana_operator.h"
 namespace habana {
-
-//
-// Gather2d Operator
-class Gather2dOperator : public HabanaOperator {
- public:
-  Gather2dOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 //
 // Slice Operator
 class SliceOperator : public HabanaOperator {
@@ -187,57 +171,6 @@ class ScatterHelperOperator : public ScatterWrapperOperator {
  public:
   ScatterHelperOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
-};
-
-class ScatterInplaceHelperOperator : public ScatterWrapperOperator {
- public:
-  ScatterInplaceHelperOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterWrapperOperator(
-            device_id,
-            scalarType,
-            "scatter_fwd_",
-            true /*inplace*/) {}
-};
-
-// ScatterValueWrapperOperator Operator
-//
-class ScatterValueWrapperOperator : public HabanaOperator {
- public:
-  ScatterValueWrapperOperator(
-      int device_id,
-      c10::ScalarType scalarType,
-      bool is_inplace = false)
-      : HabanaOperator(
-            "scatter_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    _inplace = is_inplace;
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
-
- private:
-  bool _inplace;
-};
-
-class ScatterValueHelperOperator : public ScatterValueWrapperOperator {
- public:
-  ScatterValueHelperOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterValueWrapperOperator(device_id, scalarType) {}
-};
-
-class ScatterValueHelperInplaceOperator : public ScatterValueWrapperOperator {
- public:
-  ScatterValueHelperInplaceOperator(
-      int device_id,
-      c10::ScalarType scalarType,
-      bool is_inplace = true)
-      : ScatterValueWrapperOperator(device_id, scalarType, is_inplace) {}
 };
 
 // ScatterAddOperator Operator

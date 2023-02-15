@@ -65,29 +65,6 @@ class MulInplaceOperator : public BinaryInplaceWrapperOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
 };
-
-class DivInplaceOperator : public BinaryInplaceWrapperOperator {
- public:
-  // Div op
-  DivInplaceOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryInplaceWrapperOperator(
-            device_id,
-            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
-class PowInplaceOperator : public BinaryInplaceWrapperOperator {
- public:
-  // Pow op
-  PowInplaceOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryInplaceWrapperOperator(
-            device_id,
-            "pow_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
 class BinaryInplaceOperatorWithAlpha : public BinaryInplaceOperator {
  public:
   BinaryInplaceOperatorWithAlpha(
@@ -129,34 +106,10 @@ class AddInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
     scalarType_ = scalarType;
   }
 };
-
-class SubInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
- public:
-  SubInplaceOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryInplaceWrapperOperatorWithAlpha(
-            device_id,
-            "sub_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
 class AddcmulInplaceOperator : public habana::HabanaOperator {
  public:
   AddcmulInplaceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("addcmul_fwd_") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class AddcdivInplaceOperator : public habana::HabanaOperator {
- public:
-  AddcdivInplaceOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("addcdiv_fwd_") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }

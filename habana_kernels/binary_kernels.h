@@ -22,9 +22,8 @@ class BinaryOperator : public habana::HabanaOperator {
       int device_id,
       const std::string& guid,
       c10::ScalarType scalarType)
-      : HabanaOperator(guid) {
+      : HabanaOperator(guid), scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -86,17 +85,6 @@ class DivOperator : public BinaryWrapperOperator {
     scalarType_ = scalarType;
   }
 };
-
-class PowOperator : public BinaryWrapperOperator {
- public:
-  PowOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
-            device_id,
-            "pow_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
 class BinaryOperatorWithAlpha : public BinaryOperator {
  public:
   BinaryOperatorWithAlpha(
@@ -161,28 +149,6 @@ class RsubOperator : public SubOperator {
       const OutputMetaDataVector& output_metadata) final;
 };
 
-class MaximumOperator : public BinaryWrapperOperator {
- public:
-  // Maximum op
-  MaximumOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
-            device_id,
-            "max_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
-class MinimumOperator : public BinaryWrapperOperator {
- public:
-  // Minimum op
-  MinimumOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
-            device_id,
-            "min_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
-};
-
 class RemainderOperator : public HabanaOperator {
  public:
   RemainderOperator(int device_id, c10::ScalarType scalarType)
@@ -205,10 +171,9 @@ class RemainderWrapperOperator : public HabanaOperator {
  public:
   RemainderWrapperOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "div_mod_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    this->scalarType_ = scalarType;
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
@@ -228,10 +193,9 @@ class RemainderInplaceOperator : public habana::HabanaOperator {
  public:
   RemainderInplaceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "div_mod_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -241,25 +205,6 @@ class RemainderInplaceOperator : public habana::HabanaOperator {
  protected:
   c10::ScalarType scalarType_;
 };
-
-class RemainderInplaceWrapperOperator : public habana::HabanaOperator {
- public:
-  RemainderInplaceWrapperOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "div_mod_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) final;
-
- protected:
-  c10::ScalarType scalarType_;
-};
-
 class RemainderOutOperator : public HabanaOperator {
  public:
   RemainderOutOperator(int device_id, c10::ScalarType scalarType)
@@ -276,27 +221,5 @@ class RemainderOutOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-};
-
-class RemainderOutWrapperOperator : public HabanaOperator {
- public:
-  RemainderOutWrapperOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "div_mod_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    this->scalarType_ = scalarType;
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
- protected:
-  c10::ScalarType scalarType_;
 };
 } // namespace habana

@@ -1031,52 +1031,6 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
       deterministic);
 }
 
-void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of input expected for Remainder operator");
-  // Note that there is no (Scalar, Tensor) version for remainder ops
-  // in native_functions.yaml
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(
-      inputs[1].isTensor() || inputs[1].isScalar(),
-      "Input arg2 type expected to be a tensor or scalar");
-
-  auto remainderOp = make_operator<RemainderInplaceOperator>(
-      this->p_context_->device_id_, this->scalarType_);
-
-  if (inputs[1].isTensor()) { // Both inputs are tensors
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    remainderOp->AllocateAndAddSynapseNode(
-        graph, inputs, {OutputMetaData(), output_metadata.at(0)});
-  } else { // 2nd input is a scalar
-    // add constant node to convert 2nd input to tensor
-    auto arg1 = inputs[0].toTensor();
-    auto constOp = make_operator<ConstantOperator>(
-        this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana::createPTTensor(
-        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
-    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(
-        graph, constOp_stack, habana::OutputMetaDataVector(1));
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
-    // replace 2nd scalar input with a tensor in stack
-    inputs.erase(inputs.cbegin() + 1);
-    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    remainderOp->AllocateAndAddSynapseNode(
-        graph, inputs, {OutputMetaData(), output_metadata.at(0)});
-  }
-
-  p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
-  p_context_->syn_outputs_.emplace_back(
-      std::move(remainderOp->GetSynOutputs()[1]));
-}
-
 void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1126,53 +1080,6 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       deterministic);
-}
-
-void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of input expected for Remainder operator");
-  // Note that there is no (Scalar, Tensor) version for remainder ops
-  // in native_functions.yaml
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(
-      inputs[1].isTensor() || inputs[1].isScalar(),
-      "Input arg2 type expected to be a tensor or scalar");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-
-  auto remainderOp = make_operator<RemainderOutOperator>(
-      this->p_context_->device_id_, this->scalarType_);
-
-  if (inputs[1].isTensor()) { // Both inputs are tensors
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  } else { // 2nd input is a scalar
-    // add constant node to convert 2nd input to tensor
-    auto arg1 = inputs[0].toTensor();
-    auto constOp = make_operator<ConstantOperator>(
-        this->p_context_->device_id_, this->scalarType_);
-    auto const_shape_tensor = habana::createPTTensor(
-        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
-    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp->AllocateAndAddSynapseNode(
-        graph, constOp_stack, habana::OutputMetaDataVector(1));
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
-    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    // replace 2nd scalar input with a tensor in stack
-    inputs.erase(inputs.cbegin() + 1);
-    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
-    remainderOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  }
-
-  p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
-  p_context_->syn_outputs_.emplace_back(
-      std::move(remainderOp->GetSynOutputs()[1]));
 }
 
 static auto& BinaryKernelsKernelRegistry =
