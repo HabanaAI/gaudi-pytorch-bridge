@@ -266,6 +266,7 @@ build_pytorch_modules()
     fi
 
     pushd $PYTORCH_MODULES_ROOT_PATH
+
     echo "git submodule update for pybind11"
     git submodule sync
     __result=$?
@@ -310,6 +311,7 @@ build_pytorch_modules()
         __result=$?
         if [ $__result -ne 0 ]; then
             echo "Failed to build dependency packages $__pytorch_module_name"
+            popd
             restore_python_version
             return $__result
         fi
@@ -319,6 +321,8 @@ build_pytorch_modules()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Failed to run build.py. Exit code: " $__result
+        popd
+        restore_python_version
         return $__result
     fi
 
@@ -335,6 +339,10 @@ build_pytorch_modules()
                     consolidate_ops_list.json unique_ops_list.json unique_ops_list2.json summary.json $HABANA_LOGS/
         fi
     fi
+
+    popd
+    restore_python_version
+
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
 }
 
