@@ -825,7 +825,7 @@ def create_collect_binaries_target(
         pmake(f'\techo "Copying remaining targets from {source} to $$DESTINATION" &&\\')
         pmake(f"\tcp -fs {source}/*.so* $$DESTINATION && \\")
         pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
-        pmake(f"\tcp -fs {source}/test_* $$DESTINATION && \\")
+        pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
         cmake_config_upper = cmake_config.upper()
         pmake(
             '\tfind -D exec $${DESTINATION} "(" -name "*.so*" -o -name "*.py" ")" '
