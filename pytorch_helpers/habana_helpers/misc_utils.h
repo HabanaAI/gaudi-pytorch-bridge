@@ -63,9 +63,3 @@ inline int64_t mod_exp(bool w, int64_t x = 997) {
 bool IsHostMemoryThresholdReached();
 
 } // namespace habana
-
-namespace habana_lazy {
-
-bool IsCollective(const c10::Symbol& symbol);
-
-} // namespace habana_lazy

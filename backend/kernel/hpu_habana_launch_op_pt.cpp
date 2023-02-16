@@ -2270,7 +2270,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       }
     }
 
-    if (!is_shape_inference && habana_lazy::IsCollective(node->kind())) {
+    if (!is_shape_inference && habana_helpers::IsCollective(node->kind())) {
       // save indexes of kernel input stack in graph input stack
       // when launching provide new input stack to RunCollective
       std::shared_ptr<habana_helpers::collective_kernel_info> kernel_info =

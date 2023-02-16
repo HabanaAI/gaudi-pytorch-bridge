@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 
 #include "misc_utils.h"
 #include <ATen/Tensor.h>
@@ -37,13 +49,3 @@ bool IsHostMemoryThresholdReached() {
 }
 
 } // namespace habana
-
-namespace habana_lazy {
-
-bool IsCollective(const c10::Symbol& symbol) {
-  static c10::Symbol hccl_namepsace =
-      c10::Symbol::fromQualString("namespaces::hccl");
-  return symbol.ns() == hccl_namepsace;
-}
-
-} // namespace habana_lazy

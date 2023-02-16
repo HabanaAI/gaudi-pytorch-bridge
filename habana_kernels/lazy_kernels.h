@@ -16,6 +16,7 @@
 #include <utility>
 
 #include <c10_ver/core/SymIntArrayRef.h>
+#include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
@@ -159,7 +160,7 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
@@ -173,7 +174,7 @@ class LazyOp {
         m_out_shapes{std::move(out_shapes)},
         m_out_index{},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }
@@ -188,7 +189,7 @@ class LazyOp {
         m_metadata_indices{},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     if (out_shapes_fn) {
       m_out_shapes = out_shapes_fn(inputs);
@@ -206,7 +207,7 @@ class LazyOp {
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(
             m_node ? m_node->op().toQualString() : "")},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -226,7 +227,7 @@ class LazyOp {
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(
             m_node ? m_node->op().toQualString() : "")},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
@@ -242,7 +243,7 @@ class LazyOp {
         m_out_index{},
         m_out_meta_tensors{output_meta_tensors},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     set_inputs(inputs);
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     for (const auto& out : m_out_meta_tensors) {
@@ -261,7 +262,7 @@ class LazyOp {
         m_out_index{},
         m_scalar_type(scalar_type),
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(IsCollective(m_symbol)) {
+        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
     set_inputs(inputs);
   }

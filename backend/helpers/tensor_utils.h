@@ -51,6 +51,11 @@ void PrintTensor(
   habana_helpers::PrintTensor(T, std::string(#T), true)
 
 namespace habana_helpers {
+inline bool IsCollective(const c10::Symbol& symbol) {
+  static c10::Symbol hccl_namepsace =
+      c10::Symbol::fromQualString("namespaces::hccl");
+  return symbol.ns() == hccl_namepsace;
+}
 
 std::vector<int64_t> infer_size(c10::IntArrayRef shape, int64_t numel);
 

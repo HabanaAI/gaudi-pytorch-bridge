@@ -110,7 +110,7 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     // with persistent i/o
     int inputId = 0;
     if (HabanaLaunchOpPT::isControlEdge(node) ||
-        habana_lazy::IsCollective(node->kind()) ||
+        habana_helpers::IsCollective(node->kind()) ||
         // must the be last condition as it can change inputId
         ((inputId = inplaceInputId(node)) >= 0)) {
       set_persistence_input(node, inputId);
@@ -166,7 +166,7 @@ void PersistenceMarkerPass::ExternalMarkingPass(
 
     // collective inputs must be set external in order to
     // trigger before graph execution ends
-    if (habana_lazy::IsCollective(node->kind())) {
+    if (habana_helpers::IsCollective(node->kind())) {
       set_external_input(node);
     }
 
