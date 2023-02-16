@@ -13,6 +13,7 @@
 #include "backend/jit_graph_cache.h"
 #include <sstream>
 // WeightIdentificationPass
+#include "backend/lazy_to_backend.h"
 #include "habana_lazy/passes/pass_utils.cpp"
 
 #include <torch/csrc/api/include/torch/jit.h>
@@ -180,15 +181,13 @@ size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto tensor = input.toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      if (impl) {
-        for (auto item : impl->GetMemoryPermutation()) {
-          perm_hash_code = at::hash_combine(perm_hash_code, cnt);
-          perm_hash_code = at::hash_combine(perm_hash_code, item);
-        }
-      } else {
-        PT_BRIDGE_DEBUG(
-            "Could not update cache key with tensor's permutation because the BE tensor has no internal impl");
+      std::vector<uint8_t> permutation;
+      bool dont_allow_permutation = false;
+      std::tie(permutation, dont_allow_permutation) =
+          lazy_to_backend::get_memory_permutation(tensor);
+      for (auto item : permutation) {
+        perm_hash_code = at::hash_combine(perm_hash_code, cnt);
+        perm_hash_code = at::hash_combine(perm_hash_code, item);
       }
     }
     cnt++;

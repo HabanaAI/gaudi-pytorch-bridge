@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,6 +16,7 @@
 #include <sstream>
 
 #include "backend/helpers/get_n_bytes.h"
+#include "backend/lazy_to_backend.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
@@ -74,18 +75,16 @@ void PtTensorInfo::populate_tinfo(
   mf_ = pt_tensor.suggest_memory_format();
   topts_ = pt_tensor.options();
 
-  auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-  if (hb_internal_tensor != nullptr) {
-    hb_internal_lf_ = hb_internal_tensor->GetTensorLayout();
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      PT_HABHELPER_DEBUG(
-          "Saving the layout and permutation to the cache for tensor: ",
-          tensor_id,
-          "   permutation: ",
-          VecToString(hb_internal_tensor->GetMemoryPermutation()));
-      hb_internal_perm_ = hb_internal_tensor->GetMemoryPermutation();
-    }
-    hb_dont_allow_permute_ = hb_internal_tensor->GetDontAllowPermutation();
+  std::tie(hb_internal_perm_, hb_dont_allow_permute_) =
+      lazy_to_backend::get_memory_permutation(pt_tensor);
+  hb_internal_lf_ = lazy_to_backend::get_tensor_layout_format(pt_tensor);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
+    PT_BACKEND_DEBUG_TENSOR(
+        pt_tensor,
+        "Saving the layout and permutation to the cache for tensor: %d",
+        " permutation: %s",
+        tensor_id,
+        lazy_to_backend::FormatTokens::Permutations);
   }
 
   if (get_buffer_syn() != 0) {
