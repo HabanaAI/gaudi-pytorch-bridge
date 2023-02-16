@@ -24,6 +24,10 @@ common:
           fi
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
 testsMap:
+  Test_pytorch_modules_gaudi2_sim_cpp_suite:
+    stages:
+      Run CPP tests gaudi2 sim:
+        filter: -t cpp_tests --dut gaudi2
   Test_pytorch_modules_gaudi2_asic_cpp_suite:
     stages:
       Run CPP tests gaudi2 asic:
