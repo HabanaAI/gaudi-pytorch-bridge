@@ -33,7 +33,7 @@ orchestratorConfig:
     silentMode: true
     runInSanitizer: true
     runInCodeCoverage: true
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
     runInSanitizer: true
