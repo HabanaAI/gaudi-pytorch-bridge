@@ -174,7 +174,9 @@ class ScatterHelperOperator : public ScatterWrapperOperator {
 };
 
 // ScatterAddOperator Operator
-//
+// This operator uses UnsortedScatterAddOperator on G2 and above
+// It sorts the index tensor and rearranges source tensor
+// and uses SortedScatterAddOperator on G1
 class ScatterAddOperator : public ScatterWrapperOperator {
  public:
   ScatterAddOperator(int device_id, c10::ScalarType scalarType)
@@ -185,6 +187,10 @@ class ScatterAddOperator : public ScatterWrapperOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+// This operator does not expect that index given to it is
+// sorted (hence source also does not need re arrangement)
+// This is because unsorted_scatter_add_fwd_ guid can work on
+// unsorted index tensor. This is used only on G2 and above.
 class UnsortedScatterAddOperator : public ScatterWrapperOperator {
  public:
   UnsortedScatterAddOperator(int device_id, c10::ScalarType scalarType)
@@ -192,6 +198,13 @@ class UnsortedScatterAddOperator : public ScatterWrapperOperator {
             device_id,
             scalarType,
             "unsorted_scatter_add_fwd_") {}
+};
+// This operator expects that index and source given to it are such that
+// the index is already sorted and the source rearranged accordingly
+class SortedScatterAddOperator : public ScatterWrapperOperator {
+ public:
+  SortedScatterAddOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_add_fwd_") {}
 };
 
 //

@@ -252,14 +252,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   bool largest = inputs[3].toBool();
   bool sorted = inputs[4].toBool();
 
-  /*
-   * BFloat16 is currently not supported. Look at the following jira for more
-   * details https://jira.habana-labs.com/browse/SW-37999
-   */
-  TORCH_CHECK(
-      !(self.dtype() == c10::ScalarType::BFloat16),
-      "BFloat16 is not supported");
-
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
@@ -286,7 +278,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_outputs{syn_out0.get(), syn_out1.get()};
 
   if (enable_topk_in_cguid) {
-    ns_TopkNodeV2::ParamsV4 params;
+    ns_TopkNodeV2::ParamsV4 params{};
     params.axis = self.dim() - dim - 1;
     params.bottomK = !largest;
     params.isVcData = false;
