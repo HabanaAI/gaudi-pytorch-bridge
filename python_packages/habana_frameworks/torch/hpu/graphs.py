@@ -519,6 +519,7 @@ class ModuleCacher(torch.nn.Module):
         self.is_capturing = False
         self.iteration_cnt = -1
         self.use_lazy_mode = os.environ.get("PT_HPU_LAZY_MODE", "1") == "1"
+        self.hpugraph_tracing = False
         # Variables for statistics collection
         self.cached_hits_dict = {}
         self.uncached_hits = 0
@@ -529,6 +530,9 @@ class ModuleCacher(torch.nn.Module):
         self.forward_cnt = iter_num
         self.set_iterations_call_cnt += 1
 
+    def is_hpugraph_tracing(self):
+        return self.hpugraph_tracing
+
     def cache_replay(self, input_id, *args, **kwargs):
         self.cached_hits_dict[input_id] = self.cached_hits_dict.get(input_id, 0) + 1
         graph_model = self.model_dict[input_id]
@@ -536,10 +540,13 @@ class ModuleCacher(torch.nn.Module):
         return output
 
     def cache_insert(self, input_id, *args, **kwargs):
+        self.hpugraph_tracing = True
         graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous)
         graph_model.init_hpu_graph(*args, **kwargs)
         self.model_dict[input_id] = graph_model
-        return self.cache_replay(input_id, *args, **kwargs)
+        ret = self.cache_replay(input_id, *args, **kwargs)
+        self.hpugraph_tracing = False
+        return ret
 
     def forward(self, *args, **kwargs):
         self.iteration_cnt += 1
@@ -601,6 +608,7 @@ class ModuleCacher(torch.nn.Module):
         return self.orig_model(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False):
+        model.is_hpugraph_tracing = self.is_hpugraph_tracing
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
