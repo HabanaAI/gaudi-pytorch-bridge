@@ -144,3 +144,6 @@ def split_embedding_codegen_lookup_adagrad_function_hpu(
                                                    indices,
                                                    offsets,
                                                    pooling_mode)
+
+def expand_into_jagged_permute(permute: torch.Tensor, input_offsets: torch.Tensor, output_offsets: torch.Tensor, output_size: int) -> torch.Tensor:
+    return _hpex_C.expand_into_jagged_permute(permute, input_offsets, output_offsets, output_size)

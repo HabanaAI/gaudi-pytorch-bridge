@@ -384,6 +384,11 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     const at::Tensor& lengths,
     const at::Tensor& indices,
     const c10::optional<at::Tensor>& weights);
+at::Tensor habana_expand_into_jagged_permute_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& input_offsets,
+    const at::Tensor& output_offsets,
+    int64_t output_size);
 
 namespace vision {
 namespace ops {

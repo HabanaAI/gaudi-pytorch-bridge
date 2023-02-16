@@ -1954,6 +1954,28 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
   return habana_permute_2D_sparse_data_lazy(permute, lengths, indices, weights);
 }
 
+at::Tensor habana_expand_into_jagged_permute_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& input_offsets,
+    const at::Tensor& output_offsets,
+    int64_t output_size) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " expand_into_jagged_permute:",
+      " permute=",
+      to_string(permute),
+      " input_offsets=",
+      to_string(input_offsets),
+      " output_offsets=",
+      to_string(output_offsets),
+      " output_size=",
+      to_string(output_size));
+
+  return habana_expand_into_jagged_permute_lazy(
+      permute, input_offsets, output_offsets, output_size);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2417,6 +2439,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_permute_2D_sparse_data(Tensor permute, Tensor lengths, Tensor indices, Tensor? weights=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::habana_permute_2D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

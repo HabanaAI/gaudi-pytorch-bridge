@@ -80,4 +80,9 @@ struct LazyPermute2DSparseData : LazyPermuteSparseDataCommon {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
+struct LazyExpandIntoJaggedPermute : OpBackend {
+  LazyExpandIntoJaggedPermute(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
 } // namespace habana

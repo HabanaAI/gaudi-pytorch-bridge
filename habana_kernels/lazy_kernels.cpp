@@ -7850,4 +7850,19 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
   }
 }
 
+at::Tensor habana_expand_into_jagged_permute_lazy(
+    const at::Tensor& permute,
+    const at::Tensor& input_offsets,
+    const at::Tensor& output_offsets,
+    int64_t output_size) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::habana_expand_into_jagged_permute",
+      {permute, input_offsets, output_offsets, output_size},
+      {{output_size}}};
+  RUN_MAYBE_WITH_ACC_THREAD(expand_into_jagged_permute, op)
+}
+
 } // namespace habana_lazy

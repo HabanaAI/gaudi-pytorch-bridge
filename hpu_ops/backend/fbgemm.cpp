@@ -54,6 +54,38 @@ void LazyPermute2DSparseData::AddNode(
   LazyPermuteSparseDataCommon::AddNode(graph, stack, false);
 }
 
+LazyExpandIntoJaggedPermute::LazyExpandIntoJaggedPermute(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "expand_into_jagged_permute",
+          scalar_type,
+          {1},
+          {},
+          {},
+          false) {}
+
+void LazyExpandIntoJaggedPermute::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
+
+  auto input_offsets = stack.at(1).toTensor();
+
+  int64_t output_size = stack.at(3).toScalar().toInt();
+
+  std::string guid = "expand_into_jagged_permute_fwd_i32";
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
+      {{output_size}, input_offsets.scalar_type(), 0}};
+
+  auto permuted = OpBackend::BuildNode(
+      this, graph, {guid, inputs, output_attrs, nullptr, 0});
+
+  syn_out(0) = std::move(permuted[0]);
+}
+
 } // namespace habana
 
 static const auto& FBGEMMKernelsKernelRegistry =
@@ -69,4 +101,7 @@ static const auto& FBGEMMKernelsKernelRegistry =
             KERNEL_FN_ARG(LazyPermute2DSparseData, true))
         .add(
             "hpu::habana_permute_2D_sparse_data_without_weights",
-            KERNEL_FN_ARG(LazyPermute2DSparseData, false));
+            KERNEL_FN_ARG(LazyPermute2DSparseData, false))
+        .add(
+            "hpu::habana_expand_into_jagged_permute",
+            KERNEL_FN_GLOBAL(habana::LazyExpandIntoJaggedPermute));
