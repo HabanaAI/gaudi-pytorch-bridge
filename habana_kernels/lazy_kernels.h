@@ -21,6 +21,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/template_helpers.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -36,21 +37,6 @@
 
 #include "habana_lazy/memlog.h"
 #include "habana_lazy/ops/shape_ops.h"
-
-namespace habana {
-
-template <class F, class... Ts, std::size_t... Is>
-void for_each_in_tuple(
-    std::tuple<Ts...>& tuple,
-    F func,
-    std::index_sequence<Is...>) {
-  (void)(int[]){0, ((void)func(std::get<Is>(tuple)), 0)...};
-}
-template <class F, class... Ts>
-void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
-  for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
-}
-} // namespace habana
 
 namespace habana_lazy {
 enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
@@ -112,30 +98,6 @@ void flush_op(
     size_t out_tensor_count = 0,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info = nullptr,
     std::vector<HbLazyTensor> out_hb_lazy_tensor = {});
-
-template <class...>
-struct conjunction : std::true_type {};
-
-template <class B1>
-struct conjunction<B1> : B1 {};
-
-template <class B1, class... Bn>
-struct conjunction<B1, Bn...>
-    : std::conditional_t<bool(B1::value), conjunction<Bn...>, B1> {};
-
-template <typename Tuple>
-struct is_tuple_of_tensor_ref;
-
-template <typename Tuple>
-struct is_tuple_of_tensors;
-
-template <typename... Ts>
-struct is_tuple_of_tensor_ref<std::tuple<Ts...>>
-    : conjunction<std::is_same<at::Tensor&, Ts>...> {};
-
-template <typename... Ts>
-struct is_tuple_of_tensors<std::tuple<Ts...>>
-    : conjunction<std::is_same<at::Tensor, Ts>...> {};
 
 // TODO: Ideally we want a variant of HABANA_ASSERT like
 // TORCH_INTERNAL_ASSERT_DEBUG_ONLY

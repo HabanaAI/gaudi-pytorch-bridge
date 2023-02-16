@@ -24,6 +24,7 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/template_helpers.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
@@ -229,7 +230,7 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
-    PT_LAZY_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -256,6 +257,51 @@ class EagerOp : public EagerOpBase {
     return self;
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
+      T self) {
+    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        m_out_shapes.empty() ||
+        m_out_shapes.size() == std::tuple_size<T>::value);
+
+    auto it_shape = m_out_shapes.begin();
+    habana::for_each_in_tuple(self, [this, &it_shape](const auto& el) {
+      HABANA_ASSERT(
+          el.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+    });
+
+    if (!m_out_shapes.empty()) {
+      habana::for_each_in_tuple_with_index(
+          self, [this](const auto& el, size_t index) {
+            const auto& out_shape = m_out_shapes[index];
+            if (el.sizes() != out_shape) {
+              HABANA_ASSERT(
+                  el.numel() == 0,
+                  "Got a non-empty out tensor for out operation. Out shape: ",
+                  el.sizes());
+              THHTensor_resizeNd(
+                  el.unsafeGetTensorImpl(),
+                  out_shape.size(),
+                  out_shape.data(),
+                  nullptr);
+            }
+          });
+    }
+
+    std::vector<OutputSpec> out_spec;
+    habana::for_each_in_tuple(self, [&out_spec](const auto& el) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    });
+
+    auto stack = run({out_spec});
+    HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
+    return self;
+  }
+
   // For regular variants
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
@@ -268,6 +314,32 @@ class EagerOp : public EagerOpBase {
     auto stack = run({out_spec});
     HABANA_ASSERT(stack.size() == 1); // single output only
     return stack.at(0).toTensor();
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
+    PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
+
+    // TODO avoid calling get_result
+    auto result = get_result();
+
+    std::vector<OutputSpec> out_spec;
+    habana::for_each_in_tuple(result, [&out_spec](const auto& el) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    });
+
+    auto stack = run({out_spec});
+    HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
+
+    ReturnType outputs;
+    auto it_stack = stack.begin();
+    habana::for_each_in_tuple_with_index(
+        outputs, [&stack = stack](auto& el, size_t index) {
+          el = stack[index].toTensor();
+        });
+
+    return outputs;
   }
 
  private:
@@ -288,6 +360,37 @@ class EagerOp : public EagerOpBase {
       options = options.dtype(m_scalar_types[0]);
     }
     return at::empty(out_shape, options, t.suggest_memory_format());
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type get_result() {
+    PT_EAGER_TRACE;
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::tuple_size<T>::value == m_out_shapes.size());
+
+    ReturnType results;
+    const auto& t = get_inputs().at(m_out_index).toTensor();
+    if (m_scalar_types.empty()) {
+      habana::for_each_in_tuple_with_index(
+          results, [&](auto& result, size_t index) {
+            result = at::empty(
+                m_out_shapes[index], t.options(), t.suggest_memory_format());
+          });
+    } else {
+      HABANA_ASSERT(m_scalar_types.size() == std::tuple_size<T>::value);
+      habana::for_each_in_tuple_with_index(
+          results, [&](auto& result, size_t index) {
+            result = at::empty(
+                m_out_shapes[index],
+                t.options().dtype(m_scalar_types[index]),
+                t.suggest_memory_format());
+          });
+    }
+    return results;
   }
 
  protected:
