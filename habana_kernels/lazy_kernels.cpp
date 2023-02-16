@@ -928,14 +928,22 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // if non_blocking then handle seperately as we dont want wait to finish
   // Launch thread execution.
-  if (!non_blocking) {
+  bool async_d2h_thread = false;
+  // Take the async flow only if any launch thread is under execution..
+  // otherwise there wont be any wait and we dont need async d2h thread
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_D2H_ASYNC_THREAD) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) && non_blocking && is_pinned &&
+      context->m_launch_thread_handle.valid()) {
+    async_d2h_thread = true;
+  } else {
     context->JoinPendingLaunchThread();
   }
 
   // Remove this SBS check, as of now prepare sbs inputs on calls .to operator
   // and on inplace ops that triggers this mark step, which leads to graph
   // evaluation and we end up losing input tensor.
-  d2h_maybe_eval(src, (non_blocking) ? true : false);
+  d2h_maybe_eval(src, (async_d2h_thread) ? true : false);
   // At this point markstep is executed. In non-blocking case, it will ensure do
   // launch thread join in the async thread.
 
@@ -949,12 +957,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // correctly identify the memory format
   self = self.contiguous(c10::MemoryFormat::Contiguous);
 
-  // Take the async flow only if any launch thread is under execution..
-  // otherwise there wont be any wait and we dont need async d2h thread
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_D2H_ASYNC_THREAD) && non_blocking &&
-      is_pinned && context->m_launch_thread_handle.valid() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
-    context->JoinPendingD2HThread();
+  if (async_d2h_thread) {
+    context->JoinPendingD2HThread(true);
     context->m_async_d2h_handle = SingleTonD2HThreadPool::getInstance().enqueue(
         copy_hpu_lazy_D2H_async, self, _src, c10::hpu::getCurrentHPUStream());
   } else {
