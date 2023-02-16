@@ -61,6 +61,10 @@ class BuildEnv(NamedTuple):
     venv_dir: str
     optional: bool
 
+    def __repr__(self):
+        return f"BuildEnv(Python {self.py_ver}, PT {self.pt_ver_and_src}, " \
+            f"venv: '{self.venv_dir}', optional: {self.optional})"
+
 
 class WheelConfig(NamedTuple):
     target: str
@@ -660,7 +664,7 @@ def prepare_build_dirs(
     wheels_per_build_envs,
     cmake_configurations: Dict,
     pt_modules_root,
-    clean=False,
+    args,
 ) -> Tuple[List[Tuple], List[WheelConfig]]:
     """
     Prepares build dirs for requested configurations
@@ -668,9 +672,8 @@ def prepare_build_dirs(
         build_root_dir: root directory in which all build dirs will be created
         wheels_per_build_envs: dict of list(wheel names) per BuildEnv. For a build env lists wheels that should contain built binaries
         cmake_configurations: CMake flags
-        pt_modules_root : pytorch-integration root directory
-        clean: whether to remove build directories to rebuild from scratch
-        op_stats: whether to create directory symbolic links required for gathering operator statistics
+        pt_modules_root: pytorch-integration root directory
+        args: as returned from argparse
     Returns: A tuple of 2 lists:
         - CMake build configurations: a tuple of: build dir, venv dir, and if optional
         - wheel configurations,
@@ -679,6 +682,8 @@ def prepare_build_dirs(
 
     os.makedirs(build_root_dir, exist_ok=True)
 
+    clean = args.configure
+    op_stats = args.op_stats
     whl_build_dir = f"{build_root_dir}/whl_build_dir"
     with chdir(build_root_dir), open("Makefile", "w") as makefile:
         if clean:
@@ -697,12 +702,11 @@ def prepare_build_dirs(
 
         for build_envs, cmake_config in combinations:
             common_venv_build_env = build_envs[0]
-            pt_ver_dir = common_venv_build_env.pt_ver_and_src.version.label.replace(".", "_")
 
             # needs to do explicit copy, to support multiple -DPYTHON_EXECUTABLE flags
             cmake_flags = CMakeFlags(cmake_configurations[cmake_config].copy())
             log.info(
-                f"In {build_root_dir}, preparing {cmake_config} build for pt{common_venv_build_env.pt_ver_and_src} python{common_venv_build_env.py_ver}."
+                f"In {build_root_dir}, preparing {cmake_config} build for PT {common_venv_build_env.pt_ver_and_src}, Python {common_venv_build_env.py_ver}."
             )
             current_ver_build_dir = os.path.join(
                 build_root_dir,
@@ -719,10 +723,11 @@ def prepare_build_dirs(
 
             os.makedirs(current_ver_build_dir, exist_ok=True)
             log.info(
-                f"Building {cmake_config} pt{common_venv_build_env.pt_ver_and_src} python{common_venv_build_env.py_ver} in {current_ver_build_dir}"
+                f"Building {cmake_config}, PT {common_venv_build_env.pt_ver_and_src}, "
+                f"Python {common_venv_build_env.py_ver} in {current_ver_build_dir}"
             )
 
-            optional = all([build_env.optional for build_env in build_envs])
+            optional = all(build_env.optional for build_env in build_envs)
             cmake_build_configs.append(
                 (current_ver_build_dir, common_venv_build_env.venv_dir, optional)
             )
@@ -739,7 +744,7 @@ def prepare_build_dirs(
                 )
 
         wheel_configs = create_wheel_targets(
-            wheels_per_build_envs, whl_build_dir, cmake_configurations.keys(), pmake
+            wheels_per_build_envs, whl_build_dir, cmake_configurations.keys(), pmake, args.verbose
         )
 
         create_ctest_target(pmake)
@@ -799,10 +804,9 @@ def create_collect_binaries_target(
         pmake(".SECONDEXPANSION:")  # GNU Make specific hax to expand $$ in prerequisite list
         pmake(f"{destination}/all {destination}/wheel_install: intermediate/$$(notdir $$@)")
         pmake("\tDESTINATION=$(dir $@);\\")
-        pmake("\tset -x;\\")
-        pmake("\trm $$DESTINATION/*.so*;\\")
-        pmake("\trm $$DESTINATION/*.py;\\")
-        pmake("\trm $$DESTINATION/test_*;\\")
+        pmake("\trm $$DESTINATION/*.so* 2>/dev/null;\\")
+        pmake("\trm $$DESTINATION/*.py 2>/dev/null;\\")
+        pmake("\trm $$DESTINATION/test_* 2>/dev/null;\\")
         pmake("\tmkdir -p $$DESTINATION && \\")
         # TODO: uncomment once we merge versioned .so's
         # for pt_ver_and_src in lib_versions:
@@ -848,7 +852,8 @@ def create_wheel_target_for_single_python(
     serializer,
     pt_vers: Sequence[VersionAndSource],
     venv_dirs,
-    cmake_configuration: str
+    cmake_configuration: str,
+    verbose,
 ):
     venv_dir = venv_dirs[0]
     pt_wheel_vers = ",".join(map(lambda x: str(x.version), pt_vers))
@@ -876,10 +881,11 @@ def create_wheel_target_for_single_python(
     pmake(
         f"\t{'-' if optional else ''}cd $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir} && {activate} &&\\"
     )
+    verbosity = '--verbose' if verbose >= 2 else ''
     pmake(
         f'\tRELEASE_VERSION="{get_release_version()}" PT_WHEEL_VERS="{pt_wheel_vers}" '
         f'PT_WHEEL_NAME="{full_wheel_name}" PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} '
-        f"python3 setup.py --verbose bdist_wheel &&\\"
+        f"python3 -m pip wheel {verbosity} --no-deps -w dist . &&\\"
     )
     pmake(
         f"\tmv $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl {pkgs_dir}"
@@ -910,7 +916,7 @@ def create_wheel_target_for_single_python(
 
 
 def create_wheel_targets(
-    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, cmake_configurations: Sequence[str], pmake,
+    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, cmake_configurations: Sequence[str], pmake, verbose
 ) -> List[WheelConfig]:
     """Returns a list of wheel configs to be built"""
     wheel_configs = []
@@ -937,6 +943,7 @@ def create_wheel_targets(
                 pt_vers,
                 venv_dirs,
                 configuration,
+                verbose,
             )
             wheel_configs.append(wheel_config)
 
@@ -1067,7 +1074,7 @@ def prepare_single_build_directory(
         pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
     wheel_installs = [  # TODO: replace `all` with `install`
-        f"\t{'-' if build_env.optional else ''}cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target all && echo $@ is finished"
+        f"\t{'-' if build_env.optional else ''}cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target all"
         for build_env in build_envs
     ]
     pmake("\n".join(wheel_installs))
@@ -1156,7 +1163,7 @@ def build(
 ):
     with chdir(work_dir):
         jobs = ("-j", str(jobs)) if jobs else tuple()
-        verbose = ("VERBOSE=1",) if verbose >= 2 else tuple()
+        verbose = ("VERBOSE=1",) if verbose >= 2 else tuple() if verbose == 1 else ("-s",)
         use_icecc = ("CCACHE_PREFIX=icecc",) if use_icecc else tuple()
         try:
             run(
@@ -1226,8 +1233,7 @@ def get_cmake_configurations(args) -> Dict[str, str]:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
     if args.upstream_compile:
         cmake_flags.set_if_missing("UPSTREAM_COMPILE", "ON")
-    if args.no_ext_build:
-        cmake_flags.set_if_missing("BUILD_PKGS", "OFF")
+    cmake_flags.set_if_missing("BUILD_PKGS", "OFF")  # wheel builds are now handled in multi-build Makefile
 
     build_type = "CMAKE_BUILD_TYPE"
     debug = "Debug"
@@ -1842,7 +1848,6 @@ def print_build_summary(cmake_build_configs, selected_wheel_configs, args):
         log_produced_wheels_and_dump_manifest(selected_wheel_configs, args)
 
 
-
 def install_wheels_in_venvs(selected_wheel_configs):
     for wheel_config in selected_wheel_configs:
         wheel_list = glob.glob(wheel_config.file_path_pattern)
@@ -1913,7 +1918,7 @@ def main():
             wheels_per_build_envs,
             cmake_configurations,
             pt_modules_root,
-            clean=args.configure,
+            args,
         )
 
         selected_targets, selected_wheel_configs = select_targets_and_configs(
