@@ -2,8 +2,9 @@ orchestratorConfig:
   cron: "H H/3 * * *"
   testConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
-# Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
+    silentMode: true
 # PyTorch full graph tests
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_hls_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
@@ -14,13 +15,10 @@ orchestratorConfig:
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
-    silentMode: false
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed
-    silentMode: false
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi2_asic_pytorch_fairseq_topology
   - testToLaunch: model_garden/Tests/Test_model_garden_gaudi2_asic_pytorch_perf_singlenode
-    silentMode: false
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
