@@ -1726,7 +1726,7 @@ __install_anaconda()
     echo "Activated  conda venv $__conda_venv"
     local __pip_conf=$VIRTUAL_ENV/pip.conf
     if [ -f "$__pip_conf"  ]; then
-    	export PIP_CONFIG_FILE=$VIRTUAL_ENV/$__pip_conf
+        export PIP_CONFIG_FILE=$__pip_conf
     fi
 
     $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
