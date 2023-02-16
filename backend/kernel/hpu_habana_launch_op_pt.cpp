@@ -1031,7 +1031,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
       if (!is_restride_cl) {
         if (tensor.dim() == 4 || tensor.dim() == 5) {
           auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(tensor);
-          hb_grad_weight->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+          hb_grad_weight->SetTensorLayout(habana::LayoutFormat::HWCK);
         }
         tensor.unsafeGetTensorImpl()->empty_tensor_restride(
             c10::MemoryFormat::Contiguous);

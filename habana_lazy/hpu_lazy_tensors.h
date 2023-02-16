@@ -18,6 +18,7 @@
 #include <c10/core/Device.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/misc_utils.h"
@@ -73,7 +74,7 @@ struct Data {
   bool is_random_seed_tensor = false;
   void* data_ptr;
   ir::Value ir_value;
-  LayoutFormat tensor_layout = kNCHW;
+  habana::LayoutFormat tensor_layout = habana::LayoutFormat::NCHW;
   c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
@@ -388,10 +389,10 @@ class HbLazyTensor {
       return c10::nullopt;
   }
 
-  void SetTensorLayout(LayoutFormat layout) {
+  void SetTensorLayout(habana::LayoutFormat layout) {
     data()->tensor_layout = layout;
   }
-  LayoutFormat GetTensorLayout() const {
+  habana::LayoutFormat GetTensorLayout() const {
     return data()->tensor_layout;
   }
 

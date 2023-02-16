@@ -21,6 +21,7 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
@@ -272,7 +273,7 @@ class PtTensorInfo {
   getDMAInputTensorCBType get_dma_cb() const {
     return DMAInputGenerators::getGenerator(dma_gen_id_);
   }
-  habana_lazy::LayoutFormat getHbInternalLayoutFormat() const {
+  habana::LayoutFormat getHbInternalLayoutFormat() const {
     return hb_internal_lf_;
   }
 
@@ -370,7 +371,7 @@ class PtTensorInfo {
   c10::MemoryFormat mf_;
   c10::TensorOptions topts_;
 
-  habana_lazy::LayoutFormat hb_internal_lf_{habana_lazy::LayoutFormat::kNCHW};
+  habana::LayoutFormat hb_internal_lf_{habana::LayoutFormat::NCHW};
   synapse_helpers::layouts::MemoryPermutation hb_internal_perm_;
   bool hb_dont_allow_permute_;
 

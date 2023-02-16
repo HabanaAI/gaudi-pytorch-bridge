@@ -459,7 +459,7 @@ void InsertWeightRestride_graph(
       if (tensor.has_storage() && is_4d_5d_tensor(tensor)) {
         auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
         auto layout_format = hb_tensor->GetTensorLayout();
-        if (layout_format == habana_lazy::LayoutFormat::kHWCK) {
+        if (layout_format == habana::LayoutFormat::HWCK) {
           weight_pass.weightMarker(value_in);
         }
       }
@@ -548,15 +548,15 @@ void InsertWeightRestride_graph(
         auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
         auto layout_format = hb_tensor->GetTensorLayout();
         if ((isD2DCopyOther(weight_value) || (isControlEdge(weight_value)))) {
-          hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
-          layout_format = habana_lazy::LayoutFormat::kHWCK;
+          hb_tensor->SetTensorLayout(habana::LayoutFormat::HWCK);
+          layout_format = habana::LayoutFormat::HWCK;
         } else if (isMulOutVarient(weight_value)) {
-          hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
-          layout_format = habana_lazy::LayoutFormat::kHWCK;
+          hb_tensor->SetTensorLayout(habana::LayoutFormat::HWCK);
+          layout_format = habana::LayoutFormat::HWCK;
         } else if (isStridedNode(weight_value)) {
           handleStridedWeights(graph, weight_value);
         }
-        if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
+        if (layout_format != habana::LayoutFormat::HWCK) {
           auto value_in = const_cast<torch::jit::Value*>(weight_value);
 
           auto op_permute = c10::Symbol::fromQualString("hpu::permute");
@@ -598,7 +598,7 @@ void InsertWeightRestride_graph(
 
           value_in->replaceAllUsesAfterNodeWith(
               d2d_copy_node, d2d_copy_node->output(0));
-          hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+          hb_tensor->SetTensorLayout(habana::LayoutFormat::HWCK);
         } else {
           // add restride NCHW -> HWCK
           auto value_in = const_cast<torch::jit::Value*>(weight_value);

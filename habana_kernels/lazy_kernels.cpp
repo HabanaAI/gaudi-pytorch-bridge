@@ -746,7 +746,7 @@ at::Tensor handleWeightTensorLayout(const Tensor& src) {
   auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(tensor_data);
 
   // weights HWCK -> NCHW
-  if ((hl_tensor_data->GetTensorLayout() == habana_lazy::LayoutFormat::kHWCK) &&
+  if ((hl_tensor_data->GetTensorLayout() == habana::LayoutFormat::HWCK) &&
       (habana_lazy::exec::OptPassCfg::GetInstance()
            ->IsEnabledWeightPermutePass())) {
     std::vector<long int> swapped_sizes = {
@@ -2197,13 +2197,13 @@ Tensor permute_wt_hpu(const Tensor& self) {
 
       std::string op_name;
 
-      if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
+      if (layout_format != habana::LayoutFormat::HWCK) {
         op_name = "hpu::permute_weight";
       } else {
         op_name = "hpu::permuted_weight_restride";
       }
 
-      hb_tensor.SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+      hb_tensor.SetTensorLayout(habana::LayoutFormat::HWCK);
       std::vector<at::IValue> vector_of_inputs;
       vector_of_inputs = {self, dims_};
 
@@ -2259,7 +2259,7 @@ Tensor convolution_hpu_lazy(
       if (at_internal_tensor.has_storage()) {
         auto hb_tensor =
             habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-        hb_tensor->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+        hb_tensor->SetTensorLayout(habana::LayoutFormat::HWCK);
       }
     }
   }

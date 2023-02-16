@@ -810,7 +810,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   if (output_metadata.at(1).persistent) {
     // set Weights layout HWCK
     auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(grad_weight);
-    hb_grad_weight->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+    hb_grad_weight->SetTensorLayout(habana::LayoutFormat::HWCK);
   }
   auto grad_input_nhwc = habana::createPTTensor(
       input_nhwc,

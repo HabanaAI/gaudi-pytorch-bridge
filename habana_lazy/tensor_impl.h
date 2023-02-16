@@ -19,6 +19,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/macros/Macros.h>
 #include <c10/util/Optional.h>
+#include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "hpu_lazy_tensors.h"
@@ -242,10 +243,10 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     sizes = s;
   }
 
-  LayoutFormat GetTensorLayout() const {
+  habana::LayoutFormat GetTensorLayout() const {
     return tensor_layout;
   }
-  void SetTensorLayout(LayoutFormat layout) {
+  void SetTensorLayout(habana::LayoutFormat layout) {
     tensor_layout = layout;
   }
 
@@ -344,7 +345,7 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
  private:
   c10::IntArrayRef sizes;
-  LayoutFormat tensor_layout = LayoutFormat::kNCHW;
+  habana::LayoutFormat tensor_layout = habana::LayoutFormat::NCHW;
   synTensorType m_tensor_type = DATA_TENSOR;
   bool is_const_tensor_ = false;
   bool is_data_in_host_memory_ = false;

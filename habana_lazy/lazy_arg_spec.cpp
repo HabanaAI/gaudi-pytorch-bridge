@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -137,8 +137,9 @@ void LazyArgumentSpec::GetArgSpecKey(
         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
         if (hb_tensor) {
           auto m_lazy = hb_tensor->GetTensorLayout();
-          int64_t m_lazy_int = static_cast<
-              std::underlying_type<habana_lazy::LayoutFormat>::type>(m_lazy);
+          int64_t m_lazy_int =
+              static_cast<std::underlying_type<habana::LayoutFormat>::type>(
+                  m_lazy);
           mf_hash_code = at::hash_combine(
               mf_hash_code, at::get_hash(habana::mod_exp(m_lazy_int)));
         }
