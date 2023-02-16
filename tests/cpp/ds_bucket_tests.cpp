@@ -61,7 +61,7 @@ class InpShapeGen {
       size_t bidx) {
     PT_TEST_DEBUG(
         "====================\n",
-        bucket_info,
+        Logger::_str_wrapper(bucket_info),
         "Collect info with input shapes",
         "[",
         input_idx,
@@ -291,7 +291,7 @@ TEST_P(DynamicDimsTest, BucketingPolicy) {
     auto ranges = bucket_info.CalculateShapes(bidx);
     PT_TEST_DEBUG(
         "--------------------\n",
-        bucket_info,
+        Logger::_str_wrapper(bucket_info),
         "--------------------\n",
         "For input shapes",
         "[",

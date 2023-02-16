@@ -64,7 +64,9 @@ target_link_libraries(
          absl::variant
          absl::hash
          absl::raw_hash_set
-         npu::spdlog)
+         npu::hllogger
+         npu::fmt
+)
 target_compile_features(pytorch_synapse_helpers PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(
   pytorch_synapse_helpers
@@ -72,6 +74,7 @@ set_target_properties(
              CXX_STANDARD_REQUIRED ON
              CXX_EXTENSIONS OFF)
 target_compile_definitions(pytorch_synapse_helpers PUBLIC GENERIC_HELPERS)
+
 
 if(MANYLINUX)
   target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim)

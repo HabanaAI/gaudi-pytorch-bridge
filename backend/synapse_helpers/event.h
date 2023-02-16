@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include <fmt/format.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <algorithm>
@@ -161,3 +162,16 @@ class event {
 using shared_event = std::shared_ptr<event>;
 
 } // namespace synapse_helpers
+
+template <>
+struct fmt::formatter<synapse_helpers::event> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(synapse_helpers::event const& x, FormatContext& ctx) {
+    return format_to(ctx.out(), "{}", fmt::ptr(synEventHandle(x)));
+  }
+};

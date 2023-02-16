@@ -77,7 +77,7 @@ target_link_libraries(habana_pytorch2_frontend
     nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
-    npu::spdlog
+    npu::hllogger
 )
 
 # this is to make sure that gen_op.py is invoked before habana_pytorch2_frontend

@@ -14,12 +14,6 @@
 #include <iostream>
 #include <string_view>
 #include "backend/profiling/profiling.h"
-#define FMT_HEADER_ONLY
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#include "spdlog/common.h"
-#include "spdlog/fmt/bundled/format.h"
-#pragma GCC diagnostic pop
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "Config.h"
@@ -268,4 +262,3 @@ auto register_activity_sink_factory = [] {
 };
 }; // namespace profile
 }; // namespace habana
-#undef FMT_HEADER_ONLY

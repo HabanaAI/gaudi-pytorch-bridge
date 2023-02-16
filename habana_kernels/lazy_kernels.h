@@ -1437,15 +1437,13 @@ class LazyOp {
     auto offset = impl->storage_offset();
     auto hl_self = GetHbLazyTensor(self);
 
-    if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
-      PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER VIEW] strided input (frontend) size : ",
-          size,
-          " strides : ",
-          stride,
-          " offset : ",
-          offset);
-    }
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER VIEW] strided input (frontend) size : ",
+        size,
+        " strides : ",
+        stride,
+        " offset : ",
+        offset);
 
     at::Tensor op_input_tensor = empty_hpu_lazy(
         size,

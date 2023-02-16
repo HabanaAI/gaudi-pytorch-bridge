@@ -400,3 +400,5 @@ class PtTensorInfo {
       DMAInputGeneratorType dma_gen_id);
   void update_shape_syn();
 };
+
+CREATE_OSTREAM_FORMATTER(PtTensorInfo)

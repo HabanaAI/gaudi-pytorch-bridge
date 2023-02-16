@@ -266,7 +266,7 @@ void SBSRunner::run(
     return;
   }
 
-  PT_LAZY_DEBUG("Checking node. IR name: ", ir_name, " node=", node);
+  PT_LAZY_DEBUG("Checking node. IR name: ", ir_name, " node=", *node);
 
   if (!node) {
     LogError(ir_name, "IR Node doesn't exist (runSBS)");

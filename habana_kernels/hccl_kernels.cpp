@@ -16,7 +16,7 @@
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -186,9 +186,9 @@ void collective(
                  pr = pr]() mutable {
       PT_LAZY_DEBUG(
           "Collective call. input = ",
-          input,
+          *input,
           ", output = ",
-          output,
+          *output,
           ", comm_id = ",
           comm->GetId(),
           ", stream = ",
@@ -295,7 +295,7 @@ void pointToPoint(
                  pr = pr]() mutable {
       PT_LAZY_DEBUG(
           "pointToPoint call. input = ",
-          tensor,
+          *tensor,
           ", comm_id = ",
           comm->GetId(),
           ", stream = ",

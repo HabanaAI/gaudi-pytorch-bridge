@@ -186,8 +186,8 @@ void StatsBase::updateEnableGlbl() {
   }
 
   if (m_enabled) {
-    PtLogger::getLogger()->moduleMaskOr(PtLogger::ModuleMask::STATS);
-    PtLogger::getLogger()->typeMaskOr(PtLogger::TypeMask::PROFILE);
+    hl_logger::setLoggingLevel(
+        HlLogger::LoggerType::PT_STATS, HLLOG_LEVEL_DEBUG);
   }
 }
 

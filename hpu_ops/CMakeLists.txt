@@ -210,7 +210,7 @@ target_link_libraries(habana_pytorch_backend_ops
     nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
-    npu::spdlog
+    npu::hllogger
 )
 add_library(habana_pytorch_frontend_ops OBJECT
           cpu_fallback.cpp
@@ -286,5 +286,5 @@ target_link_libraries(habana_pytorch_frontend_ops
     nlohmann_json::nlohmann_json
     absl::strings
     absl::str_format
-    npu::spdlog
+    npu::hllogger
 )

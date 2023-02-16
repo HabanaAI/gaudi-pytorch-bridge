@@ -89,8 +89,7 @@ size_t hash64_file_content(const std::string& path_to_file) {
             "Calculated hash for file ",
             path_to_file,
             ", hash: ",
-            std::hex,
-            hashRes);
+            reinterpret_cast<void*>(hashRes));
       }
       close(fh);
     }
@@ -156,7 +155,8 @@ std::string CacheVersion::libs_env_hash() {
     // single path
     hash = at::hash_combine(hash, hash64_file_content(gc_kernel_path));
   }
-  PT_HABHELPER_DEBUG("Combined hash for all important libs: ", std::hex, hash);
+  PT_HABHELPER_DEBUG(
+      "Combined hash for all important libs: ", reinterpret_cast<void*>(hash));
 
   char** s = environ;
   for (; *s; s++) {
@@ -167,7 +167,8 @@ std::string CacheVersion::libs_env_hash() {
     }
   }
   PT_HABHELPER_DEBUG(
-      "Combined hash for all important libs and envs: ", std::hex, hash);
+      "Combined hash for all important libs and envs: ",
+      reinterpret_cast<void*>(hash));
   std::stringstream stream;
   stream << std::hex << hash;
   return stream.str();

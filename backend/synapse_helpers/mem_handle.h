@@ -18,6 +18,7 @@
 #include <ostream>
 #include <queue>
 #include "backend/synapse_helpers/device_types.h"
+#include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
 enum bucket_type {
@@ -187,3 +188,5 @@ class HandlesMap {
 };
 
 } // namespace synapse_helpers
+
+CREATE_OSTREAM_FORMATTER(synapse_helpers::mem_handle);

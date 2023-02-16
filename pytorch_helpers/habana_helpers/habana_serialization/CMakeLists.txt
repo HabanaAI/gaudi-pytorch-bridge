@@ -22,4 +22,4 @@ target_include_directories(
 target_include_directories(habana_serialization SYSTEM
                            PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
 
-target_link_libraries(habana_serialization PUBLIC torch c10 absl::span npu::spdlog)
+target_link_libraries(habana_serialization PUBLIC torch c10 absl::span npu::hllogger npu::fmt)

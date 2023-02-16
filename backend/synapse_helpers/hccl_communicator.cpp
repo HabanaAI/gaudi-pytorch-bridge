@@ -17,8 +17,6 @@
 #include "habana_helpers/logging.h"
 #include "hccl_communicator.h"
 
-PtLogger* PtLogger::instance = nullptr;
-
 namespace habana {
 
 int64_t HcclCommunicator::GetId() const {

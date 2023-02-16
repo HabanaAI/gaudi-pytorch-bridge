@@ -317,10 +317,13 @@ class HbExecutionContext {
         std::rethrow_exception(m_launch_thread_exception_handler);
       } catch (const std::exception& e) {
         m_launch_thread_exception_handler = nullptr;
-        PT_BRIDGE_FATAL("Exception in Launch thread...\n", e.what());
+        PT_BRIDGE_FATAL(
+            "Exception in Launch thread...\nCheck $HABANA_LOGS/ for details",
+            e.what());
       } catch (...) {
         m_launch_thread_exception_handler = nullptr;
-        PT_BRIDGE_FATAL("Exception in Launch thread...\n");
+        PT_BRIDGE_FATAL(
+            "Exception in Launch thread...\nCheck $HABANA_LOGS/ for details");
       }
     }
   }

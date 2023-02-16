@@ -12,25 +12,135 @@
  */
 #pragma once
 
-#include <iostream>
+#include <absl/strings/str_format.h>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
+
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/runtime_tracing.h"
-#define FMT_HEADER_ONLY
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#include <spdlog/fmt/bundled/format.h>
-#include <spdlog/spdlog.h>
-#pragma GCC diagnostic pop
-#include <absl/strings/str_format.h>
+
+#include <fmt/ostream.h>
+#include <fmt/ranges.h>
+#include <hl_logger/hllog.hpp>
+
+#define BRACED_PARAM(p) "{}"
+#define FORMAT_AND_MSG(...) \
+  HLLOG_APPLY(HLLOG_EMPTY, BRACED_PARAM, ##__VA_ARGS__), ##__VA_ARGS__
+
+namespace HlLogger {
+// Define an enum with all the logger types the last item must be LOG_MAX
+// If you add any new LoggerType entry, please do it also for ModuleMask
+enum class LoggerType {
+  PT_DEVICE,
+  PT_KERNEL,
+  PT_BRIDGE,
+  PT_SYNHELPER,
+  PT_DISTRIBUTED,
+  PT_LAZY,
+  PT_TRACE,
+  PT_FALLBACK,
+  PT_STATS,
+  PT_TEST,
+  PT_DYNAMIC_SHAPE,
+  PT_DEVMEM,
+  PT_HABHELPER,
+  PT_IRGRAPH,
+  PT_VIEWTABLE,
+  PT_REFINEMENT,
+  PT_HOSTSTAT,
+  PT_LAYOUTS,
+  PT_PARALLEL_ACC,
+  PT_LAZY_EAGER,
+  PT_MEMLOG,
+  PT_EXEC_THREAD,
+  PT_EAGER,
+  PT_CUSTOM, // Don't use it in checkin code.
+  LOG_MAX // Don't use it
+};
+} // namespace HlLogger
+#define HLLOG_ENUM_TYPE_NAME HlLogger::LoggerType
 
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
 namespace Logger {
+
+inline bool isTracingForced(const HlLogger::LoggerType& mod) {
+  static std::unordered_map<HlLogger::LoggerType, uint64_t> mask_map{
+      {HlLogger::LoggerType::PT_DEVICE, 0x1},
+      {HlLogger::LoggerType::PT_KERNEL, 0x2},
+      {HlLogger::LoggerType::PT_BRIDGE, 0x4},
+      {HlLogger::LoggerType::PT_SYNHELPER, 0x8},
+      {HlLogger::LoggerType::PT_DISTRIBUTED, 0x10},
+      {HlLogger::LoggerType::PT_LAZY, 0x20},
+      {HlLogger::LoggerType::PT_TRACE, 0x40},
+      {HlLogger::LoggerType::PT_FALLBACK, 0x80},
+      {HlLogger::LoggerType::PT_STATS, 0x100},
+      {HlLogger::LoggerType::PT_TEST, 0x200},
+      {HlLogger::LoggerType::PT_DYNAMIC_SHAPE, 0x400},
+      {HlLogger::LoggerType::PT_DEVMEM, 0x800},
+      {HlLogger::LoggerType::PT_HABHELPER, 0x1000},
+      {HlLogger::LoggerType::PT_IRGRAPH, 0x2000},
+      {HlLogger::LoggerType::PT_VIEWTABLE, 0x4000},
+      {HlLogger::LoggerType::PT_REFINEMENT, 0x8000},
+      {HlLogger::LoggerType::PT_HOSTSTAT, 0x10000},
+      {HlLogger::LoggerType::PT_LAYOUTS, 0x20000},
+      {HlLogger::LoggerType::PT_PARALLEL_ACC, 0x40000},
+      {HlLogger::LoggerType::PT_LAZY_EAGER, 0x80000},
+      {HlLogger::LoggerType::PT_MEMLOG, 0x100000},
+      {HlLogger::LoggerType::PT_EXEC_THREAD, 0x200000},
+      {HlLogger::LoggerType::PT_EAGER, 0x400000},
+      {HlLogger::LoggerType::PT_CUSTOM,
+       0x800000}, // Don't use it in checkin code.
+      {HlLogger::LoggerType::LOG_MAX, 0x1000000} // Don't use it
+  };
+
+  if (GET_ENV_FLAG_NEW(PT_FORCED_TRACING_MASK) & mask_map[mod])
+    // forced synapse logger
+    return true;
+  else
+    // tensorboard enabled
+    return habana::profile::bridge::is_enabled();
+}
+
+inline std::string DebugString(const HlLogger::LoggerType& mod) {
+  static std::unordered_map<HlLogger::LoggerType, std::string> names = {
+      {HlLogger::LoggerType::PT_DEVICE, "PT_DEVICE"},
+      {HlLogger::LoggerType::PT_KERNEL, "PT_KERNEL"},
+      {HlLogger::LoggerType::PT_BRIDGE, "PT_BRIDGE"},
+      {HlLogger::LoggerType::PT_SYNHELPER, "PT_SYNHELPER"},
+      {HlLogger::LoggerType::PT_DISTRIBUTED, "PT_DISTRIBUTED"},
+      {HlLogger::LoggerType::PT_LAZY, "PT_LAZY"},
+      {HlLogger::LoggerType::PT_TRACE, "PT_TRACE"},
+      {HlLogger::LoggerType::PT_FALLBACK, "PT_FALLBACK"},
+      {HlLogger::LoggerType::PT_STATS, "PT_STATS"},
+      {HlLogger::LoggerType::PT_TEST, "PT_TEST"},
+      {HlLogger::LoggerType::PT_DYNAMIC_SHAPE, "PT_DYNAMIC_SHAPE"},
+      {HlLogger::LoggerType::PT_DEVMEM, "PT_DEVMEM"},
+      {HlLogger::LoggerType::PT_HABHELPER, "PT_HABHELPER"},
+      {HlLogger::LoggerType::PT_IRGRAPH, "PT_IRGRAPH"},
+      {HlLogger::LoggerType::PT_VIEWTABLE, "PT_VIEWTABLE"},
+      {HlLogger::LoggerType::PT_REFINEMENT, "PT_REFINEMENT"},
+      {HlLogger::LoggerType::PT_HOSTSTAT, "PT_HOSTSTAT"},
+      {HlLogger::LoggerType::PT_LAYOUTS, "PT_LAYOUTS"},
+      {HlLogger::LoggerType::PT_PARALLEL_ACC, "PT_PARALLEL_ACC"},
+      {HlLogger::LoggerType::PT_LAZY_EAGER, "PT_LAZY_EAGER"},
+      {HlLogger::LoggerType::PT_MEMLOG, "PT_MEMLOG"},
+      {HlLogger::LoggerType::PT_EXEC_THREAD, "PT_EXEC_THREAD"},
+      {HlLogger::LoggerType::PT_EAGER, "PT_EAGER"},
+      {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
+      // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
+  };
+  if (auto result = names.find(mod); result != names.end())
+    return result->second;
+  else
+    return std::string("UNDEFINED");
+};
+
 template <typename T>
 struct CanonicalizeStrTypes {
   using type = const T&;
@@ -155,197 +265,6 @@ template <class... Args>
 inline void nop(__attribute__((unused)) const Args&... args){};
 } // namespace Logger
 
-class PtLogger {
- private:
-  static PtLogger* instance;
-  unsigned long module_mask_;
-  unsigned long type_mask_;
-
-  void loadMask() {
-    module_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
-    type_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
-    auto profile_bridge_logs = GET_ENV_FLAG_NEW(PT_PROFILE_BRIDGE_LOGS);
-    if (profile_bridge_logs) {
-      type_mask_ |= TENSORBOARD;
-    }
-
-    char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
-
-    unsigned long node_id = 0;
-    unsigned long node_id_mask = GET_ENV_FLAG_NEW(PT_HPU_LOG_NODE_MASK);
-
-    if (node_id_mask) {
-      char* node_id_ptr = std::getenv("RANK");
-      if (node_id_ptr != nullptr) {
-        node_id = std::stoul(node_id_ptr, nullptr, 10);
-      }
-    }
-
-    if (gc_log_level_ptr != nullptr) {
-      if (node_id_mask) {
-        if ((node_id_mask & (1 << node_id)) == 1) {
-          setenv("LOG_LEVEL_ALL", gc_log_level_ptr, 1);
-        }
-      } else {
-        setenv("LOG_LEVEL_ALL", gc_log_level_ptr, 1);
-      }
-    }
-
-    // retain the default mask for other nodes
-    if (module_mask_) {
-      if (node_id_mask) {
-        if ((node_id_mask & (1 << node_id)) == 0) {
-          module_mask_ = UINT64_MAX;
-        }
-      }
-    }
-    // retain the default mask for other nodes
-    if (type_mask_) {
-      if (node_id_mask) {
-        if ((node_id_mask & (1 << node_id)) == 0) {
-          type_mask_ = TypeMask::WARNING;
-        }
-      }
-    } else {
-      // Always set the debug logs for lazy and bridge so that
-      // we get the detailed info on the graphs etc that was launched
-      // when something fails and can be reproduced manually
-      if (3 == GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
-        type_mask_ += TypeMask::DEBUG;
-      }
-    }
-  }
-  PtLogger();
-
- public:
-  PtLogger(const PtLogger&) = delete;
-  PtLogger& operator=(const PtLogger&) = delete;
-
-  static PtLogger* getLogger() {
-    if (instance == nullptr) {
-      instance = new PtLogger();
-    }
-
-    return instance;
-  }
-
-  spdlog::logger* GetOpLogger() {
-    return spdlog::get("PYTORCH_HPU_OPS").get();
-  }
-
-  void refresh() {
-    loadMask();
-  }
-
-  unsigned long getTypeMask() {
-    return type_mask_;
-  }
-
-  unsigned long getModuleMask() {
-    return module_mask_;
-  }
-
-  void moduleMaskOr(unsigned long toggle_on) {
-    module_mask_ |= toggle_on;
-    return;
-  }
-
-  void typeMaskOr(unsigned long toggle_on) {
-    type_mask_ |= toggle_on;
-    return;
-  }
-
-  void typeMaskNegAnd(unsigned long toggle_off) {
-    type_mask_ &= ~toggle_off;
-    return;
-  }
-
-  enum TypeMask {
-    WARNING = 0x1,
-    TRACE = 0x2,
-    DEBUG = 0x4,
-    PROFILE = 0x8,
-    RUNTIME_PROFILE = 0x10,
-    TENSORBOARD = 0x20
-  };
-
-  enum ModuleMask {
-    DEVICE = 0x1,
-    KERNEL = 0x2,
-    BRIDGE = 0x4,
-    SYNHELPER = 0x8,
-    DISTRIBUTED = 0x10,
-    LAZY = 0x20,
-    HABANAHOOKS = 0x40,
-    FALLBACK = 0x80,
-    STATS = 0x100,
-    TEST = 0x200,
-    DYNAMIC_SHAPE = 0x400,
-    DEVMEM = 0x800,
-    HABHELPER = 0x1000,
-    IRGRAPH = 0x2000,
-    VIEWTABLE = 0x4000,
-    REFINEMENT = 0x8000,
-    HOSTSTAT = 0x10000,
-    LAYOUTS = 0x20000,
-    PARALLEL_ACC = 0x40000,
-    LAZY_EAGER = 0x80000,
-    MEMLOG = 0x100000,
-    EXEC_THREAD = 0x200000,
-    EAGER = 0x400000,
-    CUSTOM = 0x800000 // Don't use it in checkin code.
-  };
-};
-
-namespace Logger {
-inline std::string DebugString(const PtLogger::ModuleMask& mod) {
-  switch (mod) {
-    case PtLogger::ModuleMask::DEVICE:
-      return std::string("DEVICE");
-    case PtLogger::ModuleMask::KERNEL:
-      return std::string("KERNEL");
-    case PtLogger::ModuleMask::BRIDGE:
-      return std::string("BRIDGE");
-    case PtLogger::ModuleMask::SYNHELPER:
-      return std::string("SYNHELPER");
-    case PtLogger::ModuleMask::DISTRIBUTED:
-      return std::string("DISTRIBUTED");
-    case PtLogger::ModuleMask::LAZY:
-      return std::string("LAZY");
-    case PtLogger::ModuleMask::HABANAHOOKS:
-      return std::string("HABANAHOOKS");
-    case PtLogger::ModuleMask::FALLBACK:
-      return std::string("FALLBACK");
-    case PtLogger::ModuleMask::STATS:
-      return std::string("STATS");
-    case PtLogger::ModuleMask::TEST:
-      return std::string("TEST");
-    case PtLogger::ModuleMask::DYNAMIC_SHAPE:
-      return std::string("DYNAMIC_SHAPE");
-    case PtLogger::ModuleMask::DEVMEM:
-      return std::string("DEVMEM");
-    case PtLogger::ModuleMask::HOSTSTAT:
-      return std::string("HOSTSTAT");
-    case PtLogger::ModuleMask::HABHELPER:
-      return std::string("HABHELPER");
-    case PtLogger::ModuleMask::PARALLEL_ACC:
-      return std::string("PARALLEL_ACC");
-    case PtLogger::ModuleMask::LAZY_EAGER:
-      return std::string("LAZY_EAGER");
-    case PtLogger::ModuleMask::MEMLOG:
-      return std::string("MEMLOG");
-    case PtLogger::ModuleMask::EXEC_THREAD:
-      return std::string("EXEC_THREAD");
-    case PtLogger::ModuleMask::EAGER:
-      return std::string("EAGER");
-    case PtLogger::ModuleMask::CUSTOM:
-      return std::string("CUSTOM");
-    default:
-      return std::string("UNDEFINED");
-  }
-}
-} // namespace Logger
-
 class PTFuncLog {
  private:
   const std::string_view module;
@@ -362,8 +281,8 @@ class PTFuncLog {
       : module(module), pName(pn), name(n), isActive(isActive) {
     if (isActive) {
       auto message{Logger::print_hdr()};
-      absl::StrAppend(&message, module, ": begin of ", pName, "\n");
-      std::clog << message;
+      HLLOG_TRACE(
+          PT_TRACE, FORMAT_AND_MSG(message, module, ": begin of ", pName));
     }
     synapse_helpers::trace_start(name.data());
     habana::profile::bridge::trace_start(name);
@@ -371,8 +290,8 @@ class PTFuncLog {
   ~PTFuncLog() {
     if (isActive) {
       auto message{Logger::print_hdr()};
-      absl::StrAppend(&message, module, ": end of ", pName, "\n");
-      std::clog << message;
+      HLLOG_TRACE(
+          PT_TRACE, FORMAT_AND_MSG(message, module, ": begin of ", pName));
     }
     synapse_helpers::trace_end(name.data());
     habana::profile::bridge::trace_end(name);
@@ -383,128 +302,83 @@ class PTFuncLog {
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
 
-#define HABANA_ASSERT(condition, ...)                         \
-  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) { \
-    Logger::habana_assert(                                    \
-        __func__,                                             \
-        __FILE__,                                             \
-        static_cast<uint32_t>(__LINE__),                      \
-        HABANA_CHECK_MSG(condition, ##__VA_ARGS__));          \
+#define HABANA_ASSERT(condition, ...)                                      \
+  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {              \
+    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__));   \
+    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, ":", __LINE__, MSG_)); \
+    hl_logger::logStacktrace(                                              \
+        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);               \
+    Logger::habana_assert(                                                 \
+        __func__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_);        \
   }
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                               \
-  {                                                          \
-    Logger::habana_assert(                                   \
-        __func__,                                            \
-        __FILE__,                                            \
-        static_cast<uint32_t>(__LINE__),                     \
-        Logger::str(                                         \
-            Logger::print_hdr() + "FATAL ERROR :: MODULE:" + \
-            Logger::DebugString(MOD) + " " + __VA_ARGS__));  \
+#define PT_MOD_FATAL(MOD, ...)                                                 \
+  {                                                                            \
+    HLLOG_CRITICAL_F(                                                          \
+        MOD,                                                                   \
+        FORMAT_AND_MSG(                                                        \
+            __FILE__,                                                          \
+            ":",                                                               \
+            __LINE__,                                                          \
+            "\nrank: ",                                                        \
+            Logger::get_rank(),                                                \
+            "\ntid: ",                                                         \
+            Logger::get_tid(),                                                 \
+            __VA_ARGS__));                                                     \
+    hl_logger::logStacktrace(HlLogger::LoggerType::MOD, HLLOG_LEVEL_CRITICAL); \
+    Logger::habana_assert(                                                     \
+        __func__,                                                              \
+        __FILE__,                                                              \
+        static_cast<uint32_t>(__LINE__),                                       \
+        Logger::str(                                                           \
+            Logger::print_hdr(),                                               \
+            "FATAL ERROR :: MODULE:",                                          \
+            Logger::DebugString(HlLogger::LoggerType::MOD),                    \
+            " ",                                                               \
+            __VA_ARGS__));                                                     \
   }
 
-#define PT_DEVICE_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::DEVICE, __VA_ARGS__)
-
-#define PT_KERNEL_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::KERNEL, __VA_ARGS__)
-
-#define PT_BRIDGE_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
-
-#define PT_SYNHELPER_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
-
-#define PT_HABHELPER_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
-
-#define PT_DEVMEM_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
-
-#define PT_DISTRIBUTED_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
-
-#define PT_LAZY_FATAL(...) PT_MOD_FATAL(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
-
-#define PT_IRGRAPH_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
-
-#define PT_HABANAHOOKS_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
-
-#define PT_DYNAMIC_SHAPE_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
-
-#define PT_LAZY_EAGER_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
-
-#define PT_EAGER_FATAL(...) \
-  PT_MOD_FATAL(PtLogger::ModuleMask::EAGER, __VA_ARGS__)
+#define PT_DEVICE_FATAL(...) PT_MOD_FATAL(PT_DEVICE, __VA_ARGS__)
+#define PT_KERNEL_FATAL(...) PT_MOD_FATAL(PT_KERNEL, __VA_ARGS__)
+#define PT_BRIDGE_FATAL(...) PT_MOD_FATAL(PT_BRIDGE, __VA_ARGS__)
+#define PT_SYNHELPER_FATAL(...) PT_MOD_FATAL(PT_SYNHELPER, __VA_ARGS__)
+#define PT_HABHELPER_FATAL(...) PT_MOD_FATAL(PT_HABHELPER, __VA_ARGS__)
+#define PT_DEVMEM_FATAL(...) PT_MOD_FATAL(PT_DEVMEM, __VA_ARGS__)
+#define PT_DISTRIBUTED_FATAL(...) PT_MOD_FATAL(PT_DISTRIBUTED, __VA_ARGS__)
+#define PT_LAZY_FATAL(...) PT_MOD_FATAL(PT_LAZY, __VA_ARGS__)
+#define PT_IRGRAPH_FATAL(...) PT_MOD_FATAL(PT_IRGRAPH, __VA_ARGS__)
+#define PT_DYNAMIC_SHAPE_FATAL(...) PT_MOD_FATAL(PT_DYNAMIC_SHAPE, __VA_ARGS__)
+#define PT_LAZY_EAGER_FATAL(...) PT_MOD_FATAL(PT_LAZY_EAGER, __VA_ARGS__)
+#define PT_EAGER_FATAL(...) PT_MOD_FATAL(PT_EAGER, __VA_ARGS__)
 
 /************************WARNING MACROS************************/
-#define PT_MOD_WARN(MOD, ...)                                           \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \
-       (PtLogger::getLogger()->getTypeMask() &                          \
-        (PtLogger::TypeMask::WARNING)))) {                              \
-    Logger::print(std::cerr, __VA_ARGS__);                              \
-    std::cerr << " " << __FILE__ << ":" << __LINE__ << "\t" << __func__ \
-              << "\n";                                                  \
-  }
+#define PT_MOD_WARN(MOD, ...) \
+  HLLOG_WARN(MOD, FORMAT_AND_MSG(__FILE__, ":", __LINE__, "\t", __VA_ARGS__));
+#define PT_MOD_WARN_WITHOUT_LINE_FILE(MOD, ...) \
+  HLLOG_WARN(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 
-#define PT_MOD_WARN_WITHOUT_LINE_FILE(MOD, ...)            \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
-       (PtLogger::getLogger()->getTypeMask() &             \
-        (PtLogger::TypeMask::WARNING)))) {                 \
-    std::cerr << Logger::str(__VA_ARGS__) << "\n";         \
-  }
-
-#define PT_DEVICE_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::DEVICE, __VA_ARGS__)
-
-#define PT_KERNEL_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::KERNEL, __VA_ARGS__)
-
-#define PT_BRIDGE_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
-
-#define PT_SYNHELPER_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
-
-#define PT_HABHELPER_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
-
-#define PT_DEVMEM_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
-
-#define PT_DISTRIBUTED_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
-
-#define PT_LAZY_WARN(...) PT_MOD_WARN(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
-
-#define PT_IRGRAPH_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
-
-#define PT_HABANAHOOKS_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
-
+#define PT_DEVICE_WARN(...) PT_MOD_WARN(PT_DEVICE, __VA_ARGS__)
+#define PT_KERNEL_WARN(...) PT_MOD_WARN(PT_KERNEL, __VA_ARGS__)
+#define PT_BRIDGE_WARN(...) PT_MOD_WARN(PT_BRIDGE, __VA_ARGS__)
+#define PT_SYNHELPER_WARN(...) PT_MOD_WARN(PT_SYNHELPER, __VA_ARGS__)
+#define PT_HABHELPER_WARN(...) PT_MOD_WARN(PT_HABHELPER, __VA_ARGS__)
+#define PT_DEVMEM_WARN(...) PT_MOD_WARN(PT_DEVMEM, __VA_ARGS__)
+#define PT_DISTRIBUTED_WARN(...) PT_MOD_WARN(PT_DISTRIBUTED, __VA_ARGS__)
+#define PT_LAZY_WARN(...) PT_MOD_WARN(PT_LAZY, __VA_ARGS__)
+#define PT_IRGRAPH_WARN(...) PT_MOD_WARN(PT_IRGRAPH, __VA_ARGS__)
 #define PT_FALLBACK_WARN(...) \
-  PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
-
-#define PT_TEST_WARN(...) \
-  PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::TEST, __VA_ARGS__)
-
+  PT_MOD_WARN_WITHOUT_LINE_FILE(PT_FALLBACK, __VA_ARGS__)
+#define PT_TEST_WARN(...) PT_MOD_WARN_WITHOUT_LINE_FILE(PT_TEST, __VA_ARGS__)
 #define PT_DYNAMIC_SHAPE_WARN(...) \
-  PT_MOD_WARN_WITHOUT_LINE_FILE(   \
-      PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
-
+  PT_MOD_WARN_WITHOUT_LINE_FILE(PT_DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_LAZY_EAGER_WARN(...) \
-  PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
+  PT_MOD_WARN_WITHOUT_LINE_FILE(PT_LAZY_EAGER, __VA_ARGS__)
 
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD) PT_MOD_SCOPE(MOD, __PRETTY_FUNCTION__, __FUNCTION__)
 
-#define PT_DEVICE_BEGIN PT_MOD_BEGIN(DEVICE)
+#define PT_DEVICE_BEGIN PT_MOD_BEGIN(PT_DEVICE)
 #define PT_KERNEL_BEGIN                                           \
   {                                                               \
     bool lazy_mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);          \
@@ -516,131 +390,94 @@ class PTFuncLog {
         "Please avoid Legacy eager calls in Lazy execution mode " \
         "(for optimizers use PT_OPTIMIZER_KERNEL_BEGIN),"         \
         " for other kernels use PT_OTHER_KERNEL_BEGIN");          \
-    PT_MOD_BEGIN(KERNEL)                                          \
+    PT_MOD_BEGIN(PT_KERNEL)                                       \
   }
 // following macro is a non-asserting version of PT_KERNEL_BEGIN
-#define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(KERNEL)
-#define PT_BRIDGE_BEGIN PT_MOD_BEGIN(BRIDGE)
-#define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(SYNHELPER)
-#define PT_HABHELPER_BEGIN PT_MOD_BEGIN(HABHELPER)
-#define PT_DEVMEM_BEGIN PT_MOD_BEGIN(DEVMEM)
-#define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(DISTRIBUTED)
-#define PT_LAZY_BEGIN PT_MOD_BEGIN(LAZY)
+#define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PT_KERNEL)
+#define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PT_BRIDGE)
+#define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PT_SYNHELPER)
+#define PT_HABHELPER_BEGIN PT_MOD_BEGIN(PT_HABHELPER)
+#define PT_DEVMEM_BEGIN PT_MOD_BEGIN(PT_DEVMEM)
+#define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PT_DISTRIBUTED)
+#define PT_LAZY_BEGIN PT_MOD_BEGIN(PT_LAZY)
 
 #define PT_MOD_END(MOD)
 
-#define PT_DEVICE_END PT_MOD_END(DEVICE)
-#define PT_KERNEL_END PT_MOD_END(KERNEL)
-#define PT_OTHER_OPS_END PT_MOD_END(KERNEL)
-#define PT_BRIDGE_END PT_MOD_END(BRIDGE)
-#define PT_SYNHELPER_END PT_MOD_END(SYNHELPER)
-#define PT_HABHELPER_END PT_MOD_END(HABHELPER)
-#define PT_DEVMEM_END PT_MOD_END(DEVMEM)
-#define PT_DISTRIBUTED_END PT_MOD_END(DISTRIBUTED)
-#define PT_LAZY_END PT_MOD_END(LAZY)
+#define PT_DEVICE_END PT_MOD_END(PT_DEVICE)
+#define PT_KERNEL_END PT_MOD_END(PT_KERNEL)
+#define PT_OTHER_OPS_END PT_MOD_END(PT_KERNEL)
+#define PT_BRIDGE_END PT_MOD_END(PT_BRIDGE)
+#define PT_SYNHELPER_END PT_MOD_END(PT_SYNHELPER)
+#define PT_HABHELPER_END PT_MOD_END(PT_HABHELPER)
+#define PT_DEVMEM_END PT_MOD_END(PT_DEVMEM)
+#define PT_DISTRIBUTED_END PT_MOD_END(PT_DISTRIBUTED)
+#define PT_LAZY_END PT_MOD_END(PT_LAZY)
 
-#define PT_MOD_SCOPE(MOD, PNAME, NAME)                    \
-  std::optional<PTFuncLog> ptFuncLogger{};                \
-  {                                                       \
-    auto type_mask{PtLogger::getLogger()->getTypeMask()}; \
-    if (type_mask > PtLogger::TypeMask::WARNING) {        \
-      bool isDebug{                                       \
-          (PtLogger::getLogger()->getModuleMask() &       \
-           (PtLogger::ModuleMask::MOD)) &&                \
-          (type_mask & (PtLogger::TypeMask::TRACE))};     \
-      ptFuncLogger.emplace(#MOD, PNAME, NAME, isDebug);   \
-    }                                                     \
+#define PT_MOD_SCOPE(MOD, PNAME, NAME)                                      \
+  std::optional<PTFuncLog> ptFuncLogger{};                                  \
+  bool isTraceLoggerEnabled{hl_logger::logLevelAtLeast(                     \
+      HlLogger::LoggerType::MOD, HLLOG_LEVEL_TRACE)};                       \
+  bool isTracingForced{Logger::isTracingForced(HlLogger::LoggerType::MOD)}; \
+  if (isTraceLoggerEnabled or isTracingForced) {                            \
+    ptFuncLogger.emplace(#MOD, PNAME, NAME, isTraceLoggerEnabled);          \
   }
 
 #define PT_MOD_TRACE(MOD, PNAME, NAME) PT_MOD_SCOPE(MOD, PNAME, NAME)
 
-#define PT_EAGER_TRACE PT_MOD_TRACE(EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_EAGER_TRACE PT_MOD_TRACE(PT_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
 
-#define PT_LAZY_TRACE PT_MOD_TRACE(LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
-#define PT_LAZY_TRACE_WITH_NAME(name) PT_MOD_TRACE(LAZY, name, name)
-#define PT_BRIDGE_TRACE PT_MOD_TRACE(BRIDGE, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_LAZY_TRACE PT_MOD_TRACE(PT_LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_LAZY_TRACE_WITH_NAME(name) PT_MOD_TRACE(PT_LAZY, name, name)
+#define PT_BRIDGE_TRACE \
+  PT_MOD_TRACE(PT_BRIDGE, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_FALLBACK_TRACE \
-  PT_MOD_TRACE(FALLBACK, __PRETTY_FUNCTION__, __FUNCTION__)
+  PT_MOD_TRACE(PT_FALLBACK, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_SYNHELPER_TRACE \
-  PT_MOD_TRACE(SYNHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
+  PT_MOD_TRACE(PT_SYNHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_HABHELPER_TRACE \
-  PT_MOD_TRACE(HABHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
-#define PT_TEST_TRACE PT_MOD_TRACE(TEST, __PRETTY_FUNCTION__, __FUNCTION__)
+  PT_MOD_TRACE(PT_HABHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_TEST_TRACE PT_MOD_TRACE(PT_TEST, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_DYNAMIC_SHAPE_TRACE \
-  PT_MOD_TRACE(DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
-#define PT_DEVMEM_TRACE PT_MOD_TRACE(DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
+  PT_MOD_TRACE(PT_DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_DEVMEM_TRACE \
+  PT_MOD_TRACE(PT_DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
 #define PT_LAZY_EAGER_TRACE \
-  PT_MOD_TRACE(LAZY_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
+  PT_MOD_TRACE(PT_LAZY_EAGER, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
-#define IS_MOD_DEBUG_ENABLED(MOD)                      \
-  ((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
-   (PtLogger::getLogger()->getTypeMask() & (PtLogger::TypeMask::DEBUG)))
+#define IS_MOD_DEBUG_ENABLED(MOD) \
+  hl_logger::logLevelAtLeast(HlLogger::LoggerType::MOD, HLLOG_LEVEL_DEBUG)
+#define IS_MEMLOG_DEBUG_ENABLED IS_MOD_DEBUG_ENABLED(PT_MEMLOG)
+#define IS_SYNHELPER_DEBUG_ENABLED IS_MOD_DEBUG_ENABLED(PT_SYNHELPER)
+#define IS_BRIDGE_DEBUG_ENABLED IS_MOD_DEBUG_ENABLED(PT_BRIDGE)
 
-#define PT_MOD_DEBUG(MOD, ...)                                             \
-  if (IS_MOD_DEBUG_ENABLED(MOD)) {                                         \
-    Logger::print(std::clog, Logger::DebugString(MOD), ": ", __VA_ARGS__); \
-    std::clog << "\n";                                                     \
-  };
+#define PT_MOD_DEBUG(MOD, ...) HLLOG_DEBUG(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 
-#define PT_PROFILE_DUMP(...)                            \
-  if ((PtLogger::getLogger()->getModuleMask() &         \
-           (PtLogger::ModuleMask::STATS) &&             \
-       (PtLogger::getLogger()->getTypeMask() &          \
-        (PtLogger::TypeMask::PROFILE)))) {              \
-    std::clog << fmt::format(__VA_ARGS__) << std::endl; \
-  };
+#define PT_PROFILE_DUMP(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__))
 
-#define PT_DEVICE_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::DEVICE, __VA_ARGS__)
-#define PT_KERNEL_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::KERNEL, __VA_ARGS__)
-#define PT_BRIDGE_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
-#define IS_BRIDGE_DEBUG_ENABLED \
-  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::BRIDGE)
-#define PT_SYNHELPER_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
-#define IS_SYNHELPER_DEBUG_ENABLED \
-  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::SYNHELPER)
-#define PT_HABHELPER_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::HABHELPER, __VA_ARGS__)
-#define PT_DEVMEM_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
-#define PT_DISTRIBUTED_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
-#define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
-#define PT_EAGER_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::EAGER, __VA_ARGS__)
+#define PT_BRIDGE_DEBUG(...) PT_MOD_DEBUG(PT_BRIDGE, __VA_ARGS__)
+#define PT_CUSTOM_DEBUG(...) PT_MOD_DEBUG(PT_CUSTOM, __VA_ARGS__)
+#define PT_DEVICE_DEBUG(...) PT_MOD_DEBUG(PT_DEVICE, __VA_ARGS__)
+#define PT_DEVMEM_DEBUG(...) PT_MOD_DEBUG(PT_DEVMEM, __VA_ARGS__)
+#define PT_DISTRIBUTED_DEBUG(...) PT_MOD_DEBUG(PT_DISTRIBUTED, __VA_ARGS__)
+#define PT_DYNAMIC_SHAPE_DEBUG(...) PT_MOD_DEBUG(PT_DYNAMIC_SHAPE, __VA_ARGS__)
+#define PT_EAGER_DEBUG(...) PT_MOD_DEBUG(PT_EAGER, __VA_ARGS__)
+#define PT_FALLBACK_DEBUG(...) PT_MOD_DEBUG(PT_FALLBACK, __VA_ARGS__)
+#define PT_HABHELPER_DEBUG(...) PT_MOD_DEBUG(PT_HABHELPER, __VA_ARGS__)
+#define PT_HOSTSTAT_DEBUG(...) PT_MOD_DEBUG(PT_HOSTSTAT, __VA_ARGS__)
+#define PT_IRGRAPH_DEBUG(...) PT_MOD_DEBUG(PT_IRGRAPH, __VA_ARGS__)
+#define PT_KERNEL_DEBUG(...) PT_MOD_DEBUG(PT_KERNEL, __VA_ARGS__)
+#define PT_LAYOUTS_DEBUG(...) PT_MOD_DEBUG(PT_LAYOUTS, __VA_ARGS__)
+#define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PT_LAZY, __VA_ARGS__)
+#define PT_LAZY_EAGER_DEBUG(...) PT_MOD_DEBUG(PT_LAZY_EAGER, __VA_ARGS__)
+#define PT_LAZY_EXEC_THREAD(...) PT_MOD_DEBUG(PT_EXEC_THREAD, __VA_ARGS__)
 #define PT_LAZY_PARALLEL_ACC_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::PARALLEL_ACC, __VA_ARGS__)
-#define PT_MEMLOG_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::MEMLOG, __VA_ARGS__)
-#define IS_MEMLOG_DEBUG_ENABLED \
-  IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::MEMLOG)
-#define PT_IRGRAPH_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::IRGRAPH, __VA_ARGS__)
-#define PT_VIEWTABLE_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::VIEWTABLE, __VA_ARGS__)
-#define PT_HOSTSTAT_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::HOSTSTAT, __VA_ARGS__)
-#define PT_HABANAHOOKS_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
-#define PT_FALLBACK_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
-#define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::TEST, __VA_ARGS__)
-#define PT_DYNAMIC_SHAPE_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::DYNAMIC_SHAPE, __VA_ARGS__)
-#define PT_REFINEMENT_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::REFINEMENT, __VA_ARGS__)
-#define PT_LAYOUTS_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::LAYOUTS, __VA_ARGS__)
-#define PT_LAZY_EAGER_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
-#define PT_LAZY_EXEC_THREAD(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::EXEC_THREAD, __VA_ARGS__)
-#define PT_CUSTOM_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::CUSTOM, __VA_ARGS__)
+  PT_MOD_DEBUG(PT_PARALLEL_ACC, __VA_ARGS__)
+#define PT_MEMLOG_DEBUG(...) PT_MOD_DEBUG(PT_MEMLOG, __VA_ARGS__)
+#define PT_REFINEMENT_DEBUG(...) PT_MOD_DEBUG(PT_REFINEMENT, __VA_ARGS__)
+#define PT_SYNHELPER_DEBUG(...) PT_MOD_DEBUG(PT_SYNHELPER, __VA_ARGS__)
+#define PT_TEST_DEBUG(...) PT_MOD_DEBUG(PT_TEST, __VA_ARGS__)
+#define PT_VIEWTABLE_DEBUG(...) PT_MOD_DEBUG(PT_VIEWTABLE, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \
@@ -653,13 +490,8 @@ class PTFuncLog {
       " :: ",                     \
       __VA_ARGS__)
 
-#define PT_OP_INFO(...)                                        \
-  {                                                            \
-    const auto& logger = PtLogger::getLogger()->GetOpLogger(); \
-    if (logger->should_log(spdlog::level::info)) {             \
-      logger->info("{}", c10::str(__VA_ARGS__));               \
-    }                                                          \
-  }
+#define PT_OP_INFO(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
+
 // End of logging macros
 
 template <
@@ -674,3 +506,7 @@ std::string VecToString(const std::vector<Integer>& vec) {
   sstr << "]";
   return sstr.str();
 }
+
+#define CREATE_OSTREAM_FORMATTER(type) \
+  template <>                          \
+  struct fmt::formatter<type> : ostream_formatter {};

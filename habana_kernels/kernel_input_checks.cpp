@@ -13,6 +13,7 @@
 
 #include "habana_kernels/kernel_input_checks.h"
 #include <c10/core/ScalarType.h>
+#include "habana_helpers/logging_pt.h"
 #include "habana_helpers/pt_version_check.h"
 
 std::unordered_map<

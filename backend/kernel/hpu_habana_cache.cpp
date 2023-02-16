@@ -1465,51 +1465,54 @@ void RecipeValueSpec::patch_launch_info(
   }
 }
 
-void RecipeValueSpec::PrintDebugInfo(
+void RecipeValueSpec::MaybePrintDebugInfo(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr) {
-  PT_BRIDGE_DEBUG(
-      "Details of recipe",
-      ", #inputs=",
-      input_refs.size(),
-      ", #intermediates=",
-      intermediate_tensors_ptr->size(),
-      ", #outputs=",
-      aten_outputs->size());
-
-  for (size_t idx{0}; idx < input_refs.size(); idx++) {
-    ValPtr vp = (jit_graph_ ? jit_graph_->inputs().at(idx) : nullptr);
+  if (hl_logger::logLevelAtLeast(
+          HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {
     PT_BRIDGE_DEBUG(
-        "Input[",
-        idx,
-        "]",
-        (vp ? (": %" + vp->debugName()) : std::string()),
-        " -> ",
-        habana_helpers::DebugString(input_refs[idx]));
-  }
-  if (intermediate_tensors_ptr) {
-    size_t idx{0};
-    for (auto& a : *intermediate_tensors_ptr) {
+        "Details of recipe",
+        ", #inputs=",
+        input_refs.size(),
+        ", #intermediates=",
+        intermediate_tensors_ptr->size(),
+        ", #outputs=",
+        aten_outputs->size());
+
+    for (size_t idx{0}; idx < input_refs.size(); idx++) {
+      ValPtr vp = (jit_graph_ ? jit_graph_->inputs().at(idx) : nullptr);
       PT_BRIDGE_DEBUG(
-          "Intermediate[", idx, "] -> ", habana_helpers::DebugString(a));
-      idx += 1;
-    }
-  }
-  if (aten_outputs) {
-    size_t idx{0};
-    for (auto& a : *aten_outputs) {
-      ValPtr vp = (jit_graph_ ? jit_graph_->outputs().at(idx) : nullptr);
-      PT_BRIDGE_DEBUG(
-          "Output[",
+          "Input[",
           idx,
           "]",
           (vp ? (": %" + vp->debugName()) : std::string()),
           " -> ",
-          habana_helpers::DebugString(a));
-      idx += 1;
+          habana_helpers::DebugString(input_refs[idx]));
     }
+    if (intermediate_tensors_ptr) {
+      size_t idx{0};
+      for (auto& a : *intermediate_tensors_ptr) {
+        PT_BRIDGE_DEBUG(
+            "Intermediate[", idx, "] -> ", habana_helpers::DebugString(a));
+        idx += 1;
+      }
+    }
+    if (aten_outputs) {
+      size_t idx{0};
+      for (auto& a : *aten_outputs) {
+        ValPtr vp = (jit_graph_ ? jit_graph_->outputs().at(idx) : nullptr);
+        PT_BRIDGE_DEBUG(
+            "Output[",
+            idx,
+            "]",
+            (vp ? (": %" + vp->debugName()) : std::string()),
+            " -> ",
+            habana_helpers::DebugString(a));
+        idx += 1;
+      }
+    }
+    PT_BRIDGE_DEBUG(*this);
   }
-  PT_BRIDGE_DEBUG(*this);
 }
 
 size_t get_active_graph_unique_key(const std::string& name) {
@@ -1530,9 +1533,7 @@ void RecipeValueSpec::launch(
   PT_BRIDGE_BEGIN;
   SelfCheck();
 
-  if (IS_BRIDGE_DEBUG_ENABLED) {
-    PrintDebugInfo(input_refs, intermediate_tensors_ptr);
-  }
+  MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_stream(hpu_stream);
@@ -1616,9 +1617,7 @@ void RecipeValueSpec::launch(
           "Remove tensor ",
           ti.tensorName,
           " address ",
-          std::hex,
-          ti.pTensorAddress,
-          std::dec,
+          reinterpret_cast<void*>(ti.pTensorAddress),
           " from outDevPtr since it is an external tensor");
       outDevPtr.erase(
           std::remove(outDevPtr.begin(), outDevPtr.end(), ti.pTensorAddress),
@@ -1664,10 +1663,6 @@ void RecipeValueSpec::launch(
           auto& error = error_optional.value();
           PT_BRIDGE_FATAL(
               "syn launch encountered : ", error.error, " ", error.status);
-          TORCH_CHECK(
-              false,
-              std::string("syn launch failed ") + std::string(error.error) +
-                  std::string(" ") + std::to_string(error.status));
         }
       } else {
         PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");

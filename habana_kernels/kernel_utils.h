@@ -27,7 +27,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/recipe.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 
 namespace habana_helpers {
 at::ScalarType getInternalDtype(at::ScalarType dtype);

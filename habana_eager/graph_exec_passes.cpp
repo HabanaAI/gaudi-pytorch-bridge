@@ -13,7 +13,7 @@
 #include <c10/util/ArrayRef.h>
 
 #include "habana_eager/graph_exec.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 
 namespace habana {
 namespace graph {

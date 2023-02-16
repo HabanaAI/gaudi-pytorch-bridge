@@ -16,7 +16,7 @@
 #include <synapse_api_types.h>
 #include <iostream>
 #include <vector>
-//#include "tensor_utils.h"
+#include "habana_helpers/logging_pt.h"
 
 namespace habana_helpers {
 
@@ -113,3 +113,5 @@ class TensorShape {
 };
 
 } // namespace habana_helpers
+
+CREATE_OSTREAM_FORMATTER(habana_helpers::TensorShape);

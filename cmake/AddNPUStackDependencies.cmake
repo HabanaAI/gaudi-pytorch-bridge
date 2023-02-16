@@ -10,9 +10,16 @@
 #
 ###############################################################################
 
-add_library(spdlog INTERFACE IMPORTED)
-set_target_properties(spdlog PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPDLOG_ROOT}")
-add_library(npu::spdlog ALIAS spdlog)
+# define fmt target, so kineto will not compile it from sources. Otherwise we have conflicts
+add_library(fmt INTERFACE IMPORTED)
+set_target_properties(fmt PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{THIRD_PARTIES_ROOT}/fmt-9.1.0/include/")
+target_compile_definitions(fmt INTERFACE FMT_HEADER_ONLY)
+add_library(npu::fmt ALIAS fmt)
+
+add_library(hllogger SHARED IMPORTED)
+set_target_properties(hllogger PROPERTIES IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhl_logger.so")
+set_target_properties(hllogger PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{HL_LOGGER_INCLUDE_DIRS}")
+add_library(npu::hllogger ALIAS hllogger)
 
 add_library(nlohmann_json INTERFACE IMPORTED)
 set_target_properties(nlohmann_json PROPERTIES INTERFACE_INCLUDE_DIRECTORIES

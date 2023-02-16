@@ -302,7 +302,7 @@ struct RecipeValueSpec {
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes);
-  void PrintDebugInfo(
+  void MaybePrintDebugInfo(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr);
   void launch(
@@ -650,3 +650,6 @@ class DynamicBucketInfoMap {
 
 void ClearDynamicBucketRecipeInfo();
 } // namespace habana
+
+CREATE_OSTREAM_FORMATTER(habana::RecipeArgumentSpec);
+CREATE_OSTREAM_FORMATTER(habana::RecipeValueSpec);

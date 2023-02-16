@@ -2,8 +2,7 @@ import torch, os
 import habana_frameworks.torch.core as htcore
 
 os.environ["PT_HPU_LAZY_MODE"] = "1"
-os.environ["PT_HPU_LOG_MOD_MASK"] = "FF"
-os.environ["PT_HPU_LOG_TYPE_MASK"] = "F"
+os.environ["LOG_LEVEL_FALLBACK"] = "0"
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")

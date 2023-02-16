@@ -595,8 +595,7 @@ bool device_memory::defragment_memory(
 
   PT_DEVMEM_DEBUG(
       "Waiting for threads to leave critical section ",
-      std::hex,
-      std::this_thread::get_id());
+      Logger::_str_wrapper(std::this_thread::get_id()));
   if (!threads_in_defragmenter_critical_section_->wait_for(2s)) {
     PT_DEVMEM_FATAL(
         "Defragmentation cannot be started. Some allocated buffers are in use.",

@@ -52,7 +52,6 @@ void HpuFallbackHelper::print_fallback_freq() const {
     ss << oc.second << "\t" << oc.first << "\n";
   }
 
-  const auto& logger = PtLogger::getLogger()->GetOpLogger();
-  logger->warn(ss.str());
+  PT_OP_INFO(ss.str())
 }
 } // namespace habana

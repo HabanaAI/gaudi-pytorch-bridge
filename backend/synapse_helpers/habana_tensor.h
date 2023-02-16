@@ -603,3 +603,6 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
 using tensor_or_ref = value_or_ref<tensor>;
 using synapse_tensor_ref = std::reference_wrapper<synapse_helpers::tensor>;
 } // namespace synapse_helpers
+
+CREATE_OSTREAM_FORMATTER(synapse_helpers::tensor::shape_t);
+CREATE_OSTREAM_FORMATTER(synapse_helpers::tensor);

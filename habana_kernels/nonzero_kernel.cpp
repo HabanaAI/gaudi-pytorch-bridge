@@ -24,7 +24,7 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"

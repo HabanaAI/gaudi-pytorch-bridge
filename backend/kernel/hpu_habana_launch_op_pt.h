@@ -463,7 +463,7 @@ class HabanaLaunchOpPT {
   void StoreShapeAgnosticGraph();
   void ValidateInputsAndOutputsAndDisableSA(
       at::ArrayRef<torch::jit::IValue>& input_refs);
-  void PrintDuplicateGraphInformation(
+  void MaybePrintDuplicateGraphInformation(
       synapse_helpers::graph* graph_ptr,
       std::vector<synTensorHandleMap>& tensors_map,
       std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],

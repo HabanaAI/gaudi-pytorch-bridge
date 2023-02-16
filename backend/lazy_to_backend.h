@@ -84,6 +84,6 @@ void debug_log_internal_tensor(
  * requested tensor field.
  */
 #define PT_BACKEND_DEBUG_TENSOR(tensor, format_string, args...)              \
-  if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::BRIDGE)) {                  \
+  if (IS_MOD_DEBUG_ENABLED(PT_BRIDGE)) {                                     \
     lazy_to_backend::debug_log_internal_tensor(tensor, format_string, args); \
   }

@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "backend/helpers/tensor_utils.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 #include "habana_helpers/misc_utils.h"
 
 namespace habana_lazy {
@@ -584,3 +584,5 @@ struct ValueEqual {
 
 } // namespace ir
 } // namespace habana_lazy
+
+CREATE_OSTREAM_FORMATTER(habana_lazy::ir::Node);

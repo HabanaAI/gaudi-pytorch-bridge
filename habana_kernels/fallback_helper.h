@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 
 #pragma once
 namespace habana {

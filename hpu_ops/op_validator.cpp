@@ -404,8 +404,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   }
 
   if (not result) {
-    const auto& logger = PtLogger::getLogger()->GetOpLogger();
-    logger->warn("Fallback for op {}", m_opname);
+    PT_OP_INFO("Fallback for op", m_opname);
   }
   return result;
 }
@@ -442,11 +441,12 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
       std::size_t params_size = 0;
       params = m_fillNodeParamsFunc(values, params_size);
     } catch (...) {
-      const auto& logger = PtLogger::getLogger()->GetOpLogger();
-      logger->debug(
-          "Shared layer rejected op {}: guid={} cannot fill node parameters",
+      PT_OP_INFO(
+          "Shared layer rejected op, ",
           m_opname,
-          m_guid);
+          ": guid=",
+          m_guid,
+          " cannot fill node parameters")
       return false;
     }
   }
@@ -455,13 +455,16 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto inputs = CreateInputList(values, promoted_type);
   auto outputs = CreateOutputList(values, promoted_type);
   if (not ValidateGuid(m_guid, inputs, outputs, params.get())) {
-    const auto& logger = PtLogger::getLogger()->GetOpLogger();
-    logger->debug(
-        "Shared layer rejected op {}: guid={} inputlist={} outputlist={} values={}",
+    PT_OP_INFO(
+        "Shared layer rejected op: ",
         m_opname,
+        ":  guid=",
         m_guid,
+        "inputlist=",
         ToDebugString(inputs),
+        " outputlist=",
         ToDebugString(outputs),
+        " values=",
         ToDebugString(values));
     return false;
   }

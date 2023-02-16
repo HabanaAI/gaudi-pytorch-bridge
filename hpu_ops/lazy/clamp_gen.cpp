@@ -52,7 +52,7 @@ float self_type_max_for_be(c10::ScalarType type) {
       break;
     default:
       // TODO: handle other dtypes
-      PT_KERNEL_WARN("Using float max for unsupported type", type)
+      PT_KERNEL_WARN("Using float max for unsupported type", type);
   }
   return max;
 }
@@ -74,7 +74,7 @@ float self_type_min_for_be(c10::ScalarType type) {
       break;
     default:
       // TODO: handle other dtypes
-      PT_KERNEL_WARN("Using float min for unsupported type", type)
+      PT_KERNEL_WARN("Using float min for unsupported type", type);
   }
   return min;
 }

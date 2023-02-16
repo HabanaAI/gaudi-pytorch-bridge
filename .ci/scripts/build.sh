@@ -140,7 +140,7 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
-        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+        echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
 
@@ -155,7 +155,7 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
-        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+        echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
     fi
 
     if [ $1 == "run_pytorch_lightning_qa_tests" ]; then
@@ -169,7 +169,8 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --mark MARKER                  Run tests marked by MARKER"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, ops, perf, acc, topology_ci, distributed]. Default: all"
-        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+        echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
+
     fi
 
     if [ $1 == "run_habana_lightning_tests" ]; then
@@ -183,7 +184,7 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
-        echo -e "  -spdlog LOG_LEVEL                   0 - TRACE, 1 - DEBUG, 2 - INFO, 3 - WARNING, 4 - ERROR, 5 - CRITICAL, 6 - OFF"
+        echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
 }
@@ -1058,7 +1059,7 @@ run_pytorch_modules_tests()
     local __test_status=0
     local __suite_type="all"
     local __dut="gaudi"
-    local __spdlog=3
+    local __hllog=3
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -1091,9 +1092,9 @@ run_pytorch_modules_tests()
             shift
             __dut="$1"
             ;;
-        -spdlog )
+        -hllog )
             shift
-            __spdlog=$1
+            __hllog=$1
             ;;
         -x  | --xml )
             shift
@@ -1136,19 +1137,19 @@ run_pytorch_modules_tests()
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
     	if [ "$__dut" == "gaudi" ]; then
-        (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+        (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
         echo "Running tests on Gaudi2"
-	(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
+	(set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
     		__test_status=$?
 	elif [ "$__dut" == "gaudi3" ]; then
 	echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*)
 		__test_status=$?
         elif [ "$__dut" == "greco" ]; then
         echo "Running greco tests"
-		(set -x; eval LOG_LEVEL_ALL=${__spdlog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
+		(set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
     		__test_status=$?
 	fi
     fi
@@ -1186,7 +1187,7 @@ run_pytorch_qa_tests()
     local __failures=""
     local __color=""
     local __pytest_marks=""
-    local __spdlog="3"
+    local __hllog="3"
     local __suite_type="all"
     local __test_status=0
     local config_file="${__pytorch_qa_test_path}/config/test_order_config.txt"
@@ -1220,9 +1221,9 @@ run_pytorch_qa_tests()
             shift
             __pytest_marks="-m=$1"
             ;;
-        -spdlog )
+        -hllog )
             shift
-            __spdlog=$1
+            __hllog=$1
             ;;
         -t | --suite-type )
             shift
@@ -1381,7 +1382,7 @@ run_pytorch_qa_tests()
        run_tox_command(){
            cmd_opts="$1"
            junit_xml_tox="$2"
-           __tox_cmdline="PT_HPU_PLACE_ON_CPU=none LOG_LEVEL_ALL=${__spdlog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
+           __tox_cmdline="PT_HPU_PLACE_ON_CPU=none LOG_LEVEL_ALL=${__hllog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
        (set -x;export __tox_cmdline; eval $__tox_cmdline)
        }
 
@@ -1439,7 +1440,7 @@ run_habana_lightning_tests()
     local __test_status=0
     local __suite_type="all"
     local __dut="gaudi"
-    local __spdlog=3
+    local __hllog=3
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -1468,9 +1469,9 @@ run_habana_lightning_tests()
             shift
             __dut="$1"
             ;;
-        -spdlog )
+        -hllog )
             shift
-            __spdlog=$1
+            __hllog=$1
             ;;
         -x  | --xml )
             shift
@@ -1528,7 +1529,7 @@ run_pytorch_lightning_qa_tests()
     local __test_status=0
     local __suite_type="all"
     local __dut="gaudi"
-    local __spdlog=3
+    local __hllog=3
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -1557,9 +1558,9 @@ run_pytorch_lightning_qa_tests()
             shift
             __dut="$1"
             ;;
-        -spdlog )
+        -hllog )
             shift
-            __spdlog=$1
+            __hllog=$1
             ;;
         -x  | --xml )
             shift

@@ -20,7 +20,7 @@
 #include <utility>
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"

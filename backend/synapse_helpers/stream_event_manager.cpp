@@ -131,9 +131,7 @@ void stream_event_manager::add_producer(
     for (const auto& device_address : eref->get_device_ptrs()) {
       PT_SYNHELPER_DEBUG(
           "Adding producer for address ",
-          std::hex,
-          device_address,
-          std::dec,
+          reinterpret_cast<void*>(device_address),
           " on event ",
           *eref);
       auto found = events_by_addr_.find(device_address);
@@ -147,9 +145,7 @@ void stream_event_manager::add_producer(
         // as this will postpone launching next ops in graph.
         PT_SYNHELPER_DEBUG(
             "Event collision on address: 0x",
-            std::hex,
-            device_address,
-            std::dec);
+            reinterpret_cast<void*>(device_address));
         shared_event event = found->second;
         event->remove_device_ptr(device_address);
         events_by_addr_.erase(found);
@@ -176,13 +172,12 @@ void stream_event_manager::add_producer(stream& stream, shared_event event) {
     if (found == events_by_addr_.end()) {
       PT_SYNHELPER_FATAL(
           "Cannot find event registed for address: 0x",
-          std::hex,
-          address,
-          std::dec);
+          reinterpret_cast<void*>(address));
     }
     if (found->second != event) {
       PT_SYNHELPER_FATAL(
-          "Event does not match for address: 0x", std::hex, address, std::dec);
+          "Event does not match for address: 0x",
+          reinterpret_cast<void*>(address));
     }
   }
   stream.register_pending_event(event, false);
@@ -196,7 +191,7 @@ void stream_event_manager::add_event_id(
   if (it == events_by_str_.end()) {
     return;
   }
-  PT_SYNHELPER_DEBUG("Found event ", it->second, " for id ", event_id);
+  PT_SYNHELPER_DEBUG("Found event ", *(it->second), " for id ", event_id);
   it->second->push_id(new_id);
   events_by_str_.insert(std::make_pair(new_id, it->second));
 }
@@ -217,7 +212,8 @@ shared_event stream_event_manager::map_event_to_tensor(
     // not want to wait for event to synchronize as this will postpone launching
     // next ops in graph.
     PT_SYNHELPER_DEBUG(
-        "Event collision on address: 0x", std::hex, device_address, std::dec);
+        "Event collision on address: 0x",
+        reinterpret_cast<void*>(device_address));
 
     auto found_event = found->second;
     found_event->remove_device_ptr(device_address);
@@ -235,9 +231,7 @@ shared_event stream_event_manager::map_event_to_tensor(
       "External event ",
       *shared_event,
       " mapped to address ",
-      std::hex,
-      device_address,
-      std::dec);
+      reinterpret_cast<void*>(device_address));
   events_by_addr_.emplace(device_address, shared_event);
 
   return shared_event;
@@ -250,9 +244,7 @@ void stream_event_manager::enqueue_wait_event(
       "stream ",
       stream,
       " waits for event mapped to device address ",
-      std::hex,
-      device_address,
-      std::dec);
+      reinterpret_cast<void*>(device_address));
 
   wait_for_future(device_address);
   std::lock_guard<std::mutex> lock_guard(mut_);
@@ -268,9 +260,7 @@ void stream_event_manager::enqueue_wait_event(
         "Found event ",
         *event,
         " for address ",
-        std::hex,
-        device_address,
-        std::dec);
+        reinterpret_cast<void*>(device_address));
     event->stream_wait_event(stream);
   } else {
     PT_SYNHELPER_DEBUG("Event already done, as it's not in the map");
@@ -346,14 +336,14 @@ void stream_event_manager::synchronize_event(shared_event& event) {
       auto it = events_by_addr_.find(ptr);
       if (it == events_by_addr_.end()) {
         PT_SYNHELPER_FATAL(
-            "cannot find event for address ", std::hex, ptr, std::dec);
+            "cannot find event for address ", reinterpret_cast<void*>(ptr));
       }
       if (it->second != event) {
         PT_SYNHELPER_FATAL(
-            "pointer ", std::hex, ptr, std::dec, " maps to another event");
+            "pointer ", reinterpret_cast<void*>(ptr), " maps to another event");
       }
       PT_SYNHELPER_DEBUG(
-          "unmapping event for address ", std::hex, ptr, std::dec);
+          "unmapping event for address ", reinterpret_cast<void*>(ptr));
       events_by_addr_.erase(it);
     }
     for (auto& event_id : event->get_event_ids()) {

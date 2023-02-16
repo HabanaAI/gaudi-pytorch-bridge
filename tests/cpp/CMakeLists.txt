@@ -273,7 +273,7 @@ target_link_libraries(
           stdc++
           stdc++fs
           dl
-          npu::spdlog)
+          npu::hllogger)
 
 add_custom_command(
   TARGET test_pt_integration

@@ -42,7 +42,7 @@
 
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 #include "habana_helpers/misc_utils.h"
 
 #include "habana_kernels/hccl_kernels.h"
@@ -617,7 +617,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   if (false == isInGraphOutputs(vp)) {
     if (ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
       // Case 1.A: intermediate persistent tensor which an alias of an input
-      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", ti);
+      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
       duplicate_input_tivs.emplace_back(ti);
     } else {
       if (ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
@@ -3194,10 +3194,8 @@ void HabanaLaunchOpPT::DuplicateSynapseGraph() {
   // second duplicate call to to get the tensor and nodes map
   syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
 
-  if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
-    PrintDuplicateGraphInformation(
-        syn_graph_ptr, tensorsMap, nodesMap, "cache miss");
-  }
+  MaybePrintDuplicateGraphInformation(
+      syn_graph_ptr, tensorsMap, nodesMap, "cache miss");
 }
 
 // shape agnostic : store shape agnostic graph
@@ -3256,7 +3254,7 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
 }
 
 // shape agnostic : print duplicate graph information
-void HabanaLaunchOpPT::PrintDuplicateGraphInformation(
+void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
     synapse_helpers::graph* graph_ptr,
     std::vector<synTensorHandleMap>& tensors_map,
     std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
@@ -3642,10 +3640,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
       syn_graph_ptr->duplicate(tensorsMap.data(), nodesMap.data());
 
-      if (IS_MOD_DEBUG_ENABLED(PtLogger::ModuleMask::LAZY_EAGER)) {
-        PrintDuplicateGraphInformation(
-            syn_graph_ptr, tensorsMap, nodesMap, "cache hit");
-      }
+      MaybePrintDuplicateGraphInformation(
+          syn_graph_ptr, tensorsMap, nodesMap, "cache hit");
 
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();

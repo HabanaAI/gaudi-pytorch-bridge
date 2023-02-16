@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "backend/helpers/enum_mapping_table.h"
-#include "logging.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 

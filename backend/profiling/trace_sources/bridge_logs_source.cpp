@@ -14,6 +14,7 @@
 #include "bridge_logs_source.h"
 #include <syscall.h>
 #include <unistd.h>
+#include <atomic>
 #include <chrono>
 #include <deque>
 #include <mutex>
@@ -52,11 +53,9 @@ struct BridgeLogger : public TraceSource {
   }
   void start() {
     enabled_ = true;
-    PtLogger::getLogger()->typeMaskOr(PtLogger::TypeMask::TENSORBOARD);
   }
   void stop() {
     enabled_ = false;
-    PtLogger::getLogger()->typeMaskNegAnd(PtLogger::TypeMask::TENSORBOARD);
   }
   void extract(TraceSink& output) {
     pid_t pid = getpid() + offset_;
@@ -88,7 +87,7 @@ struct BridgeLogger : public TraceSource {
         : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
   std::deque<Event> events_;
-  bool enabled_{false};
+  std::atomic<bool> enabled_{false};
   unsigned offset_{};
   std::mutex m{};
 };
@@ -118,6 +117,9 @@ void trace_start(std::string_view id) {
 }
 void trace_end(std::string_view id) {
   BridgeLogger::instance().log(id, false);
+}
+bool is_enabled() {
+  return BridgeLogger::instance().enabled();
 }
 }; // namespace bridge
 }; // namespace profile

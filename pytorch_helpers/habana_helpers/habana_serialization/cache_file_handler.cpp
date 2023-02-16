@@ -64,9 +64,8 @@ void CacheFileHandler::init(std::string path) {
           PT_HABHELPER_DEBUG(
               CACHEFILE_LOG,
               "Cleaning: ",
-              de->path(),
+              Logger::_str_wrapper(de->path()),
               ", Rank: ",
-              std::dec,
               getRank());
           fs::remove(de->path());
           de++;

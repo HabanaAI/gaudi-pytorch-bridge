@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
+#include "habana_helpers/logging_pt.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/sbs_runner.h"
@@ -955,7 +956,7 @@ TEST_P(SBSWithParamsTest, ViewsInplaceTestSBS) {
 }
 #endif
 
-#if 0 // TODO 
+#if 0 // TODO
 TEST_P(SBSWithParamsTest, GraphTextDumpBCESBSTest) {
   auto input = torch::randn({6, 1}, at::requires_grad());
   auto target = torch::randn({6, 1}); // Nx1

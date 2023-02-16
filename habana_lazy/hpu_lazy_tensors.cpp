@@ -19,7 +19,7 @@
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"

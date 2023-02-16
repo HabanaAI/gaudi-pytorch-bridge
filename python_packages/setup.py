@@ -38,16 +38,17 @@ include_dirs = [
     os.path.join(os.environ["HCL_ROOT"], "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "abseil-cpp"),
     os.path.join(os.environ["PYTORCH_FORK_ROOT"], "third_party", "pybind11", "include"),
-    os.path.join(os.environ["THIRD_PARTIES_ROOT"], "spdlog", "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "json", "single_include"),
+    os.path.join(os.environ["THIRD_PARTIES_ROOT"], "fmt-9.1.0", "include"),
     os.environ["SPECS_EXT_ROOT"],
-]
+] + os.environ["HL_LOGGER_INCLUDE_DIRS"].split(';')
 
 extra_compile_args = [
     "-std=c++17",
     "-DMAX_DEVICES_PER_BOX=8",
     "-fopenmp",
     "-fpermissive",
+    "-DFMT_HEADER_ONLY",
 ]
 extra_link_args = []
 

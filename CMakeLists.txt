@@ -74,8 +74,6 @@ include(pt_ver)
 set_up_pt_ver_mechanism()
 
 include(AddNPUStackDependencies)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
@@ -174,7 +172,7 @@ add_library(habana_pytorch_plugin SHARED
 )
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
-target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
+target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8) # TODO: change to 1?
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
@@ -188,7 +186,6 @@ target_link_libraries(habana_pytorch_plugin
     habana_pytorch_frontend_ops
     torch
     absl::hash
-    npu::spdlog
 )
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
@@ -312,6 +309,7 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     ${habana_pytorch2_plugin_glob_files}
   )
 
+
   target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
   target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
   target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
@@ -329,7 +327,8 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
       habana_pytorch2_frontend
       torch
       absl::hash
-      npu::spdlog
+      npu::hllogger
+      npu::fmt
   )
 
   # Create symlink to latest build from tests dir

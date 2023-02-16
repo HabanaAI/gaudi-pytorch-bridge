@@ -131,6 +131,7 @@ class Profiler {
 namespace bridge {
 void trace_start(std::string_view id);
 void trace_end(std::string_view id);
+bool is_enabled();
 }; // namespace bridge
 
 }; // namespace profile

@@ -1247,7 +1247,8 @@ void device::add_wait_events_on_stream(
     const std::vector<device_ptr>& input_tensors,
     stream& stream) {
   for (const auto& input_addr : input_tensors) {
-    PT_SYNHELPER_DEBUG("Wait event address ", std::hex, input_addr, std::dec)
+    PT_SYNHELPER_DEBUG(
+        "Wait event address ", reinterpret_cast<void*>(input_addr))
     sem_.enqueue_wait_event(input_addr, stream);
   }
 }
@@ -1391,9 +1392,7 @@ void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
     PT_SYNHELPER_DEBUG(
         "Free buffer ptr ",
-        std::hex,
-        reinterpret_cast<device_ptr>(ptr),
-        std::dec);
+        reinterpret_cast<void*>(reinterpret_cast<device_ptr>(ptr)));
     device_->free(reinterpret_cast<device_ptr>(ptr));
   }
 }

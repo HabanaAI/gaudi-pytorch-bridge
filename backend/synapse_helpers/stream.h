@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include <fmt/format.h>
 #include <synapse_api_types.h>
 #include <atomic>
 #include <condition_variable>
@@ -100,3 +101,16 @@ class stream {
 };
 
 } // namespace synapse_helpers
+
+template <>
+struct fmt::formatter<synapse_helpers::stream> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(synapse_helpers::stream const& x, FormatContext& ctx) {
+    return format_to(ctx.out(), "{}", fmt::ptr(synStreamHandle(x)));
+  }
+};

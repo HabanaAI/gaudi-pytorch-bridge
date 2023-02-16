@@ -61,16 +61,19 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   program/utils/jit_liveness_analysis.cpp
   program/utils/union_find.cpp
   )
-  add_custom_command(TARGET habana_pytorch_backend POST_BUILD
-    COMMENT "Creating ${TARGET_NAME} symbolic link in $ENV{BUILD_ROOT_LATEST}"
-    COMMAND "${CMAKE_COMMAND}" -E create_symlink
-    "$<TARGET_FILE:habana_pytorch_backend>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
+
+add_custom_command(TARGET habana_pytorch_backend POST_BUILD
+  COMMENT "Creating ${TARGET_NAME} symbolic link in $ENV{BUILD_ROOT_LATEST}"
+  COMMAND "${CMAKE_COMMAND}" -E create_symlink
+  "$<TARGET_FILE:habana_pytorch_backend>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_backend>")
+
 target_include_directories(habana_pytorch_backend PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers)
 if (DEFINED ENV{KINETO_ROOT})
-  target_include_directories(habana_pytorch_backend PRIVATE $ENV{KINETO_ROOT}/libkineto/include $ENV{KINETO_ROOT}/libkineto/third_party/fmt/include)
+  target_include_directories(habana_pytorch_backend PRIVATE $ENV{KINETO_ROOT}/libkineto/include)
 else()
   message(FATAL_ERROR "KINETO_ROOT is not defined, please update automation repository")
 endif()
+
 target_link_libraries(habana_pytorch_backend
   PUBLIC
     habana_pytorch_backend_ops
@@ -85,7 +88,7 @@ target_link_libraries(habana_pytorch_backend
     ${PYTORCH_SYNAPSE_UTILS_LIB}
     # tensor_comparator_core
     -lstdc++fs
-    npu::spdlog
+    npu::hllogger
 )
 
 target_include_directories(habana_pytorch_backend PUBLIC ${PROJECT_SOURCE_DIR})
@@ -105,4 +108,5 @@ target_link_libraries(habana_pytorch_backend PUBLIC pytorch_synapse_shim)
 else()
 target_link_libraries(habana_pytorch_backend PUBLIC Synapse)
 endif()
+
 separate_debug_symbols(habana_pytorch_backend)

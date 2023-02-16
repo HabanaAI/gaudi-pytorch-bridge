@@ -15,7 +15,7 @@
 #include <ATen/ops/empty_strided.h>
 #include <c10/core/ScalarTypeToTypeMeta.h>
 #include <c10/core/TensorImpl.h>
-#include "habana_helpers/logging.h"
+#include "habana_helpers/logging_pt.h"
 
 namespace habana {
 struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
