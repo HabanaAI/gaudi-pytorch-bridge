@@ -1852,6 +1852,7 @@ def install_wheels_in_venvs(selected_wheel_configs):
                     "-m",
                     "pip",
                     "install",
+                    "--force-reinstall",
                     wheel_list[0],
                     venv=venv
                 )
