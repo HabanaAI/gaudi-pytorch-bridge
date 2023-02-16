@@ -43,7 +43,6 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
        valid_count_tensor,
        mom,
        nesterov},
-      {},
       {weights_in.sizes().vec(), moments_in.sizes().vec()}};
 
   auto result =
@@ -73,7 +72,6 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
        indices,
        learning_rate,
        valid_count_tensor},
-      {},
       {weights_in.sizes().vec(), moments_in.sizes().vec()}};
 
   return k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));

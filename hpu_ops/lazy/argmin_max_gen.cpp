@@ -23,7 +23,7 @@ ArgminmaxOutputType<at::Tensor>::ArgminmaxOutputType(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
-  set_scalar_type(c10::ScalarType::Long);
+  set_scalar_types({c10::ScalarType::Long});
 }
 
 template <>

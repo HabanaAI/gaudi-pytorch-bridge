@@ -152,27 +152,11 @@ class LazyOp {
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices = {},
       std::vector<std::vector<int64_t>> out_shapes = {},
       int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
-        m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
-    module_name = *(habana_lazy::ir::getCurrentModuleName());
-    set_inputs(inputs);
-  }
-
-  explicit LazyOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes) noexcept
-      : m_symbol{at::Symbol::fromQualString(qualstring)},
-        m_metadata_indices{},
-        m_out_shapes{std::move(out_shapes)},
-        m_out_index{},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
     module_name = *(habana_lazy::ir::getCurrentModuleName());
@@ -186,7 +170,6 @@ class LazyOp {
           out_shapes_fn,
       int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
-        m_metadata_indices{},
         m_out_index{out_index},
         m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
         m_collective_op(habana_helpers::IsCollective(m_symbol)) {
@@ -216,26 +199,6 @@ class LazyOp {
   }
 
   explicit LazyOp(
-      ir::NodePtr node,
-      const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices,
-      std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0)
-      : m_node{std::move(node)},
-        m_metadata_indices{std::move(metadata_indices)},
-        m_out_shapes{std::move(out_shapes)},
-        m_out_index{out_index},
-        m_sbs_runner{SBSInterface::getSBSHandler(
-            m_node ? m_node->op().toQualString() : "")},
-        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        std::is_class<NodeConstruct>::value,
-        "This constructor is valid only when NodeConstruct is a class.");
-    module_name = *(habana_lazy::ir::getCurrentModuleName());
-    set_inputs(inputs);
-  }
-
-  explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       const at::TensorList& output_meta_tensors) noexcept
@@ -249,22 +212,6 @@ class LazyOp {
     for (const auto& out : m_out_meta_tensors) {
       m_out_shapes.emplace_back(out.sizes().vec());
     }
-  }
-
-  explicit LazyOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes,
-      const c10::ScalarType scalar_type) noexcept
-      : m_symbol{at::Symbol::fromQualString(qualstring)},
-        m_metadata_indices{},
-        m_out_shapes{std::move(out_shapes)},
-        m_out_index{},
-        m_scalar_type(scalar_type),
-        m_sbs_runner{SBSInterface::getSBSHandler(m_symbol.toQualString())},
-        m_collective_op(habana_helpers::IsCollective(m_symbol)) {
-    module_name = *(habana_lazy::ir::getCurrentModuleName());
-    set_inputs(inputs);
   }
 
   LazyOp(LazyOp&) = default;
@@ -1137,29 +1084,18 @@ class LazyOp {
       const auto& t = get_inputs().at(m_out_index).toTensor();
       const auto& out_shape =
           m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
-      if (m_scalar_type != c10::ScalarType::Undefined) {
-        return empty_hpu_lazy(
-            out_shape,
-            t.options().dtype(m_scalar_type),
-            t.suggest_memory_format(),
-            false);
-      } else {
-        return empty_hpu_lazy(
-            out_shape, t.options(), t.suggest_memory_format(), false);
+      auto options = t.options();
+      if (m_scalar_types.size()) {
+        HABANA_ASSERT(m_scalar_types.size() == 1);
+        options = options.dtype(m_scalar_types[0]);
       }
+      return empty_hpu_lazy(
+          out_shape, options, t.suggest_memory_format(), false);
     }
 
     const auto& t = m_out_meta_tensors[0];
-    if (m_scalar_type != c10::ScalarType::Undefined) {
-      return empty_hpu_lazy(
-          t.sizes(),
-          t.options().dtype(m_scalar_type),
-          t.suggest_memory_format(),
-          false);
-    } else {
-      return empty_hpu_lazy(
-          t.sizes(), t.options(), t.suggest_memory_format(), false);
-    }
+    return empty_hpu_lazy(
+        t.sizes(), t.options(), t.suggest_memory_format(), false);
   }
 
   template <typename T = ReturnType>
@@ -1178,14 +1114,13 @@ class LazyOp {
 
     habana::for_each_in_tuple(results, [&](auto& result) {
       auto t = get_inputs().at(m_out_index).toTensor();
-      auto dtype = m_scalar_type != c10::ScalarType::Undefined
-          ? m_scalar_type
-          : t.scalar_type();
+      auto options = t.options();
+      if (m_scalar_types.size()) {
+        TORCH_INTERNAL_ASSERT_DEBUG_ONLY(i < m_scalar_types.size());
+        options = options.dtype(m_scalar_types[i]);
+      }
       result = empty_hpu_lazy(
-          m_out_shapes[i++],
-          t.options().dtype(dtype),
-          t.suggest_memory_format(),
-          false);
+          m_out_shapes[i++], options, t.suggest_memory_format(), false);
     });
     return results;
   }
@@ -1217,12 +1152,12 @@ class LazyOp {
     return m_symbol;
   }
 
-  void set_scalar_type(const c10::ScalarType scalar_type) {
-    m_scalar_type = scalar_type;
+  void set_scalar_types(const std::vector<c10::ScalarType>& scalar_types) {
+    m_scalar_types = scalar_types;
   }
 
-  [[nodiscard]] c10::ScalarType get_scalar_type() const {
-    return m_scalar_type;
+  [[nodiscard]] const std::vector<c10::ScalarType>& get_scalar_types() const {
+    return m_scalar_types;
   }
 
  private:
@@ -1244,15 +1179,6 @@ class LazyOp {
     values.reserve(m_inputs.size());
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
-      if (m_metadata_indices.count(i)) {
-        // Already taken care in optimized lazy eager JIT graph key
-        // calculation so not required for the optimized lazy eager.
-        if (!is_optimized_lazy_eager) {
-          metadata.set(input, i);
-        }
-        continue;
-      }
-
       if (input.isScalar()) {
         // Already taken care in optimized lazy eager JIT graph key
         // calculation so not required for the optimized lazy eager
@@ -1442,18 +1368,7 @@ class LazyOp {
       const at::IValue& input = m_inputs[i];
       // Create stack based on input tensors / tensor lists.
       // Metadata and scalars are part of key calculation, so we skip them.
-      if (m_metadata_indices.count(i)) {
-        if (input.isList()) {
-          for (auto& v : input.toListRef()) {
-            optimized_key =
-                at::hash_combine(optimized_key, at::IValue::hash(v));
-          }
-        } else {
-          optimized_key =
-              at::hash_combine(optimized_key, at::IValue::hash(input));
-        }
-        continue;
-      } else if (input.isScalar()) {
+      if (input.isScalar()) {
         optimized_key =
             at::hash_combine(optimized_key, at::IValue::hash(input.toScalar()));
         continue;
@@ -1665,12 +1580,11 @@ class LazyOp {
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   std::vector<bool> m_bcast_details;
-  const std::set<size_t> m_metadata_indices;
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
-  c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
+  std::vector<c10::ScalarType> m_scalar_types;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
   std::string module_name = std::string();
   bool m_shape_was_changed =
@@ -1728,15 +1642,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       const std::vector<at::IValue>& inputs,
       bool is_outfn,
       bool safe_cast_check,
-      const std::set<size_t>& metadata_indices = {},
       const std::vector<std::vector<int64_t>>& out_shapes = {},
       int out_index = 0)
-      : LazyOp<ReturnType>(
-            qualstring,
-            inputs,
-            metadata_indices,
-            out_shapes,
-            out_index),
+      : LazyOp<ReturnType>(qualstring, inputs, out_shapes, out_index),
         is_outfn_(is_outfn),
         safe_cast_check_(safe_cast_check) {}
 

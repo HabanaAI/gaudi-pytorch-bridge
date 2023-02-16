@@ -113,13 +113,11 @@ LazyClamp<at::Tensor&>::LazyClamp(
 template <>
 at::Tensor LazyClamp<at::Tensor>::get_result_overrideable() {
   auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  convert_params_to_tensors(inputs, get_scalar_type());
+  const auto& dtype = get_scalar_types()[0];
+  convert_params_to_tensors(inputs, dtype);
   const auto& t = inputs.at(0).toTensor();
   return habana_lazy::empty_hpu_lazy(
-      t.sizes(),
-      t.options().dtype(get_scalar_type()),
-      t.suggest_memory_format(),
-      false);
+      t.sizes(), t.options().dtype(dtype), t.suggest_memory_format(), false);
 }
 
 template <>

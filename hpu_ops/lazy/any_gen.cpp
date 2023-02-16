@@ -25,7 +25,7 @@ AllAnyOutputType<at::Tensor>::AllAnyOutputType(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, 0) {
-  set_scalar_type(at::kBool);
+  set_scalar_types({at::kBool});
 }
 
 template <>

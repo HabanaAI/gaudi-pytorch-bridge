@@ -56,7 +56,7 @@ WhereFrontend<at::Tensor>::WhereFrontend(
     : habana_lazy::LazyOp<at::Tensor>(qualstring, stack, out_shapes_fn) {
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
-  set_scalar_type(at::result_type(self, other));
+  set_scalar_types({at::result_type(self, other)});
 }
 
 template <>

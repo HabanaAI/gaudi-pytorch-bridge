@@ -59,26 +59,22 @@ class EagerOpBase {
     return m_symbol;
   }
 
-  [[nodiscard]] c10::ScalarType get_scalar_type() const {
-    return m_scalar_type;
+  [[nodiscard]] const std::vector<c10::ScalarType>& get_scalar_types() const {
+    return m_scalar_types;
   }
 
-  void set_scalar_type(const c10::ScalarType scalar_type) {
-    m_scalar_type = scalar_type;
+  void set_scalar_types(const std::vector<c10::ScalarType> scalar_types) {
+    m_scalar_types = scalar_types;
   }
 
   explicit EagerOpBase(
       const at::Symbol symbol,
       const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices = {},
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0,
-      const c10::ScalarType scalar_type = c10::ScalarType::Undefined)
+      int out_index = 0)
       : m_symbol{symbol},
-        m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
-        m_out_index{out_index},
-        m_scalar_type(scalar_type) {
+        m_out_index{out_index} {
     set_inputs(inputs);
   }
 
@@ -102,7 +98,7 @@ class EagerOpBase {
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
   std::vector<at::IValue> m_inputs = {};
-  c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
+  std::vector<c10::ScalarType> m_scalar_types;
 
  private:
   void set_inputs(const std::vector<at::IValue>& inputs) {
@@ -193,17 +189,11 @@ class EagerOp : public EagerOpBase {
   explicit EagerOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices =
-          {}, // TODO move away from set for this. inputs are forward-scanned
-              // and every non-Tensor and non-TensorList is a metadata, no need
-              // to take this from autogeneated api. set is also very
-              // compile-time unfriendly, but that's exactly how we use it.
       std::vector<std::vector<int64_t>> out_shapes = {},
       int out_index = 0)
       : EagerOpBase(
             at::Symbol::fromQualString(qualstring),
             inputs,
-            std::move(metadata_indices),
             std::move(out_shapes),
             out_index) {}
 
@@ -214,7 +204,6 @@ class EagerOp : public EagerOpBase {
       : EagerOpBase(
             at::Symbol::fromQualString(qualstring),
             inputs,
-            {},
             std::move(out_shapes),
             {}) {}
 
@@ -227,22 +216,8 @@ class EagerOp : public EagerOpBase {
       : EagerOpBase(
             at::Symbol::fromQualString(qualstring),
             inputs,
-            {},
             out_shapes_fn(inputs),
             out_index) {}
-
-  explicit EagerOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes,
-      const c10::ScalarType scalar_type)
-      : EagerOpBase(
-            at::Symbol::fromQualString(qualstring),
-            inputs,
-            {},
-            std::move(out_shapes),
-            {},
-            scalar_type) {}
 
   EagerOp(EagerOp&) = default;
   EagerOp(const EagerOp&) = default;
@@ -310,14 +285,12 @@ class EagerOp : public EagerOpBase {
 
     const auto& t = get_inputs().at(m_out_index).toTensor();
     const auto& out_shape = m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
-    if (m_scalar_type != c10::ScalarType::Undefined) {
-      return at::empty(
-          out_shape,
-          t.options().dtype(m_scalar_type),
-          t.suggest_memory_format());
-    } else {
-      return at::empty(out_shape, t.options(), t.suggest_memory_format());
+    auto options = t.options();
+    if (m_scalar_types.size()) {
+      HABANA_ASSERT(m_scalar_types.size() == 1);
+      options = options.dtype(m_scalar_types[0]);
     }
+    return at::empty(out_shape, options, t.suggest_memory_format());
   }
 
  protected:

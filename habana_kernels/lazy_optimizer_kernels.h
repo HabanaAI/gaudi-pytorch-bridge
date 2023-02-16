@@ -24,15 +24,9 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
   explicit LazyOptimizationOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      const std::set<size_t>& metadata_indices = {},
       const std::vector<std::vector<int64_t>>& out_shapes = {},
       int out_index = 0)
-      : LazyOp<ReturnType>(
-            qualstring,
-            inputs,
-            metadata_indices,
-            out_shapes,
-            out_index) {}
+      : LazyOp<ReturnType>(qualstring, inputs, out_shapes, out_index) {}
 
   virtual ~LazyOptimizationOp() = default;
 

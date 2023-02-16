@@ -21,7 +21,7 @@ IsFiniteInfNan<at::Tensor>::IsFiniteInfNan(
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
-  set_scalar_type(torch::kBool);
+  set_scalar_types({torch::kBool});
 }
 
 template <>

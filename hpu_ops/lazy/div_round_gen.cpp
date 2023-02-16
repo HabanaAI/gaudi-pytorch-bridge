@@ -83,7 +83,7 @@ LazyDivScalar<at::Tensor>::LazyDivScalar(
 template <>
 at::Tensor LazyDivScalar<at::Tensor>::get_result_overrideable() {
   auto& inputs = LazyOp<at::Tensor>::get_inputs();
-  at::ScalarType result_dtype = get_scalar_type();
+  at::ScalarType result_dtype = get_scalar_types()[0];
   convert_scalar_to_tensor(inputs, result_dtype);
 
   const auto& self = inputs[0].toTensor();
@@ -124,7 +124,7 @@ static void div_mode(habana_lazy::LazyOp<T>* op, at::Stack& inputs) {
       "'");
   at::ScalarType result_type =
       GetResultDtype(inputs, !rounding_mode.has_value());
-  op->set_scalar_type(result_type);
+  op->set_scalar_types({result_type});
   if (inputs.at(1).isScalar()) {
     convert_scalar_to_tensor(inputs, result_type);
   }

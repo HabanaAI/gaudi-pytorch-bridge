@@ -23,7 +23,7 @@ LazyNansum<at::Tensor>::LazyNansum(
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
   if (!inputs.at(3).isNone())
-    set_scalar_type(inputs[3].toScalarType());
+    set_scalar_types({inputs[3].toScalarType()});
 }
 
 template <>

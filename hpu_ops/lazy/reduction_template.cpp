@@ -24,7 +24,7 @@ at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
       self,
       get_dims(stack, m_dim_index),
       get_keepdim(stack, m_keepdim_index),
-      get_scalar_type());
+      get_scalar_types()[0]);
 }
 
 template <>

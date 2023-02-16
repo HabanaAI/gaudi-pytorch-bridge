@@ -33,7 +33,7 @@ class ReductionFrontendTemplate : public habana_lazy::LazyOp<T> {
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
       const sizes_vec& out_shapes)
-      : habana_lazy::LazyOp<T>(qualstring, inputs, {}, out_shapes, -1) {}
+      : habana_lazy::LazyOp<T>(qualstring, inputs, out_shapes, -1) {}
 
   T get_result_overrideable() override;
 

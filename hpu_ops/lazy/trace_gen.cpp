@@ -26,7 +26,7 @@ LazyTrace<at::Tensor>::LazyTrace(
   // Setting the HPU output to be of dtype = Long, as the CPU output for int
   // dtype input is Long.
   if (x.scalar_type() == c10::ScalarType::Int)
-    set_scalar_type(c10::ScalarType::Long);
+    set_scalar_types({c10::ScalarType::Long});
 }
 
 template <>

@@ -956,7 +956,7 @@ def frontend(
         code += "};\n"
 
         if use_compute_type:
-            code += "  hpu_op.set_scalar_type(compute_type);\n"
+            code += "  hpu_op.set_scalar_types({{compute_type}});\n"
 
         if ctxop.get_op_frontend_class() == "ReductionFrontendTemplate":
             code += "  hpu_op.SetReductionVarsIndices({});\n".format(
