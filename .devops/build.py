@@ -661,8 +661,7 @@ def prepare_build_dirs(
     cmake_configurations: Dict,
     pt_modules_root,
     clean=False,
-    op_stats=False,
-) -> Tuple[List, List[WheelConfig]]:
+) -> Tuple[List[Tuple], List[WheelConfig]]:
     """
     Prepares build dirs for requested configurations
     Args:
@@ -672,9 +671,9 @@ def prepare_build_dirs(
         pt_modules_root : pytorch-integration root directory
         clean: whether to remove build directories to rebuild from scratch
         op_stats: whether to create directory symbolic links required for gathering operator statistics
-    Returns: A tuple of 3 lists:
-             - CMake build configurations,
-             - wheel configurations,
+    Returns: A tuple of 2 lists:
+        - CMake build configurations: a tuple of: build dir, venv dir, and if optional
+        - wheel configurations,
     """
     cmake_build_configs = []
 
@@ -738,15 +737,6 @@ def prepare_build_dirs(
                     current_ver_build_dir,
                     cmake_flags,
                 )
-
-            if op_stats and cmake_config == "Release":
-                log.info("Files from %s will be used for gathering op stats", current_ver_build_dir)
-                src = os.path.join(current_ver_build_dir, "generated")
-                dst = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "generated")
-                if os.path.islink(src):
-                    os.remove(src)
-                os.symlink(src, dst)
-                op_stats = False
 
         wheel_configs = create_wheel_targets(
             wheels_per_build_envs, whl_build_dir, cmake_configurations.keys(), pmake
@@ -1320,6 +1310,18 @@ def run_ctest_on_dirs(cmake_build_configs):
                 else:
                     log.error(f"Failed to run ctest with error: {str(error)}")
                     sys.exit(1)
+
+
+def create_symlink_for_op_stats(build_dirs: List[str]):
+    for directory in build_dirs:
+        if "Release" in directory:
+            log.info("Files from %s will be used for gathering op stats", directory)
+            src = os.path.join(directory, "generated")
+            dst = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "generated")
+            if os.path.islink(src):
+                os.remove(src)
+            os.symlink(src, dst, target_is_directory=True)
+            return
 
 
 def install_wheel():
@@ -1910,7 +1912,6 @@ def main():
             cmake_configurations,
             pt_modules_root,
             clean=args.configure,
-            op_stats=args.op_stats,
         )
 
         selected_targets, selected_wheel_configs = select_targets_and_configs(
@@ -1927,6 +1928,10 @@ def main():
         )
         if args.run_ctest:
             run_ctest_on_dirs(cmake_build_configs)
+
+        if args.op_stats:
+            build_dirs = [config[0] for config in cmake_build_configs]
+            create_symlink_for_op_stats(build_dirs)
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)
