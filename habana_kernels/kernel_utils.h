@@ -53,32 +53,6 @@ std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,
     const at::Tensor& arg2);
 
-void compile_and_run(
-    synapse_helpers::graph&& graph,
-    const std::vector<std::string>& input_names,
-    const std::vector<std::string>& output_names,
-    const std::vector<void*>& input_buffers,
-    const std::vector<void*>& output_buffers,
-    std::vector<synapse_helpers::device_ptr> in_event_addr,
-    std::vector<synapse_helpers::device_ptr> out_event_addr,
-    std::vector<at::Tensor>& pt_inputs,
-    const uint32_t device_id,
-    size_t key = 0);
-
-void execute_recipe(
-    const std::vector<void*>& input_buffers,
-    const std::vector<void*>& output_buffers,
-    std::vector<synapse_helpers::device_ptr> in_event_addr,
-    std::vector<synapse_helpers::device_ptr> out_event_addr,
-    std::vector<at::Tensor>& pt_inputs,
-    const uint32_t device_id,
-    size_t key);
-
-size_t getRecipeKey(
-    std::string node,
-    std::vector<c10::IValue> stack,
-    bool inPlaceOp = false,
-    bool outOp = false);
 } // namespace habana_helpers
 
 // CastOut Operator

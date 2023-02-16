@@ -16,14 +16,16 @@
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "backend/kernel_recipe_signature.h"
 #include "backend/lazy_to_backend.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"
+#include "habana_device/HPUStream.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "pytorch_helpers/habana_device/HPUCheck.h"
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
@@ -150,12 +152,125 @@ void habana::HabanaOperator::CreateGraphAndCompile(
   Compile(graph);
 }
 
+namespace {
+struct ResourceHolder {
+  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+};
+} // namespace
+
+static size_t getRecipeKey(
+    std::string node,
+    std::vector<c10::IValue> stack,
+    bool inPlaceOp,
+    bool outOp) {
+  habana_helpers::RecipeSignature rs(true, stack, {node}, inPlaceOp, outOp);
+  return rs.hash();
+}
+
+static void launchRecipe(
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
+    std::vector<at::Tensor>& pt_inputs,
+    const uint32_t device_id,
+    std::shared_ptr<synapse_helpers::recipe>& recipe) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& stream_handle = device.get_stream(c10::hpu::getCurrentHPUStream());
+  std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+  if (device.IsStreamASyncEnabled()) {
+    // wait for input DMA to complete before launching the compute.
+    device.add_wait_events_on_stream(in_event_addr, stream_handle);
+
+    auto& recipe_counter = device.get_active_recipe_counter();
+    recipe_counter.increase();
+    bool status = recipe->launch(
+        input_buffers, output_buffers, address_lock, stream_handle);
+    if (!status) {
+      recipe_counter.decrease_and_notify();
+      TORCH_CHECK(false, "syn launch failed");
+    }
+    auto holder = std::make_shared<ResourceHolder>();
+    holder->address_lock = std::move(address_lock);
+    const auto& recipe_ptr = recipe->getRecipeHandle();
+    // Get the reference to the tensor it is operating on to prevent
+    // it from being deallocated while the operation is still in flight.
+    // so use copy of pt_input in callback
+    // regsiter an event on the compute
+    device.register_producer_on_stream(
+        std::move(out_event_addr),
+        stream_handle,
+        [pt_inputs, recipe_ptr, &recipe_counter, holder]() {
+          recipe_counter.decrease_and_notify();
+          return;
+        });
+  } else {
+    recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  }
+}
+
+static void execute_recipe(
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
+    std::vector<at::Tensor>& pt_inputs,
+    const uint32_t device_id,
+    size_t key) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto recipe = device.get_recipe_handle_cache().get_recipe(key);
+  AT_ASSERT(recipe != nullptr);
+  if (recipe != nullptr) {
+    launchRecipe(
+        input_buffers,
+        output_buffers,
+        in_event_addr,
+        out_event_addr,
+        pt_inputs,
+        device_id,
+        recipe);
+  }
+}
+static void compile_and_run(
+    synapse_helpers::graph&& graph,
+    const std::vector<std::string>& input_names,
+    const std::vector<std::string>& output_names,
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
+    std::vector<at::Tensor>& pt_inputs,
+    const uint32_t device_id,
+    size_t key) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::shared_ptr<synapse_helpers::recipe> recipe = nullptr;
+  if (key > 0 && device.IsCachingEnabled()) {
+    recipe = device.get_recipe_handle_cache().get_recipe(key, graph);
+  } else {
+    recipe = std::make_shared<synapse_helpers::recipe>(device);
+    recipe->create(graph);
+  }
+  AT_ASSERT(recipe != nullptr);
+  if (recipe != nullptr) {
+    recipe->set_inputs_outputs_names(input_names, output_names);
+    launchRecipe(
+        input_buffers,
+        output_buffers,
+        in_event_addr,
+        out_event_addr,
+        pt_inputs,
+        device_id,
+        recipe);
+  }
+}
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
   if (lazy_to_backend::is_lazy_inference_call_context())
     return;
 
   // compile the graph
-  habana_helpers::compile_and_run(
+  compile_and_run(
       std::move(graph),
       habana_helpers::names(p_context_->syn_inputs_),
       habana_helpers::names(p_context_->syn_outputs_),
@@ -173,7 +288,7 @@ void habana::HabanaOperator::Execute(size_t key) {
   //
   // Execute the graph
   PT_KERNEL_DEBUG("Cache hit key:", key);
-  habana_helpers::execute_recipe(
+  execute_recipe(
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
       habana_helpers::extract_storage_data_ptrs(p_context_->pt_inputs_),
@@ -252,7 +367,7 @@ size_t habana::HabanaOperator::GetRecipeKey(
     std::vector<c10::IValue> stack,
     bool inPlaceOp,
     bool outOp) {
-  size_t key = habana_helpers::getRecipeKey(node, stack, inPlaceOp, outOp);
+  size_t key = getRecipeKey(node, stack, inPlaceOp, outOp);
   p_context_->recipe_key_ = key;
   return key;
 }
