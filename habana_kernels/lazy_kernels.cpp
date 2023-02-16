@@ -921,8 +921,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
 
   if (non_blocking && !is_pinned) {
-    PT_LAZY_WARN(
-        "NonBlocking D2H supported only with pinned destination tensor.");
+    PT_LAZY_DEBUG(
+        "WARNING: NonBlocking D2H async is supported only with pinned destination tensor.");
   }
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
 
@@ -951,7 +951,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // Take the async flow only if any launch thread is under execution..
   // otherwise there wont be any wait and we dont need async d2h thread
-  if (non_blocking && context->m_launch_thread_handle.valid() &&
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_D2H_ASYNC_THREAD) && non_blocking &&
+      is_pinned && context->m_launch_thread_handle.valid() &&
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
     context->JoinPendingD2HThread();
     context->m_async_d2h_handle = SingleTonD2HThreadPool::getInstance().enqueue(
