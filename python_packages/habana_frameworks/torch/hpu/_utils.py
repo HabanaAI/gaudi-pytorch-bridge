@@ -2,6 +2,8 @@ import torch
 from typing import Optional, Any
 import os
 
+HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
+HLS_MODULE_ID_VAR = "HLS_MODULE_ID"
 
 def _get_device_index(device: Any) -> int:
     r"""Gets the device index from :attr:`device`, which can be a torch.device

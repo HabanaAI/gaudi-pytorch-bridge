@@ -10,12 +10,12 @@ from habana_frameworks.torch.utils.experimental.distributed_emulation import dis
 distributed_emulation_apply_if_enabled()
 
 
-def _setup_module_id(local_rank):
+def _setup_module_id(local_rank=-1):
     if HLS_MODULE_ID_VAR in os.environ.keys():
         # Module id already set, exiting.
         return
 
-    if local_rank != -1:
+    if local_rank == -1:
         # In case local rank is not available in env we do net set HLS_MODULE_ID
         # PT_BRIDGE will acquire device by type.
         return
@@ -74,13 +74,14 @@ def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> T
     Returns world_size, rank and local_rank if the processes
     are launched using either MPI or torchrun related APIS
     """
+
     if all(v is not None for v in [world_size, rank, local_rank]):
         _setup_user_overrides(world_size, rank, local_rank)
     else:
         _setup_environment_from_mpi()
 
     world_size, rank, local_rank = _read_values_from_env()
-    _setup_module_id(local_rank)
+    _setup_module_id(local_rank=local_rank)
 
     # setup id for synapse logging
     if rank != -1:

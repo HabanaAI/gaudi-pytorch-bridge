@@ -5,7 +5,12 @@ import warnings
 import threading
 from habana_frameworks.torch import _hpu_C
 from typing import Optional, Union, List, Any
-from ._utils import _get_device_index, _get_module_id_from_environ, _get_available_modules_from_environ
+from ._utils import (
+    _get_device_index,
+    _get_module_id_from_environ,
+    _get_available_modules_from_environ,
+    HABANA_VISIBLE_MODULES_VAR,
+    HLS_MODULE_ID_VAR)
 from .memory import *
 from .metrics import *
 from .streams import *
@@ -16,8 +21,6 @@ _initialized = False
 _tls = threading.local()
 _initialization_lock = threading.Lock()
 
-HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
-HLS_MODULE_ID_VAR = "HLS_MODULE_ID"
 
 def init() -> None:
     r"""Initialize PyTorch's HPU state.  You may need to call
@@ -143,11 +146,14 @@ def set_autocast_hpu_dtype(dtype) -> None:
 def get_autocast_hpu_dtype() -> Any:
     return _hpu_C.get_autocast_hpu_dtype()
 
+
 def enable_dynamic_shape():
     _hpu_C.enable_dynamic_shape()
 
+
 def disable_dynamic_shape():
     _hpu_C.disable_dynamic_shape()
+
 
 def is_bf16_supported():
     r"""Check if bf16 is supported."""
@@ -228,11 +234,15 @@ def set_device(device: _device_t) -> None:
     current_module_id = _get_module_id_from_environ()
 
     if current_module_id >= 0:
-        if current_module_id != requested_module_id:
-            raise AssertionError(f"Requested module_id={requested_module_id} is different from module id {requested_module_id}"
-                                 f" which was different from module_id previously set {current_module_id}")
+        if int(current_module_id) != int(requested_module_id):
+            raise AssertionError(f"Requested module_id={requested_module_id} is different from current_module_id={current_module_id}"
+                                 f" which was previously set.")
 
     os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
+    set_device.current_device_idx = device_idx
+
+
+set_device.current_device_idx = -1
 
 
 class device(object):
@@ -244,14 +254,14 @@ class device(object):
 
     def __enter__(self):
         # hack to match the behavior of torch.cuda APIs
-        self.prev_idx = _get_device_id_from_environ()
+        self.prev_idx = set_device.current_device_idx
         if self.idx == -1:
             return
         if self.idx != self.prev_idx:
             set_device(self.idx)
 
     def __exit__(self, type: Any, value: Any, traceback: Any):
-        if self.prev_idx != self.idx:
+        if self.prev_idx != self.idx and self.prev_idx != -1:
             set_device(self.idx)
         return False
 
