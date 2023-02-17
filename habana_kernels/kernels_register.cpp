@@ -135,7 +135,8 @@ Tensor linear_(
   auto bias = bias_opt.has_value()
       ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
       : c10::MaybeOwned<Tensor>::owned(c10::in_place);
-  if (input.dim() == 2 && bias->defined()) {
+  if ((!GET_ENV_FLAG_NEW(PT_DO_NOT_LOWER_LINEAR_OP)) && input.dim() == 2 &&
+      bias->defined()) {
     // Fused op is marginally faster.
     return at::addmm(*bias, input, weight.t());
   }

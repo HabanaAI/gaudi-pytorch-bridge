@@ -94,6 +94,9 @@ class PtTensorInferenceData {
 
     return ret_flag;
   }
+  void print_map();
+  std::string scope_to_key(std::string src);
+  void update_map(std::string src, std::string dst);
 
  private:
   std::unordered_map<std::string, std::pair<float, float>> inference_tensor_map;

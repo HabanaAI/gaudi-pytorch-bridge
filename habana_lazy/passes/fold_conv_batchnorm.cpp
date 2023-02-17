@@ -185,12 +185,11 @@ bool FuseConvBatchnorm(
     std::vector<torch::jit::Value*>& redundant_inputs) {
   std::vector<Node*> nodes_for_deletion;
   std::vector<int32_t> indices_for_deletion;
-
   bool graph_modified = false;
+  PtTensorInferenceData::get_instance().print_map();
   for (auto node : graph->nodes()) {
     auto node_name = node->kind().toQualString();
     PT_LAZY_DEBUG("Node Name: ", node_name);
-
     if ((strcmp(node_name, "hpu::native_batch_norm_inf") == 0) &&
         (node->inputs().at(0)->node()->kind() ==
          torch::jit::aten::convolution_overrideable)) {
@@ -316,6 +315,9 @@ bool FuseConvBatchnorm(
       nodes_for_deletion.emplace_back(bn);
 
       graph_modified = true;
+      PtTensorInferenceData::get_instance().update_map(
+          bn->scope()->name().toUnqualString(),
+          conv->scope()->name().toUnqualString());
     }
   }
 
@@ -325,6 +327,7 @@ bool FuseConvBatchnorm(
     node->destroy();
   }
 
+  PtTensorInferenceData::get_instance().print_map();
   PT_LAZY_DEBUG("[FuseConvBatchnorm] Exit");
   return graph_modified;
 }

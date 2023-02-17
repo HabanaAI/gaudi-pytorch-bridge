@@ -504,7 +504,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     auto ivalue = value_exists->second;
     std::string scope_string;
     if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-      auto scope_string = std::string(node->scope()->name().toUnqualString());
+      scope_string = std::string(node->scope()->name().toUnqualString());
       scope_string = !scope_string.empty()
           ? scope_string.substr(1, scope_string.length() - 1)
           : scope_string;

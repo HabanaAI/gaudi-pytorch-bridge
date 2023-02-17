@@ -41,6 +41,41 @@
 
 using namespace torch;
 
+void PtTensorInferenceData::print_map() {
+  for (auto i : inference_tensor_map) {
+    PT_BRIDGE_DEBUG(
+        " KEY: ",
+        i.first,
+        "  min: ",
+        i.second.first,
+        " max: ",
+        i.second.second);
+  }
+}
+
+std::string PtTensorInferenceData::scope_to_key(std::string src) {
+  src = src + ".0";
+  src = src.substr(1, src.length() - 1);
+  std::replace(src.begin(), src.end(), '/', '.');
+  return src;
+}
+
+void PtTensorInferenceData::update_map(std::string src, std::string dst) {
+  auto src_key = scope_to_key(src);
+  auto dst_key = scope_to_key(dst);
+  // both keys exist
+  if (inference_tensor_map.find(src_key) != inference_tensor_map.end() &&
+      inference_tensor_map.find(dst_key) != inference_tensor_map.end()) {
+    auto stats = inference_tensor_map[src_key];
+    inference_tensor_map.erase(dst_key);
+    SetInferenceTensorRange(dst_key, stats.first, stats.second);
+    inference_tensor_map.erase(src_key);
+  } else {
+    PT_BRIDGE_DEBUG(
+        " One of these Keys do not exist: ", src_key, "  , or : ", dst_key);
+  }
+}
+
 std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   std::stringstream O;
 

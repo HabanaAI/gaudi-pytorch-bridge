@@ -1397,6 +1397,48 @@ void habana::LinearForwardOperator::AllocateAndAddSynapseNode(
   auto device_id = p_context_->device_id_;
   // check for special case input shape that can use the full capability of
   // batch_gemm
+  if (GET_ENV_FLAG_NEW(PT_DO_NOT_LOWER_LINEAR_OP)) {
+    bool bias_in_batch_gemm = (bias.defined() && (bias.dim() == 1));
+    auto matmul_op = make_operator<habana::MMOperator>(device_id);
+    matmul_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    matmul_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    torch::jit::Stack stack = {c10::IValue(input), c10::IValue(weight)};
+    stack.emplace_back(IValue(false)); // input need not be transposed
+    stack.emplace_back(IValue(true)); // transpose weight in bgemm
+    if (bias_in_batch_gemm) { // only 1-d bias taken as input for batch_gemm
+                              // guid
+      matmul_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+      stack.emplace_back(bias);
+    }
+    OutputMetaDataVector mm_output_metadata(1);
+    mm_output_metadata.at(0).dtype = output_metadata.at(0).dtype;
+    matmul_op->AllocateAndAddSynapseNode(
+        graph,
+        stack,
+        ((bias.defined() && !bias_in_batch_gemm) ? mm_output_metadata
+                                                 : output_metadata));
+    if (bias.defined() &&
+        !bias_in_batch_gemm) { // bias tensor not handled by batch_gemm
+      auto add_op =
+          make_operator<habana::AddOperator>(device_id, bias.scalar_type());
+      add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+      add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
+      torch::jit::Stack stack = {
+          c10::IValue(bias),
+          c10::IValue(matmul_op->GetOutputs()[0]),
+          c10::IValue(c10::Scalar(1.0))};
+      add_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(add_op->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
+    } else {
+      p_context_->syn_outputs_.emplace_back(
+          std::move(matmul_op->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(matmul_op->GetOutputs()[0]));
+    }
+    return;
+  }
   if (MatMulOperator::is_gmemm_with_transpose_possible(input, weight)) {
     bool bias_in_batch_gemm = (bias.defined() && (bias.dim() == 1));
     auto matmul_op = make_operator<habana::MatMulOperator>(device_id);

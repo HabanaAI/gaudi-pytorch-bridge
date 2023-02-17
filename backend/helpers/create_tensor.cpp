@@ -30,17 +30,17 @@ std::string get_tensor_range(
   char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
   status = synTensorGetName(tensor_, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
 
-  status = synTensorHandleCreate(
-      &tensor_, graph_.get_graph_handle(), DATA_TENSOR, tensorName);
   synQuantDynamicRange dynamic_range_{0, 0};
   status = synTensorGetQuantizationData(
       tensor_,
       SYN_QUANT_DYNAMIC_RANGE,
       &dynamic_range_,
       sizeof(synQuantDynamicRange));
-  static_cast<void>(status);
-  PtTensorInferenceData::get_instance().SetInferenceTensorRange(
-      tensorName, dynamic_range_.min, dynamic_range_.max);
+  if (status == synStatus::synSuccess) {
+    PtTensorInferenceData::get_instance().SetInferenceTensorRange(
+        tensorName, dynamic_range_.min, dynamic_range_.max);
+  }
+
   return tensorName;
 }
 
