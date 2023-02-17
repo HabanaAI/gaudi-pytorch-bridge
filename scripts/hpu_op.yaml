@@ -894,21 +894,24 @@ addr:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
   force_default: false
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
   out_ids: [0]
 
 addr_:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
   force_default: false
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
   inplace_ids: [0]
 
 addr.out:
   custom_output_shape: AddROutshape
   dtypes: [BFloat16, Float]
   force_default: false
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
 
 alias:
   force_default: false
