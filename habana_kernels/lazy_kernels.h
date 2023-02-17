@@ -1129,9 +1129,9 @@ class LazyOp {
           std::tuple_size<T>::value == meta.size());
       unsigned i = 0;
       ReturnType results;
-      auto output_meta = meta[i++];
 
       habana::for_each_in_tuple(results, [&](auto& result) {
+        auto output_meta = meta[i++];
         result = empty_hpu_lazy(
             output_meta.shape,
             output_meta.dtype,

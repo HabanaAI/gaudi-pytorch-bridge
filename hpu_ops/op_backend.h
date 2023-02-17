@@ -150,6 +150,10 @@ class OpBackend : public HabanaOperator {
   }
 
   const OutputMetaData& GetOutputMetaData(int i) const {
+    if (m_meta_mode) {
+      static auto output_meta_data = OutputMetaData();
+      return output_meta_data;
+    }
     return m_output_metadata.at(i);
   }
 

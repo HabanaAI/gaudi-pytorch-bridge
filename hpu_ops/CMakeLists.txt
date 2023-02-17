@@ -88,6 +88,8 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/clamp_gen.cpp
           backend/compare_gen.cpp
           backend/count_nonzero_gen.cpp
+          backend/convolution_overrideable_gen.cpp
+          backend/convolution_backward_overrideable_gen.cpp
           backend/cumsum_gen.cpp
           backend/diag_gen.cpp
           backend/div_mod_util.cpp
@@ -237,6 +239,8 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/bitwise_shift_gen.cpp
           lazy/clamp_gen.cpp
           lazy/compare_gen.cpp
+          lazy/convolution_overrideable_gen.cpp
+          lazy/convolution_backward_overrideable_gen.cpp
           lazy/cumsum_gen.cpp
           lazy/div_round_gen.cpp
           lazy/embedding_gen.cpp

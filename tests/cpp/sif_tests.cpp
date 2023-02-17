@@ -261,45 +261,6 @@ TEST_F(SifTest, AddMulRelu) {
   validate_shape_end();
 }
 
-TEST_F(SifTest, DISABLED_ConvTranspose2dBwd) {
-  validate_shape_start();
-
-  auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad()); // nchw
-  auto hin = in.to(torch::kHPU);
-  auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
-  auto hwt = wt.to(torch::kHPU);
-  auto bias = torch::randn({5}, torch::requires_grad()); // k
-  auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
-
-  auto grad_out = torch::ones_like(exp.detach());
-  auto hgrad_out = grad_out.detach().to(torch::kHPU);
-  exp.backward(grad_out);
-  auto grad_in = in.grad();
-  auto grad_wt = wt.grad();
-
-  Tensor hgrad_in, hgrad_wt, hgrad_bias;
-  std::array<bool, 3> mask{1, 1, 0};
-  std::tie(hgrad_in, hgrad_wt, hgrad_bias) = convolution_backward_hpu_lazy(
-      hgrad_out, hin, hwt, {1, 1}, {0, 0}, {1, 1}, true, {0, 0}, 1, mask);
-
-  // TBD: aten::backward is not handled by lazy mode, therefore this is
-  // not working. This code can be restored when that is fixed.
-  /*auto result = torch::conv_transpose2d(hin, hwt, {}, 1, 0, 0, 1, 1);
-  result.backward(hgrad_out);
-  auto hgrad_in = hin.grad();
-  auto hgrad_wt = hwt.grad();*/
-
-  // without explicit stepmarker here. DMA for hgrad_in tensor gets messed up
-  // most likely due to 2 outputs from backward op. TBD: remove this once issue
-  // is debugged and fixed.
-  HbLazyTensor::StepMarker({});
-
-  auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
-  auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
-  validate_shape_end();
-}
-
 // Graph : Cat + Reshape + Relu + Conv2DTransposeBias
 // 1. Cat Op
 // 2. Reshape Op

@@ -1928,21 +1928,25 @@ constant_pad_nd:
 
 convolution_overrideable:
   force_default: false
+  custom_output_shape: ConvolutionOverrideableOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Gaudi3: [BFloat16, Float]
-  override_fn: convolution_hpu_lazy
-  acc_thread: true
+  op_frontend: ConvolutionOverrideableFE
+  op_backend: ConvolutionOverrideable
+  out_ids: [0]
 
 convolution_backward_overrideable:
   force_default: false
+  output_meta: ConvolutionOverrideableMetaBwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
     Gaudi3: [BFloat16, Float]
-  override_fn: convolution_backward_hpu_lazy
-  acc_thread: true
+  op_frontend: ConvolutionBackwardOverrideableFE
+  op_backend: ConvolutionBackwardOverrideable
+  out_ids: [0, 0, 0]
 
 copysign.out:
   custom_output_shape: BinaryOutputShape

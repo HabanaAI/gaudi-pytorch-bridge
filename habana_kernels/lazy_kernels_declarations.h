@@ -103,27 +103,9 @@ at::Tensor& mul_out_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
     at::Tensor& out);
-at::Tensor convolution_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    bool transposed,
-    at::IntArrayRef output_padding,
-    int64_t groups);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> convolution_backward_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    bool transposed,
-    at::IntArrayRef output_padding,
-    int64_t groups,
-    std::array<bool, 3> output_mask);
+at::Tensor floor_divide_tensor_hpu_lazy(
+    const at::Tensor& self,
+    const at::Tensor& other);
 #if IS_PYTORCH_OLDER_THAN(1, 14)
 at::Tensor constant_pad_hpu_lazy(
     const at::Tensor& self,

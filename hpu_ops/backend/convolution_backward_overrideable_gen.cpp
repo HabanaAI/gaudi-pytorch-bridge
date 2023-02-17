@@ -1,0 +1,393 @@
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+#include "backend/helpers/lowering_util.h"
+#include "backend/synapse_helpers/layout_utils.h"
+#include "generated/backend/convolution_backward_overrideable.h"
+
+using namespace synapse_helpers::layouts;
+
+namespace habana {
+
+static std::shared_ptr<void> SynapseConvParamsBuilder(
+    const c10::IntArrayRef& weight, // HWCK
+    const c10::IntArrayRef& stride, // HW
+    const c10::IntArrayRef& padding, // HW
+    const c10::IntArrayRef& dilation, // HW
+    int64_t groups,
+    size_t& size) {
+  PARAMS_STUB(synConvolutionParams);
+
+  params->dH = stride[0];
+  params->dW = stride[1];
+  params->kH = weight[WEIGHT_KERNEL_R_IDX];
+  params->kW = weight[WEIGHT_KERNEL_S_IDX];
+  params->dilH = dilation[0];
+  params->dilW = dilation[1];
+  params->setPadT(padding[0]);
+  params->setPadB(padding[0]);
+  params->setPadL(padding[1]);
+  params->setPadR(padding[1]);
+  params->nGroups = groups;
+
+  return params;
+}
+
+static std::shared_ptr<void> SynapseConv3dParamsBuilder(
+    const c10::IntArrayRef& weight, // DHWCK
+    const c10::IntArrayRef& stride, // DHW
+    const c10::IntArrayRef& padding, // DHW
+    const c10::IntArrayRef& dilation, // DHW
+    int64_t groups,
+    size_t& size) {
+  constexpr uint32_t d_axis = 0;
+  constexpr uint32_t h_axis = 1;
+  constexpr uint32_t w_axis = 2;
+
+  const int64_t filter_D = weight[WEIGHT_KERNEL_3D_Q_IDX];
+  const int64_t filter_H = weight[WEIGHT_KERNEL_3D_R_IDX];
+  const int64_t filter_W = weight[WEIGHT_KERNEL_3D_S_IDX];
+  const int64_t stride_D = stride[d_axis];
+  const int64_t stride_H = stride[h_axis];
+  const int64_t stride_W = stride[w_axis];
+  const int64_t dilation_D = dilation[d_axis];
+  const int64_t dilation_H = dilation[h_axis];
+  const int64_t dilation_W = dilation[w_axis];
+
+  PARAMS_STUB(synConvolution3DParams);
+
+  params->kernel[CONV_KERNEL_WIDTH] = filter_W;
+  params->kernel[CONV_KERNEL_HEIGHT] = filter_H;
+  params->kernel[CONV_KERNEL_DEPTH] = filter_D;
+  params->stride[CONV_STRIDE_WIDTH] = stride_W;
+  params->stride[CONV_STRIDE_HEIGHT] = stride_H;
+  params->stride[CONV_STRIDE_DEPTH] = stride_D;
+  params->dilation[CONV_DIL_WIDTH] = dilation_W;
+  params->dilation[CONV_DIL_HEIGHT] = dilation_H;
+  params->dilation[CONV_DIL_DEPTH] = dilation_D;
+  params->padding[CONV_PAD_LEFT] = padding[w_axis];
+  params->padding[CONV_PAD_RIGHT] = padding[w_axis];
+  params->padding[CONV_PAD_TOP] = padding[h_axis];
+  params->padding[CONV_PAD_BOTTOM] = padding[h_axis];
+  params->padding[CONV_PAD_FRONT] = padding[d_axis];
+  params->padding[CONV_PAD_BACK] = padding[d_axis];
+  params->nGroups = groups;
+
+  return params;
+}
+
+static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
+    bool is_conv_3d,
+    const at::Tensor& weight,
+    const std::vector<int64_t> stride,
+    const std::vector<int64_t> padding,
+    const std::vector<int64_t> dilation,
+    int64_t groups,
+    size_t& size) {
+  if (is_conv_3d) {
+    return SynapseConv3dParamsBuilder(
+        weight.sizes(),
+        c10::IntArrayRef(stride),
+        c10::IntArrayRef(padding),
+        c10::IntArrayRef(dilation),
+        groups,
+        size);
+  } else {
+    return SynapseConvParamsBuilder(
+        weight.sizes(),
+        c10::IntArrayRef(stride),
+        c10::IntArrayRef(padding),
+        c10::IntArrayRef(dilation),
+        groups,
+        size);
+  }
+}
+
+OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
+  auto grad_output = stack_tensor(stack, 0);
+  auto input = stack_tensor(stack, 1);
+  auto weight = stack_tensor(stack, 2);
+
+  OutputMetaData input_meta;
+  input_meta.shape = input.sizes().vec();
+  input_meta.dtype = input.scalar_type();
+  input_meta.mem_format = input.suggest_memory_format();
+
+  OutputMetaData weight_meta;
+  weight_meta.shape = weight.sizes().vec();
+  weight_meta.dtype = weight.scalar_type();
+  weight_meta.mem_format = weight.suggest_memory_format();
+
+  OutputMetaData grad_output_meta;
+  grad_output_meta.shape = std::vector<int64_t>{grad_output.sizes().vec()[1]};
+  grad_output_meta.dtype = grad_output.scalar_type();
+  grad_output_meta.mem_format = at::MemoryFormat::Contiguous;
+
+  return {input_meta, weight_meta, grad_output_meta};
+}
+
+static synapse_helpers::tensor ComputeBiasGrad(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    bool is_conv_3d,
+    const OutputMetaData& out_metadata,
+    at::Tensor& grad_output,
+    std::vector<synTensor> syn_grad_output,
+    synapse_helpers::tensor& ten_output) {
+  auto channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+
+  std::vector<int64_t> dim_to_reduce;
+  for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
+    if (i != channel_dim) // skip C dimension
+      dim_to_reduce.push_back(i);
+  }
+
+  auto num_dims_to_reduce = dim_to_reduce.size();
+  // wrap dims to positive values, sort dim list and remove any duplicates
+  LoweringUtil::SortAndRemoveDuplicateDims(dim_to_reduce, grad_output.dim());
+
+  // Check whether all dims in list are the higher "continuous" dimensions
+  // if yes, "flatten" higher dims to a single unrolled-size dim.
+  // Note-1 that this is an optimization to avoid any precision loss we may
+  // get due to separate back 2 back reductions along single dimensions.
+  // Note-2 cases such as [0,1,3] where there is in additional dim to reduce
+  // in addition to continuous dims is not supported with flattening and falls
+  // back to regular flow
+  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
+  bool flatten_higher_dims = false;
+  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
+    if (dim_to_reduce[i] == next_val[i]) {
+      flatten_higher_dims = true;
+    } else {
+      flatten_higher_dims = false;
+      break;
+    }
+  }
+
+  if (flatten_higher_dims) {
+    // TODO: remove or replace if we want to support flatten higher dims
+    return std::move(ten_output);
+  } else {
+    at::ScalarType scalar_type = grad_output.scalar_type();
+    std::string guid =
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+    std::vector<synapse_helpers::tensor> syn_tmp;
+    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
+    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
+      ns_Reduction::Params params{};
+      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
+
+      pyt_shape[dim_to_reduce[i]] = 1;
+      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
+
+      if (i == 0) {
+        syn_tmp = OpBackend::BuildNode(
+            op,
+            graph,
+            {guid,
+             std::move(syn_grad_output),
+             {{shape_red, scalar_type}},
+             &params,
+             sizeof(params)});
+      } else {
+        std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
+        syn_tmp = OpBackend::BuildNode(
+            op,
+            graph,
+            {guid,
+             std::move(syn_tmp_in),
+             {{shape_red, scalar_type}},
+             &params,
+             sizeof(params)});
+      }
+    }
+
+    // Add a final reshape to remove the "1" sized upper
+    int64_t data[1] = {syn_tmp[0].pt_shape()[1]};
+    c10::IntArrayRef shape_out(data, 1);
+
+    std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
+    op->CreateShapeTensorInput(graph, scalar_type, {data[0]}, syn_tmp_in);
+
+    synapse_helpers::tensor reshapeOp = op->BuildReshape(
+        op, graph, syn_tmp[0].get(), shape_out, scalar_type, 2);
+    return reshapeOp;
+  }
+}
+
+void ConvolutionBackwardOverrideable::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t params_size = 0;
+  at::Tensor grad_output = stack_tensor(stack, 0); // Result of convolution fwd
+  at::Tensor input = stack_tensor(stack, 1);
+  at::Tensor weight = stack_tensor(stack, 2);
+  const auto stride = stack[3].toIntList().vec();
+  const auto padding = stack[4].toIntList().vec();
+  const auto dilation = stack[5].toIntList().vec();
+  const bool transposed = stack[6].toBool();
+  const int64_t groups = stack[8].toInt();
+  const auto output_mask_in = stack[9].toBoolList();
+
+  const uint64_t DIM5 = 5;
+  const bool is_conv_3d = input.dim() == DIM5;
+
+  const auto output_meta = ConvolutionOverrideableMetaBwd(stack);
+  const auto out0_shape = output_meta[0].shape;
+  const auto out1_shape = output_meta[1].shape;
+
+  const auto& params = FillConvolutionBackwardOverrideableParams(
+      is_conv_3d, weight, stride, padding, dilation, groups, params_size);
+
+  auto BuildOpFor =
+      [&](synapse_helpers::graph& graph,
+          std::string& guid,
+          bool is_conv_3d,
+          std::vector<synTensor> node_inputs,
+          const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
+          void* params,
+          size_t param_size) {
+        if (guid.find("spatial_convolution") != std::string::npos ||
+            guid.find("dedx") != std::string::npos) {
+          if (is_conv_3d) {
+            std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
+                input_layouts = {
+                    synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+                    synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
+                    synapse_helpers::layouts::SynapseLayoutFormat::WHDCN};
+            if (graph.is_dynamic_graph() &&
+                guid.find("dedx") != std::string::npos) {
+              input_layouts.emplace_back(
+                  synapse_helpers::layouts::SynapseLayoutFormat::WHDCN);
+            }
+            SetSynapseLayouts(
+                input_layouts,
+                {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
+          } else {
+            std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
+                input_layouts = {
+                    synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+                    synapse_helpers::layouts::SynapseLayoutFormat::SRCK};
+            if (graph.is_dynamic_graph() &&
+                guid.find("dedx") != std::string::npos) {
+              input_layouts.emplace_back(
+                  synapse_helpers::layouts::SynapseLayoutFormat::WHCN);
+            }
+            SetSynapseLayouts(
+                input_layouts,
+                {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+          }
+        } else if (guid.find("dedw") != std::string::npos) {
+          if (is_conv_3d) {
+            SetSynapseLayouts(
+                {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+                 synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+                 synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+                {synapse_helpers::layouts::SynapseLayoutFormat::SRQCK});
+          } else {
+            SetSynapseLayouts(
+                {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+                 synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+                {synapse_helpers::layouts::SynapseLayoutFormat::SRCK});
+          }
+        }
+
+        guid += "_" + habana_helpers::name_suffix_from_type(ScalarType());
+
+        return std::move(
+            BuildOp(
+                graph, guid, node_inputs, node_output_attr, params, params_size)
+                .at(0));
+      };
+
+  std::string guid;
+
+  synTensor syn_grad_output = syn_in(0);
+  synTensor syn_input = syn_in(1);
+  synTensor syn_weight = syn_in(2);
+
+  if (transposed) {
+    if (output_mask_in[0]) {
+      guid = "spatial_convolution";
+      auto convOp = BuildOpFor(
+          graph,
+          guid,
+          is_conv_3d,
+          {syn_grad_output, syn_weight},
+          {{out0_shape, ScalarType(), 0}},
+          params.get(),
+          params_size);
+      syn_out(0) = std::move(convOp);
+    }
+
+    if (output_mask_in[1]) {
+      guid = is_conv_3d ? "dedw3d" : "dedw";
+      auto dedwOp = BuildOpFor(
+          graph,
+          guid,
+          is_conv_3d,
+          {syn_input, syn_grad_output},
+          {{out1_shape, ScalarType(), 1}},
+          params.get(),
+          params_size);
+      syn_out(1) = std::move(dedwOp);
+    }
+  } else {
+    if (output_mask_in[0]) {
+      std::vector syn_inputs = {syn_grad_output, syn_weight};
+
+      // Allocate Shape Tensor
+      CreateShapeTensorInput(graph, ScalarType(), out0_shape, syn_inputs);
+
+      guid = is_conv_3d ? "dedx3d" : "dedx";
+      auto convOp = BuildOpFor(
+          graph,
+          guid,
+          is_conv_3d,
+          syn_inputs,
+          {{out0_shape, ScalarType(), 0}},
+          params.get(),
+          params_size);
+      syn_out(0) = std::move(convOp);
+    }
+
+    if (output_mask_in[1]) {
+      guid = is_conv_3d ? "dedw3d" : "dedw";
+      auto dedwOp = BuildOpFor(
+          graph,
+          guid,
+          is_conv_3d,
+          {syn_grad_output, syn_input},
+          {{out1_shape, ScalarType(), 1}},
+          params.get(),
+          params_size);
+      syn_out(1) = std::move(dedwOp);
+    }
+  }
+
+  // Bias grad computation is the same for conv2d bwd and conv2d_transpose bwd
+  if (output_mask_in[2]) {
+    SetSynapseLayouts({}, {});
+    auto biasRes = ComputeBiasGrad(
+        this,
+        graph,
+        is_conv_3d,
+        GetOutputMetaData(0),
+        grad_output,
+        {syn_grad_output},
+        syn_out(2));
+    syn_out(2) = std::move(biasRes);
+  }
+}
+
+} // namespace habana
