@@ -1453,6 +1453,7 @@ def parse_args():
         help="number of parallel jobs used for building. "
         f"The default value depends on system, here it's {default_job_count}.",
         default=default_job_count,
+        nargs="?",
     )
     parser.add_argument(
         "-r",
