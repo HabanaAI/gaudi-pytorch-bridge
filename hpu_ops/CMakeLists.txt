@@ -211,9 +211,7 @@ target_link_libraries(habana_pytorch_backend_ops
 add_library(habana_pytorch_frontend_ops OBJECT
           cpu_fallback.cpp
           supported_dtypes.cpp
-          lazy/any_gen.cpp
           lazy/arange_gen.cpp
-          lazy/argmin_max_gen.cpp
           lazy/bernoulli_gen.cpp
           lazy/binarycrossentropy_gen.cpp
           lazy/bitwise_gen.cpp
@@ -230,7 +228,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/geometric_gen.cpp
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
-          lazy/isfinite_isinf_isnan_gen.cpp
           lazy/kthvalue_gen.cpp
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
@@ -244,7 +241,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/remainder_gen.cpp
           lazy/rrelu_with_noise_gen.cpp
           lazy/rsub_gen.cpp
-          lazy/signbit_gen.cpp
           lazy/threshold_gen.cpp
           lazy/topk_util.cpp
           lazy/trace_gen.cpp

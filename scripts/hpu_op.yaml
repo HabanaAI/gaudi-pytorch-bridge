@@ -9,6 +9,11 @@
 # was provided.
 #
 # ******************************************************************************
+_assert_async:
+  guid: assert_async
+  out_ids: [0]
+  op_backend: AssertAsync
+
 __ilshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
@@ -843,8 +848,8 @@ all:
     Gaudi2: [Char]
     Gaudi3: [Char]
     Greco: [Char]
+  out_dtypes: [Bool]
   out_ids: [0]
-  op_frontend: AllAnyOutputType
   op_backend: All
 
 all.all_out:
@@ -864,8 +869,8 @@ all.dim:
     Gaudi2: [Char]
     Gaudi3: [Char]
     Greco: [Char]
-  op_frontend: AllAnyOutputType
   op_backend: AllDim
+  out_dtypes: [Bool]
   out_ids: [0]
 
 all.out:
@@ -928,8 +933,8 @@ any:
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
     Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
-  op_frontend: AllAnyOutputType
   op_backend: Any
+  out_dtypes: [Bool]
   out_ids: [0]
 
 any.dim:
@@ -940,8 +945,8 @@ any.dim:
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
     Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
     Greco: [Char, Float, BFloat16, Int, Short, Half]
-  op_frontend: AllAnyOutputType
   op_backend: AnyDim
+  out_dtypes: [Bool]
   out_ids: [0]
 
 any.out:
@@ -981,8 +986,8 @@ argmin:
   dtypes: [Float, BFloat16]
   force_default: false
   guid: argmin_fwd
-  op_frontend: ArgminmaxOutputType
   op_backend: ArgMinMax
+  out_dtypes: [Long]
   out_ids: [0]
 
 argmin.out:
@@ -1094,7 +1099,6 @@ _adaptive_avg_pool2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  force_default: false
 
 adaptive_avg_pool2d.out:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
@@ -1121,7 +1125,6 @@ _adaptive_avg_pool2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  force_default: false
 
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -3261,9 +3264,9 @@ isfinite:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
-  op_frontend: IsFiniteInfNan
   op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
+  out_dtypes: [Bool]
   out_ids: [0]
 
 isinf:
@@ -3275,18 +3278,19 @@ isinf:
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInfNan
   op_backend: _IsFiniteInfNan
+  out_dtypes: [Bool]
   out_ids: [0]
 
 isinf.out:
+  force_default: false
   custom_fill_params: FillisinfParamsFwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
-  out_dtype: Bool
+  out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
 
@@ -3297,8 +3301,8 @@ isnan:
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
   guid: isnan_fwd
-  op_frontend: IsFiniteInfNan
   op_backend: _IsFiniteInfNan
+  out_dtypes: [Bool]
   out_ids: [0]
 
 isneginf:
@@ -3310,8 +3314,8 @@ isneginf:
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInfNan
   op_backend: _IsFiniteInfNan
+  out_dtypes: [Bool]
   out_ids: [0]
 
 isneginf.out:
@@ -3321,7 +3325,7 @@ isneginf.out:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
-  out_dtype: Bool
+  out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
 
@@ -3334,8 +3338,8 @@ isposinf:
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
-  op_frontend: IsFiniteInfNan
   op_backend: _IsFiniteInfNan
+  out_dtypes: [Bool]
   out_ids: [0]
 
 isposinf.out:
@@ -3345,7 +3349,7 @@ isposinf.out:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
     Greco: [BFloat16, Float, Half, Int]
-  out_dtype: Bool
+  out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
 
@@ -3356,6 +3360,7 @@ kl_div:
   acc_thread: true
 
 kthvalue:
+  force_default: false
   custom_output_shape: KthvalueOutputShape
   custom_fill_params: FillKthvalueParams
   dtypes:
@@ -4787,6 +4792,7 @@ neg:
   out_ids: [0]
 
 nextafter:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4797,6 +4803,7 @@ nextafter:
   out_ids: [0]
 
 nextafter_:
+  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5989,7 +5996,7 @@ signbit:
   force_default: false
   dtypes: [BFloat16, Float, Int, Char, Byte]
   op_backend: SignBit
-  op_frontend: LazySetDtypeBool
+  out_dtypes: [Bool]
   out_ids: [0]
 
 signbit.out:
@@ -6329,6 +6336,7 @@ sqrt_:
   inplace_ids: [0]
 
 squeeze:
+  force_default: false
   override_fn: squeeze_self_hpu_lazy
   acc_thread: true
 
@@ -7328,6 +7336,7 @@ view:
   acc_thread: true
 
 view.dtype:
+  force_default: false
   override_fn: view_dtype_hpu_lazy
   acc_thread: true
 
@@ -7447,8 +7456,3 @@ zero_:
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   override_fn: zero_hpu_lazy
   acc_thread: true
-
-_assert_async:
-  guid: assert_async
-  out_ids: [0]
-  op_backend: AssertAsync
