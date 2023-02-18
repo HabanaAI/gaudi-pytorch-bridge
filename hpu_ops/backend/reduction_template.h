@@ -40,14 +40,7 @@ class ReductionBackendTemplate : public OpBackend {
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
 
  public:
-  ReductionBackendTemplate(
-      int device_id,
-      const std::string& guid,
-      at::ScalarType scalar_type,
-      std::vector<int> res_ids,
-      std::vector<int> inplace_ids,
-      std::vector<int> scalar_ids,
-      bool is_outfn);
+  using OpBackend::OpBackend;
 
  protected:
   void SetReductionVarsIndices(

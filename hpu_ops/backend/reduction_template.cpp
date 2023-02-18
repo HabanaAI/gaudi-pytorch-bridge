@@ -25,23 +25,6 @@ static at::optional<at::ScalarType> get_dtype(
       : at::nullopt;
 }
 
-ReductionBackendTemplate::ReductionBackendTemplate(
-    int device_id,
-    const std::string& guid,
-    at::ScalarType scalar_type,
-    std::vector<int> res_ids,
-    std::vector<int> inplace_ids,
-    std::vector<int> scalar_ids,
-    bool is_outfn)
-    : OpBackend(
-          device_id,
-          guid,
-          scalar_type,
-          std::move(res_ids),
-          std::move(inplace_ids),
-          std::move(scalar_ids),
-          is_outfn) {}
-
 void ReductionBackendTemplate::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

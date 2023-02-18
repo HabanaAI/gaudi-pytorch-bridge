@@ -226,6 +226,55 @@ def test_relu2d_contiguous():
     result_cpu = torch.relu(cpu_tensor)
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
+def test_batch_norm():
+    torch.manual_seed(10)
+    N = 2
+    C = 2
+    H = 2
+    W = 2
+
+    # 1. Compute BN Fwd + Bwd on CPU
+    cpu_inputs = {
+        'input': torch.randn(N, C, H, W, requires_grad=True),
+        'running_mean': torch.randn(C),
+        'running_var': torch.randn(C) + 1,
+        'weight': torch.randn(C, requires_grad=True) + 1,
+        'bias': torch.randn(C, requires_grad=True),
+    }
+    cpu_res = torch.nn.functional.batch_norm(**cpu_inputs)
+    cpu_grad_outputs = torch.randn(N, C, H, W)
+    (cpu_input_grad,
+     cpu_weight_grad,
+     cpu_bias_grad) = torch.autograd.grad(
+                        outputs=cpu_res,
+                        inputs=[v for k, v in cpu_inputs.items() if
+                                k in ['input', 'bias', 'weight']],
+                        grad_outputs=cpu_grad_outputs)
+
+    # 2. Compute BN Fwd + Bwd on HPU
+    hpu_inputs = {
+        k: v.to("hpu") for k, v in cpu_inputs.items()
+    }
+
+    hpu_res = torch.nn.functional.batch_norm(**hpu_inputs)
+    hpu_grad_outputs = cpu_grad_outputs.to("hpu")
+    (hpu_input_grad,
+     hpu_weight_grad,
+     hpu_bias_grad) = torch.autograd.grad(
+                        outputs=hpu_res,
+                        inputs=[v for k, v in hpu_inputs.items() if
+                                k in ['input', 'bias', 'weight']],
+                        grad_outputs=hpu_grad_outputs)
+
+    hpu_res = hpu_res.to("cpu")
+    hpu_input_grad = hpu_input_grad.to("cpu")
+    hpu_weight_grad = hpu_weight_grad.to("cpu")
+    hpu_bias_grad = hpu_bias_grad.to("cpu")
+
+    assert torch.allclose(hpu_res, cpu_res, atol=1e-3)
+    assert torch.allclose(hpu_input_grad, cpu_input_grad, atol=1e-3)
+    assert torch.allclose(hpu_weight_grad, cpu_weight_grad, atol=1e-3)
+    assert torch.allclose(hpu_bias_grad, cpu_bias_grad, atol=1e-3)
 
 def test_pow2d_contiguous():
     cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
@@ -339,3 +388,4 @@ def test_where_variants():
     torch.where(condition, self, other, out=where_out_cpu)
     torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu)
     assert torch.equal(where_out_hpu.to("cpu"), where_out_cpu)
+

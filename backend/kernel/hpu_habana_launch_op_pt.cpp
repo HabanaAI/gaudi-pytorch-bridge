@@ -733,6 +733,90 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
 
   auto cur_sif_tidx = habana::ShapeInference::GetSifTensorId();
+
+  auto handle_permutes = [&](PtTensorInfoShared ti,
+                             synapse_helpers::tensor& sh_t,
+                             IValPtrShared ivpsh) {
+    // set permutation flag for persistent tensors
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+        !is_hccl_send_mark_step()) {
+      if (!ti->is_ZST()) {
+        setSynapsePermuteFlag(sh_t, ti);
+        if (pt_to_synapse_tensors.count(ivpsh)) {
+          PT_BRIDGE_DEBUG(
+              habana_helpers::DebugString(ivpsh),
+              " already exists in pt_to_synapse_tensors map, ",
+              *ti);
+        }
+      }
+    }
+  };
+
+  auto handle_shape_inf = [&](PtTensorInfoShared ti, bool use_output_shape) {
+    if (shape_inf_flag) {
+      if (use_output_shape && !op_output_shape.empty()) {
+        auto output = op_output_shape.GetOutputTensor().at(output_tensor_idx);
+        auto output_sif_tidx{std::get<0>(output)};
+        auto ret = sif_tidx_to_tinfo_map.insert({output_sif_tidx, ti});
+        if (ret.second) {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Output tensor cs: adding to sif_tidx_to_tinfo_map : ",
+              output_sif_tidx,
+              " -> ",
+              *ti);
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Output tensor cs: failed adding to sif_tidx_to_tinfo_map : ",
+              output_sif_tidx,
+              " -> ",
+              *ti);
+        }
+      } else {
+        // op_output_shape is empty
+        auto ret = sif_tidx_to_tinfo_map.insert({cur_sif_tidx, ti});
+        if (ret.second) {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Output tensor manual: adding to sif_tidx_to_tinfo_map : ",
+              cur_sif_tidx,
+              " -> ",
+              *ti);
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Output tensor manual: failed adding to sif_tidx_to_tinfo_map : ",
+              cur_sif_tidx,
+              " -> ",
+              *ti);
+        }
+      }
+    }
+  };
+
+  auto handle_postprocess = [&](const auto& nodes,
+                                int node_output_idx,
+                                int tensor_idx,
+                                synapse_helpers::tensor& sh_t) {
+    SharedSynTensorOrRefListPtr tensorList =
+        std::make_shared<SynTensorOrRefList>();
+    tensorList->emplace_back(tensor_or_ref(sh_t));
+    pt_to_synapse_tensors.emplace(
+        value_to_ivalue[nodes[node_output_idx]], tensorList);
+
+    // Validate external flag was set correctly
+    const auto& value = nodes.at(tensor_idx);
+    bool required_external = persistence_marker_pass_data_ptr_.get()
+        ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
+        : false;
+    if (required_external) {
+      HABANA_ASSERT(
+          sh_t.is_external() == required_external,
+          "Output ",
+          tensor_idx,
+          " of node ",
+          node->kind().toQualString(),
+          " is not external");
+    }
+  };
+
   for (synapse_helpers::tensor& out_tensor_syn : habana_op->GetSynOutputs()) {
     if (excluded_out_indices.find(output_tensor_idx) ==
         excluded_out_indices.end()) {
@@ -747,85 +831,55 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         auto ti = ProcessPersistentNodeOutput(
             ivpsh, output_nodes[output_nodes_idx], out_tensor_syn);
 
-        // set permutation flag for persistent tensors
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
-            !is_hccl_send_mark_step()) {
-          if (!ti->is_ZST()) {
-            setSynapsePermuteFlag(out_tensor_syn, ti);
-            if (pt_to_synapse_tensors.count(ivpsh)) {
-              PT_BRIDGE_DEBUG(
-                  habana_helpers::DebugString(ivpsh),
-                  " already exists in pt_to_synapse_tensors map, ",
-                  *ti);
-            }
-          }
-        }
-
-        if (shape_inf_flag) {
-          if (!op_output_shape.empty()) {
-            auto output =
-                op_output_shape.GetOutputTensor().at(output_tensor_idx);
-            auto output_sif_tidx{std::get<0>(output)};
-            auto ret = sif_tidx_to_tinfo_map.insert({output_sif_tidx, ti});
-            if (ret.second) {
-              PT_DYNAMIC_SHAPE_DEBUG(
-                  "Output tensor cs: adding to sif_tidx_to_tinfo_map : ",
-                  output_sif_tidx,
-                  " -> ",
-                  *ti);
-            } else {
-              PT_DYNAMIC_SHAPE_DEBUG(
-                  "Output tensor cs: failed adding to sif_tidx_to_tinfo_map : ",
-                  output_sif_tidx,
-                  " -> ",
-                  *ti);
-            }
-          } else {
-            // op_output_shape is empty
-            auto ret = sif_tidx_to_tinfo_map.insert({cur_sif_tidx, ti});
-            if (ret.second) {
-              PT_DYNAMIC_SHAPE_DEBUG(
-                  "Output tensor manual: adding to sif_tidx_to_tinfo_map : ",
-                  cur_sif_tidx,
-                  " -> ",
-                  *ti);
-            } else {
-              PT_DYNAMIC_SHAPE_DEBUG(
-                  "Output tensor manual: failed adding to sif_tidx_to_tinfo_map : ",
-                  cur_sif_tidx,
-                  " -> ",
-                  *ti);
-            }
-          }
-        }
+        handle_permutes(ti, out_tensor_syn, ivpsh);
+        handle_shape_inf(ti, true);
       }
 
-      SharedSynTensorOrRefListPtr tensorList =
-          std::make_shared<SynTensorOrRefList>();
-      tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
-      pt_to_synapse_tensors.emplace(
-          value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
-
-      // Validate external flag was set correctly
-      const auto& value = output_nodes.at(output_tensor_idx);
-      bool required_external = persistence_marker_pass_data_ptr_.get()
-          ? persistence_marker_pass_data_ptr_->IsExternalNode(value)
-          : false;
-      if (required_external) {
-        HABANA_ASSERT(
-            out_tensor_syn.is_external() == required_external,
-            "Output ",
-            output_tensor_idx,
-            " of node ",
-            node->kind().toQualString(),
-            " is not external");
-      }
+      handle_postprocess(
+          output_nodes, output_nodes_idx, output_tensor_idx, out_tensor_syn);
 
       output_nodes_idx++;
     }
     output_tensor_idx++;
     cur_sif_tidx++;
   }
+
+  // Handle implicit syn outputs - these are input tensors that are being
+  // updated inplace, but are not returned as outputs, so they can't be
+  // treated as _out or common inplace input tensors.
+  auto input_nodes = node->inputs();
+  for (const auto& [pt_input_idx, sh_t, syn_input_idx] :
+       habana_op->GetSynImplicitOutputs()) {
+    IValPtrShared ivpsh = value_to_ivalue[input_nodes[pt_input_idx]];
+
+    // For some kernels, like the inplace ones, the kernel output is always
+    // created as persistent. Patching table needs to be updated accordingly
+    // for such tensors.
+    if (use_persistent_tensors || sh_t.is_persistent()) {
+      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+          ivpsh,
+          sh_t.name(),
+          input_nodes[pt_input_idx],
+          watch_tensor_flag_,
+          sh_t.id(),
+          sh_t.get(),
+          sh_t.tensor_type());
+
+      ti->set_external(sh_t.is_external());
+      duplicate_input_tivs.emplace_back(ti);
+
+      // persistent tensor which an alias of an input
+      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
+
+      handle_permutes(ti, sh_t, ivpsh);
+      handle_shape_inf(ti, false);
+    }
+
+    handle_postprocess(input_nodes, syn_input_idx, syn_input_idx, sh_t);
+
+    cur_sif_tidx++;
+  }
+
   return cur_sif_tidx;
 }
 
@@ -2243,7 +2297,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
             TORCH_CHECK(
                 false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
                 "ComputeOutputShape validation failed for op ",
-                node_qual_str);
+                node_qual_str,
+                " what(): ",
+                e.what());
           }
         } else {
           if (empty_cs_jit_ir_ops_.count(node_qual_str) == 0) {

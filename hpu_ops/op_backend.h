@@ -26,6 +26,8 @@ struct NodeAttr {
     c10::optional<int> final_result_index{c10::nullopt};
     synTensorType tensor_type{DATA_TENSOR};
     synDataType syn_data_type{syn_type_na};
+    c10::optional<std::variant<synapse_helpers::tensor*, int>> inplace_out_ptr{
+        c10::nullopt};
   };
 
   std::string guid;
@@ -225,6 +227,14 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  synapse_helpers::tensor PermuteHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::IntArrayRef permutation,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
  public:
@@ -293,9 +303,20 @@ class OpBackend : public HabanaOperator {
       int validCountTensorRank,
       c10::optional<int> = c10::nullopt);
 
+  static synapse_helpers::tensor BuildPermute(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::IntArrayRef permutation,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   struct TensorsPair {
     const at::Tensor& pt_t;
     synTensor syn_t;
+    int syn_idx = -1; // In case it's needed to call SynInput instead of syn_in,
+                      // we hold also syn_idx
   };
 
  protected:
@@ -344,7 +365,8 @@ class OpBackend : public HabanaOperator {
         pos,
         " type expected to be ",
         "tensor");
-    return {sg.stack[pos].toTensor(), syn_in(sg.GetAndIncrSynPos())};
+    int syn_pos = sg.GetAndIncrSynPos();
+    return {sg.stack[pos].toTensor(), syn_in(syn_pos), syn_pos};
   }
 
   at::ScalarType HandleDtypePropagation(
@@ -362,9 +384,12 @@ class OpBackend : public HabanaOperator {
         pos,
         " type expected to be ",
         "none or tensor");
-    return sg.stack[pos].isTensor()
-        ? TensorsPair{sg.stack[pos].toTensor(), syn_in(sg.GetAndIncrSynPos())}
-        : c10::optional<TensorsPair>{};
+    if (sg.stack[pos].isTensor()) {
+      int syn_pos = sg.GetAndIncrSynPos();
+      return TensorsPair{sg.stack[pos].toTensor(), syn_in(syn_pos), syn_pos};
+    } else {
+      return c10::optional<TensorsPair>{};
+    }
   }
 
   std::vector<TensorsPair> getNextInputInternal(
@@ -393,6 +418,7 @@ class OpBackend : public HabanaOperator {
     return sg.stack[pos].toFn();                                             \
   }
 
+  GET_NEXT_INPUT_INTERNAL(bool, isBool, toBool, "bool")
   GET_NEXT_INPUT_INTERNAL(double, isDouble, toDouble, "double")
   GET_NEXT_INPUT_INTERNAL(int, isInt, toInt, "int")
   GET_NEXT_INPUT_INTERNAL(c10::List<bool>, isBoolList, toBoolList, "bool array")

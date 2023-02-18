@@ -4578,20 +4578,47 @@ _native_batch_norm_legit:
   acc_thread: true
 
 native_batch_norm:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  override_fn: batch_norm_hpu_lazy
-  acc_thread: true
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
 native_batch_norm_backward:
+  custom_fill_params: FillBatchNormBwdParams
+  custom_output_shape: BatchNormBwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  override_fn: batch_norm_bwd_hpu_lazy
-  acc_thread: true
+  op_backend: BatchNormBwdOpBackend
+  out_dtypes: [input, Float, Float]
+  out_ids: [0, 1, 1]
+  synapse_layouts:
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE]
+
 
 native_layer_norm:
   force_default: false

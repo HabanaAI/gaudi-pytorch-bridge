@@ -62,6 +62,13 @@ void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
       (base_permute.size() != 0) || (!view_t.is_contiguous()));
 }
 
+at::Tensor alias(const at::Tensor& self) {
+  PT_EAGER_TRACE;
+  auto out = alias_with_sizes_and_strides(self, self.sizes(), self.strides());
+  view_propagate_permutation(self, out);
+  return out;
+}
+
 at::Tensor create_base(const at::Tensor& self) {
   auto self_impl = self.unsafeGetTensorImpl();
   auto self_tmeta{habana::get_tensor_extra_meta(self)};
@@ -88,3 +95,9 @@ at::Tensor create_base(const at::Tensor& self) {
 
 } // namespace eager
 } // namespace habana
+
+TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl(
+      "alias",
+      static_cast<at::Tensor (*)(const at::Tensor&)>(&habana::eager::alias));
+}

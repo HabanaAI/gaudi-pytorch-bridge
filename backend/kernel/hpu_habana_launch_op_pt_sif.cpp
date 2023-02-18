@@ -193,7 +193,9 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
       }
     }
   }
-  output_count += int_shape_tensor_count;
+
+  output_count +=
+      int_shape_tensor_count + habana_op->GetSynImplicitOutputs().size();
 
   return output_count;
 }
@@ -290,6 +292,25 @@ void HabanaLaunchOpPT::process_outputs(
         currentSifTensorIdx,
         " -> ",
         habana_helpers::DebugString(out_tensor_pt));
+    output_idx++;
+    currentSifTensorIdx++;
+  }
+
+  for (const auto& pt_input_idx_and_sh_tensor :
+       habana_op->GetSynImplicitOutputs()) {
+    val_to_ival_map.emplace(
+        node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
+        torch::jit::IValue(
+            habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
+    tidx_to_tensor_map.insert(
+        {currentSifTensorIdx,
+         habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]});
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "For implicit node output, adding to tidx_to_tensor_map: ",
+        currentSifTensorIdx,
+        " -> ",
+        habana_helpers::DebugString(
+            habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
     output_idx++;
     currentSifTensorIdx++;
   }
@@ -530,6 +551,10 @@ void HabanaLaunchOpPT::RunHybridSif(
             op_name);
         auto output_tensors = output_shape_info.GetOutputTensor();
 
+        size_t exclude_outputs = 0;
+        if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+          exclude_outputs = op->GetSynImplicitOutputs().size();
+        }
         // Collect all output tensors
         for (auto& t : output_tensors) {
           auto curSifTidx{std::get<0>(t)};
@@ -558,7 +583,8 @@ void HabanaLaunchOpPT::RunHybridSif(
           tidx_to_tensor_map.insert({curSifTidx, shape_tensor_pt});
         }
 
-        HABANA_ASSERT(node->outputs().size() == output_tensors.size());
+        HABANA_ASSERT(
+            node->outputs().size() == output_tensors.size() - exclude_outputs);
         for (size_t i = 0; i < node->outputs().size(); ++i) {
           auto output = node->outputs().at(i);
           HABANA_ASSERT(val_to_ival_map.count(output) == 0);

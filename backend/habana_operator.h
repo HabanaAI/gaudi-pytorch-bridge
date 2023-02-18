@@ -189,6 +189,12 @@ class OutputShapeInfRetType {
   bool empty_flag{false};
 };
 
+struct PtInputIdxAndSynHelpTensor {
+  int pt_input_idx;
+  synapse_helpers::tensor& sh_t;
+  int syn_input_idx;
+};
+
 //
 // The Pytorch kernel context holds the operator context
 // whcih includes the pytorch tensors, synapse tensor and
@@ -201,6 +207,15 @@ class PytorchKernelContext {
   std::vector<at::Tensor> pt_outputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
+
+  // Normally in inplace and _out kernel variants, input tensors that are being
+  // updated inplace are also returned as an output. However, there's at least
+  // one case where this rule is not fulfilled - e.g. native_batch_norm updates
+  // running_mean and running_var input tensors, but doesn't return them as
+  // outputs. It's not possible to treat such tensors as _out or normal inplace
+  // tensors, so additional handling is needed.
+  std::deque<PtInputIdxAndSynHelpTensor> syn_implicit_outputs_;
+
   std::set<unsigned int> excluded_output_indices_;
   size_t recipe_key_;
 
@@ -440,6 +455,11 @@ class HabanaOperator {
 
   virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
     return p_context_->syn_outputs_;
+  }
+
+  virtual std::deque<PtInputIdxAndSynHelpTensor>& GetSynImplicitOutputs()
+      const {
+    return p_context_->syn_implicit_outputs_;
   }
 
   virtual std::vector<at::Tensor>& GetInputs() const {

@@ -401,6 +401,17 @@ synapse_helpers::tensor OpBackend::ReshapeHelper(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
 
+synapse_helpers::tensor OpBackend::PermuteHelper(
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::IntArrayRef permutation,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildPermute(
+      this, graph, syn_in, sizes, permutation, dtype, final_result_index);
+}
+
 void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (isMetaMode()) {
     if (m_is_outfn) { // out place fn
@@ -588,7 +599,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       }
       // AddShapeTensor call is independent of AddOutputTensor and
       // AddIntermediateOutputTensor. That is why no else if.
-      if (attr.final_result_index.has_value()) {
+      if (attr.final_result_index.has_value() ||
+          attr.inplace_out_ptr.has_value()) {
         meta.AddOutputTensor(md);
       } else {
         meta.AddIntermediateTensor(md);
@@ -616,6 +628,19 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       // output_meta
       outputs.emplace_back(
           std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
+    } else if (attr.inplace_out_ptr) {
+      if (std::holds_alternative<synapse_helpers::tensor*>(
+              *attr.inplace_out_ptr)) {
+        outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
+            *(std::get<synapse_helpers::tensor*>(*attr.inplace_out_ptr)),
+            graph,
+            /* is_external */ false));
+      } else {
+        outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
+            op->SynInput(std::get<int>(*attr.inplace_out_ptr)),
+            graph,
+            /* is_external */ false));
+      }
     } else {
       bool is_persistent = false;
       bool is_external = false;
@@ -669,10 +694,10 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
 
   HABANA_ASSERT(
       input_layouts.empty() || input_layouts.size() >= node_attr.inputs.size(),
-      "Missing layouts for inputs");
+      "Missing layouts for synapse inputs");
   HABANA_ASSERT(
       output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
-      "Missing layouts for outputs");
+      "Missing layouts for synapse outputs");
 
   auto result = graph.add_node(
       std::move(node_attr.inputs),
@@ -864,6 +889,56 @@ synapse_helpers::tensor OpBackend::BuildBroadcast(
        inputs,
        {{sizes, dtype, final_result_index}}});
   return std::move(broadcast.at(0));
+}
+
+synapse_helpers::tensor OpBackend::BuildPermute(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::IntArrayRef permutation,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  std::vector<synTensor> inputs = {syn_in};
+
+  int dims_number = sizes.size();
+
+  synTransposeParamsNDims params;
+  params.tensorDim = dims_number;
+  // params.permute has to be populated in a reverse order for HPU FCD-LCD order
+  for (int i = 0; i < dims_number; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(
+        dims_number - permutation[permutation.size() - i - 1] - 1);
+  }
+  for (int i = dims_number; i < HABANA_DIM_MAX; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+
+  auto compute_output_shape = [](at::IntArrayRef self_sizes,
+                                 at::IntArrayRef permutation) {
+    TORCH_CHECK(
+        self_sizes.size() == permutation.size(),
+        "Number of dims in tensor don't match in permutation");
+    auto new_sizes = self_sizes.vec();
+    new_sizes[new_sizes.size() - 1] =
+        self_sizes[permutation[new_sizes.size() - 1]];
+    for (int i = new_sizes.size() - 2; i >= 0; i--) {
+      new_sizes[i] = self_sizes[permutation[i]];
+    }
+    return new_sizes;
+  };
+
+  auto permute = BuildNode(
+      op,
+      graph,
+      {"transpose",
+       inputs,
+       {{std::move(compute_output_shape(sizes, permutation)),
+         dtype,
+         final_result_index}},
+       &params,
+       sizeof(params)});
+  return std::move(permute.at(0));
 }
 
 synapse_helpers::tensor OpBackend::BuildReshape(
