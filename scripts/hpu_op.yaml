@@ -3261,15 +3261,17 @@ hardtanh_backward.grad_input:
   guid: hardtanh_bwd
 
 huber_loss:
+  custom_fill_params: FillHuberLossFwdParams
   custom_output_shape: HuberLossOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: HuberLossOperator
+  guid: huber_loss_fwd
   out_ids: [0]
 
 huber_loss.out:
+  custom_fill_params: FillHuberLossFwdParams
   custom_output_shape: HuberLossOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: HuberLossOperator
+  guid: huber_loss_fwd
 
 huber_loss_backward:
   force_default: false
