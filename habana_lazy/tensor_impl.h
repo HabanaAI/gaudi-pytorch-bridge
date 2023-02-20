@@ -81,8 +81,8 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   void SetupSizeProperties();
   void SetStorage(at::Storage storage);
   void ComputeArrayStrides(
-      SmallSizeVec& strides,
-      absl::Span<const int64_t> sizes);
+      c10::SmallVectorImpl<int64_t>& strides,
+      c10::IntArrayRef sizes);
 
   bool m_size_initialized;
 

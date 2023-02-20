@@ -295,8 +295,8 @@ inline int64_t HbLazyTensorImpl::compute_numel() const {
 }
 
 void HbLazyTensorImpl::ComputeArrayStrides(
-    SmallSizeVec& strides,
-    absl::Span<const int64_t> sizes) {
+    c10::SmallVectorImpl<int64_t>& strides,
+    c10::IntArrayRef sizes) {
   for (auto i = sizes.size(); i > 1; --i) {
     strides[i - 2] = strides[i - 1] * sizes[i - 1];
   }
@@ -306,7 +306,7 @@ void HbLazyTensorImpl::SetupSizeProperties() {
   if (!m_size_initialized) {
     // Fill up the basic dimension data members which the base class
     // implementation uses in its APIs.
-    auto& sizes_l = m_tensor.GetSizes();
+    c10::IntArrayRef sizes_l = m_tensor.GetSizes();
     sizes_and_strides_.set_sizes(sizes_l);
     SmallSizeVec new_stride(sizes_l.size(), 1);
     ComputeArrayStrides(new_stride, sizes_l);
