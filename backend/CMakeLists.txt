@@ -60,6 +60,7 @@ target_link_libraries(habana_pytorch_backend
   PUBLIC
     habana_pytorch_backend_ops
     pytorch_synapse_helpers
+    c10
   PRIVATE
     habana_serialization
     torch

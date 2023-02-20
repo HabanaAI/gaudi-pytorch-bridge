@@ -15,6 +15,7 @@
 #include "habana_kernels/resize.h"
 
 #include <ATen/native/Resize.h>
+#include <c10_ver/core/SymIntArrayRef.h>
 
 namespace habana {
 namespace eager {
@@ -28,10 +29,10 @@ at::Tensor& set_(
   at::native::checkSetStorage(self, source, storage_offset, size, stride);
 
   auto int_storage_offset = storage_offset.as_int_unchecked();
-  auto int_stride = asIntArrayRefSlow(stride);
+  auto int_stride = C10_AS_INTARRAYREF_SLOW(stride);
   self.unsafeGetTensorImpl()->set_storage_offset(int_storage_offset);
   at::native::resize_impl_hpu_(
-      self.unsafeGetTensorImpl(), asIntArrayRefSlow(size), int_stride);
+      self.unsafeGetTensorImpl(), C10_AS_INTARRAYREF_SLOW(size), int_stride);
   return self;
 }
 } // namespace eager

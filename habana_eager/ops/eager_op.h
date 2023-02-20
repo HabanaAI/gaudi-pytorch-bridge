@@ -14,6 +14,7 @@
 
 #include <ATen/EmptyTensor.h>
 #include <c10/core/DeviceType.h>
+#include <c10_ver/core/SymIntArrayRef.h>
 #include <tuple>
 #include <utility>
 
@@ -25,10 +26,6 @@
 #include "habana_kernels/resize.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-
-#if IS_PYTORCH_OLDER_THAN(2, 0)
-#define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
-#endif
 
 namespace habana {
 namespace eager {
