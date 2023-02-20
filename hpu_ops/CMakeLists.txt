@@ -218,6 +218,7 @@ target_link_libraries(habana_pytorch_backend_ops
 add_library(habana_pytorch_frontend_ops OBJECT
           cpu_fallback.cpp
           supported_dtypes.cpp
+          lazy/add_composite_gen.cpp
           lazy/arange_gen.cpp
           lazy/bernoulli_gen.cpp
           lazy/binarycrossentropy_gen.cpp
