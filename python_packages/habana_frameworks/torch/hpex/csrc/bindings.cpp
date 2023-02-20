@@ -158,7 +158,7 @@ at::Tensor& habana_fp8_gemm_wrap_py(
     bool trans_B,
     at::Tensor& out,
     py::object out_dtype,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& bias,
     bool accumulate) {
   return habana_fp8_gemm_wrap(
       A,

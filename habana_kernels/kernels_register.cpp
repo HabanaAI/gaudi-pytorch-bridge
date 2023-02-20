@@ -1709,7 +1709,7 @@ Tensor& habana_fp8_gemm_wrap(
     bool trans_B,
     const at::Tensor& D,
     at::ScalarType out_dtype,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
   PT_OP_TRACE;
@@ -2290,7 +2290,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
   m.def(
-      "hpu::habana_fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
+      "hpu::habana_fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::habana_fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(

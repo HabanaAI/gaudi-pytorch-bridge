@@ -91,7 +91,7 @@ void LazyFp8Gemm::AddNode(
   auto B = stack_tensor(stack, 3);
   bool trans_B = stack[5].toBool();
   auto out_type = stack[7].toScalarType();
-  auto bias = stack_tensor(stack, 8);
+  auto bias = stack[8].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool accumulate = stack[9].toBool();
 
   int64_t rank = A.dim();
@@ -108,7 +108,7 @@ void LazyFp8Gemm::AddNode(
 
   std::vector<synTensor> syn_inputs = {
       syn_in(0), syn_in(2), syn_in(1), syn_in(3)};
-  if (bias.has_storage() && bias.numel() > 0) {
+  if (bias.defined()) {
     syn_inputs.push_back(syn_in(5));
   } else {
     syn_inputs.push_back(nullptr);

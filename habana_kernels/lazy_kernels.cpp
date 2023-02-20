@@ -7380,7 +7380,7 @@ at::Tensor& habana_fp8_gemm_lazy(
     bool trans_B,
     const at::Tensor& D,
     at::ScalarType out_dtype,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
   PT_OP_TRACE;

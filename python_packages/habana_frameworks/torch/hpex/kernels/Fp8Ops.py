@@ -62,7 +62,7 @@ def fp8_gemm(A: torch.Tensor,
         )
         return_output = True
 
-    _hpex_C.fp8_gemm(A, A_scale_inv, True, B, B_scale_inv, False, out, out_dtype, bias if use_bias else torch.Tensor(), accumulate)
+    _hpex_C.fp8_gemm(A, A_scale_inv, True, B, B_scale_inv, False, out, out_dtype, bias if use_bias else None, accumulate)
 
     if return_output:
         return out
