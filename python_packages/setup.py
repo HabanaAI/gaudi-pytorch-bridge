@@ -88,15 +88,21 @@ ext_src_root = os.path.join(root, "python_packages/habana_frameworks/torch")
 
 extensions = [
     ("habana_frameworks.torch._core_C", glob.glob(f"{ext_src_root}/core/*.cpp")),
+    ("habana_frameworks.torch._hpex_C", glob.glob(f"{ext_src_root}/hpex/csrc/*.cpp")),
     ("habana_frameworks.torch._hpu_C", glob.glob(f"{ext_src_root}/hpu/csrc/*.cpp")),
     ("habana_frameworks.torch.distributed._hccl_C", glob.glob(f"{ext_src_root}/distributed/hccl/*.cpp")),
-    ("habana_frameworks.torch._hpex_C", glob.glob(f"{ext_src_root}/hpex/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._experimental_C", glob.glob(f"{ext_src_root}/utils/experimental/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._profiler_C", glob.glob(f"{ext_src_root}/utils/profiler/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._debug_C", glob.glob(f"{ext_src_root}/utils/debug/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._activity_profiler_C", glob.glob(f"{ext_src_root}/activity_profiler/csrc/*.cpp")),
     ("habana_frameworks.torch.utils._event_dispatcher_C", glob.glob(f"{ext_src_root}/utils/event_dispatcher/csrc/*.cpp")),
 ]
+
+if int(PT_VER[0]) >= 2:
+    extensions.append(
+        ("habana_frameworks.torch.dynamo.compile_backend._recipe_compiler_C", glob.glob(f"{ext_src_root}/dynamo/compile_backend/*.cpp")))
+
+
 assert not any(
     ext for ext, src in extensions if len(src) == 0
 ), f"no sources for extension {next(e for e,s in extensions if len(s)==0)} extensions={extensions}]"

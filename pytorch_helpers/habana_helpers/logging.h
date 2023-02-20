@@ -439,6 +439,9 @@ class PTFuncLog {
 #define PT_LAZY_EAGER_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::LAZY_EAGER, __VA_ARGS__)
 
+#define PT_EAGER_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::EAGER, __VA_ARGS__)
+
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...)                                           \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \

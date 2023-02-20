@@ -419,6 +419,7 @@ if (BUILD_PKGS)
     habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.cpp
     habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.hpp
     habana_frameworks/torch/distributed/hccl/reducer_timer.cpp
+    habana_frameworks/torch/dynamo/compile_backend/recipe_compiler.cpp
     habana_frameworks/torch/hpex/__init__.py
     habana_frameworks/torch/hpex/csrc/bindings.cpp
     habana_frameworks/torch/hpex/csrc/bindings.h

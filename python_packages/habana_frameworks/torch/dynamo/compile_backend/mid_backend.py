@@ -32,7 +32,6 @@ def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
     """
-
     # Do initial preprocessing.
     preprocess_module(graph_module, example_inputs)
 
