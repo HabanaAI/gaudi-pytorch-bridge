@@ -1,11 +1,13 @@
 import torch
 from typing import Union, Any
 
+
 def wrapped__new__(cls, data=None, requires_grad=True):
     if type(data) is HabanaParameterWrapper:
         return torch.Tensor._make_subclass(cls, data, requires_grad)
     else:
         return wrapped__new__.original__new__(cls, data, requires_grad)
+
 
 class HabanaParameterWrapper(torch.nn.Parameter):
     db = {}
@@ -32,7 +34,8 @@ class HabanaParameterWrapper(torch.nn.Parameter):
         if func.__name__ == "__set__":
             if hasattr(args[0], "device") and hasattr(args[1], "device"):
                 if args[0].device != args[1].device:
-                    args[0] = args[0].to(args[1].device)
+                    args[0].change_device_placement(args[1].device)
+                    return
         return super().__torch_function__(func, types, args, kwargs)
 
     def __del__(self):
@@ -47,6 +50,7 @@ def update_habana_parameter(result):
         result.__class__ = HabanaParameterWrapper
         HabanaParameterWrapper.db[id(result)] = result
 
+
 def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     result = self.original__get_attr__(name)
     try:
@@ -58,17 +62,19 @@ def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
         update_habana_parameter(result)
     return result
 
+
 def wrapped_to(self, *args, **kwargs):
     def for_all_parameters_in_submodules(fn):
         cnt = 0
+
         def walk(module, fn):
             nonlocal cnt
             for child in module.children():
                 walk(child, fn)
-            for name,param in module._parameters.items():
+            for name, param in module._parameters.items():
                 fn(module, name, param, cnt)
                 cnt += 1
-        walk(self,fn)
+        walk(self, fn)
 
     def collect_shared_parameters(module, name, param, cnt):
         nonlocal shared_parameters
@@ -93,6 +99,24 @@ def wrapped_to(self, *args, **kwargs):
             module._parameters[name].__class__ = HabanaParameterWrapper
             HabanaParameterWrapper.db[id(param)] = param
 
+    def add_device_placement_workaround(module, name, param, cnt):
+        if param is not None:
+            nonlocal self
+
+            def change_device_placement(new_device):
+                # changing parameters data tensors in HPU is impossible
+                # to W/A this we create copy of original parameter
+                copied = module._parameters[name].clone().to(new_device)
+                # assigning data tensor to empty tensor - allows to free memory on device
+                module._parameters[name].data = torch.empty([], device=param.device)
+                # reassign previously copied parameter
+                del module._parameters[name]
+                module._parameters[name] = copied
+                # convert to habana parameter
+                module._parameters[name].__class__ = HabanaParameterWrapper
+                module._parameters[name].change_device_placement = change_device_placement
+                HabanaParameterWrapper.db[id(param)] = copied
+            param.change_device_placement = change_device_placement
 
     def share_parameters(module, name, param, cnt):
         nonlocal shared_parameters
@@ -103,12 +127,12 @@ def wrapped_to(self, *args, **kwargs):
             module._parameters[name] = collected_parameters[shared_parameters[cnt]]
 
     def rearrange_shared_parameters(shared_parameters):
-        return {shared_param:params[0] for params in shared_parameters.values() for shared_param in params[1:]}
+        return {shared_param: params[0] for params in shared_parameters.values() for shared_param in params[1:]}
 
     shared_parameters = {}
     collected_parameters = []
-    weight_sharing_exception =  Exception("Weight sharing unsuccessful. "
-    "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
+    weight_sharing_exception = Exception("Weight sharing unsuccessful. "
+                                         "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
 
     # Convert all parameters to habana parameters
     for_all_parameters_in_submodules(convert_to_habana_parameters)
@@ -145,7 +169,7 @@ def wrapped_to(self, *args, **kwargs):
         if value_before != shared_parameters_after[key_before]:
             raise weight_sharing_exception
 
-    #Reattach remote parameters
+    # Reattach remote parameters
     if len(collected_parameters_before) != len(collected_parameters_after):
         raise weight_sharing_exception
     for i in range(len(collected_parameters_before)):
@@ -159,6 +183,9 @@ def wrapped_to(self, *args, **kwargs):
             else:
                 return value
         HabanaParameterWrapper.db[key] = get_value(value)
+
+    # Recreate shared parameters
+    for_all_parameters_in_submodules(add_device_placement_workaround)
     return result
 
 
