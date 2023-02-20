@@ -133,8 +133,6 @@ void print_tensor_debug(const torch::Tensor& src) {
 }
 
 bool is_inplace(at::Symbol symbol) {
-  bool is_inplace = false;
-
   auto node_name = symbol.toQualString();
   /*
   Since as_strided_lazy is now out of place op, we need a control edge to create
@@ -144,22 +142,26 @@ bool is_inplace(at::Symbol symbol) {
   %6 : Float(*, requires_grad=0, device=hpu:0) = aten::fill_(%5, %1)
   */
 
-  // TODO think of better way to avoid these string comparisons for multiple ops
-  bool is_normal_inplace =
-      (strcmp(node_name, "aten::fill_") && strcmp(node_name, "hpu::uniform_") &&
-       strcmp(node_name, "hpu::random_") && strcmp(node_name, "hpu::normal_") &&
-       strcmp(node_name, "hpu::geometric_") &&
-       strcmp(node_name, "hpu::bernoulli_"));
-
-  if (is_normal_inplace) {
-    size_t len = strlen(node_name);
-    char endch = node_name[len - 1];
-
-    if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose")) {
-      is_inplace = true;
-    }
+  const static std::unordered_set<std::string>
+      underscored_ops_reported_as_non_inplace = {
+          "aten::fill_",
+          "hpu::uniform_",
+          "hpu::random_",
+          "hpu::normal_",
+          "hpu::geometric_",
+          "aten::zero_",
+          "hpu::bernoulli_"};
+  if (underscored_ops_reported_as_non_inplace.find({node_name}) !=
+      underscored_ops_reported_as_non_inplace.end()) {
+    return false;
   }
-  return is_inplace;
+
+  size_t len = strlen(node_name);
+  char endch = node_name[len - 1];
+  if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose")) {
+    return true;
+  }
+  return false;
 }
 
 namespace {
@@ -5544,11 +5546,6 @@ Tensor clone_hpu_lazy(
       clone, func, result, result_func);
 }
 
-Tensor& zero_hpu_lazy(Tensor& self) {
-  PT_LAZY_TRACE;
-  return fill_hpu_lazy_(self, 0);
-}
-
 namespace {
 bool is_nonempty_tensor(const at::Tensor& tensor) {
   return tensor.dim() != 1 || tensor.size(0) != 0;
@@ -6574,7 +6571,7 @@ Tensor habana_nms_hpu_lazy(
         options.dtype(torch::kInt32),
         scores.suggest_memory_format(),
         true);
-    indices_tensor = zero_hpu_lazy(indices_tensor);
+    fill_hpu_lazy_(indices_tensor, 0);
     return batched_nms_hpu_lazy(boxes, scores, indices_tensor, iou_threshold);
   }
 

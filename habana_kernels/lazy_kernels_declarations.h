@@ -487,7 +487,6 @@ at::Tensor empty_strided_hpu_lazy(
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::MemoryFormat> memory_format);
-at::Tensor& zero_hpu_lazy(at::Tensor& self);
 at::Tensor cat_hpu_lazy(const at::ITensorListRef& tensors, int64_t dim_ = 0);
 at::Tensor transpose_hpu_lazy(
     const at::Tensor& self,

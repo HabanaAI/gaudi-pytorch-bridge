@@ -181,6 +181,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/where_gen.cpp
           backend/xlogy_gen.cpp
           backend/pool_helpers.cpp
+          backend/zero_gen.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp

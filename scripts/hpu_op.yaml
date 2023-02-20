@@ -7658,5 +7658,6 @@ zero_:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
-  override_fn: zero_hpu_lazy
+  op_backend: ZeroHpuLazyOperator
   acc_thread: true
+  inplace_ids: [0]
