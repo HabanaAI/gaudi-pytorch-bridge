@@ -25,6 +25,8 @@ testJobConfig:
         hwType:
           asic:
       gaudi:
+        envVars:
+          DEVICE: 'gaudi_hls'
         hwType:
           asic:
   accuracy:
