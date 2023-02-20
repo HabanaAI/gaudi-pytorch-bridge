@@ -203,6 +203,14 @@ at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }
 
+Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
+  auto sizes = self.sizes().vec();
+  if (self.sizes() != dst.sizes()) {
+    dst.resize_(self.sizes());
+  }
+  return dst.copy_(self);
+}
+
 at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }

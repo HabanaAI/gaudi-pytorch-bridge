@@ -1283,10 +1283,10 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
             or "TensorList" in sig  # TensorList ops
         )
 
-
 # List of override_fn ops that are supporting eager frontend
 eager_ops_override_fns_whitelist = [
     "_copy_from",
+    "_copy_from_and_resize_lazy",
     "as_strided_hpu_lazy2",
     "set_source_Storage_storage_offset",
     "view_hpu_lazy",
