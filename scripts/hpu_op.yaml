@@ -5453,6 +5453,7 @@ relu:
     Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 relu_:
   dtypes:

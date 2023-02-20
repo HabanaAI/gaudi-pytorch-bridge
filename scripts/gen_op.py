@@ -1717,6 +1717,10 @@ def generate_all(fgen):
     assert fgen.mapsig not in _FN_AUTOGRAD_HPU
     torch_regs += impl
 
+    op_validator_generator = fgen.ctxop.get_op_validator_generator()
+    if op_validator_generator is not None:
+        dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
+
     if fgen.op_frontend:
         # Lazy functions
         op_frontend_functions += "{}\n\n".format(fgen.op_frontend)
@@ -2131,7 +2135,8 @@ def generate_backend(fgens, fgen_files):
             (gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0
         ) or (idx + 1) == len(fgens):
             backend_inclusions = (
-                "\n" '#include "hpu_ops/backend/reduction_template.h"\n'
+                "\n" '#include "hpu_ops/op_validator.h"\n' 
+                '#include "hpu_ops/backend/reduction_template.h"\n'
             )
             print(
                 _CPP_HEADER.format(
