@@ -5,19 +5,22 @@ from typing import Tuple
 
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.distributed._hccl_C import *
-from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled
+from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled, is_distributed_emulation_enabled
 
 distributed_emulation_apply_if_enabled()
 
 
-def _setup_module_id(local_rank=-1):
+def _setup_module_id(local_rank=-1, world_size=1):
+
     if HLS_MODULE_ID_VAR in os.environ.keys():
         # Module id already set, exiting.
         return
 
-    if local_rank == -1:
+    if local_rank != -1 or world_size == 1 or is_distributed_emulation_enabled():
         # In case local rank is not available in env we do net set HLS_MODULE_ID
         # PT_BRIDGE will acquire device by type.
+        # This would also apply in single node (or emulation) scenarios as there is
+        # no benefit for using specific card.
         return
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
@@ -81,7 +84,8 @@ def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> T
         _setup_environment_from_mpi()
 
     world_size, rank, local_rank = _read_values_from_env()
-    _setup_module_id(local_rank=local_rank)
+
+    _setup_module_id(local_rank=local_rank, world_size=world_size)
 
     # setup id for synapse logging
     if rank != -1:

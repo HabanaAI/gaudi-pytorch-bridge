@@ -38,13 +38,17 @@ def _distributed_emulation_patch_store_barrier():
     sys.modules["torch.distributed.rendezvous"].TCPStore = partial(TCPStore_orig, wait_for_workers=False)
 
 
+def is_distributed_emulation_enabled():
+    if os.environ.get("PT_HPU_EMULATE_DISTRIBUTED", "False").lower() in ["true", "1"]:
+        return True
+    return False
+
 def distributed_emulation_apply_if_enabled():
     hpu_emulate_distributed_single_rank = os.environ.get("PT_HPU_EMULATE_DISTRIBUTED_SINGLE_RANK", None)
     if hpu_emulate_distributed_single_rank:
         hpu_emulate_distributed_single_rank = int(hpu_emulate_distributed_single_rank)
 
-    hpu_emulate_distributed = True if os.environ.get("PT_HPU_EMULATE_DISTRIBUTED", "False").lower() in ["true", "1"] \
-        else False
+    hpu_emulate_distributed = is_distributed_emulation_enabled()
 
     if hpu_emulate_distributed and hpu_emulate_distributed_single_rank is not None:
         _distributed_emulation_patch_store_barrier()
