@@ -27,4 +27,21 @@ FALLBACK_CHECK(EmbeddingDenseBwdFallbackCheck, bool scale_grad_by_freq) {
   } else
     return true;
 }
+
+sizes_vec EmbeddingOutputShape(const at::Stack& stack) {
+  const auto& weight = stack_tensor(stack, 0);
+  const auto& indices = stack_tensor(stack, 1);
+
+  std::vector<int64_t> size;
+  if (indices.dim() == 1) {
+    size = weight.sizes().vec();
+    size[0] = indices.numel();
+  } else {
+    size = indices.sizes().vec();
+    for (int64_t d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+  }
+  return {size};
+}
 } // namespace habana
