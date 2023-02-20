@@ -790,7 +790,6 @@ bool HbLazyTensorViews::HandleViewsD2D(
     const at::Tensor& src_,
     const at::Tensor& dst) {
   PT_LAZY_TRACE;
-  bool is_view = false;
 
   auto hb_src = GetHbLazyTensor(src_);
   HandleViews(src_, hb_src);
@@ -801,62 +800,59 @@ bool HbLazyTensorViews::HandleViewsD2D(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto id = GetHbLazyTensorId(dst);
 
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-    if (params_ptr != nullptr) {
-      is_view = true;
+  std::unique_lock<std::recursive_mutex> view_table_lock(
+      context->viewContext.GetViewTableMutex());
+  StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+  if (params_ptr == nullptr)
+    return false;
+  // copy params in order to release viewContext mutex
+  StrideParams params = *params_ptr;
+  view_table_lock.unlock();
 
-      // get the base tensor
-      // check for most recent version of the original tensor
-      auto orig_t = get_base_tensor(params_ptr->base);
-      auto orig_t_id = GetHbLazyTensorId(orig_t);
+  // get the base tensor
+  // check for most recent version of the original tensor
+  auto orig_t = get_base_tensor(params.base);
+  auto orig_t_id = GetHbLazyTensorId(orig_t);
 
-      auto src_parent = get_base_tensor(src_);
-      auto src_parent_id = GetHbLazyTensorId(src_parent);
+  auto src_parent = get_base_tensor(src_);
+  auto src_parent_id = GetHbLazyTensorId(src_parent);
 
-      auto src = src_;
-      if ((src.numel() < c10::multiply_integers(params_ptr->sizes)) ||
-          (static_cast<size_t>(src.dim()) < params_ptr->sizes.size())) {
-        // broadcast needed
-        auto t = empty_hpu_lazy(
-            dst.sizes(),
-            dst.options(),
-            c10::nullopt,
-            false /*storage*/,
-            DATA_TENSOR);
-        auto t_opt = c10::make_optional(t);
-        src = HbLazyTensorViews::add_expand_lazy(
-            src_, dst.sizes().vec(), false /*implicit*/, t_opt);
-      }
-
-      // the id check avoids a cycle with strided insert node
-      // scenario t1_h[i - 1] += 1. Here the output of the add can be used
-      // directly instead of performing one more strided insert
-      if (src_parent_id != orig_t_id) {
-        auto recent_orig_t = get_recent_base_tensor(orig_t);
-        auto recent_src_t = get_recent_base_tensor(src);
-
-        at::Tensor out;
-        auto back_to_back_slices =
-            getSliceInsertParams(recent_orig_t, recent_src_t, params_ptr);
-        if (back_to_back_slices.empty()) {
-          out = add_strided_insert_node(
-              recent_orig_t,
-              recent_src_t,
-              params_ptr->strides,
-              params_ptr->offset);
-        } else {
-          out = add_slice_insert_node(
-              recent_orig_t, recent_src_t, back_to_back_slices);
-        }
-        // update orig tensor map
-        context->viewContext.AddOrigTensorMapEntry(orig_t_id, out);
-      }
-    }
+  auto src = src_;
+  if ((src.numel() < c10::multiply_integers(params.sizes)) ||
+      (static_cast<size_t>(src.dim()) < params.sizes.size())) {
+    // broadcast needed
+    auto t = empty_hpu_lazy(
+        dst.sizes(),
+        dst.options(),
+        c10::nullopt,
+        false /*storage*/,
+        DATA_TENSOR);
+    auto t_opt = c10::make_optional(t);
+    src = HbLazyTensorViews::add_expand_lazy(
+        src_, dst.sizes().vec(), false /*implicit*/, t_opt);
   }
 
-  return is_view;
+  // the id check avoids a cycle with strided insert node
+  // scenario t1_h[i - 1] += 1. Here the output of the add can be used
+  // directly instead of performing one more strided insert
+  if (src_parent_id != orig_t_id) {
+    auto recent_orig_t = get_recent_base_tensor(orig_t);
+    auto recent_src_t = get_recent_base_tensor(src);
+
+    at::Tensor out;
+    auto back_to_back_slices =
+        getSliceInsertParams(recent_orig_t, recent_src_t, &params);
+    if (back_to_back_slices.empty()) {
+      out = add_strided_insert_node(
+          recent_orig_t, recent_src_t, params.strides, params.offset);
+    } else {
+      out = add_slice_insert_node(
+          recent_orig_t, recent_src_t, back_to_back_slices);
+    }
+    // update orig tensor map
+    context->viewContext.AddOrigTensorMapEntry(orig_t_id, out);
+  }
+  return true;
 }
 
 void HbLazyTensorViews::updateViewTable(

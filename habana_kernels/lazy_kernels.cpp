@@ -390,35 +390,38 @@ void strided_insert_hpu_lazy(
   auto id = GetHbLazyTensorId(self);
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+  std::unique_lock<std::recursive_mutex> view_table_lock(
+      context->viewContext.GetViewTableMutex());
   StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
   TORCH_CHECK(params_ptr != nullptr, "incorrect tensor id");
+  // copy params in order to release viewContext mutex
+  StrideParams params = *params_ptr;
+  view_table_lock.unlock();
 
-  if (params_ptr->optype == kStridedOpDefault) {
+  if (params.optype == kStridedOpDefault) {
     context->viewContext.SetViewStatus(id, kViewWrite);
   }
 
   // pick the most recent version
-  Tensor recent_orig_t =
-      HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
+  Tensor recent_orig_t = HbLazyTensorViews::get_recent_base_tensor(params.base);
   auto recent_insert_t = HbLazyTensorViews::get_recent_base_tensor(insert_t);
   auto back_to_back_slices = HbLazyTensorViews::getSliceInsertParams(
-      recent_orig_t, recent_insert_t, params_ptr);
+      recent_orig_t, recent_insert_t, &params);
 
   at::Tensor out;
   if (back_to_back_slices.empty()) {
     out = add_strided_insert_node(
         recent_orig_t,
         recent_insert_t,
-        params_ptr->strides,
-        params_ptr->offset,
+        params.strides,
+        params.offset,
         is_flush);
   } else {
     out = add_slice_insert_node(
         recent_orig_t, recent_insert_t, back_to_back_slices);
   }
   // update orig tensor map
-  auto param_id = GetHbLazyTensorId(params_ptr->base);
+  auto param_id = GetHbLazyTensorId(params.base);
   context->viewContext.AddOrigTensorMapEntry(param_id, out);
 
   PT_VIEWTABLE_DEBUG("orig tensor map entry created for ", param_id);
