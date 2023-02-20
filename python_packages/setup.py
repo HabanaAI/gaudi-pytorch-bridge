@@ -44,7 +44,7 @@ include_dirs = [
 ]
 
 libraries = [
-    "habana_pytorch2_plugin" if os.getenv("PT_HPU_EAGER_OPS", 0) == 1 else "habana_pytorch_plugin",
+    "habana_pytorch{}_plugin".format("2" if os.getenv("PT_HPU_EAGER_OPS", 0) == "1" else ""),
     "habana_pytorch_backend"
 ]
 
