@@ -196,14 +196,17 @@ void SingleHPUGraph::replayGraph(
     habana_helpers::DisableRefineDynamicShape();
   }
 
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  habana_lazy::HbExecutionContext* context =
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+
+  size_t launch_jobid = context->GetUniqueJobId();
+  context->AddToJobidStreamidMap(
+      launch_jobid, c10::hpu::getCurrentHPUStream().stream());
+
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
       GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    habana_lazy::HbExecutionContext* context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-            device.id());
-
     context->m_launch_thread_handle =
         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
@@ -215,7 +218,8 @@ void SingleHPUGraph::replayGraph(
             output_vals_,
             hblazy_tensors_,
             seed_tensors_generator_,
-            true /*is_cached*/);
+            true /*is_cached*/,
+            launch_jobid);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         graph_,
@@ -226,7 +230,8 @@ void SingleHPUGraph::replayGraph(
         output_vals_,
         hblazy_tensors_,
         seed_tensors_generator_,
-        true /*is_cached*/);
+        true /*is_cached*/,
+        launch_jobid);
   }
   if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();

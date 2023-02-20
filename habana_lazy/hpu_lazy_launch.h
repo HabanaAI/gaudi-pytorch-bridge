@@ -36,7 +36,7 @@ struct LaunchTensorsInfo {
   torch::jit::Stack stack;
   bool async;
   bool has_queued;
-  size_t launch_counter;
+  uint64_t launch_jobid;
   bool dynamic_shape;
 };
 

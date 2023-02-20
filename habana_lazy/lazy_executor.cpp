@@ -17,6 +17,7 @@ thread_local LazyExecutionMode HbExecutionContextArena::execution_mode{
     LazyExecutionMode::kLAZY};
 thread_local bool HbExecutionContext::m_launch_thread_context{false};
 thread_local bool HbExecutionContext::m_async_d2h_context{false};
+std::atomic_uint64_t habana_lazy::HbExecutionContext::m_unique_jobid_count(0);
 
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
@@ -48,6 +49,33 @@ void HbExecutionContext::MarkTensorExecuting(std::shared_ptr<Data> data) {
       data->execution_status != kINPUT) {
     data->execution_status = kEXECUTING;
   }
+}
+
+void HbExecutionContext::AddToJobidStreamidMap(
+    uint64_t jobId,
+    synapse_helpers::hpuStream_t stream) {
+  std::lock_guard<std::mutex> lock(m_jobid_streamid_map_mtx);
+  m_jobid_streamid_map.insert({jobId, stream});
+}
+
+void HbExecutionContext::DelFromJobidStreamidMap(uint64_t jobId) {
+  std::lock_guard<std::mutex> lock(m_jobid_streamid_map_mtx);
+  m_jobid_streamid_map.erase(jobId);
+}
+
+bool HbExecutionContext::HaveJobsInStream(synapse_helpers::hpuStream_t stream) {
+  std::lock_guard<std::mutex> lock(m_jobid_streamid_map_mtx);
+  for (auto it = m_jobid_streamid_map.begin(); it != m_jobid_streamid_map.end();
+       ++it) {
+    if (it->second == stream) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::uint64_t HbExecutionContext::GetUniqueJobId() {
+  return ++m_unique_jobid_count;
 }
 
 void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
@@ -84,23 +112,6 @@ void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
     }
   }
   HandleException();
-}
-
-void HbExecutionContext::JoinPendingD2HThread(bool wait_only) {
-  if (!m_async_d2h_context && m_async_d2h_handle.valid()) {
-    AutoNoGIL gil_release;
-    // If the future is already ready when below line executes, it may
-    // create an exception. Ignore the exception as the wait is already
-    // over.
-    try {
-      if (wait_only) {
-        m_async_d2h_handle.wait();
-      } else {
-        m_async_d2h_handle.get();
-      }
-    } catch (...) {
-    }
-  }
 }
 
 void HbExecutionContext::MarkTensorExecuted(std::shared_ptr<Data> data) {

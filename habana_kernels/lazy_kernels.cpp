@@ -893,7 +893,8 @@ void copy_hpu_lazy_D2H_internal(
 void copy_hpu_lazy_D2H_async(
     at::Tensor& self,
     at::Tensor& _src,
-    synapse_helpers::hpuStream_t hpu_stream) {
+    synapse_helpers::hpuStream_t hpu_stream,
+    uint64_t launch_jobid) {
   PT_LAZY_TRACE;
   if (!self.defined()) {
     PT_LAZY_FATAL(
@@ -901,11 +902,12 @@ void copy_hpu_lazy_D2H_async(
     return;
   }
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  context->JoinPendingLaunchThread(true);
-
   context->m_async_d2h_context = true;
+  context->m_launch_thread_context = true;
   copy_hpu_lazy_D2H_internal(self, _src, true, hpu_stream);
   context->m_async_d2h_context = false;
+  context->m_launch_thread_context = false;
+  context->DelFromJobidStreamidMap(launch_jobid);
 }
 
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -958,13 +960,20 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // correctly identify the memory format
   self = self.contiguous(c10::MemoryFormat::Contiguous);
 
+  auto stream = c10::hpu::getCurrentHPUStream();
   if (async_d2h_thread) {
-    context->JoinPendingD2HThread(true);
-    context->m_async_d2h_handle = SingleTonD2HThreadPool::getInstance().enqueue(
-        copy_hpu_lazy_D2H_async, self, _src, c10::hpu::getCurrentHPUStream());
+    // Queue D2H to the execution Thread, so that the order of execution will be
+    // preserved.
+    // Creating new thread for this will have synchronization issues with
+    // execution thread.
+    size_t launch_jobid = context->GetUniqueJobId();
+    context->AddToJobidStreamidMap(launch_jobid, stream.stream());
+
+    context->m_launch_thread_handle =
+        SingleTonExecThreadPool::getInstance().enqueue(
+            copy_hpu_lazy_D2H_async, self, _src, stream, launch_jobid);
   } else {
-    copy_hpu_lazy_D2H_internal(
-        self, _src, non_blocking, c10::hpu::getCurrentHPUStream());
+    copy_hpu_lazy_D2H_internal(self, _src, non_blocking, stream);
   }
 
   habana_lazy::StageSubmission::getInstance().setStageSubmissionFlow(

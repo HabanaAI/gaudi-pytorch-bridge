@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <iostream>
+#include "habana_lazy/lazy_executor.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/habana_device/HPUStream.h"
@@ -94,11 +95,12 @@ bool HPUStream::query() const {
   if (id() != getCurrentHPUStream(device_index).id()) {
     habana_lazy::HbLazyTensor::StepMarker({});
   } else {
-    bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
-        std::this_thread::get_id();
-    // If query is called from userthread, just do wait till the execution
-    // is over
-    habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
+    // If there are current jobs in stream. return false
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        device_index);
+    if (context->HaveJobsInStream(hpu_stream_id)) {
+      return false;
+    }
   }
   auto status = stream.query();
   if (status == synSuccess)

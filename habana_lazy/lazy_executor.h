@@ -77,37 +77,6 @@ class SingleTonExecThreadPool {
   SingleTonExecThreadPool& operator=(const SingleTonExecThreadPool&) = delete;
 };
 
-class SingleTonD2HThreadPool {
- public:
-  static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(1);
-    return thread_pool_obj;
-  }
-
-  static void work() {
-    while (getInstance().has_work.load()) {
-      if (getInstance().m_stop || !getInstance().has_work.load()) {
-        break;
-      }
-    }
-    return;
-  }
-
-  static void queueStatus() {
-    while (getInstance().has_queued_items.load()) {
-      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
-        break;
-      }
-    }
-    return;
-  }
-
- private:
-  SingleTonD2HThreadPool() = default;
-  SingleTonD2HThreadPool(const SingleTonD2HThreadPool&) = delete;
-  SingleTonD2HThreadPool& operator=(const SingleTonD2HThreadPool&) = delete;
-};
-
 class HbExecutionContext {
  public:
   HbExecutionContext() = default;
@@ -360,10 +329,14 @@ class HbExecutionContext {
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
 
-  // D2H thread infos
-  std::shared_future<void> m_async_d2h_handle;
   thread_local static bool m_async_d2h_context;
-  void JoinPendingD2HThread(bool wait_only = false);
+
+  void AddToJobidStreamidMap(
+      uint64_t jobId,
+      synapse_helpers::hpuStream_t streamId);
+  void DelFromJobidStreamidMap(uint64_t jobId);
+  bool HaveJobsInStream(synapse_helpers::hpuStream_t);
+  std::uint64_t GetUniqueJobId();
 
  private:
   GraphPtr mp_g;
@@ -377,6 +350,12 @@ class HbExecutionContext {
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
   std::unordered_map<int64_t, c10::optional<at::Generator>>
       m_seed_tensor_generator_map;
+  static std::atomic_uint64_t m_unique_jobid_count;
+
+  // unordered map jobid -> synapse_helpers::hpuStream_t
+  std::unordered_map<uint64_t, synapse_helpers::hpuStream_t>
+      m_jobid_streamid_map;
+  std::mutex m_jobid_streamid_map_mtx;
 };
 
 class HbExecutionContextArena {

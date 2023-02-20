@@ -1027,8 +1027,8 @@ void LaunchSyncTensorsGraph(
       launch_info.async,
       " has_queued:",
       launch_info.has_queued,
-      " launch_counter:",
-      launch_info.launch_counter,
+      " launch_jobid:",
+      launch_info.launch_jobid,
       " dynamic:",
       launch_info.dynamic_shape);
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
@@ -1161,8 +1161,9 @@ void LaunchSyncTensorsGraph(
       launch_info.async,
       " has_queued:",
       launch_info.has_queued,
-      " launch_counter:",
-      launch_info.launch_counter);
+      " launch_jobid:",
+      launch_info.launch_jobid);
+  context->DelFromJobidStreamidMap(launch_info.launch_jobid);
 }
 
 void SetupExecutionFromRunningHash(
@@ -1453,8 +1454,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         po_data.inputs, po_data.outputs, *tensors, indices);
   }
 
-  // A static counter to map the async launches used only for debugs.
-  static size_t launch_counter = 1;
+  // Get the jobid,
+  size_t launch_jobid = context->GetUniqueJobId();
+  context->AddToJobidStreamidMap(launch_jobid, stream_info.stream.stream());
   LaunchTensorsInfo launch_info = {
       *tensors,
       std::move(input_list),
@@ -1465,7 +1467,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       stack,
       async,
       has_queued,
-      launch_counter,
+      launch_jobid,
       habana_helpers::GetRefineDynamicShapeStatus()};
 
   LaunchEagerInfo lazy_eager_info = {
@@ -1506,8 +1508,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       async,
       " has_queued:",
       has_queued,
-      " launch_counter:",
-      launch_counter++,
+      " launch_jobid:",
+      launch_jobid,
       " QueueStatus:",
       SingleTonExecThreadPool::getInstance().ToString());
 
@@ -1525,7 +1527,8 @@ void HbLazyTensor::ExecuteCachedGraph(
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
     std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
-    bool is_cached) {
+    bool is_cached,
+    uint64_t launch_jobid) {
   PT_LAZY_TRACE;
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
   bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
@@ -1581,8 +1584,8 @@ void HbLazyTensor::ExecuteCachedGraph(
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
   size_t i = 0;
-  auto& view_context =
-      habana_lazy_executor.getDeviceExecutionContext(0)->viewContext;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto& view_context = context->viewContext;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     HbLazyTensor out_tensor = hblazy_tensors[i++];
@@ -1595,6 +1598,7 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   habana_helpers::SetRefineDynamicShape(dynamic_env_);
+  context->DelFromJobidStreamidMap(launch_jobid);
 }
 
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
@@ -1659,7 +1663,6 @@ void HbLazyTensor::StepMarkerFinish(bool wait_only) {
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   context->m_launch_thread_context = false;
   context->JoinPendingLaunchThread(wait_only);
-  context->JoinPendingD2HThread(wait_only);
 }
 
 void HbLazyTensor::IterStepMarker() {

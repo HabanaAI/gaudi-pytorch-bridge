@@ -341,7 +341,8 @@ class HbLazyTensor {
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
       std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
-      bool is_cached);
+      bool is_cached,
+      uint64_t launch_jobid);
 
   static void* lazyTensorDataPtr(const at::Tensor& t);
 
