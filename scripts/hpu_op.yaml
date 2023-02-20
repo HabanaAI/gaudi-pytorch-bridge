@@ -6153,19 +6153,19 @@ sinc:
   force_default: false
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Sinc
+  guid: sinc_fwd
   out_ids: [0]
 
 sinc.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Sinc
+  guid: sinc_fwd
 
 sinc_:
   force_default: false
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
-  op_backend: Sinc
+  guid: sinc_fwd
   inplace_ids: [0]
 
 sinh.out:
