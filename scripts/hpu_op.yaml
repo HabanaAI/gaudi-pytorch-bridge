@@ -3293,19 +3293,19 @@ heaviside:
   force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_backend: Heaviside
+  guid: heaviside_fwd
   out_ids: [0]
 
 heaviside.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_backend: Heaviside
+  guid: heaviside_fwd
 
 heaviside_:
   force_default: false
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
-  op_backend: Heaviside
+  guid: heaviside_fwd
   inplace_ids: [0]
 
 hypot:

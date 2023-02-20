@@ -115,7 +115,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/grid_sampler_gen.cpp
           backend/hardsigmoid_gen.cpp
           backend/hardtanh_gen.cpp
-          backend/heaviside_gen.cpp
           backend/hpu_op_helper.cpp
           backend/huber_loss_gen.cpp
           backend/index_gen.cpp

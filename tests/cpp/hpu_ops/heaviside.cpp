@@ -12,8 +12,17 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, heaviside) {
+TEST_F(HpuOpTest, heaviside_f32) {
   GenerateInputs(2, {{2, 2}, {2, 2}}, {torch::kFloat, torch::kFloat});
+
+  auto expected = torch::heaviside(GetCpuInput(0), GetCpuInput(1));
+  auto result = torch::heaviside(GetHpuInput(0), GetHpuInput(1));
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, heaviside_i32) {
+  GenerateInputs(2, {{2, 2}, {2, 2}}, {torch::kInt, torch::kInt});
 
   auto expected = torch::heaviside(GetCpuInput(0), GetCpuInput(1));
   auto result = torch::heaviside(GetHpuInput(0), GetHpuInput(1));
