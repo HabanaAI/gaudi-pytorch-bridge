@@ -1,11 +1,14 @@
 testJobConfig:
   cpp_suite:
     devices:
+      gaudi:
+        hwType:
+          sim:
       gaudi2:
         hwType:
           asic:
           sim:
-      gaudi:
+      gaudi3:
         hwType:
           sim:
       greco:
