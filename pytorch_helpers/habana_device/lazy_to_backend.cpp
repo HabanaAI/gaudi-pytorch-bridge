@@ -29,7 +29,7 @@ void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
     get_memory_permutation(const at::Tensor& tensor) {
   // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG(
         "Skipping permutations for EagerOp with duplicate inputs...");
     return {synapse_helpers::layouts::MemoryPermutation{}, false};
@@ -43,7 +43,7 @@ std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
 }
 
 bool lazy_to_backend::is_shape_tensor(const at::Tensor& tensor) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     return false;
   }
   auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
@@ -62,7 +62,7 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
 
 at::Tensor lazy_to_backend::create_empty_tensor(const PtTensorInfo& ti) {
   auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     return pt_tensor;
   }
   auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
@@ -101,7 +101,7 @@ void lazy_to_backend::set_memory_permutations(
     synapse_helpers::layouts::MemoryPermutation permutation,
     const synRetrievedLaunchTensorInfoExt* info) {
   // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
     return;
   }
@@ -149,7 +149,7 @@ void lazy_to_backend::set_tensor_layout_format(
     at::Tensor& tensor,
     habana::LayoutFormat layout) {
   // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("Skipping setting layout for EagerOp...");
     return;
   }
@@ -163,7 +163,7 @@ void lazy_to_backend::set_tensor_layout_format(
 habana::LayoutFormat lazy_to_backend::get_tensor_layout_format(
     const at::Tensor& tensor) {
   // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("Returning fixed NCHW layout for EagerOp...");
     return habana::LayoutFormat::NCHW;
   }
@@ -175,7 +175,7 @@ habana::LayoutFormat lazy_to_backend::get_tensor_layout_format(
 }
 
 void lazy_to_backend::set_host_ptr(const at::Tensor& tensor, void* host_ptr) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("Skipping host ptr for EagerOp...");
     return;
   }
@@ -185,7 +185,7 @@ void lazy_to_backend::set_host_ptr(const at::Tensor& tensor, void* host_ptr) {
 }
 
 void* lazy_to_backend::get_host_ptr(const at::Tensor& tensor) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("returning null host ptr for EagerOp...");
     return nullptr;
   }
@@ -198,7 +198,7 @@ std::string lazy_to_backend::detail::
     InternalFormatter<lazy_to_backend::FormatTokens>::format(
         const at::Tensor& tensor,
         lazy_to_backend::FormatTokens token) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
     PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
     return "<EAGER>";
   }

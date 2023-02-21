@@ -287,8 +287,6 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR) << "\n";
     std::clog << " PT_HPU_CLUSTERED_PROGRAM_SCHED_STR = "
               << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SCHED_STR) << "\n";
-    std::clog << " PT_HPU_EAGER_OPS = " << GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)
-              << "\n";
     if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
       PT_BRIDGE_WARN(
           "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "

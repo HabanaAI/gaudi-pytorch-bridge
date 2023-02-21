@@ -43,11 +43,6 @@ include_dirs = [
     os.environ["SPECS_EXT_ROOT"],
 ]
 
-libraries = [
-    "habana_pytorch{}_plugin".format("2" if os.getenv("PT_HPU_EAGER_OPS", 0) == "1" else ""),
-    "habana_pytorch_backend"
-]
-
 extra_compile_args = [
     "-std=c++17",
     "-DMAX_DEVICES_PER_BOX=8",
@@ -167,7 +162,7 @@ setup(
             language="c++",
             include_dirs=include_dirs,
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            libraries=libraries,
+            libraries=[], # libraries should be lazily loaded before loading pybinds
             runtime_library_dirs=["$ORIGIN/lib/"],
             extra_compile_args=extra_compile_args,
             extra_link_args=extra_link_args,

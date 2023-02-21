@@ -1,8 +1,8 @@
 import os
 
-os.environ["PT_HPU_EAGER_OPS"] = "1"  # enable eager mode
 os.environ["EXPERIMENTAL_WEIGHT_SHARING"] = "0"  # disable lazy weight sharing
 import torch
+assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
 import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest

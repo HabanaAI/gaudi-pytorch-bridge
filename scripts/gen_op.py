@@ -798,13 +798,15 @@ def get_return_type_str(t, orig_sig):
     return orig_sig[0 : token.column - 2]
 
 
-def generate_entry_debug_code(t, fname, params):
+def generate_entry_debug_code(t, fname, params, is_eager_frontend):
     # Emits debug code for a given intercepted function.
-    code = "  PT_OP_TRACE;\n"
-    code += "  PT_LAZY_TRACE;\n"
+    if not is_eager_frontend:
+        code = "  PT_OP_TRACE;\n"
+        code += "  PT_LAZY_TRACE;\n"
+    else:
+        code = "  PT_EAGER_TRACE;\n"
     code += '  PT_OP_INFO("HpuOp {} :"'.format(fname)
     for p in params:
-        ptype = param_type(p)
         pname = param_name(p)
         code += ', " {}=", to_string({})'.format(pname, pname)
     code += ");\n\n"
@@ -1339,11 +1341,11 @@ def generate_code(
     opname = get_aten_opname(aten_sig)
     ctxop = ctx.get_op(opname)
     op_frontend = "{} {{\n".format(sig)
-    op_frontend += generate_entry_debug_code(tree, fname, params)
+    op_frontend += generate_entry_debug_code(tree, fname, params, is_eager_frontend)
 
     tfetcher = TensorFetcher("metatens")
     rtype = get_return_type_str(rwxtree, rwsig)
-    if not is_acc_thread_supported(fname, ctxop, rtype, sig):
+    if not is_eager_frontend and not is_acc_thread_supported(fname, ctxop, rtype, sig):
         op_frontend += "  habana_lazy::NoAccThread no_acc_thread;\n"
     param_vars = []
     meta_param_vars = []

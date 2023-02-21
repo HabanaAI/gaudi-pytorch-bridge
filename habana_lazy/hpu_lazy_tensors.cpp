@@ -1682,8 +1682,9 @@ void HbLazyTensor::StepMarker(
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS)) {
-    PT_BRIDGE_WARN("StepMarker invoked in PT_HPU_EAGER_OPS=1 mode. Ignoring..");
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
+    PT_BRIDGE_WARN(
+        "StepMarker invoked in PT_HPU_EAGER_FRONTEND=1 mode. Ignoring..");
     return;
   }
 
