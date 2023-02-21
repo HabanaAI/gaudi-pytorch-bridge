@@ -18,6 +18,19 @@
 #include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
+static std::array<HandleBucketInfo, _END> bucketInfo = {
+    {{small_offset_bits,
+      (total_bits - small_offset_bits),
+      (1ULL << small_offset_bits),
+      (1ULL << (total_bits - small_offset_bits))},
+     {medium_offset_bits,
+      (total_bits - medium_offset_bits),
+      (1ULL << medium_offset_bits),
+      (1ULL << (total_bits - medium_offset_bits))},
+     {big_offset_bits,
+      (total_bits - big_offset_bits),
+      (1ULL << big_offset_bits),
+      (1ULL << (total_bits - big_offset_bits))}}};
 
 /**
  * Function takes mem_handle and converts it so it can be passed
@@ -28,13 +41,20 @@ namespace synapse_helpers {
  * offsets are not too big.
  */
 device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
-  ensure_fits_ptr(h);
-
   uint64_t id = h.id_;
+  bucket_type type = (bucket_type)(id >> total_bits);
+  if (type > _END)
+    PT_SYNHELPER_FATAL("Wrong  Bucket Type", type);
+
   uint64_t offset = h.offset_;
+  uint64_t offset_bits = bucketInfo[type].offset_bits;
+  uint64_t inside_bucket_id = id & ((1ULL << total_bits) - 1);
+  ensure_fits_ptr(type, inside_bucket_id, offset);
   uint64_t combined = id << offset_bits;
   combined |= offset;
 
+  combined =
+      create_memhandle_from_bucket_index_and_handle_index(type, combined);
   PT_SYNHELPER_DEBUG(
       "reinterpret_to_pointer h.id::",
       id,
@@ -54,8 +74,16 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
       std::is_same<device_ptr, uint64_t>::value,
       "following code assumes ptr is uint64_t");
 
-  uint64_t offset = ptr & ((1ULL << offset_bits) - 1);
-  uint64_t id = ptr >> offset_bits;
+  bucket_type type = (bucket_type)(ptr >> total_bits);
+  if (type > _END)
+    PT_SYNHELPER_FATAL("Wrong  Bucket Type", type);
+
+  uint64_t offset_bits = bucketInfo[type].offset_bits;
+  uint64_t mask = (1ULL << total_bits) - 1;
+  uint64_t inside_val = mask & ptr;
+  uint64_t id = (inside_val & ((1ULL << total_bits) - 1)) >> offset_bits;
+  uint64_t offset = inside_val & ((1ULL << offset_bits) - 1);
+  id = create_memhandle_from_bucket_index_and_handle_index(type, id);
 
   PT_SYNHELPER_DEBUG(
       "reinterpret_from_pointer  h.id::",
@@ -66,7 +94,6 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
       ptr);
   return mem_handle(id, offset);
 }
-
 namespace {
 struct mem_handle_runtime_check {
   mem_handle_runtime_check() {
@@ -77,93 +104,162 @@ struct mem_handle_runtime_check {
 } _;
 } // namespace
 
-void mem_handle::ensure_fits_ptr(const mem_handle& h) {
-  constexpr static int bits_in_byte = 8;
-  if (h.id_ > std::bitset<sizeof(device_ptr) * bits_in_byte - offset_bits>()
-                  .set()
-                  .to_ullong()) {
-    PT_SYNHELPER_FATAL("Wrong mem_handle id ", h.id_);
+void mem_handle::ensure_fits_ptr(
+    bucket_type type,
+    uint64_t id,
+    uint64_t offset) {
+  if (id > bucketInfo[type].max_handles) {
+    PT_SYNHELPER_FATAL("Wrong mem_handle id ", id);
   }
 
-  if (h.offset_ > std::bitset<offset_bits>().set().to_ullong()) {
-    PT_SYNHELPER_FATAL("Wrong mem_handle offset", h.offset_);
+  if (offset > bucketInfo[type].max_offsets) {
+    PT_SYNHELPER_FATAL("Wrong mem_handle offset", offset);
   }
 }
 
 HandlesMap::HandlesMap() {
-  handle_.emplace_back(Record{});
+  handles_[BUCKET_TYPE_SMALL].emplace_back(Record{});
+  handles_[BUCKET_TYPE_MEDIUM].emplace_back(Record{});
+  handles_[BUCKET_TYPE_BIG].emplace_back(Record{});
 }
 
-void HandlesMap::check_id_overflow(mem_handle::id_t id, size_t size) {
+bucket_type HandlesMap::getBucketIndexForGivenTensorSize(size_t size) {
+  for (int bucket_index = 0; bucket_index < (int)bucketInfo.size();
+       bucket_index++) {
+    if (bucketInfo[bucket_index].max_offsets > size) {
+      PT_SYNHELPER_DEBUG(
+          "Selecting bucket index::", bucket_index, " for Size::", size);
+      return (bucket_type)bucket_index;
+    }
+  }
+  PT_SYNHELPER_FATAL("Huge Size not supported");
+  return BUCKET_TYPE_SMALL;
+}
+
+void HandlesMap::check_id_overflow(
+    mem_handle::id_t id,
+    size_t size,
+    uint64_t offset_bits) {
   uint64_t id_to_check = id;
   auto limit = (id_to_check << offset_bits) + size;
   if ((limit >> offset_bits) != id) {
-    // TBD for larger handles will be addressed in SW-110816
     PT_SYNHELPER_FATAL("Handle overflow occurred");
   }
 }
+
 mem_handle::id_t HandlesMap::Insert(size_t size) {
-  if (!free_handles_.empty()) {
-    auto id = free_handles_.front();
-    check_id_overflow(id, size);
-    free_handles_.pop();
-    handle_[id] = Record(size);
+  bucket_type bucket_index = getBucketIndexForGivenTensorSize(size);
+  const uint64_t offset_bits = bucketInfo[bucket_index].offset_bits;
+  if (!free_handles_[bucket_index].empty()) {
+    uint64_t id = free_handles_[bucket_index].front();
+    check_id_overflow(id, size, offset_bits);
+    free_handles_[bucket_index].pop();
+    handles_[bucket_index][id] = Record(size);
     PT_SYNHELPER_DEBUG("Reuse handleid ::", id, " Size::", size);
-    return id;
+    return create_memhandle_from_bucket_index_and_handle_index(
+        bucket_index, id);
   } else {
-    constexpr static int bits_in_byte = 8;
-    if (handle_.size() >
-        std::bitset<sizeof(device_ptr) * bits_in_byte - offset_bits>()
-            .set()
-            .to_ullong()) {
-      // TBD for larger handles will be addressed in SW-110816
+    if (handles_[bucket_index].size() > bucketInfo[bucket_index].max_handles) {
       PT_SYNHELPER_FATAL("All possible device memory handles has been used");
       return mem_handle::invalid_handle;
     }
-    handle_.emplace_back(size);
-    auto id = handle_.size() - 1;
-    check_id_overflow(id, size);
-    PT_SYNHELPER_DEBUG("Insert new handleid ::", id, " Size::", size);
-    return id;
+    handles_[bucket_index].emplace_back(size);
+    auto id_inside_bucket = handles_[bucket_index].size() - 1;
+    check_id_overflow(id_inside_bucket, size, offset_bits);
+    PT_SYNHELPER_DEBUG(
+        "Insert new handleid ::", id_inside_bucket, " Size::", size);
+    return create_memhandle_from_bucket_index_and_handle_index(
+        bucket_index, id_inside_bucket);
   }
 }
 
 HandlesMap::PtrSize HandlesMap::GetPtrSize(mem_handle::id_t id) const {
-  CheckId(id);
-  return handle_[id].ptr_size_;
+  bucket_type bucket_index = get_bucket_index(id);
+  uint64_t handle_index = get_handle_index(id);
+  PT_SYNHELPER_DEBUG(
+      "GetPtrSize id::",
+      id,
+      " bucket Type::",
+      bucket_index,
+      " handle_index::",
+      handle_index);
+  CheckId(handle_index, bucket_index);
+  return handles_[bucket_index][handle_index].ptr_size_;
 }
 
 void HandlesMap::SetPtrSize(mem_handle::id_t id, HandlesMap::PtrSize ptr_size) {
-  CheckId(id);
-  handle_[id].ptr_size_ = ptr_size;
+  bucket_type bucket_index = get_bucket_index(id);
+  uint64_t handle_index = get_handle_index(id);
+  PT_SYNHELPER_DEBUG(
+      "SetPtrSize id::",
+      id,
+      " bucket Type::",
+      bucket_index,
+      " handle_index::",
+      handle_index);
+  CheckId(handle_index, bucket_index);
+  handles_[bucket_index][handle_index].ptr_size_ = ptr_size;
 }
 
 void HandlesMap::Erase(mem_handle::id_t id) {
-  CheckId(id);
-  handle_[id].active_ = false;
-  handle_[id].ptr_size_.size_ = 0;
-  handle_[id].ptr_size_.ptr_ = nullptr;
-  PT_SYNHELPER_DEBUG("Free handle h.id:", id, " active::", handle_[id].active_);
-  free_handles_.push(id);
+  bucket_type bucket_index = get_bucket_index(id);
+  uint64_t handle_index = get_handle_index(id);
+  PT_SYNHELPER_DEBUG(
+      "Erase id::",
+      id,
+      " bucket Type::",
+      bucket_index,
+      " handle_index::",
+      handle_index);
+  CheckId(handle_index, bucket_index);
+  handles_[bucket_index][handle_index].active_ = false;
+  handles_[bucket_index][handle_index].ptr_size_.size_ = 0;
+  handles_[bucket_index][handle_index].ptr_size_.ptr_ = nullptr;
+  PT_SYNHELPER_DEBUG(
+      "Free handle h.id:",
+      handle_index,
+      " active::",
+      handles_[bucket_index][handle_index].active_);
+  free_handles_[bucket_index].push(handle_index);
 }
 
 void HandlesMap::MarkMemoryFixed(mem_handle::id_t id) {
-  CheckId(id);
-  handle_[id].fixed_ = true;
+  bucket_type bucket_index = get_bucket_index(id);
+  uint64_t handle_index = get_handle_index(id);
+  CheckId(handle_index, bucket_index);
+  handles_[bucket_index][handle_index].fixed_ = true;
 }
 
-void HandlesMap::CheckId(mem_handle::id_t id) const {
-  if (!mem_handle::is_valid(id) || id >= handle_.size() ||
-      !handle_[id].active_) {
+void HandlesMap::CheckId(uint64_t handle_index, bucket_type index) const {
+  if (!mem_handle::is_valid(handle_index) ||
+      handle_index >= handles_[index].size() ||
+      !handles_[index][handle_index].active_) {
     PT_SYNHELPER_FATAL("Handle doesn't exist");
   }
 }
 
+size_t HandlesMap::size() const {
+  size_t bucket_size = 0;
+  for (int i = 0; i < (int)bucketInfo.size(); i++) {
+    bucket_size += handles_[i].size();
+  }
+  return bucket_size;
+}
+
 HandlesMap::Iterator& HandlesMap::Iterator::operator++() {
-  ++id_;
-  while (id_ < handle_set_.handle_.size() &&
-         !handle_set_.handle_[id_].active_) {
-    ++id_;
+  if (handleIndex_ < handle_set_.handles_[bucketIndex_].size() - 1) {
+    ++handleIndex_;
+    while (handleIndex_ < (handle_set_.handles_[bucketIndex_].size() - 1) &&
+           !handle_set_.handles_[bucketIndex_][handleIndex_].active_) {
+      ++handleIndex_;
+    }
+  } else {
+    do {
+      ++bucketIndex_;
+    } while (bucketIndex_ < handle_set_.handles_.size() &&
+             handle_set_.handles_[bucketIndex_].empty());
+
+    handleIndex_ = 0;
   }
   return *this;
 }
@@ -175,8 +271,11 @@ HandlesMap::Iterator HandlesMap::Iterator::operator++(int) {
 }
 
 void HandlesMap::ResetHandlesMap() {
-  handle_.clear();
-  handle_.emplace_back(Record{});
-  free_handles_ = {};
+  for (int bucket_index = 0; bucket_index < (int)bucketInfo.size();
+       bucket_index++) {
+    handles_[bucket_index].clear();
+    handles_[bucket_index].emplace_back(Record{});
+    free_handles_[bucket_index] = {};
+  }
 }
 } // namespace synapse_helpers

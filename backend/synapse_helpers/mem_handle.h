@@ -14,16 +14,43 @@
 
 #include <cstdint>
 #include <deque>
+#include <iostream>
 #include <ostream>
 #include <queue>
 #include "backend/synapse_helpers/device_types.h"
 
 namespace synapse_helpers {
+enum bucket_type {
+  _BEGIN = 0,
+  BUCKET_TYPE_SMALL = 0,
+  BUCKET_TYPE_MEDIUM = 1,
+  BUCKET_TYPE_BIG = 2,
+  _END = 3
+};
 
-static constexpr uint64_t offset_bits = 34;
+// Handle - Total of 64 bit, 2 bits are used  for Bucket
+// type and reset for handle id and offset bit
+static const uint64_t total_bits = 62;
+static const uint64_t small_offset_bits = 22;
+static const uint64_t medium_offset_bits = 32;
+static const uint64_t big_offset_bits = 42;
+
+struct HandleBucketInfo {
+  const uint64_t offset_bits;
+  const uint64_t handle_bits;
+  uint64_t max_offsets;
+  uint64_t max_handles;
+};
+
+#define create_memhandle_from_bucket_index_and_handle_index(A, B) \
+  (((uint64_t)A << total_bits) | B)
+#define get_max_offset(A) (1ULL << (uint64_t)A)
+#define get_bucket_index(A) ((bucket_type)((uint64_t)A >> total_bits))
+#define get_handle_index(A) (A & ((1ULL << total_bits) - 1))
+
 class mem_handle {
  public:
-  using id_t = uint32_t;
+  using id_t = uint64_t;
   using offset_t = uint64_t;
 
   bool operator==(const mem_handle& rhs) const {
@@ -58,8 +85,7 @@ class mem_handle {
 
  private:
   mem_handle(id_t id, offset_t offset) : id_(id), offset_(offset) {}
-  static void ensure_fits_ptr(const mem_handle&);
-  static constexpr uint64_t offset_bits = 34;
+  static void ensure_fits_ptr(bucket_type type, uint64_t id, uint64_t offset);
   id_t id_ = 0;
   offset_t offset_ = 0;
 
@@ -85,13 +111,13 @@ class HandlesMap {
   HandlesMap();
 
   mem_handle::id_t Insert(size_t size);
-  void check_id_overflow(mem_handle::id_t id, size_t size);
+  void check_id_overflow(mem_handle::id_t id, size_t size, uint64_t offset_bit);
   PtrSize GetPtrSize(mem_handle::id_t id) const;
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
   void Erase(mem_handle::id_t id);
   void MarkMemoryFixed(mem_handle::id_t id);
   void ResetHandlesMap();
-
+  bucket_type getBucketIndexForGivenTensorSize(size_t size);
   struct MemoryRecord {
     mem_handle::id_t id_;
     bool fixed_;
@@ -99,36 +125,52 @@ class HandlesMap {
   };
   // Iterator has been added for Defragmentator
   struct Iterator {
-    Iterator(const HandlesMap& handle_set, mem_handle::id_t id)
-        : handle_set_(handle_set), id_(id) {}
+    Iterator(
+        const HandlesMap& handle_set,
+        size_t bucketIndex,
+        size_t handleIndex)
+        : handle_set_(handle_set),
+          bucketIndex_(bucketIndex),
+          handleIndex_(handleIndex) {
+      id_ = create_memhandle_from_bucket_index_and_handle_index(
+          (bucket_type)bucketIndex_, handleIndex_);
+    }
 
     const MemoryRecord operator*() const {
       return {
-          .id_ = id_,
-          .fixed_ = handle_set_.handle_[id_].fixed_,
-          .ptr_size_ = handle_set_.handle_[id_].ptr_size_};
+          .id_ = create_memhandle_from_bucket_index_and_handle_index(
+              (bucket_type)bucketIndex_, handleIndex_),
+          .fixed_ = handle_set_.handles_[bucketIndex_][handleIndex_].fixed_,
+          .ptr_size_ =
+              handle_set_.handles_[bucketIndex_][handleIndex_].ptr_size_};
     }
 
     Iterator& operator++();
     Iterator operator++(int);
 
     friend bool operator==(const Iterator& a, const Iterator& b) {
-      return a.id_ == b.id_;
+      return (a.bucketIndex_ == b.bucketIndex_) &&
+          (a.handleIndex_ == b.handleIndex_);
     };
     friend bool operator!=(const Iterator& a, const Iterator& b) {
-      return a.id_ != b.id_;
+      return (a.bucketIndex_ != b.bucketIndex_) &&
+          (a.handleIndex_ != b.handleIndex_);
     };
 
    private:
     const HandlesMap& handle_set_;
+    size_t bucketIndex_ = 0;
+    size_t handleIndex_ = 0;
     mem_handle::id_t id_;
   };
   Iterator begin() const {
-    return Iterator(*this, 1);
+    return Iterator(*this, 0, 0);
   };
   Iterator end() const {
-    return Iterator(*this, handle_.size());
+    return Iterator(*this, this->handles_.size(), size());
   };
+
+  std::size_t size() const;
 
  private:
   struct Record {
@@ -138,10 +180,10 @@ class HandlesMap {
     Record() = default;
     Record(size_t size) : ptr_size_(size), active_(true) {}
   };
-  void CheckId(mem_handle::id_t id) const;
+  void CheckId(uint64_t handle_index, bucket_type index) const;
 
-  std::deque<Record> handle_;
-  std::queue<mem_handle::id_t> free_handles_;
+  std::array<std::deque<Record>, _END> handles_;
+  std::array<std::queue<mem_handle::id_t>, _END> free_handles_;
 };
 
 } // namespace synapse_helpers
