@@ -34,6 +34,15 @@ sizes_vec NllLossBwdOutputShape(const at::Stack& stack) {
   return {target.sizes().vec()};
 }
 
+sizes_vec NllLossBwdShapeTnsrShape(const at::Stack& stack) {
+  // Return correct Shape Tensor size
+  const torch::Tensor& target = stack_tensor(stack, 2);
+  const torch::Tensor& input = stack_tensor(stack, 1);
+  auto target_vec = target.sizes().vec();
+  target_vec.push_back(input.sizes().vec().at(1));
+  return {target_vec};
+}
+
 static std::shared_ptr<void> FillNllLossParams(
     size_t& size,
     int64_t reduction,
@@ -129,9 +138,10 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     const at::IntArrayRef outshape,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_index = c10::nullopt) {
+    c10::optional<int> final_index = c10::nullopt,
+    at::IntArrayRef shapeTnsrSize = {}) {
   // This helper function is used only when weight is none
-  op->CreateShapeTensorInput(graph, dtype, outshape, input);
+  op->CreateShapeTensorInput(graph, dtype, shapeTnsrSize, input);
   return NllLoss(op, graph, input, outshape, params, size, final_index);
 }
 
@@ -239,6 +249,7 @@ void NllLoss2DBwd::AddNode(
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack)[0];
+  const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
   auto dtype = stack.at(0).toTensor().scalar_type();
 
   // A JIRA is created for self input tensor not used
@@ -255,7 +266,8 @@ void NllLoss2DBwd::AddNode(
           outshape,
           params,
           size,
-          0);
+          0,
+          shapeTnsrSize);
     } else { // weight is not none
       auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
 
@@ -274,7 +286,15 @@ void NllLoss2DBwd::AddNode(
         input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
     if (stack.at(3).isNone()) { // weight is none
       auto nll_loss = NllLossBwdFunc(
-          this, graph, {syn_in(0), syn_in(2)}, dtype, loss_shape, params, size);
+          this,
+          graph,
+          {syn_in(0), syn_in(2)},
+          dtype,
+          loss_shape,
+          params,
+          size,
+          c10::nullopt,
+          shapeTnsrSize);
       output = Transpose_MemFormat(
           this, graph, Bwd2D, {nll_loss[0].get()}, outshape, 0);
     } else { // weight is not none
