@@ -4,6 +4,7 @@ lark
 ninja
 numpy>=1.21
 pandas==1.4.1
+pip>=23
 pyyaml
 cython
 yamllint

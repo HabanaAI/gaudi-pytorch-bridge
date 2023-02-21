@@ -310,7 +310,6 @@ class RecreateVenv:
         return RecreateVenv.FORCE, RecreateVenv.AS_NEEDED, RecreateVenv.NEVER
 
 
-# TODO: ensure +gitSHA are taken into consideration
 def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Version]:
     verbose = " --verbose" if log.isEnabledFor(logging.DEBUG) else ""
     installed_pt_ver = outof(
@@ -445,6 +444,13 @@ def install_requirements(pt_modules_root, pt_ver: VersionAndSource, venv_dir, ve
     return query_installed_pt_ver(venv_dir, venv_python, label=label)
 
 
+def needs_to_install_torch_from_requirements_file(venv_dir, venv_python, requirements_args: str):
+    # Last line is "Would install package-version package2-version2"
+    would_install = outof(venv_python, "-m", "pip", "install", "--dry-run", requirements_args, venv=venv_dir).strip().splitlines()[-1]
+    would_install_packages = would_install.split(" ")[2:]
+    return any(package.startswith("torch-") for package in would_install_packages)
+
+
 def prepare_venv(
     python_ver: Version,
     pt_ver: VersionAndSource,
@@ -531,6 +537,8 @@ def prepare_venv(
         installed_pt_ver = query_installed_pt_ver(venv_dir, venv_python, label=label)
         if installed_pt_ver is None:
             update = True
+        if pt_ver.source.startswith("-r"):
+            update = needs_to_install_torch_from_requirements_file(venv_dir, venv_python, os.path.expandvars(pt_ver.source))
 
     if recreate_venv == RecreateVenv.NEVER or pt_ver.source == "preinstalled":
         update = False
