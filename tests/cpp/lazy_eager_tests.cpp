@@ -188,3 +188,104 @@ TEST_F(LazyEagerTest, optimized_lazy_copy_inplace_1) {
     }
   }
 }
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A =
+        torch::randn({2, 3}, torch::dtype(torch::kFloat32).requires_grad(false))
+            .to(torch::kLong);
+    auto hA = A.to(torch::kHPU);
+    A = A.add_(1);
+    auto exp = torch::add(A, 3);
+
+    hA = hA.add_(1);
+    auto result = torch::add(hA, 3);
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A =
+        torch::randint(
+            1, 9, {3, 3}, torch::dtype(torch::kInt32).requires_grad(false))
+            .to(torch::kLong);
+    auto hA = A.to(torch::kHPU);
+    A = A.add_(1);
+    auto exp = torch::add(A, 3, 2);
+
+    hA = hA.add_(1);
+    auto result = torch::add(hA, 3, 2);
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0, 0), true);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn(
+        {3, 3}, torch::dtype(torch::kFloat32).requires_grad(false));
+    auto hA = A.to(torch::kHPU);
+    auto B = torch::empty(0);
+    auto hB = torch::empty(0, torch::kHPU);
+
+    A = A.div_(5);
+    torch::div_outf(A, 2, B);
+    auto exp = torch::div(B, 3);
+
+    hA = hA.div_(5);
+    torch::div_outf(hA, 2, hB);
+    auto result = torch::div(hB, 3);
+    torch::Tensor out = result.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn(
+        {3, 3}, torch::dtype(torch::kBFloat16).requires_grad(false));
+    auto hA = A.to(torch::kHPU);
+
+    A = A.div_(5, "floor");
+    auto exp = torch::div(A, 3, "floor");
+
+    hA = hA.div_(5, "floor");
+    auto result = torch::div(hA, 3, "floor");
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randint(
+        1, 100, {10, 10}, torch::dtype(torch::kInt32).requires_grad(false));
+    auto hA = A.to(torch::kHPU);
+
+    A = A.div_(2, "trunc");
+    auto exp = torch::div(A, 4, "trunc");
+
+    hA = hA.div_(2, "trunc");
+    auto result = torch::div(hA, 4, "trunc");
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0, 0), true);
+  }
+}

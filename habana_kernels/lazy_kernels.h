@@ -1271,20 +1271,27 @@ class LazyOp {
           t.toTensor().device().type() != c10::DeviceType::HPU) {
         const at::Tensor& tensor = t.toTensor();
         at::Tensor tinput;
-        // If the CPU tensor is a wrapped number, then use
-        // get_tensor_for_scalar method to retrieve cached HPU tensors for
-        // the scalar value
         if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
           // is_wrapped_number: True if a tensor was auto-wrapped from a
           // C++ or Python number.
-          auto dtype = tensor.scalar_type();
-          tinput = get_tensor_for_scalar(
-              tensor.item().toDouble(), at::TensorOptions().dtype(dtype));
+          if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+            // For lazy eager Skip scalar handling at FE, Use scalar Ivalue as
+            // input
+            t = c10::IValue(tensor.item());
+          } else {
+            // If the CPU tensor is a wrapped number, then use
+            // get_tensor_for_scalar method to retrieve cached HPU tensors for
+            // the scalar value
+            auto dtype = tensor.scalar_type();
+            tinput = get_tensor_for_scalar(
+                tensor.item().toDouble(), at::TensorOptions().dtype(dtype));
+            t = c10::IValue(tinput);
+          }
         } else {
           // Use non_blocking .to()
           tinput = tensor.to(c10::kHPU, true);
+          t = c10::IValue(tinput);
         }
-        t = c10::IValue(tinput);
       }
 
       if (!m_collective_op)
@@ -1639,6 +1646,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
     auto inputs_updated = false;
     for (size_t i = 0; i < 2; ++i) {
+      if (!inputs[i].isTensor()) {
+        continue;
+      }
       auto tensor_promote = inputs[i].toTensor();
       if (compute_dtype == tensor_promote.scalar_type()) {
         continue;
@@ -1667,8 +1677,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     }
 
     PT_LAZY_DEBUG("binary op");
-    LazyOp<T>::set_broadcast_details(get_broadcast_details(
-        inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
+    if (inputs[0].isTensor() && inputs[1].isTensor())
+      LazyOp<T>::set_broadcast_details(get_broadcast_details(
+          inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
 
     auto results = LazyOp<T>::call();
     return results;
@@ -1693,6 +1704,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
     auto inputs_updated = false;
     for (size_t i = 0; i < 2; ++i) {
+      if (!inputs[i].isTensor()) {
+        continue;
+      }
       auto tensor_promote = inputs[i].toTensor();
       if (compute_dtype == tensor_promote.scalar_type()) {
         continue;
@@ -1721,8 +1735,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     }
 
     PT_LAZY_DEBUG("binary op inplace");
-    LazyOp<T>::set_broadcast_details(get_broadcast_details(
-        inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
+    if (inputs[0].isTensor() && inputs[1].isTensor())
+      LazyOp<T>::set_broadcast_details(get_broadcast_details(
+          inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
 
     return LazyOp<T>::call(self);
   }
@@ -1745,6 +1760,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
 
     auto inputs_updated = false;
     for (size_t i = 0; i < 2; ++i) {
+      if (!inputs[i].isTensor()) {
+        continue;
+      }
       auto tensor_promote = inputs[i].toTensor();
       if (compute_dtype == tensor_promote.scalar_type()) {
         continue;
@@ -1773,8 +1791,9 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     }
 
     PT_LAZY_DEBUG("binary op");
-    LazyOp<T>::set_broadcast_details(get_broadcast_details(
-        inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
+    if (inputs[0].isTensor() && inputs[1].isTensor())
+      LazyOp<T>::set_broadcast_details(get_broadcast_details(
+          inputs[0].toTensor().sizes(), inputs[1].toTensor().sizes()));
 
     LazyOp<T>::call(self);
   }

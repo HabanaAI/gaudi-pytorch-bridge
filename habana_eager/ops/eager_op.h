@@ -107,9 +107,9 @@ class EagerOpBase {
           t.toTensor().device().type() != c10::DeviceType::HPU) {
         const at::Tensor& tensor = t.toTensor();
         if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-          // If the CPU tensor is a 0D wrapped number, then transfer it to HPU
-          at::Tensor tinput = tensor.to(c10::kHPU, true);
-          t = c10::IValue(tinput);
+          // If the CPU tensor is a 0D wrapped number
+          // Use its Ivalue as scalar input
+          t = c10::IValue(tensor.item());
         } else {
           HABANA_ASSERT(
               0,

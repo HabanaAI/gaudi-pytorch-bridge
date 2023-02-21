@@ -24,6 +24,10 @@ namespace habana {
 static void convert_scalar_to_tensor(
     at::Stack& stack,
     c10::optional<c10::ScalarType> compute_dtype = c10::nullopt) {
+  // For lazy eager Skip scalar handling at FE
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    return;
+  }
   auto& other_ival = stack.at(1);
   const auto& other = other_ival.toScalar();
   other_ival = habana_lazy::get_tensor_for_scalar(

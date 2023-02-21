@@ -1564,6 +1564,19 @@ bitwise_not_:
   guid: bitwise_not_fwd
   inplace_ids: [0]
 
+bitwise_or.Scalar:
+  force_default: false
+  custom_output_shape: BinaryOutputShape
+  dtypes:
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
+    Greco: [Int, Short, Byte, Char]
+  op_frontend: LazyBitwiseScalar
+  guid: bitwise_or_fwd
+  out_ids: [0]
+  scalar_ids: [1]
+
 bitwise_or.Scalar_out:
   force_default: false
   custom_output_shape: BinaryOutputShape
@@ -2228,6 +2241,7 @@ div.Scalar:
   guid: div
   op_frontend: LazyDivScalar
   out_ids: [0]
+  scalar_ids: [1]
   promote_int_to_float: [self, other]
 
 div_.Scalar:
@@ -2240,6 +2254,7 @@ div_.Scalar:
   guid: div
   op_frontend: LazyDivScalarInplace
   inplace_ids: [0]
+  scalar_ids: [1]
   promote_int_to_float: [self, other]
 
 div.Scalar_mode:
@@ -2247,14 +2262,20 @@ div.Scalar_mode:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_frontend: DivMode
+  op_backend: DivRoundModeOperator
   out_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
 
 div_.Scalar_mode:
   force_default: false
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_frontend: DivMode
+  op_backend: DivRoundModeOperator
   inplace_ids: [0]
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
 
 div.Tensor:
   force_default: false
@@ -2303,6 +2324,9 @@ div.Scalar_mode_out:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_frontend: DivMode
+  op_backend: DivRoundModeOperator
+  scalar_ids: [1]
+  promote_to_common_type: [self, other]
 
 div.Scalar_out:
   force_default: false
@@ -2314,6 +2338,7 @@ div.Scalar_out:
   guid: div
   op_frontend: LazyDivScalarInplace
   promote_int_to_float: [self, other]
+  scalar_ids: [1]
 
 dot:
   custom_output_shape: DotOutputShape

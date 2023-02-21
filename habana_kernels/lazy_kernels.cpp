@@ -1934,11 +1934,17 @@ void add_tensor_hpu_lazy_parallel_impl(
 
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
-    at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other.options());
+    at::Tensor mul_out;
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      // For lazy eager Skip scalar handling at FE
+      mul_out = torch::mul(other, alpha);
+    } else {
+      at::Tensor alpha_tensor =
+          get_tensor_for_scalar(alpha_double, other.options());
 
-    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = torch::mul(other, alpha_tensor);
+      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+      mul_out = torch::mul(other, alpha_tensor);
+    }
     if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
       // The operation has been split into intermediate multiply and then
       // again add op tensor produced by this split resulted in inappropriate
@@ -1967,7 +1973,7 @@ Tensor add_tensor_hpu_lazy(
   PT_LAZY_TRACE;
 
   auto alpha_double = alpha.toDouble();
-  if (alpha_double != 1.0) {
+  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
     at::Tensor alpha_tensor =
         get_tensor_for_scalar(alpha_double, other.options());
   }
@@ -2016,11 +2022,17 @@ void add_tensor_hpu_lazy_inplace_parallel_impl(
   PT_LAZY_TRACE;
   auto alpha_double = alpha.toDouble();
   if (alpha_double != 1.0) {
-    at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other.options());
+    at::Tensor mul_out;
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      // For lazy eager Skip scalar handling at FE
+      mul_out = torch::mul(other, alpha);
+    } else {
+      at::Tensor alpha_tensor =
+          get_tensor_for_scalar(alpha_double, other.options());
 
-    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
-    auto mul_out = torch::mul(other, alpha_tensor);
+      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+      mul_out = torch::mul(other, alpha_tensor);
+    }
     add_tensor_hpu_lazy_inplace_parallel_impl(self, mul_out, 1.0);
   } else {
     LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
@@ -2035,7 +2047,7 @@ Tensor& add_tensor_hpu_lazy_(
   PT_LAZY_TRACE;
 
   auto alpha_double = alpha.toDouble();
-  if (alpha_double != 1.0) {
+  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
     at::Tensor alpha_tensor =
         get_tensor_for_scalar(alpha_double, other.options());
   }

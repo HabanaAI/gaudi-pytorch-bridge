@@ -47,17 +47,20 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     const at::Stack& stack,
     std::vector<synTensor> binaryop_inputs,
     const c10::optional<c10::string_view>& rounding_mode) {
-  const at::Tensor& self = stack_tensor(stack, 0);
-  const at::Tensor& other = stack_tensor(stack, 1);
-  std::vector<at::Tensor> tensors = {self, other};
-
   // Check if mode is other than None, i.e. "floor" or "trunc"
   bool isNotNone = rounding_mode.has_value();
 
   // Find the result type
   auto final_result_type = GetResultDtype(stack, !isNotNone);
 
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  const at::Tensor& self = stack_tensor(stack, 0);
+  std::vector<int64_t> shape_out = self.sizes().vec();
+  // If second input is tensor compute out shape based on both inputs
+  if (stack.at(1).isTensor()) {
+    const at::Tensor& other = stack_tensor(stack, 1);
+    shape_out = BinaryOperator::compute_output_shape(self, other);
+  }
+
   // Handle integral cases differently using div_mod, else floating point
   // convertion yields error after truncation in some cases.
   if (isNotNone && (c10::isIntegralType(final_result_type, true))) {
@@ -77,26 +80,28 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
         "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 
     // Initialization
-    const unsigned cNoOfInputTensors = 2;
+    const unsigned cNoOfInputs = 2;
     std::vector<synapse_helpers::tensor> divOp, makeIntegerOp;
-    std::unique_ptr<synapse_helpers::tensor> cast[cNoOfInputTensors];
+    std::unique_ptr<synapse_helpers::tensor> cast[cNoOfInputs];
 
     // Convert each tensor to float/bfloat16 (if not already in)
     std::string strNode_type;
 
-    for (unsigned char i = 0; i < cNoOfInputTensors; ++i) {
-      if (tensors.at(i).scalar_type() == computation_type) {
-        continue;
+    for (unsigned char i = 0; i < cNoOfInputs; ++i) {
+      auto stack_input = stack.at(i);
+      if (stack_input.isTensor() &&
+          stack_input.toTensor().scalar_type() != computation_type) {
+        auto tensor = stack_tensor(stack, i);
+        cast[i] =
+            std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+                op,
+                graph,
+                binaryop_inputs[i],
+                tensor.sizes(),
+                tensor.scalar_type(),
+                computation_type));
+        binaryop_inputs.at(i) = cast[i]->get();
       }
-
-      cast[i] = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
-          op,
-          graph,
-          binaryop_inputs[i],
-          stack_tensor(stack, i).sizes(),
-          tensors.at(i).scalar_type(),
-          computation_type));
-      binaryop_inputs.at(i) = cast[i]->get();
     }
 
     // Final cast is required, if result type is not float
