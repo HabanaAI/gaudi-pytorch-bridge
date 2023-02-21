@@ -118,13 +118,6 @@ at::Tensor baddbmm_hpu_lazy(
     const at::Tensor& batch2,
     const at::Scalar& beta,
     const at::Scalar& alpha);
-at::Tensor& baddbmm_out_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& batch1,
-    const at::Tensor& batch2,
-    const at::Scalar& beta,
-    const at::Scalar& alpha,
-    at::Tensor& out);
 at::Tensor& baddbmm_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& batch1,

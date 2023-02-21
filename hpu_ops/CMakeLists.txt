@@ -80,6 +80,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/arange_gen.cpp
           backend/argmin_max_gen.cpp
           backend/avg_pool2d_gen.cpp
+          backend/baddbmm_gen.cpp
           backend/bernoulli_gen.cpp
           backend/binary_gen.cpp
           backend/binarycrossentropy_gen.cpp

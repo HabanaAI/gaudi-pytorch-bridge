@@ -2064,26 +2064,6 @@ Tensor baddbmm_hpu_lazy(
   return out;
 }
 
-Tensor& baddbmm_out_hpu_lazy(
-    const Tensor& self,
-    const Tensor& batch1,
-    const Tensor& batch2,
-    const Scalar& beta,
-    const Scalar& alpha,
-    Tensor& out) {
-  PT_LAZY_TRACE;
-  if (beta.toFloat() == 0) {
-    torch::bmm_outf(batch1, batch2, out);
-    out.mul_(alpha);
-  } else {
-    Tensor r_bmul = torch::mul(self, beta);
-    torch::bmm_outf(batch1, batch2, out);
-    out.mul_(alpha);
-    out.add_(r_bmul, 1);
-  }
-  return out;
-}
-
 Tensor& baddbmm_hpu_lazy_(
     Tensor& self,
     const Tensor& batch1,

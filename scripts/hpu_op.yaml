@@ -1308,13 +1308,14 @@ baddbmm_:
   acc_thread: true
 
 baddbmm.out:
+  custom_output_shape: BaddbmmOutputShape
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
     Greco: [Float, BFloat16, Int, Char, Half, Short]
-  override_fn: baddbmm_out_hpu_lazy
-  acc_thread: true
+  guid: batch_gemm
+  op_backend: Baddbmm
 
 bernoulli:
   force_default: false
