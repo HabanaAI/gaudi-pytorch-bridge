@@ -334,7 +334,7 @@ def main(args):
     f_op_decl = open(args.ops_decl, 'r')
     l_op_decl = f_op_decl.readlines()
     f_op_decl.close()
-    p1 = os.path.join(args.gen_files_path, 'wrap_kernels_registrations.cpp')
+    p1 = os.path.join(args.gen_files_path, 'lazy/wrap_kernels_registrations.cpp')
     p2 = os.path.join(args.gen_files_path, 'backend')
     f_manual_ops_decl =open(p1, 'r')
     l_manual_ops_decl = f_manual_ops_decl.readlines()

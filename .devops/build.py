@@ -1324,8 +1324,8 @@ def create_symlink_for_op_stats(build_dirs: List[str]):
             log.info("Files from %s will be used for gathering op stats", directory)
             src = os.path.join(directory, "generated")
             dst = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "generated")
-            if os.path.islink(src):
-                os.remove(src)
+            if os.path.islink(dst):
+                os.remove(dst)
             os.symlink(src, dst, target_is_directory=True)
             return
 
