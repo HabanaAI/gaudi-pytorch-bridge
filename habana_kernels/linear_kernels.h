@@ -186,10 +186,16 @@ class MatmulBackwardOperator : public HabanaOperator {
   std::vector<HabanaOperatorPtr> ReshapeOpList;
 };
 
-class LinearForwardOperator : public HabanaOperator {
+class LinearBackwardOperator : public HabanaOperator {
  public:
-  LinearForwardOperator(int device_id) : HabanaOperator("linear_fwd") {
+  LinearBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "linear_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
   }
 
   void AllocateAndAddSynapseNode(
@@ -198,11 +204,11 @@ class LinearForwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-class Linear2DBackwardOperator : public HabanaOperator {
+class LinearForwardHelperOperator : public HabanaOperator {
  public:
-  Linear2DBackwardOperator(int device_id, c10::ScalarType scalarType)
+  LinearForwardHelperOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "linear_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            "linear_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -215,9 +221,9 @@ class Linear2DBackwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-class LinearBackwardOperator : public HabanaOperator {
+class LinearForwardOperator : public HabanaOperator {
  public:
-  LinearBackwardOperator(int device_id) : HabanaOperator("linear_bwd") {
+  LinearForwardOperator(int device_id) : HabanaOperator("linear_fwd") {
     this->CreateSynContext(device_id);
   }
 
