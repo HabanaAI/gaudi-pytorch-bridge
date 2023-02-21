@@ -29,4 +29,42 @@ inline bool get_keepdim(at::Stack stack, at::optional<uint8_t> keepdim_index) {
   return keepdim_index.has_value() ? stack.at(keepdim_index.value()).toBool()
                                    : false;
 }
+
+template <typename T>
+struct CommonReductionFrontendTemplate {
+  at::optional<uint8_t> m_dtype_index;
+  at::optional<uint8_t> m_dim_index;
+  at::optional<uint8_t> m_keepdim_index;
+
+  void SetReductionVarsIndices(
+      at::optional<uint8_t> dim_index,
+      at::optional<uint8_t> keepdim_index,
+      at::optional<uint8_t> dtype_index) {
+    m_dim_index = dim_index;
+    m_keepdim_index = keepdim_index;
+    m_dtype_index = dtype_index;
+  }
+
+  T CreateResult(const at::Stack& stack, at::ScalarType dtype);
+};
+
+#define HPU_REDUCTION_TEMPLATE_FRONTEND(OpClass)                         \
+  template <typename T>                                                  \
+  class ReductionFrontendTemplate                                        \
+      : public OpClass<T>,                                               \
+        public CommonReductionFrontendTemplate<T> {                      \
+   public:                                                               \
+    ReductionFrontendTemplate(                                           \
+        const std::string& qualstring,                                   \
+        const std::vector<at::IValue>& inputs,                           \
+        const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn) \
+        : OpClass<T>(qualstring, inputs, out_shapes_fn, -1) {}           \
+    ReductionFrontendTemplate(                                           \
+        const std::string& qualstring,                                   \
+        const std::vector<at::IValue>& inputs,                           \
+        const sizes_vec& out_shapes)                                     \
+        : OpClass<T>(qualstring, inputs, out_shapes, -1) {}              \
+    T get_result_overrideable() override;                                \
+  };
+
 } // namespace habana
