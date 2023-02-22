@@ -104,16 +104,6 @@ class Version(packaging.version.Version):
         """
         return self._label if self._label else str(self)
 
-    def _platform_matches(self, candidate: Version) -> bool:
-        def get_platform(plat: Optional[str]):
-            if not plat or plat.startswith("git"):
-                return "cpu"
-            return plat
-
-        lhs_platform = get_platform(self.local)
-        rhs_platform = get_platform(candidate.local)
-        return lhs_platform == rhs_platform
-
     def significant_matches(self, candidate: Version) -> bool:
         """Checks if all version components of wildcard (i.e. self) and the
         compute platform match those from candidate.
@@ -127,9 +117,6 @@ class Version(packaging.version.Version):
         wildcard, candidate_ver = self.release, candidate.release
         assert len(wildcard) <= len(candidate_ver)
         release_matches = all(w == c for w, c in zip(wildcard, candidate_ver))
-
-        if not self._platform_matches(candidate):
-            return False
 
         if not self.is_prerelease:
             return release_matches
