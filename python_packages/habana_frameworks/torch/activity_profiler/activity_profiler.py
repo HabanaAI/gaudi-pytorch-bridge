@@ -1,22 +1,29 @@
 import torch
+from enum import Enum
 import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
 
+
+class DebugActivity(Enum):
+    SYNAPSE_FUNCTION_CALLS = 1
+    BRIDGE_FUNCTION_CALLS = 2
+
+
 def register_habana_activity_profiler():
-    from enum import Enum
     from typing import Any, Callable, Iterable, Optional
 
     original_activity = torch.profiler.ProfilerActivity
 
     class habana_autograd_profile_wrapper(torch.autograd.profiler.profile):
         def export_chrome_trace(self, path):
-                super().export_chrome_trace(path)
-                hpu_profiler._export_logs(path)
+            super().export_chrome_trace(path)
+            hpu_profiler._export_logs(path)
 
     class habana_profile(torch.profiler.profile):
         def __init__(
                 self,
                 *,
                 activities: Optional[Iterable[torch.profiler.ProfilerActivity]] = None,
+                debug_activities: Optional[Iterable[DebugActivity]] = None,
                 schedule: Optional[Callable[[int], torch.profiler.ProfilerAction]] = None,
                 on_trace_ready: Optional[Callable[..., Any]] = None,
                 record_shapes: bool = False,
@@ -24,10 +31,14 @@ def register_habana_activity_profiler():
                 with_stack: bool = False,
                 with_flops: bool = False,
                 with_modules: bool = False,
+                experimental_config: Optional[torch._C._profiler._ExperimentalConfig] = None,
                 use_cuda: Optional[bool] = None):
 
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
+            import os
+            os.environ["PT_PROFILE_SYNAPSE_LOGS"] = str(debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities)
+            os.environ["PT_PROFILE_BRIDGE_LOGS"] = str(debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities)
 
             super().__init__(
                 activities=activities,
@@ -38,6 +49,7 @@ def register_habana_activity_profiler():
                 with_stack=with_stack,
                 with_flops=with_flops,
                 with_modules=with_modules,
+                experimental_config=experimental_config,
                 use_cuda=use_cuda
             )
 
@@ -66,12 +78,5 @@ def register_habana_activity_profiler():
     torch.profiler.ProfilerActivity = HabanaProfilerActivity
     torch.autograd.profiler.profile = habana_autograd_profile_wrapper
 
-class habana_tracer:
-    def __init__(self, tag: str):
-        self.tag = tag
-    def __enter__(self):
-        self.id = hpu_profiler._add_custom_tag_begin(self.tag)
-    def __exit__(self, type, value, traceback):
-        hpu_profiler._add_custom_tag_end(self.id)
 
 register_habana_activity_profiler()
