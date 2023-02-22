@@ -6,7 +6,7 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-# Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
+# Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite - https://jira.habana-labs.com/browse/SW-124229
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   silentMode: true
   gerritTriggerMap:
@@ -56,7 +56,8 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
+# Waiting for https://jira.habana-labs.com/browse/SW-124229 to replace sim_promote_training_suite with asic_promote_training_suite
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_training_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
