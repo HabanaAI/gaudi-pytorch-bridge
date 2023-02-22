@@ -14,6 +14,8 @@ from torch.fx import symbolic_trace
 
 from torch.functional import Tensor
 name_stack = deque()
+module_dict = dict()
+is_inference = environ.get('PT_HPU_INFERENCE_MODE')
 
 # expose habana_frameworks.torch.hpu as torch.hpu
 from habana_frameworks.torch import hpu
@@ -21,6 +23,10 @@ torch._register_device_module('hpu', hpu)
 
 def _record_quant_param(name, min, max) -> None:
     if hpu.is_available():
+        #handle the naming mismatch issue with a temp fix, till we
+        #find a way to get unique module names from the calibration tool
+        if "add" not in  name:
+           name = name.replace("_", ".")
         _experimental_C.record_quant_param(name, min, max)
 
 def read_min_max_overwrite():
@@ -83,7 +89,19 @@ def hpu_initialize(model=None, optimizer=None, args=None):
         handle_quant_stats(model)
 
 def pre_fwd_hook(module, input):
-    new_name = name_stack[-1] + "/" + module.custom_name if name_stack else module.custom_name
+    #handle the naming mismatch issue with a temp fix, till we
+    #find a way to get unique module names from the calibration tool
+    if is_inference and name_stack and "relu" in  module.custom_name:
+       ns = str(name_stack[-1])
+       if ns in module_dict.keys():
+            module_dict[ns] += 1
+            new_name = name_stack[-1] + "/" + module.custom_name + "." + str(module_dict[ns])
+       else:
+            module_dict[ns] = 0
+            new_name = name_stack[-1] + "/" + module.custom_name if name_stack else module.custom_name
+    else:
+       new_name = name_stack[-1] + "/" + module.custom_name if name_stack else module.custom_name
+
     name_stack.append(new_name)
     htdebug._set_module_name(new_name)
 
@@ -95,6 +113,8 @@ def gen_grad_hook(name):
 
 def post_fwd_hook(module, input, output):
     module_name = name_stack.pop()
+    if is_inference and module_name in module_dict.keys():
+        del module_dict[module_name]
     if (name_stack):
         name = name_stack[-1]
     else:

@@ -67,9 +67,10 @@ void PtTensorInferenceData::update_map(std::string src, std::string dst) {
   if (inference_tensor_map.find(src_key) != inference_tensor_map.end() &&
       inference_tensor_map.find(dst_key) != inference_tensor_map.end()) {
     auto stats = inference_tensor_map[src_key];
+    // With this we are losing the stats for dst (ie Conv) and we assume,
+    // it will never be needed
     inference_tensor_map.erase(dst_key);
     SetInferenceTensorRange(dst_key, stats.first, stats.second);
-    inference_tensor_map.erase(src_key);
   } else {
     PT_BRIDGE_DEBUG(
         " One of these Keys do not exist: ", src_key, "  , or : ", dst_key);
