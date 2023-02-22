@@ -13,6 +13,7 @@
 import os
 import logging
 from . import config
+from . import mid_backend
 
 logging.basicConfig()
 

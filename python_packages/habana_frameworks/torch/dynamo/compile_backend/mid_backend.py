@@ -15,6 +15,7 @@ import functorch
 
 from typing import List
 from torch._dynamo.backends.common import aot_autograd
+from torch._dynamo.backends.registry import register_backend
 
 from .internal import (
     preprocess_module,
@@ -22,7 +23,6 @@ from .internal import (
     cluster_module,
     compile_clusters,
 )
-
 
 def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
@@ -47,14 +47,18 @@ def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[
     # Return the module in boxed format required by AOT Autograd.
     return functorch.compile.make_boxed_func(clustered_module.forward)
 
+@register_backend
+def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    """
+    This function implements inference Habana backend for HPU, without AOT Autograd.
+    """
 
-# This function implements Habana backend for HPU, without AOT Autograd.
-hpu_backend = _hpu_compile_inner
+    return _hpu_compile_inner(graph_module, example_inputs)
 
-
+@register_backend
 def aot_hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
-    This function implements Habana backend for HPU, with AOT Autograd.
+    This function implements training Habana backend for HPU, with AOT Autograd.
     """
 
     # Create AOT Autograd instance and feed it with Habana compile function.

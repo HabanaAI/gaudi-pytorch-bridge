@@ -13,12 +13,11 @@
 import os
 import torch
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 
 from contextlib import contextmanager
-from habana_frameworks.torch.dynamo.compile_backend.mid_backend import aot_hpu_backend
-
 
 def set_flag_in_env(name: str, value):
     if value is None:
@@ -58,7 +57,7 @@ def test_relu_cpuinput():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function = torch.compile(raw_function, backend=aot_hpu_backend)
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
@@ -74,7 +73,7 @@ def test_relu_hpuinput():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function = torch.compile(raw_function, backend=aot_hpu_backend)
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -102,7 +101,7 @@ def test_device_partition_cpuinput():
 
             return tmp5 + tmp15
 
-        compiled_function = torch.compile(raw_function, backend=aot_hpu_backend)
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
@@ -130,7 +129,7 @@ def test_device_partition_hpuinput():
 
             return tmp5 + tmp15
 
-        compiled_function = torch.compile(raw_function, backend=aot_hpu_backend)
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -196,8 +195,8 @@ def test_simple_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend=aot_hpu_backend)
-        compiled_function_train = torch.compile(raw_function_train, backend=aot_hpu_backend)
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
@@ -274,8 +273,8 @@ def test_simple_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend=aot_hpu_backend)
-        compiled_function_train = torch.compile(raw_function_train, backend=aot_hpu_backend)
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
