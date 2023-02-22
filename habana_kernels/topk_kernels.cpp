@@ -99,15 +99,19 @@ OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
   if (result_sizes.size() > 0) {
     result_sizes[dim] = k;
   }
-  auto tensor_meta_data = TensorMetaData(
+
+  out.AddOutputTensor(TensorMetaData(
       result_sizes,
       HabanaOperator::CalculateStrides(
           self.sizes(), self.suggest_memory_format()),
       self.scalar_type(),
-      self.suggest_memory_format());
-
-  out.AddOutputTensor(tensor_meta_data);
-  out.AddOutputTensor(tensor_meta_data);
+      self.suggest_memory_format()));
+  out.AddOutputTensor(TensorMetaData(
+      result_sizes,
+      HabanaOperator::CalculateStrides(
+          self.sizes(), self.suggest_memory_format()),
+      c10::ScalarType::Int,
+      self.suggest_memory_format()));
   return out;
 }
 void TopkOutOperator::AllocateAndAddSynapseNode(
