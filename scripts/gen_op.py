@@ -969,16 +969,18 @@ def frontend(
         code_line = "  return habana_lazy::{}({})".format(
             ctxop.get_override_fn(), ", ".join(param_vars)
         )
-        if is_eager_frontend:
+        if is_eager_frontend and not is_eager_op_supported:
             code += "  // MOVE TO EAGER: {}\n".format(code_line)
-        code += code_line
+        else:
+            code += code_line
     else:
         code_line = '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
             op_frontend_class, rtype, schema_fn, ", ".join(param_vars)
         )
         if is_eager_frontend and not is_eager_op_supported:
-            code += "  // MOVE TO EAGER: {}\n".format(code_line)
-        code += code_line
+            code += "  /* MOVE TO EAGER: \n{}".format(code_line)
+        else:
+            code += code_line
 
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -1059,6 +1061,8 @@ def frontend(
             code += "  {}hpu_op.call({})".format(
                 "" if rtype == "void" else "return ", lazyop_call_args
             )
+        if is_eager_frontend and not is_eager_op_supported:
+            code += "  */\n"
     return code + ";\n}"
 
 
@@ -1275,6 +1279,13 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
             or "TensorList" in sig  # TensorList ops
         )
 
+# List of override_fn ops that are supporting eager frontend
+eager_ops_override_fns_whitelist = [
+    "_copy_from",
+    "as_strided_hpu_lazy2",
+    "set_source_Storage_storage_offset",
+    "view_hpu_lazy",
+]
 
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
@@ -1282,6 +1293,12 @@ def is_eager_op(fname, rtype, sig, ctxop):
         return True
     if ctxop.get_op_frontend_class() != "LazyOp":
         return False
+
+    if ctxop.get_override_fn():
+        if ctxop.get_override_fn() in eager_ops_override_fns_whitelist:
+            return True
+        else:
+            return False
 
     if is_inplace_or_out_op(fname):
         if rtype.startswith("::std::tuple<at::Tensor"):

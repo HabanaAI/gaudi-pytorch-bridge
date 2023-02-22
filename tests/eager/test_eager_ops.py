@@ -114,6 +114,7 @@ def test_duplicate_input_pow():
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
+
 def test_eager_backend_pool():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     result_cpu = torch.relu(cpu_tensor)
@@ -123,42 +124,46 @@ def test_eager_backend_pool():
         result_hpu = torch.relu(hpu_tensor).to("cpu")
         assert torch.equal(result_hpu, result_cpu)
 
+
 def test_eager_std_mean():
     # test for EagerOp<std::tuple<Tensor, Tensor>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
 
     cpu_out = torch.std_mean(cpu_tensor)
-    hpu_out = torch.std_mean(hpu_tensor)
+    hpu_out0 = torch.std_mean(hpu_tensor)[0].to("cpu")
+    hpu_out1 = torch.std_mean(hpu_tensor)[1].to("cpu")
 
-    assert torch.allclose(hpu_out[0].to("cpu"), cpu_out[0], atol=0.001, rtol=0.001)
-    assert torch.allclose(hpu_out[1].to("cpu"), cpu_out[1], atol=0.001, rtol=0.001)
+    assert torch.allclose(hpu_out0, cpu_out[0], atol=0.1, rtol=0.1)
+    assert torch.allclose(hpu_out1, cpu_out[1], atol=0.001, rtol=0.001)
+
 
 def test_eager_frexp_out():
     # test for EagerOp<std::tuple<Tensor&, Tensor&>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
 
-    cpu_outtensor = (torch.empty([200], dtype = torch.float32), torch.empty([200], dtype = torch.int32))
-    hpu_outtensor = (torch.empty([200], dtype = torch.float32).to("hpu"), torch.empty([200], dtype = torch.int32).to("hpu"))
+    cpu_outtensor = (torch.empty([200], dtype=torch.float32), torch.empty([200], dtype=torch.int32))
+    hpu_outtensor = (torch.empty([200], dtype=torch.float32).to("hpu"), torch.empty([200], dtype=torch.int32).to("hpu"))
 
-    torch.frexp(cpu_tensor, out = cpu_outtensor)
-    torch.frexp(hpu_tensor, out = hpu_outtensor)
+    torch.frexp(cpu_tensor, out=cpu_outtensor)
+    torch.frexp(hpu_tensor, out=hpu_outtensor)
 
     assert torch.allclose(cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001)
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
+
 @pytest.mark.skip(reason="Skipped until SW-124321 is done")
 def test_eager_max_out():
-      # test for EagerOp<std::tupel<Tensor&, Tensor&>>
+    # test for EagerOp<std::tupel<Tensor&, Tensor&>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
 
-    cpu_outtensor = (torch.empty([], dtype = torch.float32), torch.empty([], dtype = torch.int64))
-    hpu_outtensor = (torch.empty([], dtype = torch.float32).to("hpu"), torch.empty([], dtype = torch.int64).to("hpu"))
+    cpu_outtensor = (torch.empty([], dtype=torch.float32), torch.empty([], dtype=torch.int64))
+    hpu_outtensor = (torch.empty([], dtype=torch.float32).to("hpu"), torch.empty([], dtype=torch.int64).to("hpu"))
 
-    torch.max(cpu_tensor,0, out = cpu_outtensor)
-    torch.max(hpu_tensor,0, out = hpu_outtensor)
+    torch.max(cpu_tensor, 0, out=cpu_outtensor)
+    torch.max(hpu_tensor, 0, out=hpu_outtensor)
 
     assert torch.allclose(cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001)
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))

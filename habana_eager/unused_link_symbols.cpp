@@ -11,6 +11,7 @@
  *
  *******************************************************************************
  */
+#include "habana_eager/helpers.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
@@ -27,11 +28,6 @@ using namespace at;
 // wrap_kernel_register, that are mandatory for PT2.0, but not implemented for
 // new frontend. They all will be moved to backend as a part of SW-118176
 // *************************************************
-
-#define EAGER_NOT_SUPPORTED                                                   \
-  HABANA_ASSERT(                                                              \
-      false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
-  std::terminate();
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
     const at::Tensor&,
@@ -99,10 +95,6 @@ at::Tensor hpu_wrap::repeat_interleave(
   EAGER_NOT_SUPPORTED;
 }
 
-Tensor hpu_wrap::_reshape_alias(const Tensor&, SymIntArrayRef, SymIntArrayRef) {
-  EAGER_NOT_SUPPORTED;
-}
-
 std::tuple<at::Tensor, at::Tensor> hpu_wrap::_weight_norm_interface(
     const at::Tensor&,
     const at::Tensor&,
@@ -167,171 +159,8 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
   EAGER_NOT_SUPPORTED;
 }
 
-namespace habana_lazy {
-Scalar _local_scalar_dense_hpu_lazy(const Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& masked_fill_scalar_hpu_lazy_(Tensor&, const Tensor&, const Scalar&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& masked_fill_hpu_lazy_(Tensor&, const Tensor&, const Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& masked_scatter_hpu_lazy_(Tensor&, const Tensor&, const Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor nonzero_hpu_lazy(const Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy_impl(
-    const Tensor&,
-    int64_t,
-    int64_t,
-    bool,
-    bool,
-    Tensor&,
-    Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& mul_out_hpu_lazy(const Tensor&, const Tensor&, Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
-    const Tensor&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    bool,
-    double,
-    double) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
-    const Tensor&,
-    const Tensor&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    bool,
-    double,
-    std::array<bool, 3>) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& randperm_hpu_lazy(int64_t, c10::optional<Generator>, Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor> _unique_hpu_lazy(const Tensor&, bool, bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
-    const Tensor&,
-    int64_t,
-    bool,
-    bool,
-    bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
-    const Tensor&,
-    bool,
-    bool,
-    bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& zero_hpu_lazy(Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
-    const Tensor&,
-    double,
-    c10::optional<Generator>) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& baddbmm_out_hpu_lazy(
-    const Tensor&,
-    const Tensor&,
-    const Tensor&,
-    const Scalar&,
-    const Scalar&,
-    Tensor&) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
-  auto sizes = self.sizes().vec();
-  if (self.sizes() != dst.sizes()) {
-    dst.resize_(self.sizes());
-  }
-  return dst.copy_(self);
-}
-
-at::Tensor embedding_dense_backward_hpu_lazy(
-    const at::Tensor&,
-    const at::Tensor&,
-    c10::SymInt,
-    c10::SymInt,
-    bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor>
-native_group_norm_backward_hpu_lazy(
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const c10::optional<at::Tensor>&,
-    c10::SymInt,
-    c10::SymInt,
-    c10::SymInt,
-    int64_t,
-    std::array<bool, 3>) {
-  EAGER_NOT_SUPPORTED;
-}
-
-Tensor& _index_put_impl_hpu_lazy_(
-    Tensor&,
-    const c10::List<c10::optional<at::Tensor>>&,
-    const Tensor&,
-    bool,
-    const bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
-    const at::Tensor&,
-    const at::Tensor&,
-    c10::SymIntArrayRef,
-    const at::Tensor&,
-    const at::Tensor&,
-    const c10::optional<Tensor>&,
-    const c10::optional<Tensor>&,
-    std::array<bool, 3>) {
-  EAGER_NOT_SUPPORTED;
-}
-
-} // namespace habana_lazy
-
 // *************************************************
-// BELOW is list of symbols needed to link new fronend plugin but not relevant
+// BELOW is list of symbols needed to link new frontend plugin but not relevant
 // for eager execution. They will be removed once backend dependencies
 // are cleared out as a part of SW-123330
 // *************************************************

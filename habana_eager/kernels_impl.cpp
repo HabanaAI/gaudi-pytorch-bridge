@@ -11,6 +11,7 @@
  *
  *******************************************************************************
  */
+#include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/set.h"
@@ -19,15 +20,13 @@
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/op_logger.h"
 
 #include "habana_helpers/logging.h"
 
 using namespace at;
-
-#define EAGER_NOT_SUPPORTED                                                   \
-  HABANA_ASSERT(                                                              \
-      false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
-  std::terminate();
+using namespace habana;
 
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
@@ -73,5 +72,24 @@ at::Tensor& habana_lazy::set_source_Storage_storage_offset(
     at::SymInt storage_offset,
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride) {
+  PT_EAGER_TRACE;
   return habana::eager::set_(self, source, storage_offset, size, stride);
+}
+
+Tensor hpu_wrap::_reshape_alias(
+    const Tensor& self,
+    SymIntArrayRef size,
+    SymIntArrayRef stride) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_reshape_alias :",
+      " self=",
+      to_string(self),
+      " size=",
+      to_string(size),
+      " stride",
+      to_string(stride));
+  FALLBACK_IF_UNSUPPORTED_OP(
+      _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
+  return habana_lazy::view_hpu_lazy(self, size);
 }
