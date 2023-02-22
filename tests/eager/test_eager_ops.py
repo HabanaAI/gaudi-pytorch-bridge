@@ -125,6 +125,7 @@ def test_eager_backend_pool():
         assert torch.equal(result_hpu, result_cpu)
 
 
+
 def test_eager_std_mean():
     # test for EagerOp<std::tuple<Tensor, Tensor>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
@@ -136,6 +137,7 @@ def test_eager_std_mean():
 
     assert torch.allclose(hpu_out0, cpu_out[0], atol=0.1, rtol=0.1)
     assert torch.allclose(hpu_out1, cpu_out[1], atol=0.001, rtol=0.001)
+
 
 
 def test_eager_frexp_out():
@@ -153,6 +155,7 @@ def test_eager_frexp_out():
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
 
+
 @pytest.mark.skip(reason="Skipped until SW-124321 is done")
 def test_eager_max_out():
     # test for EagerOp<std::tupel<Tensor&, Tensor&>>
@@ -167,3 +170,19 @@ def test_eager_max_out():
 
     assert torch.allclose(cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001)
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
+
+
+def test_relu2d_contiguous():
+    cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
+    hpu_tensor = cpu_tensor.to("hpu")
+    result_hpu = torch.relu(hpu_tensor).to("cpu")
+    result_cpu = torch.relu(cpu_tensor)
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+
+def test_pow2d_contiguous():
+    cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
+    hpu_tensor = cpu_tensor.to("hpu")
+    result_hpu = torch.pow(hpu_tensor, 2).to("cpu")
+    result_cpu = torch.pow(cpu_tensor, 2)
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
