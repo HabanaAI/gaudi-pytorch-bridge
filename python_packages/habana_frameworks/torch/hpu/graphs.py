@@ -311,6 +311,17 @@ def copy_to(dst, src):
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
+def is_seq_of_tensor(obj):
+    if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, str):
+        for mem in obj:
+            if not is_seq_of_tensor(mem):
+                return False
+        return True
+    elif torch.is_tensor(obj):
+        return True
+    else:
+        return False
+
 def wrap_in_hpu_graph_func(func, asynchronous=False):
     import habana_frameworks.torch as ht
     stream = ht.hpu.Stream()
@@ -318,6 +329,11 @@ def wrap_in_hpu_graph_func(func, asynchronous=False):
     orig_fwd = func
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
+        # V2 can only be used for inputs which can expressed as a list
+        if not kwargs and is_seq_of_tensor(args):
+            use_replay_v2 = True
+        else:
+            use_replay_v2 = False
         h = input_hash(inputs)
         cached = cache.get(h)
         if cached is None:
@@ -330,8 +346,11 @@ def wrap_in_hpu_graph_func(func, asynchronous=False):
                 graph_outputs = outputs
                 cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
             return outputs
-        copy_to(cached.graph_inputs, inputs)
-        cached.graph.replay(cached.asynchronous)
+        if use_replay_v2:
+            cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
+        else:
+            copy_to(cached.graph_inputs, inputs)
+            cached.graph.replay(cached.asynchronous)
         return cached.graph_outputs
     return forward
 
@@ -343,6 +362,11 @@ def wrap_in_hpu_graph(module, asynchronous=False):
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
+        # V2 can only be used for inputs which can expressed as a list
+        if not kwargs and is_seq_of_tensor(args):
+            use_replay_v2 = True
+        else:
+            use_replay_v2 = False
         h = input_hash(inputs)
         cached = cache.get(h)
         if cached is None:
@@ -356,8 +380,11 @@ def wrap_in_hpu_graph(module, asynchronous=False):
                 cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
             return outputs
 
-        copy_to(cached.graph_inputs, inputs)
-        cached.graph.replay(cached.asynchronous)
+        if use_replay_v2:
+            cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
+        else:
+            copy_to(cached.graph_inputs, inputs)
+            cached.graph.replay(cached.asynchronous)
         return cached.graph_outputs
     module.forward = forward
     return module
