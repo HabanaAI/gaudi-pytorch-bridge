@@ -92,13 +92,13 @@ void HbContextArena::UnregisterTensor(Data* data) {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
     devctx->tensors_data_opt.erase(unique_id);
-  }
 
-  if (synapse_helpers::memory_reporter_enable()) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    synapse_helpers::MemoryReporter* reporter =
-        device.get_device_memory().get_memory_reporter();
-    reporter->getTensorStats()->removeTensor(unique_id);
+    if (synapse_helpers::memory_reporter_enable()) {
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      synapse_helpers::MemoryReporter* reporter =
+          device.get_device_memory().get_memory_reporter();
+      reporter->getTensorStats()->removeTensor(unique_id);
+    }
   }
 
   c10::optional<at::Tensor> viewEntryTensor;
