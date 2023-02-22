@@ -9,10 +9,8 @@
 # was provided.
 #
 ###############################################################################
-
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
-
 add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op0.cpp
                      ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op1.cpp
@@ -63,8 +61,6 @@ add_custom_command(OUTPUT
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
 )
-
-
 add_library(habana_pytorch_backend_ops OBJECT
           backend/_assert_async_gen.cpp
           backend/_masked_scale_gen.cpp
@@ -214,7 +210,6 @@ target_link_libraries(habana_pytorch_backend_ops
     absl::str_format
     npu::spdlog
 )
-
 add_library(habana_pytorch_frontend_ops OBJECT
           cpu_fallback.cpp
           supported_dtypes.cpp
@@ -248,7 +243,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/reduction_template.cpp
           lazy/remainder_gen.cpp
           lazy/rrelu_with_noise_gen.cpp
-          lazy/rsub_gen.cpp
           lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp
@@ -271,7 +265,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
           ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp)
-
 target_include_directories(habana_pytorch_frontend_ops
   PUBLIC
     ${PROJECT_SOURCE_DIR})
@@ -280,7 +273,6 @@ target_include_directories(habana_pytorch_frontend_ops SYSTEM
     $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
-
 target_compile_definitions(habana_pytorch_frontend_ops PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_frontend_ops PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch_frontend_ops PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)

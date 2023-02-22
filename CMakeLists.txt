@@ -311,7 +311,6 @@ add_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/random_gen.cpp
   hpu_ops/lazy/remainder_gen.cpp
   hpu_ops/lazy/rrelu_with_noise_gen.cpp
-  hpu_ops/lazy/rsub_gen.cpp
   hpu_ops/lazy/threshold_gen.cpp
   hpu_ops/lazy/topk_util.cpp
   hpu_ops/lazy/trace_gen.cpp

@@ -1,32 +1,67 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
- * Unauthorized copying of this file or any element(s) within it, via any medium
- * is strictly prohibited.
- * This file contains Habana Labs, Ltd. proprietary and confidential information
- * and is subject to the confidentiality and license agreements under which it
- * was provided.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
  *
- *******************************************************************************
+ ******************************************************************************
  */
 
 #include "generated/backend/_foreach_add.h"
 #include "generated/backend/add.h"
 #include "generated/backend/rsub.h"
 #include "generated/backend/sub.h"
+#define OTHER_INDEX 1
+#define ALPHA_INDEX 2
 
 namespace habana {
 sizes_vec BinaryOutputShape(const at::Stack& stack) {
-  if (stack.at(0).isScalar() && stack.at(1).isTensor()) {
-    return {stack_tensor(stack, 1).sizes().vec()};
+  if (stack.at(0).isScalar() && stack.at(OTHER_INDEX).isTensor()) {
+    return {stack_tensor(stack, OTHER_INDEX).sizes().vec()};
   }
   const torch::Tensor& self = stack_tensor(stack, 0);
-  if (stack.at(1).isScalar()) {
+  if (stack.at(OTHER_INDEX).isScalar()) {
     return {self.sizes().vec()};
   }
-  const torch::Tensor& other = stack_tensor(stack, 1);
+  const torch::Tensor& other = stack_tensor(stack, OTHER_INDEX);
   return {at::infer_size(self.sizes(), other.sizes())};
+}
+
+std::shared_ptr<void> FillBinaryRSubParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
+
+  c10::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
+  auto other = stack.at(OTHER_INDEX);
+  // self_type and other_type to check whether to use alpha as float or int. For
+  // integral inputs, alpha shouldn't be float
+  c10::ScalarType other_type;
+  if (other.isScalar()) {
+    other_type = other.toScalar().isFloatingPoint() ? c10::ScalarType::Float
+                                                    : c10::ScalarType::Int;
+  } else {
+    other_type = other.toTensor().scalar_type();
+  }
+
+  auto alpha = stack[ALPHA_INDEX].toScalar();
+  if ((c10::isIntegralType(self_type, /*includeBool*/ true) &&
+       c10::isIntegralType(other_type, /*includeBool*/ true))) {
+    HABANA_ASSERT(
+        !alpha.isFloatingPoint(),
+        "For integral input tensors, argument alpha must not be a floating",
+        "point number.");
+  }
+
+  if (alpha.isFloatingPoint()) {
+    params->alpha.f = stack[ALPHA_INDEX].toScalar().toFloat();
+  } else {
+    params->alpha.i = stack[ALPHA_INDEX].toScalar().toInt();
+  }
+
+  params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_RSUB;
+  return params;
 }
 
 static auto BuildBinary(
@@ -61,9 +96,9 @@ static auto BuildBinary(
         op,
         graph,
         {MULT_GUID + habana_helpers::name_suffix_from_type(result_type),
-         {inputs[1], constant->get()},
-         {{sizes[1], result_type}}});
-    inputs[1] = mul[0].get();
+         {inputs[OTHER_INDEX], constant->get()},
+         {{sizes[OTHER_INDEX], result_type}}});
+    inputs[OTHER_INDEX] = mul[0].get();
   }
 
   auto outshape = at::infer_size(sizes[0], sizes[1]);
@@ -173,35 +208,4 @@ void ForeachBinary::AddNode(
     }
   }
 }
-
-void RSubScalarOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const at::Tensor& self = stack_tensor(stack, 0);
-  auto outshape = BinaryOutputShape(stack);
-  std::vector<synTensor> inputs = {syn_in(1), syn_in(0)};
-
-  const auto& other_scalar = stack[1].toScalar();
-  at::ScalarType result_type = at::result_type(self, other_scalar);
-
-  std::unique_ptr<synapse_helpers::tensor> constant =
-      std::make_unique<synapse_helpers::tensor>(
-          ConstantHelper(graph, other_scalar, result_type));
-  inputs.at(0) = {constant->get()};
-  auto alpha = stack[2].toScalar();
-  auto result = BuildBinary(
-      this,
-      graph,
-      guid_,
-      inputs,
-      {{}, self.sizes().vec()},
-      {self.scalar_type(), result_type},
-      result_type,
-      alpha,
-      0,
-      !IsTypePromotion());
-
-  syn_out(0) = std::move(result[0]);
-}
-
 } // namespace habana

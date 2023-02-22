@@ -5841,22 +5841,22 @@ rsub.Tensor:
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   promote_to_common_type: [self, other]
-  guid: sub_fwd
-  op_frontend: LazyRsub
+  guid: binary_with_alpha_fwd
+  custom_fill_params: FillBinaryRSubParams
   out_ids: [0]
   scalar_ids: [2]
 
 rsub.Scalar:
   force_default: false
   custom_output_shape: BinaryOutputShape
+  custom_fill_params: FillBinaryRSubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
   promote_to_common_type: [self, other]
-  guid: sub_fwd
-  op_backend: RSubScalarOperator
+  guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [1, 2]
 
