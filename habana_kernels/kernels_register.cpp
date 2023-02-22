@@ -547,6 +547,14 @@ std::tuple<Tensor, Tensor> hpu_wrap::_weight_norm_interface(
   We use the CPU implementation that follows the "non-fused" (ie., assumes
   can_use_fused=0) path.
   */
+  PT_OP_INFO(
+      "hpu_wrap::_weight_norm_interface :",
+      " v_in =",
+      to_string(v_in),
+      " g_in=",
+      to_string(g_in),
+      " dim=",
+      to_string(dim));
   TORCH_CHECK(
       v_in.device() == g_in.device(),
       "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
@@ -572,6 +580,18 @@ std::tuple<Tensor, Tensor> hpu_wrap::_weight_norm_interface_backward(
     const Tensor& saved_g,
     const Tensor& saved_norms,
     int64_t dim) {
+  PT_OP_INFO(
+      "hpu_wrap::_weight_norm_interface_backward :",
+      " grad_w =",
+      to_string(grad_w),
+      " saved_v=",
+      to_string(saved_v),
+      " saved_g=",
+      to_string(saved_g),
+      " saved_norms=",
+      to_string(saved_norms),
+      " dim=",
+      to_string(dim));
   /*
   NOTE: Implementation taken as such from
   pytorch/aten/src/ATen/native/WeightNorm.cpp
