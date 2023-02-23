@@ -20,10 +20,40 @@ _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
 )
 
 @register_meta([torch.ops.hpu.cast_to_fp8.default])
-def meta_cast_to_fp8(x, scale, stochastic, out, amax):
-    output = x.new_empty(x.shape)
-    amax_out = scale.new_empty(scale.shape)
-    return output, amax_out
+def meta_cast_to_fp8(input, scale, stochastic, out, amax):
+    return out, amax
+
+@register_meta([torch.ops.hpu.fp8_cast_transpose.default])
+def meta_fp8_cast_transpose(input, scale, stochastic, out, amax, transposed):
+    return out, amax, transposed
+
+@register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad.default])
+def meta_fp8_cast_transpose_bgrad(input, scale, stochastic, out, amax, transposed, bgrad):
+    return out, amax, transposed, bgrad
+
+@register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu.default])
+def meta_fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, out, amax, transposed, bgrad):
+    return out, amax, transposed, bgrad
+
+@register_meta([torch.ops.hpu.cast_from_fp8.default])
+def meta_cast_from_fp8(input, scale, out_dtype):
+    return input.new_empty(input.shape, dtype=out_dtype)
+
+@register_meta([torch.ops.hpu.fp8_gelu.default])
+def meta_fp8_gelu(input, scale, stochastic, out, amax, retain):
+    return out, amax, retain
+
+@register_meta([torch.ops.hpu.fp8_layernorm.default])
+def meta_fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, amax, mean, istd):
+    return out, amax, mean, istd
+
+@register_meta([torch.ops.hpu.fp8_gemm.default])
+def meta_fp8_gemm(A, A_scale_inv, trans_A, B, B_scale_inv, trans_B, D, out_dtype, bias, accumulate, out):
+    return out
+
+@register_meta([torch.ops.hpu.fp8_transpose.default])
+def meta_fp8_transpose(input, out):
+    return out
 
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}

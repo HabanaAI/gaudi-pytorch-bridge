@@ -95,13 +95,23 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
 
 bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
   static const std::vector<std::string> fp8_ops{
-      "fp8_gemm_i8",
-      "cast_to_fp8_f32",
-      "cast_to_fp8_bf16",
-      "fp8_transpose_i8",
       "cast_from_fp8_f32",
       "cast_from_fp8_bf16",
-      "cast_from_fp8_i8"};
+      "cast_from_fp8_i8",
+      "cast_to_fp8_f32",
+      "cast_to_fp8_bf16",
+      "fp8_cast_transpose_f32",
+      "fp8_cast_transpose_bf16",
+      "fp8_cast_transpose_bgrad_f32",
+      "fp8_cast_transpose_bgrad_bf16",
+      "fp8_cast_transpose_bgrad_dgelu_f32",
+      "fp8_cast_transpose_bgrad_dgelu_bf16",
+      "fp8_gelu_f32",
+      "fp8_gelu_bf16",
+      "fp8_gemm_i8",
+      "fp8_layernorm_f32",
+      "fp8_layernorm_bf16",
+      "fp8_transpose_i8"};
 
   return std::any_of(fp8_ops.begin(), fp8_ops.end(), [&guid](const auto& op) {
     return op == guid;

@@ -1610,6 +1610,94 @@ std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
+std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_cast_transpose:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_cast_transpose_lazy(
+        input, scale, stochastic_rounding, out, amax, transposed);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_cast_transpose_bgrad:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_cast_transpose_bgrad_lazy(
+        input, scale, stochastic_rounding, out, amax, transposed, bgrad);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+std::tuple<Tensor&, Tensor&, Tensor&, Tensor&>
+fp8_cast_transpose_bgrad_dgelu_wrap(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& retain,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_cast_transpose_bgrad:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_cast_transpose_bgrad_dgelu_lazy(
+        grad,
+        input,
+        scale,
+        retain,
+        stochastic_rounding,
+        out,
+        amax,
+        transposed,
+        bgrad);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 Tensor cast_from_fp8_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,
@@ -1627,6 +1715,74 @@ Tensor cast_from_fp8_wrap(
   if (synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type())) {
     return cast_from_fp8_lazy(input, scale, out_dtype);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& retain) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_gelu:",
+      " input=",
+      to_string(input),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_gelu_lazy(input, scale, stochastic_rounding, out, amax, retain);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    double eps,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& mean,
+    at::Tensor& istd) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_layernorm:",
+      " input=",
+      to_string(input),
+      " weight=",
+      to_string(weight),
+      " bias=",
+      to_string(bias),
+      " eps=",
+      to_string(eps),
+      " scale=",
+      to_string(scale),
+      ", stochastic_rounding=",
+      to_string(stochastic_rounding));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_layernorm_lazy(
+        input,
+        weight,
+        bias,
+        eps,
+        scale,
+        stochastic_rounding,
+        out,
+        amax,
+        mean,
+        istd);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -2202,7 +2358,17 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
+      "hpu::fp8_cast_transpose(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) transposed) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
+  m.def(
+      "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) transposed, Tensor(d!) bgrad) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
+  m.def(
+      "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) transposed, Tensor(d!) bgrad) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
+  m.def(
       "hpu::cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::fp8_gelu(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) retain) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
+  m.def(
+      "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) mean, Tensor(d!) istd) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
@@ -2221,7 +2387,14 @@ TORCH_LIBRARY(hpu, m) {
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8_wrap);
+  m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose_wrap);
+  m.impl("hpu::fp8_cast_transpose_bgrad", fp8_cast_transpose_bgrad_wrap);
+  m.impl(
+      "hpu::fp8_cast_transpose_bgrad_dgelu",
+      fp8_cast_transpose_bgrad_dgelu_wrap);
   m.impl("hpu::cast_from_fp8", cast_from_fp8_wrap);
+  m.impl("hpu::fp8_gelu", fp8_gelu_wrap);
+  m.impl("hpu::fp8_layernorm", fp8_layernorm_wrap);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
 }

@@ -231,18 +231,22 @@ def _cast_to_fp8(
         # amax_history length > 1
         # NOTE: This path is functional, but performance could be improved by removing the temporary tensor
         tmp = torch.index_select(fp8_meta_tensor.amax_history, dim=0, index=fp8_meta_tensor.amax_history_index)
+        amax_tmp = torch.empty_like(tmp[0][fp8_tensor])
         torch.ops.hpu.cast_to_fp8(
             inp,
             fp8_meta_tensor.scale[fp8_tensor],
             stochastic_rounding,
             cast_out,
-            tmp[0][fp8_tensor])
+            amax_tmp)
+        tmp[0][fp8_tensor].copy_(amax_tmp)
         fp8_meta_tensor.amax_history[fp8_meta_tensor.amax_history_index] = tmp
     else:
         # In case amax_history length = 1, we don't need to use amax_history_index - it simplifies the graph
+        amax_tmp = torch.empty_like(fp8_meta_tensor.amax_history[0][fp8_tensor])
         torch.ops.hpu.cast_to_fp8(
             inp,
             fp8_meta_tensor.scale[fp8_tensor],
             stochastic_rounding,
             cast_out,
-            fp8_meta_tensor.amax_history[0][fp8_tensor])
+            amax_tmp)
+        fp8_meta_tensor.amax_history[0][fp8_tensor].copy_(amax_tmp)

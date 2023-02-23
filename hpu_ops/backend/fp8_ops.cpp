@@ -54,6 +54,176 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(1) = std::move(casted[1]);
 }
 
+Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_cast_transpose_",
+          scalar_type,
+          {},
+          {},
+          {},
+          true) {
+  SetNumOutTensors(3);
+}
+
+void Fp8CastTranspose::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 6, "Fp8CastTranspose must have 6 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  bool stochastic_rounding = stack[2].toBool();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+  auto out = stack_tensor(stack, 3);
+  auto amax = stack_tensor(stack, 4);
+  auto transposed = stack_tensor(stack, 5);
+
+  TORCH_CHECK(
+      sizes == out.sizes(), "Input and output must have the same shape");
+
+  std::string guid = "convert_to_fp8_transpose_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  auto casted = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {syn_in(0), syn_in(1)},
+       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+        {amax.sizes(), at::ScalarType::Float, 1},
+        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(casted[0]);
+  syn_out(1) = std::move(casted[1]);
+  syn_out(2) = std::move(casted[2]);
+}
+
+Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_cast_transpose_bgrad_",
+          scalar_type,
+          {},
+          {},
+          {},
+          true) {
+  SetNumOutTensors(4);
+}
+
+void Fp8CastTransposeBgrad::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 7, "Fp8CastTransposeBgrad must have 7 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  bool stochastic_rounding = stack[2].toBool();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+  auto out = stack_tensor(stack, 3);
+  auto amax = stack_tensor(stack, 4);
+  auto transposed = stack_tensor(stack, 5);
+  auto bgrad = stack_tensor(stack, 6);
+
+  TORCH_CHECK(
+      sizes == out.sizes(), "Input and output must have the same shape");
+
+  std::string guid = "convert_to_fp8_transpose_bgrad_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  auto casted = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {syn_in(0), syn_in(1)},
+       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+        {amax.sizes(), at::ScalarType::Float, 1},
+        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152},
+        {bgrad.sizes(), self.scalar_type(), 3}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(casted[0]);
+  syn_out(1) = std::move(casted[1]);
+  syn_out(2) = std::move(casted[2]);
+  syn_out(3) = std::move(casted[3]);
+}
+
+Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_cast_transpose_bgrad_dgelu_",
+          scalar_type,
+          {},
+          {},
+          {},
+          true) {
+  SetNumOutTensors(4);
+}
+
+void Fp8CastTransposeBgradDgelu::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 9,
+      "Fp8CastTransposeBgradDgelu must have 9 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  auto retain = stack[3].toOptional<torch::Tensor>().value_or(torch::Tensor());
+  bool stochastic_rounding = stack[4].toBool();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+  auto out = stack_tensor(stack, 5);
+  auto amax = stack_tensor(stack, 6);
+  auto transposed = stack_tensor(stack, 7);
+  auto bgrad = stack_tensor(stack, 8);
+
+  TORCH_CHECK(
+      sizes == out.sizes(), "Input and output must have the same shape");
+
+  std::string guid = "convert_to_fp8_transpose_bgrad_dgelu_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  std::vector<synTensor> syn_inputs = {syn_in(0), syn_in(1), syn_in(2)};
+  if (retain.defined()) {
+    syn_inputs.push_back(syn_in(3));
+  }
+
+  auto casted = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       syn_inputs,
+       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+        {amax.sizes(), at::ScalarType::Float, 1},
+        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152},
+        {bgrad.sizes(), self.scalar_type(), 3}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(casted[0]);
+  syn_out(1) = std::move(casted[1]);
+  syn_out(2) = std::move(casted[2]);
+  syn_out(3) = std::move(casted[3]);
+}
+
 CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_from_fp8_", scalar_type, {0}, {}, {}, false) {}
 
@@ -74,6 +244,96 @@ void CastFromFp8::AddNode(
       this, graph, {guid, {syn_in(0), syn_in(1)}, {{sizes, dst_type, 0}}});
 
   syn_out(0) = std::move(casted[0]);
+}
+
+Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_gelu_", scalar_type, {}, {}, {}, true) {
+  SetNumOutTensors(3);
+}
+
+void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 6, "Fp8Gelu must have 6 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  bool stochastic_rounding = stack[2].toBool();
+  auto src_type = self.scalar_type();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+  auto out = stack_tensor(stack, 3);
+  auto amax = stack_tensor(stack, 4);
+  auto retain = stack_tensor(stack, 5);
+
+  TORCH_CHECK(
+      sizes == out.sizes(), "Input and output must have the same shape");
+
+  std::string guid =
+      src_type == at::ScalarType::Float ? "fp8_gelu_f32" : "fp8_gelu_bf16";
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  auto gelu = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {syn_in(0), syn_in(1)},
+       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+        {amax.sizes(), at::ScalarType::Float, 1},
+        {retain.sizes(), src_type, 2}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(gelu[0]);
+  syn_out(1) = std::move(gelu[1]);
+  syn_out(2) = std::move(gelu[2]);
+}
+
+Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_layernorm_", scalar_type, {}, {}, {}, true) {
+  SetNumOutTensors(4);
+}
+
+void Fp8Layernorm::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 10, "Fp8Layernorm must have 10 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  float eps = static_cast<float>(stack[3].toDouble());
+  bool stochastic_rounding = stack[5].toBool();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+  auto out = stack_tensor(stack, 6);
+  auto amax = stack_tensor(stack, 7);
+  auto mean = stack_tensor(stack, 8);
+  auto istd = stack_tensor(stack, 9);
+
+  TORCH_CHECK(
+      sizes == out.sizes(), "Input and output must have the same shape");
+
+  std::string guid = "layer_norm_fp8_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+
+  ns_LayerNormFp8::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  params.eps = eps;
+
+  auto layernorm = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {syn_in(0), syn_in(1), syn_in(2), syn_in(3)},
+       {{sizes, at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152},
+        {amax.sizes(), at::ScalarType::Float, 1},
+        {mean.sizes(), at::ScalarType::Float, 2},
+        {istd.sizes(), at::ScalarType::Float, 3}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(layernorm[0]);
+  syn_out(1) = std::move(layernorm[1]);
+  syn_out(2) = std::move(layernorm[2]);
+  syn_out(3) = std::move(layernorm[3]);
 }
 
 Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
@@ -154,6 +414,17 @@ void Fp8Transpose::AddNode(
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
+        .add(
+            "hpu::fp8_cast_transpose",
+            KERNEL_FN_GLOBAL(habana::Fp8CastTranspose))
+        .add(
+            "hpu::fp8_cast_transpose_bgrad",
+            KERNEL_FN_GLOBAL(habana::Fp8CastTransposeBgrad))
+        .add(
+            "hpu::fp8_cast_transpose_bgrad_dgelu",
+            KERNEL_FN_GLOBAL(habana::Fp8CastTransposeBgradDgelu))
         .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
+        .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
+        .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
         .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose));

@@ -7396,37 +7396,93 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     at::Tensor& amax) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  auto func = [input, scale, stochastic_rounding, out, amax]() mutable {
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    auto id = GetHbLazyTensorId(amax);
-    {
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-
-      if (params_ptr != nullptr) {
-        at::Tensor amax_temp = at::empty({1}, amax.options());
-
-        LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
-            "hpu::cast_to_fp8",
-            {input, scale, stochastic_rounding, out, amax_temp},
-            {input.sizes().vec(), amax.sizes().vec()}};
-        auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax_temp);
-        k_.call(result);
-        strided_insert_hpu_lazy(amax, amax_temp);
-      } else {
-        LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
-            "hpu::cast_to_fp8",
-            {input, scale, stochastic_rounding, out, amax},
-            {input.sizes().vec(), amax.sizes().vec()}};
-        auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
-        k_.call(result);
-      }
-    }
-  };
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
+      "hpu::cast_to_fp8",
+      {input, scale, stochastic_rounding, out, amax},
+      {input.sizes().vec(), amax.sizes().vec()}};
   auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cast_to_fp8, func, result)
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(cast_to_fp8, k_, result)
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> k_{
+      "hpu::fp8_cast_transpose",
+      {input, scale, stochastic_rounding, out, amax, transposed},
+      {input.sizes().vec(), amax.sizes().vec(), transposed.sizes().vec()}};
+  auto result = ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(
+      out, amax, transposed);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_cast_transpose, k_, result)
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_cast_transpose_bgrad_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> k_{
+      "hpu::fp8_cast_transpose_bgrad",
+      {input, scale, stochastic_rounding, out, amax, transposed, bgrad},
+      {input.sizes().vec(),
+       amax.sizes().vec(),
+       transposed.sizes().vec(),
+       bgrad.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, amax, transposed, bgrad);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_cast_transpose_bgrad, k_, result)
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_cast_transpose_bgrad_dgelu_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& retain,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> k_{
+      "hpu::fp8_cast_transpose_bgrad_dgelu",
+      {grad,
+       input,
+       scale,
+       retain,
+       stochastic_rounding,
+       out,
+       amax,
+       transposed,
+       bgrad},
+      {input.sizes().vec(),
+       amax.sizes().vec(),
+       transposed.sizes().vec(),
+       bgrad.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, amax, transposed, bgrad);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(
+      fp8_cast_transpose_bgrad_dgelu, k_, result)
 }
 
 at::Tensor cast_from_fp8_lazy(
@@ -7439,6 +7495,62 @@ at::Tensor cast_from_fp8_lazy(
       "hpu::cast_from_fp8", {input, scale, out_dtype}, {input.sizes().vec()}};
   k_.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, k_)
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& retain) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> k_{
+      "hpu::fp8_gelu",
+      {input, scale, stochastic_rounding, out, amax, retain},
+      {input.sizes().vec(), amax.sizes().vec(), input.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(out, amax, retain);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_gelu, k_, result)
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_layernorm_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    double eps,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& mean,
+    at::Tensor& istd) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> k_{
+      "hpu::fp8_layernorm",
+      {input,
+       weight,
+       bias,
+       eps,
+       scale,
+       stochastic_rounding,
+       out,
+       amax,
+       mean,
+       istd},
+      {input.sizes().vec(),
+       amax.sizes().vec(),
+       mean.sizes().vec(),
+       istd.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, amax, mean, istd);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_layernorm, k_, result)
 }
 
 at::Tensor& fp8_gemm_lazy(

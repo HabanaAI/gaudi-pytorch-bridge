@@ -289,10 +289,56 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed);
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_cast_transpose_bgrad_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad);
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_cast_transpose_bgrad_dgelu_wrap(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& retain,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& transposed,
+    at::Tensor& bgrad);
 at::Tensor cast_from_fp8_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype);
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_wrap(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& retain);
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
+fp8_layernorm_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    double eps,
+    const at::Tensor& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax,
+    at::Tensor& mean,
+    at::Tensor& istd);
 at::Tensor& fp8_gemm_wrap(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,

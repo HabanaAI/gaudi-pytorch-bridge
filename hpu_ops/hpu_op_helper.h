@@ -73,9 +73,7 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
   std::vector<at::Tensor> tensors;
   for_each_in_tuple(
       tuple, [&tensors](const auto& result) { tensors.push_back(result); });
-  HABANA_ASSERT(
-      tensors.size() <= 3 || tensors.size() == 5,
-      "Only tuples up to 3 and with size 5 are supported");
+  HABANA_ASSERT(tensors.size() <= 5, "Only tuples up to 5 are supported");
   habana_lazy::AccThread::Get().run(
       [op = std::move(lazy_op), tensors = std::move(tensors)]() mutable {
         PT_LAZY_TRACE_WITH_NAME(op.symbol().toUnqualString());
@@ -83,6 +81,8 @@ void scheduleAccTaskTuple(T&& lazy_op, TupleType& tuple) {
           op.call(std::tie(tensors[0], tensors[1]));
         } else if (tensors.size() == 3) {
           op.call(std::tie(tensors[0], tensors[1], tensors[2]));
+        } else if (tensors.size() == 4) {
+          op.call(std::tie(tensors[0], tensors[1], tensors[2], tensors[3]));
         } else if (tensors.size() == 5) {
           op.call(std::tie(
               tensors[0], tensors[1], tensors[2], tensors[3], tensors[4]));

@@ -16,26 +16,22 @@
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
+#define DEFINE_OP(op)                                                 \
+  struct op : OpBackend {                                             \
+    op(int device_id, c10::ScalarType scalar_type);                   \
+    void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
+  };
+
 namespace habana {
 
-struct CastToFp8 : OpBackend {
-  CastToFp8(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
-struct CastFromFp8 : OpBackend {
-  CastFromFp8(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
-struct Fp8Gemm : OpBackend {
-  Fp8Gemm(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
-struct Fp8Transpose : OpBackend {
-  Fp8Transpose(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
+DEFINE_OP(CastToFp8)
+DEFINE_OP(Fp8CastTranspose)
+DEFINE_OP(Fp8CastTransposeBgrad)
+DEFINE_OP(Fp8CastTransposeBgradDgelu)
+DEFINE_OP(CastFromFp8)
+DEFINE_OP(Fp8Gelu)
+DEFINE_OP(Fp8Layernorm)
+DEFINE_OP(Fp8Gemm)
+DEFINE_OP(Fp8Transpose)
 
 } // namespace habana
