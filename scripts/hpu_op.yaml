@@ -842,7 +842,7 @@ addmm:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
-  guid: gemm
+  guid: addmm
   op_backend: AddMM
   out_ids: [0]
 
@@ -854,7 +854,7 @@ addmm_:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
-  guid: gemm
+  guid: addmm
   op_backend: AddMM
   inplace_ids: [0]
 
@@ -865,7 +865,7 @@ addmm.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Char]
-  guid: gemm
+  guid: addmm
   op_backend: AddMM
 
 addmv:

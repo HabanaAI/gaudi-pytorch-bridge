@@ -231,10 +231,20 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
 
 void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = AddMMOutshape(stack)[0];
-  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
-  auto addmm_out =
-      AddMMCommon(this, graph, stack, input_tensor, outshape, outshape, false);
-  syn_out(0) = std::move(addmm_out[0]);
+
+  const float beta_val = stack.at(idxBeta).toScalar().toFloat();
+  const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
+
+  auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
+  auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
+
+  auto addmm = BuildOp(
+      graph,
+      guid_,
+      {syn_in(0), syn_in(1), syn_in(2), beta_tensor.get(), alpha_tensor.get()},
+      {{outshape, ScalarType(), 0}});
+
+  syn_out(0) = std::move(addmm[0]);
 }
 
 void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
