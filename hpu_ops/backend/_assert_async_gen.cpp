@@ -24,11 +24,11 @@ void AssertAsync::AddNode(
   std::string name = graph.name();
   std::size_t found = name.find("_");
   std::string substring = name.substr(found + 1);
-  auto graph_index = std::stoi(substring);
-  PARAMS_STUB(ns_AssertAsync::Params);
-  params->node_id = static_cast<unsigned int>(graph_index);
-  params->msg_id = 44;
+  uint64_t graph_index = std::stoi(substring);
+  synAssertAsyncParams params;
+  params.msg_id = graph_index;
+
   auto assert_op =
-      BuildOp(graph, "assert_async", {syn_in(0)}, {}, &params, size);
+      BuildOp(graph, "assert_async", {syn_in(0)}, {}, &params, sizeof(params));
 }
 } // namespace habana

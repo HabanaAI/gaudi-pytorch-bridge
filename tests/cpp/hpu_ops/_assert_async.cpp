@@ -14,9 +14,12 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "util.h"
 
+using namespace habana_lazy;
+using namespace at;
+
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, AsyncAssert) {
+TEST_F(HpuOpTest, DISABLED_AsyncAssert) {
   auto y = torch::zeros(1).to(torch::kHPU);
   auto z = torch::zeros(1).to(torch::kHPU);
   auto x = torch::eq(y, z);

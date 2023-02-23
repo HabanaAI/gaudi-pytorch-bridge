@@ -28,6 +28,7 @@ add_executable(
   habana_lazy_test_infra.cpp
   hpu_ops/_masked_scale.cpp
   hpu_ops/adaptive_avg_pool2d.cpp
+  hpu_ops/_assert_async.cpp
   hpu_ops/addbmm.cpp
   hpu_ops/addmm.cpp
   hpu_ops/addmv.cpp
