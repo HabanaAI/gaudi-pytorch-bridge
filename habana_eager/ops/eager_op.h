@@ -214,8 +214,12 @@ class EagerOp : public EagerOpBase {
       : EagerOpBase(
             at::Symbol::fromQualString(qualstring),
             inputs,
-            out_shapes_fn(inputs),
-            out_index) {}
+            {},
+            out_index) {
+    if (out_shapes_fn) {
+      m_out_shapes = out_shapes_fn(inputs);
+    }
+  }
 
   EagerOp(EagerOp&) = default;
   EagerOp(const EagerOp&) = default;

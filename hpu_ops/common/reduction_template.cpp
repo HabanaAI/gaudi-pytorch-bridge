@@ -25,7 +25,7 @@ static at::IntArrayRef optional_to_arrayref(
 }
 
 std::vector<int64_t> get_dims(
-    at::Stack stack,
+    const at::Stack& stack,
     at::optional<uint8_t> dim_index) {
   std::vector<int64_t> dims;
   auto dim_ival =

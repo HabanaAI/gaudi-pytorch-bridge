@@ -301,7 +301,6 @@ add_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/div_round_gen.cpp
   hpu_ops/lazy/embedding_gen.cpp
   hpu_ops/lazy/exponential_gen.cpp
-  hpu_ops/lazy/fill_gen.cpp
   hpu_ops/lazy/foreach_gen.cpp
   hpu_ops/lazy/frexp_gen.cpp
   hpu_ops/lazy/geometric_gen.cpp

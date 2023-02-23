@@ -14,6 +14,7 @@
 #include <perf_lib_layer_params.h>
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/kernels_accumulation.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -176,25 +177,34 @@ inline float& get<float>(fint_t& u) {
     void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 
-#define HPU_OP_FRONTEND(op)                                                   \
+#define HPU_OP_FRONTEND(FEServiceClass, op)                                   \
   template <typename T>                                                       \
-  struct op : habana_lazy::LazyOp<T> {                                        \
+  struct op : FEServiceClass<T> {                                             \
     op(const std::string& qualstring,                                         \
        const std::vector<at::IValue>& inputs,                                 \
        const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn = {}); \
     T get_result_overrideable() override;                                     \
   };
 
-#define HPU_OP_FRONTEND_WITH_TYPE_PROMOTION(op)                               \
-  template <typename T>                                                       \
-  struct op : habana_lazy::LazyOp<T> {                                        \
-    op(const std::string& qualstring,                                         \
-       const std::vector<at::IValue>& inputs,                                 \
-       bool is_out_fn,                                                        \
-       bool safe_cast_check,                                                  \
-       const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn = {}); \
-    T get_result_overrideable() override;                                     \
-  };
+#define HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, out_index)  \
+  template <>                                                          \
+  op<T>::op(                                                           \
+      const std::string& qualstring,                                   \
+      const std::vector<at::IValue>& inputs,                           \
+      const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn) \
+      : FEServiceClass<T>(qualstring, inputs, out_shapes_fn, out_index)
+
+#define HPU_OP_FRONTEND_CREATE_RESULT(FEServiceClass, T, op) \
+  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, -1)     \
+  template <>                                                \
+  T op<T>::get_result_overrideable()
+
+#define HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(FEServiceClass, T, op) \
+  template <>                                                   \
+  T op<T>::get_result_overrideable() {                          \
+    return FEServiceClass<T>::get_result_overrideable();        \
+  }                                                             \
+  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, 0)
 
 #define FILL_PARAMS_DECL(fn) \
   std::shared_ptr<void> fn(const at::Stack&, size_t&);

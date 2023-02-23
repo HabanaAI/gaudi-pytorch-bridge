@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,11 +11,11 @@
  *******************************************************************************
  */
 
-#include "generated/lazy/fill.h"
+#include "generated/eager/fill.h"
 #include "hpu_ops/common/fill.h"
 
 namespace habana {
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, at::Tensor&, FillFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, FillFE) {
   CastBoolToInt(get_inputs());
 }
 } // namespace habana

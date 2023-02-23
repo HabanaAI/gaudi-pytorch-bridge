@@ -18,7 +18,7 @@ namespace habana {
 template <>
 at::Tensor ReductionFrontendTemplate<at::Tensor>::get_result_overrideable() {
   return CommonReductionFrontendTemplate::CreateResult(
-      LazyOp<at::Tensor>::get_inputs(), get_scalar_types()[0]);
+      get_inputs(), get_scalar_types()[0]);
 }
 
 template <>

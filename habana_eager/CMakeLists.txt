@@ -15,6 +15,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/cpu_fallback.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/reduction_template.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_logger.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/supported_dtypes.cpp
@@ -65,3 +66,7 @@ target_link_libraries(habana_pytorch2_frontend
     absl::str_format
     npu::spdlog
 )
+
+# this is to make sure that gen_op.py is invoked before habana_pytorch2_frontend
+# Custom command is specified in CMake there, so we cannot otherwise ensure proper order
+add_dependencies(habana_pytorch2_frontend habana_pytorch_frontend_ops)

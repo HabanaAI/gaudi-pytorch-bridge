@@ -23,9 +23,13 @@ sizes_vec ReductionOutputShape(
     at::OptionalIntArrayRef dims,
     bool keepdim);
 
-std::vector<int64_t> get_dims(at::Stack stack, at::optional<uint8_t> dim_index);
+std::vector<int64_t> get_dims(
+    const at::Stack& stack,
+    at::optional<uint8_t> dim_index);
 
-inline bool get_keepdim(at::Stack stack, at::optional<uint8_t> keepdim_index) {
+inline bool get_keepdim(
+    const at::Stack& stack,
+    at::optional<uint8_t> keepdim_index) {
   return keepdim_index.has_value() ? stack.at(keepdim_index.value()).toBool()
                                    : false;
 }
