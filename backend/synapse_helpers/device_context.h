@@ -84,7 +84,7 @@ class device_context : std::enable_shared_from_this<device_context> {
 
   hcclResult_t submit_future(
       synapse_helpers::device_ptr device_addr,
-      std::future<bool> fut);
+      std::shared_future<bool> fut);
   hcclResult_t stream_synchronize(synStreamHandle stream_handle);
 
   hcclResult_t synchronize_output(synapse_helpers::device_ptr output_address);

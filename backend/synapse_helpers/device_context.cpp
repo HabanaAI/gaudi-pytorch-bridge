@@ -270,7 +270,7 @@ hcclResult_t device_context::submit_events(
 
 hcclResult_t device_context::submit_future(
     synapse_helpers::device_ptr device_addr,
-    std::future<bool> fut) {
+    std::shared_future<bool> fut) {
   synapse_helpers::device_handle dev_handle = device_;
   HABANA_ASSERT(nullptr != dev_handle);
 

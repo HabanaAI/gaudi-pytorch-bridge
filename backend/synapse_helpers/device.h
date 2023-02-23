@@ -245,7 +245,7 @@ class device {
 
   void add_wait_event_on_stream(const std::string& event_id, stream& stream);
 
-  void submit_future(device_ptr device_addr, std::future<bool> fut);
+  void submit_future(device_ptr device_addr, std::shared_future<bool> fut);
 
   /** \brief Records event on a given stream and signals wait for this event on
    * the other stream. Bypass sem \param record_stream stream for recording

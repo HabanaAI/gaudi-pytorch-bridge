@@ -864,7 +864,7 @@ synapse_error device::copy_data_to_device(
   if (true == non_blocking && false == is_pinned &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD) &&
       total_bytes >= GET_ENV_FLAG_NEW(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE)) {
-    std::future<bool> copy_future = std::async(
+    std::shared_future<bool> copy_future = std::async(
         std::launch::async | std::launch::deferred,
         &device::copy_data_to_device_,
         this,
@@ -1264,7 +1264,9 @@ void device::register_producer_on_stream(
       std::move(bound_addresses), stream, std::move(done_cb), event_handle);
 }
 
-void device::submit_future(device_ptr device_addr, std::future<bool> fut) {
+void device::submit_future(
+    device_ptr device_addr,
+    std::shared_future<bool> fut) {
   sem_.add_future(device_addr, std::move(fut));
 }
 

@@ -685,7 +685,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     }
 
     auto pr = std::make_shared<std::promise<bool>>();
-    std::future<bool> fut = pr->get_future();
+    std::shared_future<bool> fut = pr->get_future();
     auto func = [fn = fn,
                  input = in_view_vec[i],
                  output = out_view_vec[i],

@@ -138,6 +138,8 @@ device_memory::~device_memory() {
   suballoc_ = nullptr;
 }
 
+// Note:: This is only in used defragementer where
+// we wanted to reset and start the degramenter test.
 void device_memory::reset_pool() {
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     if (!threads_in_defragmenter_critical_section_->empty())
@@ -269,9 +271,10 @@ synStatus device_memory::free(void* free_ptr) {
     if (h.offset() != 0) {
       PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
     }
-
-    std::unique_lock<std::mutex> lock(mutex_);
     const auto id = h.id();
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (handle2pointer_.checkIdIsReset(id))
+      return status;
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);
     handle2pointer_.Erase(id);
     if (ptr_and_size.ptr_ != nullptr) {

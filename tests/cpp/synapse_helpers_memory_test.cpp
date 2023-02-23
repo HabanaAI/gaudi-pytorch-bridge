@@ -625,6 +625,9 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
   }
   device.lock_addresses(address);
   address.clear();
+  int free_index1 = 22;
+  int free_index2 = 100;
+  int free_index3 = 16383;
   device.get_device_memory().free(small[22]);
   device.get_device_memory().free(small[100]);
   device.get_device_memory().free(small[16383]);
@@ -661,5 +664,9 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
       device.get_device_memory().free(ptr[i]);
     }
     device.get_device_memory().free(ptr_400mb);
+  }
+  for (int j = 0; j < 16384; j++) {
+    if (!(j == free_index1 || j == free_index2 || j == free_index3))
+      device.get_device_memory().free(small[j]);
   }
 }

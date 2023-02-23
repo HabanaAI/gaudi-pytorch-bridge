@@ -27,7 +27,7 @@ class stream;
 //! Class responsible of recording events on any stream
 class stream_event_manager {
   absl::flat_hash_map<device_ptr, shared_event> events_by_addr_;
-  absl::flat_hash_map<device_ptr, std::future<bool>> future_by_addr_;
+  absl::flat_hash_map<device_ptr, std::shared_future<bool>> future_by_addr_;
   absl::flat_hash_map<std::string, shared_event> events_by_str_;
   std::mutex mut_;
   std::mutex future_mut_;
@@ -41,7 +41,7 @@ class stream_event_manager {
    * Input Tensors dependant on this event \return True, if WaitForEvent was
    * recorded on stream, false otherwise
    */
-  void add_future(device_ptr device_addr, std::future<bool> fut);
+  void add_future(device_ptr device_addr, std::shared_future<bool> fut);
   void add_producer(
       std::vector<device_ptr>&& device_addresses,
       stream& stream,

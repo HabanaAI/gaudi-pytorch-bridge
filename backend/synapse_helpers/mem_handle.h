@@ -117,7 +117,10 @@ class HandlesMap {
   void Erase(mem_handle::id_t id);
   void MarkMemoryFixed(mem_handle::id_t id);
   void ResetHandlesMap();
+  bool checkIdIsReset(mem_handle::id_t id);
   bucket_type getBucketIndexForGivenTensorSize(size_t size);
+  bool IsValidId(mem_handle::id_t id) const;
+
   struct MemoryRecord {
     mem_handle::id_t id_;
     bool fixed_;
@@ -177,6 +180,7 @@ class HandlesMap {
     PtrSize ptr_size_{};
     bool fixed_ = false;
     bool active_ = false;
+    bool reset_ = false;
     Record() = default;
     Record(size_t size) : ptr_size_(size), active_(true) {}
   };
@@ -184,6 +188,7 @@ class HandlesMap {
 
   std::array<std::deque<Record>, _END> handles_;
   std::array<std::queue<mem_handle::id_t>, _END> free_handles_;
+  bool resetHandles = false;
 };
 
 } // namespace synapse_helpers
