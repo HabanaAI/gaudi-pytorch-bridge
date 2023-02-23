@@ -810,17 +810,17 @@ at::Tensor habana_cast_to_fp8_lazy(
     bool stochastic_rounding,
     int seed);
 #endif
-std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
+std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
-at::Tensor habana_cast_from_fp8_lazy(
+at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype);
-at::Tensor& habana_fp8_gemm_lazy(
+at::Tensor& fp8_gemm_lazy(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,
     bool trans_A,
@@ -832,7 +832,7 @@ at::Tensor& habana_fp8_gemm_lazy(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out);
-at::Tensor& habana_fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
+at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& grad_output,

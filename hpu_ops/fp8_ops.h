@@ -18,23 +18,23 @@
 
 namespace habana {
 
-struct LazyCastToFp8 : OpBackend {
-  LazyCastToFp8(int device_id, c10::ScalarType scalar_type);
+struct CastToFp8 : OpBackend {
+  CastToFp8(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-struct LazyCastFromFp8 : OpBackend {
-  LazyCastFromFp8(int device_id, c10::ScalarType scalar_type);
+struct CastFromFp8 : OpBackend {
+  CastFromFp8(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-struct LazyFp8Gemm : OpBackend {
-  LazyFp8Gemm(int device_id, c10::ScalarType scalar_type);
+struct Fp8Gemm : OpBackend {
+  Fp8Gemm(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-struct LazyFp8Transpose : OpBackend {
-  LazyFp8Transpose(int device_id, c10::ScalarType scalar_type);
+struct Fp8Transpose : OpBackend {
+  Fp8Transpose(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 

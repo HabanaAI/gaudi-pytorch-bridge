@@ -11,18 +11,16 @@
  *******************************************************************************
  */
 
-#include "hpu_ops/lazy_fp8_ops.h"
+#include "hpu_ops/fp8_ops.h"
 
 namespace habana {
 
-LazyCastToFp8::LazyCastToFp8(int device_id, c10::ScalarType scalar_type)
+CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_to_fp8_", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(2);
 }
 
-void LazyCastToFp8::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 5, "CastToFp8 must have 5 input arguments");
 
   auto self = stack_tensor(stack, 0);
@@ -56,10 +54,10 @@ void LazyCastToFp8::AddNode(
   syn_out(1) = std::move(casted[1]);
 }
 
-LazyCastFromFp8::LazyCastFromFp8(int device_id, c10::ScalarType scalar_type)
+CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_from_fp8_", scalar_type, {0}, {}, {}, false) {}
 
-void LazyCastFromFp8::AddNode(
+void CastFromFp8::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
@@ -78,12 +76,10 @@ void LazyCastFromFp8::AddNode(
   syn_out(0) = std::move(casted[0]);
 }
 
-LazyFp8Gemm::LazyFp8Gemm(int device_id, c10::ScalarType scalar_type)
+Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm_", scalar_type, {}, {}, {}, true) {}
 
-void LazyFp8Gemm::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 11, "Fp8Gemm must have 11 input arguments");
 
   auto A = stack_tensor(stack, 0);
@@ -127,10 +123,10 @@ void LazyFp8Gemm::AddNode(
   syn_out(0) = std::move(gemm[0]);
 }
 
-LazyFp8Transpose::LazyFp8Transpose(int device_id, c10::ScalarType scalar_type)
+Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_transpose_", scalar_type, {}, {}, {}, true) {}
 
-void LazyFp8Transpose::AddNode(
+void Fp8Transpose::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto A = stack_tensor(stack, 0);
@@ -157,13 +153,7 @@ void LazyFp8Transpose::AddNode(
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "hpu::habana_cast_to_fp8_te",
-            KERNEL_FN_GLOBAL(habana::LazyCastToFp8))
-        .add(
-            "hpu::habana_cast_from_fp8",
-            KERNEL_FN_GLOBAL(habana::LazyCastFromFp8))
-        .add("hpu::habana_fp8_gemm", KERNEL_FN_GLOBAL(habana::LazyFp8Gemm))
-        .add(
-            "hpu::habana_fp8_transpose",
-            KERNEL_FN_GLOBAL(habana::LazyFp8Transpose));
+        .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
+        .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
+        .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
+        .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose));

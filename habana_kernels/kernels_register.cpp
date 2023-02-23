@@ -1675,7 +1675,7 @@ Tensor habana_cast_to_fp8_wrap(
 }
 #endif
 
-std::tuple<Tensor&, Tensor&> habana_cast_to_fp8_te_wrap(
+std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,
     bool stochastic_rounding,
@@ -1684,7 +1684,7 @@ std::tuple<Tensor&, Tensor&> habana_cast_to_fp8_te_wrap(
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " habana_cast_to_fp8:",
+      " cast_to_fp8:",
       " input=",
       to_string(input),
       " scale=",
@@ -1693,20 +1693,19 @@ std::tuple<Tensor&, Tensor&> habana_cast_to_fp8_te_wrap(
       to_string(stochastic_rounding));
   if (synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type())) {
-    return habana_cast_to_fp8_te_lazy(
-        input, scale, stochastic_rounding, out, amax);
+    return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
-Tensor habana_cast_from_fp8_wrap(
+Tensor cast_from_fp8_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " habana_cast_from_fp8:",
+      " cast_from_fp8:",
       " input=",
       to_string(input),
       " scale=",
@@ -1715,12 +1714,12 @@ Tensor habana_cast_from_fp8_wrap(
       to_string(out_dtype));
   if (synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type())) {
-    return habana_cast_from_fp8_lazy(input, scale, out_dtype);
+    return cast_from_fp8_lazy(input, scale, out_dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
-Tensor& habana_fp8_gemm_wrap(
+Tensor& fp8_gemm_wrap(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,
     bool trans_A,
@@ -1735,7 +1734,7 @@ Tensor& habana_fp8_gemm_wrap(
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " habana_fp8_gemm:",
+      " fp8_gemm:",
       " A=",
       to_string(A),
       " A_scale_inv=",
@@ -1756,7 +1755,7 @@ Tensor& habana_fp8_gemm_wrap(
       to_string(accumulate));
   if (synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type())) {
-    return habana_fp8_gemm_lazy(
+    return fp8_gemm_lazy(
         A,
         A_scale_inv,
         trans_A,
@@ -1772,15 +1771,13 @@ Tensor& habana_fp8_gemm_wrap(
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
-at::Tensor& habana_fp8_transpose_wrap(
-    const at::Tensor& input,
-    at::Tensor& out) {
+at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" habana_fp8_transpose:", " input=", to_string(input));
+  PT_OP_INFO(" fp8_transpose:", " input=", to_string(input));
   if (synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type())) {
-    return habana_fp8_transpose_lazy(input, out);
+    return fp8_transpose_lazy(input, out);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -2306,13 +2303,12 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");
   m.def(
-      "hpu::habana_cast_to_fp8_te(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
+      "hpu::cast_to_fp8(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::habana_cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
+      "hpu::cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
   m.def(
-      "hpu::habana_fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "hpu::habana_fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
+      "hpu::fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
+  m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
@@ -2324,6 +2320,13 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_permute_2D_sparse_data(Tensor permute, Tensor lengths, Tensor indices, Tensor? weights=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::habana_permute_2D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
+}
+
+TORCH_LIBRARY_IMPL(hpu, HPU, m) {
+  m.impl("hpu::cast_to_fp8", cast_to_fp8_wrap);
+  m.impl("hpu::cast_from_fp8", cast_from_fp8_wrap);
+  m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
+  m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

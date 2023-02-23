@@ -123,7 +123,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/isposneginf_gen.cpp
           backend/kthvalue_gen.cpp
           backend/lazy_cast.cpp
-          backend/lazy_fp8_ops.cpp
+          backend/fp8_ops.cpp
           backend/leakyrelu_gen.cpp
           backend/lerp_gen.cpp
           backend/linalg_cross_gen.cpp

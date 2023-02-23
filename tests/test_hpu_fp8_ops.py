@@ -12,7 +12,7 @@
 import torch
 import pytest
 import numpy as np
-from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8_te, fp8_gemm, fp8_transpose, cast_from_fp8
+from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8, fp8_gemm, fp8_transpose, cast_from_fp8
 
 MASK_FLOAT32 = torch.tensor(2145386496, dtype=torch.int) # 0 11111111 11000000000000000000000b
 MASK_ROUND_FLOAT32 = torch.tensor(1048575, dtype=torch.int) # 0 00000000 00011111111111111111111b
@@ -56,16 +56,17 @@ def test_cast_to_fp8(shape, scale, dtype, stochastic):
     unscaled_input = scaled_input_low_precision * scale_inv
 
     amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
-    casted = cast_to_fp8_te(input.to(hpu), scale.to(hpu), amax[1][2], stochastic)
+    casted = cast_to_fp8(input.to(hpu), scale.to(hpu), amax[1][2], stochastic)
     uncasted = cast_from_fp8(casted, scale_inv.to(hpu), dtype)
 
     percentage_diff = torch.abs((((uncasted.cpu() - unscaled_input) / unscaled_input)*100).to(torch.int))
 
     print(percentage_diff)
 
-    tolerance = 25 if stochastic else 0
-
-    assert np.amax(percentage_diff.numpy()) <= tolerance
+    if stochastic:
+        assert 0 < np.amax(percentage_diff.numpy()) <= 25
+    else:
+        assert np.amax(percentage_diff.numpy()) == 0
     assert amax.cpu()[1][2] == torch.max(input.abs())
 
 @pytest.mark.parametrize("shapeA, shapeB", [((2, 3, 4, 2), (2, 3, 4, 8)),
@@ -105,8 +106,8 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
     out = torch.full(out_shape, 1000.0, dtype=dtype)
     out_hpu = out.to(hpu) if out_tensor else None
 
-    A8 = cast_to_fp8_te(A_hpu, scaleA_hpu, amax_A[1][2], False)
-    B8 = cast_to_fp8_te(B_hpu, scaleB_hpu, amax_B[0][1], False)
+    A8 = cast_to_fp8(A_hpu, scaleA_hpu, amax_A[1][2], False)
+    B8 = cast_to_fp8(B_hpu, scaleB_hpu, amax_B[0][1], False)
 
     maybe_result = fp8_gemm(A8, scaleAInv, B8, scaleBInv, out_dtype=dtype, out=out_hpu, bias=bias_tensor_hpu, use_bias=bias, accumulate=accumulate)
     result_ref = torch.matmul(A.transpose(-2, -1), B)

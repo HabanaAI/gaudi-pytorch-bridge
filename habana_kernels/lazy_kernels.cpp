@@ -109,7 +109,7 @@ bool is_inplace(at::Symbol symbol) {
     size_t len = strlen(node_name);
     char endch = node_name[len - 1];
 
-    if (endch == '_' || !strcmp(node_name, "hpu::habana_fp8_transpose")) {
+    if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose")) {
       is_inplace = true;
     }
   }
@@ -7308,7 +7308,7 @@ at::Tensor habana_cast_to_fp8_lazy(
 }
 #endif
 
-std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
+std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
     bool stochastic_rounding,
@@ -7328,7 +7328,7 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
         at::Tensor amax_temp = at::empty({1}, amax.options());
 
         LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
-            "hpu::habana_cast_to_fp8_te",
+            "hpu::cast_to_fp8",
             {input, scale, stochastic_rounding, out, amax_temp},
             {input.sizes().vec(), amax.sizes().vec()}};
         auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax_temp);
@@ -7336,7 +7336,7 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
         strided_insert_hpu_lazy(amax, amax_temp);
       } else {
         LazyOp<std::tuple<at::Tensor&, at::Tensor&>> k_{
-            "hpu::habana_cast_to_fp8_te",
+            "hpu::cast_to_fp8",
             {input, scale, stochastic_rounding, out, amax},
             {input.sizes().vec(), amax.sizes().vec()}};
         auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
@@ -7346,24 +7346,22 @@ std::tuple<at::Tensor&, at::Tensor&> habana_cast_to_fp8_te_lazy(
   };
   auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
 
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cast_to_fp8_te, func, result)
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(cast_to_fp8, func, result)
 }
 
-at::Tensor habana_cast_from_fp8_lazy(
+at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k_{
-      "hpu::habana_cast_from_fp8",
-      {input, scale, out_dtype},
-      {input.sizes().vec()}};
+      "hpu::cast_from_fp8", {input, scale, out_dtype}, {input.sizes().vec()}};
   k_.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, k_)
 }
 
-at::Tensor& habana_fp8_gemm_lazy(
+at::Tensor& fp8_gemm_lazy(
     const at::Tensor& A,
     const at::Tensor& A_scale_inv,
     bool trans_A,
@@ -7388,7 +7386,7 @@ at::Tensor& habana_fp8_gemm_lazy(
   out_shape.push_back(B_shape[B_dim]);
 
   LazyOp<at::Tensor&> k_{
-      "hpu::habana_fp8_gemm",
+      "hpu::fp8_gemm",
       {A,
        A_scale_inv,
        trans_A,
@@ -7404,13 +7402,11 @@ at::Tensor& habana_fp8_gemm_lazy(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_gemm, k_, out)
 }
 
-at::Tensor& habana_fp8_transpose_lazy(
-    const at::Tensor& input,
-    at::Tensor& out) {
+at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k_{
-      "hpu::habana_fp8_transpose", {input, out}, {out.sizes().vec()}};
+      "hpu::fp8_transpose", {input, out}, {out.sizes().vec()}};
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_transpose, k_, out)
 }
 

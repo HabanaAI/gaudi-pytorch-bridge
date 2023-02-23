@@ -11,9 +11,9 @@
 ###############################################################################
 import torch
 from typing import Optional
-from habana_frameworks.torch import _hpex_C
+import habana_frameworks.torch.core
 
-def cast_to_fp8_te(x: torch.tensor, scale: torch.tensor, amax: torch.tensor, stochastic = False) -> torch.tensor:
+def cast_to_fp8(x: torch.tensor, scale: torch.tensor, amax: torch.tensor, stochastic = False) -> torch.tensor:
     # Error checking
     dtype = x.dtype
     if dtype != torch.bfloat16 and dtype != torch.float32:
@@ -25,7 +25,7 @@ def cast_to_fp8_te(x: torch.tensor, scale: torch.tensor, amax: torch.tensor, sto
             device="hpu",
         )
 
-    _hpex_C.cast_to_fp8_te(x, scale, stochastic, out, amax)
+    torch.ops.hpu.cast_to_fp8(x, scale, stochastic, out, amax)
     return out
 
 def cast_from_fp8(x: torch.tensor, scale: torch.tensor, out_dtype: torch.dtype) -> torch.tensor:
@@ -33,7 +33,7 @@ def cast_from_fp8(x: torch.tensor, scale: torch.tensor, out_dtype: torch.dtype) 
     if out_dtype != torch.bfloat16 and out_dtype != torch.float32:
         raise TypeError(f"fp8 can be casted only to float32 and bfloat16, got: {out_dtype}")
 
-    return _hpex_C.cast_from_fp8(x, scale, out_dtype)
+    return torch.ops.hpu.cast_from_fp8(x, scale, out_dtype)
 
 def fp8_gemm(A: torch.Tensor,
              A_scale_inv: torch.Tensor,
@@ -62,7 +62,7 @@ def fp8_gemm(A: torch.Tensor,
         )
         return_output = True
 
-    _hpex_C.fp8_gemm(A, A_scale_inv, True, B, B_scale_inv, False, out, out_dtype, bias if use_bias else None, accumulate)
+    torch.ops.hpu.fp8_gemm(A, A_scale_inv, True, B, B_scale_inv, False, out, out_dtype, bias if use_bias else None, accumulate, out)
 
     if return_output:
         return out
@@ -83,6 +83,6 @@ def fp8_transpose(x: torch.tensor, out: Optional[torch.Tensor] = None) -> torch.
         )
         return_output = True
 
-    _hpex_C.fp8_transpose(x, out)
+    torch.ops.hpu.fp8_transpose(x, out)
     if return_output:
         return out
