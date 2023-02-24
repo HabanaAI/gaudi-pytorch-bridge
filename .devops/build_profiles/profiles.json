@@ -8,44 +8,13 @@
         "-c",
         "-r",
         "--no-iwyu",
-        "--recreate-venv=as_needed",
-        "--manylinux",
+        "--recreate-venv=force",
         "-v",
-        "--python-versions=3.8",
-        "--run-ctest"
-      ]
-    },
-    "npu-stack": {
-      "wheels": [
-        "release"
-      ],
-      "additional_build_flags": [
-        "-c",
-        "-r",
-        "--no-iwyu",
-        "--recreate-venv=as_needed",
-        "-v",
-        "--python-versions=3.8"
+        "--op-stats"
       ]
     },
     "cd": {
       "wheels": [
-        "release",
-        "internal"
-      ],
-      "additional_build_flags": [
-        "-c",
-        "-r",
-        "--no-iwyu",
-        "--recreate-venv=force",
-        "--manylinux",
-        "-v",
-        "--python-versions=all",
-        "--build-dbgsym-whl"
-      ]
-    },
-    "cd-vm": {
-      "wheels": [
         "release"
       ],
       "additional_build_flags": [
@@ -54,21 +23,7 @@
         "--no-iwyu",
         "--recreate-venv=force",
         "-v",
-        "--python-versions=3.8"
-      ]
-    },
-    "daily": {
-      "wheels": [
-        "release"
-      ],
-      "additional_build_flags": [
-        "-c",
-        "-r",
-        "--no-iwyu",
-        "--recreate-venv=force",
-        "--manylinux",
-        "-v",
-        "--python-versions=3.8"
+        "--op-stats"
       ]
     }
   },

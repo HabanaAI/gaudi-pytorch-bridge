@@ -28,6 +28,8 @@ from io import StringIO
 from typing import (Any, Dict, Iterable, List, NamedTuple, Optional, Sequence,
                     Set, Tuple, Union)
 
+import op_stats_generator
+
 from build_profiles import profile_getter
 from build_profiles.profile_getter import VersionLiteralAndSource
 from build_profiles.version import Version, is_wheel_version
@@ -683,7 +685,6 @@ def prepare_build_dirs(
     os.makedirs(build_root_dir, exist_ok=True)
 
     clean = args.configure
-    op_stats = args.op_stats
     whl_build_dir = f"{build_root_dir}/whl_build_dir"
     with chdir(build_root_dir), open("Makefile", "w") as makefile:
         if clean:
@@ -1278,20 +1279,23 @@ def add_python_env_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeF
     return cmake_flags
 
 
-def append_cmake_torch_path(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
-    venv_python = get_python_exec(build_env)
-    torch_path = outof(
+def query_torch_path(venv_python: str, venv_dir: str) -> str:
+    return outof(
         venv_python,
         "-c",
-        '"import os, torch;',
-        'print(os.path.dirname(torch.__file__))"',
-        venv=build_env.venv_dir,
+        "'import torch; print(torch.__path__[0])'",
+        venv=venv_dir,
     ).strip()
+
+
+def append_cmake_torch_path(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
+    venv_python = get_python_exec(build_env)
+    torch_path = query_torch_path(venv_python, build_env.venv_dir)
     cmake_flags.append_to_list("CMAKE_PREFIX_PATH", torch_path)
     return cmake_flags
 
 
-def get_python_exec(build_env):
+def get_python_exec(build_env: BuildEnv):
     if build_env.venv_dir == ".":
         return shutil.which(f"python{build_env.py_ver}")
     else:
@@ -1318,16 +1322,19 @@ def run_ctest_on_dirs(cmake_build_configs):
                     sys.exit(1)
 
 
-def create_symlink_for_op_stats(build_dirs: List[str]):
-    for directory in build_dirs:
-        if "Release" in directory:
-            log.info("Files from %s will be used for gathering op stats", directory)
-            src = os.path.join(directory, "generated")
-            dst = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "generated")
-            if os.path.islink(dst):
-                os.remove(dst)
-            os.symlink(src, dst, target_is_directory=True)
-            return
+def resolve_python_from_venv(venv_dir: str, build_envs: Sequence[BuildEnv]) -> str:
+    matching_build_env = next(filter(lambda build_env: build_env.venv_dir == venv_dir, build_envs))
+    return get_python_exec(matching_build_env)
+
+
+def generate_op_stats(cmake_build_configs: List[Tuple[str, str, bool]], build_envs: Sequence[BuildEnv]) -> None:
+    output_dir = os.getenv("HABANA_LOGS")
+    for build_directory, venv_directory, _ in cmake_build_configs:
+        if "Release" in build_directory:
+            log.info("Generating operator statistics for %s", build_directory)
+            venv_python = resolve_python_from_venv(venv_directory, build_envs)
+            torch_installation_dir = query_torch_path(venv_python, venv_directory)
+            op_stats_generator.generate_stats(torch_installation_dir, build_directory, output_dir)
 
 
 def install_wheel():
@@ -1937,8 +1944,7 @@ def main():
             run_ctest_on_dirs(cmake_build_configs)
 
         if args.op_stats:
-            build_dirs = [config[0] for config in cmake_build_configs]
-            create_symlink_for_op_stats(build_dirs)
+            generate_op_stats(cmake_build_configs, wheels_per_build_envs.keys())
 
     if args.install_ext:
         install_wheels_in_venvs(selected_wheel_configs)

@@ -470,10 +470,8 @@ def main(args):
         with open(fj, 'w+') as f:
             json.dump(json_list, f)
 
-    return
 
-
-if __name__ == '__main__':
+def parse_args_and_run_main(argv=None):
     # for command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--ops_decl', default='',
@@ -482,5 +480,9 @@ if __name__ == '__main__':
                         help='path of pytorch integration git')
     parser.add_argument('--gen_files_path', default='',
                         help='path of auto generated op files and wrap declarations file for manual ops')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     main(args)
+
+
+if __name__ == '__main__':
+    parse_args_and_run_main()

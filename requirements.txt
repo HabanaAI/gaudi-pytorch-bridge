@@ -3,6 +3,7 @@ flake8
 lark
 ninja
 numpy>=1.21
+pandas==1.4.1
 pyyaml
 cython
 yamllint
