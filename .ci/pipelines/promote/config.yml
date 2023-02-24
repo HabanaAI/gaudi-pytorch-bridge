@@ -6,8 +6,6 @@ orchestratorConfig:
     runInCodeCoverage: true
 # Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
-    silentMode: true
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
 # PyTorch full graph tests
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_perf
