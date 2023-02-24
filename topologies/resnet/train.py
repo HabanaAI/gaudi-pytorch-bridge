@@ -37,10 +37,11 @@ except ImportError:
     amp = None
 
 
-def train_model(model, criterion, optimizer, image, target, trainMetaData, apex, lazy_mode):
-    output = model(image)
-    loss = criterion(output, target)
-    optimizer.zero_grad()
+def train_model(model, criterion, optimizer, image, target, trainMetaData, apex, lazy_mode, is_autocast=False):
+    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=is_autocast):
+        output = model(image)
+        loss = criterion(output, target)
+        optimizer.zero_grad()
 
     if apex:
         with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -60,7 +61,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
 
     return loss, output
 
-def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
+def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False, is_autocast=False):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ", device=device)
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value}'))
@@ -100,7 +101,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
         loss, output = train_model(model, criterion, optimizer, image, target,
-                                           trainMetaData, apex, args.run_lazy_mode)
+                                           trainMetaData, apex, args.run_lazy_mode, is_autocast=is_autocast)
 
         if trainMetaData.current_train_step % print_freq == 0:
             # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
@@ -127,7 +128,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             break
 
 
-def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=100):
+def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=100, is_autocast=False):
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ", device=device)
     header = 'Test:'
@@ -149,8 +150,9 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
 
             target = target.to(device, non_blocking=True)
             trainMetaData.tracept.start(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
-            output = model(image)
-            loss = criterion(output, target)
+            with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=is_autocast):
+                output = model(image)
+                loss = criterion(output, target)
 
             acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
             trainMetaData.tracept.end(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
@@ -527,11 +529,11 @@ def main(args):
             adjust_learning_rate(optimizer, epoch, lr_vec)
 
         train_one_epoch(model_for_train, criterion, optimizer, data_loader,
-                device, epoch, args.print_freq, trainMetaData, args.apex)
+                device, epoch, args.print_freq, trainMetaData, args.apex, is_autocast=args.is_autocast)
         if lr_scheduler is not None:
             lr_scheduler.step()
 
-        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
+        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq, is_autocast=args.is_autocast)
 
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'hpu':
@@ -683,7 +685,9 @@ def parse_args():
                         help='run JIT mode with fusion enabled')
     parser.add_argument('--deterministic', action="store_true",
                         help='Whether or not to make data loading deterministic;This does not make execution deterministic')
-    parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
+    mixed_precision_group = parser.add_mutually_exclusive_group()
+    mixed_precision_group.add_argument('--autocast', dest='is_autocast', action='store_true', help='enable autocast mode on Gaudi')
+    mixed_precision_group.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
     parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
     parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
