@@ -89,3 +89,56 @@ def test_relu_inplace_noncontiguous_view():
     result_cpu = torch.relu_(cpu_tensor)
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
+
+@pytest.mark.xfail(reason="SW-119307")
+def test_d2d_noncontiguous_views_src():
+    cpu_src_tensor = torch.randn([4])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_src_tensor_view = cpu_src_tensor[::2]
+    hpu_src_tensor_view = hpu_src_tensor[::2]
+
+    cpu_dst_tensor = torch.randn([2])
+    hpu_dst_tensor = cpu_dst_tensor.to("hpu")
+
+    hpu_dst_tensor.copy_(hpu_src_tensor_view)
+    cpu_dst_tensor.copy_(cpu_src_tensor_view)
+
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
+
+@pytest.mark.xfail(reason="SW-119307")
+def test_d2d_noncontiguous_views_dst():
+    cpu_src_tensor = torch.randn([2])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_dst_tensor = torch.randn([4])
+    hpu_dst_tensor = cpu_dst_tensor.to("hpu")
+
+    cpu_dst_tensor_view = cpu_dst_tensor[::2]
+    hpu_dst_tensor_view = hpu_dst_tensor[::2]
+
+    hpu_dst_tensor_view.copy_(hpu_src_tensor)
+    cpu_dst_tensor_view.copy_(cpu_src_tensor)
+
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
+
+@pytest.mark.xfail(reason="SW-119307")
+def test_d2d_noncontiguous_views_src_dst():
+    cpu_src_tensor = torch.randn([4])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_src_tensor_view = cpu_src_tensor[::2]
+    hpu_src_tensor_view = hpu_src_tensor[::2]
+
+    cpu_dst_tensor = torch.randn([4])
+    hpu_dst_tensor = cpu_dst_tensor.to("hpu")
+
+    cpu_dst_tensor_view = cpu_dst_tensor[::2]
+    hpu_dst_tensor_view = hpu_dst_tensor[::2]
+
+    hpu_dst_tensor_view.copy_(hpu_src_tensor_view)
+    cpu_dst_tensor_view.copy_(cpu_src_tensor_view)
+
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
+
+test_d2d_noncontiguous_views_src_dst()

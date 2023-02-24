@@ -1800,6 +1800,7 @@ static auto& BasicKernelsKernelRegistry =
             "hpu::as_strided_layout",
             KERNEL_FN_GLOBAL(AsStridedLayoutOperator))
         .add("hpu::identity", KERNEL_FN_GLOBAL(IdentityOperator))
+        .add("aten::as_strided", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add(
