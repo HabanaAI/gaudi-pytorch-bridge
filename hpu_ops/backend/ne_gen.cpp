@@ -17,11 +17,15 @@ void NE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   const at::ScalarType& result_type = c10::ScalarType::Bool;
 
-  auto not_equal = BuildOp(
+  auto eq = BuildOp(
       graph,
-      "not_equal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      "equal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), syn_in(1)},
-      {{outshape, result_type, 0}});
+      {{outshape, result_type}});
+
+  // not on output of equal
+  auto not_equal =
+      BuildOp(graph, "not_fwd_i8", {eq[0].get()}, {{outshape, result_type, 0}});
 
   // output of not is the output of this op
   syn_out(0) = std::move(not_equal[0]);
