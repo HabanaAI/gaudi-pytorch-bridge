@@ -13,6 +13,7 @@
 
 #include "hpu_ops/lazy_cast.h"
 #include "backend/helpers/cast_sequence.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -68,9 +69,30 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 }
 
+CopyFrom::CopyFrom(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {}, {}, {}, true) {}
+
+void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto src = stack_tensor(stack, 0);
+  auto src_type = src.scalar_type();
+  auto dst_type = stack_tensor(stack, 1).scalar_type();
+
+  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
+
+  if (src_type_cast_type == dst_type_cast_type) {
+    auto out = BuildOp(
+        graph, "identity", {syn_in(0)}, {{src.sizes(), ScalarType(), 0}});
+    syn_out(0) = std::move(out.at(0));
+  } else {
+    auto out = CastHelper(graph, syn_in(0), src.sizes(), src_type, dst_type, 0);
+    syn_out(0) = std::move(out);
+  }
+}
 } // namespace habana
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
+        .add("hpu::_copy_from", KERNEL_FN_GLOBAL(habana::CopyFrom))
         .add("hpu::cast", KERNEL_FN_GLOBAL(habana::LazyCast))
         .add("hpu::habana_cast_sr_mode", KERNEL_FN_GLOBAL(habana::LazyCast));
