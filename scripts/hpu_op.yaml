@@ -2409,9 +2409,8 @@ embedding:
       weight: [BFloat16, Float, Half, Int]
       indices: [Int]
   fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
-  custom_output_shape: EmbeddingOutputShape
-  guid: embedding_pt_fwd
-  out_ids: [0]
+  override_fn: embedding_hpu_lazy
+  acc_thread: true
 
 embedding_dense_backward:
   dtypes:

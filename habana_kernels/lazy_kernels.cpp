@@ -2597,6 +2597,62 @@ Tensor constant_pad_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(constant_pad_nd, func, out)
 }
 
+#if IS_PYTORCH_OLDER_THAN(1, 14)
+Tensor embedding_hpu_lazy(
+    const Tensor& weight,
+    const Tensor& indices,
+    int64_t padding_idx,
+    bool scale_grad_by_freq,
+    bool sparse) {
+  PT_LAZY_TRACE;
+#else
+Tensor embedding_hpu_lazy(
+    const Tensor& weight,
+    const Tensor& indices,
+    c10::SymInt padding_idx_sym,
+    bool scale_grad_by_freq,
+    bool sparse) {
+  PT_LAZY_TRACE;
+  int64_t padding_idx = padding_idx_sym.expect_int();
+#endif
+
+  ir::NodePtr embedding_node = std::make_shared<ir::Embedding_forward>();
+
+  // allocate Output storage
+  auto size = indices.sizes().vec();
+
+  if (indices.dim() == 1) {
+    size = GatherOperator::compute_output_shape(weight, 0, indices);
+  } else {
+    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
+    for (auto d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+  }
+
+  LazyOp<at::Tensor, ir::Embedding_forward> op(
+      embedding_node,
+      {weight, indices, padding_idx, scale_grad_by_freq, sparse},
+      {size});
+  auto out = op.get_result();
+
+  auto func = [op = std::move(op),
+               node = std::move(embedding_node),
+               out,
+               weight,
+               indices,
+               padding_idx,
+               scale_grad_by_freq,
+               sparse]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::Embedding_forward>(node);
+    node_derived->Init(
+        weight, indices, padding_idx, scale_grad_by_freq, sparse);
+
+    op.call(out);
+  };
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding, func, out)
+}
+
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
