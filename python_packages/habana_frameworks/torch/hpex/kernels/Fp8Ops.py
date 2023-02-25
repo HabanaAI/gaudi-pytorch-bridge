@@ -22,7 +22,7 @@ def cast_to_fp8(x: torch.tensor, scale: torch.tensor, amax: torch.tensor, stocha
     out = torch.empty(
             x.shape,
             dtype=torch.int8,
-            device="hpu",
+            device=x.device,
         )
 
     torch.ops.hpu.cast_to_fp8(x, scale, stochastic, out, amax)
@@ -58,7 +58,7 @@ def fp8_gemm(A: torch.Tensor,
             A.shape[-1],
             B.shape[-1],
             dtype=out_dtype,
-            device="hpu",
+            device=x.device,
         )
         return_output = True
 
@@ -79,7 +79,7 @@ def fp8_transpose(x: torch.tensor, out: Optional[torch.Tensor] = None) -> torch.
             x.shape[1],
             x.shape[0],
             dtype=torch.int8,
-            device="hpu",
+            device=x.device,
         )
         return_output = True
 
