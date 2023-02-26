@@ -16,20 +16,10 @@ using namespace at;
 class LazyIndexKernelTest : public habana_lazy_test::LazyTest {};
 class UniqueParameterizedTestFixture
     : public ::testing::TestWithParam<
-          std::tuple<torch::Tensor, c10::ScalarType, bool>>,
-      public habana_lazy_test::EnvHelper {
-  void SetUp() override {
-    TearDownBridge();
-  }
-};
+          std::tuple<torch::Tensor, c10::ScalarType, bool>> {};
 class UniqueDimParameterizedTestFixture
     : public ::testing::TestWithParam<
-          std::tuple<torch::Tensor, c10::ScalarType, int64_t, bool, bool>>,
-      public habana_lazy_test::EnvHelper {
-  void SetUp() override {
-    TearDownBridge();
-  }
-};
+          std::tuple<torch::Tensor, c10::ScalarType, int64_t, bool, bool>> {};
 
 TEST_P(UniqueParameterizedTestFixture, tests) {
   c10::ScalarType dtype = std::get<1>(GetParam());

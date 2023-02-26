@@ -29,28 +29,21 @@ class SBSWithParamsTest
     std::cout << "PT_SBS=" << m_sbs_mode
               << " perform mark_step = " << m_perform_markstep << std::endl;
 
-    // SBS mode cannot be supported with DS because in case of DS OPs can have
-    // shape tensors which cannot be DMA to CPU (trigger DMA errors due to
-    // storageless nature of these tensors)
-    m_ds_original = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, false, 1);
     ResetOpCounters();
     ResetSBSHandlers();
 
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
   }
 
   void TearDown() override {
     ResetSBSHandlers();
     UNSET_ENV_FLAG_NEW(PT_SBS);
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, m_ds_original, 1);
+
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     RestoreMode();
   }
 
  protected:
-  bool m_ds_original = false;
   int m_sbs_mode = habana_lazy::SBS_MODE_DISABLED;
   bool m_perform_markstep = false;
 
@@ -562,7 +555,6 @@ TEST_P(SBSWithParamsTest, ConvolutionSBSTest_const_Contiguous) {
   ConvolutionSBSTest(false, false);
 }
 
-#if 0
 // Graph :
 //
 //     Bias1  Bias2           Data
@@ -707,7 +699,7 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
   }
 }
 
-
+#if 0
 TEST_P(SBSWithParamsTest, stridedinsertreuseSBS) {
   torch::Tensor A = torch::randn({4});
   auto b = torch::relu(A);

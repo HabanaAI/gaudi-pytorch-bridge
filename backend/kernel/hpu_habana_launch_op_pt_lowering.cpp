@@ -645,8 +645,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
 
   rv.populate_syn_tensor_ids();
 
-  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
-      (refine_ds_enabled_ && current_dbipsh_)) {
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED || refine_ds_enabled_) {
     TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
     rv.set_key(cur_rargpsh->hashCode());
     rv.set_graph_key(graph_key);
@@ -727,12 +726,11 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     DumpTensors_pre(rv);
   }
 
-  if (refine_ds_enabled_ && current_dbipsh_) {
+  if (refine_ds_enabled_) {
     // Initiate recipe execution time collection
     if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
       InitiateSynlaunchTimeCapture(rv);
     }
-
     // Add the jit_ir_graph to current_dbipsh_
     current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph);
     if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
@@ -756,7 +754,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
   // this cache entry to be flushed to disk
   if (enable_caching_) {
     // Add the <key,value> pair to the map
-    if (refine_ds_enabled_ && current_dbipsh_) {
+    if (refine_ds_enabled_) {
       rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
       // Add the recipe to the corresponding bucket
       current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, cur_rvalpsh);
@@ -779,7 +777,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     DumpTensors(rv);
   }
 
-  if (enable_caching_ && refine_ds_enabled_ && current_dbipsh_) {
+  if (enable_caching_ && refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         current_dbipsh_->digest_str(),
         current_dbipsh_->history_str(),

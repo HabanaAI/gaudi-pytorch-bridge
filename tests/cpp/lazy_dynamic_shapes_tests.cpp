@@ -50,7 +50,6 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {
     habana::RecipeCacheLRU::get_cache().clear();
 
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
   }
 
   void TearDown() override {

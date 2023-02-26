@@ -78,12 +78,9 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
 
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
-std::unordered_map<size_t, habana_helpers::InpTensorShapes>
-    HabanaLaunchOpPT::ref_input_shape_map = {};
 //--------------------------------------
 
 void HabanaLaunchOpPT::cleanUp() {
-  ref_input_shape_map = {};
   DynamicBucketInfoMap::get_instance().clear();
   RecipeCacheLRU::get_cache().clear();
 }
@@ -1921,7 +1918,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   syn_graph_ptr = &syn_graph;
 
-  if (current_dbipsh_) {
+  if (refine_ds_enabled_) {
     jit_graph_and_meta_data->clear_cached_graph_info();
     prim_nodes_ival_counter = 0;
     restride_node_swap_counter = 0;
@@ -2474,7 +2471,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
     habana_helpers::InpTensorShapes& shape_map) {
   for (size_t i = 0; i < input_refs.size(); i++) {
-    auto& input = input_refs[i];
+    auto input = input_refs[i];
     if (input.isTensor()) {
       at::Tensor pt_tensor = input.toTensor();
       habana_helpers::TensorShape shape(
@@ -2684,19 +2681,23 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
       auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
       auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
       auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
-      if (dropped_dbi != nullptr) {
-        // We are dropping the recipie but keeping the bucket
-        /*
-        auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
-        if ((dropped_dbi == current_dbipsh_) &&
-            dropped_bid < current_bucket_id_) {
-          current_bucket_id_ -= 1;
-          dsi_bucket_id = current_bucket_id_;
-        }
-        */
-        static_cast<void>(dsi_bucket_id);
-        dropped_dbi->ResetSynapseRecipePtr(dropped_val);
+      HABANA_ASSERT(
+          dropped_dbi != nullptr,
+          "DynamicBucketInfoMap missing bucket info for graph_key: ",
+          dropped_arg->graphHashCode(),
+          ", recipe_key:",
+          dropped_arg->hashCode());
+      // We are dropping the recipie but keeping the bucket
+      /*
+      auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
+      if ((dropped_dbi == current_dbipsh_) &&
+          dropped_bid < current_bucket_id_) {
+        current_bucket_id_ -= 1;
+        dsi_bucket_id = current_bucket_id_;
       }
+      */
+      static_cast<void>(dsi_bucket_id);
+      dropped_dbi->ResetSynapseRecipePtr(dropped_val);
     }
   }
 }
@@ -2708,13 +2709,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
       std::make_shared<RecipeArgumentSpec>(input_refs, graph_key, op_strs);
-  PT_TEST_DEBUG(
+  PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
       "Processing with dynamic shape enabled\n",
       "JIT IR graph_hash_code : ",
-      rargpsh_graph->graphHashCode(),
-      ", hash_code with data layout : ",
-      rargpsh_graph->hashCode());
+      rargpsh_graph->graphHashCode());
 
   current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
   if (nullptr == current_dbipsh_) {
@@ -2725,32 +2724,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     current_dbipsh_->create_statistics(
         habana_helpers::CompilationStatistics::Create(
             GetSynapseGraphName(), current_dbipsh_->getCount()));
-
-    // Create bucket 0
-    DynamicShapeInfo graph_input_info;
-    graph_input_info.act_input_tshapes =
-        ref_input_shape_map.at(rargpsh_graph->hashCode());
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "Reference input shapes::",
-        graph_input_info.act_input_tshapes,
-        "\n--------------------");
-
-    habana_helpers::ResultShapes ranges;
-    size_t ref_bucket_id{};
-    {
-      std::lock_guard<std::mutex> lg(current_dbipsh_->get_refine_mutex());
-      current_dbipsh_->CollectDynamicDims(graph_input_info.act_input_tshapes);
-      ref_bucket_id =
-          current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
-      ranges = current_dbipsh_->CalculateShapes(ref_bucket_id);
-    }
-
-    auto start_ds_token = current_dbipsh_->GetTokenForBucketId(ref_bucket_id);
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "for reference shape creating bucket id : ",
-        ref_bucket_id,
-        " with token ",
-        start_ds_token);
   }
 
   DynamicShapeInfo graph_input_info;
@@ -3266,13 +3239,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   iteration_count_++;
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
-  // Check whether dynamic shape is needed
-  size_t graph_key_with_perm = graph_key;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
-  }
-
   PT_BRIDGE_DEBUG(
       "Lowering:\n",
       "JIT_IR_Graph_BEGIN\n",
@@ -3281,19 +3247,19 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       '\n',
       jit_ir_graph->toString(),
       "JIT_IR_Graph_END\n");
-
-  PT_TEST_DEBUG(
-      "Lowering:\n",
-      "Graph ",
-      idx,
-      '\n',
-      "JIT IR graph_hash_code : ",
-      graph_key,
-      ", hash_code with data layout : ",
-      graph_key_with_perm);
-
   idx += 1;
-  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
+
+  // Handle everything related to graph when dynamic flag is set.
+  if (refine_ds_enabled_) {
+    jit_graph_and_meta_data->clear_cached_graph_info();
+    jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(
+        false); // Disable Optimized Lowering based on Cached precalculated
+                // graph information.
+    ProcessHabanaFusedOpWithDS();
+    return;
+  }
+
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED || refine_ds_enabled_) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
         false, input_refs, jit_ir_graph, graph_key, op_strs);
   }
@@ -3316,7 +3282,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           "\n",
           rv.digest_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
-      PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
           std::make_shared<std::vector<IValPtrShared>>(
@@ -3598,42 +3563,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     return;
   }
   // shape agnostic caching :: end
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      ref_input_shape_map.count(graph_key_with_perm) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    PT_TEST_DEBUG(
-        "JIT IR graph_hash_code : ",
-        graph_key,
-        ", hash_code with data layout : ",
-        graph_key_with_perm,
-        "\nStarting dynamic shape flow");
-
-    jit_graph_and_meta_data->clear_cached_graph_info();
-    jit_graph_and_meta_data->set_jit_cached_graph_info_available_flag(
-        false); // Disable Optimized Lowering based on Cached precalculated
-                // graph information.
-    ProcessHabanaFusedOpWithDS();
-    return;
-  }
-
-  // Remember the input shapes for creating dynamic bucket info structure later.
-  // Note that this needs to be done before execution of graph, otherwise
-  // input_refs will get overwritten by outputs and we will create bucket
-  // with incorrect shapes.
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    habana_helpers::InpTensorShapes input_tshapes;
-    CreateDynamicBucketInputShapes(input_tshapes);
-    PT_TEST_DEBUG(
-        "JIT IR graph_hash_code : ",
-        graph_key,
-        ", hash_code with data layout : ",
-        graph_key_with_perm,
-        "\nRecording the reference input shapes::",
-        input_tshapes,
-        "\n--------------------");
-    ref_input_shape_map.emplace(graph_key_with_perm, input_tshapes);
-  }
 
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());

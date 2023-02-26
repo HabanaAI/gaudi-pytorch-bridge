@@ -153,8 +153,6 @@ class HabanaLaunchOpPT {
   static void cleanUp();
 
   static std::unordered_set<std::string> watchlist_;
-  static std::unordered_map<size_t, habana_helpers::InpTensorShapes>
-      ref_input_shape_map;
 
   static bool isControlEdge(torch::jit::Node* node);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);

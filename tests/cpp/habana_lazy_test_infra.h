@@ -15,7 +15,7 @@
 #include "backend/habana_operator.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_cache.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
+
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hlexec.h"
@@ -53,10 +53,6 @@ class EnvHelper {
   uint64_t InitSeed();
 
  protected:
-  void TearDownBridge() {
-    habana::HabanaLaunchOpPT::cleanUp();
-  }
-
   void SetMode(unsigned mode = 1, int force = 0) {
     m_defined = IS_ENV_FLAG_DEFINED_NEW(PT_HPU_LAZY_MODE);
     if (m_defined) {
@@ -266,7 +262,6 @@ class LazyTest : public ::testing::Test, public EnvHelper {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
   }
 
   void TearDown() override {
