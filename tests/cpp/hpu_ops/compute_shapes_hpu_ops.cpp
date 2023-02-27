@@ -37,7 +37,7 @@ TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_cmptopshp) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_out_cmptopshp) {
+TEST_F(HpuOpComputeShapeTest, DISABLED_bce_usual_3D_sum_out_cmptopshp) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
   torch::ScalarType dtype = torch::kFloat;

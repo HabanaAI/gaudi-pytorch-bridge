@@ -151,6 +151,19 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
+void DisableDynamicShapeGaudi3() {
+  constexpr uint32_t maxStringLength{1024};
+  char deviceName[maxStringLength];
+  auto status = synDeviceGetName(deviceName, maxStringLength, 0);
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+  }
+
+  if (strcmp(deviceName, "GAUDI3") == 0) {
+    habana_helpers::DisableRefineDynamicShape();
+  }
+}
+
 int GetSystemRamInKB(void) {
   FILE* meminfo = fopen("/proc/meminfo", "r");
   if (meminfo != NULL) {
@@ -312,6 +325,7 @@ device::device(
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
+  DisableDynamicShapeGaudi3();
   dumpEnvSettings();
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
@@ -362,6 +376,7 @@ device::device(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES));
 
   CheckDynamicMinMaxPolicyOrder();
+
   // Create the refinement thread
   habana::RefinementEngine::GetEngine().Initialize();
 }

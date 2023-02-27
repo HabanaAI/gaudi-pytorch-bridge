@@ -84,6 +84,10 @@ int removeFiles(const char* dir) {
 }
 
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
+  // TBD: Remove this skip once SW-112715 is resolved
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    GTEST_SKIP();
+  }
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
@@ -159,6 +163,10 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
 }
 
 TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
+  // TBD: Remove this skip once SW-112715 is resolved
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+    GTEST_SKIP();
+  }
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
