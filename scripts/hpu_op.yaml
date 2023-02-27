@@ -7423,14 +7423,14 @@ var_mean.correction:
 vdot:
   custom_output_shape: VdotOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: VdotOperator
+  guid: dot_fwd
   out_ids: [0]
 
 vdot.out:
   force_default: false
   custom_output_shape: VdotOutputShape
   dtypes: [BFloat16, Float]
-  op_backend: VdotOperator
+  guid: dot_fwd
 
 view:
   override_fn: view_hpu_lazy
