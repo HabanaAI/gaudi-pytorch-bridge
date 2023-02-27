@@ -24,6 +24,7 @@ host_memory::host_memory(device& device)
     : mutex_{}, device_{device}, available_(BlockComparator) {}
 
 host_memory::~host_memory() {
+  std::lock_guard<std::mutex> lock(mutex_);
   dropCache();
 }
 
@@ -94,8 +95,6 @@ synStatus host_memory::free(void* ptr) {
 }
 
 void host_memory::dropCache() {
-  std::lock_guard<std::mutex> lock(mutex_);
-
   /* clear list of available blocks */
   available_.clear();
 
