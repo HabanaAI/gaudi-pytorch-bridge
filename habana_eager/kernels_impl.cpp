@@ -11,8 +11,10 @@
  *
  *******************************************************************************
  */
+#include "backend/backend_meta.h"
 #include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
+#include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/view.h"
@@ -50,6 +52,24 @@ Tensor hpu_wrap::empty_strided(
       size, stride, dtype, layout, device, pin_memory);
 }
 
+at::Tensor depermute_dims(
+    const at::Tensor t,
+    const std::vector<unsigned char>& synapse_permute) {
+  size_t dim_count{synapse_permute.size()};
+  std::vector<int64_t> permute_dims(dim_count, -1);
+
+  // start by conversion to torch layout
+  //   first reverse vector and then change idx to mirror
+  //   NHWC 2013 -> 3102 -> 0231
+  // then generate sequence that will reverse the permutation
+  //   where(0)=0, where(1)=3, where(2)=1, where(3)=2 -> 0312
+  for (size_t no = 0; no < synapse_permute.size(); ++no)
+    permute_dims[dim_count - 1 - synapse_permute[no]] = dim_count - no - 1;
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{"aten::permute", {t, permute_dims}};
+  return hpu_op.call();
+}
+
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     SymIntArrayRef size,
@@ -65,5 +85,9 @@ Tensor hpu_wrap::_reshape_alias(
       to_string(stride));
   FALLBACK_IF_UNSUPPORTED_OP(
       _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
-  return habana::eager::view_hpu(self, size);
+  auto tmeta{habana::get_tensor_extra_meta(self)};
+  const auto& synapse_permute{tmeta->get_memory_permutation()};
+  if (synapse_permute.empty())
+    return habana::eager::view_hpu(self, size);
+  return habana::eager::view_hpu(depermute_dims(self, synapse_permute), size);
 }

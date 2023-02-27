@@ -162,7 +162,8 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     return is_const_tensor_;
   }
 
-  synapse_helpers::layouts::MemoryPermutation get_memory_permutation() const {
+  const synapse_helpers::layouts::MemoryPermutation& get_memory_permutation()
+      const {
     return memory_permutation_;
   }
 
