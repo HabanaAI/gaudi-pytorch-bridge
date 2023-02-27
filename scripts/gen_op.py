@@ -1290,6 +1290,7 @@ eager_ops_override_fns_whitelist = [
     "as_strided_hpu_lazy2",
     "set_source_Storage_storage_offset",
     "view_hpu_lazy",
+    "_local_scalar_dense_hpu_lazy"
 ]
 
 eager_custom_frontends_whitelist = [

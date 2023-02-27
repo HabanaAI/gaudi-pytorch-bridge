@@ -61,6 +61,7 @@ if(NOT DEFINED CLANG_TIDY OR CLANG_TIDY)
 endif()
 
 find_package(Torch REQUIRED)
+find_package(PythonLibs REQUIRED)
 
 get_property(torch_flags TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS)
 if(NOT "${torch_flags}" STREQUAL "")

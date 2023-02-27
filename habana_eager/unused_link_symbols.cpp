@@ -10,12 +10,15 @@
  *
  *******************************************************************************
  */
+
+#include <pybind11/pybind11.h>
 #include "habana_eager/helpers.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "pytorch_helpers/habana_helpers/frontend_utils.h"
 
 using namespace at;
 using namespace habana;
@@ -346,4 +349,32 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
+Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  c10::Scalar r;
+  // Note:
+  // 1. This macro expands to more types than HPU supports,
+  //   but that should not be an issue issue.
+  // 2. Pytorch uses this function to check a specific emement of a tensor
+  //   eg. embedding_bag validates the first value offsets to be 0 using this
+  //   function
+  // 3. A TORCH_CHECK is added to ensure that the size at source
+  //   matches with the destination.
+  pybind11::gil_scoped_release release;
+
+  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
+      at::ScalarType::Bool,
+      at::ScalarType::BFloat16,
+      self.scalar_type(),
+      "_local_scalar_dense",
+      [&] {
+        scalar_t val;
+        TORCH_CHECK(
+            elementSize(self.scalar_type()) == sizeof(val),
+            " source and destination size mismatch");
+        habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
+        r = c10::Scalar(val);
+      });
+  return r;
+}
 } // namespace habana_lazy

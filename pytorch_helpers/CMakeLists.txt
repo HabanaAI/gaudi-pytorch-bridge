@@ -15,7 +15,6 @@ if (BUILD_DIST)
  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
  list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
- find_package(PythonLibs REQUIRED)
  find_program(SWIG swig)
  add_subdirectory(../third_party/pybind11 [${CMAKE_BINARY_DIR}])
 
@@ -47,7 +46,6 @@ else ()
  endif()
  add_subdirectory(habana_helpers)
 
- find_package(PythonLibs REQUIRED)
  find_package(NumPy)
  find_program(SWIG swig)
  add_subdirectory(synapse_logger)
