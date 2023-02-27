@@ -1,6 +1,7 @@
 import threading
 import torch
 import habana_frameworks.torch._core_C as htcore
+from habana_frameworks.torch.utils.internal import lazy_only
 
 _DEVICE_CONTEXTS = dict()
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
@@ -20,6 +21,7 @@ def _get_device_context(device=None):
             _DEVICE_CONTEXTS[device] = devctx
         return devctx
 
+@lazy_only
 def add_step_closure(closure, args=()):
     devctx = _get_device_context()
     step_closures = getattr(devctx, "step_closures", None)
@@ -36,10 +38,12 @@ def _run_step_closures():
         for closure in step_closures:
             closure()
 
+@lazy_only
 def mark_step(device_str=""):
     htcore._mark_step(device_str)
     _run_step_closures()
 
+@lazy_only
 def iter_mark_step(device_str=""):
     htcore._iter_mark_step()
     _run_step_closures()

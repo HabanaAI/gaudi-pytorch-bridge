@@ -10,16 +10,21 @@
 #
 ###############################################################################
 
-import ctypes
+import logging
 import os
 
-import torch
-from habana_frameworks.torch.utils.internal import is_lazy
 
-lib_to_load = "libhabana_pytorch{}_plugin.so".format("" if is_lazy() else "2")
-ctypes.CDLL(os.path.join(os.path.dirname(__file__), "lib", lib_to_load), ctypes.RTLD_GLOBAL)
+logger = logging.getLogger(__name__)
 
-import habana_frameworks.torch.core
-import habana_frameworks.torch.distributed.hccl
-import habana_frameworks.torch.hpu
-import habana_frameworks.torch.activity_profiler
+def is_lazy():
+    return os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
+
+
+def lazy_only(func):
+    def wrapper(*args, **kwargs):
+        if is_lazy():
+            func(*args, **kwargs)
+        else:
+            logger.info(f"Call {func.__name__} function will not have any effect. It's lazy mode only functionality.")
+
+    return wrapper
