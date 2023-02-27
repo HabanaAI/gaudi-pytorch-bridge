@@ -55,9 +55,11 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
+            cards: 8
       gaudi:
         hwType:
           asic:
+            cards: 8
   ptl_plugin_uts:
     devices:
       gaudi2:

@@ -1504,7 +1504,7 @@ run_habana_lightning_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $HABANA_LIGHTNING_PLUGINS_ROOT/tests/
-        (set -x; eval ${__habana_lightning_tests_exe} -v $__failures $__py_filter --junit-xml=$__xml ${__marker})
+        (set -x; eval ${__habana_lightning_tests_exe} -v $__failures $__py_filter --junit-xml="${__xml}ptl_plugin_uts.xml" ${__marker})
         __test_status=$?
         popd
     fi
@@ -1595,14 +1595,18 @@ run_pytorch_lightning_qa_tests()
         pushd $PYTORCH_LIGHTNING_FORK_ROOT/tests/
 
         echo "Executing Single card HPU test"
-        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/accelerators/test_hpu.py --forked --junit-xml=$__xml ${__marker})
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/accelerators/test_hpu.py --forked --junit-xml="${__xml}ptl_fw_uts.xml" ${__marker})
+        ((__test_status=__test_status || $?))
+
+        echo "Executing Multi card HPU test"
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/accelerators/test_hpu.py --forked --hpus 8 --junit-xml="${__xml}ptl_fw_uts_8.xml" ${__marker})
         ((__test_status=__test_status || $?))
 
         echo "Executing HPU Precision test"
         (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch/plugins/precision/hpu/test_hpu.py --hmp-bf16 \
                 'tests_pytorch/plugins/precision/hpu/ops_bf16.txt' --hmp-fp32 \
                 'tests_pytorch/plugins/precision/hpu/ops_fp32.txt' --forked \
-                --junit-xml=$__xml ${__marker})
+                "${__xml}ptl_fw_uts_precision.xml" ${__marker})
         ((__test_status=__test_status || $?))
 
         popd
@@ -1610,6 +1614,11 @@ run_pytorch_lightning_qa_tests()
 
     # return error code of the tests
     return ${__test_status}
+}
+
+install_lightning_plugin()
+{
+    $__pip_cmd install habana-lightning-plugins --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/habana_pypi/simple
 }
 
 install_requirements_pytest()
@@ -1643,6 +1652,11 @@ __check_pytorch_dev_py_deps()
 __check_pytest_dev_py_deps()
 {
     install_requirements_pytest
+}
+
+__check_lightning_plugin_py_deps()
+{
+    install_lightning_plugin
 }
 
 __clean_pytorch_dev_py_deps()
