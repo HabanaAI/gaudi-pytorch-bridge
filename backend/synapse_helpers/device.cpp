@@ -412,9 +412,6 @@ synapse_error_v<std::shared_ptr<device>> device::get_by_id(
 synapse_error_v<std::shared_ptr<device>> device::create(
     const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& create_allocator) {
-  // TODO FIXME only for test, remove it later
-  setenv("ENABLE_EXPERIMENTAL_FLAGS", "true", 1);
-  setenv("ENABLE_MULTI_OPERATION_STREAM", "true", 1);
   PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
   synStatus status{synStatus::synSuccess};
