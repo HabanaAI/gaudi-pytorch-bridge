@@ -3950,6 +3950,7 @@ logical_and:
   out_ids: [0]
   op_frontend: LazyLogical
   op_backend: LogicalBackend
+  safe_cast_check: false
 
 logical_and_:
   broadcast: true
@@ -3961,6 +3962,7 @@ logical_and_:
   force_default: false
   guid: and
   inplace_ids: [0]
+  safe_cast_check: false
 
 logical_and.out:
   broadcast: true
@@ -3970,6 +3972,7 @@ logical_and.out:
     Gaudi3: [BFloat16, Float, Half, Int, Byte, Char]
     Greco: [BFloat16, Float, Half, Int, Byte, Char]
   guid: and
+  safe_cast_check: false
 
 logical_not:
   dtypes:
@@ -4013,6 +4016,7 @@ logical_or:
   out_ids: [0]
   op_frontend: LazyLogical
   op_backend: LogicalBackend
+  safe_cast_check: false
 
 logical_or_:
   broadcast: true
@@ -4024,6 +4028,7 @@ logical_or_:
   force_default: false
   guid: or
   inplace_ids: [0]
+  safe_cast_check: false
 
 logical_or.out:
   broadcast: true
@@ -4033,6 +4038,7 @@ logical_or.out:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [BFloat16, Half, Int, Byte, Char]
   guid: or
+  safe_cast_check: false
 
 logical_xor:
   broadcast: true
@@ -4046,6 +4052,7 @@ logical_xor:
   out_ids: [0]
   op_frontend: LazyLogical
   op_backend: LogicalBackend
+  safe_cast_check: false
 
 logical_xor_:
   broadcast: true
@@ -4057,6 +4064,7 @@ logical_xor_:
   force_default: false
   guid: xor
   inplace_ids: [0]
+  safe_cast_check: false
 
 logical_xor.out:
   broadcast: true
@@ -4066,6 +4074,7 @@ logical_xor.out:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
     Greco: [Int, Byte, Char]
   guid: xor
+  safe_cast_check: false
 
 logit:
   custom_fill_params: FillLogitForwardParams
