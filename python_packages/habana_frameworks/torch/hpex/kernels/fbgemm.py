@@ -22,3 +22,120 @@ def permute_1D_sparse_data(permute: torch.Tensor, lengths: torch.Tensor, indices
 def permute_2D_sparse_data(permute: torch.Tensor, lengths: torch.Tensor, indices: torch.Tensor, weights: Optional[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     list_res = _hpex_C.permute_2D_sparse_data(permute, lengths, indices, weights)
     return tuple(list_res) if len(list_res) == 3 else (list_res[0], list_res[1], None)
+
+def split_embedding_codegen_lookup_function(
+    host_weights: torch.Tensor,
+    weights_offsets: torch.Tensor,
+    D_offsets: torch.Tensor,
+    total_D: int,
+    indices: torch.Tensor,
+    offsets: torch.Tensor,
+    pooling_mode: int
+) -> torch.Tensor:
+
+    assert pooling_mode == 0, f"Only PoolingMode.SUM is supported for HPU"
+    assert total_D == D_offsets[-1], f"total_D ({total_D}) must match D_offsets[-1] ({D_offsets[-1]})"
+
+    indices = indices.to(torch.int32)
+    offsets = offsets.to(torch.int32)
+
+    T = D_offsets.size(dim=0) - 1
+    B = (offsets.size(dim=0) - 1)//T
+
+    outputs = []
+
+    previous_D = D_offsets[1]
+    for t in range(T):
+        D = (D_offsets[t + 1] - D_offsets[t]).item()
+
+        assert D == previous_D, f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}"
+
+        t_weights_from = weights_offsets[t].item()
+        if t + 1 < T:
+            t_weights_to = weights_offsets[t+1].item()
+        else:
+            t_weights_to = host_weights.size(dim=0)
+
+        # Since t_weights_from and t_weights_to are int64, we need to do
+        # reshape before slice, not to pass int64 to slice kernel. This also
+        # forces an assumption that D should be constant
+        t_weights = host_weights.reshape(
+            host_weights.size(dim=0) // D, # Number of rows (words)
+            D # number of cols (words' meanings)
+        )[t_weights_from // D:t_weights_to // D]
+
+        t_offsets = offsets[t*B:(t+1)*B+1]
+
+        valid_count = torch.tensor([indices.numel(),t_offsets.numel()], dtype=torch.int32, device="hpu")
+        emb_out = _hpex_C.embedding_bag_sum_fwd(
+                                t_weights,
+                                indices,
+                                t_offsets,
+                                valid_count,
+                                1
+        )
+
+        outputs.append(emb_out)
+
+    return torch.cat(outputs, dim=1)
+
+
+def split_embedding_codegen_lookup_sgd_function_hpu(
+    host_weights: torch.Tensor,
+    weights_placements: torch.Tensor,
+    weights_offsets: torch.Tensor,
+    D_offsets: torch.Tensor,
+    total_D: int,
+    max_D: int,
+    hash_size_cumsum: torch.Tensor,
+    total_hash_size_bits: int,
+    indices: torch.Tensor,
+    offsets: torch.Tensor,
+    pooling_mode: int,
+    indice_weights: Optional[torch.Tensor],
+    feature_requires_grad: Optional[torch.Tensor],
+    gradient_clipping: bool,
+    max_gradient: float,
+    stochastic_rounding: bool,
+    learning_rate: int = 0,
+    output_dtype: int = 0
+) -> torch.Tensor:
+    return split_embedding_codegen_lookup_function(host_weights,
+                                                   weights_offsets,
+                                                   D_offsets,
+                                                   total_D,
+                                                   indices,
+                                                   offsets,
+                                                   pooling_mode)
+
+def split_embedding_codegen_lookup_adagrad_function_hpu(
+    host_weights: torch.Tensor,
+    weights_placements: torch.Tensor,
+    weights_offsets: torch.Tensor,
+    D_offsets: torch.Tensor,
+    total_D: int,
+    max_D: int,
+    hash_size_cumsum: torch.Tensor,
+    total_hash_size_bits: int,
+    indices: torch.Tensor,
+    offsets: torch.Tensor,
+    pooling_mode: int,
+    indice_weights: Optional[torch.Tensor],
+    feature_requires_grad: Optional[torch.Tensor],
+    gradient_clipping: bool,
+    max_gradient: float,
+    stochastic_rounding: bool,
+    momentum1_host: torch.Tensor,
+    momentum1_placements: torch.Tensor,
+    momentum1_offsets: torch.Tensor,
+    learning_rate: int = 0,
+    eps: float = 0.0,
+    output_dtype: int = 0
+) -> torch.Tensor:
+    return split_embedding_codegen_lookup_function(host_weights,
+                                                   weights_offsets,
+                                                   D_offsets,
+                                                   total_D,
+                                                   indices,
+                                                   offsets,
+                                                   pooling_mode)
