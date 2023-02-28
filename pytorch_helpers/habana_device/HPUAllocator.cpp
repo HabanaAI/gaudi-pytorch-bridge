@@ -395,10 +395,20 @@ HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
   if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
     habana_lazy::AccThread::Get().SyncAccThreadPool();
     habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
-    habana_lazy::habana_lazy_executor
-        .getDeviceExecutionContext(
-            synapse_helpers::HPURegistrar::get_device().id())
-        ->JoinPendingLaunchThread();
+    try {
+      habana_lazy::habana_lazy_executor
+          .getDeviceExecutionContext(
+              synapse_helpers::HPURegistrar::get_device().id())
+          ->JoinPendingLaunchThread();
+    } catch (std::exception& e) {
+      // Code should not throw exceptions in d'tors.
+      // JoinPendingLaunchThread can throw, so we just ignore it here,
+      // as it had to be handled already before. However, if it threw,
+      // we should fix it and clear the exception
+      PT_BRIDGE_DEBUG(
+          "JoinPendingLaunchThread should not throw here anymore. It did: ",
+          e.what());
+    }
 
     HPURegistrar::deleteDevices();
     habana::HPUDeviceAllocator::allocator_active_device_id = -1;
