@@ -3621,7 +3621,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_OPS) == 0) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);
     PT_TEST_DEBUG(
