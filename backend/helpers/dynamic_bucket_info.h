@@ -285,37 +285,21 @@ class Bucket {
   void SetRecipeKey(size_t key) {
     recipe_key_ = key;
   };
-
   void SetInputMetaData(const torch::jit::Stack& stack) {
-    input_mdata_.clear();
-
+    input_metadata_.clear();
     for (size_t i = 0; i < stack.size(); ++i) {
       auto& tensor = stack[i].toTensor();
       auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
       HABANA_ASSERT(impl);
-      if (impl->getTensorType() == SHAPE_TENSOR &&
-          impl->get_shape_struct().has_shape_tensor_data()) {
-        std::shared_ptr<habana_lazy::ImplData> impl_data =
-            std::make_shared<habana_lazy::ShapeTensorStruct>(
-                impl->get_shape_struct());
-        input_mdata_.emplace(i, impl_data);
-      } else if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR) {
-        size_t size = impl->get_host_size();
-        size_t el_size = impl->get_host_el_size();
-        habana_lazy::HostDataType dt_type = impl->get_host_dt_type();
-
-        habana_lazy::H2DTensorData h2d_data;
-        h2d_data.set_h2d_data(impl->get_host_ptr(), size, el_size, dt_type);
-        std::shared_ptr<habana_lazy::ImplData> impl_data =
-            std::make_shared<habana_lazy::H2DTensorData>(h2d_data);
-        input_mdata_.emplace(i, impl_data);
+      if (impl->get_shape_struct().has_shape_tensor_data()) {
+        input_metadata_.emplace(i, impl->get_shape_struct());
       }
     }
   };
 
-  std::unordered_map<uint64_t, std::shared_ptr<habana_lazy::ImplData>>&
+  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
   GetInputMetaData() {
-    return input_mdata_;
+    return input_metadata_;
   }
 
   bool IsStatic() const {
@@ -461,8 +445,7 @@ class Bucket {
   bool time_improvement_met_{true};
   std::vector<size_t> input_hist_idxes_;
   std::vector<size_t> inherited_input_hist_idxes_;
-  std::unordered_map<uint64_t, std::shared_ptr<habana_lazy::ImplData>>
-      input_mdata_;
+  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct> input_metadata_;
 
   std::weak_ptr<habana::RecipeValueSpec> rvpwk_;
 };

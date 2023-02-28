@@ -118,61 +118,7 @@ inline std::ostream& operator<<(std::ostream& O, const HostDataType& t) {
   return O;
 }
 
-struct ImplData {
-  virtual ~ImplData(){};
-};
-
-struct H2DTensorData : ImplData {
-  bool contains_data = false;
-  size_t size_;
-  size_t total_elem_;
-  size_t el_size_;
-  HostDataType dt_type_;
-  void* host_ptr_ = nullptr;
-
-  size_t get_size() {
-    return size_;
-  }
-
-  size_t get_elem_size() {
-    return el_size_;
-  }
-  size_t get_total_elem() {
-    return total_elem_;
-  }
-
-  void* get_host_data() {
-    return host_ptr_;
-  }
-
-  HostDataType get_dt_type() {
-    return dt_type_;
-  }
-
-  void set_h2d_data(
-      void* data,
-      size_t size,
-      size_t el_size,
-      HostDataType dt_type) {
-    contains_data = true;
-    // Only storing the actual data for reference. So the total_elem_ is not
-    // doubled.
-    total_elem_ = size * el_size;
-    size_ = size;
-    el_size_ = el_size;
-    dt_type_ = dt_type;
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto status = device.get_host_memory().malloc(&host_ptr_, total_elem_);
-    HABANA_ASSERT(status == synSuccess);
-    memcpy(host_ptr_, data, total_elem_);
-  }
-
-  bool has_h2d_tensor_data() {
-    return contains_data;
-  }
-};
-
-struct ShapeTensorStruct : ImplData {
+struct ShapeTensorStruct {
   bool contains_data = false;
   std::vector<int64_t> strides{};
   std::vector<int64_t> stride_ratio{};
