@@ -289,3 +289,40 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
     EXPECT_EQ(allclose(out, exp, 0, 0), true);
   }
 }
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randint(
+        -50, 50, {10, 10}, torch::dtype(torch::kInt32).requires_grad(false));
+    auto hA = A.to(torch::kHPU);
+
+    torch::Scalar s1 = -10;
+    torch::Scalar s2 = 10;
+    auto exp = torch::clamp(A, s1, s2);
+    auto result = torch::clamp(hA, s1, s2);
+
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0, 0), true);
+  }
+}
+
+TEST_F(LazyEagerTest, optimized_lazy_eager_cmp_with_scalar) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randint(
+        0, 2, {10}, torch::dtype(torch::kInt32).requires_grad(false));
+    auto hA = A.to(torch::kHPU);
+
+    torch::Scalar scalar = 1;
+    auto exp = torch::eq(A, scalar);
+    auto result = torch::eq(hA, scalar);
+
+    torch::Tensor out = result.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, exp, 0, 0), true);
+  }
+}

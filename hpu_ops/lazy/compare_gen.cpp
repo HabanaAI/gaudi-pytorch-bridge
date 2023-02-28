@@ -28,7 +28,8 @@ LazyCmp<at::Tensor>::LazyCmp(
   auto x = get_inputs();
   // convert scalar input to tensor to avoid cache misses in cases where scalar
   // value changes across iterations
-  if (x[1].isScalar()) {
+  // for lazy eager Skip scalar handling at FE
+  if (x[1].isScalar() && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
     auto self = x[0].toTensor();
     auto other = x[1].toScalar();
     auto dtype = at::result_type(self, other);

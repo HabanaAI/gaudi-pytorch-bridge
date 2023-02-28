@@ -1799,6 +1799,7 @@ channel_shuffle:
   out_ids: [0]
 
 clamp:
+  custom_fill_params: FillClampParams
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -1807,6 +1808,7 @@ clamp:
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   promote_to_common_type: [self, min, max]
   op_frontend: LazyClamp
+  guid: clamp_fwd
   out_ids: [0]
 
 clamp.Tensor:
@@ -1822,6 +1824,7 @@ clamp.Tensor:
   out_ids: [0]
 
 clamp_:
+  custom_fill_params: FillClampParams
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -1830,6 +1833,7 @@ clamp_:
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   promote_to_common_type: [self, min, max]
   op_frontend: LazyClamp
+  guid: clamp_fwd
   inplace_ids: [0]
 
 clamp_.Tensor:

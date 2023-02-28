@@ -82,6 +82,10 @@ float self_type_min_for_be(c10::ScalarType type) {
 static void convert_params_to_tensors(
     at::Stack& inputs,
     at::ScalarType compute_dtype) {
+  // For lazy eager Skip scalar handling at FE
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    return;
+  }
   const auto& self = inputs[0].toTensor();
   float min = inputs[1].isScalar() ? inputs[1].toScalar().to<float>()
                                    : self_type_min_for_be(compute_dtype);

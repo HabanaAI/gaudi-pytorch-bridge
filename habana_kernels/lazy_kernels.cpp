@@ -2002,9 +2002,15 @@ Tensor& add_scalar_hpu_lazy_(
     const Scalar& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-  auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
 
-  return add_tensor_hpu_lazy_(self, other_tensor, alpha);
+  // Handle scalar handling for lazy mode only at FE
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
+    return add_tensor_hpu_lazy_(self, other_tensor, alpha);
+  }
+
+  LazyOp<Tensor&> op("aten::add_", {self, other, alpha});
+  return op.call(self);
 }
 
 void add_tensor_hpu_lazy_inplace_parallel_impl(
