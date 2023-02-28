@@ -43,7 +43,7 @@ static std::array<HandleBucketInfo, _END> bucketInfo = {
 device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
   uint64_t id = h.id_;
   bucket_type type = (bucket_type)(id >> total_bits);
-  if (type > _END)
+  if (type >= _END)
     PT_SYNHELPER_FATAL("Wrong  Bucket Type", type);
 
   uint64_t offset = h.offset_;
