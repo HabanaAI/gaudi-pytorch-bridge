@@ -33,6 +33,12 @@ def habanaLightningPlugins = [
         util.runBuildShell('build_habana_lightning_plugins')
     }
 ]
+def buildPytorchModulesNext = [
+    'Build Pytorch Modules Next': { util ->
+        util.runBuildShell('build_pytorch_modules --pt-version next')
+        util.runShellCommandWrapper('mv ${PYTORCH_MODULES_RELEASE_BUILD} ${BUILD_ROOT}/builds_next')
+    }
+]
 def preBuildStages = [
     'Install Python test dependencies': { util ->
         util.runShellCommandWrapper("""
@@ -63,6 +69,7 @@ if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Hab
     preBuildStages =  preBuildStages + pytorchLightningFork
 }
 preBuildStages =  preBuildStages + habanaLightningPlugins
+preBuildStages =  preBuildStages + buildPytorchModulesNext
 
 def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
