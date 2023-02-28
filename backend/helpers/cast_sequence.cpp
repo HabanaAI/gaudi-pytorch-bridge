@@ -16,7 +16,9 @@
 
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/enum_mapping_table.h"
+#include "common/utils.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana_helpers {
 
@@ -178,7 +180,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
 }
 
 auto get_cast_type_for_long() {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+  if (common::IsInt64Supported()) {
     return CastType::i64;
   }
   return CastType::i32;

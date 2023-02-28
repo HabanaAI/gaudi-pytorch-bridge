@@ -25,6 +25,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -57,7 +58,7 @@ void adjustElementcount_int64(
     std::vector<size_t>& send_lengths,
     std::vector<size_t>& recv_lengths,
     size_t& ele_size) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) && scalar_type == at::kLong) {
+  if (common::IsInt64Supported() && scalar_type == at::kLong) {
     for (size_t i = 0; i < send_lengths.size(); i++) {
       send_lengths[i] = send_lengths[i] * 2;
       recv_lengths[i] = recv_lengths[i] * 2;

@@ -20,6 +20,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/recipe.h"
+#include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/compare_kernels.h"
@@ -35,7 +36,7 @@ using CastMap =
     std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>;
 
 void insert_long_casts(CastMap& map) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+  if (common::IsInt64Supported()) {
     map.insert(
         {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i64_to_f32"});
     map.insert(
@@ -52,7 +53,7 @@ void insert_long_casts(CastMap& map) {
 at::ScalarType habana_helpers::getInternalDtype(at::ScalarType dtype) {
   switch (dtype) {
     case at::kLong: {
-      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+      if (common::IsInt64Supported()) {
         return dtype;
       }
       return at::kInt;

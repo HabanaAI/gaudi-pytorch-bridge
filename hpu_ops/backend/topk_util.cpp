@@ -30,9 +30,8 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
   Topk_params.bsw = kvalue;
   Topk_params.axis = reduction_axis;
   Topk_params.bottomK = descending_order;
-  auto indices_dtype = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)
-      ? c10::ScalarType::Long
-      : c10::ScalarType::Int;
+  auto indices_dtype =
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
   if (variant == 1)
     Topk_params.axis = get_dim_in_tpc_order(reduction_axis, ndimension);
   at::ScalarType topk_dtype =

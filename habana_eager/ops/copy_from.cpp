@@ -16,7 +16,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/tensor_utils.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
@@ -181,7 +181,7 @@ at::Tensor _copy_from_d2h(
     dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
     dst.unsafeGetTensorImpl()->set_storage_offset(0);
   }
-  if (!GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
+  if (!common::IsInt64Supported() &&
       self.scalar_type() == c10::ScalarType::Long) {
     habana_helpers::copy_data_to_host(self_, dst, false);
     unpackData<int32_t, int64_t>(dst);
@@ -292,7 +292,7 @@ at::Tensor _copy_from_h2d(
   // Special handling for Long/Double tensors
   // Downcast sent data (implicitly backend will treat it as Int/Float anyway)
   auto temp_self = self;
-  if (!GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
+  if (!common::IsInt64Supported() &&
       self.scalar_type() == c10::ScalarType::Long) {
     temp_self = self.to(c10::ScalarType::Int);
   } else if (self.scalar_type() == c10::ScalarType::Double) {

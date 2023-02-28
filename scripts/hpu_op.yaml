@@ -962,13 +962,13 @@ amin.out:
 
 aminmax:
   output_meta: AminmaxMeta
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Long, Int, Char]
   op_backend: Aminmax
   out_ids: [0, 0]
 
 aminmax.out:
   output_meta: AminmaxMeta
-  dtypes: [Float, BFloat16, Int, Char]
+  dtypes: [Float, BFloat16, Long, Int, Char]
   op_backend: Aminmax
 
 any.all_out:
@@ -1628,7 +1628,7 @@ bitwise_right_shift.Tensor:
 
 bitwise_right_shift.Tensor_out:
   broadcast: true
-  dtypes: [Int, Char, Byte, Short]
+  dtypes: [Long, Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
@@ -1682,9 +1682,9 @@ bitwise_xor.Tensor:
 bitwise_xor.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
   dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
+    Gaudi: [Long, Int, Short, Byte, Char]
+    Gaudi2: [Long, Int, Short, Byte, Char]
+    Gaudi3: [Long, Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
 
 bitwise_xor_.Tensor:
@@ -2169,9 +2169,9 @@ cumsum:
 cumsum.out:
   custom_fill_params: FillCumsumParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Long, Int]
+    Gaudi2: [BFloat16, Float, Long, Int, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Half]
   guid: cumsum_fwd
   op_backend: CumsumHabanaOperator
 
@@ -2424,7 +2424,7 @@ embedding_dense_backward:
   out_ids: [0]
 
 equal:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes: [BFloat16, Float, Long, Int, Char, Byte]
   op_backend: Equal
   out_ids: [0]
 
@@ -5077,7 +5077,7 @@ nll_loss2d_backward.grad_input:
   dtypes:
     grad_output: [BFloat16, Float]
     self: [BFloat16, Float]
-    target: [Int]
+    target: [Long, Int]
     weight: [BFloat16, Float]
     total_weight: [BFloat16, Float]
   guid: nll_loss_bwd
@@ -5622,9 +5622,9 @@ remainder_.Scalar:
 
 remainder.Scalar_Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Short]
-    Gaudi3: [BFloat16, Float, Int, Char, Short]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Short]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Short]
   guid: rem_fwd
   out_ids: [1]
   scalar_ids: [0]
@@ -5957,17 +5957,17 @@ scatter.src_out:
     Gaudi:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       src: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int]
+      index: [Long, Int]
       out: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int]
+      index: [Long, Int]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       src: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int]
+      index: [Long, Int]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
 

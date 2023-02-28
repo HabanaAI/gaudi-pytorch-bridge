@@ -17,6 +17,7 @@
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
+#include "common/utils.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -82,7 +83,7 @@ void getCountDatatype(
       tensor_data_type = getHCCLDataType(at::kFloat);
       break;
     case at::kLong:
-      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+      if (common::IsInt64Supported()) {
         numel = (numel * 2);
       }
       tensor_data_type = getHCCLDataType(at::kFloat);
@@ -104,7 +105,7 @@ void adjustElementcount_int64(
     std::vector<size_t>& send_lengths,
     std::vector<size_t>& recv_lengths,
     size_t& ele_size) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) && scalar_type == at::kLong) {
+  if (common::IsInt64Supported() && scalar_type == at::kLong) {
     for (size_t i = 0; i < send_lengths.size(); i++) {
       send_lengths[i] = send_lengths[i] * 2;
       recv_lengths[i] = recv_lengths[i] * 2;

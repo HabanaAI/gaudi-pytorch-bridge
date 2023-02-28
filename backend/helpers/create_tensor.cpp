@@ -23,6 +23,7 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/lazy_to_backend.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
+#include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 
@@ -916,7 +917,7 @@ std::vector<std::string> names(
 
 namespace {
 auto get_synapse_type_for_long() {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+  if (common::IsInt64Supported()) {
     return synDataType::syn_type_int64;
   }
   return synDataType::syn_type_int32;

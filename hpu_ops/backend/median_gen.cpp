@@ -109,9 +109,8 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<int64_t> topk_outshape;
   topk_outshape = self_size;
 
-  auto indices_dtype = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)
-      ? c10::ScalarType::Long
-      : c10::ScalarType::Int;
+  auto indices_dtype =
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
   auto topk = TopK_Helper(
       this,

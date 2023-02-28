@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "common/utils.h"
 #include "generated/backend/argmax.h"
 #include "generated/backend/argmin.h"
 #include "hpu_ops/backend/reduction_template.h"

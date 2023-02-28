@@ -16,6 +16,7 @@
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include <map>
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 
 namespace habana_helpers {
 
@@ -96,7 +97,7 @@ void getCountDatatype(
     hcclDataType_t& tensor_data_type,
     bool always_support_int64) {
   if ((scalar_type == at::kLong || scalar_type == at::kDouble) &&
-      !GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) and !always_support_int64) {
+      !common::IsInt64Supported() and !always_support_int64) {
     element_size = 4;
   }
 

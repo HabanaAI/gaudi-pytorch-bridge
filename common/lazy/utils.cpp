@@ -12,6 +12,7 @@
  */
 #include "common/utils.h"
 #include "backend/backend_meta.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
 namespace common {
@@ -25,5 +26,9 @@ bool IsStepMarkerSupported() {
 
 LibraryType getLoadedLibraryType() {
   return LibraryType::LAZY;
+}
+
+bool IsInt64Supported() {
+  return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
 }
 } // namespace common

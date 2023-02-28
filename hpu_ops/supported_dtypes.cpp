@@ -14,7 +14,7 @@
 #include "supported_dtypes.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_kernels/fallback_helper.h"
 
 namespace habana {
@@ -46,8 +46,8 @@ SupportedDtypes::SupportedDtypes(
 
 bool SupportedDtypes::count(at::ScalarType type) const {
   return m_dtypes.count(type) ||
-      (!GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
-       type == at::ScalarType::Long && m_dtypes.count(at::ScalarType::Int));
+      (!common::IsInt64Supported() && type == at::ScalarType::Long &&
+       m_dtypes.count(at::ScalarType::Int));
 }
 
 bool SupportedDtypes::count(const at::Tensor& tensor) const {

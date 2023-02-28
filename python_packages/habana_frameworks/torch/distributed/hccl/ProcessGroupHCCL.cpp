@@ -28,6 +28,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"

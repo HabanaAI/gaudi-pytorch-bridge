@@ -15,6 +15,8 @@
 // which contain separate implementations. Those implementation should go
 // to lazy/ and eager/ sub-folders respectively.
 
+#pragma once
+
 namespace at {
 class Tensor;
 }
@@ -25,6 +27,8 @@ namespace common {
 void* GetDataPtrFromTensor(const at::Tensor& tensor);
 
 bool IsStepMarkerSupported();
+
+bool IsInt64Supported();
 
 enum class LibraryType {
   LAZY, // libhabana_pytorch_plugin.so

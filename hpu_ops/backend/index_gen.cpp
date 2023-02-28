@@ -258,8 +258,7 @@ void IndexHabanaOperator::AddNode(
   // advanced/implicit indexing
   auto indexing_tensor_shapes = calc_indexing_tensors_shapes(stack);
   c10::ScalarType index_dtype =
-      (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                 : c10::ScalarType::Int);
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
   if (!adv_indexing_present) {
     // for this particular indices configuration gather_mxnet throws GC

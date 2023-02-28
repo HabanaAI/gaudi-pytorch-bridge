@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/common/arange_gen.h"
+#include "common/utils.h"
 #include "generated/backend/arange.h"
 #include "hpu_ops/backend/arange.h"
 
@@ -129,7 +130,7 @@ synapse_helpers::tensor ArangeCommon(
     const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
         internal_out_dtype == c10::ScalarType::Int ||
         (internal_out_dtype == c10::ScalarType::Long &&
-         GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT));
+         common::IsInt64Supported());
     auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
     auto range_guid = is_cast_not_required ? guid : "range_i32";
     NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};

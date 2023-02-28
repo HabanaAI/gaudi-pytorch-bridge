@@ -13,13 +13,12 @@
 #pragma once
 #include <ATen/core/Tensor.h>
 #include <c10/core/TensorImpl.h>
-#include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 namespace habana_helpers {
 
 inline bool is_downcast_to_int_needed(at::ScalarType dtype) {
-  return !GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
-      dtype == at::ScalarType::Long;
+  return !common::IsInt64Supported() && dtype == at::ScalarType::Long;
 }
 
 static inline size_t calculate_nbytes(

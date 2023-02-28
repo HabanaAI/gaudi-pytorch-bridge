@@ -380,8 +380,7 @@ void IndexPutBoolEager::AddNode(
   auto accumulate = stack.at(3).toBool();
   auto max_size = broadcast_size(indices, self);
   auto indices_scalar_type =
-      (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                 : c10::ScalarType::Int);
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
   std::vector<synapse_helpers::tensor> nonzero;
   auto shape_tensor_shape = at::DimVector{5};
