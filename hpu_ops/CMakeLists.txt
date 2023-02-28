@@ -24,7 +24,6 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
                      ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
                      ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
-                     ${CMAKE_BINARY_DIR}/generated/lazy/hpu_autocast_ops.cpp
                      ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp
                      ${CMAKE_BINARY_DIR}/generated/eager/hpu_op0.cpp
                      ${CMAKE_BINARY_DIR}/generated/eager/hpu_op1.cpp
@@ -36,7 +35,6 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/eager/hpu_op7.cpp
                      ${CMAKE_BINARY_DIR}/generated/eager/hpu_op8.cpp
                      ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
-                     ${CMAKE_BINARY_DIR}/generated/eager/hpu_autocast_ops.cpp
                      ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
@@ -48,6 +46,7 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
@@ -190,6 +189,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops.cpp
           )
 target_include_directories(habana_pytorch_backend_ops
   PUBLIC
@@ -269,7 +269,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op7.cpp
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op8.cpp
           ${CMAKE_BINARY_DIR}/generated/lazy/hpu_op9.cpp
-          ${CMAKE_BINARY_DIR}/generated/lazy/hpu_autocast_ops.cpp
           ${CMAKE_BINARY_DIR}/generated/lazy/wrap_kernels_registrations.cpp)
 
 target_include_directories(habana_pytorch_frontend_ops
