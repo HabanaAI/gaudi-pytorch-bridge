@@ -1296,6 +1296,8 @@ eager_ops_override_fns_whitelist = [
 eager_custom_frontends_whitelist = [
     "ReductionFrontendTemplate",
     "FillFE",
+    "GeneratorToSeed",
+    "GeneratorToSeedOut",
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):

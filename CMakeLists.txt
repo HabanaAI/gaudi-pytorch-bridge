@@ -295,7 +295,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/cumsum_gen.cpp
     hpu_ops/lazy/div_round_gen.cpp
     hpu_ops/lazy/embedding_gen.cpp
-    hpu_ops/lazy/exponential_gen.cpp
     hpu_ops/lazy/foreach_gen.cpp
     hpu_ops/lazy/frexp_gen.cpp
     hpu_ops/lazy/geometric_gen.cpp
@@ -309,7 +308,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/nansum_gen.cpp
     hpu_ops/lazy/norm_gen.cpp
     hpu_ops/lazy/pow_gen.cpp
-    hpu_ops/lazy/random_gen.cpp
     hpu_ops/lazy/remainder_gen.cpp
     hpu_ops/lazy/rrelu_with_noise_gen.cpp
     hpu_ops/lazy/threshold_gen.cpp

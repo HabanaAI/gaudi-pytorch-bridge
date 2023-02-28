@@ -1322,7 +1322,7 @@ bernoulli:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   legacy_eager: true
   op_backend: Bernoulli
   out_ids: [0]
@@ -1349,7 +1349,7 @@ bernoulli_.Tensor:
     Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: Bernoulli
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
@@ -1360,7 +1360,7 @@ bernoulli.out:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
-  op_frontend: LazyTensorOutSeed
+  op_frontend: GeneratorToSeedOut
   op_backend: Bernoulli
   schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
@@ -2670,7 +2670,7 @@ exponential:
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
   force_default: false
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
@@ -2679,7 +2679,7 @@ exponential_:
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
 
@@ -2687,7 +2687,7 @@ exponential.out:
   force_default: false
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
-  op_frontend: LazyTensorOutSeedExp
+  op_frontend: GeneratorToSeedOut
   op_backend: ExponentialSeedTensorInput
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
@@ -2695,7 +2695,7 @@ exponential.functional:
   custom_fill_params: FillExponentialParams
   dtypes: [BFloat16, Float]
   force_default: false
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
@@ -5117,7 +5117,7 @@ normal_:
     Greco: [BFloat16, Float]
   guid: random_normal_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
 
@@ -5130,7 +5130,7 @@ log_normal_:
     Greco: [BFloat16, Float]
   guid: log_normal_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
 
@@ -5237,7 +5237,7 @@ poisson:
   dtypes: [BFloat16, Float]
   guid: random_poisson_fwd
   out_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   schema_args: "(Tensor self, Tensor seed) -> Tensor"
 
 pow_.Scalar:
@@ -5379,7 +5379,7 @@ random_:
   dtypes: [BFloat16, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, Tensor seed) -> Tensor(a!)"
 
@@ -5388,7 +5388,7 @@ random_.from:
   dtypes: [BFloat16, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)"
 
@@ -5397,7 +5397,7 @@ random_.to:
   dtypes: [BFloat16, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
 
@@ -5804,7 +5804,7 @@ round.decimals_out:
 
 rrelu_with_noise:
   dtypes: [BFloat16, Float]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   out_ids: [0]
   schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
@@ -6859,7 +6859,7 @@ uniform_:
     Greco: [BFloat16, Float]
   guid: philox_random_uniform
   inplace_ids: [0]
-  op_frontend: LazyTensorSeed
+  op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 

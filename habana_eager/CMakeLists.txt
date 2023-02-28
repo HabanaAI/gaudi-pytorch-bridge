@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/cpu_fallback.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/random_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/reduction_template.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_logger.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/supported_dtypes.cpp

@@ -225,7 +225,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/cumsum_gen.cpp
           lazy/div_round_gen.cpp
           lazy/embedding_gen.cpp
-          lazy/exponential_gen.cpp
           lazy/fill_gen.cpp
           lazy/foreach_gen.cpp
           lazy/frexp_gen.cpp
