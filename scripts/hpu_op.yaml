@@ -666,7 +666,7 @@ add.Tensor:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy
@@ -2009,7 +2009,7 @@ clone:
 constant_pad_nd:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long]
     Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte]
     Greco: [BFloat16, Float, Int, Half, Short, Char, Byte]
   override_fn: constant_pad_hpu_lazy
@@ -2510,7 +2510,7 @@ eq.Tensor:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Short, Half]
   guid: equal_fwd
@@ -4260,7 +4260,7 @@ max.dim:
   force_default: false
   custom_fill_params: FillMinMaxParams
   custom_output_shape: MinMaxOutputShape
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Long]
   guid: reduce_max_fwd
   op_frontend: LazyMinMax
   op_backend: MaxDimOp
@@ -6007,7 +6007,7 @@ select.int:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: select_hpu_lazy
@@ -6591,7 +6591,7 @@ sum:
   op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: reduce_sum_fwd
@@ -6602,7 +6602,7 @@ sum.dim_IntList:
   op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   override_fn: sum_dim_IntList_hpu_lazy
@@ -7595,7 +7595,7 @@ xlogy_.Tensor:
 zero_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   override_fn: zero_hpu_lazy
