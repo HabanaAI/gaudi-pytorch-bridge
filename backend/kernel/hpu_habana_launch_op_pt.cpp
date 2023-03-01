@@ -3600,7 +3600,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // shape agnostic caching :: end
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
       ref_input_shape_map.count(graph_key_with_perm) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      habana_helpers::GetRefineDynamicShapeStatus()) {
     PT_TEST_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key,
@@ -3621,7 +3621,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      habana_helpers::GetRefineDynamicShapeStatus() &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND) == 0) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);

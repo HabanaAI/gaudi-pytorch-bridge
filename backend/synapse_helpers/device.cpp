@@ -159,7 +159,8 @@ void DisableDynamicShapeGaudi3() {
     PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
   }
 
-  if (strcmp(deviceName, "GAUDI3") == 0) {
+  if ((strcmp(deviceName, "GAUDI3") == 0) ||
+      (strcmp(deviceName, "GRECO") == 0)) {
     habana_helpers::DisableRefineDynamicShape();
   }
 }
