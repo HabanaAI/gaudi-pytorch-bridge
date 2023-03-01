@@ -16,11 +16,6 @@
 namespace habana {
 namespace profile {
 
-namespace bridge {
-void trace_start(const char* id);
-void trace_end(const char* id);
-}; // namespace bridge
-
 namespace memory {
 void recordAllocation(
     uint64_t addr,

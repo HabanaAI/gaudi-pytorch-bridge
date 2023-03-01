@@ -36,10 +36,9 @@ def register_habana_activity_profiler():
 
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
-            import os
-            os.environ["PT_PROFILE_SYNAPSE_LOGS"] = str(debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities)
-            os.environ["PT_PROFILE_BRIDGE_LOGS"] = str(debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities)
-            os.environ["PT_PROFILE_MEMORY"] = str(profile_memory)
+            synapse_logger = debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities
+            bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
+            hpu_profiler._setup_activity_profiler_sources(True, synapse_logger, bridge_profile, profile_memory)
 
             super().__init__(
                 activities=activities,

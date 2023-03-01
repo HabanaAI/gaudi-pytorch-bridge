@@ -115,6 +115,11 @@ class TraceSource {
 class Profiler {
  public:
   Profiler(TraceSink& sink);
+  void init_sources(
+      bool synapse_profiler,
+      bool synapse_logger,
+      bool bridge,
+      bool memory);
   void start();
   void stop();
 

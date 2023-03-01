@@ -141,9 +141,10 @@ void SynapseLogger::lazy_open() {
 static std::once_flag lazy_init_flag{};
 
 void SynapseLogger::dump_trace_info() {
-  std::call_once(lazy_init_flag, &SynapseLogger::lazy_open, logger);
-  std::lock_guard<std::mutex> lock{log_lock_};
   if (optimize_trace_) {
+    std::call_once(lazy_init_flag, &SynapseLogger::lazy_open, logger);
+    std::lock_guard<std::mutex> lock{log_lock_};
+
     for (long unsigned int i = 0; i < trace_info.payload.size(); i++) {
       fout_ << R"({"tid":)" << trace_info.tid[i] << R"(, "pid":)"
             << trace_info.pid << R"(, "ts":)" << trace_info.dtime[i] << ", "
@@ -182,6 +183,7 @@ void SynapseLogger::on_log(
     std::string_view name,
     std::string_view args,
     bool begin) {
+  std::lock_guard<std::mutex> lock(on_log_lock_);
   if (observer_) {
     pid_t tid = syscall(__NR_gettid);
     pid_t pid = getpid();
@@ -231,6 +233,7 @@ void SynapseLogger::disable_mask() {
 }
 
 void SynapseLogger::register_event_observer(SynapseLoggerObserver* observer) {
+  std::lock_guard<std::mutex> lock(on_log_lock_);
   observer_ = observer;
 }
 
@@ -470,6 +473,7 @@ std::string getSynapseLibPath() {
 
 extern "C" void register_synapse_logger_oberver(
     synapse_logger::SynapseLoggerObserver* observer) {
+  logger.disable();
   logger.register_event_observer(observer);
 }
 } // namespace synapse_logger

@@ -281,6 +281,7 @@ class SynapseLogger {
   std::ofstream fout_;
   std::ofstream data_fout_;
   std::mutex log_lock_{};
+  std::mutex on_log_lock_{};
   std::mutex transfer_lock_{};
   std::mutex ostr_lock_{};
   std::unique_ptr<void, void (&)(void*)> logger_lib_handle_;

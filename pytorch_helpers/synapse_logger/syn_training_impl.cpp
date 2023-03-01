@@ -50,12 +50,14 @@ SYN_API_PTR(synStreamSynchronize);
 SYN_API_PTR(synStreamQuery);
 SYN_API_PTR(synEventCreate);
 SYN_API_PTR(synEventDestroy);
+SYN_API_PTR(synEventMapTensor);
 SYN_API_PTR(synEventMapTensorExt);
 SYN_API_PTR(synEventRecord);
 SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunchExt);
+SYN_API_PTR(synLaunchWithExternalEvents);
 SYN_API_PTR(synLaunchWithExternalEventsExt);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
@@ -144,12 +146,14 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synStreamQuery);
   SYN_API_INIT_PTR(synEventCreate);
   SYN_API_INIT_PTR(synEventDestroy);
+  SYN_API_INIT_PTR(synEventMapTensor);
   SYN_API_INIT_PTR(synEventMapTensorExt);
   SYN_API_INIT_PTR(synEventRecord);
   SYN_API_INIT_PTR(synEventQuery);
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
   SYN_API_INIT_PTR(synLaunchExt);
+  SYN_API_INIT_PTR(synLaunchWithExternalEvents);
   SYN_API_INIT_PTR(synLaunchWithExternalEventsExt);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
@@ -268,9 +272,7 @@ synStatus synInitialize() {
 }
 
 synStatus SYN_API_CALL synDestroy() {
-  API_LOG_CALL();
   synStatus status = lib_synapse::synDestroy();
-  API_LOG_RESULT();
   return status;
 }
 
@@ -361,7 +363,7 @@ synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
 synStatus SYN_API_CALL synEventMapTensor(
     synEventHandle* eventHandle,
     size_t numOfEvents,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synLaunchTensorInfo* launchTensorsInfo,
     const synRecipeHandle recipeHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
@@ -371,7 +373,7 @@ synStatus SYN_API_CALL synEventMapTensor(
       ARG(recipeHandle));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synEventMapTensorExt,
+      lib_synapse::synEventMapTensor,
       eventHandle,
       numOfEvents,
       launchTensorsInfo,
@@ -460,7 +462,7 @@ inline std::ostream& operator<<(
 synStatus SYN_API_CALL synLaunchExt(
     const synStreamHandle streamHandle,
     const synLaunchTensorInfoExt* launchTensorsInfo,
-    uint32_t numberTensors,
+    const uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
     uint32_t flags) {
@@ -488,8 +490,8 @@ synStatus SYN_API_CALL synLaunchExt(
 
 synStatus SYN_API_CALL synLaunchWithExternalEvents(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
-    uint32_t numberOfTensors,
+    const synLaunchTensorInfo* launchTensorsInfo,
+    const uint32_t numberOfTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
     synEventHandle* eventHandleList,
@@ -507,7 +509,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
       ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunchWithExternalEventsExt,
+      lib_synapse::synLaunchWithExternalEvents,
       streamHandle,
       launchTensorsInfo,
       numberOfTensors,
@@ -604,7 +606,7 @@ synStatus SYN_API_CALL synMemCopyAsyncMultiple(
     const uint64_t* size,
     const uint64_t* dst,
     const synDmaDir direction,
-    const size_t numCopies) {
+    const uint64_t numCopies) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
   switch (direction) {
@@ -863,7 +865,7 @@ synStatus SYN_API_CALL synSectionCreate(
 synStatus SYN_API_CALL
 synSectionGetRMW(synSectionHandle sectionHandle, bool* sectionIsRMW) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsRMW));
+  API_LOG_CALL(ARG(sectionHandle));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synSectionGetRMW, sectionHandle, sectionIsRMW);
   return status;
@@ -883,7 +885,7 @@ synStatus SYN_API_CALL synSectionGetPersistent(
     synSectionHandle sectionHandle,
     bool* sectionIsPersistent) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(sectionHandle), ARG(sectionIsPersistent));
+  API_LOG_CALL(ARG(sectionHandle));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synSectionGetPersistent, sectionHandle, sectionIsPersistent);
@@ -947,7 +949,6 @@ synSectionSetGroup(synSectionHandle sectionHandle, uint64_t sectionGroup) {
 
 synStatus SYN_API_CALL synProfilerGetCurrentTimeNS(uint64_t* nanoTime) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(nanoTime));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synProfilerGetCurrentTimeNS, nanoTime);
   API_LOG_RESULT();
@@ -957,7 +958,7 @@ synStatus SYN_API_CALL synProfilerGetCurrentTimeNS(uint64_t* nanoTime) {
 synStatus SYN_API_CALL
 synProfilerAddCustomMeasurement(const char* description, uint64_t nanoTime) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(description), ARG(nanoTime));
+  API_LOG_CALL(ARG(description), ARG_Q(nanoTime));
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synProfilerAddCustomMeasurement, description, nanoTime);

@@ -22,18 +22,25 @@
 namespace habana {
 namespace profile {
 
-Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {
-  trace_sources_.emplace_back(std::make_unique<SynapseProfilerSource>());
-  if (GET_ENV_FLAG_NEW(PT_PROFILE_SYNAPSE_LOGS)) {
-    trace_sources_.emplace_back(std::make_unique<SynapseLoggerSource>());
-  }
-  if (GET_ENV_FLAG_NEW(PT_PROFILE_BRIDGE_LOGS)) {
-    trace_sources_.emplace_back(std::make_unique<BridgeLogsSource>());
-  }
-  if (GET_ENV_FLAG_NEW(PT_PROFILE_MEMORY)) {
-    trace_sources_.emplace_back(std::move(std::make_unique<MemorySource>()));
-  }
+Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
 
+void Profiler::init_sources(
+    bool synapse_profiler,
+    bool synapse_logger,
+    bool bridge,
+    bool memory) {
+  if (synapse_profiler) {
+    trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
+  }
+  if (synapse_logger) {
+    trace_sources_.push_back(std::make_unique<SynapseLoggerSource>());
+  }
+  if (bridge) {
+    trace_sources_.push_back(std::make_unique<BridgeLogsSource>());
+  }
+  if (memory) {
+    trace_sources_.push_back(std::make_unique<MemorySource>());
+  }
   // simple trace grouping by log category
   for (auto& trace_source : trace_sources_) {
     trace_source->set_offset(

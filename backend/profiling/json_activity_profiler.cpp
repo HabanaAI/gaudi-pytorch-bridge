@@ -42,18 +42,6 @@ class JsonActivityProfiler : public Profiler {
       profiler->parser_.merge(path);
   }
 
-  static void startProfilerSession() {
-    auto profiler(instance());
-    if (profiler)
-      profiler->start();
-  }
-
-  static void stopProfilerSession() {
-    auto profiler(instance());
-    if (profiler)
-      profiler->stop();
-  }
-
  private:
   JsonFileParser parser_;
 };
@@ -61,11 +49,19 @@ class JsonActivityProfiler : public Profiler {
 void export_profiler_logs(std::string_view path) {
   JsonActivityProfiler::exportProfilerLogs(path);
 }
+void setup_profiler_sources(
+    bool synapse_profiler,
+    bool synapse_logger,
+    bool bridge,
+    bool memory) {
+  JsonActivityProfiler::instance()->init_sources(
+      synapse_profiler, synapse_logger, bridge, memory);
+}
 void start_profiler_session() {
-  JsonActivityProfiler::startProfilerSession();
+  JsonActivityProfiler::instance()->start();
 }
 void stop_profiler_session() {
-  JsonActivityProfiler::stopProfilerSession();
+  JsonActivityProfiler::instance()->stop();
 }
 }; // namespace profile
 }; // namespace habana

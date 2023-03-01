@@ -21,9 +21,8 @@ namespace habana {
 namespace profile {
 
 namespace {
-void convert(
-    std::string_view input,
-    std::unordered_map<std::string, std::string>& output) {
+std::unordered_map<std::string, std::string> convert(std::string_view input) {
+  std::unordered_map<std::string, std::string> output;
   std::string key, value;
   std::string* acc{&key};
   for (auto it{input.begin()};; it++) {
@@ -43,6 +42,7 @@ void convert(
       acc->push_back(*it);
     }
   }
+  return output;
 }
 } // namespace
 
@@ -60,12 +60,11 @@ void SynapseLoggerSource::stop() {
 
 void SynapseLoggerSource::extract(TraceSink& trace_sink) {
   std::unordered_set<pid_t> pids;
-  for (auto event : events_) {
-    std::unordered_map<std::string, std::string> args;
-    convert(event.args.c_str(), args);
+  std::lock_guard<std::mutex> lg{m};
+  for (const auto& event : events_) {
     trace_sink.addActivity(
         {event.name,
-         args,
+         convert(event.args),
          ActivityType::RUNTIME,
          event.pid + offset_,
          event.tid},
@@ -77,6 +76,7 @@ void SynapseLoggerSource::extract(TraceSink& trace_sink) {
   for (auto pid : pids) {
     trace_sink.addDevice("Synapse Logger", pid);
   }
+  events_.clear();
 }
 
 TraceSourceVariant SynapseLoggerSource::get_variant() {
@@ -93,13 +93,11 @@ void SynapseLoggerSource::on_log(
     pid_t tid,
     int64_t time,
     bool begin) {
+  std::string event_name{name};
+  std::string event_args{args};
+  std::lock_guard<std::mutex> lg{m};
   events_.emplace_back(
-      static_cast<std::string>(name),
-      static_cast<std::string>(args),
-      pid,
-      tid,
-      time,
-      begin);
+      std::move(event_name), std::move(event_args), pid, tid, time, begin);
 }
 
 bool SynapseLoggerSource::enabled() {

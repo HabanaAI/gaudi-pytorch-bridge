@@ -164,6 +164,10 @@ class PtLogger {
   void loadMask() {
     module_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_MOD_MASK);
     type_mask_ = GET_ENV_FLAG_NEW(PT_HPU_LOG_TYPE_MASK);
+    auto profile_bridge_logs = GET_ENV_FLAG_NEW(PT_PROFILE_BRIDGE_LOGS);
+    if (profile_bridge_logs) {
+      type_mask_ |= TENSORBOARD;
+    }
 
     char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
 
@@ -248,6 +252,11 @@ class PtLogger {
 
   void typeMaskOr(unsigned long toggle_on) {
     type_mask_ |= toggle_on;
+    return;
+  }
+
+  void typeMaskNegAnd(unsigned long toggle_off) {
+    type_mask_ &= ~toggle_off;
     return;
   }
 

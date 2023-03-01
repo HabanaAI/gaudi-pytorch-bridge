@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <chrono>
 #include <deque>
+#include <mutex>
 #include <unordered_map>
 #include "backend/profiling/trace_sources/sources.h"
 
@@ -41,7 +42,8 @@ struct MemoryLogger : public TraceSource {
   void extract(TraceSink& output) {
     pid_t tid = syscall(__NR_gettid);
     pid_t pid = getpid() + offset_;
-    for (auto event : events_) {
+    std::lock_guard<std::mutex> lg{m};
+    for (const auto& event : events_) {
       output.addMemoryEvent(
           pid,
           tid,
@@ -54,6 +56,7 @@ struct MemoryLogger : public TraceSource {
           event.total_reserved);
     }
     output.addDevice("Memory Logs", pid);
+    events_.clear();
   }
   TraceSourceVariant get_variant() {
     return TraceSourceVariant::MEMORY_LOGS;
@@ -69,6 +72,7 @@ struct MemoryLogger : public TraceSource {
       uint64_t total_reserved) {
     if (enabled_ && size > 0) {
       int64_t dtime = nowMicros();
+      std::lock_guard<std::mutex> lg{m};
       ptrs_.emplace(addr, size);
       events_.emplace_back(dtime, addr, size, total_allocated, total_reserved);
     }
@@ -78,13 +82,14 @@ struct MemoryLogger : public TraceSource {
       uint64_t total_allocated,
       uint64_t total_reserved) {
     if (enabled_) {
+      std::lock_guard<std::mutex> lg{m};
       auto it = ptrs_.find(addr);
       if (it != ptrs_.end()) {
         int64_t dtime = nowMicros();
         int64_t bytes{static_cast<int64_t>(it->second) * -1};
         events_.emplace_back(
             dtime, addr, bytes, total_allocated, total_reserved);
-        ptrs_.erase(addr);
+        ptrs_.erase(it);
       }
     }
   }
@@ -116,6 +121,7 @@ struct MemoryLogger : public TraceSource {
           total_reserved(total_reserved) {}
   };
   std::unordered_map<uint64_t, uint64_t> ptrs_;
+  std::mutex m{};
   std::deque<Event> events_;
   bool enabled_{false};
   unsigned offset_{};

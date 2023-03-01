@@ -16,6 +16,8 @@
 #include <unistd.h>
 #include <chrono>
 #include <deque>
+#include <mutex>
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace {
 uint64_t NowMicros() {
@@ -31,10 +33,14 @@ namespace profile {
 
 struct BridgeLogger : public TraceSource {
   BridgeLogger() = default;
+  ~BridgeLogger() override = default;
   void log(std::string_view id, bool is_begin) {
     if (enabled()) {
       int64_t dtime = NowMicros();
-      events_.emplace_back(std::string{id}, dtime, is_begin);
+      pid_t tid = syscall(__NR_gettid);
+      std::string event_id{id};
+      std::lock_guard<std::mutex> lg{m};
+      events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
     }
   }
   bool enabled() {
@@ -46,21 +52,24 @@ struct BridgeLogger : public TraceSource {
   }
   void start() {
     enabled_ = true;
+    PtLogger::getLogger()->typeMaskOr(PtLogger::TypeMask::TENSORBOARD);
   }
   void stop() {
     enabled_ = false;
+    PtLogger::getLogger()->typeMaskNegAnd(PtLogger::TypeMask::TENSORBOARD);
   }
   void extract(TraceSink& output) {
-    pid_t tid = syscall(__NR_gettid);
     pid_t pid = getpid() + offset_;
-    for (auto event : events_) {
+    std::lock_guard<std::mutex> lg{m};
+    for (const auto& event : events_) {
       output.addActivity(
-          {event.name, {}, ActivityType::RUNTIME, pid, tid},
+          {event.name, {}, ActivityType::RUNTIME, pid, event.tid},
           {},
           event.time,
           event.begin);
     }
     output.addDevice("Bridge Logs", pid);
+    events_.clear();
   }
   TraceSourceVariant get_variant() {
     return TraceSourceVariant::BRIDGE_LOGS;
@@ -73,13 +82,15 @@ struct BridgeLogger : public TraceSource {
   struct Event {
     std::string name;
     int64_t time;
+    pid_t tid;
     bool begin;
-    Event(std::string name, int64_t time, bool begin)
-        : name(name), time(time), begin(begin) {}
+    Event(std::string&& name, int64_t time, pid_t tid, bool begin)
+        : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
   std::deque<Event> events_;
   bool enabled_{false};
   unsigned offset_{};
+  std::mutex m{};
 };
 
 BridgeLogsSource::~BridgeLogsSource() {}

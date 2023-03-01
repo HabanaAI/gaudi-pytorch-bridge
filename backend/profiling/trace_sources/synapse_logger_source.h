@@ -15,6 +15,7 @@
 
 #include <strings.h>
 #include <deque>
+#include <mutex>
 #include "backend/profiling/profiling.h"
 #include "pytorch_helpers/synapse_logger/synapse_logger_observer.h"
 
@@ -52,17 +53,23 @@ class SynapseLoggerSource : public TraceSource,
     bool begin;
 
     Event(
-        std::string name,
-        std::string args,
+        std::string&& name,
+        std::string&& args,
         pid_t pid,
         pid_t tid,
         int64_t time,
         bool begin)
-        : name(name), args(args), pid(pid), tid(tid), time(time) {}
+        : name(std::move(name)),
+          args(std::move(args)),
+          pid(pid),
+          tid(tid),
+          time(time),
+          begin(begin) {}
   };
   std::deque<Event> events_;
   bool enabled_{false};
   unsigned offset_{};
+  std::mutex m{};
 };
 } // namespace profile
 } // namespace habana
