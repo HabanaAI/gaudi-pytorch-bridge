@@ -183,16 +183,17 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     if (modified_wd.toFloat() != 1.0) {
       mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
-
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(modified_wd));
       mul_wt_wd->AllocateAndAddSynapseNode(
           graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
-      // collect the nodes that need control edges
-      auto syn_node_id = graph.get_node_index(i * 18 + 1);
-      syn_node_ids.emplace_back(syn_node_id);
+      if (!graph.is_dry_run()) {
+        // collect the nodes that need control edges
+        auto syn_node_id = graph.get_node_index(i * 18 + 1);
+        syn_node_ids.emplace_back(syn_node_id);
+      }
     }
 
     // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
@@ -304,9 +305,11 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
-      // collect the nodes that need control edges
-      auto syn_node_id = graph.get_node_index(i * 18 + 17);
-      syn_node_ids.emplace_back(syn_node_id);
+      if (!graph.is_dry_run()) {
+        // collect the nodes that need control edges
+        auto syn_node_id = graph.get_node_index(i * 18 + 17);
+        syn_node_ids.emplace_back(syn_node_id);
+      }
 
     } else {
       // use the updated weight tensor after  weight decay operation
@@ -320,9 +323,11 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
-      // collect the nodes that need control edges
-      auto syn_node_id = graph.get_node_index(i * 18 + 17);
-      syn_node_ids.emplace_back(syn_node_id);
+      if (!graph.is_dry_run()) {
+        // collect the nodes that need control edges
+        auto syn_node_id = graph.get_node_index(i * 18 + 17);
+        syn_node_ids.emplace_back(syn_node_id);
+      }
     }
 
     // Note that these outputs are being filled just to keep GC
@@ -347,9 +352,11 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(add_wt->GetOutputs()[0]);
   }
 
-  // add nodes that need control edges
-  graph.clear_node_indices();
-  graph.set_node_indices(syn_node_ids);
+  if (!graph.is_dry_run()) {
+    // add nodes that need control edges
+    graph.clear_node_indices();
+    graph.set_node_indices(syn_node_ids);
+  }
 }
 
 void OptimizerAdagradOperator::AllocateAndAddSynapseNode(

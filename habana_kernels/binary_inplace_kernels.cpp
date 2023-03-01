@@ -459,6 +459,7 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
 
     p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
+    p_context_->syn_inputs_.pop_back();
   } else {
     // Create Mul operator
     auto mulOp = make_operator<habana::MulOperator>(
