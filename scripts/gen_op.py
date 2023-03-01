@@ -961,11 +961,14 @@ def frontend(
                 else ctxop.get_op_frontend_class()
             )
         else:
-            # for not supported eager ops in Eager compilation, return an exception in the op code
-            code += '  HABANA_ASSERT(0, "Frontend Op {} not supported with new Eager mode");\n'.format(
-                sig
-            )
-            code += "  std::terminate(); // just to avoid compilation errors of missing return..\n"
+
+            # for not supported eager ops in Eager compilation, unconditionally
+            # fallback to CPU
+            args_str=", ".join(param_vars)
+            if overload:
+                code += f"  FALLBACK_UNSUPPORTED_OP2_O({opname}, PARAMS2({args_str}), {overload})\n"
+            else:
+                code += f"  FALLBACK_UNSUPPORTED_OP2({opname}, PARAMS2({args_str}))\n"
             code += "  // ANYTHING BELOW IS JUST FOR REFERENCE WHEN MIGRATING TO EAGER OP\n\n"
 
     if ctxop.get_override_fn():

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -248,7 +248,10 @@ struct _dispatch_fallback<
       at::ScalarType result_dtype,
       ParameterTypes... args) {
     const std::index_sequence_for<ParameterTypes...> indices{};
-    return ::std::move(call(osl, result_dtype, args..., indices));
+    if constexpr (std::is_void_v<ReturnType>)
+      call(osl, result_dtype, args..., indices);
+    else
+      return ::std::move(call(osl, result_dtype, args..., indices));
   }
 
   template <std::size_t... Indices>
@@ -270,13 +273,19 @@ struct _dispatch_fallback<
               cast_arg(arg_changed, at::ScalarType::Float, argument)...);
         };
         auto casted_params = std::apply(partial_cast_arg, params);
-        auto result{
-            redispatch_if_any_arg_changed<Op, ReturnType, ParameterTypes...>::
-                call(arg_changed, std::get<Indices>(casted_params)...)};
-        if (arg_changed)
-          return cast_result<ReturnType>::cast(result_dtype, result);
-        else
-          return result;
+        if constexpr (std::is_void_v<ReturnType>) {
+          redispatch_if_any_arg_changed<Op, ReturnType, ParameterTypes...>::
+              call(arg_changed, std::get<Indices>(casted_params)...);
+          return;
+        } else {
+          auto result{
+              redispatch_if_any_arg_changed<Op, ReturnType, ParameterTypes...>::
+                  call(arg_changed, std::get<Indices>(casted_params)...)};
+          if (arg_changed)
+            return cast_result<ReturnType>::cast(result_dtype, result);
+          else
+            return result;
+        }
       }
     }
 

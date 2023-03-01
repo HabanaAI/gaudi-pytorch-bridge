@@ -5219,7 +5219,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode) {
   PT_LAZY_TRACE;
-  FALLBACK_IF_UNSUPPORTED_OP2_O(
+  FALLBACK_UNSUPPORTED_OP2_O(
       max_pool2d_with_indices_backward,
       PARAMS2(
           grad_output,

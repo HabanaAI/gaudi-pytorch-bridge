@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -131,12 +131,12 @@
           is_supported, param2);                                         \
   }
 
-#define FALLBACK_IF_UNSUPPORTED_OP2(input, param2) \
-  return dispatch_fallback<ATEN_OP(input)>::call(  \
+#define FALLBACK_UNSUPPORTED_OP2(input, param2)   \
+  return dispatch_fallback<ATEN_OP(input)>::call( \
       OpSupportLevel::Value::unsupported, param2);
 
-#define FALLBACK_IF_UNSUPPORTED_OP2_O(input, param2, overload) \
-  return dispatch_fallback<ATEN_OP2(input, overload)>::call(   \
+#define FALLBACK_UNSUPPORTED_OP2_O(input, param2, overload)  \
+  return dispatch_fallback<ATEN_OP2(input, overload)>::call( \
       OpSupportLevel::Value::unsupported, param2);
 
 #define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)        \
