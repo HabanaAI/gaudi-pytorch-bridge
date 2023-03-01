@@ -8,7 +8,7 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
 # PyTorch full graph tests
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_perf
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_hls_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_sbs
