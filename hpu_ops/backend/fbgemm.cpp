@@ -86,6 +86,54 @@ void LazyExpandIntoJaggedPermute::AddNode(
   syn_out(0) = std::move(permuted[0]);
 }
 
+LazyBoundsCheckIndices::LazyBoundsCheckIndices(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "bounds_check_indices_fwd_",
+          scalar_type,
+          {},
+          {0, 1, 2},
+          {},
+          false) {}
+
+void LazyBoundsCheckIndices::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "LazyBoundsCheckIndices::AddNode");
+  auto indices = getNextInput<TensorsPair>(stackGetter);
+  auto offsets = getNextInput<TensorsPair>(stackGetter);
+  auto warning = getNextInput<TensorsPair>(stackGetter);
+  auto rowsPerTable = getNextInput<TensorsPair>(stackGetter);
+  auto boundsCheckMode = getNextInput<int>(stackGetter);
+  auto weights = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+
+  std::vector<synTensor> inputs = {
+      rowsPerTable.syn_t, indices.syn_t, offsets.syn_t, warning.syn_t};
+  if (weights) {
+    inputs.push_back(weights.value().syn_t);
+  }
+
+  std::string guid = "bounds_check_indices_fwd_" +
+      habana_helpers::name_suffix_from_type(ScalarType());
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
+      {indices.pt_t.sizes(), indices.pt_t.scalar_type(), 0},
+      {offsets.pt_t.sizes(), offsets.pt_t.scalar_type(), 1},
+      {warning.pt_t.sizes(), warning.pt_t.scalar_type(), 2}};
+
+  ns_BoundsCheckIndicesKernel::Params params{};
+  params.mode = static_cast<BoundsCheckMode_t>(boundsCheckMode);
+
+  auto results = OpBackend::BuildNode(
+      this, graph, {guid, inputs, output_attrs, &params, sizeof(params)});
+
+  for (size_t i = 0; i < output_attrs.size(); ++i) {
+    syn_out(i) = std::move(results[i]);
+  }
+}
+
 } // namespace habana
 
 static const auto& FBGEMMKernelsKernelRegistry =
@@ -104,4 +152,7 @@ static const auto& FBGEMMKernelsKernelRegistry =
             KERNEL_FN_ARG(LazyPermute2DSparseData, false))
         .add(
             "hpu::habana_expand_into_jagged_permute",
-            KERNEL_FN_GLOBAL(habana::LazyExpandIntoJaggedPermute));
+            KERNEL_FN_GLOBAL(habana::LazyExpandIntoJaggedPermute))
+        .add(
+            "hpu::habana_bounds_check_indices",
+            KERNEL_FN_GLOBAL(habana::LazyBoundsCheckIndices));

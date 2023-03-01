@@ -1961,6 +1961,35 @@ at::Tensor scaled_masked_softmax_wrap(
   return scaled_masked_softmax_lazy(input, mask, scale);
 }
 
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
+habana_bounds_check_indices_wrap(
+    at::Tensor& indices,
+    at::Tensor& offsets,
+    at::Tensor& warning,
+    const at::Tensor& rows_per_table,
+    int64_t bounds_check_mode,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " bounds_check_indices:",
+      " indices=",
+      to_string(indices),
+      " offsets=",
+      to_string(offsets),
+      " warning=",
+      to_string(warning),
+      " rows_per_table=",
+      to_string(rows_per_table),
+      " bounds_check_mode=",
+      to_string(bounds_check_mode),
+      " weights=",
+      to_string(weights));
+
+  return habana_bounds_check_indices_lazy(
+      indices, offsets, warning, rows_per_table, bounds_check_mode, weights);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2439,6 +2468,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(
       "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor");
+  m.def(
+      "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

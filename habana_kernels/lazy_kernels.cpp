@@ -7428,4 +7428,23 @@ at::Tensor scaled_masked_softmax_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_softmax, op)
 }
 
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
+habana_bounds_check_indices_lazy(
+    at::Tensor& indices,
+    at::Tensor& offsets,
+    at::Tensor& warning,
+    const at::Tensor& rows_per_table,
+    int64_t bounds_check_mode,
+    const c10::optional<at::Tensor>& weights) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> op{
+      "hpu::habana_bounds_check_indices",
+      {indices, offsets, warning, rows_per_table, bounds_check_mode, weights}};
+  auto result = ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(
+      indices, offsets, warning);
+
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(bounds_check_indices, op, result)
+}
 } // namespace habana_lazy

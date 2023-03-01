@@ -311,6 +311,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "expand_into_jagged_permute",
       &habana_expand_into_jagged_permute_wrap,
       "Expands the sparse data permute index from table dimension to batch dimension");
+  m.def(
+      "bounds_check_indices",
+      &habana_bounds_check_indices_wrap,
+      "Out of bounds checks");
 
   // TE Data structures
   py::class_<transformer_engine::FP8TensorMeta>(m, "FP8TensorMeta")

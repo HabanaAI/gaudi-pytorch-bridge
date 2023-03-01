@@ -393,7 +393,14 @@ at::Tensor scaled_masked_softmax_wrap(
     const at::Tensor& input,
     const at::Tensor& mask,
     double scale);
-
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
+habana_bounds_check_indices_wrap(
+    at::Tensor& indices,
+    at::Tensor& offsets,
+    at::Tensor& warning,
+    const at::Tensor& rows_per_table,
+    int64_t bounds_check_mode,
+    const c10::optional<at::Tensor>& weights);
 namespace vision {
 namespace ops {
 

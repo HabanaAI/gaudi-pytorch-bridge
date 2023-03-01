@@ -150,3 +150,6 @@ def split_embedding_codegen_lookup_adagrad_function_hpu(
 
 def expand_into_jagged_permute(permute: torch.Tensor, input_offsets: torch.Tensor, output_offsets: torch.Tensor, output_size: int) -> torch.Tensor:
     return _hpex_C.expand_into_jagged_permute(permute, input_offsets, output_offsets, output_size)
+
+def bounds_check_indices(rows_per_table: torch.Tensor, indices: torch.Tensor, offsets: torch.Tensor, bounds_check_mode: int, warning: torch.Tensor, weights: Optional[torch.Tensor]):
+    _hpex_C.bounds_check_indices(indices, offsets, warning, rows_per_table, bounds_check_mode, weights)
