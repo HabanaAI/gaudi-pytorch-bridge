@@ -110,7 +110,7 @@ std::string Node::ToStringIrGraph() const {
   std::stringstream ss;
   ss << m_op.toQualString() << "{";
   for (auto& v : m_inputs) {
-    ss << v.ToString() << " ";
+    ss << v.ToStringIrGraph() << " ";
   }
   ss << "}\n";
   ss << m_meta_data.ToStringIrGraph();
