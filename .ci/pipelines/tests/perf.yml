@@ -28,7 +28,7 @@ testsMap:
     stages:
       Run perf tests gaudi2 asic:
         filter: -a smoke_perf_gaudi2
-  Test_pytorch_modules_gaudi_asic_perf:
+  Test_pytorch_modules_gaudi_hls_asic_perf:
     stages:
       Run perf tests gaudi asic:
         filter: -a smoke_perf
