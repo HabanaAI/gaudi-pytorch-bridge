@@ -1505,7 +1505,6 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
     std::vector<at::Tensor>& tensors) {
   habana_lazy::NoAccThread no_acc_thread;
   bool has_tensors_to_dense = false;
-  std::vector<habana_lazy::HbInternalTensorImpl*> permuted_impls;
   for (auto& tensor : tensors) {
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
     auto self_internal_tensor = self_hb_tensor.EvaluateTensorData();
@@ -1525,7 +1524,6 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
           " transposing it back to be dense");
       tensor = torch::clone(tensor);
       has_tensors_to_dense = true;
-      permuted_impls.push_back(hb_weight_impl);
     }
   }
   // Creating a Synapse that of memcpy permuted tensors back to dense.
@@ -1535,10 +1533,6 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
             std::make_shared<habana_lazy::HbLazyFrontEndInfoToBackend>();
     lazy_front_end_info->set_is_hccl_send_mark_step(true);
     habana_lazy::HbLazyTensor::StepMarker({}, lazy_front_end_info);
-    // Clear permutation from back to dense tensors
-    for (auto impl : permuted_impls) {
-      impl->SetMemoryPermutation({});
-    }
   }
 }
 
