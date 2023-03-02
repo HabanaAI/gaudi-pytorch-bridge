@@ -33,7 +33,7 @@ class CacheFileHandler {
   // This is an Abstract class
 
  private:
-  int id, rank;
+  int local_rank, rank;
   // Updated once during Construction using env: PT_RECIPE_CACHE_PATH
   std::string cache_path;
   // Updated once during Construction using env: PT_CACHE_FOLDER_SIZE_MB

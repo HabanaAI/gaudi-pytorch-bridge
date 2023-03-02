@@ -44,12 +44,10 @@ CacheFileHandler::CacheFileHandler() : curFolderSize{0} {
   maxFolderSize = GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB);
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
-  const char* s_id = getenv("HLS_MODULE_ID") ? getenv("HLS_MODULE_ID") : "0";
-  id = std::atoi(s_id);
+  const char* s_local_rank = getenv("LOCAL_RANK") ? getenv("LOCAL_RANK") : "0";
+  local_rank = std::atoi(s_local_rank);
 
-  const char* s_rank = getenv("RANK")
-      ? getenv("RANK")
-      : getenv("OMPI_COMM_WORLD_RANK") ? getenv("OMPI_COMM_WORLD_RANK") : "0";
+  const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
   rank = std::atoi(s_rank);
 }
 
@@ -59,7 +57,7 @@ void CacheFileHandler::init(std::string path) {
   fs::path dir_path{cache_path};
   HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
   if (GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE)) {
-    if (id == 0) {
+    if (local_rank == 0) {
       try {
         auto de = fs::directory_iterator{dir_path};
         while (de != fs::end(de)) {
