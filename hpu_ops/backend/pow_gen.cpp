@@ -38,6 +38,10 @@ void PowOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(result[0]);
 
+  } else if (other.toFloat() == 1.) {
+    auto result =
+        BuildOp(graph, "identity", {syn_in(0)}, {{outshape, ScalarType(), 0}});
+    syn_out(0) = std::move(result[0]);
   } else {
     auto result = BuildOp(
         graph, guid_, {syn_in(0), syn_in(1)}, {{outshape, ScalarType(), 0}});
