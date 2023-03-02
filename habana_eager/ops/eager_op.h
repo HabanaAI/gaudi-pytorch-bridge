@@ -90,6 +90,7 @@ class EagerOpBase {
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;
   EagerOpMetaData m_eager_op_meta_data;
+  bool is_pipeline_supported = false;
 
  private:
   void set_inputs(const std::vector<at::IValue>& inputs) {
@@ -172,6 +173,7 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
+    is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -196,7 +198,6 @@ class EagerOp : public EagerOpBase {
 
     auto out_spec = OutputSpec{self.scalar_type(), self.device(), self.sizes()};
     auto stack = run({out_spec});
-    HABANA_ASSERT(stack.size() == 1); // single output only
     return self;
   }
 
@@ -204,6 +205,7 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call(const at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
+    is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -222,7 +224,6 @@ class EagerOp : public EagerOpBase {
 
     auto out_spec = OutputSpec{self.scalar_type(), self.device(), self.sizes()};
     auto stack = run({out_spec});
-    HABANA_ASSERT(stack.size() == 1); // single output only
     return self;
   }
 
@@ -231,6 +232,7 @@ class EagerOp : public EagerOpBase {
       T self) {
     PT_EAGER_DEBUG(
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
+    is_pipeline_supported = true;
 
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         m_out_shapes.empty() ||
@@ -270,7 +272,6 @@ class EagerOp : public EagerOpBase {
     });
 
     auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
     return self;
   }
 

@@ -11,7 +11,9 @@
  *******************************************************************************
  */
 #include "habana_eager/ops/eager_op.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_eager/eager_context.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 #include <torch/csrc/jit/ir/ir.h>
@@ -24,8 +26,12 @@ auto eager_frontend_enabled = []() {
 
 namespace habana {
 namespace eager {
-torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
-  auto input_tensors = convert_inputs_to_backend_tensors(m_inputs);
+void EagerLoweringTask(
+    const at::Symbol m_symbol,
+    std::vector<at::Tensor> input_tensors,
+    std::vector<at::IValue> m_inputs,
+    std::vector<OutputSpec> out_spec,
+    EagerOpMetaData m_eager_op_meta_data) {
   habana::eager::EagerExec hlexec{
       m_symbol,
       std::move(input_tensors),
@@ -35,7 +41,45 @@ torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
   hlexec.set_eager_op_info(m_eager_op_meta_data);
 
   // Launch the execution
-  return hlexec.launch();
+  try {
+    hlexec.launch();
+  } catch (const std::exception& e) {
+    PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
+  } catch (...) {
+    PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
+  }
+}
+
+torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
+  auto input_tensors = convert_inputs_to_backend_tensors(m_inputs);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && is_pipeline_supported) {
+    SingleTonEagerContext::getInstance().m_lowering_thread_handle =
+        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
+            EagerLoweringTask,
+            std::move(m_symbol),
+            std::move(input_tensors),
+            std::move(m_inputs),
+            std::move(out_spec),
+            std::move(m_eager_op_meta_data));
+
+    return {torch::jit::IValue()};
+
+  } else {
+    // To maintain the order for launch, ensure that all pending tasks in
+    // pipeline are completed
+    SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
+
+    habana::eager::EagerExec hlexec{
+        m_symbol,
+        std::move(input_tensors),
+        std::move(m_inputs),
+        std::move(out_spec)};
+
+    hlexec.set_eager_op_info(m_eager_op_meta_data);
+
+    return hlexec.launch();
+  }
 }
 
 } // namespace eager

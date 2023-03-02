@@ -14,6 +14,7 @@
 #include "copy_from.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "eager_op.h"
+#include "habana_eager/eager_context.h"
 
 namespace {
 // Backend it treating Long(int64) as Int(int32) and Double as Float.
@@ -61,6 +62,10 @@ at::Tensor _copy_from_d2h(
     const at::Tensor& dst,
     bool non_blocking) {
   auto self_ = self;
+  // To Do - join pending not required here once copy d2h
+  // also comes through pipeline SW-126657
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
   if (!self.is_contiguous()) {
     auto base = create_base(self);
     habana::eager::EagerOp<at::Tensor> hpu_op{

@@ -14,6 +14,7 @@
 #include <ATen/Dispatch.h>
 #include <ATen/core/TensorBody.h>
 #include <pybind11/pybind11.h>
+#include "habana_eager/eager_context.h"
 #include "habana_eager/helpers.h"
 #include "habana_helpers/frontend_utils.h"
 
@@ -21,6 +22,10 @@ namespace habana {
 namespace eager {
 at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
   c10::Scalar r;
+  // To Do - join pending not required here once copy d2h
+  // also comes through pipeline SW-126657
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
   // Note:
   // 1. This macro expands to more types than HPU supports,
   //   but that should not be an issue issue.

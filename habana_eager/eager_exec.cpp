@@ -167,6 +167,7 @@ torch::jit::Stack EagerExec::launch() {
     graph_and_meta->SetEventHandle(event_handle);
     graph_and_meta->SetEventRecordStream(event_stream);
     graph_and_meta->SetEventFlag(event_flag);
+    graph_and_meta->SetBackendType(habana_helpers::HabanaFrontendTypes::EAGER);
     cache.Add(key, graph_and_meta);
   }
 

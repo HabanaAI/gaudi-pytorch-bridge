@@ -37,6 +37,7 @@ add_library(habana_pytorch2_frontend OBJECT
           eager_tensor.cpp
           eager_exec.cpp
           eager_view.cpp
+          eager_context.cpp
           graph_exec.cpp
           graph_exec_passes.cpp
           kernels_impl.cpp

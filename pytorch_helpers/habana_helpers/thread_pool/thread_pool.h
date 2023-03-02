@@ -47,6 +47,16 @@ class ThreadPool {
   std::atomic<bool> has_queued_items{false};
   std::string ToString();
 
+  // To wait till the queue becomes empty or thread pool instance is destroyed
+  void waitOnQueue() {
+    while (has_queued_items.load()) {
+      if (m_stop || !has_queued_items.load()) {
+        break;
+      }
+    }
+    return;
+  }
+
  private:
   std::vector<std::thread> m_workers;
   Queue<std::function<void()>>* m_tasks;
