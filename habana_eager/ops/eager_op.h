@@ -245,9 +245,11 @@ class EagerOp : public EagerOpBase {
         : m_out_shapes[0];
     if (self.sizes() != out_shape) {
       HABANA_ASSERT(
-          self.numel() == 0,
+          self.numel() == 0 || (self.numel() == 1 && self.sizes().empty()),
           "Got a non-empty out tensor for out operation. Out shape: ",
-          self.sizes());
+          self.sizes(),
+          ", out numel: ",
+          self.numel());
       THHTensor_resizeNd(
           self.unsafeGetTensorImpl(),
           out_shape.size(),
@@ -283,9 +285,11 @@ class EagerOp : public EagerOpBase {
             const auto& out_shape = m_out_shapes[index];
             if (el.sizes() != out_shape) {
               HABANA_ASSERT(
-                  el.numel() == 0,
+                  el.numel() == 0 || (el.numel() == 1 && el.sizes().empty()),
                   "Got a non-empty out tensor for out operation. Out shape: ",
-                  el.sizes());
+                  el.sizes(),
+                  ", out numel: ",
+                  el.numel());
               THHTensor_resizeNd(
                   el.unsafeGetTensorImpl(),
                   out_shape.size(),

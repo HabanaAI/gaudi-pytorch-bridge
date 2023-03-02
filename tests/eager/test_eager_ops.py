@@ -1,6 +1,7 @@
 import os
 
 import torch
+
 assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
 
 import habana_frameworks.torch.core as htcore
@@ -98,6 +99,17 @@ def test_out_empty_or_throw():
     result_cpu = cpu_out_empty
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
+    # another case of having empty tensor is with torch.empty([])
+    # the difference to torch.zeros(0) is that in here out tensor
+    # has shape [] but numel==1 - we need to support it as well
+    cpu_out_empty = torch.empty([])
+    hpu_out_empty = torch.empty([]).to("hpu")
+    torch.pow(hpu_tensor, 2.0, out=hpu_out_empty)
+    torch.pow(cpu_tensor, 2.0, out=cpu_out_empty)
+    result_hpu = hpu_out_empty.to("cpu")
+    result_cpu = cpu_out_empty
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
 
 # duplicate input is specific case handled by backend
 # here we do duplicate input to pow_out op
@@ -126,7 +138,6 @@ def test_eager_backend_pool():
         assert torch.equal(result_hpu, result_cpu)
 
 
-
 def test_eager_std_mean():
     # test for EagerOp<std::tuple<Tensor, Tensor>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
@@ -138,7 +149,6 @@ def test_eager_std_mean():
 
     assert torch.allclose(hpu_out0, cpu_out[0], atol=0.1, rtol=0.1)
     assert torch.allclose(hpu_out1, cpu_out[1], atol=0.001, rtol=0.001)
-
 
 
 def test_eager_frexp_out():
@@ -156,11 +166,9 @@ def test_eager_frexp_out():
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
 
-
-@pytest.mark.skip(reason="Skipped until SW-124321 is done")
 def test_eager_max_out():
     # test for EagerOp<std::tupel<Tensor&, Tensor&>>
-    cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
+    cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
     hpu_tensor = cpu_tensor.to("hpu")
 
     cpu_outtensor = (torch.empty([], dtype=torch.float32), torch.empty([], dtype=torch.int64))
