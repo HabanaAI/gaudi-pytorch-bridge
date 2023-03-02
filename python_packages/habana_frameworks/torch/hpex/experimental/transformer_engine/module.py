@@ -118,6 +118,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             dtype=torch.float32,
             device="hpu",
         )
+        self.fp8_meta[fp8_meta_tensor_key].amax_history_index = torch.tensor(
+            [0], dtype=torch.int32, device="hpu")
 
     def init_fp8_meta_tensors(self) -> None:
         """Init scales and amaxes."""

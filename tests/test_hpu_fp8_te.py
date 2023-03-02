@@ -195,3 +195,77 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     assert np.array_equal(hpu_out, ref_out, equal_nan=True), f"Data mismatch"
     assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), f"Data mismatch"
     assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), f"Data mismatch"
+
+
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("amax_history_len", [1, 2])
+def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
+    import habana_frameworks.torch as ht
+    # Prepare te linear module
+    torch.manual_seed(12345)
+
+    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device)
+    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
+    input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
+
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=amax_history_len,
+        amax_compute_algo="max",
+        margin=0,
+        reduce_amax=False,
+    )
+
+    my_linear = te.Linear(4, 3, bias=True)
+
+    inputs = [input1, input2, input2, input1, input2, input3, input3, input1, input1, input3]
+    outputs = []
+
+    if hpu_graph:
+        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            my_linear(input1).cpu()
+
+        recorded_input = torch.zeros_like(input1)
+        recorded_model_graph = ht.hpu.HPUGraph()
+        s = ht.hpu.Stream()
+        with ht.hpu.stream(s):
+            recorded_model_graph.capture_begin()
+            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                recorded_out_fp8 = my_linear(recorded_input)
+            recorded_model_graph.capture_end()
+
+        # Run recorded graph n times
+        for input in inputs:
+            recorded_input.copy_(input)
+            recorded_model_graph.replay()
+            out = recorded_out_fp8.detach()
+            outputs.append(out.cpu())
+    else:
+        for input in inputs:
+            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                out = my_linear(input)
+                outputs.append(out.cpu())
+
+    def has_infs_or_nans(x):
+        return torch.logical_or(torch.any(torch.isinf(x)), torch.any(torch.isnan(x)))
+
+    # Second input is bigger than first, so output should contain nans or infs
+    assert(has_infs_or_nans(outputs[1]))
+
+    # Third input is the same as second, scale should be already updated - so the output should contain only valid values
+    assert(not has_infs_or_nans(outputs[2]))
+
+    # In case amax_history longer than 1, fifth output should not contain nans (amax should be remembered from 3rd iteration)
+    if amax_history_len > 1:
+        assert(not has_infs_or_nans(outputs[4]))
+
+    if amax_history_len == 2:
+        # 7-th output should not have nans, because scale should be updated after 6-th iteration
+        assert(not has_infs_or_nans(outputs[6]))
+        # Only two last amax values should be remembered - when the big input comes after two small ones, nans should be observed
+        assert(has_infs_or_nans(outputs[9]))
+

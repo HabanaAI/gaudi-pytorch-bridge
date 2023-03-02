@@ -311,25 +311,17 @@ def get_fp8_group() -> Union[dist_group_type, None]:
     return _FP8_DISTRIBUTED_GROUP
 
 
-def update_amax_history(amax_history: torch.Tensor) -> torch.Tensor:
-    """Update amax history and set next amax to zero."""
-    amax_history = torch.roll(amax_history, -1, 0)
-    amax_history[0].fill_(0.0)
-    return amax_history
-
-
 def _default_get_amax(
     amax_history: torch.Tensor,
     amax_compute_algo: str,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
     """Default function to obtain amax from history."""
-    if amax_compute_algo == "max":
+    if amax_compute_algo == "max" and amax_history.shape[0] > 1:
         amax = torch.max(amax_history, dim=0).values
     else:  # amax_compute_algo == "most_recent"
         amax = amax_history[0]
 
-    amax_history = update_amax_history(amax_history)
-    return amax_history, amax
+    return amax
 
 
 def _default_sf_compute(
@@ -354,17 +346,17 @@ def fused_amax_and_scale_update(
     fp8_max: float,
     margin: int,
     amax_compute_algo: str,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
     """Amax to scale conversion."""
 
     # Get amax from history.
-    amax_history, amax = _default_get_amax(
+    amax = _default_get_amax(
         amax_history,
         amax_compute_algo,
     )
 
     # Calculate new scaling factor.
-    return amax_history, _default_sf_compute(
+    return _default_sf_compute(
         amax,
         scale,
         fp8_max,
@@ -375,13 +367,11 @@ def fused_amax_and_scale_update(
 def _compute_amax(
     amax_history: torch.Tensor,
     recipe: DelayedScaling,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
     """Obtain the amax from the history."""
 
     if callable(recipe.amax_compute_algo):
-        amax = recipe.amax_compute_algo(amax_history)
-        amax_history = update_amax_history(amax_history)
-        return amax_history, amax
+        return recipe.amax_compute_algo(amax_history)
     return _default_get_amax(
         amax_history,
         recipe.amax_compute_algo,
@@ -406,6 +396,15 @@ def _compute_scaling_factor(
     return recipe.scaling_factor_compute_algo(amax, scale, fp8_max, recipe)
 
 
+def update_amax_history_index(
+    fp8_meta: Dict[str, Any],
+    fp8_meta_tensor_key: str
+):
+    if fp8_meta["recipe"].amax_history_len > 1:
+        fp8_meta[fp8_meta_tensor_key].amax_history_index.add_(1)
+        fp8_meta[fp8_meta_tensor_key].amax_history_index.remainder_(fp8_meta["recipe"].amax_history_len)
+
+
 def amax_and_scale_update(
     fp8_meta: Dict[str, Any],
     fwd_update: bool,
@@ -417,10 +416,7 @@ def amax_and_scale_update(
     fp8_max_key = "fp8_max_fwd" if fwd_update else "fp8_max_bwd"
 
     if not callable(amax_compute) and sf_compute is None:
-        (
-            fp8_meta[fp8_meta_tensor_key].amax_history,
-            fp8_meta[fp8_meta_tensor_key].scale,
-        ) = fused_amax_and_scale_update(
+        fp8_meta[fp8_meta_tensor_key].scale = fused_amax_and_scale_update(
             fp8_meta[fp8_meta_tensor_key].amax_history,
             fp8_meta[fp8_meta_tensor_key].scale,
             fp8_meta[fp8_max_key],
@@ -428,7 +424,7 @@ def amax_and_scale_update(
             fp8_meta["recipe"].amax_compute_algo,
         )
     else:
-        fp8_meta[fp8_meta_tensor_key].amax_history, amax = _compute_amax(
+        amax = _compute_amax(
             fp8_meta[fp8_meta_tensor_key].amax_history,
             fp8_meta["recipe"],
         )
@@ -438,6 +434,8 @@ def amax_and_scale_update(
             fp8_meta[fp8_max_key],
             fp8_meta["recipe"],
         )
+
+    update_amax_history_index(fp8_meta, fp8_meta_tensor_key)
 
 
 def get_fp8_te_dtype(

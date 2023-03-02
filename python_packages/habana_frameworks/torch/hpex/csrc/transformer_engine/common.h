@@ -37,6 +37,7 @@ class FP8TensorMeta {
   at::Tensor scale;
   at::Tensor scale_inv;
   at::Tensor amax_history;
+  at::Tensor amax_history_index;
 };
 
 // Used as named indices on the `scale`, `scale_inv`,
