@@ -1350,7 +1350,7 @@ run_pytorch_qa_tests()
        fi
 
        # Add support for pytest's record_property
-       opts="$opts -o junit_family=xunit2"
+       opts="$opts -o junit_family=xunit1"
 
        if [[ $_not_set_testpath -ne 1 ]]; then
           test_path="topologies_tests"
