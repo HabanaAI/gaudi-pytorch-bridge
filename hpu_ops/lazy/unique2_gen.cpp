@@ -16,15 +16,14 @@ namespace habana {
 FALLBACK_CHECK(
     Unique2FallbackCheck,
     const at::Tensor& self,
-    bool sorted,
     bool return_inverse,
     bool return_counts) {
   // Fallback as return_inverse & return_counts to true isn't supported
   if (((return_inverse || return_counts)) == true) {
     return false;
   }
-  // Fallback as sorted = True supports only for self with dim 1
-  else if (sorted && self.dim() != 1) {
+  // Fallback as TPC can support only upto 4D(1D to 4D)
+  else if (self.dim() > 4) {
     return false;
   } else
     return true;

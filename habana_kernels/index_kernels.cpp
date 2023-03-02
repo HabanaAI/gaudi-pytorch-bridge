@@ -2973,22 +2973,12 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(inputs[3].isBool() && "Input 3 is expected to be bool");
 
   bool sorted = inputs[1].toBool();
-  bool return_inverse = inputs[2].toBool();
-  bool return_counts = inputs[3].toBool();
 
   auto self = inputs[0].toTensor();
   int elements = self.numel();
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
 
-  if (sorted == true && self.dim() != 1) {
-    PT_KERNEL_WARN(
-        "Recieved sorted=True for input of dims not equal 1, ignoring as TPC kernel does not support it");
-  }
-  // Assert for return_inverse, return_counts as function expects extra output
-  // if set
-  HABANA_ASSERT((!return_inverse) && "return_inverse not supported in unique2");
-  HABANA_ASSERT((!return_counts) && "return_counts not supported in unique2");
 
   // The first output tensor contains unique elements.
   // The second output tensor contains the number of unique elements.
@@ -3017,7 +3007,7 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   params.returnInverse = 0;
   params.returnCounts = 0;
   params.sorted = 0;
-  if (self.dim() == 1)
+  if (self.dim() <= 4) // TPC can support only upto 4D(1D to 4D)
     params.sorted = sorted;
   // dim = -5 returns flattened result(unique elements over all dimesions)
   params.dim = -5;
