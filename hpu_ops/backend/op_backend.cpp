@@ -428,7 +428,10 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
   HandleScalarToTensor(*m_graph, stack);
-  HandleTypePromotion(*m_graph, stack);
+
+  if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
+    HandleTypePromotion(*m_graph, stack);
+  }
 
   AddNode(*m_graph, stack);
   m_meta_mode = false;
@@ -449,7 +452,10 @@ void OpBackend::AllocateAndAddSynapseNode(
   HandleOutFn(graph, stack);
 
   HandleScalarToTensor(graph, stack);
-  HandleTypePromotion(graph, stack);
+
+  if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
+    HandleTypePromotion(graph, stack);
+  }
 
   AddNode(graph, stack);
 }

@@ -1627,46 +1627,48 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     auto inputs = LazyOp<T>::get_inputs();
 
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
-    c10::optional<const at::IValue*> output = is_outfn_
-        ? c10::make_optional<const at::IValue*>(&inputs.back())
-        : c10::nullopt;
-    auto dtype_helper =
-        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-            inputs, output, safe_cast_check_);
+    if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
+      c10::optional<const at::IValue*> output = is_outfn_
+          ? c10::make_optional<const at::IValue*>(&inputs.back())
+          : c10::nullopt;
+      auto dtype_helper =
+          habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+              inputs, output, safe_cast_check_);
 
-    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
-    dst_dtype_ = dtype_helper.get_result_dtype();
+      auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+      dst_dtype_ = dtype_helper.get_result_dtype();
 
-    auto inputs_updated = false;
-    for (size_t i = 0; i < 2; ++i) {
-      if (!inputs[i].isTensor()) {
-        continue;
+      auto inputs_updated = false;
+      for (size_t i = 0; i < 2; ++i) {
+        if (!inputs[i].isTensor()) {
+          continue;
+        }
+        auto tensor_promote = inputs[i].toTensor();
+        if (compute_dtype == tensor_promote.scalar_type()) {
+          continue;
+        }
+
+        inputs_updated = true;
+        auto self = empty_hpu_lazy(
+            tensor_promote.sizes(),
+            tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
+            tensor_promote.suggest_memory_format(),
+            false);
+        self = copy_hpu_lazy_(self, tensor_promote, true);
+
+        // accumulation thread cannot release tensors as it can cause a
+        // deadlock with GIL
+        if (AccThread::Get().inAccThreadContext()) {
+          auto old_tensor = std::move(inputs[i]);
+          AccThread::Get().PushCleanupTask(
+              [old_tensor = std::move(old_tensor)]() {});
+        }
+        inputs[i] = self;
       }
-      auto tensor_promote = inputs[i].toTensor();
-      if (compute_dtype == tensor_promote.scalar_type()) {
-        continue;
+
+      if (inputs_updated) {
+        LazyOp<T>::set_inputs(inputs);
       }
-
-      inputs_updated = true;
-      auto self = empty_hpu_lazy(
-          tensor_promote.sizes(),
-          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
-          tensor_promote.suggest_memory_format(),
-          false);
-      self = copy_hpu_lazy_(self, tensor_promote, true);
-
-      // accumulation thread cannot release tensors as it can cause a
-      // deadlock with GIL
-      if (AccThread::Get().inAccThreadContext()) {
-        auto old_tensor = std::move(inputs[i]);
-        AccThread::Get().PushCleanupTask(
-            [old_tensor = std::move(old_tensor)]() {});
-      }
-      inputs[i] = self;
-    }
-
-    if (inputs_updated) {
-      LazyOp<T>::set_inputs(inputs);
     }
 
     PT_LAZY_DEBUG("binary op");
@@ -1684,47 +1686,50 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
-    // Perform type promotion and validate if promoted type can be casted to
-    // output data type.
-    auto output = c10::make_optional<const at::IValue*>(
-        is_outfn_ ? &inputs.back() : &inputs.front());
-    auto dtype_helper =
-        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-            inputs, output, safe_cast_check_);
 
-    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
-    dst_dtype_ = dtype_helper.get_result_dtype();
+    if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
+      // Perform type promotion and validate if promoted type can be casted to
+      // output data type.
+      auto output = c10::make_optional<const at::IValue*>(
+          is_outfn_ ? &inputs.back() : &inputs.front());
+      auto dtype_helper =
+          habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+              inputs, output, safe_cast_check_);
 
-    auto inputs_updated = false;
-    for (size_t i = 0; i < 2; ++i) {
-      if (!inputs[i].isTensor()) {
-        continue;
+      auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+      dst_dtype_ = dtype_helper.get_result_dtype();
+
+      auto inputs_updated = false;
+      for (size_t i = 0; i < 2; ++i) {
+        if (!inputs[i].isTensor()) {
+          continue;
+        }
+        auto tensor_promote = inputs[i].toTensor();
+        if (compute_dtype == tensor_promote.scalar_type()) {
+          continue;
+        }
+
+        inputs_updated = true;
+        auto self = empty_hpu_lazy(
+            tensor_promote.sizes(),
+            tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
+            tensor_promote.suggest_memory_format(),
+            false);
+        self = copy_hpu_lazy_(self, tensor_promote, true);
+
+        // accumulation thread cannot release tensors as it can cause a
+        // deadlock with GIL
+        if (AccThread::Get().inAccThreadContext()) {
+          auto old_tensor = std::move(inputs[i]);
+          AccThread::Get().PushCleanupTask(
+              [old_tensor = std::move(old_tensor)]() {});
+        }
+        inputs[i] = self;
       }
-      auto tensor_promote = inputs[i].toTensor();
-      if (compute_dtype == tensor_promote.scalar_type()) {
-        continue;
+
+      if (inputs_updated) {
+        LazyOp<T>::set_inputs(inputs);
       }
-
-      inputs_updated = true;
-      auto self = empty_hpu_lazy(
-          tensor_promote.sizes(),
-          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
-          tensor_promote.suggest_memory_format(),
-          false);
-      self = copy_hpu_lazy_(self, tensor_promote, true);
-
-      // accumulation thread cannot release tensors as it can cause a
-      // deadlock with GIL
-      if (AccThread::Get().inAccThreadContext()) {
-        auto old_tensor = std::move(inputs[i]);
-        AccThread::Get().PushCleanupTask(
-            [old_tensor = std::move(old_tensor)]() {});
-      }
-      inputs[i] = self;
-    }
-
-    if (inputs_updated) {
-      LazyOp<T>::set_inputs(inputs);
     }
 
     PT_LAZY_DEBUG("binary op inplace");
@@ -1740,47 +1745,50 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       at::Tensor& self) {
     auto inputs = LazyOp<T>::get_inputs();
     habana_lazy::ir::setCurrentModuleName(LazyOp<T>::get_module_name());
-    // Perform type promotion and validate if promoted type can be casted to
-    // output data type.
-    at::IValue ivalue(self);
-    auto output = c10::make_optional<const at::IValue*>(&ivalue);
-    auto dtype_helper =
-        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
-            inputs, output, safe_cast_check_);
 
-    auto compute_dtype = dtype_helper.get_common_dtype(false, false);
-    dst_dtype_ = dtype_helper.get_result_dtype();
+    if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
+      // Perform type promotion and validate if promoted type can be casted to
+      // output data type.
+      at::IValue ivalue(self);
+      auto output = c10::make_optional<const at::IValue*>(&ivalue);
+      auto dtype_helper =
+          habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+              inputs, output, safe_cast_check_);
 
-    auto inputs_updated = false;
-    for (size_t i = 0; i < 2; ++i) {
-      if (!inputs[i].isTensor()) {
-        continue;
+      auto compute_dtype = dtype_helper.get_common_dtype(false, false);
+      dst_dtype_ = dtype_helper.get_result_dtype();
+
+      auto inputs_updated = false;
+      for (size_t i = 0; i < 2; ++i) {
+        if (!inputs[i].isTensor()) {
+          continue;
+        }
+        auto tensor_promote = inputs[i].toTensor();
+        if (compute_dtype == tensor_promote.scalar_type()) {
+          continue;
+        }
+
+        inputs_updated = true;
+        auto self = empty_hpu_lazy(
+            tensor_promote.sizes(),
+            tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
+            tensor_promote.suggest_memory_format(),
+            false);
+        self = copy_hpu_lazy_(self, tensor_promote, true);
+
+        // accumulation thread cannot release tensors as it can cause a
+        // deadlock with GIL
+        if (AccThread::Get().inAccThreadContext()) {
+          auto old_tensor = std::move(inputs[i]);
+          AccThread::Get().PushCleanupTask(
+              [old_tensor = std::move(old_tensor)]() {});
+        }
+        inputs[i] = self;
       }
-      auto tensor_promote = inputs[i].toTensor();
-      if (compute_dtype == tensor_promote.scalar_type()) {
-        continue;
+
+      if (inputs_updated) {
+        LazyOp<T>::set_inputs(inputs);
       }
-
-      inputs_updated = true;
-      auto self = empty_hpu_lazy(
-          tensor_promote.sizes(),
-          tensor_promote.options().dtype(compute_dtype).device(at::kHPU),
-          tensor_promote.suggest_memory_format(),
-          false);
-      self = copy_hpu_lazy_(self, tensor_promote, true);
-
-      // accumulation thread cannot release tensors as it can cause a
-      // deadlock with GIL
-      if (AccThread::Get().inAccThreadContext()) {
-        auto old_tensor = std::move(inputs[i]);
-        AccThread::Get().PushCleanupTask(
-            [old_tensor = std::move(old_tensor)]() {});
-      }
-      inputs[i] = self;
-    }
-
-    if (inputs_updated) {
-      LazyOp<T>::set_inputs(inputs);
     }
 
     PT_LAZY_DEBUG("binary op");

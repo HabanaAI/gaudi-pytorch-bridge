@@ -421,6 +421,10 @@ ENV_STRUCT_DEFINITION(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING, bool, false);
 // Enable int64 support
 ENV_STRUCT_DEFINITION(PT_ENABLE_INT64_SUPPORT, bool, false);
 
+// Disable type promotion at bridge.
+// To disable it in bridge once CGUID supports type promotion.
+ENV_STRUCT_DEFINITION(PT_DISABLE_DTYPE_PROMOTION, bool, false);
+
 // Enable profiling synapse logs
 ENV_STRUCT_DEFINITION(PT_PROFILE_SYNAPSE_LOGS, bool, false);
 // Enable profiling bridge logs
