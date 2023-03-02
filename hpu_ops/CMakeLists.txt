@@ -169,6 +169,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/random_gen.cpp
           backend/reduce_std_var_gen.cpp
           backend/reduction_template.cpp
+          backend/reduction_template_cguid.cpp
           common/reduction_template.cpp
           backend/reflection_pad_gen.cpp
           backend/replication_pad_bwd_gen.cpp

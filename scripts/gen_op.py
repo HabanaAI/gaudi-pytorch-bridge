@@ -462,6 +462,8 @@ class Op(object):
         elif self.get_op_template():
             if self.get_op_template() == "reduction":
                 return "ReductionBackendTemplate"
+            elif self.get_op_template() == "reduction_cguid":
+                return "ReductionBackendTemplateCGUID"
             assert "Unknown template: {}".format(self.get_op_template())
         return "OpBackend"
 
@@ -470,7 +472,8 @@ class Op(object):
         if op_frontend_class:
             return op_frontend_class
         elif self.get_op_template():
-            if self.get_op_template() == "reduction":
+            # reduction FE template needs to be used even if we use CGUID. eg. to handle output dtype
+            if self.get_op_template() == "reduction" or self.get_op_template() == "reduction_cguid":
                 return "ReductionFrontendTemplate"
             assert "Unknown template: {}".format(self.get_op_template())
 
@@ -871,7 +874,7 @@ def frontend(
     # https://jira.habana-labs.com/browse/SW-111202
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
-    is_reduction = ctxop.get_op_template() == "reduction"
+    is_reduction = ctxop.get_op_template() == "reduction" or ctxop.get_op_template() == "reduction_cguid"
     safe_cast_check = ctxop.safe_cast_check()
 
     promote_types = promote_to_common_type or promote_int_to_float
@@ -1007,7 +1010,7 @@ def frontend(
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
             code += ", {}".format(output_shape_fn)
-        elif ctxop.get_op_template() == "reduction":
+        elif ctxop.get_op_template() == "reduction" or ctxop.get_op_template() == "reduction_cguid":
             dim = "dim" if "dim" in param_vars else "{}"
             keepdim = "keepdim" if "keepdim" in param_vars else "false"
             code += ", ReductionOutputShape(self, {}, {})".format(dim, keepdim)
@@ -1216,7 +1219,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
 
-    if ctxop.get_op_backend_class() == "ReductionBackendTemplate":
+    if ctxop.get_op_backend_class() == "ReductionBackendTemplate" or ctxop.get_op_backend_class() == "ReductionBackendTemplateCGUID":
         ctor_extra_calls.append(
             "SetReductionVarsIndices({});".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))
@@ -1488,8 +1491,7 @@ def generate_code(
         )
         # Allow reuse of reduction template for cpu fallback checks with override_fn
         skip_check |= (
-            ctxop.get_op_template() is not None
-            and ctxop.get_op_template() == "reduction"
+            ctxop.get_op_template() is not None and (ctxop.get_op_template() == "reduction" or ctxop.get_op_template() == "reduction_cguid")
         )
         assert (
             skip_check
@@ -1811,6 +1813,8 @@ def generate_op_backend_hclasses(fgens, classes, header_file):
     for fgen in fgens:
         fclass = fgen.ctxop.get_op_backend_class()
         if fclass.endswith("Template"):
+            continue
+        if fclass.endswith("TemplateCGUID"):
             continue
         if fclass != "OpBackend" and fclass not in classes.keys():
             code += "HPU_OP_BACKEND({})\n".format(fclass)
@@ -2219,6 +2223,7 @@ def generate_backend(fgens, fgen_files):
                 "\n"
                 '#include "hpu_ops/op_validator.h"\n'
                 '#include "hpu_ops/backend/reduction_template.h"\n'
+                '#include "hpu_ops/backend/reduction_template_cguid.h"\n'
             )
             print(
                 _CPP_HEADER.format(
