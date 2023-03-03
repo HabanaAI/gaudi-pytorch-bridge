@@ -537,10 +537,11 @@ void device::cleanup() {
   // The compilation is allowed to complete for graceful termination.
   habana::RefinementEngine::GetEngine().Shutdown();
 
-  // Wait for H2D copy tensors if any pending
-  for (auto& tensor : copy_tensor_set_) {
-    sem_.enqueue_wait_event(tensor.first, get_stream(tensor.second, DMA_H2D));
-  }
+  // Wait for all futures to finish.
+  // NOTE: If GIL is acquired by any other thread, there is a good chance that
+  // we will hang here. Make sure the call for cleanup is coming from the main
+  // python thread which has the GIL
+  sem_.wait_for_all_futures();
 
   flush_stream_events();
 
@@ -877,7 +878,6 @@ synapse_error device::copy_data_to_device(
         is_pinned,
         hpu_stream);
     submit_future(destination, std::move(copy_future));
-    copy_tensor_set_.insert(std::make_pair(destination, hpu_stream));
   } else { // Continue in the same main thread
     (void)device::copy_data_to_device_(
         cpu_data,

@@ -76,6 +76,20 @@ void stream_event_manager::wait_for_future(device_ptr device_address) {
   }
 }
 
+void stream_event_manager::wait_for_all_futures() {
+  PT_SYNHELPER_TRACE;
+  std::vector<device_ptr> device_addresses;
+  {
+    std::lock_guard<std::mutex> lock(future_mut_);
+    for (auto& fut : future_by_addr_) {
+      device_addresses.emplace_back(fut.first);
+    }
+  }
+  for (auto& dev_addr : device_addresses) {
+    wait_for_future(dev_addr);
+  }
+}
+
 void stream_event_manager::add_producer(
     std::vector<device_ptr>&& device_addresses,
     std::string event_id,

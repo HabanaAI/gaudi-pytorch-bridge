@@ -74,6 +74,7 @@ class stream_event_manager {
   void wait_until_done(device_ptr device_address);
   void wait_until_done(shared_event& event);
   void wait_until_done(const std::string& event);
+  void wait_for_all_futures();
 
   shared_event map_event_to_tensor(
       stream& stream,

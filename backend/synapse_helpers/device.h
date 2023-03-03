@@ -484,9 +484,6 @@ class device {
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};
 
-  std::set<std::pair<synapse_helpers::device_ptr, hpuStream_t>>
-      copy_tensor_set_{};
-
   // stream counter
   std::atomic<uint64_t> stream_index_{0};
 
