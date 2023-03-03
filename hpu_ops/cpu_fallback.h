@@ -135,6 +135,10 @@
   return dispatch_fallback<ATEN_OP(input)>::call( \
       OpSupportLevel::Value::unsupported, param2);
 
+#define FALLBACK_UNSUPPORTED_OP2_DTYPE(input, dtype, param2) \
+  return dispatch_fallback<ATEN_OP(input)>::call(            \
+      OpSupportLevel::Value::unsupported, dtype, param2);
+
 #define FALLBACK_UNSUPPORTED_OP2_O(input, param2, overload)  \
   return dispatch_fallback<ATEN_OP2(input, overload)>::call( \
       OpSupportLevel::Value::unsupported, param2);

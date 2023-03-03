@@ -1,4 +1,3 @@
-
 /*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
@@ -16,8 +15,10 @@
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "hpu_ops/cpu_fallback.h"
 
 using namespace at;
+using namespace habana;
 
 // *************************************************
 // This file contains list of symbols needed to link new frontend plugin, but
@@ -30,57 +31,74 @@ using namespace at;
 // *************************************************
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
-    const at::Tensor&,
-    double) {
-  EAGER_NOT_SUPPORTED;
+    const at::Tensor& input,
+    double eps) {
+  FALLBACK_UNSUPPORTED_OP2(batch_norm_stats, PARAMS2(input, eps));
 }
 
 at::Tensor hpu_wrap::batch_norm_elemt(
-    const at::Tensor&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const at::Tensor&,
-    const at::Tensor&,
-    double) {
-  EAGER_NOT_SUPPORTED;
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    double eps) {
+  FALLBACK_UNSUPPORTED_OP2(
+      batch_norm_elemt, PARAMS2(input, weight, bias, mean, invstd, eps));
 }
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::
     batch_norm_gather_stats_with_counts(
-        const at::Tensor&,
-        const at::Tensor&,
-        const at::Tensor&,
-        const c10::optional<at::Tensor>&,
-        const c10::optional<at::Tensor>&,
-        double,
-        double,
-        const at::Tensor&) {
-  EAGER_NOT_SUPPORTED;
+        const at::Tensor& input,
+        const at::Tensor& mean,
+        const at::Tensor& invstd,
+        const c10::optional<at::Tensor>& running_mean,
+        const c10::optional<at::Tensor>& running_var,
+        double momentum,
+        double eps,
+        const at::Tensor& counts) {
+  FALLBACK_UNSUPPORTED_OP2(
+      batch_norm_gather_stats_with_counts,
+      PARAMS2(
+          input,
+          mean,
+          invstd,
+          running_mean,
+          running_var,
+          momentum,
+          eps,
+          counts));
 }
 
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hpu_wrap::
     batch_norm_backward_reduce(
-        const at::Tensor&,
-        const at::Tensor&,
-        const at::Tensor&,
-        const at::Tensor&,
-        const c10::optional<at::Tensor>&,
-        bool,
-        bool,
-        bool) {
-  EAGER_NOT_SUPPORTED;
+        const at::Tensor& grad_out,
+        const at::Tensor& input,
+        const at::Tensor& mean,
+        const at::Tensor& invstd,
+        const c10::optional<at::Tensor>& weight,
+        bool input_g,
+        bool weight_g,
+        bool bias_g) {
+  FALLBACK_UNSUPPORTED_OP2(
+      batch_norm_backward_reduce,
+      PARAMS2(
+          grad_out, input, mean, invstd, weight, input_g, weight_g, bias_g));
 }
 
 at::Tensor hpu_wrap::batch_norm_backward_elemt(
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const c10::optional<at::Tensor>&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&) {
-  EAGER_NOT_SUPPORTED;
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    const c10::optional<at::Tensor>& weight,
+    const at::Tensor& mean_dy,
+    const at::Tensor& mean_dy_xmu,
+    const at::Tensor& count) {
+  FALLBACK_UNSUPPORTED_OP2(
+      batch_norm_backward_elemt,
+      PARAMS2(
+          grad_out, input, mean, invstd, weight, mean_dy, mean_dy_xmu, count));
 }
 
 Tensor hpu_wrap::_pin_memory(
@@ -90,57 +108,82 @@ Tensor hpu_wrap::_pin_memory(
 }
 
 at::Tensor hpu_wrap::repeat_interleave(
-    const at::Tensor&,
-    c10::optional<int64_t>) {
-  EAGER_NOT_SUPPORTED;
+    const at::Tensor& self,
+    c10::optional<int64_t> output_size) {
+  FALLBACK_UNSUPPORTED_OP2_O(
+      repeat_interleave, PARAMS2(self, output_size), Tensor);
 }
 
 Tensor hpu_wrap::_efficientzerotensor(
-    IntArrayRef,
-    c10::optional<ScalarType>,
-    c10::optional<Layout>,
-    c10::optional<Device>,
-    c10::optional<bool>) {
-  EAGER_NOT_SUPPORTED;
+    at::IntArrayRef size,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  FALLBACK_UNSUPPORTED_OP2_DTYPE(
+      _efficientzerotensor,
+      (dtype.has_value() ? dtype.value() : at::ScalarType::Float),
+      PARAMS2(size, dtype, layout, device, pin_memory));
 }
 
 Tensor& hpu_wrap::index_add_out(
-    const Tensor&,
-    int64_t,
-    const Tensor&,
-    const Tensor&,
-    const Scalar&,
-    Tensor&) {
-  EAGER_NOT_SUPPORTED;
+    const at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Tensor& source,
+    const at::Scalar& alpha,
+    at::Tensor& out) {
+  FALLBACK_UNSUPPORTED_OP2_O(
+      index_add, PARAMS2(self, dim, index, source, alpha, out), out);
 }
 
-Tensor& hpu_wrap::index_fill_(Tensor&, int64_t, const Tensor&, const Scalar&) {
-  EAGER_NOT_SUPPORTED;
+Tensor& hpu_wrap::index_fill_(
+    at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Scalar& value) {
+  FALLBACK_UNSUPPORTED_OP2_O(
+      index_fill_, PARAMS2(self, dim, index, value), int_Scalar);
 }
 
-Tensor& hpu_wrap::masked_select_out(const Tensor&, const Tensor&, Tensor&) {
-  EAGER_NOT_SUPPORTED;
+Tensor& hpu_wrap::masked_select_out(
+    const at::Tensor& self,
+    const at::Tensor& mask,
+    at::Tensor& out) {
+  FALLBACK_UNSUPPORTED_OP2_O(masked_select, PARAMS2(self, mask, out), out);
 }
 
-Tensor hpu_wrap::masked_select(const Tensor&, const Tensor&) {
-  EAGER_NOT_SUPPORTED;
+Tensor hpu_wrap::masked_select(const at::Tensor& self, const at::Tensor& mask) {
+  FALLBACK_UNSUPPORTED_OP2(masked_select, PARAMS2(self, mask));
 }
 
-Tensor& hpu_wrap::nonzero_out(const Tensor&, Tensor&) {
-  EAGER_NOT_SUPPORTED;
+Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
+  FALLBACK_UNSUPPORTED_OP2_O(nonzero, PARAMS2(self, out), out);
 }
 
 Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
-    const Tensor&,
-    const Tensor&,
-    IntArrayRef,
-    IntArrayRef,
-    IntArrayRef,
-    IntArrayRef,
-    bool,
-    const Tensor&,
-    Tensor&) {
-  EAGER_NOT_SUPPORTED;
+    const Tensor& grad_output,
+    const Tensor& input,
+    IntArrayRef kernel_size,
+    IntArrayRef stride,
+    IntArrayRef padding,
+    IntArrayRef dilation,
+    bool ceil_mode,
+    const Tensor& indices,
+    Tensor& grad_input) {
+  FALLBACK_UNSUPPORTED_OP2_O(
+      max_pool2d_with_indices_backward,
+      PARAMS2(
+          grad_output,
+          input,
+          kernel_size,
+          stride,
+          padding,
+          dilation,
+          ceil_mode,
+          indices,
+          grad_input),
+      grad_input);
 }
 
 // *************************************************
