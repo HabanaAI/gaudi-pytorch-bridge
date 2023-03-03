@@ -1157,7 +1157,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
         });
   }
 
-  if (!is_valid_hccl_dtype(data_type)) {
+  if (!is_valid_hccl_dtype(data_type) && out_scalar_t != at::kInt &&
+      out_scalar_t != at::kLong) {
     work->wait();
     outputTensor.copy_(alltoall_out_tensors.to(outputTensor.scalar_type()));
   }
