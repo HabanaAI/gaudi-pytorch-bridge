@@ -3244,7 +3244,6 @@ void OneHotOperator::AllocateAndAddSynapseNode(
 
 static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::gather_elements", KERNEL_FN(GatherElemOperator))
         .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))
         .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
         .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))

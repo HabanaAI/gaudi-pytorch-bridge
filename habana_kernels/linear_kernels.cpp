@@ -134,71 +134,6 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-void habana::AddmmOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      ((inputs.size() == 5) || (inputs.size() == 7)),
-      "Incorrect size of inputs expected for addmm operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg0 expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input arg1 expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input arg2 expected to be tensor");
-  TORCH_CHECK(inputs[3].isScalar(), "Input arg3 expected to be scalar");
-  TORCH_CHECK(inputs[4].isScalar(), "Input arg4 expected to be scalar");
-
-  auto self = inputs[0].toTensor();
-  auto mat1 = inputs[1].toTensor();
-  auto mat2 = inputs[2].toTensor();
-  auto beta = inputs[3].toScalar();
-  auto alpha = inputs[4].toScalar();
-
-  bool mat1_transposed = false;
-  bool mat2_transposed = false;
-  if (inputs.size() == 7) {
-    TORCH_CHECK(inputs[5].isBool(), "Input tranpose falg expected to be bool");
-    TORCH_CHECK(inputs[6].isBool(), "Input tranpose falg expected to be bool");
-    mat1_transposed = inputs[5].toBool();
-    mat2_transposed = inputs[6].toBool();
-  }
-  // TODO: implement support for non-default scalars
-  TORCH_CHECK(
-      beta.to<int>() == 1,
-      "matmul_with_bias_hpu doesn't support non-default scalars yet");
-  TORCH_CHECK(
-      alpha.to<int>() == 1,
-      "matmul_with_bias_hpu doesn't support non-default scalars yet");
-
-  auto device_id = p_context_->device_id_;
-
-  auto mm_op = make_operator<habana::MMOperator>(device_id);
-  {
-    // input1 = mat1, input2 = mat2
-    mm_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    mm_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-    torch::jit::Stack stack1 = {
-        c10::IValue(mat1), c10::IValue(mat2), mat1_transposed, mat2_transposed};
-    OutputMetaData mm_output_metadata{};
-    mm_output_metadata.dtype = output_metadata.at(0).dtype;
-    mm_op->AllocateAndAddSynapseNode(graph, stack1, {mm_output_metadata});
-  }
-
-  auto add_op =
-      make_operator<habana::AddOperator>(device_id, mat1.scalar_type());
-  {
-    // input1 = mat1, input2 = mat2
-    add_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    add_op->SetSynapseInput(mm_op->GetSynOutputs()[0]);
-    torch::jit::Stack stack1 = {
-        c10::IValue(self),
-        c10::IValue(mm_op->GetOutputs()[0]),
-        c10::IValue(c10::Scalar(1.0))};
-    add_op->AllocateAndAddSynapseNode(graph, stack1, output_metadata);
-  }
-  p_context_->syn_outputs_.emplace_back(std::move(add_op->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
-}
-
 void habana::BmmOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1767,7 +1702,6 @@ void habana::MatMulBwdOperator::AllocateAndAddSynapseNode(
 static auto& LinearKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
-        .add("hpu::addmm_t", KERNEL_FN(AddmmOperator))
         .add(
             "aten::matmul_backward",
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))

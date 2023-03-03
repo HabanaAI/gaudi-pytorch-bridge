@@ -39,24 +39,6 @@ class MMOperator : public HabanaOperator {
       bool other_transposed = false);
 };
 
-class AddmmOperator : public HabanaOperator {
- public:
-  AddmmOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "gemm_add_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 class BmmOutOperator : public HabanaOperator {
  public:
   BmmOutOperator(int device_id, c10::ScalarType scalarType)

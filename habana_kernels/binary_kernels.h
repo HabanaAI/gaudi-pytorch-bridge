@@ -139,16 +139,6 @@ class SubOperator : public BinaryWrapperOperatorWithAlpha {
   }
 };
 
-class RsubOperator : public SubOperator {
- public:
-  RsubOperator(int device_id, c10::ScalarType scalarType)
-      : SubOperator(device_id, scalarType) {}
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) final;
-};
-
 class RemainderOperator : public HabanaOperator {
  public:
   RemainderOperator(int device_id, c10::ScalarType scalarType)

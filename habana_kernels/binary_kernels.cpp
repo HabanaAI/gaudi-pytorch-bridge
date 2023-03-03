@@ -851,24 +851,6 @@ Tensor process_generic_tensor_binary_op(
   return out[0];
 }
 
-void habana::RsubOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3, "Incorrect size of input expected for add operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(
-      inputs[1].isTensor() || inputs[1].isScalar(),
-      "Input arg2 type expected to be a tensor or scalar");
-  TORCH_CHECK(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
-
-  // Swap the first and second members of inputs
-  inputs = {inputs[1], inputs[0], inputs[2]};
-  // Now invoke normal SubOperator
-  SubOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-}
-
 void habana::RemainderWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor quotient, remainder;
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
@@ -1085,5 +1067,4 @@ void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
 static auto& BinaryKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
-        .add("aten::add.Scalar", KERNEL_FN(AddOperator))
-        .add("hpu::rsub.Tensor", KERNEL_FN(RsubOperator));
+        .add("aten::add.Scalar", KERNEL_FN(AddOperator));
