@@ -120,6 +120,10 @@ void RecipeCache::store(
 
   size_t size;
   int fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
+  if (fd < 0 && errno == EACCES) {
+    PT_HABHELPER_WARN("Cannot open cache directory for writing.");
+    return;
+  }
   bool locked = cfHandler->fileLock(fd, true, size);
   if (!locked)
     PT_HABHELPER_WARN(
@@ -227,10 +231,13 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
   PT_HABHELPER_DEBUG(
       "Trying to exclusively create or open metadata file ", metadata_path);
   int fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
+  if (fd < 0 && errno == EACCES) {
+    fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDONLY);
+  }
   if (fd >= 0) {
     return try_lock_and_read(fd);
   } else {
-    PT_HABHELPER_FATAL(
+    PT_HABHELPER_WARN(
         "Could not open existing metadata file ",
         metadata_path,
         ", err: ",
