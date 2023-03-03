@@ -34,6 +34,7 @@
 
 using namespace torch;
 using namespace habana;
+
 std::vector<int64_t> CatOperator::compute_output_shape(
     const at::TensorList tensors,
     int64_t dim_) {
@@ -187,6 +188,7 @@ void CatOperator::AllocateAndAddSynapseNode(
   // Revert input stack
   inputs.pop_back();
 }
+
 /****************************************************************************
  * @brief Kernel implementation for N-D out = torch.transpose(self,dim0,dim1)
  * @param self - input
@@ -284,6 +286,7 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+namespace {
 inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
   switch (pt_type) {
     case c10::ScalarType::Float:
@@ -302,6 +305,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
       return false;
   }
 }
+} // namespace
 
 /*************************************************************************
  * @brief Kernel implementation for torch.Tensor.permute(dims)
@@ -350,6 +354,7 @@ OutputShapeInfRetType PermuteOperator::ComputeOutputShape(
       self.suggest_memory_format()));
   return out;
 }
+
 void PermuteOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,

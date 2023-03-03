@@ -320,101 +320,6 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
 
-OutputShapeInfRetType UpsampleBackwardOperator::ComputeOutputShape(
-    torch::jit::Stack& inputs) {
-  auto grad_output = inputs[0].toTensor();
-  std::vector<int64_t> grad_out_shape;
-  if (inputs[2].isTensor()) {
-    grad_out_shape = inputs[2].toTensor().sizes().vec();
-  } else {
-    grad_out_shape = inputs[2].toIntVector();
-  }
-
-  OutputShapeInfRetType out;
-  out.AddOutputTensor(TensorMetaData(
-      grad_out_shape,
-      HabanaOperator::CalculateStrides(
-          grad_out_shape, grad_output.suggest_memory_format()),
-      grad_output.scalar_type(),
-      grad_output.suggest_memory_format()));
-
-  return out;
-}
-
-void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  auto grad_output = inputs[0].toTensor();
-  TORCH_CHECK(
-      inputs[2].isIntList() || inputs[2].isTensor(),
-      "Input 2 can be either int list or shape tensor");
-  std::vector<int64_t> grad_out_shape;
-  if (inputs[2].isTensor()) {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_shape_tensor());
-    grad_out_shape = inputs[2].toTensor().sizes().vec();
-  } else {
-    grad_out_shape = inputs[2].toIntVector();
-  }
-
-  TORCH_CHECK(
-      grad_output.ndimension() == 4 || grad_output.ndimension() == 5,
-      "It is expected grad input tensor dimension equals to either 4 or 5, but got dim ",
-      grad_output.ndimension());
-
-  c10::optional<IntArrayRef> output_size;
-  c10::optional<at::ArrayRef<double>> scales;
-
-  auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
-  if (output_size1.has_value()) {
-    output_size =
-        c10::make_optional(at::ArrayRef<int64_t>(output_size1.value()));
-    scales = {};
-  }
-
-  auto scales1 = inputs[3].to<c10::optional<std::vector<double>>>();
-  if (scales1.has_value()) {
-    scales = c10::make_optional(at::ArrayRef<double>(scales1.value()));
-    output_size = {};
-  }
-
-  TORCH_CHECK(
-      output_size1.has_value() || scales1.has_value(),
-      "output_size and scales in UpsampleBackward are empty");
-
-  // TPC kernel runs only ChannelLast or ChannelLast3d format
-  // TPC kernel supports only 4D or 5D Tensor
-  c10::MemoryFormat memory_format =
-      habana_helpers::get_memory_format({&grad_output});
-  auto output = habana::createPTTensor(
-      grad_output,
-      grad_out_shape,
-      grad_output.options(),
-      memory_format,
-      output_metadata.at(0).persistent);
-
-  // Setup resize params, TF uses same
-  auto is_grad_input_5d = is_tensor_5d(grad_output.sizes().vec());
-  auto syn_resize_params = synapse_resize_params_builder(
-      RESIZE_INTER_NEAREST,
-      FLOOR,
-      ASYMMETRIC_MODE,
-      output_size,
-      scales,
-      is_grad_input_5d);
-
-  p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
-  p_context_->params_size_ = sizeof(syn_resize_params);
-
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph() && (false == inputs[2].isTensor())) {
-    AllocateSynapseShapeTensor(graph, output);
-  }
-
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
-}
-
 void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
@@ -434,20 +339,6 @@ void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       input.sizes().vec(), output_size, scales, tpc_memory_format);
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   auto output = at::empty(shape_out, input.options(), memory_format);
-  std::vector<at::Tensor> v{output};
-  HabanaOperator::SetPTOutputs(v);
-}
-
-void UpsampleBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  at::Tensor grad_output = inputs[0].toTensor();
-  auto grad_size = inputs[2].toIntList();
-  std::vector<int64_t> grad_out_shape = grad_size.vec();
-  auto is_grad_input_5d = is_tensor_5d(grad_output.sizes().vec());
-  // Set ChannelLast for 4D Tensor or ChannelLast3d for 5D Tensor
-  auto tpc_memory_format = is_grad_input_5d ? c10::MemoryFormat::ChannelsLast3d
-                                            : c10::MemoryFormat::ChannelsLast;
-  auto output =
-      at::empty(grad_out_shape, grad_output.options(), tpc_memory_format);
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
 }

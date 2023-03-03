@@ -25,33 +25,6 @@ at::Tensor pin_memory_hpu(
     const at::Tensor& self,
     c10::optional<at::Device> device);
 
-//
-// Function to adjust and set the correct memory format
-// for pytorch tensor
-void adjustPTSizes(at::Tensor& t);
-
-//
-// Function to check if the tensor is channels last format
-bool copy_transpose_valid(const at::Tensor& self, const at::Tensor& src);
-
-//
-// ToDtype Operator
-class ToDtypeOperator : public habana::HabanaOperator {
- public:
-  ToDtypeOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("to_dtype") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-
-  // virtual void SetPTOutput(torch::jit::Stack& inputs) override;
-};
-
 // As Strided Layout
 class AsStridedLayoutOperator : public habana::HabanaOperator {
  public:

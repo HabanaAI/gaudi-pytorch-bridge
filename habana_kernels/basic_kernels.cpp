@@ -40,7 +40,8 @@
 using namespace torch;
 using namespace habana;
 
-static void print_stride_warning(const Tensor& src, const Tensor& dst) {
+namespace {
+void print_stride_warning(const Tensor& src, const Tensor& dst) {
   if (src.strides() != dst.strides())
     PT_KERNEL_DEBUG(
         "src device: ",
@@ -146,7 +147,7 @@ void do_copy_transpose(Tensor& dst, const Tensor& src) {
   adjustPTSizes(dst);
 }
 
-static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
+void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
   // Nothing to do if copy is triggered with same src & dst addresses
   // it actually triggers an assert on func_sim if we trigger this DMA
   // therefore return without doing anything. (this case seen with Mask R-CNN
@@ -195,6 +196,8 @@ static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
     }
   }
 }
+
+} // namespace
 
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(
@@ -272,79 +275,91 @@ Tensor& copy_hpu_(
   return dst;
 }
 
-void ToDtypeOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const habana::OutputMetaDataVector& output_metadata) {
-  // This function can handle following 2 schemas only:
-  // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
-  // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
-  // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool
-  // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
-  // Tensor
-  TORCH_CHECK(
-      inputs.size() >= 5,
-      "Incorrect size of inputs expected for cast operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for toDtype operator");
-
-  if (inputs.size() == 6) {
-    // Erase device information to unify subsequent code for both schemas.
-    // Should be ok since we come here only for Habana device
-    inputs.erase(inputs.cbegin() + 1);
+//
+// ToDtype Operator
+class ToDtypeOperator : public habana::HabanaOperator {
+ public:
+  ToDtypeOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("to_dtype") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
   }
 
-  auto self = inputs[0].toTensor();
-  auto type = inputs[1].toScalarType();
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const habana::OutputMetaDataVector& output_metadata) override {
+    // This function can handle following 2 schemas only:
+    // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
+    // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
+    // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool
+    // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
+    // Tensor
+    TORCH_CHECK(
+        inputs.size() >= 5,
+        "Incorrect size of inputs expected for cast operator");
+    TORCH_CHECK(
+        inputs[0].isTensor(),
+        "Input arg1 expected to be tensor for toDtype operator");
 
-  // Determine cast node_type to use based on src & dst dtypes
-  std::string node_type;
+    if (inputs.size() == 6) {
+      // Erase device information to unify subsequent code for both schemas.
+      // Should be ok since we come here only for Habana device
+      inputs.erase(inputs.cbegin() + 1);
+    }
 
-  if ((type != self.scalar_type()) &&
-      !((type == c10::ScalarType::Char &&
-         self.scalar_type() == c10::ScalarType::Bool) ||
-        (type == c10::ScalarType::Bool &&
-         self.scalar_type() == c10::ScalarType::Char))) {
-    std::pair<c10::ScalarType, c10::ScalarType> type_key{
-        self.scalar_type(), type};
+    auto self = inputs[0].toTensor();
+    auto type = inputs[1].toScalarType();
 
-    auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
-    HABANA_ASSERT(
-        node_type_opt.has_value() &&
-            "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
-        self.scalar_type(),
-        " -> ",
-        type);
-    node_type = std::move(node_type_opt.value());
-  } else {
-    // Cases where a simple copy is being done (input_new = input) come as .to
-    // call with same input & output data types. we add a identity node to
-    // graph to handle this
-    auto memcopyOp = make_operator<IdentityOperator>(
-        self.device().index(), self.scalar_type());
-    memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    // Determine cast node_type to use based on src & dst dtypes
+    std::string node_type;
 
-    torch::jit::Stack stack = {IValue(self)};
-    memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+    if ((type != self.scalar_type()) &&
+        !((type == c10::ScalarType::Char &&
+           self.scalar_type() == c10::ScalarType::Bool) ||
+          (type == c10::ScalarType::Bool &&
+           self.scalar_type() == c10::ScalarType::Char))) {
+      std::pair<c10::ScalarType, c10::ScalarType> type_key{
+          self.scalar_type(), type};
 
-    p_context_->syn_outputs_.emplace_back(
-        std::move(memcopyOp->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp->GetOutputs()[0]));
-    return;
+      auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
+      HABANA_ASSERT(
+          node_type_opt.has_value() &&
+              "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
+          self.scalar_type(),
+          " -> ",
+          type);
+      node_type = std::move(node_type_opt.value());
+    } else {
+      // Cases where a simple copy is being done (input_new = input) come as .to
+      // call with same input & output data types. we add a identity node to
+      // graph to handle this
+      auto memcopyOp = make_operator<IdentityOperator>(
+          self.device().index(), self.scalar_type());
+      memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+
+      torch::jit::Stack stack = {IValue(self)};
+      memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+
+      p_context_->syn_outputs_.emplace_back(
+          std::move(memcopyOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(memcopyOp->GetOutputs()[0]));
+      return;
+    }
+
+    // we do not care about last 3 entries dtype conversion, so throw them away
+    inputs.pop_back();
+    inputs.pop_back();
+    inputs.pop_back();
+
+    auto Op = make_operator<CastOperator>(self.device().index(), node_type);
+    Op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    Op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+    p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
   }
-
-  // we do not care about last 3 entries dtype conversion, so throw them away
-  inputs.pop_back();
-  inputs.pop_back();
-  inputs.pop_back();
-
-  auto Op = make_operator<CastOperator>(self.device().index(), node_type);
-  Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  Op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
-}
+};
 
 OutputShapeInfRetType MemCopyOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
@@ -598,11 +613,13 @@ void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+namespace {
 static inline Device ensure_has_index(c10::optional<at::Device> device) {
   const c10::impl::DeviceGuardImplInterface* impl =
       c10::impl::getDeviceGuardImpl((*device).type());
   return impl->getDevice();
 }
+} // namespace
 
 bool is_pinned_hpu(const Tensor& self, c10::optional<at::Device> device) {
   ensure_has_index(device);
@@ -881,6 +898,7 @@ bool StridedInsertOperator::verifyViewMemoryAccess(
   return true;
 }
 
+namespace {
 // For Memory Reuse case even though stack size if 4
 // would not mean tensor[3] is strides, in that case
 // need to check if tensor[3] is shape tensor to be sure
@@ -1075,6 +1093,7 @@ std::vector<int64_t> GetStridedInsertOperatorStrides(
   }
   return strides;
 }
+} // namespace
 
 void StridedInsertOperator::compute_params_h2d(
     synStridedOpParams& params,
@@ -1399,6 +1418,7 @@ bool StridedViewOperator::verifyViewMemoryAccess(
   return true;
 }
 
+namespace {
 std::vector<int64_t> GetStridedViewOperatorStrides(
     torch::jit::Stack& inputs,
     bool graph_dry_run) {
@@ -1426,6 +1446,7 @@ std::vector<int64_t> GetStridedViewOperatorStrides(
   }
   return strides;
 }
+} // namespace
 
 OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {

@@ -39,9 +39,6 @@
 #include "habana_lazy/ops/shape_ops.h"
 
 namespace habana_lazy {
-enum Bool : unsigned short { bFalse = 0, bTrue = 1 };
-at::Tensor permute_wt_hpu(const at::Tensor& self);
-void AddMemcpy(const at::Tensor& src, at::Tensor& dst);
 at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor);
 void updateDstDependencies(const at::Tensor& dst);
 
@@ -71,10 +68,6 @@ ir::NodePtr create_as_strided_node(
     c10::optional<int64_t> storage_offset,
     bool is_out = false);
 
-/* Debug API to dump memory stats of View Table. */
-void dumpViewTableMemoryStat();
-
-void flushWithMarkStep();
 bool is_inplace(at::Symbol symbol);
 
 void InitSizesAndStrides(

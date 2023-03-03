@@ -73,40 +73,6 @@ class ReduceOperator : public HabanaOperator {
 };
 
 //
-// MeanDimOutOperator Operator
-class MeanDimOutOperator : public ReduceOperator {
- public:
-  MeanDimOutOperator(int device_id, const std::string& guid)
-      : ReduceOperator(device_id, guid) {}
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-//
-// MeanDim Operator
-class MeanDimOperator : public ReduceOperator {
- public:
-  MeanDimOperator(int device_id, c10::ScalarType scalar_type)
-      : ReduceOperator(
-            device_id,
-            "reduce_mean_fwd_" +
-                habana_helpers::name_suffix_from_type(scalar_type)) {
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-//
 // Mean Operator
 class MeanOperator : public ReduceOperator {
  public:
@@ -131,24 +97,6 @@ class MeanOperator : public ReduceOperator {
 class ProdDimOperator : public ReduceOperator {
  public:
   ProdDimOperator(int device_id, c10::ScalarType scalarType)
-      : ReduceOperator(
-            device_id,
-            "reduce_prod_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-//
-// Prod Operator
-class ProdOperator : public ReduceOperator {
- public:
-  ProdOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
             "reduce_prod_fwd_" +
@@ -254,40 +202,6 @@ class GradSumToSizeOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-//
-// ArgMax Operator
-class ArgMaxOperator : public ReduceOperator {
- public:
-  ArgMaxOperator(int device_id, c10::ScalarType scalarType)
-      : ReduceOperator(
-            device_id,
-            "argmax_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-class AllOutOperator : public HabanaOperator {
- public:
-  AllOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_all" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
 // Reduce Sum Backward Operator.
 class ReduceSumBwdOperator : public HabanaOperator {
  public:

@@ -31,6 +31,8 @@
 using namespace torch;
 
 using namespace habana;
+
+namespace {
 // ensure we get good values and indices for topk
 inline void _allocate_or_resize_output_with_indices(
     Tensor& values,
@@ -77,6 +79,8 @@ inline void _allocate_or_resize_output_with_indices(
         at::empty(result_sizes, self.options().dtype(c10::ScalarType::Int));
   }
 }
+} // namespace
+
 OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   OutputShapeInfRetType out;
@@ -114,6 +118,7 @@ OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
       self.suggest_memory_format()));
   return out;
 }
+
 void TopkOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -361,6 +366,7 @@ OutputShapeInfRetType TopkOperator::ComputeOutputShape(
   }
   return out;
 }
+
 void TopkOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -406,72 +412,6 @@ void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       true);
-
-  inputs.push_back(IValue(values));
-  inputs.push_back(IValue(indices));
-
-  TopkOutOperator::SetPTOutputs(inputs);
-}
-
-void SortOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for sort operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for sort operator");
-  TORCH_CHECK(
-      inputs[1].isInt(),
-      "Input arg2 expected to be of type Int for sort operator");
-  TORCH_CHECK(
-      inputs[2].isBool(),
-      "Input arg3 expected to be of type Bool for sort operator");
-  TORCH_CHECK(
-      output_metadata.size() == 2,
-      "SortOperator: #output_metadata should be 2");
-
-  Tensor self = inputs[0].toTensor();
-  int64_t dim_ = inputs[1].toInt();
-  bool sorted = true; // topk supports only sorted output
-
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
-  inputs.emplace_back(IValue(sorted));
-
-  auto values = habana::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  auto indices = habana::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      output_metadata.at(1).persistent);
-
-  inputs.push_back(IValue(values));
-  inputs.push_back(IValue(indices));
-
-  TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-}
-
-void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  Tensor self = inputs[0].toTensor();
-  int64_t dim_ = inputs[1].toInt();
-  bool sorted = true; // topk supports only sorted output
-
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
-  inputs.emplace_back(IValue(sorted));
-
-  Tensor values = at::empty({0}, self.options());
-  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
 
   inputs.push_back(IValue(values));
   inputs.push_back(IValue(indices));

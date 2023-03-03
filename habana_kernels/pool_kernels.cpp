@@ -34,7 +34,7 @@ using namespace habana;
 
 namespace { // Copy paste from ATen/native/Pool.h
 template <typename dest_t, typename src_t>
-static inline dest_t safe_downcast(src_t v) {
+inline dest_t safe_downcast(src_t v) {
   TORCH_CHECK(
       std::numeric_limits<dest_t>::min() <= v &&
           v <= std::numeric_limits<dest_t>::max(),
@@ -237,6 +237,7 @@ std::vector<int64_t> PoolHelper::compute_output_shape_synapse(
   return outshape;
 }
 
+namespace {
 /**
  * @brief Fill generic pooling params structure
  */
@@ -270,6 +271,7 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
 
   return pool_params;
 }
+} // namespace
 
 OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
@@ -305,25 +307,6 @@ OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
       input.suggest_memory_format()));
 
   return out;
-}
-
-/**
- * @brief Fill Average pooling params structure
- */
-ns_AveragePooling::Params synapse_avg_pool_params_builder(
-    const IntArrayRef& kernel_size, // HW
-    const IntArrayRef& stride, // HW
-    const IntArrayRef& padding, // HW
-    const IntArrayRef& dilation, // HW
-    int include_padding) {
-  ns_SpatialReduction::Params* pt_pool_params;
-  ns_AveragePooling::Params avg_pool_params{};
-  pt_pool_params = &avg_pool_params;
-  *pt_pool_params = synapse_pool_params_builder(
-      kernel_size, stride, padding, dilation, false);
-  avg_pool_params.includePadding = include_padding;
-
-  return avg_pool_params;
 }
 
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
@@ -412,86 +395,6 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   }
 }
 
-habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOutOperator::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
-  at::Tensor grad_input = inputs[0].toTensor();
-
-  OutputShapeInfRetType out;
-  auto tensor_meta_data = TensorMetaData(
-      grad_input.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          grad_input.sizes().vec(), grad_input.suggest_memory_format()),
-      grad_input.scalar_type(),
-      grad_input.suggest_memory_format());
-  // output tensor
-  out.AddOutputTensor(tensor_meta_data);
-  out.AddShapeTensor(tensor_meta_data);
-  return out;
-}
-
-void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 9,
-      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOutOperator");
-  TORCH_CHECK(inputs[0].isTensor(), "First input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Third input type expected to be tensor");
-  TORCH_CHECK(inputs[3].isTensor(), "Fourth input type expected to be tensor");
-  TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
-  TORCH_CHECK(inputs[5].isIntList(), "Sixth input type expected to be IntList");
-  TORCH_CHECK(
-      inputs[6].isIntList(), "Seventh input type expected to be IntList");
-  TORCH_CHECK(
-      inputs[7].isIntList(), "Eighth input type expected to be IntList");
-  TORCH_CHECK(inputs[8].isBool(), "Ninth input type expected to be Bool");
-
-  at::Tensor grad_input = inputs[0].toTensor();
-  at::Tensor grad_out = inputs[1].toTensor();
-  at::Tensor input = inputs[2].toTensor();
-  at::Tensor indices = inputs[3].toTensor();
-  const auto kernel_size = inputs[4].toIntList().vec();
-  const auto stride = inputs[5].toIntList().vec();
-  const auto padding = inputs[6].toIntList().vec();
-  const auto dilation = inputs[7].toIntList().vec();
-  bool ceil_mode = inputs[8].toBool();
-
-  // Setup pool params
-  auto syn_pool_params = synapse_pool_params_builder(
-      kernel_size, stride, padding, dilation, ceil_mode);
-
-  p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
-  p_context_->params_size_ = sizeof(syn_pool_params);
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-  std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-  TORCH_CHECK(
-      grad_out.sizes().vec() == expected_output_size,
-      " expected:",
-      grad_out.sizes().vec(),
-      " but got: ",
-      expected_output_size);
-  TORCH_CHECK(input.sizes() == grad_input.sizes());
-  TORCH_CHECK(grad_out.sizes() == indices.sizes());
-
-  TORCH_CHECK(
-      (indices.scalar_type() == c10::ScalarType::Byte) ||
-      (indices.scalar_type() == c10::ScalarType::Short));
-
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, grad_input);
-  }
-
-  AllocateSynapseOutput(graph, {grad_input}, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
-}
-
 void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -520,283 +423,6 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       input.options().dtype(type));
   std::vector<at::Tensor> v{output_nhwc, output_idx_nhwc};
   HabanaOperator::SetPTOutputs(v);
-}
-
-void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
-    torch::jit::Stack& inputs) {
-  at::Tensor grad_input = inputs[0].toTensor();
-  at::Tensor grad_out = inputs[1].toTensor();
-  at::Tensor input = inputs[2].toTensor();
-  at::Tensor indices = inputs[3].toTensor();
-  const auto kernel_size = inputs[4].toIntList().vec();
-  const auto stride = inputs[5].toIntList().vec();
-  const auto padding = inputs[6].toIntList().vec();
-  const auto dilation = inputs[7].toIntList().vec();
-  bool ceil_mode = inputs[8].toBool();
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-  std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-  TORCH_CHECK(
-      grad_out.sizes().vec() == expected_output_size,
-      " expected: ",
-      grad_out.sizes().vec(),
-      " but got: ",
-      expected_output_size);
-  TORCH_CHECK(input.sizes() == grad_input.sizes());
-  TORCH_CHECK(grad_out.sizes() == indices.sizes());
-
-  TORCH_CHECK(
-      (indices.scalar_type() == c10::ScalarType::Byte) ||
-      (indices.scalar_type() == c10::ScalarType::Short));
-  std::vector<at::Tensor> v{grad_input};
-  HabanaOperator::SetPTOutputs(v);
-}
-
-habana::OutputShapeInfRetType MaxPool2dWithIndicesBackwardOperator::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
-  at::Tensor input = inputs[1].toTensor();
-  auto grad_input = habana::createPTTensor(input, false);
-
-  // Re-order the inputs for:
-  // MaxPool2dWithIndicesBackwardOutOperator in the below order:
-  // {grad_input, grad_out, input, indices, kernel_size, stride, padding,
-  //  dialation, ceil_mode}
-  inputs.insert(inputs.begin(), IValue(grad_input));
-  auto& indices = inputs.back();
-  inputs.insert(inputs.begin() + 3, indices);
-  inputs.pop_back();
-  return MaxPool2dWithIndicesBackwardOutOperator::ComputeOutputShape(inputs);
-}
-
-void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 8,
-      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
-  TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
-
-  at::Tensor input = inputs[1].toTensor();
-  auto grad_input =
-      habana::createPTTensor(input, output_metadata.at(0).persistent);
-
-  // Re-order the inpust for:
-  // MaxPool2dWithIndicesBackwardOutOperator in the below order:
-  // {grad_input, grad_out, input, indices, kernel_size, stride, padding,
-  //  dialation, ceil_mode}
-  inputs.insert(inputs.begin(), IValue(grad_input));
-  auto& indices = inputs.back();
-  inputs.insert(inputs.begin() + 3, indices);
-  inputs.pop_back();
-
-  MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, output_metadata);
-
-  // Revert to the original input stack
-  inputs.push_back(indices);
-  inputs.erase(inputs.begin() + 3);
-  inputs.erase(inputs.begin());
-}
-
-void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
-    torch::jit::Stack& inputs) {
-  TORCH_CHECK(
-      inputs.size() == 8,
-      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
-  TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
-
-  at::Tensor input = inputs[1].toTensor();
-  auto grad_input =
-      at::empty_like(input, input.options(), input.suggest_memory_format());
-  inputs.insert(inputs.begin(), IValue(grad_input));
-  auto& indices = inputs.back();
-  inputs.insert(inputs.begin() + 3, indices);
-  inputs.pop_back();
-
-  MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(inputs);
-}
-
-void AvgPool2dOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isIntList(), "Input1 type expected to be IntList");
-  TORCH_CHECK(inputs[2].isIntList(), "Input2 type expected to be IntList");
-  TORCH_CHECK(inputs[3].isIntList(), "Input3 type expected to be IntList");
-  TORCH_CHECK(inputs[4].isBool(), "Input4 type expected to be Bool");
-  TORCH_CHECK(inputs[5].isBool(), "Input5 type expected to be Bool");
-
-  at::Tensor input = inputs[0].toTensor();
-  const auto kernel_size = inputs[1].toIntList().vec();
-  const auto stride = inputs[2].toIntList().vec();
-  const auto padding = inputs[3].toIntList().vec();
-  auto ceil_mode = inputs[4].toBool();
-  auto count_include_pad = inputs[5].toBool();
-  auto divisor_override = inputs[6].toOptional<int64_t>();
-
-  TORCH_CHECK(
-      !divisor_override.has_value(),
-      "avgpool_2d: divisor override is not supported");
-
-  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
-  // values
-  std::vector<int64_t> d{1, 1};
-  IntArrayRef dilation(d.data(), d.size());
-
-  // Setup pool params
-  auto syn_pool_params = synapse_avg_pool_params_builder(
-      kernel_size, stride, padding, dilation, count_include_pad);
-
-  p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
-  p_context_->params_size_ = sizeof(syn_pool_params);
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-  // Setup output tensors
-  auto output_nhwc = habana::createPTTensor(
-      input,
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options(),
-      input.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-
-  AllocateSynapseOutput(graph, output_nhwc, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
-}
-
-void AvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  at::Tensor input = inputs[0].toTensor();
-  const auto kernel_size = inputs[1].toIntList().vec();
-  const auto stride = inputs[2].toIntList().vec();
-  const auto padding = inputs[3].toIntList().vec();
-  auto ceil_mode = inputs[4].toBool();
-  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
-  // values
-  std::vector<int64_t> d{1, 1};
-  IntArrayRef dilation(d.data(), d.size());
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-  // Setup output tensors
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options());
-  std::vector<at::Tensor> v{output_nhwc};
-  HabanaOperator::SetPTOutputs(v);
-}
-
-void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input2 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isIntList(), "Input3 type expected to be IntList");
-  TORCH_CHECK(inputs[4].isIntList(), "Input4 type expected to be IntList");
-  TORCH_CHECK(inputs[5].isIntList(), "Input5 type expected to be IntList");
-  TORCH_CHECK(inputs[6].isBool(), "Input6 type expected to be Bool");
-  TORCH_CHECK(inputs[7].isBool(), "Input7 type expected to be Bool");
-
-  at::Tensor grad_input_nhwc = inputs[0].toTensor();
-  at::Tensor grad_out_nhwc = inputs[1].toTensor();
-  at::Tensor input_nhwc = inputs[2].toTensor();
-  const auto kernel_size = inputs[3].toIntList().vec();
-  const auto stride = inputs[4].toIntList().vec();
-  const auto padding = inputs[5].toIntList().vec();
-  auto ceil_mode = inputs[6].toBool();
-  auto count_include_pad = inputs[7].toBool();
-  auto divisor_override = inputs[8].toOptional<int64_t>();
-
-  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
-  // values
-  std::vector<int64_t> d{1, 1};
-  IntArrayRef dilation(d.data(), d.size());
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
-  std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-
-  TORCH_CHECK(
-      !divisor_override.has_value(),
-      "avgpool_2d: divisor override is not supported");
-  TORCH_CHECK(
-      input_nhwc.sizes() == grad_input_nhwc.sizes(),
-      "Input and grad_input sizes don't match");
-  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
-
-  // Setup pool params
-  auto syn_pool_params = synapse_avg_pool_params_builder(
-      kernel_size, stride, padding, dilation, count_include_pad);
-
-  p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
-  p_context_->params_size_ = sizeof(syn_pool_params);
-
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    AllocateSynapseShapeTensor(graph, grad_input_nhwc);
-  }
-
-  AllocateSynapseOutput(graph, grad_input_nhwc, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
-}
-
-void AvgPool2dBackwardOutOperator::SetPTOutputs(Stack& inputs) {
-  at::Tensor grad_input_nhwc = inputs[0].toTensor();
-  at::Tensor grad_out_nhwc = inputs[1].toTensor();
-  at::Tensor input_nhwc = inputs[2].toTensor();
-  const auto kernel_size = inputs[3].toIntList().vec();
-  const auto stride = inputs[4].toIntList().vec();
-  const auto padding = inputs[5].toIntList().vec();
-  auto ceil_mode = inputs[6].toBool();
-
-  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
-  // values
-  std::vector<int64_t> d{1, 1};
-  IntArrayRef dilation(d.data(), d.size());
-
-  auto out_shape = PoolHelper::compute_output_shape(
-      input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
-  std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-
-  TORCH_CHECK(
-      input_nhwc.sizes() == grad_input_nhwc.sizes(),
-      "Input and grad_input sizes don't match");
-  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
-  std::vector<at::Tensor> v{grad_input_nhwc};
-  HabanaOperator::SetPTOutputs(v);
-}
-
-void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
-
-  at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc =
-      habana::createPTTensor(input_nhwc, output_metadata.at(0).persistent);
-
-  inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
-  AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, output_metadata);
-}
-
-void AvgPool2dBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = at::empty_like(input_nhwc, input_nhwc.options());
-
-  inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
-  AvgPool2dBackwardOutOperator::SetPTOutputs(inputs);
 }
 
 static auto& PoolKernelsKernelRegistry = habana::KernelRegistry().add(

@@ -132,13 +132,11 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/pool_kernels.cpp
   habana_kernels/random_gen_kernels.cpp
   habana_kernels/reduction_kernels.cpp
-  habana_kernels/reduction2_kernels.cpp
   habana_kernels/repeat.cpp
   habana_kernels/roi_align_kernels.cpp
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp
-  habana_kernels/triangular_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
   habana_kernels/upsample_kernels.cpp
@@ -250,14 +248,12 @@ add_library(habana_pytorch2_plugin SHARED
   habana_kernels/pool_kernels.cpp
   habana_kernels/random_gen_kernels.cpp
   habana_kernels/reduction_kernels.cpp
-  habana_kernels/reduction2_kernels.cpp
   habana_kernels/repeat.cpp
   habana_kernels/roi_align_kernels.cpp
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
-  habana_kernels/triangular_kernels.cpp
   habana_kernels/unary_kernels.cpp
   habana_kernels/upsample_kernels.cpp
   habana_lazy/aten_lazy_bridge.cpp

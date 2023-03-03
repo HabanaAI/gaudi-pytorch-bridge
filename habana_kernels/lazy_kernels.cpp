@@ -66,8 +66,53 @@
 using namespace habana;
 using namespace at;
 
+namespace {
+void AddMemcpy(const Tensor& src, Tensor& dst) {
+  using namespace habana_lazy;
+  if ((src.numel() < dst.numel()) || (src.dim() < dst.dim())) {
+    // using crude check of numel() to determine broadcast scenario to avoid
+    // increase in host time
+    auto t = dst;
+    auto t_opt = c10::make_optional(t);
+    HbLazyTensorViews::add_expand_lazy(
+        src, dst.sizes().vec(), false /*implicit*/, t_opt);
+    return;
+  }
+
+  auto hl_dst = GetOrCreateHbLazyTensor(dst);
+  auto hl_src = GetHbLazyTensor(src);
+  // add control edge to avoid GC error " writing to already
+  // registered graph output"
+
+  // Add a control edge for habana_d2d_memcpy_other second input
+  // as it may cause wrong order of execution, as shown below -
+  //   z = add(x, i)
+  //   x' = habana_d2d_memcpy_other(y, x)
+  // Here, x is an input, but habana_d2d_memcpy_other actually updates
+  // x and hence should come after add with a control edge
+  updateDstDependencies(dst);
+
+  auto copy_node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_src.GetIrValue(), hl_dst.GetIrValue()});
+
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      dst.device().index());
+  context->RegisterTensor(hl_dst.getDataPtr());
+  hl_dst.IrSetNode(copy_node);
+  std::vector<at::Tensor> input_pt_vec;
+  input_pt_vec.push_back(src);
+  input_pt_vec.push_back(dst);
+  copy_node->AddInputPtTensors(input_pt_vec);
+  flush_op(1);
+}
+} // namespace
+
 namespace habana_lazy {
-static std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
+const std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
 void print_tensor_debug(const torch::Tensor& src) {
   static const std::string marker = "********************\n";
@@ -118,23 +163,7 @@ bool is_inplace(at::Symbol symbol) {
   return is_inplace;
 }
 
-void dumpViewTableMemoryStat() {
-  PT_LAZY_TRACE;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-
-  PT_VIEWTABLE_DEBUG(
-      "[ViewTable MemStats] #view_table map size: ",
-      context->viewContext.viewTableSize(),
-      ", total bytes: ",
-      context->viewContext.viewTableBytes());
-
-  PT_VIEWTABLE_DEBUG(
-      "[ViewTable MemStats] #orig_tensor_map map size: ",
-      context->viewContext.tensorMapSize(),
-      ", total bytes: ",
-      context->viewContext.tensorMapBytes());
-}
-
+namespace {
 void flushWithMarkStep() {
   // Generate a random number and invoke the mark_step
   static std::once_flag flag;
@@ -160,6 +189,7 @@ void flushWithMarkStep() {
     HbLazyTensor::StepMarker({});
   }
 }
+} // namespace
 
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
@@ -1608,48 +1638,6 @@ const Tensor& as_strided_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(as_strided_, func, self);
 }
 
-void AddMemcpy(const Tensor& src, Tensor& dst) {
-  if ((src.numel() < dst.numel()) || (src.dim() < dst.dim())) {
-    // using crude check of numel() to determine broadcast scenario to avoid
-    // increase in host time
-    auto t = dst;
-    auto t_opt = c10::make_optional(t);
-    HbLazyTensorViews::add_expand_lazy(
-        src, dst.sizes().vec(), false /*implicit*/, t_opt);
-    return;
-  }
-
-  auto hl_dst = GetOrCreateHbLazyTensor(dst);
-  auto hl_src = GetHbLazyTensor(src);
-  // add control edge to avoid GC error " writing to already
-  // registered graph output"
-
-  // Add a control edge for habana_d2d_memcpy_other second input
-  // as it may cause wrong order of execution, as shown below -
-  //   z = add(x, i)
-  //   x' = habana_d2d_memcpy_other(y, x)
-  // Here, x is an input, but habana_d2d_memcpy_other actually updates
-  // x and hence should come after add with a control edge
-  updateDstDependencies(dst);
-
-  auto copy_node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-      {hl_src.GetIrValue(), hl_dst.GetIrValue()});
-
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      dst.device().index());
-  context->RegisterTensor(hl_dst.getDataPtr());
-  hl_dst.IrSetNode(copy_node);
-  std::vector<at::Tensor> input_pt_vec;
-  input_pt_vec.push_back(src);
-  input_pt_vec.push_back(dst);
-  copy_node->AddInputPtTensors(input_pt_vec);
-  flush_op(1);
-}
-
 at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
@@ -2185,6 +2173,7 @@ Tensor& mul_out_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
+namespace {
 Tensor permute_wt_hpu(const Tensor& self) {
   at::Tensor result = self;
   if (habana_lazy::exec::OptPassCfg::GetInstance()
@@ -2244,6 +2233,7 @@ Tensor permute_wt_hpu(const Tensor& self) {
   }
   return result;
 }
+} // namespace
 
 Tensor convolution_hpu_lazy(
     const Tensor& input,

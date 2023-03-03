@@ -54,20 +54,4 @@ class TopkOperator : public TopkOutOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
-
-//
-// Sort Operator
-class SortOperator : public TopkOutOperator {
- public:
-  SortOperator(int device_id, const std::string& guid)
-      : TopkOutOperator(device_id, guid) {
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
 } // namespace habana

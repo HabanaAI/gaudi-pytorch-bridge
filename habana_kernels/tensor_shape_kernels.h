@@ -192,24 +192,3 @@ class ViewOperator : public ReshapeOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
 };
-
-// Flip Operator
-class FlipOperator : public habana::HabanaOperator {
- public:
-  FlipOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reverse_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-  synapse_helpers::tensor_or_ref CreateFlipGraph(
-      synapse_helpers::graph& graph,
-      const at::Tensor& pyt_tensor,
-      synapse_helpers::tensor_or_ref syn_tensor_in,
-      synapse_helpers::tensor_or_ref syn_tensor_out,
-      c10::IntArrayRef in_dim,
-      c10::ScalarType dtype);
-};
