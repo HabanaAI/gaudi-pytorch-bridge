@@ -11,21 +11,24 @@
  *******************************************************************************
  */
 
-#include "generated/lazy/embedding.h"
-#include "generated/lazy/embedding_dense_backward.h"
+#include "generated/backend/embedding.h"
+#include "generated/backend/embedding_dense_backward.h"
 
 namespace habana {
-FALLBACK_CHECK(EmbeddingFallbackCheck, bool scale_grad_by_freq, bool sparse) {
-  if (scale_grad_by_freq == true || sparse == true) {
-    return false;
-  } else
-    return true;
-}
-FALLBACK_CHECK(EmbeddingDenseBwdFallbackCheck, bool scale_grad_by_freq) {
-  if (scale_grad_by_freq == true) {
-    return false;
-  } else
-    return true;
-}
+sizes_vec EmbeddingOutputShape(const at::Stack& stack) {
+  const auto& weight = stack_tensor(stack, 0);
+  const auto& indices = stack_tensor(stack, 1);
 
+  std::vector<int64_t> size;
+  if (indices.dim() == 1) {
+    size = weight.sizes().vec();
+    size[0] = indices.numel();
+  } else {
+    size = indices.sizes().vec();
+    for (int64_t d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+  }
+  return {size};
+}
 } // namespace habana
