@@ -62,14 +62,8 @@ endmacro(detect_pt_version)
 
 macro(find_most_recent_pt_ver)
   execute_process(
-    COMMAND
-      python3 -c "from os import listdir;
-      print('.'.join(
-        str(v) for v in max(
-          tuple(int(d.split('.')) for d in listdir())
-        ),
-        end='')"
-    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/pt_ver"
+    COMMAND python3 most_recent_pt_ver.py
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/scripts"
     OUTPUT_VARIABLE PT_VER_NEWEST
     RESULT_VARIABLE PT_VER_NEWEST_FAILED)
   if(PT_VER_NEWEST_FAILED)
