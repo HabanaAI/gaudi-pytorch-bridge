@@ -47,6 +47,10 @@
       "version": null,
       "default_source": "https://download.pytorch.org/whl/test/cpu"
     },
+    "future": {
+      "version": "2.1.0",
+      "default_source": "https://download.pytorch.org/whl/nightly/cpu"
+    },
     "nightly": {
       "version": "nightly",
       "default_source": "https://download.pytorch.org/whl/nightly/cpu"
