@@ -166,6 +166,22 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
 // *************************************************
 
 namespace habana_lazy {
+
+at::Tensor squeeze_hpu_lazy(const at::Tensor&, const int64_t) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::vector<at::Tensor> split_with_sizes_hpu_lazy(
+    const at::Tensor&,
+    at::IntArrayRef,
+    int64_t) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
+  EAGER_NOT_SUPPORTED;
+}
+
 at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }
