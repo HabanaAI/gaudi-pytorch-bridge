@@ -1342,7 +1342,7 @@ run_pytorch_qa_tests()
        elif [ "$__suite_type" == "topology_ci" ]; then
             #run topology smoke tests  with suite_type topology
             test_path="topologies_tests"
-       elif [ "$__pytest_marks" == "-m=smoke_dist" ] && [ "$__suite_type" == "distributed" ]; then
+       elif [ "$__pytest_marks" == "-m=smoke_dist" ] || [ "$__pytest_marks" == "-m=smoke_dist_gaudi2" ] || [ "$__pytest_marks" == "-m=smoke_dist_gaudi3" ] && [ "$__suite_type" == "distributed" ]; then
           #run distributed tests other than topology
             (set -x; LOCK_GAUDI_SYNAPSE_API=1 PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $opts ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"distributed_ci.xml"")
             __test_status=$?
