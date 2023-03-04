@@ -384,6 +384,10 @@ class HabanaLaunchOpPT {
   void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
   void ProcessHabanaFusedOpWithDS();
+  void CreateFirstDynamicBucket();
+  void DumpStaticCompilationStatistics(
+      size_t graph_key_with_perm,
+      bool is_compile = false);
   bool IsValidNode(torch::jit::Node*);
 
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
