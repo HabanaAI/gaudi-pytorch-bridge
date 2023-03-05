@@ -64,9 +64,8 @@ def test_relu_inplace_view():
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
 
-# TODO Enable the below tests after JIT IR pass is implemented SW-119307
-@pytest.mark.xfail(reason="SW-119307")
 def test_relu_discontiguous_slice():
+    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "1"
     cpu_tensor = torch.randn([4])
     hpu_tensor = cpu_tensor.to("hpu")
 
@@ -75,8 +74,25 @@ def test_relu_discontiguous_slice():
 
     result_hpu = torch.relu(hpu_tensor_slice).to("cpu")
     result_cpu = torch.relu(cpu_tensor_slice)
-    assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
 
+    assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
+    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "0"
+
+def test_relu_2d_discontiguous_slice():
+    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "1"
+    cpu_tensor = torch.Tensor(np.random.randint(-2, 2, (20, 20)))
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_tensor_slice = cpu_tensor[0::2,0::2]
+    hpu_tensor_slice = hpu_tensor[0::2,0::2]
+
+    result_hpu = torch.relu(hpu_tensor_slice).to("cpu")
+    result_cpu = torch.relu(cpu_tensor_slice)
+
+    assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
+    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "0"
+
+# TODO Enable the below tests after JIT IR pass is implemented
 @pytest.mark.xfail(reason="SW-119307")
 def test_relu_inplace_noncontiguous_view():
     cpu_tensor = torch.randn([4])

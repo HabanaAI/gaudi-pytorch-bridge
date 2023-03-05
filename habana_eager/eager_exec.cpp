@@ -20,6 +20,7 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUStream.h"
+#include "habana_eager/eager_view.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -185,6 +186,8 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph() {
     }
     graph->registerOutput(jit_value_out);
   }
+
+  post_process_eager_graph(graph, m_inputs);
 
   return graph;
   // TODO This is part of Create/ConstructJITGraph in HLExec. Do we need it?
@@ -406,5 +409,17 @@ std::string UniqueIdxVec::to_string() const {
   };
   return absl::StrCat("{", absl::StrJoin(idx_, ",", Formatter()), "}");
 }
+
+void EagerExec::post_process_eager_graph(
+    std::shared_ptr<JitGraph>& graph,
+    const SmallTensorVector& inputs) {
+  PT_EAGER_TRACE;
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
+    PT_BRIDGE_DEBUG("[Eager] Apply I/O View Handling pass.");
+    HandleInputOutputViews(graph, inputs);
+  }
+}
+
 } // namespace eager
 } // namespace habana

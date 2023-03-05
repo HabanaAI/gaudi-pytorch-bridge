@@ -83,6 +83,9 @@ class EagerExec {
   void prune_duplicate_graph_inputs(
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
+  void post_process_eager_graph(
+      std::shared_ptr<torch::jit::Graph>& graph,
+      const SmallTensorVector& inputs);
 };
 
 } // namespace eager

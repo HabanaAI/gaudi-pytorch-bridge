@@ -256,6 +256,7 @@ ENV_STRUCT_DEFINITION(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT, unsigned long, 0);
 // temporary internal env variable to notify backend about
 // eager frontend library. Not to be set by users.
 ENV_STRUCT_DEFINITION(PT_HPU_EAGER_FRONTEND, bool, false);
+ENV_STRUCT_DEFINITION(PT_HPU_EAGER_VIEW_HANDLING, bool, false);
 ENV_STRUCT_DEFINITION(
     PT_HCCL_SLICE_SIZE_MB,
     unsigned,
