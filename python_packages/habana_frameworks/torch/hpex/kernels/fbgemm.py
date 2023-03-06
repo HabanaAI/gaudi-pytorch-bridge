@@ -10,7 +10,7 @@
 #
 # ******************************************************************************
 import torch
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from habana_frameworks.torch import _hpex_C
 
 # The file implements operators included in the FBGEMM (Facebook GEneral Matrix Multiplication) library.
@@ -25,8 +25,8 @@ def permute_2D_sparse_data(permute: torch.Tensor, lengths: torch.Tensor, indices
 
 def split_embedding_codegen_lookup_function(
     host_weights: torch.Tensor,
-    weights_offsets: torch.Tensor,
-    D_offsets: torch.Tensor,
+    weights_offsets: List[int],
+    D_offsets: List[int],
     total_D: int,
     indices: torch.Tensor,
     offsets: torch.Tensor,
@@ -39,20 +39,20 @@ def split_embedding_codegen_lookup_function(
     indices = indices.to(torch.int32)
     offsets = offsets.to(torch.int32)
 
-    T = D_offsets.size(dim=0) - 1
-    B = (offsets.size(dim=0) - 1)//T
+    T = len(D_offsets) - 1
+    B = (offsets.size(dim=0) - 1) // T
 
     outputs = []
 
     previous_D = D_offsets[1]
     for t in range(T):
-        D = (D_offsets[t + 1] - D_offsets[t]).item()
+        D = D_offsets[t + 1] - D_offsets[t]
 
         assert D == previous_D, f"HPU supports only constant D_offsets' distances, but they're {D} and {previous_D}"
 
-        t_weights_from = weights_offsets[t].item()
+        t_weights_from = weights_offsets[t]
         if t + 1 < T:
-            t_weights_to = weights_offsets[t+1].item()
+            t_weights_to = weights_offsets[t+1]
         else:
             t_weights_to = host_weights.size(dim=0)
 
@@ -83,8 +83,8 @@ def split_embedding_codegen_lookup_function(
 def split_embedding_codegen_lookup_sgd_function_hpu(
     host_weights: torch.Tensor,
     weights_placements: torch.Tensor,
-    weights_offsets: torch.Tensor,
-    D_offsets: torch.Tensor,
+    weights_offsets: List[int],
+    D_offsets: List[int],
     total_D: int,
     max_D: int,
     hash_size_cumsum: torch.Tensor,
@@ -111,8 +111,8 @@ def split_embedding_codegen_lookup_sgd_function_hpu(
 def split_embedding_codegen_lookup_adagrad_function_hpu(
     host_weights: torch.Tensor,
     weights_placements: torch.Tensor,
-    weights_offsets: torch.Tensor,
-    D_offsets: torch.Tensor,
+    weights_offsets: List[int],
+    D_offsets: List[int],
     total_D: int,
     max_D: int,
     hash_size_cumsum: torch.Tensor,
