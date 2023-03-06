@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,3 +16,6 @@
 #include <c10/core/SymIntArrayRef.h>
 
 #define C10_AS_INTARRAYREF_SLOW(_X) c10::asIntArrayRefSlow(_X)
+namespace c10 {
+constexpr auto fromIntArrayRefSlow{fromIntArrayRef};
+}

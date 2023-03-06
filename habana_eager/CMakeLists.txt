@@ -22,6 +22,7 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/as_strided.cpp
           ops/empty.cpp
           ops/copy.cpp
+          ops/convolution.cpp
           ops/set.cpp
           ops/view.cpp
           ops/pin_memory.cpp
