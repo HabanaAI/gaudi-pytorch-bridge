@@ -699,7 +699,7 @@ add_.Tensor:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
   override_fn: add_tensor_hpu_lazy_
@@ -4324,7 +4324,7 @@ max_pool2d_with_indices_backward:
     Gaudi2:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi3:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
@@ -4956,7 +4956,7 @@ nll_loss_backward:
     Gaudi2:
       grad_output: [BFloat16, Float, Half]
       self: [BFloat16, Float, Half]
-      target: [Int]
+      target: [Int, Long]
       weight: [BFloat16, Float, Half]
       total_weight: [BFloat16, Float, Half]
     Gaudi3:
@@ -4979,7 +4979,7 @@ nll_loss_forward:
       weight: [BFloat16, Float]
     Gaudi2:
       self: [BFloat16, Float, Half]
-      target: [Int]
+      target: [Int, Long]
       weight: [BFloat16, Float, Half]
     Gaudi3:
       self: [BFloat16, Float, Half]
