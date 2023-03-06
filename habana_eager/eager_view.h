@@ -14,6 +14,7 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/helpers/get_n_bytes.h"
+#include "habana_kernels/kernel_utils.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
@@ -45,8 +46,9 @@ class ViewParam {
       strides.emplace_back(s);
     }
     offset = impl->storage_offset();
-    total_num_elements =
-        (int64_t)(habana_helpers::GetNBytes(impl) / t.element_size());
+    int64_t elem_size =
+        c10::elementSize(habana_helpers::getInternalDtype(t.scalar_type()));
+    total_num_elements = (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
   }
 
   std::vector<int64_t> getViewSizes() {

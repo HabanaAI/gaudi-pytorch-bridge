@@ -1,10 +1,10 @@
 import os
-
+import pytest
 import torch
 assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
 import habana_frameworks.torch.core as htcore
 import numpy as np
-import pytest
+
 torch.manual_seed(0)
 
 def test_relu_contiguous_view():
@@ -65,7 +65,6 @@ def test_relu_inplace_view():
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
 
 def test_relu_discontiguous_slice():
-    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "1"
     cpu_tensor = torch.randn([4])
     hpu_tensor = cpu_tensor.to("hpu")
 
@@ -76,10 +75,8 @@ def test_relu_discontiguous_slice():
     result_cpu = torch.relu(cpu_tensor_slice)
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
-    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "0"
 
 def test_relu_2d_discontiguous_slice():
-    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "1"
     cpu_tensor = torch.Tensor(np.random.randint(-2, 2, (20, 20)))
     hpu_tensor = cpu_tensor.to("hpu")
 
@@ -90,7 +87,6 @@ def test_relu_2d_discontiguous_slice():
     result_cpu = torch.relu(cpu_tensor_slice)
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
-    os.environ["PT_HPU_EAGER_VIEW_HANDLING"] = "0"
 
 # TODO Enable the below tests after JIT IR pass is implemented
 @pytest.mark.xfail(reason="SW-119307")
@@ -106,7 +102,6 @@ def test_relu_inplace_noncontiguous_view():
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
 
-@pytest.mark.xfail(reason="SW-119307")
 def test_d2d_noncontiguous_views_src():
     cpu_src_tensor = torch.randn([4])
     hpu_src_tensor = cpu_src_tensor.to("hpu")
@@ -122,7 +117,6 @@ def test_d2d_noncontiguous_views_src():
 
     assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
 
-@pytest.mark.xfail(reason="SW-119307")
 def test_d2d_noncontiguous_views_dst():
     cpu_src_tensor = torch.randn([2])
     hpu_src_tensor = cpu_src_tensor.to("hpu")
@@ -138,7 +132,6 @@ def test_d2d_noncontiguous_views_dst():
 
     assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
 
-@pytest.mark.xfail(reason="SW-119307")
 def test_d2d_noncontiguous_views_src_dst():
     cpu_src_tensor = torch.randn([4])
     hpu_src_tensor = cpu_src_tensor.to("hpu")
@@ -157,4 +150,66 @@ def test_d2d_noncontiguous_views_src_dst():
 
     assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
 
-test_d2d_noncontiguous_views_src_dst()
+def test_d2h_noncontiguous_views():
+    cpu_src_tensor = torch.randn([4])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_src_tensor_view = cpu_src_tensor[::2]
+    hpu_src_tensor_view = hpu_src_tensor[::2]
+
+    assert torch.allclose(hpu_src_tensor_view.cpu(), cpu_src_tensor_view, atol = 0.001, rtol = 0.001)
+
+def test_h2d_noncontiguous_views():
+    cpu_src_tensor = torch.randn([4])
+    cpu_src_tensor_view = cpu_src_tensor[::2]
+    hpu_src_tensor = cpu_src_tensor_view.to("hpu")
+
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor_view, atol = 0.001, rtol = 0.001)
+
+def test_h2d_chlast():
+    a = torch.randn([2, 3, 4, 5]).to(memory_format=torch.channels_last)
+    ha = a.to('hpu')
+
+    b = torch.relu(a)
+    hb = torch.relu(ha)
+
+    assert torch.allclose(hb.cpu(), b, atol = 0.001, rtol = 0.001)
+
+def test_h2d_dst_noncontiguous_view():
+    cpu_src_tensor = torch.randn([4])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_src_tensor2 = torch.randn([2])
+    hpu_src_tensor_view = hpu_src_tensor[::2]
+
+    hpu_src_tensor_view.copy_(cpu_src_tensor2)
+
+    cpu_src_tensor[::2].copy_(cpu_src_tensor2)
+
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol = 0.001, rtol = 0.001)
+
+def test_d2d_dst_view():
+    cpu_src_tensor = torch.randn([4])
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_src_tensor2 = torch.randn([2])
+    hpu_src_tensor2 = cpu_src_tensor2.to('hpu')
+    hpu_src_tensor_view = hpu_src_tensor[::2]
+    cpu_src_tensor_view = cpu_src_tensor[::2]
+
+    hpu_src_tensor_view.copy_(hpu_src_tensor2)
+
+    cpu_src_tensor_view.copy_(cpu_src_tensor2)
+
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol = 0.001, rtol = 0.001)
+
+def test_topk_transpose():
+    a = torch.randint(0, 10, [2,2])
+    ha = a.to('hpu')
+
+    b = torch.topk(a, k = 2)
+    c = b[0].t()
+
+    hb = torch.topk(ha, k = 2)
+    hc = hb[0].t()
+    assert torch.allclose(hc.cpu(), c, atol = 0.001, rtol = 0.001)
