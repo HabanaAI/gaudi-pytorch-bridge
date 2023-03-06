@@ -405,6 +405,10 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
 
 OutputShapeInfRetType IdentityOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  if (self.dim() == 0) {
+    SET_SIZE_STRIDE_1D(self);
+  }
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
   OutputShapeInfRetType out;
   out.AddOutputTensor(TensorMetaData(
