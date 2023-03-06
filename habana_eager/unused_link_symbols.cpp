@@ -101,12 +101,6 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
           grad_out, input, mean, invstd, weight, mean_dy, mean_dy_xmu, count));
 }
 
-Tensor hpu_wrap::_pin_memory(
-    const at::Tensor& self,
-    c10::optional<at::Device> device) {
-  EAGER_NOT_SUPPORTED;
-}
-
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& self,
     c10::optional<int64_t> output_size) {

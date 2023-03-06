@@ -24,6 +24,7 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/copy.cpp
           ops/set.cpp
           ops/view.cpp
+          ops/pin_memory.cpp
           ops/eager_op.cpp
           eager_custom_op_register.cpp
           eager_tensor.cpp
