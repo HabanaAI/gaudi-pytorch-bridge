@@ -99,19 +99,13 @@ void clampTensor::AddNode(
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
   if (minTensorDefined && maxTensorDefined) {
-    auto maxOut = BuildOp(
+    auto clampOut = BuildOp(
         graph,
-        "max_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType()}});
-
-    auto minOut = BuildOp(
-        graph,
-        "min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {maxOut[0].get(), syn_in(2)},
+        "clamp_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        {syn_in(0), syn_in(1), syn_in(2)},
         {{outshape, ScalarType(), 0}});
 
-    syn_out(0) = std::move(minOut[0]);
+    syn_out(0) = std::move(clampOut[0]);
   } else if (minTensorDefined) {
     auto maxOut = BuildOp(
         graph,
