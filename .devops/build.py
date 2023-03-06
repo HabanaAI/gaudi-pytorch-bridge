@@ -436,7 +436,7 @@ def install_requirements(pt_modules_root, pt_ver: VersionAndSource, venv_dir, ve
 
     log.info("git submodule update for pybind11")
     run(
-        f"cd {os.environ['PYTORCH_MODULES_ROOT_PATH']} &&"
+        f"cd {os.environ['PYTORCH_MODULES_ROOT_PATH']} && "
         "git submodule sync && "
         "git submodule update --init --recursive",
     )
@@ -874,7 +874,8 @@ def create_wheel_target_for_single_python(
     activate = f"source {venv_dir}/bin/activate" if venv_dir != "." else "true"
 
     cmake_configuration = cmake_configuration.upper()
-    pkgs_dir = f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs/"
+    pkgs_dir = f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs"
+    versioned_pkgs_dir = pkgs_dir + "_" + str(pt_vers[0].version.base_version) if len(pt_vers) == 1 else ""
 
     pmake(f".PHONY: {wheel_target}/linux")
     pmake(f"{wheel_target}/linux:\n\t")
@@ -884,8 +885,7 @@ def create_wheel_target_for_single_python(
     pmake(f".PHONY: {platform_wheel} {new_serializer}")
     pmake(
         f"{platform_wheel} {new_serializer}: "
-        f"$(addsuffix /wheel_install, $(SUBNAMES_PY_{py_ver}_{cmake_configuration})) | "
-        f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs"
+        f"$(addsuffix /wheel_install, $(SUBNAMES_PY_{py_ver}_{cmake_configuration})) | {pkgs_dir} {versioned_pkgs_dir}"
     )
     pmake(
         f"\t{'-' if optional else ''}cd $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir} && {activate} &&\\"
@@ -896,8 +896,11 @@ def create_wheel_target_for_single_python(
         f'PT_WHEEL_NAME="{full_wheel_name}" PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} '
         f"python3 -m pip wheel {verbosity} --no-deps -w dist . &&\\"
     )
+    wheel_pattern = f"$$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl"
+    if versioned_pkgs_dir:
+        pmake(f"\tcp {wheel_pattern} {versioned_pkgs_dir}")
     pmake(
-        f"\tmv $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl {pkgs_dir}"
+        f"\tmv {wheel_pattern} {pkgs_dir}"
     )
 
     pmake(f"{new_serializer}: {serializer}")
@@ -956,10 +959,13 @@ def create_wheel_targets(
             )
             wheel_configs.append(wheel_config)
 
-    pmake(
-        "${PYTORCH_MODULES_RELEASE_BUILD} ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs "
-        "${PYTORCH_MODULES_DEBUG_BUILD} ${PYTORCH_MODULES_DEBUG_BUILD}/pkgs:\n\tmkdir -p $@"
+    version_specific_suffixes = (f"/pkgs_{v.version.base_version}" for v in pt_vers)
+    directories = (
+        f"${{PYTORCH_MODULES_{configuration.upper()}_BUILD}}{dir_suffix}"
+        for configuration in cmake_configurations
+        for dir_suffix in ("", "/pkgs", *version_specific_suffixes)
     )
+    pmake(f"{' '.join(directories)}:\n\tmkdir -p $@")
 
     create_wheel_finalization_target(wheel_configs, pmake)
 
