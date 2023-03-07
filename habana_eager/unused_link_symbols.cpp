@@ -19,6 +19,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_helpers/frontend_utils.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace at;
 using namespace habana;
@@ -111,6 +112,7 @@ at::Tensor hpu_wrap::repeat_interleave(
       repeat_interleave, PARAMS2(self, output_size), Tensor);
 }
 
+#if IS_PYTORCH_OLDER_THAN(2, 1)
 Tensor hpu_wrap::_efficientzerotensor(
     at::IntArrayRef size,
     c10::optional<at::ScalarType> dtype,
@@ -122,6 +124,19 @@ Tensor hpu_wrap::_efficientzerotensor(
       (dtype.has_value() ? dtype.value() : at::ScalarType::Float),
       PARAMS2(size, dtype, layout, device, pin_memory));
 }
+#else
+Tensor hpu_wrap::_efficientzerotensor(
+    SymIntArrayRef size,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  FALLBACK_UNSUPPORTED_OP2_DTYPE(
+      _efficientzerotensor,
+      (dtype.has_value() ? dtype.value() : at::ScalarType::Float),
+      PARAMS2(size, dtype, layout, device, pin_memory));
+}
+#endif
 
 Tensor& hpu_wrap::index_add_out(
     const at::Tensor& self,

@@ -209,6 +209,7 @@ Tensor hpu_wrap::_reshape_alias(
   return view_hpu_lazy(self, size);
 }
 
+#if IS_PYTORCH_OLDER_THAN(2, 1)
 Tensor hpu_wrap::_efficientzerotensor(
     IntArrayRef size,
     c10::optional<ScalarType> dtype,
@@ -240,6 +241,39 @@ Tensor hpu_wrap::_efficientzerotensor(
   fill_hpu_lazy_(zero_tensor, 0);
   return zero_tensor;
 }
+#else
+Tensor hpu_wrap::_efficientzerotensor(
+    SymIntArrayRef size,
+    c10::optional<ScalarType> dtype,
+    c10::optional<Layout> layout,
+    c10::optional<Device> device,
+    c10::optional<bool> pin_memory) {
+  PT_OP_TRACE;
+  PT_OP_INFO(
+      "efficientzerotensor :",
+      " size=",
+      to_string(size),
+      " dtype=",
+      to_string(dtype),
+      " layout=",
+      to_string(layout),
+      " device=",
+      to_string(device),
+      " pin_memory=",
+      to_string(pin_memory));
+
+  at::TensorOptions options = at::TensorOptions()
+                                  .dtype(dtype)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory)
+                                  .device(device);
+
+  auto zero_tensor = empty_hpu_lazy(
+      C10_AS_INTARRAYREF_SLOW(size), options, MemoryFormat::Contiguous, true);
+  fill_hpu_lazy_(zero_tensor, 0);
+  return zero_tensor;
+}
+#endif
 #endif
 
 Tensor embedding_bag_sum_hpu_wrap(
