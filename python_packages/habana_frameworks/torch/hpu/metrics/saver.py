@@ -141,12 +141,15 @@ class MetricDumpTrigger(str, Enum):
 
 
 class MetricSaver:
-    METRIC_FILE_ENV_VAR = "HABANA_PT_METRICS_FILE"
+    METRIC_FILE_ENV_VAR = "PT_HPU_METRICS_FILE"
+    METRIC_FILE_ENV_VAR_ALT = "HABANA_PT_METRICS_FILE"
 
-    METRIC_FILE_FORMAT_ENV_VAR = "HABANA_PT_METRICS_FILE_FORMAT"
+    METRIC_FILE_FORMAT_ENV_VAR = "PT_HPU_METRICS_FILE_FORMAT"
+    METRIC_FILE_FORMAT_ENV_VAR_ALT = "HABANA_PT_METRICS_FILE_FORMAT"
     METRIC_FILE_FORMAT_DEFAULT = MetricDumpFormat.json
 
-    METRIC_DUMP_TRIGGER_ENV_VAR = "HABANA_PT_METRICS_DUMP_TRIGGERS"
+    METRIC_DUMP_TRIGGER_ENV_VAR = "PT_HPU_METRICS_DUMP_TRIGGERS"
+    METRIC_DUMP_TRIGGER_ENV_VAR_ALT = "HABANA_PT_METRICS_DUMP_TRIGGERS"
     METRIC_DUMP_TRIGGER_DEFAULT = ",".join([MetricDumpTrigger.process_exit])
 
     FORMAT_TO_WRITER_MAP = {
@@ -154,13 +157,25 @@ class MetricSaver:
         MetricDumpFormat.text: MetricTextWriter,
     }
 
+    def _get_env(self, env_name, alt_env_name=None, default_value=None):
+        if env_name in os.environ:
+            return os.environ[env_name]
+        elif alt_env_name:
+            return os.environ.get(alt_env_name, default_value)
+        else:
+            return default_value
+
     def _get_metric_dump_trigger_from_env(self):
-        dump_trigger = os.environ.get(self.METRIC_DUMP_TRIGGER_ENV_VAR, self.METRIC_DUMP_TRIGGER_DEFAULT)
+        dump_trigger = self._get_env(self.METRIC_DUMP_TRIGGER_ENV_VAR,
+                                     self.METRIC_DUMP_TRIGGER_ENV_VAR_ALT,
+                                     self.METRIC_DUMP_TRIGGER_DEFAULT)
         dump_trigger = [MetricDumpTrigger[trigger] for trigger in dump_trigger.split(",")]
         return dump_trigger
 
     def _get_metric_dump_format_from_env(self):
-        metric_file_format = os.environ.get(self.METRIC_FILE_FORMAT_ENV_VAR, self.METRIC_FILE_FORMAT_DEFAULT)
+        metric_file_format = self._get_env(self.METRIC_FILE_FORMAT_ENV_VAR,
+                                           self.METRIC_FILE_FORMAT_ENV_VAR_ALT,
+                                           self.METRIC_FILE_FORMAT_DEFAULT)
         metric_file_format = MetricDumpFormat[metric_file_format]
         return metric_file_format
 
@@ -184,7 +199,9 @@ class MetricSaver:
             metric_file_name = file_name
         else:
             use_env = True
-            metric_file_name = os.environ.get(self.METRIC_FILE_ENV_VAR, None)
+            metric_file_name = self._get_env(self.METRIC_FILE_ENV_VAR,
+                                             self.METRIC_FILE_ENV_VAR_ALT,
+                                             None)
 
         saver_enabled = True if metric_file_name else False
 

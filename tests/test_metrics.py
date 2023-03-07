@@ -29,18 +29,20 @@ def set_multiprocess_start_method():
     multiprocessing.set_start_method('spawn')
 
 
-def compute_single_step(shape, device):
+def compute_single_step(shape, device, sum_loops=1):
     dtype = torch.float32
     t1_cpu = torch.rand(shape, device="cpu", dtype=dtype)
     t2_cpu = torch.rand(shape, device="cpu", dtype=dtype)
     t1 = t1_cpu.to(device=device)
     t2 = t2_cpu.to(device=device)
     multiplied = t1 * t2
-    summed = t1 + t2
+    summed = t1
+    for _ in range(sum_loops):
+        summed += t2
     out = summed * multiplied
 
     # move results to CPU, so compilation is enforced
-    out = out.to(device="cpu")
+    out = out.cpu()
 
 
 class TestMetricsAPI:
@@ -58,7 +60,7 @@ class TestMetricsAPI:
 
         last_total_time = 0
         for curr_iter, shape in enumerate(shapes):
-            compute_single_step(shape, device)
+            compute_single_step(shape, device, curr_iter+1)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
             assert gc_metric_dict["TotalTime"] > last_total_time
@@ -130,19 +132,19 @@ class TestMetricsAPI:
 
         with metric_localcontext("graph_compilation") as outer_gc_metric:
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(3)]
+                [compute_single_step(next(shapes), device, i+1) for i in range(3)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(2)]
+                [compute_single_step(next(shapes), device, i+1) for i in range(2)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(3)]
+                [compute_single_step(next(shapes), device, i+1) for i in range(3)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device) for i in range(2)]
+                [compute_single_step(next(shapes), device, i+1) for i in range(2)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
         assert dict(outer_gc_metric.stats())["TotalNumber"] == 10
@@ -231,8 +233,8 @@ class TestMetricsDump:
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file_user_input,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit"}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input,
+                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -303,9 +305,9 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_metric_dump_on_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit",
-                    "HABANA_PT_METRICS_FILE_FORMAT": format}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
+                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+                    "PT_HPU_METRICS_FILE_FORMAT": format}
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -325,9 +327,9 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file,
-                    "HABANA_PT_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
-                    "HABANA_PT_METRICS_FILE_FORMAT": format}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
+                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
+                    "PT_HPU_METRICS_FILE_FORMAT": format}
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -359,7 +361,7 @@ class TestMetricsDump:
 
     def test_metric_if_defaults_are_correct(self, runner, tmp_path):
         metric_file = f"{tmp_path}/metric.json"
-        env_vars = {"HABANA_PT_METRICS_FILE": metric_file}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file}
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
