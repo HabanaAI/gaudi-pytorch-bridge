@@ -13,6 +13,7 @@
 
 #include "hpu_ops/common/arange_gen.h"
 #include "generated/backend/arange.h"
+#include "hpu_ops/backend/arange.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
@@ -56,11 +57,19 @@ std::shared_ptr<void> FillArangeParams(const at::Stack& stack, size_t& size) {
   const c10::Scalar start = stack.at(0).toScalar();
   const c10::Scalar end = stack.at(1).toScalar();
   const c10::Scalar step = stack.at(2).toScalar();
-  auto out_tensor = stack.back().toTensor();
+  auto out_scalar_type = stack.back().toTensor().scalar_type();
+  return FillArangeParamsInternal(start, end, step, out_scalar_type, size);
+}
 
+std::shared_ptr<void> FillArangeParamsInternal(
+    c10::Scalar start,
+    c10::Scalar end,
+    c10::Scalar step,
+    c10::ScalarType out_scalar_type,
+    size_t& size) {
   PARAMS_STUB(ns_RangeKernel::Params);
   if (can_use_dynamic_shapes(start, end, step) ||
-      !c10::isFloatingType(out_tensor.scalar_type())) {
+      !c10::isFloatingType(out_scalar_type)) {
     params->start.i = start.to<int>();
     params->limit.i = end.to<int>();
     params->delta.i = step.to<int>();
@@ -72,67 +81,101 @@ std::shared_ptr<void> FillArangeParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = ComputeOutputShapes(stack)[0];
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-
-  auto start = stack.at(0).toScalar();
-  auto end = stack.at(1).toScalar();
-  auto step = stack.at(2).toScalar();
-
-  auto out_tensor = stack.back().toTensor();
-
+synapse_helpers::tensor ArangeCommon(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    c10::Scalar start,
+    c10::Scalar end,
+    c10::Scalar step,
+    c10::ScalarType out_dtype,
+    synTensor syn_in0,
+    synTensor syn_in1,
+    std::string guid,
+    std::vector<int64_t> outshape,
+    std::shared_ptr<void> params,
+    size_t size,
+    c10::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {};
   if (can_use_dynamic_shapes(start, end, step)) {
-    inputs.emplace_back(syn_in(1));
-    inputs.emplace_back(syn_in(0));
-    const bool is_cast_not_required =
-        out_tensor.scalar_type() == c10::ScalarType::Int;
+    inputs.emplace_back(syn_in1);
+    inputs.emplace_back(syn_in0);
+    const bool is_cast_not_required = out_dtype == c10::ScalarType::Int;
     NodeAttr::NodeOutputAttr out_attr = {outshape, c10::ScalarType::Int};
     if (is_cast_not_required)
       out_attr.final_result_index = 0;
-    auto arange_i32 = BuildOp(graph, "range_i32", inputs, {out_attr});
+
+    auto arange_i32 = OpBackend::BuildNode(
+        op, graph, {"range_i32", std::move(inputs), {out_attr}});
     if (is_cast_not_required) {
-      syn_out(0) = std::move(arange_i32[0]);
+      return std::move(arange_i32[0]);
     } else {
-      auto cast_to_out_type = CastHelper(
+      auto cast_to_out_type = OpBackend::BuildCast(
+          op,
           graph,
           arange_i32.at(0).get(),
           outshape,
           c10::ScalarType::Int,
-          out_tensor.scalar_type(),
-          0);
-      syn_out(0) = std::move(cast_to_out_type);
+          out_dtype,
+          final_result_index);
+
+      return std::move(cast_to_out_type);
     }
   } else {
-    this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, inputs);
-    const bool is_cast_not_required =
-        c10::isFloatingType(out_tensor.scalar_type()) ||
-        out_tensor.scalar_type() == c10::ScalarType::Int ||
-        (out_tensor.scalar_type() == c10::ScalarType::Long &&
+    op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
+    const bool is_cast_not_required = c10::isFloatingType(out_dtype) ||
+        out_dtype == c10::ScalarType::Int ||
+        (out_dtype == c10::ScalarType::Long &&
          GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT));
-    auto scalar_type =
-        is_cast_not_required ? out_tensor.scalar_type() : c10::ScalarType::Int;
-    auto range_guid = is_cast_not_required ? guid_ : "range_i32";
+    auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
+    auto range_guid = is_cast_not_required ? guid : "range_i32";
     NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
     if (is_cast_not_required)
-      out_attr.final_result_index = 0;
-    auto arange =
-        BuildOp(graph, range_guid, {}, {out_attr}, params.get(), size);
+      out_attr.final_result_index = final_result_index;
+    auto arange = OpBackend::BuildNode(
+        op, graph, {range_guid, {}, {out_attr}, params.get(), size});
 
     if (is_cast_not_required) {
-      syn_out(0) = std::move(arange[0]);
+      return std::move(arange[0]);
     } else {
-      auto cast_to_out_type = CastHelper(
+      auto cast_to_out_type = OpBackend::BuildCast(
+          op,
           graph,
           arange.at(0).get(),
           outshape,
           c10::ScalarType::Int,
-          out_tensor.scalar_type(),
-          0);
-      syn_out(0) = std::move(cast_to_out_type);
+          out_dtype,
+          final_result_index);
+      return std::move(cast_to_out_type);
     }
   }
+}
+
+void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto outshape = ComputeOutputShapes(stack)[0];
+  size_t size = 0;
+  auto params = FillParams(stack, size);
+  auto start = stack.at(0).toScalar();
+  auto end = stack.at(1).toScalar();
+  auto step = stack.at(2).toScalar();
+  auto out_dtype = stack.back().toTensor().scalar_type();
+  synTensor s0, s1;
+  synTensor syn_in0 =
+      (can_use_dynamic_shapes(start, end, step)) ? syn_in(0) : s0;
+  synTensor syn_in1 =
+      (can_use_dynamic_shapes(start, end, step)) ? syn_in(1) : s1;
+  syn_out(0) = ArangeCommon(
+      this,
+      graph,
+      start,
+      end,
+      step,
+      out_dtype,
+      syn_in0,
+      syn_in1,
+      guid_,
+      outshape,
+      params,
+      size,
+      0);
 }
 } // namespace habana

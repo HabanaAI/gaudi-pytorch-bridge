@@ -3372,7 +3372,7 @@ index.Tensor:
   guid: index
   op_backend: IndexHabanaOperator
   op_frontend: LazyIndex
-  schema_args: "(Tensor self, Tensor[] indices, int[8] advanced_indexing_dims) -> Tensor"
+  schema_args: "(Tensor self, Tensor[] indices, int[8] advanced_indexing_dims, int[8] implicit_indices_pos_vec, int[8] self_permute_dims) -> Tensor"
   out_ids: [0]
 
 isfinite:

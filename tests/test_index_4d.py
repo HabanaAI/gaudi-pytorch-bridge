@@ -7,13 +7,16 @@ s2 = 3
 s3 = 3
 def index_original(device) -> torch.Tensor:
     x = torch.arange(s0*s1*s2*s3, device=device).view(s0, s1, s2, s3)
+    #x = torch.arange(s0*s1*s2*s3).view(s0, s1, s2, s3).to(device)
     a = torch.Tensor([0, 2]).to(device).to(torch.int64)
     b = torch.Tensor([1, 2]).to(device).to(torch.int64)
     c = torch.Tensor([0, 1]).to(device).to(torch.int64)
     print('input tensor device = ',x.device)
-    return x[c, a, :, :]
+    #return x[c, a, :, :]
     #return x[:, a, b, :]
+    #return x[:, :, a, b]
     #return x[:, a, :, c]
+    return x[a, :, :, c]
 if __name__ == '__main__':
     device = torch.device("hpu")
     index_res = index_original(device)

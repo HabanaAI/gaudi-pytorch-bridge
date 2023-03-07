@@ -67,15 +67,12 @@ std::vector<int64_t> indices_size(at::TensorList indices) {
 // computation
 // ref:https://github.com/apache/incubator-mxnet/blob/master/src/operator/tensor/indexing_op.h#L1319
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
-    const at::Tensor& input,
+    std::vector<int64_t> input_shape,
     at::TensorList indices,
     c10::List<int64_t> adv_index_dims,
     bool get_adv_indexing_out_shape) {
-  auto input_shape = input.sizes();
   auto indices_shape = indices_size(indices);
   bool advanced_indexing = false;
-  if (input.dim() == 0 && input.numel() == 1)
-    return {input.sizes().vec()};
 
   for (int i = 0; i < adv_index_dims.size(); i++) {
     if (adv_index_dims[i]) {
@@ -86,12 +83,12 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
   if (get_adv_indexing_out_shape && advanced_indexing) {
     std::vector<int64_t> output_shape;
     int64_t largest_specified_index_t_size = 0;
-    for (int i = 0; i < input.dim(); i++) {
+    for (int i = 0; i < (int)input_shape.size(); i++) {
       if (adv_index_dims[i] > largest_specified_index_t_size)
         largest_specified_index_t_size = adv_index_dims[i];
     }
     bool explicit_index_found = false;
-    for (int i = 0; i < input.dim(); i++) {
+    for (int i = 0; i < (int)input_shape.size(); i++) {
       if (adv_index_dims[i]) { // dim has explicit index tensor
         if (!explicit_index_found) {
           output_shape.emplace_back(largest_specified_index_t_size);
@@ -104,13 +101,13 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     return output_shape;
   } else {
     auto output_rank = static_cast<int64_t>(
-        indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
+        indices_shape.size() + (int)input_shape.size() - indices_shape[0] - 1);
     std::vector<int64_t> output_shape(output_rank, -1);
     for (size_t i = 0; i < indices_shape.size() - 1; i++) {
       output_shape[i] = indices_shape[i + 1];
     }
     for (int64_t i = 0;
-         i < static_cast<int64_t>(input.ndimension() - indices_shape[0]);
+         i < static_cast<int64_t>((int)input_shape.size() - indices_shape[0]);
          i++) {
       output_shape[indices_shape.size() - 1 + i] =
           input_shape[indices_shape[0] + i];
