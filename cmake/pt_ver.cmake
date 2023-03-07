@@ -1,5 +1,5 @@
-# ##############################################################################
-# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+###############################################################################
+# Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 macro(detect_pt_version)
   message(VERBOSE "Detecting PT version...")
@@ -59,6 +59,7 @@ macro(detect_pt_version)
 
   message(STATUS "PyTorch version detected: ${TORCH_VERSION}")
 endmacro(detect_pt_version)
+
 
 macro(find_most_recent_pt_ver)
   execute_process(

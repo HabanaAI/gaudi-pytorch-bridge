@@ -204,153 +204,154 @@ add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
   $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
 )
 
-add_subdirectory(habana_eager)
+if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
+  add_subdirectory(habana_eager)
+  add_library(habana_pytorch2_plugin SHARED
+    pytorch_helpers/habana_device/HPUAllocator.cpp
+    pytorch_helpers/habana_device/HPUGraph.cpp
+    pytorch_helpers/habana_device/HPUStream.cpp
+    pytorch_helpers/habana_device/lazy_to_backend.cpp
+    pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
+    pytorch_helpers/habana_helpers/dtype_helpers.cpp
+    pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
+    pytorch_helpers/habana_helpers/frontend_utils.cpp
+    pytorch_helpers/habana_helpers/kernels_accumulation.cpp
+    pytorch_helpers/habana_helpers/logging.cpp
+    pytorch_helpers/habana_helpers/misc_utils.cpp
+    pytorch_helpers/habana_helpers/signal_handler.cpp
+    pytorch_helpers/habana_helpers/stats.cpp
+    pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
+    pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
+    pytorch_helpers/serialize/export.cpp
+    habana_kernels/basic_kernels.cpp
+    habana_kernels/binary_inplace_kernels.cpp
+    habana_kernels/binary_kernels.cpp
+    habana_kernels/binary_out_kernels.cpp
+    habana_kernels/compare_kernels.cpp
+    habana_kernels/conv_bwd_kernels.cpp
+    habana_kernels/conv_kernels.cpp
+    habana_kernels/conv_pool_utils.cpp
+    habana_kernels/embedding_kernels.cpp
+    habana_kernels/fallback_helper.cpp
+    habana_kernels/hccl_kernels.cpp
+    habana_kernels/index_kernels.cpp
+    habana_kernels/kernel_input_checks.cpp
+    habana_kernels/kernel_utils.cpp
+    habana_kernels/linear_kernels.cpp
+    habana_kernels/loss_kernels.cpp
+    habana_kernels/nms_kernels.cpp
+    habana_kernels/nonzero_kernel.cpp
+    habana_kernels/norm_kernels.cpp
+    habana_kernels/optimizer_kernels.cpp
+    habana_kernels/pool_kernels.cpp
+    habana_kernels/random_gen_kernels.cpp
+    habana_kernels/reduction_kernels.cpp
+    habana_kernels/repeat.cpp
+    habana_kernels/roi_align_kernels.cpp
+    habana_kernels/softmax_kernels.cpp
+    habana_kernels/tensor_shape_kernels.cpp
+    habana_kernels/threshold_kernels.cpp
+    habana_kernels/topk_kernels.cpp
+    habana_kernels/unary_kernels.cpp
+    habana_kernels/upsample_kernels.cpp
+    habana_lazy/aten_lazy_bridge.cpp
+    habana_lazy/debug_utils.cpp
+    habana_lazy/hlexec.cpp
+    habana_lazy/hpu_lazy_tensors.cpp
+    habana_lazy/hpu_stage_submission.cpp
+    habana_lazy/ir_utils.cpp
+    habana_lazy/ir.cpp
+    habana_lazy/lazy_arg_spec.cpp
+    habana_lazy/lazy_executor.cpp
+    habana_lazy/lazy_graph_hash_builder.cpp
+    habana_lazy/lazy_graph_hash_disabler.cpp
+    habana_lazy/lazy_storage.cpp
+    habana_lazy/memlog.cpp
+    habana_lazy/passes/fold_conv_batchnorm.cpp
+    habana_lazy/passes/fuse_bn_relu_residual_add.cpp
+    habana_lazy/passes/fuse_mm_transpose.cpp
+    habana_lazy/passes/pass_utils.cpp
+    habana_lazy/passes/permute_graph.cpp
+    habana_lazy/passes/recalculate_batchnorm_params.cpp
+    habana_lazy/passes/remove_redundant_memcpy.cpp
+    habana_lazy/passes/replace_inplace_ops.cpp
+    habana_lazy/passes/replace_views_with_reshapes.cpp
+    habana_lazy/passes/transform_graph.cpp
+    habana_lazy/passes/weight_permute_graph.cpp
+    habana_lazy/sbs_debug.cpp
+    habana_lazy/sbs_runner.cpp
+    habana_lazy/tensor_impl.cpp
+    habana_lazy/view_utils.cpp
+    habana_lazy/visualize.cpp
+    hpu_ops/lazy/add_composite_gen.cpp
+    hpu_ops/lazy/arange_gen.cpp
+    hpu_ops/lazy/bernoulli_gen.cpp
+    hpu_ops/lazy/binarycrossentropy_gen.cpp
+    hpu_ops/lazy/bitwise_gen.cpp
+    hpu_ops/lazy/bitwise_shift_gen.cpp
+    hpu_ops/lazy/clamp_gen.cpp
+    hpu_ops/lazy/compare_gen.cpp
+    hpu_ops/lazy/cumsum_gen.cpp
+    hpu_ops/lazy/div_round_gen.cpp
+    hpu_ops/lazy/embedding_gen.cpp
+    hpu_ops/lazy/exponential_gen.cpp
+    hpu_ops/lazy/foreach_gen.cpp
+    hpu_ops/lazy/frexp_gen.cpp
+    hpu_ops/lazy/geometric_gen.cpp
+    hpu_ops/lazy/index_gen.cpp
+    hpu_ops/lazy/index_select_gen.cpp
+    hpu_ops/lazy/kthvalue_gen.cpp
+    hpu_ops/lazy/logical_gen.cpp
+    hpu_ops/lazy/max_min_gen.cpp
+    hpu_ops/lazy/maxpool_gen.cpp
+    hpu_ops/lazy/multinomial_gen.cpp
+    hpu_ops/lazy/nansum_gen.cpp
+    hpu_ops/lazy/norm_gen.cpp
+    hpu_ops/lazy/pow_gen.cpp
+    hpu_ops/lazy/random_gen.cpp
+    hpu_ops/lazy/remainder_gen.cpp
+    hpu_ops/lazy/rrelu_with_noise_gen.cpp
+    hpu_ops/lazy/threshold_gen.cpp
+    hpu_ops/lazy/topk_util.cpp
+    hpu_ops/lazy/trace_gen.cpp
+    hpu_ops/lazy/unique_gen.cpp
+    hpu_ops/lazy/unique2_gen.cpp
+    hpu_ops/lazy/upsample_gen.cpp
+    hpu_ops/lazy/where_gen.cpp
+    hpu_ops/lazy/xlogy_gen.cpp
+    ${habana_pytorch2_plugin_glob_files}
+  )
 
-add_library(habana_pytorch2_plugin SHARED
-  pytorch_helpers/habana_device/HPUAllocator.cpp
-  pytorch_helpers/habana_device/HPUGraph.cpp
-  pytorch_helpers/habana_device/HPUStream.cpp
-  pytorch_helpers/habana_device/lazy_to_backend.cpp
-  pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
-  pytorch_helpers/habana_helpers/dtype_helpers.cpp
-  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
-  pytorch_helpers/habana_helpers/frontend_utils.cpp
-  pytorch_helpers/habana_helpers/kernels_accumulation.cpp
-  pytorch_helpers/habana_helpers/logging.cpp
-  pytorch_helpers/habana_helpers/misc_utils.cpp
-  pytorch_helpers/habana_helpers/signal_handler.cpp
-  pytorch_helpers/habana_helpers/stats.cpp
-  pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
-  pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
-  pytorch_helpers/serialize/export.cpp
-  habana_kernels/basic_kernels.cpp
-  habana_kernels/binary_inplace_kernels.cpp
-  habana_kernels/binary_kernels.cpp
-  habana_kernels/binary_out_kernels.cpp
-  habana_kernels/compare_kernels.cpp
-  habana_kernels/conv_bwd_kernels.cpp
-  habana_kernels/conv_kernels.cpp
-  habana_kernels/conv_pool_utils.cpp
-  habana_kernels/embedding_kernels.cpp
-  habana_kernels/fallback_helper.cpp
-  habana_kernels/hccl_kernels.cpp
-  habana_kernels/index_kernels.cpp
-  habana_kernels/kernel_input_checks.cpp
-  habana_kernels/kernel_utils.cpp
-  habana_kernels/linear_kernels.cpp
-  habana_kernels/loss_kernels.cpp
-  habana_kernels/nms_kernels.cpp
-  habana_kernels/nonzero_kernel.cpp
-  habana_kernels/norm_kernels.cpp
-  habana_kernels/optimizer_kernels.cpp
-  habana_kernels/pool_kernels.cpp
-  habana_kernels/random_gen_kernels.cpp
-  habana_kernels/reduction_kernels.cpp
-  habana_kernels/repeat.cpp
-  habana_kernels/roi_align_kernels.cpp
-  habana_kernels/softmax_kernels.cpp
-  habana_kernels/tensor_shape_kernels.cpp
-  habana_kernels/threshold_kernels.cpp
-  habana_kernels/topk_kernels.cpp
-  habana_kernels/unary_kernels.cpp
-  habana_kernels/upsample_kernels.cpp
-  habana_lazy/aten_lazy_bridge.cpp
-  habana_lazy/debug_utils.cpp
-  habana_lazy/hlexec.cpp
-  habana_lazy/hpu_lazy_tensors.cpp
-  habana_lazy/hpu_stage_submission.cpp
-  habana_lazy/ir_utils.cpp
-  habana_lazy/ir.cpp
-  habana_lazy/lazy_arg_spec.cpp
-  habana_lazy/lazy_executor.cpp
-  habana_lazy/lazy_graph_hash_builder.cpp
-  habana_lazy/lazy_graph_hash_disabler.cpp
-  habana_lazy/lazy_storage.cpp
-  habana_lazy/memlog.cpp
-  habana_lazy/passes/fold_conv_batchnorm.cpp
-  habana_lazy/passes/fuse_bn_relu_residual_add.cpp
-  habana_lazy/passes/fuse_mm_transpose.cpp
-  habana_lazy/passes/pass_utils.cpp
-  habana_lazy/passes/permute_graph.cpp
-  habana_lazy/passes/recalculate_batchnorm_params.cpp
-  habana_lazy/passes/remove_redundant_memcpy.cpp
-  habana_lazy/passes/replace_inplace_ops.cpp
-  habana_lazy/passes/replace_views_with_reshapes.cpp
-  habana_lazy/passes/transform_graph.cpp
-  habana_lazy/passes/weight_permute_graph.cpp
-  habana_lazy/sbs_debug.cpp
-  habana_lazy/sbs_runner.cpp
-  habana_lazy/tensor_impl.cpp
-  habana_lazy/view_utils.cpp
-  habana_lazy/visualize.cpp
-  hpu_ops/lazy/add_composite_gen.cpp
-  hpu_ops/lazy/arange_gen.cpp
-  hpu_ops/lazy/bernoulli_gen.cpp
-  hpu_ops/lazy/binarycrossentropy_gen.cpp
-  hpu_ops/lazy/bitwise_gen.cpp
-  hpu_ops/lazy/bitwise_shift_gen.cpp
-  hpu_ops/lazy/clamp_gen.cpp
-  hpu_ops/lazy/compare_gen.cpp
-  hpu_ops/lazy/cumsum_gen.cpp
-  hpu_ops/lazy/div_round_gen.cpp
-  hpu_ops/lazy/embedding_gen.cpp
-  hpu_ops/lazy/exponential_gen.cpp
-  hpu_ops/lazy/foreach_gen.cpp
-  hpu_ops/lazy/frexp_gen.cpp
-  hpu_ops/lazy/geometric_gen.cpp
-  hpu_ops/lazy/index_gen.cpp
-  hpu_ops/lazy/index_select_gen.cpp
-  hpu_ops/lazy/kthvalue_gen.cpp
-  hpu_ops/lazy/logical_gen.cpp
-  hpu_ops/lazy/max_min_gen.cpp
-  hpu_ops/lazy/maxpool_gen.cpp
-  hpu_ops/lazy/multinomial_gen.cpp
-  hpu_ops/lazy/nansum_gen.cpp
-  hpu_ops/lazy/norm_gen.cpp
-  hpu_ops/lazy/pow_gen.cpp
-  hpu_ops/lazy/random_gen.cpp
-  hpu_ops/lazy/remainder_gen.cpp
-  hpu_ops/lazy/rrelu_with_noise_gen.cpp
-  hpu_ops/lazy/threshold_gen.cpp
-  hpu_ops/lazy/topk_util.cpp
-  hpu_ops/lazy/trace_gen.cpp
-  hpu_ops/lazy/unique_gen.cpp
-  hpu_ops/lazy/unique2_gen.cpp
-  hpu_ops/lazy/upsample_gen.cpp
-  hpu_ops/lazy/where_gen.cpp
-  hpu_ops/lazy/xlogy_gen.cpp
-  ${habana_pytorch2_plugin_glob_files}
-)
-target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
-target_compile_definitions(habana_pytorch2_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
-#TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
-target_compile_options(habana_pytorch2_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
-# Link against LibTorch and synapse
-target_link_libraries(habana_pytorch2_plugin
-  PRIVATE
-    habana_serialization
-    tensor_comparator_core
-    nlohmann_json::nlohmann_json
-  PUBLIC
-    habana_pytorch_backend
-    habana_pytorch2_frontend
-    torch
-    absl::hash
-    npu::spdlog
-)
+  target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
+  target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
+  target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
+  target_compile_definitions(habana_pytorch2_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
+  #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
+  target_compile_options(habana_pytorch2_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
+  # Link against LibTorch and synapse
+  target_link_libraries(habana_pytorch2_plugin
+    PRIVATE
+      habana_serialization
+      tensor_comparator_core
+      nlohmann_json::nlohmann_json
+    PUBLIC
+      habana_pytorch_backend
+      habana_pytorch2_frontend
+      torch
+      absl::hash
+      npu::spdlog
+  )
 
-target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
-target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
-
-# Create symlink to latest build from tests dir
-# TODO: make it play nicely with building multiple versions in build.py
-add_custom_command(TARGET habana_pytorch2_plugin POST_BUILD COMMAND
-  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
-  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
-  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
-  $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
-)
-
+  # Create symlink to latest build from tests dir
+  # TODO: make it play nicely with building multiple versions in build.py
+  add_custom_command(TARGET habana_pytorch2_plugin POST_BUILD COMMAND
+    ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
+    ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+    COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch2_plugin>
+    $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
+  )
+  add_dependencies(habana_pytorch2_plugin habana_pytorch_frontend_ops)
+endif()
 
 option(BUILD_TESTS "Build gtest binaries" ON)
 if (BUILD_TESTS)
