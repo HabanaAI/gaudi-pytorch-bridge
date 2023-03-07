@@ -213,6 +213,7 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
 
   auto clip_norm = get_tensor_for_scalar(1.0);
   ir::NodePtr node =
