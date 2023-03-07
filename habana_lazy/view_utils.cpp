@@ -641,7 +641,15 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
   auto out = src;
   auto hl_t = GetHbLazyTensor(src);
 
-  auto is_view = HandleViews(src, hl_t);
+  StrideParams params;
+  StrideParams* params_ptr = nullptr;
+  {
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+    params_ptr = context->viewContext.GetViewTableEntry(GetHbLazyTensorId(src));
+  }
+
+  bool is_view = (params_ptr != nullptr);
 
   if (is_view) {
     /* need to update tmap here for cases like b = add(a); mark_step(). c =
@@ -649,9 +657,48 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
     Here slice is a view op and Tmap needs to have tensor b*/
     RUNNING_HASH_COMBINE_TENSOR(src)
 
-    hl_t = GetHbLazyTensor(src);
-    std::vector<HbLazyTensor> tensors = {hl_t};
-    HbLazyTensor::SyncTensorsGraph(&tensors);
+    bool reuse_base_storage = false;
+
+    Tensor base;
+    Tensor base_internal_tensor;
+    if (src.is_contiguous() &&
+        (GET_ENV_FLAG_NEW(PT_SBS) == SBSModes::SBS_MODE_DISABLED)) {
+      base = get_recent_base_tensor(params_ptr->base);
+      TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+      base_internal_tensor = GetHbLazyTensor(base).EvaluateTensorData();
+      auto hb_impl = habana_lazy::GetHbInternalTensorImpl(base_internal_tensor);
+      auto synapse_permute = hb_impl->GetMemoryPermutation();
+
+      // optimization cannot be performed for permuted tensors
+      if (synapse_permute.size() == 0) {
+        reuse_base_storage = true;
+      }
+    }
+
+    if (reuse_base_storage) {
+      // set backend tensor data for src
+      auto storage_impl = base.unsafeGetTensorImpl();
+
+      // internal dtype can be different from src dtype. ex: long
+      // will be represented as int
+
+      auto at_internal_tensor = AtenInternalHbTensor(
+          c10::Storage(storage_impl->storage()),
+          c10::scalarTypeToTypeMeta(habana_helpers::getInternalDtype(
+              base_internal_tensor.scalar_type())),
+          c10::nullopt,
+          src.sizes(),
+          src.strides(),
+          c10::MemoryFormat::Contiguous);
+      at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
+          src.unsafeGetTensorImpl()->storage_offset());
+      hl_t.SetTensorData(at_internal_tensor);
+    } else {
+      HandleViews(src, hl_t);
+      hl_t = GetHbLazyTensor(src);
+      std::vector<HbLazyTensor> tensors = {hl_t};
+      HbLazyTensor::SyncTensorsGraph(&tensors);
+    }
   } else {
     // check for updated version
     out = get_recent_base_tensor(src);

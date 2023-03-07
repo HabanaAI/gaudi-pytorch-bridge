@@ -838,7 +838,8 @@ void d2h_maybe_eval(const Tensor& src, bool async = false) {
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
     if (params_ptr != nullptr) {
-      hl_t = GetHbLazyTensor(params_ptr->base);
+      hl_t = GetHbLazyTensor(
+          HbLazyTensorViews::get_recent_base_tensor(params_ptr->base));
     }
 
     if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
