@@ -103,14 +103,15 @@ void SynapseProfilerSource::convertLogs(TraceSink& output) {
     std::cerr << "No profiler entries" << std::endl;
     return;
   }
-  std::vector<synTraceEvent> events;
-  // size is not divisible by sizeof(synTraceEvent)
-  // investigate and remove it (SW-102567)
-  events.resize(size / sizeof(synTraceEvent) + 1);
-  if (!getEntries(size, count, events.data())) {
+  auto events = std::make_unique<unsigned char[]>(size);
+  if (!getEntries(size, count, events.get())) {
     return;
   }
-  parser_->Export(events.data(), count - 1, wall_stop_time_, output);
+  parser_->Export(
+      reinterpret_cast<synTraceEvent*>(events.get()),
+      count - 1,
+      wall_stop_time_,
+      output);
 }
 
 void SynapseProfilerSource::getLogsSize(size_t& size, size_t& count) {
