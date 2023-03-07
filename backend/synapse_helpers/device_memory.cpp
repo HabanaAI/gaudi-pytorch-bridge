@@ -990,7 +990,7 @@ void device_memory::record(void* ptr, size_t size, bool alloc) {
       habana::profile::memory::recordAllocation(
           reinterpret_cast<uint64_t>(ptr),
           size,
-          stats.bytes_in_use,
+          stats.bytes_in_use + size,
           stats.memory_limit);
     } else {
       habana::profile::memory::recordDeallocation(
