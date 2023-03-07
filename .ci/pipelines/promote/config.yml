@@ -39,5 +39,13 @@ orchestratorConfig:
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
 # deepspeed-fork <End>
+sanitizerConfig:
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
+codeCoverageConfig:
+  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
+coverityConfig:
+  - testToLaunch: pytorch_modules/Scans/Coverity_Build_pytorch_modules
 stepConfig:
   jobTimeout: '300'
