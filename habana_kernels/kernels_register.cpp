@@ -2056,7 +2056,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "randperm_out_ds(Tensor idst, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "randperm_out_ds_ht(Tensor ht, Tensor st, Tensor seed, Tensor output) -> Tensor(a!)");
+      "randperm_out_ds_ht(Tensor ht, Tensor seed, Tensor output) -> Tensor(a!)");
   m.def("habana_d2d_memcpy(Tensor self) -> Tensor");
   m.def(
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor(a!) weights_in, Tensor(b!) moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor(a!), Tensor(b!))");

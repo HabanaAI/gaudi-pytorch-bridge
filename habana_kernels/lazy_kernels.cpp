@@ -5183,19 +5183,8 @@ at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
       params_vec.size(),
       sizeof(int32_t),
       HostDataType::INT32_T);
-  auto result_shape = empty_hpu_lazy(
-      out_shape,
-      output.options(),
-      c10::MemoryFormat::Contiguous,
-      false,
-      SHAPE_TENSOR);
-  auto hl_result_shape = GetOrCreateHbLazyTensor(result_shape, c10::kHPU);
-
   LazyOp<Tensor&> hpu_op{
-      "hpu::randperm_out_ds_ht",
-      {params_shape, result_shape, seed, output},
-      nullptr,
-      3};
+      "hpu::randperm_out_ds_ht", {params_shape, seed, output}, nullptr, 2};
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, hpu_op, output);
 }
 

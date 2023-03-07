@@ -159,15 +159,14 @@ OutputShapeInfRetType RandpermOperatorHT::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   OutputShapeInfRetType out;
   auto host_tensor = inputs[0].toTensor();
-  auto shape_tensor = inputs[1].toTensor();
-  auto output = inputs[3].toTensor();
+  auto output = inputs[2].toTensor();
   auto scalar_type = output.scalar_type();
   auto arangeOutput = habana::createPTTensor(output, false);
 
   auto arangeOp = make_operator<ArangeOperatorHT>(
       this->p_context_->device_id_, scalar_type);
   torch::jit::Stack stack{
-      IValue(host_tensor), IValue(arangeOutput), IValue(shape_tensor)};
+      IValue(host_tensor), IValue(arangeOutput), IValue(output)};
   auto arange_op_out = out.call_ComputeOutputShape(arangeOp, stack);
 
   stack.clear();
@@ -188,7 +187,7 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 4,
+      inputs.size() == 3,
       "Incorrect size",
       inputs.size(),
       " of inputs expected for RandpermOperatorHT");
@@ -201,13 +200,9 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[2].isTensor(),
       "Input arg2 expected to be Tensor for RandpermOperatorHT");
-  TORCH_CHECK(
-      inputs[3].isTensor(),
-      "Input arg3 expected to be Tensor for RandpermOperatorHT");
 
   auto host_tensor = inputs[0].toTensor();
-  auto shape_tensor = inputs[1].toTensor();
-  auto output = inputs[3].toTensor();
+  auto output = inputs[2].toTensor();
   auto scalar_type = output.scalar_type();
   auto arangeOutput = habana::createPTTensor(output, false);
   auto arangeOp = make_operator<ArangeOperatorHT>(
@@ -215,7 +210,7 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   arangeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
   torch::jit::Stack stack{
-      IValue(host_tensor), IValue(arangeOutput), IValue(shape_tensor)};
+      IValue(host_tensor), IValue(arangeOutput), IValue(output)};
   arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
@@ -224,7 +219,7 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, scalar_type);
   stack.emplace_back(IValue(arangeOutput));
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
-  randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+  randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[1]);
   randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
   p_context_->syn_outputs_.emplace_back(
       std::move(randShuffleOp->GetSynOutputs()[0]));
