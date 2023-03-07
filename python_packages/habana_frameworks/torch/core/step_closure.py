@@ -1,7 +1,20 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import threading
 import torch
 import habana_frameworks.torch._core_C as htcore
 from habana_frameworks.torch.utils.internal import lazy_only
+from habana_frameworks.torch.utils.internal import is_lazy
 
 _DEVICE_CONTEXTS = dict()
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
@@ -37,6 +50,10 @@ def _run_step_closures():
         devctx.step_closures = []
         for closure in step_closures:
             closure()
+
+def _mark_step_if_lazy(device_str=""):
+    if is_lazy():
+        mark_step(device_str)
 
 @lazy_only
 def mark_step(device_str=""):

@@ -1,21 +1,36 @@
-import os
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import collections
-import torch
-import warnings
+import os
 import threading
+import warnings
+from typing import Any, List, Optional, Union
+
+import torch
 from habana_frameworks.torch import _hpu_C
-from typing import Optional, Union, List, Any
-from ._utils import (
-    _get_device_index,
-    _get_module_id_from_environ,
-    _get_available_modules_from_environ,
-    HABANA_VISIBLE_MODULES_VAR,
-    HLS_MODULE_ID_VAR)
+from habana_frameworks.torch.utils.internal import is_lazy
+
+from ._utils import (HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR,
+                     _get_available_modules_from_environ, _get_device_index,
+                     _get_module_id_from_environ)
+from .events import *
 from .memory import *
 from .metrics import *
 from .streams import *
-from .events import *
-from .graphs import *
+
+if is_lazy():
+    from .graphs import *
+
 _device_t = Union[torch.device, str, int, None]
 _initialized = False
 _tls = threading.local()

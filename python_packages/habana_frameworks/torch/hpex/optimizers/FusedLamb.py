@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import torch
 from torch.optim import Optimizer
 
@@ -142,7 +154,7 @@ class FusedLamb(Optimizer):
                 adam_step_list,
             ) = ([], [], [], [], [], [], [])
 
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
 
             for p in group["params"]:
                 if p.grad is None:
@@ -179,7 +191,7 @@ class FusedLamb(Optimizer):
                 group["weight_decay"],
             )
 
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
 
             _hpex_C.fused_lamb_phase2(
                 wt_list,
@@ -191,4 +203,4 @@ class FusedLamb(Optimizer):
                 self.use_lamb,
             )
 
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()

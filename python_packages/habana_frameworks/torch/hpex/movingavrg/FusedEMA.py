@@ -1,11 +1,23 @@
-from typing import Callable,Iterable
-import torch
-from torch import nn
-from copy import deepcopy
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import math
-from collections import OrderedDict
-from habana_frameworks.torch import _hpex_C
+from copy import deepcopy
+from typing import Callable, Iterable
+
 import habana_frameworks.torch.core as htcore
+import torch
+from habana_frameworks.torch import _hpex_C
+from torch import nn
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
@@ -45,14 +57,14 @@ class FusedEMA():
             self.updated_ema.append(up_tensor)
 
     def update(self, model):
-        htcore.mark_step()
+        htcore.step_closure._mark_step_if_lazy()
         with torch.no_grad():
             self.updates += 1
             decy = self.decay(self.updates)
             d = torch.tensor([decy]).to(hpu)
 
         _hpex_C.fused_ema(self.model_inputs, self.updated_ema, d)
-        htcore.mark_step()
+        htcore.step_closure._mark_step_if_lazy()
 
     def update_attr(self, model, include=(), exclude=('process_group', 'reducer')):
         #Update EMA attributes

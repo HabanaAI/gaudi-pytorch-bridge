@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import torch
 from torch import nn
 from torch.autograd import Variable
@@ -48,9 +60,9 @@ class FusedLars(Optimizer):
                 # grads may not be present always and hence the list may be empty.
                 # eg. during warmup steps. Call fused op only if list has something.
                 if len(param_list) != 0:
-                    htcore.mark_step()
+                    htcore.step_closure._mark_step_if_lazy()
                     _hpex_C.fused_lars(param_list, grad_list, skip_mask_list, self.eeta, weight_decay, self.eps, group['lr'])
-                    htcore.mark_step()
+                    htcore.step_closure._mark_step_if_lazy()
 
 
         self.optim.step()

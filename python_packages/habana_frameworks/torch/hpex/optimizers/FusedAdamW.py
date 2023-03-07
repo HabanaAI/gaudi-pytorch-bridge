@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import math
 from typing import Callable, Iterable, Tuple
 
@@ -44,7 +56,7 @@ class FusedAdamW(Optimizer):
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
             result = step_func(*args, **kwargs)
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
             return result
         return wrap_
 
@@ -65,7 +77,7 @@ class FusedAdamW(Optimizer):
         self.neg_step_list.clear()
 
         for group in self.param_groups:
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
 
             for p in group["params"]:

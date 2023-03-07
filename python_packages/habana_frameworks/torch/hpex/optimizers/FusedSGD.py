@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 from typing import Callable, Iterable
 
 import torch
@@ -57,7 +69,7 @@ class FusedSGD(Optimizer):
             hpu, non_blocking=True
         )
 
-        htcore.mark_step()
+        htcore.step_closure._mark_step_if_lazy()
 
     def step(self, closure: Callable = None):
         """

@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import torch
 from torch import Tensor
 from typing import List, Optional
@@ -101,13 +113,13 @@ class FusedResourceApplyMomentum(Optimizer):
                     else:
                         params_with_grad_momentum.append(state['momentum_buffer'])
 
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
             resource_apply_momentum(params_with_grad_momentum,
                   d_p_list,
                   momentum=momentum,
                   lr=lr,
                   nesterov=nesterov)
-            htcore.mark_step()
+            htcore.step_closure._mark_step_if_lazy()
 
             # update momentum_buffers in state
             # Parse the interleaved params_with_grad_momentum list and do the

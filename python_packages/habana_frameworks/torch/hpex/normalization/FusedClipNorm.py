@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import torch
 from typing import Iterable
 from habana_frameworks.torch import _hpex_C
@@ -15,7 +27,7 @@ class FusedClipNorm:
         super(FusedClipNorm, self).__init__()
 
     def clip_norm(self, parameters):
-        htcore.mark_step()
+        htcore.step_closure._mark_step_if_lazy()
         norm_list = []
         if isinstance(parameters, torch.Tensor):
             if parameters.grad is not None:
@@ -32,6 +44,6 @@ class FusedClipNorm:
                 norm_list, self.max_norm_t, self.norm_type
             )
 
-        htcore.mark_step()
+        htcore.step_closure._mark_step_if_lazy()
 
         return total_norm
