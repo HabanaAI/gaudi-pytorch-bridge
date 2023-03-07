@@ -31,7 +31,5 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             allows_single_node_partition=True,
         )
 
-    def partition_and_fuse(self, *args):
-        # PARTITIONER  MOCKUP BEGIN #
-        return super().partition_and_fuse(*args)
-        # PARTITIONER  MOCKUP END #
+    def partition_and_fuse(self):
+        return super().partition_and_fuse()

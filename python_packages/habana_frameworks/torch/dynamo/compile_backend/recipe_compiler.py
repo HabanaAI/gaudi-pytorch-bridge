@@ -12,7 +12,7 @@
 
 import torch
 
-from .config import use_compiled_recipes
+from . import config
 
 
 def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule):
@@ -21,7 +21,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule):
     run it eagerly depending on config.
     """
 
-    if use_compiled_recipes:
+    if config.use_compiled_recipes:
         # BACKEND MOCKUP BEGIN #
         return None  # return backend_compile(jit_ir)
         # BACKEND MOCKUP END #

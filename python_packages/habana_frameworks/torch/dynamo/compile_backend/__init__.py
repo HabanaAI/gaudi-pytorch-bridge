@@ -17,10 +17,10 @@ from . import mid_backend
 
 logging.basicConfig()
 
-if "PT_COMPILE_USE_RECIPES" in os.environ and os.environ["PT_COMPILE_USE_RECIPES"] == "True":
+if "PT_HPU_COMPILE_USE_RECIPES" in os.environ and os.environ["PT_HPU_COMPILE_USE_RECIPES"] == "True":
     config.use_compiled_recipes = True
 
-if "PT_COMPILE_VERBOSE" in os.environ and os.environ["PT_COMPILE_VERBOSE"] == "True":
+if "PT_HPU_COMPILE_VERBOSE" in os.environ and os.environ["PT_HPU_COMPILE_VERBOSE"] == "True":
     config.verbose = True
 
 if config.verbose:

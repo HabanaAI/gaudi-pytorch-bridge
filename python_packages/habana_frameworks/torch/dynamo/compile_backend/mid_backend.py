@@ -19,10 +19,12 @@ from torch._dynamo.backends.registry import register_backend
 
 from .internal import (
     preprocess_module,
-    transform_cpu_fallbacks,
+    optimize_pre_partitioner,
     cluster_module,
+    optimize_post_partitioner,
     compile_clusters,
 )
+
 
 def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
@@ -34,18 +36,21 @@ def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[
     # Do initial preprocessing.
     preprocess_module(graph_module, example_inputs)
 
-    # Take ops marked for CPU fallback and transform
-    # them into copy_to(CPU)->OP(CPU)->copy_to(HPU)
-    transform_cpu_fallbacks(graph_module)
+    # Perform optimizations on a graph before the partitioner.
+    optimize_pre_partitioner(graph_module)
 
     # Partition the module based on propagated device placement data.
     clustered_module = cluster_module(graph_module)
+
+    # Perform optimizations on a graph after the partitioner.
+    optimize_post_partitioner(clustered_module)
 
     # Generate compiled recipes for the HPU clusters in the module.
     compile_clusters(clustered_module)
 
     # Return the module in boxed format required by AOT Autograd.
     return functorch.compile.make_boxed_func(clustered_module.forward)
+
 
 @register_backend
 def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
@@ -54,6 +59,7 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
     """
 
     return _hpu_compile_inner(graph_module, example_inputs)
+
 
 @register_backend
 def aot_hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):

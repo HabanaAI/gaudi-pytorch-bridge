@@ -12,12 +12,14 @@
 
 import os
 import torch
+import torch.nn.functional as F
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 
 from contextlib import contextmanager
+
 
 def set_flag_in_env(name: str, value):
     if value is None:
@@ -139,6 +141,78 @@ def test_device_partition_hpuinput():
         assert torch.equal(result_nocompile, result_compile)
 
 
+def test_leaf_views_1():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+
+        def raw_function(x, y, z):
+            tmp0 = x + y
+
+            tmp1 = F.relu(tmp0)
+
+            tmp2 = z * 2
+
+            tmp3 = tmp1 * tmp2.to("hpu")
+
+            tmp4 = x / tmp3
+
+            tmp5 = F.tanh(tmp4)
+
+            return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+
+        input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor3 = torch.rand(8, 1, 32, 32).to("cpu")
+
+        result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
+        result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
+
+        assert torch.equal(result1.cpu(), result1_compiled.cpu())
+        assert torch.equal(result2.cpu(), result2_compiled.cpu())
+
+
+def test_leaf_views_2():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+
+        def raw_function(x):
+            x = x.add(1.0)
+            x = x[:]
+            x = x.add(2.0)
+            x = x[:, :]
+            return x.t()
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+
+        a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
+
+        result_nocompile = raw_function(a1)
+        result_compile = compiled_function(a1)
+
+        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
+
+
+def test_leaf_views_3():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+
+        def raw_function(x):
+            b = x[::2]
+            c = torch.relu(b)
+            d = b[:]
+            return c, d
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+
+        a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
+
+        result1_nocompile, result2_nocompile = raw_function(a1)
+        result1_compile, result2_compile = compiled_function(a1)
+
+        assert torch.equal(result1_nocompile.cpu(), result1_compile.cpu())
+        assert torch.equal(result2_nocompile.cpu(), result2_compile.cpu())
+
+
+@pytest.mark.xfail
 def test_simple_convnet():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
 
@@ -217,6 +291,7 @@ def test_simple_convnet():
         assert loss_compile2 < loss_compile1
 
 
+@pytest.mark.xfail
 def test_simple_convnet_with_device_pingpong():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
 

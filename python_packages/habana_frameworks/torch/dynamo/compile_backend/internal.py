@@ -12,129 +12,35 @@
 
 import logging
 import torch
+import copy
 
 from typing import List
-from .shared_layer import is_cpu_fallback_required
 from .recipe_compiler import get_callable_recipe
-from .partitioner import HabanaPartitioner
+from .passes import OptimizationPassPlacement, optimize_graph
 
 logger = logging.getLogger("aot_hpu_backend")
 
 
-def annotate_cpu_fallback(node: torch.fx.Node):
+def optimize_pre_partitioner(graph_module: torch.fx.GraphModule):
     """
-    This function will forward the query to shared_layer so we know whether
-    fallback is needed for this node.
-
-    If yes, then annotate the node meta so following code can recognize such
-    fallbacked node.
+    This function is supposed to run optimizations passes on a graph that
+    wasn't yet partitioned.
     """
-
-    if is_cpu_fallback_required(node):
-        node.meta["placement"] = "cpufallback"
+    optimize_graph(OptimizationPassPlacement.PRE_PARTITIONER, graph_module)
 
 
-def transform_cpu_fallbacks(graph_module: torch.fx.GraphModule):
+def optimize_post_partitioner(graph_module: torch.fx.GraphModule):
     """
-    This function is supposed to find nodes annotated as requiring fallbacks,
-    for each such node it will materialize the copies and move the actual
-    OP to CPU.
+    This function is supposed to run optimizations passes on a graph that
+    was already partitioned.
     """
-
-    modified = False
-    fallbacked_ops_counter = {}
-
-    for node in graph_module.graph.nodes:
-        if node.meta["placement"] == "cpufallback":
-            if node.target.__name__ in fallbacked_ops_counter:
-                fallbacked_ops_counter[node.target.__name__] += 1
-            else:
-                fallbacked_ops_counter[node.target.__name__] = 1
-
-            modified = True
-            with graph_module.graph.inserting_before(node):
-                for arg in node.args:
-                    if isinstance(arg, torch.fx.Node):
-                        input_copy_node = graph_module.graph.call_function(
-                            torch.ops.aten._to_copy.default,
-                            (arg,),
-                            {"device": torch.device("cpu")},
-                        )
-                        input_copy_node.meta["placement"] = "eager"
-                        input_copy_node.meta["output_device"] = torch.device("cpu")
-                        input_copy_node.meta["output_dtypes"] = [arg.meta["output_dtypes"][0]]
-                        input_copy_node.meta["output_layouts"] = [arg.meta["output_layouts"][0]]
-                        node.replace_input_with(arg, input_copy_node)
-
-            # Check if this is tuple based output.
-            is_tuple_output = False
-            for user in node.users:
-                if user.op == "call_function" and "getitem" in user.target.__name__:
-                    is_tuple_output = True
-                    break
-
-            if not is_tuple_output:
-                with graph_module.graph.inserting_after(node):
-                    output_copy_node = graph_module.graph.call_function(
-                        torch.ops.aten._to_copy.default,
-                        (node,),
-                        {"device": node.meta["output_device"]},
-                    )
-                    output_copy_node.meta["placement"] = "eager"
-                    output_copy_node.meta["output_device"] = node.meta["output_device"]
-                    output_copy_node.meta["output_dtypes"] = [node.meta["output_dtypes"][0]]
-                    output_copy_node.meta["output_layouts"] = [node.meta["output_layouts"][0]]
-                    node.replace_all_uses_with(output_copy_node)
-
-                    # Above line will also replace the input of output
-                    # conversion to itself.... fix it back.
-                    output_copy_node.replace_input_with(output_copy_node, node)
-            else:
-                # We need to fall back getitems following the output tuple
-                # instead of just the output itself.
-                for user in node.users:
-                    assert isinstance(user, torch.fx.Node)
-                    assert "getitem" in user.target.__name__
-                    with graph_module.graph.inserting_after(user):
-                        output_copy_node = graph_module.graph.call_function(
-                            torch.ops.aten._to_copy.default,
-                            (user,),
-                            {"device": user.meta["output_device"]},
-                        )
-                        output_copy_node.meta["placement"] = "eager"
-                        output_copy_node.meta["output_device"] = user.meta["output_device"]
-                        output_copy_node.meta["output_dtypes"] = [user.meta["output_dtypes"][0]]
-                        output_copy_node.meta["output_layouts"] = [user.meta["output_layouts"][0]]
-                        user.replace_all_uses_with(output_copy_node)
-
-                        # Above line will also replace the input of output
-                        # conversion to itself.... fix it back.
-                        output_copy_node.replace_input_with(output_copy_node, user)
-
-                    user.meta["placement"] = "eager"
-                    user.meta["output_device"] = torch.device("cpu")
-
-            node.meta["placement"] = "eager"
-            node.meta["output_device"] = torch.device("cpu")
-
-    if modified:
-        graph_module.recompile()
-        logger.debug(
-            "#### Graph module after CPU fallback transformation:####\n%s",
-            graph_module.print_readable(False),
-        )
-
-    return fallbacked_ops_counter
+    optimize_graph(OptimizationPassPlacement.POST_PARTITIONER, graph_module)
 
 
 def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
     This function takes out basic information from propagated fake tensor, like
-    dtype, layout and device and puts it to the node that created it. It will
-    also place annotation about proposed placement. There are two options:
-
-    "eager"       - such OPs will not be placed inside HPU clusters
-    "hpu_cluster" - such OPs will be later placed inside HPU clusters
+    dtype, layout and device and puts it to the node that created it.
     """
 
     device = None
@@ -190,35 +96,6 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     node.meta["output_dtypes"] = dtypes
     node.meta["output_layouts"] = layouts
 
-    placement = None
-    if "placeholder" in node.op or "output" in node.op:
-        placement = "eager"
-    elif "to_copy" in node.name:
-        # If this is dtype/layout copy from hpu to hpu, then leave it in
-        # hpu_cluster. In any other case put it to eager.
-        input_node = None
-        for arg in node.args:
-            if isinstance(arg, torch.fx.Node):
-                input_node = arg
-                break
-
-        assert input_node is not None
-
-        if input_node.meta["output_device"].type == "hpu" and node.meta["output_device"].type == "hpu":
-            placement = "hpu_cluster"
-        else:
-            placement = "eager"
-    elif node.meta["output_device"].type == "hpu":
-        placement = "hpu_cluster"
-    elif node.meta["output_device"].type == "cpu":
-        placement = "eager"
-
-    assert placement is not None
-
-    node.meta["placement"] = placement
-
-    logger.debug("placement: %s", placement)
-
 
 class TensorInfoPropagation(torch.fx.Interpreter):
     """
@@ -242,7 +119,6 @@ class TensorInfoPropagation(torch.fx.Interpreter):
             result = super().run_node(node)
 
         fill_propagated_tensor_metadata_to_node(result, node)
-        annotate_cpu_fallback(node)
 
         return result
 
@@ -310,8 +186,7 @@ def generate_jit_ir_from_module(input_module: torch.fx.GraphModule):
 def preprocess_module(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     This function makes sure that input tensors are in fake mode so we don't
-    make any actual computation. Then it propagates tensor metadata, like
-    device placement or layout, into nodes.
+    make any actual computation. Then it propagates tensor metadata into nodes.
     """
 
     from torch._dynamo.utils import (
@@ -332,16 +207,54 @@ def preprocess_module(graph_module: torch.fx.GraphModule, example_inputs: List[t
 
 def cluster_module(graph_module: torch.fx.GraphModule):
     """
-    This function will use partitioner to cluster in all
-    habana-supported operations.
+    We need to make it a bit convoluted because we will analyze graph that was already
+    partitioned and might have different set of nodes than original that we need apply the
+    placement changes into. It will also have different layout of subgraphs.
+    This is what we gonna do:
+    1. To each original node add metadata entry containing unique ID.
+    2. Grab all original nodes into dictionary using these IDs as keys.
+    3. When we decide that specific >partitioned< node placement needs to be
+        changed, we do following inside the optimization passes:
+        I.   Check if it contains metadata with unique ID.
+            (If it does not, ignore it as it do not exist in original graph.)
+        II.  Use the unique ID to find original node in dictionary.
+        III. Change original node placement.
     """
+    ids_to_original_nodes = {}
 
-    partitioner = HabanaPartitioner(graph_module)
-    clustered_module = partitioner.partition_and_fuse()
+    for node in graph_module.graph.nodes:
+        key = node.meta["unique_id"] = hash(node)
 
-    logger.debug("clustered module:\n%s", clustered_module.print_readable(False))
+        if key in ids_to_original_nodes:
+            logger.error("key collision @ %d", key)
+            raise
 
-    return clustered_module
+        ids_to_original_nodes[key] = node
+
+    graph_changed = True
+    while graph_changed:
+        # Deep copy the graph because currently used CapabilityBasedPartitioner will
+        # modify the graph in-place and we want to re-start from original on each iteration.
+        copied_graph_module = copy.deepcopy(graph_module)
+
+        # OUTPUT META BUG WORKAROUND
+        # Fun fact - node.meta is supposed to be guaranteed to be copied when graph
+        # is cloned. It's usually true, but it seems it's not for `output` nodes.
+        # Let's W/A it, assume that output is last node in the graph.
+        original_output_node = next(iter(reversed(graph_module.graph.nodes)))
+        copied_output_node = next(iter(reversed(copied_graph_module.graph.nodes)))
+        assert "output" in original_output_node.op
+        assert "output" in copied_output_node.op
+
+        copied_output_node.meta = copy.deepcopy(original_output_node.meta)
+        # WORKAROUND END
+
+        graph_changed = optimize_graph(
+            OptimizationPassPlacement.PARTITIONER, copied_graph_module, ids_to_original_nodes
+        )
+
+    # Return graph_module that was partitioned last.
+    return copied_graph_module
 
 
 def compile_clusters(graph_module: torch.fx.GraphModule):
@@ -367,27 +280,5 @@ def compile_clusters(graph_module: torch.fx.GraphModule):
             graph_module.add_submodule(n.target, callable_recipe)
 
             num_subgraphs += 1
-
-    # AOT Autograd BUG WORKAROUND
-    # (https://github.com/pytorch/pytorch/issues/92245):
-    # This is workaround for optimizer graphs that are not functionalized at
-    # this point. Issue is that optimizer has no outputs and it will cause
-    # wrong topological sort and execution. After optimizer is correctly
-    # functionalized by AOT Autograd, this code should be removed.
-    output_node = None
-    last_node_after_output = None
-    for n in graph_module.graph.nodes:
-        if output_node:
-            last_node_after_output = n
-
-        if n.op == "output":
-            output_node = n
-    if last_node_after_output is not None:
-        logger.warning("It seems graph wasn't functionalized, fixing output node.")
-        graph_module.graph.erase_node(output_node)
-        graph_module.graph.node_copy(output_node)
-        graph_module.recompile()
-
-    # WORKAROUND END
 
     logger.info("INFO: Number of subgraphs created:\n%s", num_subgraphs)
