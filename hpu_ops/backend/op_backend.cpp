@@ -795,4 +795,99 @@ synapse_helpers::tensor OpBackend::BuildReshape(
       op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});
   return std::move(reshape.at(0));
 }
+
+std::vector<synapse_helpers::tensor> OpBackend::BuildNonZero(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synapse_helpers::tensor& inTensor,
+    at::IntArrayRef outShape,
+    at::ScalarType inScalarType,
+    c10::optional<int> finalResultIndex) {
+  constexpr auto shapeTensorDim = 5;
+  constexpr auto outShapeAllowedRank = 2;
+
+  HABANA_ASSERT(
+      outShape.size() == outShapeAllowedRank,
+      "Non-zero output tensor rank is always ",
+      outShapeAllowedRank,
+      " here ",
+      outShape.size(),
+      " rank was given");
+
+  const std::string guid =
+      "non_zero_fwd_" + habana_helpers::name_suffix_from_type(inScalarType);
+
+  return op->BuildOp(
+      graph,
+      guid,
+      {inTensor.get()},
+      {NodeAttr::NodeOutputAttr{
+           .sizes = outShape,
+           .dtype = at::kInt,
+           .final_result_index = finalResultIndex},
+       NodeAttr::NodeOutputAttr{
+           .sizes = {shapeTensorDim},
+           .dtype = at::kInt,
+           .tensor_type = DEVICE_SHAPE_TENSOR}});
+}
+
+synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const std::vector<std::reference_wrapper<synapse_helpers::tensor>>&
+        inTensors,
+    at::IntArrayRef outShape,
+    at::ScalarType inScalarType,
+    c10::optional<int> finalResultIndex) {
+  const auto& inputTensor = inTensors[0].get();
+  const auto& indexTensor = inTensors[1].get();
+  const auto& updatesTensor = inTensors[2].get();
+  const auto& validCountTensor = inTensors[3].get();
+
+  constexpr auto allowedNrOfInTensors = 3; // +1 optional
+  constexpr auto allowedValidCountTensorRank = 1;
+
+  const auto nrOfInTensors = inTensors.size();
+
+  HABANA_ASSERT(
+      nrOfInTensors == allowedNrOfInTensors or
+          nrOfInTensors == allowedNrOfInTensors + 1,
+      "ScatterND input must have ",
+      allowedNrOfInTensors,
+      " or ",
+      allowedNrOfInTensors + 1,
+      " tensors "
+      " here ",
+      nrOfInTensors,
+      " tensors was given");
+  HABANA_ASSERT(
+      validCountTensor.shape().rank().value == allowedValidCountTensorRank,
+      "ScatterND ValidCount tensor must have rank 1");
+
+  const std::string guid = "scatter_nd_onnx_fwd_" +
+      habana_helpers::name_suffix_from_type(inScalarType);
+
+  return std::move(
+      op->BuildOp(
+            graph,
+            guid,
+            [&]() {
+              std::vector<synTensor> res;
+              res.reserve(4);
+              res.insert(
+                  res.begin(),
+                  {inputTensor.get(), indexTensor.get(), updatesTensor.get()});
+
+              if (nrOfInTensors == allowedNrOfInTensors + 1) {
+                res.push_back(validCountTensor.get());
+              }
+
+              return res;
+            }(),
+            {NodeAttr::NodeOutputAttr{
+                .sizes = outShape,
+                .dtype = inScalarType,
+                .final_result_index = finalResultIndex}})
+          .at(0));
+}
 } // namespace habana

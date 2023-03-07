@@ -4192,11 +4192,12 @@ _masked_scale:
 
 masked_scatter_:
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
-    Greco: [BFloat16, Float, Half, Int]
-  override_fn: masked_scatter_hpu_lazy_
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Half, Int, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Char]
+    Greco: [BFloat16, Float, Half, Int, Char]
+  op_backend: MaskedScatter
+  inplace_ids: [0]
 
 masked_fill_.Scalar:
   dtypes:
