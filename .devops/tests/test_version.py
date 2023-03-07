@@ -75,7 +75,6 @@ def test_significant_matches():
     assert Version("2.5.0+cu90").significant_matches(Version("2.5.0+cu90"))
     assert Version("1.12.0").significant_matches(Version("1.12.0a0+git7315acd"))
     assert Version("1.12.0a0").significant_matches(Version("1.12.0a0"))
-    assert Version("2.0.0").significant_matches(Version("2.0.0+cpu.cxx11.abi"))
     assert not Version("1.12.0a0").significant_matches(Version("1.12.0"))
 
 

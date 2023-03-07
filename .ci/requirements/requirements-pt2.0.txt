@@ -1,3 +1,4 @@
---index-url=https://download.pytorch.org/whl/test/cpu-cxx11-abi/
+--pre
+--extra-index-url=https://download.pytorch.org/whl/nightly/cpu/
 
-torch==2.0.0+cpu.cxx11.abi
+torch==2.0.0.dev20230207
