@@ -433,6 +433,8 @@ ENV_STRUCT_DEFINITION(PT_PROFILE_BRIDGE_LOGS, bool, false);
 ENV_STRUCT_DEFINITION(PT_PROFILE_MEMORY, bool, false);
 // Wait for all futures during clean up.
 ENV_STRUCT_DEFINITION(PT_WAIT_FOR_ALL_FUTURES_IN_CLEANUP, bool, true);
+// Enable flow events in tensorflow
+ENV_STRUCT_DEFINITION(PT_TB_ENABLE_FLOW_EVENTS, bool, false);
 
 // streams
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GENERIC_STREAM, bool, false);

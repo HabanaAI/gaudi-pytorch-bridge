@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include "backend/profiling/profiling.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "nlohmann/json.hpp"
 
 namespace habana {
@@ -56,12 +57,14 @@ class JsonFileParser : public TraceSink {
       std::string_view cat,
       const Flow& start,
       const Flow& finish) override {
-    auto flow_start = constructFlow(
-        name, cat, start.device, start.resource, start.time, true);
-    auto flow_end = constructFlow(
-        name, cat, finish.device, finish.resource, finish.time, false);
-    addToEvents(flow_start);
-    addToEvents(flow_end);
+    if (GET_ENV_FLAG_NEW(PT_TB_ENABLE_FLOW_EVENTS)) {
+      auto flow_start = constructFlow(
+          name, cat, start.device, start.resource, start.time, true);
+      auto flow_end = constructFlow(
+          name, cat, finish.device, finish.resource, finish.time, false);
+      addToEvents(flow_start);
+      addToEvents(flow_end);
+    }
   }
 
   void addMemoryEvent(
