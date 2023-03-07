@@ -541,7 +541,9 @@ void device::cleanup() {
   // NOTE: If GIL is acquired by any other thread, there is a good chance that
   // we will hang here. Make sure the call for cleanup is coming from the main
   // python thread which has the GIL
-  sem_.wait_for_all_futures();
+  if (GET_ENV_FLAG_NEW(PT_WAIT_FOR_ALL_FUTURES_IN_CLEANUP)) {
+    sem_.wait_for_all_futures();
+  }
 
   flush_stream_events();
 
