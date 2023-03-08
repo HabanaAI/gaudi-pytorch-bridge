@@ -777,6 +777,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, repeatInlv) {
 TEST_F(LazyDynamicComputeOutputShapesTest, RepeatTest) {
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   int H = 4;
+  std::vector<int> c{5, 50, 100};
   std::vector<int> in_sizes{10, 231, 520};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
@@ -784,11 +785,10 @@ TEST_F(LazyDynamicComputeOutputShapesTest, RepeatTest) {
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
 
-    torch::Tensor h_out = hA.repeat({5, 1, 1});
+    torch::Tensor h_out = hA.repeat({c[i], 1, 1});
 
     auto h_cout = h_out.to(torch::kCPU);
-    auto cout = A.repeat({5, 1, 1});
-
+    auto cout = A.repeat({c[i], 1, 1});
     EXPECT_EQ(allclose(h_cout, cout), true);
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);

@@ -5365,24 +5365,10 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
       params_vec.size(),
       sizeof(int32_t),
       HostDataType::INT32_T);
+  impl->setH2DDataForBucketing();
   auto out_shape = RepeatOperator::compute_output_shape(self, repeats);
-  std::vector<int64_t> repeat_shape(rpt_vec.rbegin(), rpt_vec.rend());
-  auto repeat_shape_tensor = empty_hpu_lazy(
-      repeat_shape,
-      self.options(),
-      c10::MemoryFormat::Contiguous,
-      false,
-      SHAPE_TENSOR);
 
-  // Mark this front end shape tensor as it does not need synapse tensor
-  auto repeat_internal = GetOrCreateHbLazyTensor(repeat_shape_tensor, c10::kHPU)
-                             .CurrentTensorAttached()
-                             .value();
-  auto stImpl = habana_lazy::GetHbInternalTensorImpl(repeat_internal);
-  if (stImpl) {
-    stImpl->setH2DFrontEndShapeTensor();
-  }
-  vector_of_inputs = {self, params_shape, repeat_shape_tensor};
+  vector_of_inputs = {self, params_shape};
   op_name = "hpu::repeat_ht";
   LazyOp<at::Tensor> k{op_name, vector_of_inputs, {out_shape}};
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)

@@ -51,13 +51,48 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
   return padded_size;
 }
 
+std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
+    const at::Tensor& host_tensor) {
+  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+
+  bool is_dry_run = false;
+  if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE ||
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    is_dry_run = true;
+  }
+
+  void* host_ptr = nullptr;
+  if (is_dry_run) {
+    host_ptr = impl->get_compile_host_ptr();
+  } else {
+    host_ptr = impl->get_host_ptr();
+  }
+
+  size_t h2d_data_size = impl->get_host_size();
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    size_t data_size = h2d_data_size * impl->get_host_el_size();
+    host_ptr = static_cast<char*>(host_ptr) + data_size;
+  }
+
+  std::vector<int64_t> repeat;
+  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  for (size_t i = 0; i < h2d_data_size; i++) {
+    repeat.push_back(*h2d_data++);
+  }
+
+  return repeat;
+}
+
 OutputShapeInfRetType RepeatOperatorHT::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   OutputShapeInfRetType out;
   auto input = inputs[0].toTensor();
+  auto param_tensor = inputs[1].toTensor();
 
-  auto repeat_shape_tensor = inputs[2].toTensor();
-  auto repeat_shape = repeat_shape_tensor.sizes().vec();
+  auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
   int64_t size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
@@ -92,16 +127,16 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for RepeatHTOperator");
   TORCH_CHECK(
-      inputs[1].isTensor() and inputs[2].isTensor(),
+      inputs[1].isTensor(),
       "Input arg2 & arg3 expected to be shape tensor for RepeatHTOperator");
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
-  auto repeat_shape_tensor = inputs[2].toTensor();
-  auto repeat_shape = repeat_shape_tensor.sizes().vec();
-  int64_t size = static_cast<int64_t>(repeat_shape.size());
 
   auto impl = habana_lazy::GetHbInternalTensorImpl(param_tensor);
   HABANA_ASSERT(impl);
+
+  auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
+  int64_t size = static_cast<int64_t>(repeat_shape.size());
 
   std::vector<int64_t> rpt_cast;
   for_each(repeat_shape.rbegin(), repeat_shape.rend(), [&](const int32_t& n) {
@@ -132,16 +167,6 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
       input.options(),
       output_metadata.at(0).persistent);
 
-  if (habana::ShapeInference::GetCurrentPass() ==
-      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    impl->set_min<int32_t>(repeats);
-  } else if (
-      habana::ShapeInference::GetCurrentPass() ==
-      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-    impl->set_max<int32_t>(repeats);
-  }
-
-  p_context_->syn_inputs_.pop_back();
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

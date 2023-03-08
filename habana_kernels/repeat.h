@@ -45,6 +45,9 @@ struct RepeatOperatorHT : public RepeatOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
+
+  static std::vector<int64_t> ComputeRepeatShapefromH2DTensor(
+      const at::Tensor& host_tensor);
 };
 
 class RepeatInlvOperator : public HabanaOperator {

@@ -2560,8 +2560,8 @@ void HabanaLaunchOpPT::SetH2DMinMaxData(
       HABANA_ASSERT(impl);
       if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
           impl->peekH2DDataForBucketing()) {
-        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
-        if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
+        habana_lazy::HostDataType h2d_dtype = impl->get_host_dt_type();
+        if (h2d_dtype == habana_lazy::HostDataType::UINT64_T) {
           std::vector<uint64_t> stride_data_vec;
           std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
           for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
@@ -2571,6 +2571,28 @@ void HabanaLaunchOpPT::SetH2DMinMaxData(
             impl->set_min<uint64_t>(stride_data_vec);
           } else {
             impl->set_max<uint64_t>(stride_data_vec);
+          }
+        } else if (h2d_dtype == habana_lazy::HostDataType::UINT32_T) {
+          std::vector<uint32_t> data_vec;
+          std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
+          for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
+            data_vec.push_back(static_cast<uint32_t>(*it));
+          }
+          if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
+            impl->set_min<uint32_t>(data_vec);
+          } else {
+            impl->set_max<uint32_t>(data_vec);
+          }
+        } else if (h2d_dtype == habana_lazy::HostDataType::INT32_T) {
+          std::vector<int32_t> data_vec;
+          std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
+          for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
+            data_vec.push_back(static_cast<int32_t>(*it));
+          }
+          if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
+            impl->set_min<int32_t>(data_vec);
+          } else {
+            impl->set_max<int32_t>(data_vec);
           }
         } else {
           PT_DYNAMIC_SHAPE_DEBUG(
