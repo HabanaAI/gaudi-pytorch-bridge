@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -71,11 +71,22 @@ void HandleInputOutputViews(
     const SmallTensorVector& inputs) {
   PT_EAGER_TRACE;
 
-  auto it = graph->nodes().begin();
-  JitNode* node = *it;
+  JitNode* node{nullptr};
 
   // only single-node graph is assumed
-  HABANA_ASSERT(++it == graph->nodes().end());
+  for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
+    if (it->kind() == at::prim::Constant)
+      continue;
+    else {
+      TORCH_CHECK(
+          node == nullptr,
+          "Expecting exactly one non-const node, but already found ",
+          node->kind(),
+          " and ",
+          it->kind());
+      node = *it;
+    }
+  }
 
   PT_BRIDGE_DEBUG(
       "\nBefore SV node insertion:=====================\n",
