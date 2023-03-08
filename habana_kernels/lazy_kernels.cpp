@@ -6733,19 +6733,6 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
   }
 };
 
-Tensor masked_scale_hpu_lazy(
-    const Tensor& self,
-    const Tensor& mask,
-    double scale) {
-  PT_LAZY_TRACE;
-  // scale changed to support dropout backward based on what we pass for
-  // dropout
-  scale = scale / (scale - 1);
-  auto masked = torch::mul(self, mask);
-  auto scaled = torch::mul(masked, scale);
-  return scaled;
-}
-
 Tensor matmul_hpu_lazy(
     const Tensor& self,
     const Tensor& other,

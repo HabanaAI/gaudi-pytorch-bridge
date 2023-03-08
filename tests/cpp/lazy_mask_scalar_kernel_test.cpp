@@ -3,7 +3,6 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -34,7 +33,7 @@ TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
   // Lazy Section
   auto hAL = A.to(torch::kHPU);
   auto hBL = B.to(torch::kHPU);
-  auto hOut = masked_scale_hpu_lazy(hAL, hBL, scale);
+  auto hOut = at::_masked_scale(hAL, hBL, scale);
   Tensor out = hOut.to(kCPU);
 
   EXPECT_EQ(allclose(out, expected), true);

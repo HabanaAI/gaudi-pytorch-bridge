@@ -1941,7 +1941,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
     variable_list saved_vars = ctx->get_saved_variables();
     auto mask = saved_vars[0];
     at::Tensor result;
-    result = masked_scale_hpu_lazy(grad_output[0], mask, 1.0 / p);
+    result = at::_masked_scale(grad_output[0], mask, 1.0 / p);
     return {result, torch::Tensor(), torch::Tensor()};
   }
 };
