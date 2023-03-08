@@ -243,6 +243,39 @@ void NllLoss2DFwd::AddNode(
   syn_out(0) = std::move(nll_loss[0]);
 }
 
+void NllLossBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  const auto outshape = ComputeOutputShapes(stack)[0];
+  auto dtype = stack.at(0).toTensor().scalar_type();
+  const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
+
+  if (stack.at(3).isNone()) { // weight is none
+    auto nll_loss = NllLossBwdFunc(
+        this,
+        graph,
+        {syn_in(0), syn_in(2)},
+        dtype,
+        outshape,
+        params,
+        size,
+        0,
+        shapeTnsrSize);
+    syn_out(0) = std::move(nll_loss[0]);
+  } else { // weight is not none
+    auto nll_loss = BuildOp(
+        graph,
+        "cnll_loss_bwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
+        {{outshape, dtype, 0}},
+        params.get(),
+        size);
+    syn_out(0) = std::move(nll_loss[0]);
+  }
+}
+
 void NllLoss2DBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

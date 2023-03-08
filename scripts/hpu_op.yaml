@@ -4968,7 +4968,8 @@ nll_loss_backward:
       target: [Int]
       weight: [BFloat16, Float, Half]
       total_weight: [BFloat16, Float, Half]
-  guid: cnll_loss_bwd
+  guid: nll_loss_bwd
+  op_backend: NllLossBwd
   out_ids: [0]
 
 nll_loss_forward:
@@ -5060,7 +5061,8 @@ nll_loss_backward.grad_input:
     target: [Int]
     weight: [BFloat16, Float]
     total_weight: [BFloat16, Float]
-  guid: cnll_loss_bwd
+  guid: nll_loss_bwd
+  op_backend: NllLossBwd
 
 nll_loss_forward.output:
   custom_fill_params: FillNllLossFwdParams
