@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-22 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -97,36 +97,19 @@ static void convert_params_to_tensors(
       max, self.options().dtype(compute_dtype));
 }
 
-template <>
-LazyClamp<at::Tensor>::LazyClamp(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
-
-template <>
-LazyClamp<at::Tensor&>::LazyClamp(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, at::Tensor, ClampFE, -1) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, at::Tensor&, ClampFE) {
   convert_params_to_tensors(
       get_inputs(), inputs.at(0).toTensor().scalar_type());
 }
 
-template <>
-at::Tensor LazyClamp<at::Tensor>::get_result_overrideable() {
-  auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
+HPU_OP_FRONTEND_CREATE_RESULT_ONLY(habana_lazy::LazyOp, at::Tensor, ClampFE) {
+  auto& inputs = get_inputs();
   const auto& dtype = get_scalar_types()[0];
   convert_params_to_tensors(inputs, dtype);
   const auto& t = inputs.at(0).toTensor();
   return habana_lazy::empty_hpu_lazy(
       t.sizes(), t.options().dtype(dtype), t.suggest_memory_format(), false);
-}
-
-template <>
-at::Tensor& LazyClamp<at::Tensor&>::get_result_overrideable() {
-  return LazyOp<at::Tensor&>::get_result_overrideable();
 }
 
 } // namespace habana

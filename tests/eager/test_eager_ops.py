@@ -195,3 +195,24 @@ def test_pow2d_contiguous():
     result_hpu = torch.pow(hpu_tensor, 2).to("cpu")
     result_cpu = torch.pow(cpu_tensor, 2)
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+def test_clamp_variants():
+    min = None
+    max = 0
+    cpu_tensor = torch.Tensor(10 * np.random.random((20, 20)) - 5)
+    hpu_tensor = cpu_tensor.to("hpu")
+    result_hpu = torch.clamp(hpu_tensor, min, max).to("cpu")
+    result_cpu = torch.clamp(cpu_tensor, min, max)
+    assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)
+
+    min = 0
+    max = None
+    result_hpu = torch.clamp(hpu_tensor, min, max).to("cpu")
+    result_cpu = torch.clamp(cpu_tensor, min, max)
+    assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)
+
+    min = -2
+    max = 2
+    result_hpu = torch.clamp(hpu_tensor, min, max).to("cpu")
+    result_cpu = torch.clamp(cpu_tensor, min, max)
+    assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)

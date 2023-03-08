@@ -290,7 +290,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/binarycrossentropy_gen.cpp
     hpu_ops/lazy/bitwise_gen.cpp
     hpu_ops/lazy/bitwise_shift_gen.cpp
-    hpu_ops/lazy/clamp_gen.cpp
     hpu_ops/lazy/compare_gen.cpp
     hpu_ops/lazy/cumsum_gen.cpp
     hpu_ops/lazy/div_round_gen.cpp

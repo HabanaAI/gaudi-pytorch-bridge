@@ -205,6 +205,10 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
   template <>                                                \
   T op<T>::get_result_overrideable()
 
+#define HPU_OP_FRONTEND_CREATE_RESULT_ONLY(FEServiceClass, T, op) \
+  template <>                                                     \
+  T op<T>::get_result_overrideable()
+
 #define HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(FEServiceClass, T, op) \
   template <>                                                   \
   T op<T>::get_result_overrideable() {                          \

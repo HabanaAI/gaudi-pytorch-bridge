@@ -1807,7 +1807,7 @@ clamp:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   promote_to_common_type: [self, min, max]
-  op_frontend: LazyClamp
+  op_frontend: ClampFE
   guid: clamp_fwd
   out_ids: [0]
 
@@ -1832,7 +1832,7 @@ clamp_:
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [Char, Byte, Short, Half, BFloat16, Float, Int]
   promote_to_common_type: [self, min, max]
-  op_frontend: LazyClamp
+  op_frontend: ClampFE
   guid: clamp_fwd
   inplace_ids: [0]
 

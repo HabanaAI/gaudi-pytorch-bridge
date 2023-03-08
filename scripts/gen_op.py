@@ -1298,6 +1298,7 @@ eager_custom_frontends_whitelist = [
     "FillFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
+    "ClampFE"
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
