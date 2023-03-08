@@ -422,6 +422,7 @@ class OpBackend : public HabanaOperator {
   GET_NEXT_INPUT_INTERNAL(double, isDouble, toDouble, "double")
   GET_NEXT_INPUT_INTERNAL(int, isInt, toInt, "int")
   GET_NEXT_INPUT_INTERNAL(c10::List<bool>, isBoolList, toBoolList, "bool array")
+  GET_NEXT_INPUT_INTERNAL(c10::ScalarType, isInt, toScalarType, "ScalarType")
   GET_NEXT_INPUT_INTERNAL(
       std::vector<int64_t>,
       isIntList,

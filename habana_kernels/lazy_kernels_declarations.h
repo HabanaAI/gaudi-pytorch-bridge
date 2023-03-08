@@ -643,74 +643,75 @@ at::Tensor habana_cast_to_fp8_lazy(
 #endif
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     at::Tensor& out,
-    at::Tensor& amax,
-    at::Tensor& transposed);
+    at::Tensor& transposed,
+    at::Tensor& amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_cast_transpose_bgrad_lazy(
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     at::Tensor& out,
-    at::Tensor& amax,
     at::Tensor& transposed,
-    at::Tensor& bgrad);
+    at::Tensor& bgrad,
+    at::Tensor& amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_cast_transpose_bgrad_dgelu_lazy(
     const at::Tensor& grad,
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
     at::Tensor& out,
-    at::Tensor& amax,
     at::Tensor& transposed,
-    at::Tensor& bgrad);
+    at::Tensor& bgrad,
+    at::Tensor& amax);
 at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     at::ScalarType out_dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
     const at::Tensor& input,
     double p,
-    const at::Tensor& scale,
-    bool stochastic_rounding);
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
     const at::Tensor& input,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     at::Tensor& out,
-    at::Tensor& amax,
-    at::Tensor& retain);
+    at::Tensor& retain,
+    at::Tensor& amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_layernorm_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
     const at::Tensor& bias,
     double eps,
-    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     at::Tensor& out,
-    at::Tensor& amax,
     at::Tensor& mean,
-    at::Tensor& istd);
+    at::Tensor& istd,
+    at::Tensor& amax);
 at::Tensor& fp8_gemm_lazy(
     const at::Tensor& A,
-    const at::Tensor& A_scale_inv,
     bool trans_A,
     const at::Tensor& B,
-    const at::Tensor& B_scale_inv,
     bool trans_B,
     const at::Tensor& D,
     at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out);

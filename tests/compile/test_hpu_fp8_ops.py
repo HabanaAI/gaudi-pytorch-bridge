@@ -149,6 +149,26 @@ def test_cast_from_fp8(dtype):
     verify_not_available(error, op_name)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_fp8_dropout(dtype):
+    op_name = "fp8_dropout"
+    input_shape = (64, 48)
+    input = (torch.rand(input_shape, dtype=dtype)*30 + 10).to("hpu")
+    scale = torch.tensor(0.75, dtype=torch.float).to("hpu")
+
+    def fn(input, scale):
+        return torch.ops.hpu.fp8_dropout(input, 0.3, scale, False, True)
+
+    def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+        verify_jit(fx_module, op_name)
+        return fx_module
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+
+    with pytest.raises(RuntimeError) as error:
+        result = compiled_fn(input, scale)
+    verify_not_available(error, op_name)
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_gelu(dtype):
     op_name = "fp8_gelu"
     input_shape = (64, 48)

@@ -14,8 +14,8 @@ from typing import Optional, Tuple, Union
 import habana_frameworks.torch.core
 
 def cast_to_fp8(input: torch.Tensor,
-                scale: torch.Tensor,
-                amax: torch.Tensor,
+                scale: Optional[torch.Tensor] = None,
+                amax: Optional[torch.Tensor] = None,
                 stochastic = False) -> torch.Tensor:
     # Error checking
     dtype = input.dtype
@@ -27,16 +27,19 @@ def cast_to_fp8(input: torch.Tensor,
             dtype=torch.int8,
             device=input.device,
         )
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.cast_to_fp8(input, scale, stochastic, out, amax_temp)
-    amax.copy_(amax_temp)
+    if amax == None:
+        torch.ops.hpu.cast_to_fp8(input, scale, stochastic, out, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.cast_to_fp8(input, scale, stochastic, out, amax_temp)
+        amax.copy_(amax_temp)
 
     return out
 
 def fp8_cast_transpose_fused(input: torch.Tensor,
-    scale: torch.Tensor,
-    amax: torch.Tensor,
+    scale: Optional[torch.Tensor] = None,
+    amax: Optional[torch.Tensor] = None,
     stochastic = False,
     cast_out: Optional[torch.Tensor] = None,
     transpose_out: Optional[torch.Tensor] = None
@@ -61,18 +64,20 @@ def fp8_cast_transpose_fused(input: torch.Tensor,
                 device="hpu",
             )
         return_outputs = True
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.fp8_cast_transpose(input, scale, stochastic, cast_out, amax_temp, transpose_out)
-    amax.copy_(amax_temp)
-
+    if amax == None:
+        torch.ops.hpu.fp8_cast_transpose(input, scale, stochastic, cast_out, transpose_out, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.fp8_cast_transpose(input, scale, stochastic, cast_out, transpose_out, amax_temp)
+        amax.copy_(amax_temp)
     if return_outputs:
         return cast_out, transpose_out
     return None
 
 def fp8_cast_transpose_bgrad_fused(input: torch.Tensor,
-    scale: torch.Tensor,
-    amax: torch.Tensor,
+    scale: Optional[torch.Tensor] = None,
+    amax: Optional[torch.Tensor] = None,
     stochastic = False
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     # Error checking
@@ -97,17 +102,19 @@ def fp8_cast_transpose_bgrad_fused(input: torch.Tensor,
             dtype=dtype,
             device="hpu",
         )
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.fp8_cast_transpose_bgrad(input, scale, stochastic, cast_out, amax_temp, transpose_out, bgrad_out)
-    amax.copy_(amax_temp)
-
+    if amax == None:
+        torch.ops.hpu.fp8_cast_transpose_bgrad(input, scale, stochastic, cast_out, transpose_out, bgrad_out, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.fp8_cast_transpose_bgrad(input, scale, stochastic, cast_out, transpose_out, bgrad_out, amax_temp)
+        amax.copy_(amax_temp)
     return bgrad_out, cast_out, transpose_out
 
 def fp8_cast_transpose_bgrad_dgelu_fused(grad: torch.Tensor,
     input: torch.Tensor,
-    scale: torch.Tensor,
-    amax: torch.Tensor,
+    scale: Optional[torch.Tensor] = None,
+    amax: Optional[torch.Tensor] = None,
     stochastic = False,
     retain: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -133,21 +140,24 @@ def fp8_cast_transpose_bgrad_dgelu_fused(grad: torch.Tensor,
             dtype=dtype,
             device="hpu",
         )
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, cast_out, amax_temp, transpose_out, bgrad_out)
-    amax.copy_(amax_temp)
-
+    if amax == None:
+        torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, cast_out, transpose_out, bgrad_out, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, cast_out, transpose_out, bgrad_out, amax_temp)
+        amax.copy_(amax_temp)
     return bgrad_out, cast_out, transpose_out
 
-def cast_from_fp8(input: torch.Tensor, scale: torch.Tensor, out_dtype: torch.dtype) -> torch.Tensor:
+def cast_from_fp8(input: torch.Tensor, scale: Optional[torch.Tensor], out_dtype: torch.dtype) -> torch.Tensor:
     # Error checking
     if out_dtype != torch.bfloat16 and out_dtype != torch.float32:
         raise TypeError(f"fp8 can be casted only to float32 and bfloat16, got: {out_dtype}")
 
     return torch.ops.hpu.cast_from_fp8(input, scale, out_dtype)
 
-def fp8_gelu(input: torch.Tensor, scale: torch.Tensor, amax: torch.Tensor, stochastic = False, retain: torch.Tensor = None) -> torch.Tensor:
+def fp8_gelu(input: torch.Tensor, scale: Optional[torch.Tensor] = None,
+    amax: Optional[torch.Tensor] = None, stochastic = False, retain: torch.Tensor = None) -> torch.Tensor:
     # Error checking
     dtype = input.dtype
     if dtype != torch.bfloat16 and dtype != torch.float32:
@@ -165,19 +175,21 @@ def fp8_gelu(input: torch.Tensor, scale: torch.Tensor, amax: torch.Tensor, stoch
                 dtype=dtype,
                 device="hpu",
             )
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.fp8_gelu(input, scale, stochastic, out, amax_temp, retain)
-    amax.copy_(amax_temp)
-
+    if amax == None:
+        torch.ops.hpu.fp8_gelu(input, scale, stochastic, out, retain, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.fp8_gelu(input, scale, stochastic, out, retain, amax_temp)
+        amax.copy_(amax_temp)
     return out
 
 def layernorm_fwd_fp8(input: torch.Tensor,
                       weight: torch.Tensor,
                       bias: torch.Tensor,
                       eps: float,
-                      scale: torch.Tensor,
-                      amax: torch.Tensor,
+                      scale: Optional[torch.Tensor] = None,
+                      amax: Optional[torch.Tensor] = None,
                       stochastic: bool = False) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     # Error checking
     dtype = input.dtype
@@ -199,17 +211,19 @@ def layernorm_fwd_fp8(input: torch.Tensor,
             dtype=torch.float,
             device="hpu",
         )
-    amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
 
-    torch.ops.hpu.fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, amax_temp, mean, istd)
-    amax.copy_(amax_temp)
-
+    if amax == None:
+        torch.ops.hpu.fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, mean, istd, torch.tensor([], device="hpu"))
+    else:
+        amax_temp = torch.tensor(0, dtype=torch.float).to("hpu")
+        torch.ops.hpu.fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, mean, istd, amax_temp)
+        amax.copy_(amax_temp)
     return out, mean, istd
 
 def fp8_gemm(A: torch.Tensor,
-             A_scale_inv: torch.Tensor,
+             A_scale_inv: Optional[torch.Tensor],
              B: torch.Tensor,
-             B_scale_inv: torch.Tensor,
+             B_scale_inv: Optional[torch.Tensor],
              out_dtype: torch.dtype,
              accumulate: bool = False,
              out: Optional[torch.Tensor] = None,
@@ -233,7 +247,7 @@ def fp8_gemm(A: torch.Tensor,
         )
         return_output = True
 
-    torch.ops.hpu.fp8_gemm(A, A_scale_inv, True, B, B_scale_inv, False, out, out_dtype, bias if use_bias else None, accumulate, out)
+    torch.ops.hpu.fp8_gemm(A, True, B, False, out, out_dtype, A_scale_inv, B_scale_inv, bias if use_bias else None, accumulate, out)
 
     if return_output:
         return out

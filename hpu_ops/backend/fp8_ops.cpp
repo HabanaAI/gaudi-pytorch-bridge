@@ -25,12 +25,15 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 5, "CastToFp8 must have 5 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto src_type = self.scalar_type();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
   auto amax = stack_tensor(stack, 4);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -41,18 +44,23 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
 
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 1});
+  }
+
   auto casted = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1)},
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
-  syn_out(1) = std::move(casted[1]);
+  if (is_amax) {
+    syn_out(1) = std::move(casted[1]);
+  }
 }
 
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
@@ -74,12 +82,15 @@ void Fp8CastTranspose::AddNode(
       stack.size() == 6, "Fp8CastTranspose must have 6 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
-  auto amax = stack_tensor(stack, 4);
-  auto transposed = stack_tensor(stack, 5);
+  auto transposed = stack_tensor(stack, 4);
+  auto amax = stack_tensor(stack, 5);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -90,20 +101,25 @@ void Fp8CastTranspose::AddNode(
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
 
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
+  }
+
   auto casted = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1)},
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1},
-        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
   syn_out(1) = std::move(casted[1]);
-  syn_out(2) = std::move(casted[2]);
+  if (is_amax) {
+    syn_out(2) = std::move(casted[2]);
+  }
 }
 
 Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
@@ -127,13 +143,16 @@ void Fp8CastTransposeBgrad::AddNode(
       stack.size() == 7, "Fp8CastTransposeBgrad must have 7 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
-  auto amax = stack_tensor(stack, 4);
-  auto transposed = stack_tensor(stack, 5);
-  auto bgrad = stack_tensor(stack, 6);
+  auto transposed = stack_tensor(stack, 4);
+  auto bgrad = stack_tensor(stack, 5);
+  auto amax = stack_tensor(stack, 6);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -144,22 +163,27 @@ void Fp8CastTransposeBgrad::AddNode(
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
 
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152},
+      {bgrad.sizes(), self.scalar_type(), 2}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
+  }
+
   auto casted = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1)},
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1},
-        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152},
-        {bgrad.sizes(), self.scalar_type(), 3}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
   syn_out(1) = std::move(casted[1]);
   syn_out(2) = std::move(casted[2]);
-  syn_out(3) = std::move(casted[3]);
+  if (is_amax) {
+    syn_out(3) = std::move(casted[3]);
+  }
 }
 
 Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
@@ -184,14 +208,17 @@ void Fp8CastTransposeBgradDgelu::AddNode(
       "Fp8CastTransposeBgradDgelu must have 9 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[2].toOptional<torch::Tensor>().value_or(torch::Tensor());
   auto retain = stack[3].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[4].toBool();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 5);
-  auto amax = stack_tensor(stack, 6);
-  auto transposed = stack_tensor(stack, 7);
-  auto bgrad = stack_tensor(stack, 8);
+  auto transposed = stack_tensor(stack, 6);
+  auto bgrad = stack_tensor(stack, 7);
+  auto amax = stack_tensor(stack, 8);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -202,27 +229,34 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
 
-  std::vector<synTensor> syn_inputs = {syn_in(0), syn_in(1), syn_in(2)};
+  std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1)};
+  int retain_id = 3;
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(2));
+  } else {
+    syn_inputs.push_back(nullptr);
+    retain_id = 2;
+  }
   if (retain.defined()) {
-    syn_inputs.push_back(syn_in(3));
+    syn_inputs.push_back(syn_in(retain_id));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152},
+      {bgrad.sizes(), self.scalar_type(), 2}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
   }
 
   auto casted = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       syn_inputs,
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1},
-        {transposed.sizes(), dst_type, 2, DATA_TENSOR, syn_type_fp8_152},
-        {bgrad.sizes(), self.scalar_type(), 3}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
   syn_out(1) = std::move(casted[1]);
   syn_out(2) = std::move(casted[2]);
-  syn_out(3) = std::move(casted[3]);
+  if (is_amax) {
+    syn_out(3) = std::move(casted[3]);
+  }
 }
 
 CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
@@ -234,6 +268,7 @@ void CastFromFp8::AddNode(
   TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   auto dst_type = stack[2].toScalarType();
   auto sizes = self.sizes();
 
@@ -241,10 +276,21 @@ void CastFromFp8::AddNode(
       ? "convert_from_fp8_f32"
       : "convert_from_fp8_bf16";
 
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+
   auto casted = OpBackend::BuildNode(
-      this, graph, {guid, {syn_in(0), syn_in(1)}, {{sizes, dst_type, 0}}});
+      this, graph, {guid, syn_inputs, {{sizes, dst_type, 0}}});
 
   syn_out(0) = std::move(casted[0]);
+}
+
+sizes_vec Fp8DropoutOutputShape(const at::Stack& stack) {
+  std::vector<int64_t> amax_size{1};
+  auto size = stack_tensor(stack, 0).sizes().vec();
+  return {size, size, amax_size};
 }
 
 Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
@@ -252,45 +298,55 @@ Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
           device_id,
           "fp8_dropout_",
           scalar_type,
-          {0, 0, 2},
+          {0, 0, 0},
           {},
           {},
-          false) {}
+          false) {
+  SetComputeOutputShapes(Fp8DropoutOutputShape);
+}
 
 void Fp8Dropout::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "Fp8Dropout must have 4 input arguments");
+  TORCH_CHECK(stack.size() == 5, "Fp8Dropout must have 5 input arguments");
 
-  auto self = stack_tensor(stack, 0);
-  float p = static_cast<float>(stack[1].toDouble());
-  bool stochastic_rounding = stack[3].toBool();
-  auto src_type = self.scalar_type();
+  StackGetter stackGetter(stack, "Fp8Dropout::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  double p = getNextInput<double>(stackGetter);
+  auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  bool stochastic_rounding = getNextInput<bool>(stackGetter);
+  bool is_amax = getNextInput<bool>(stackGetter);
   auto dst_type = at::ScalarType::Char;
-  auto sizes = self.sizes();
+  auto sizes = self.pt_t.sizes().vec();
+  std::vector<int64_t> amax_size{1};
 
   std::string guid = "dropout_fp8_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
+      habana_helpers::name_suffix_from_type(self.pt_t.scalar_type());
 
   ns_DropoutFp8::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
-  params.ratio = p;
+  params.ratio = static_cast<float>(p);
   params.seed = habana::get_seed_hpu(c10::nullopt);
 
+  std::vector<synTensor> syn_inputs{self.syn_t};
+  if (scaleOpt) {
+    syn_inputs.push_back(scaleOpt->syn_t);
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {sizes, dst_type, 1}};
+  if (is_amax) {
+    output_attrs.push_back({amax_size, at::ScalarType::Float, 2});
+  }
+
   auto dropout = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1)},
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {sizes, dst_type, 1},
-        {{1}, at::ScalarType::Float, 2}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
-  syn_out(2) = std::move(dropout[2]);
+  if (is_amax) {
+    syn_out(2) = std::move(dropout[2]);
+  }
 }
 
 Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
@@ -302,13 +358,16 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 6, "Fp8Gelu must have 6 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto src_type = self.scalar_type();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
-  auto amax = stack_tensor(stack, 4);
-  auto retain = stack_tensor(stack, 5);
+  auto retain = stack_tensor(stack, 4);
+  auto amax = stack_tensor(stack, 5);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -319,20 +378,25 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
 
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {retain.sizes(), src_type, 1}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
+  }
+
   auto gelu = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1)},
-       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1},
-        {retain.sizes(), src_type, 2}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(gelu[0]);
   syn_out(1) = std::move(gelu[1]);
-  syn_out(2) = std::move(gelu[2]);
+  if (is_amax) {
+    syn_out(2) = std::move(gelu[2]);
+  }
 }
 
 Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
@@ -347,13 +411,16 @@ void Fp8Layernorm::AddNode(
 
   auto self = stack_tensor(stack, 0);
   float eps = static_cast<float>(stack[3].toDouble());
+  auto scale = stack[4].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[5].toBool();
   auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 6);
-  auto amax = stack_tensor(stack, 7);
-  auto mean = stack_tensor(stack, 8);
-  auto istd = stack_tensor(stack, 9);
+  auto mean = stack_tensor(stack, 7);
+  auto istd = stack_tensor(stack, 8);
+  auto amax = stack_tensor(stack, 9);
+
+  bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
@@ -365,22 +432,27 @@ void Fp8Layernorm::AddNode(
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
   params.eps = eps;
 
+  std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1), syn_in(2)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(3));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {mean.sizes(), at::ScalarType::Float, 1},
+      {istd.sizes(), at::ScalarType::Float, 2}};
+  if (is_amax) {
+    output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
+  }
+
   auto layernorm = OpBackend::BuildNode(
-      this,
-      graph,
-      {guid,
-       {syn_in(0), syn_in(1), syn_in(2), syn_in(3)},
-       {{sizes, at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152},
-        {amax.sizes(), at::ScalarType::Float, 1},
-        {mean.sizes(), at::ScalarType::Float, 2},
-        {istd.sizes(), at::ScalarType::Float, 3}},
-       &params,
-       sizeof(params)});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(layernorm[0]);
   syn_out(1) = std::move(layernorm[1]);
   syn_out(2) = std::move(layernorm[2]);
-  syn_out(3) = std::move(layernorm[3]);
+  if (is_amax) {
+    syn_out(3) = std::move(layernorm[3]);
+  }
 }
 
 Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
@@ -389,17 +461,21 @@ Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
 void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 11, "Fp8Gemm must have 11 input arguments");
 
-  auto A = stack_tensor(stack, 0);
-  bool trans_A = stack[2].toBool();
-  auto B = stack_tensor(stack, 3);
-  bool trans_B = stack[5].toBool();
-  auto out_type = stack[7].toScalarType();
-  auto bias = stack[8].toOptional<torch::Tensor>().value_or(torch::Tensor());
-  bool accumulate = stack[9].toBool();
+  StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
+  auto A = getNextInput<TensorsPair>(stackGetter);
+  bool trans_A = getNextInput<bool>(stackGetter);
+  auto B = getNextInput<TensorsPair>(stackGetter);
+  bool trans_B = getNextInput<bool>(stackGetter);
+  auto D = getNextInput<TensorsPair>(stackGetter);
+  auto out_type = getNextInput<c10::ScalarType>(stackGetter);
+  auto scaleAOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto scaleBOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  bool accumulate = getNextInput<bool>(stackGetter);
 
-  int64_t rank = A.dim();
-  std::vector<int64_t> A_shape = A.sizes().vec();
-  std::vector<int64_t> B_shape = B.sizes().vec();
+  int64_t rank = A.pt_t.dim();
+  std::vector<int64_t> A_shape = A.pt_t.sizes().vec();
+  std::vector<int64_t> B_shape = B.pt_t.sizes().vec();
   std::vector<int64_t> out_shape{A_shape.begin(), A_shape.begin() + rank - 2};
   int A_dim = rank - 2 + (trans_A ? 1 : 0);
   int B_dim = rank - 2 + (trans_B ? 0 : 1);
@@ -407,17 +483,26 @@ void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   out_shape.push_back(B_shape[B_dim]);
 
   std::string guid =
-      out_type == at::ScalarType::Float ? "fp8_gemm_f32" : "fp8_gemm_bf16";
+      "fp8_gemm_" + habana_helpers::name_suffix_from_type(out_type);
 
-  std::vector<synTensor> syn_inputs = {
-      syn_in(0), syn_in(2), syn_in(1), syn_in(3)};
-  if (bias.defined()) {
-    syn_inputs.push_back(syn_in(5));
+  std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
+  if (scaleAOpt) {
+    syn_inputs.push_back(scaleAOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (scaleBOpt) {
+    syn_inputs.push_back(scaleBOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (biasOpt) {
+    syn_inputs.push_back(biasOpt->syn_t);
   } else {
     syn_inputs.push_back(nullptr);
   }
   if (accumulate) {
-    syn_inputs.push_back(syn_in(4));
+    syn_inputs.push_back(D.syn_t);
   }
 
   synGEMMParams params{trans_A, trans_B};

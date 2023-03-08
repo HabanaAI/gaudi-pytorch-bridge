@@ -56,13 +56,13 @@ def fp8_gemm(
 
     torch.ops.hpu.fp8_gemm(
         B,
-        B_scale_inv,
         transb,
         A,
-        A_scale_inv,
         transa,
         out,
         out_dtype,
+        B_scale_inv,
+        A_scale_inv,
         bias if use_bias else None,
         accumulate,
         out)

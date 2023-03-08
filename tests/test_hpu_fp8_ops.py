@@ -80,13 +80,66 @@ def test_cast_to_fp8(shape, scale, dtype, stochastic, transposed, allocate_out):
         casted = cast_to_fp8(input.to(hpu), scale.to(hpu), amax[1][2], stochastic)
     uncasted = cast_from_fp8(casted, scale_inv.to(hpu), dtype)
 
-    percentage_diff = torch.abs((((uncasted.cpu() - unscaled_input) / unscaled_input)*100).to(torch.int))
-
     if stochastic:
-        assert 0 < np.amax(percentage_diff.numpy()) <= 25
+        assert torch.allclose(uncasted.cpu(), unscaled_input, rtol=0.26, atol=0.0)
     else:
-        assert np.amax(percentage_diff.numpy()) == 0
+        assert torch.equal(uncasted.cpu(), unscaled_input)
     assert amax.cpu()[1][2] == torch.max(input.abs())
+
+@pytest.mark.parametrize("shape", [(72, 56)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_cast_to_fp8_transpose_optional(shape, dtype, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+
+    scale_val = 1.3 if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    scaled_input_low_precision = simulateFp8Precision(input * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
+    amax = torch.zeros((2, 3), dtype=torch.float).to(hpu)
+    amax_tensor = amax[1][2] if is_amax else None
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    casted, casted_t = fp8_cast_transpose_fused(input.to(hpu), scale_hpu, amax_tensor, False)
+    uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype)
+
+    assert torch.equal(casted.cpu().t(), casted_t.cpu())
+    assert torch.equal(uncasted.cpu(), unscaled_input)
+    if is_amax:
+        assert amax.cpu()[1][2] == torch.max(input.abs())
+
+@pytest.mark.parametrize("shape", [(72, 56)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_cast_to_fp8_optional(shape, dtype, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+
+    scale_val = 1.3 if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    scaled_input_low_precision = simulateFp8Precision(input * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
+    amax = torch.zeros((2, 3), dtype=torch.float).to(hpu)
+    amax_tensor = amax[1][2] if is_amax else None
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    casted = cast_to_fp8(input.to(hpu), scale_hpu, amax_tensor, False)
+    uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype)
+
+    assert torch.equal(uncasted.cpu(), unscaled_input)
+    if is_amax:
+        assert amax.cpu()[1][2] == torch.max(input.abs())
 
 @pytest.mark.parametrize("shape", [(64, 48), (6, 9)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
@@ -113,13 +166,44 @@ def test_fp8_cast_transpose_bgrad(shape, scale, dtype, stochastic):
     assert torch.equal(bgrad.cpu(), reduced.cpu())
     assert torch.equal(casted.cpu().t(), casted_t.cpu())
 
-    percentage_diff = torch.abs((((uncasted.cpu() - unscaled_input) / unscaled_input)*100).to(torch.int))
-
     if stochastic:
-        assert 0 < np.amax(percentage_diff.numpy()) <= 25
+        assert torch.allclose(uncasted.cpu(), unscaled_input, rtol=0.26, atol=0.0)
     else:
-        assert np.amax(percentage_diff.numpy()) == 0
+        assert torch.equal(uncasted.cpu(), unscaled_input)
     assert amax.cpu()[1][2] == torch.max(input.abs())
+
+@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+    input_hpu = input.to(hpu)
+
+    scale_val = 1.3 if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    scaled_input_low_precision = simulateFp8Precision(input * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    amax_tensor = amax[1][2] if is_amax else None
+    bgrad, casted, casted_t = fp8_cast_transpose_bgrad_fused(input_hpu, scale_hpu, amax_tensor, False)
+
+    reduced = torch.sum(input_hpu, 0)
+    uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype)
+
+    assert torch.equal(bgrad.cpu(), reduced.cpu())
+    assert torch.equal(casted.cpu().t(), casted_t.cpu())
+
+    assert torch.equal(uncasted.cpu(), unscaled_input)
+    if is_amax:
+        assert amax.cpu()[1][2] == torch.max(input.abs())
 
 @pytest.mark.parametrize("shape", [(64, 48), (6, 9)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
@@ -164,17 +248,64 @@ def test_fp8_cast_transpose_bgrad_dgelu(shape, scale, dtype, stochastic, retain)
         assert torch.allclose(uncasted, unscaled_input, rtol=0.0, atol=0.01)
     assert amax.cpu()[1][2] == torch.max(gelu_bwd.abs())
 
+@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("retain", [True, False])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_cast_transpose_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    full_shape = (shape[0]*2, shape[1])
+    input_pos = torch.rand(shape, dtype=dtype, requires_grad=True)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+    input_hpu = input.to(hpu)
+    grad = torch.rand(full_shape, dtype=dtype)
+    grad_hpu = grad.to(hpu)
+
+    scale_val = 1.3 if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+
+    amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    retain_tensor = None
+    if retain:
+        retain_tensor = torch.tanh(torch.sqrt(torch.tensor(2/np.pi, dtype=dtype))*(input +  0.044715*torch.pow(input, 3))).to(dtype).to(hpu)
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    amax_tensor = amax[1][2] if is_amax else None
+    bgrad, casted, casted_t = fp8_cast_transpose_bgrad_dgelu_fused(grad_hpu, input_hpu, scale_hpu, amax_tensor, False, retain_tensor)
+
+    gelu = torch.nn.GELU(approximate='tanh')
+    gelu_res = gelu(input)
+    gelu_bwd = gelu_res.grad_fn(grad)
+    reduced = torch.sum(gelu_bwd, 0)
+
+    scaled_input_low_precision = simulateFp8Precision(gelu_bwd * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
+    uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype).cpu()
+
+    assert torch.allclose(bgrad.cpu(), reduced)
+    assert torch.equal(casted.cpu().t(), casted_t.cpu())
+    assert torch.allclose(uncasted, unscaled_input, rtol=0.0, atol=0.01)
+    if is_amax:
+        assert amax.cpu()[1][2] == torch.max(gelu_bwd.abs())
+
 @pytest.mark.parametrize("shape", [(64, 48), (3, 4)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
-def test_fp8_gelu(shape, scale, dtype, stochastic):
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype)*30 + 10
     input_neg = -input_pos
     input = torch.cat((input_pos, input_neg))
 
-    scale = torch.tensor(scale, dtype=torch.float)
+    scale_val = scale if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
     scale_inv = scale.reciprocal()
     gelu = torch.nn.GELU(approximate='tanh')
     gelu_res = gelu(input)
@@ -182,36 +313,41 @@ def test_fp8_gelu(shape, scale, dtype, stochastic):
     result_cpu = scaled_gelu_low_precision * scale_inv
     retain_cpu = torch.tanh(torch.sqrt(torch.tensor(2/np.pi, dtype=dtype))*(input +  0.044715*torch.pow(input, 3))).to(dtype)
 
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
     amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    amax_tensor = amax[1][2] if is_amax else None
     retain = torch.empty((shape[0]*2, shape[1]), dtype=dtype).to(hpu)
-    gelu_scaled = fp8_gelu(input.to(hpu), scale.to(hpu), amax[1][2], stochastic, retain)
-    gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv.to(hpu), dtype).cpu()
-
-    percentage_diff = torch.where(gelu_unscaled == result_cpu, torch.tensor(0), torch.abs((((gelu_unscaled - result_cpu) / result_cpu)*100).to(torch.int)))
+    gelu_scaled = fp8_gelu(input.to(hpu), scale_hpu, amax_tensor, stochastic, retain)
+    gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv_hpu, dtype).cpu()
 
     if stochastic:
-        assert 0 < np.amax(percentage_diff.numpy()) <= 25
+        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.26, atol=0.01)
     else:
-        assert np.amax(percentage_diff.numpy()) == 0
-    assert amax.cpu()[1][2] == torch.max(input.abs())
+        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.0, atol=0.01)
+    if is_amax:
+        assert amax.cpu()[1][2] == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
 
 # TODO analyze why single elements of outputs differ for torch.bfloat16
-@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("shape", [(64, 96)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float])
-def test_fp8_dropout(shape, scale, dtype):
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax):
     hpu = torch.device("hpu")
-    input_pos = torch.rand(shape, dtype=dtype)*10
+    input_pos = torch.rand(shape, dtype=dtype)*30
     input_neg = -input_pos
     input = torch.cat((input_pos, input_neg))
     ratio = 0.3
     dropout_scale = torch.tensor(1.0/(1.0 - ratio), dtype=dtype)
 
-    scale = torch.tensor(scale, dtype=torch.float)
+    scale = torch.tensor(scale, dtype=torch.float) if is_scale else torch.tensor(1.0)
+    scale_hpu = scale.to(hpu) if is_scale else None
     scale_inv = scale.reciprocal()
 
-    dropout_scaled, mask, amax = torch.ops.hpu.fp8_dropout(input.to(hpu), ratio, scale.to(hpu), False)
+    dropout_scaled, mask, amax = torch.ops.hpu.fp8_dropout(input.to(hpu), ratio, scale_hpu, False, is_amax)
     dropout_unscaled = cast_from_fp8(dropout_scaled, scale_inv.to(hpu), dtype).cpu()
 
     scaled_input_low_precision = simulateFp8Precision(input*scale.to(dtype)*dropout_scale)*scale_inv.to(dtype)
@@ -224,14 +360,17 @@ def test_fp8_dropout(shape, scale, dtype):
     ratio_res = 1.0 - ones / mask.numel()
 
     assert torch.allclose(result_ref, dropout_unscaled)
-    assert amax.cpu() == torch.max(dropout_high_prec.abs())
+    if is_amax:
+        assert amax.cpu() == torch.max(dropout_high_prec.abs())
     assert torch.isclose(ratio_res, torch.tensor(ratio), rtol=0.1, atol=0.1)
 
 @pytest.mark.parametrize("shape", [(64, 48), (2, 7)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
-def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic):
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic, is_scale, is_amax):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype)*30 + 10
     input_neg = -input_pos
@@ -242,7 +381,9 @@ def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic):
     bias = torch.rand((full_shape[1],), dtype=dtype)
     eps = 0.07
 
-    scale = torch.tensor(scale, dtype=torch.float)
+    scale_val = scale if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
     scale_inv = scale.reciprocal()
 
     norm_cpu, mean_cpu, rstd_cpu = torch.native_layer_norm(input, (full_shape[1],), weight, bias, eps)
@@ -252,14 +393,18 @@ def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic):
     scaled_norm_low_precision = simulateFp8Precision(norm_cpu * scale)
     result_norm_cpu = scaled_norm_low_precision * scale_inv
 
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
     amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
-    norm_hpu, mean_hpu, rstd_hpu = layernorm_fwd_fp8(input.to(hpu), weight.to(hpu), bias.to(hpu), eps, scale.to(hpu), amax[1][2], stochastic)
-    norm_hpu_unscaled = cast_from_fp8(norm_hpu, scale_inv.to(hpu), dtype).cpu()
+    amax_tensor = amax[1][2] if is_amax else None
+    norm_hpu, mean_hpu, rstd_hpu = layernorm_fwd_fp8(input.to(hpu), weight.to(hpu), bias.to(hpu), eps, scale_hpu, amax_tensor, stochastic)
+    norm_hpu_unscaled = cast_from_fp8(norm_hpu, scale_inv_hpu, dtype).cpu()
 
     rtol = 1e-3 if dtype == torch.float else 1e-1
     atol = 1e-3 if dtype == torch.float else 1e-1
 
-    assert torch.allclose(amax.cpu()[1][2], torch.max(norm_cpu.to(torch.float).abs()), rtol=rtol, atol=atol)
+    if is_amax:
+        assert torch.allclose(amax.cpu()[1][2], torch.max(norm_cpu.to(torch.float).abs()), rtol=rtol, atol=atol)
     assert torch.allclose(mean_hpu.cpu().to(dtype), mean_cpu, rtol=rtol, atol=atol)
     assert torch.allclose(rstd_hpu.cpu().to(dtype), rstd_cpu, rtol=rtol, atol=atol)
 
@@ -275,8 +420,10 @@ def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic):
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("out_tensor", [True, False])
 @pytest.mark.parametrize("accumulate", [True, False])
+@pytest.mark.parametrize("scaleA", [True, False])
+@pytest.mark.parametrize("scaleB", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
+def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, scaleA, scaleB, dtype):
     if accumulate and not out_tensor:
         pytest.skip("Accumulate not supported without out_tensor")
 
@@ -289,14 +436,18 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
     B_hpu = B.to(hpu)
     max_B = torch.max(torch.abs(B)).to(torch.float)
 
-    scaleA_hpu = (FP8_MAX / max_A).to(hpu)
-    scaleB_hpu = (FP8_MAX / max_B).to(hpu)
+    scaleA_hpu = None
+    scaleB_hpu = None
+    scaleAInv = None
+    scaleBInv = None
 
-    scaleAInv = torch.reciprocal(scaleA_hpu)
-    scaleBInv = torch.reciprocal(scaleB_hpu)
+    if scaleA:
+        scaleA_hpu = (FP8_MAX / max_A).to(hpu)
+        scaleAInv = torch.reciprocal(scaleA_hpu)
 
-    amax_A = torch.empty((2, 3), dtype=torch.float).to(hpu)
-    amax_B = torch.empty((2, 3), dtype=torch.float).to(hpu)
+    if scaleB:
+        scaleB_hpu = (FP8_MAX / max_B).to(hpu)
+        scaleBInv = torch.reciprocal(scaleB_hpu)
 
     rank = len(shapeA)
     out_shape = shapeA[0:(rank-2)] + (shapeA[-1],) + (shapeB[-1],)
@@ -306,8 +457,8 @@ def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, dtype):
     out = torch.full(out_shape, 1000.0, dtype=dtype)
     out_hpu = out.to(hpu) if out_tensor else None
 
-    A8 = cast_to_fp8(A_hpu, scaleA_hpu, amax_A[1][2], False)
-    B8 = cast_to_fp8(B_hpu, scaleB_hpu, amax_B[0][1], False)
+    A8 = cast_to_fp8(A_hpu, scaleA_hpu, None, False)
+    B8 = cast_to_fp8(B_hpu, scaleB_hpu, None, False)
 
     maybe_result = fp8_gemm(A8, scaleAInv, B8, scaleBInv, out_dtype=dtype, out=out_hpu, bias=bias_tensor_hpu, use_bias=bias, accumulate=accumulate)
     result_ref = torch.matmul(A.transpose(-2, -1), B)

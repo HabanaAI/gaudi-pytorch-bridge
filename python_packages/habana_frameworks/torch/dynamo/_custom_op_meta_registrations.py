@@ -39,6 +39,13 @@ def meta_fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, 
 def meta_cast_from_fp8(input, scale, out_dtype):
     return input.new_empty(input.shape, dtype=out_dtype)
 
+@register_meta([torch.ops.hpu.fp8_dropout.default])
+def meta_fp8_dropout(input, p, scale, stochastic_rounding, is_amax):
+    out = input.new_empty(input.shape, dtype=torch.int8)
+    mask = input.new_empty(input.shape, dtype=torch.int8)
+    amax = input.new_empty((), dtype=torch.float32)
+    return out, mask, amax
+
 @register_meta([torch.ops.hpu.fp8_gelu.default])
 def meta_fp8_gelu(input, scale, stochastic, out, amax, retain):
     return out, amax, retain

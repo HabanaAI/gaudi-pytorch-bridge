@@ -37,6 +37,7 @@ DEFINE_OP(Fp8Transpose)
 DEFINE_OP(Fp8Permute)
 DEFINE_OP(Fp8Reshape)
 
+OUTSHAPE_DECL(Fp8DropoutOutputShape)
 OUTSHAPE_DECL(Fp8ReshapeOutputShape)
 
 } // namespace habana
