@@ -273,8 +273,6 @@ synStatus device_memory::free(void* free_ptr) {
     }
     const auto id = h.id();
     std::unique_lock<std::mutex> lock(mutex_);
-    if (handle2pointer_.checkIdIsReset(id))
-      return status;
     auto ptr_and_size = handle2pointer_.GetPtrSize(id);
     handle2pointer_.Erase(id);
     if (ptr_and_size.ptr_ != nullptr) {

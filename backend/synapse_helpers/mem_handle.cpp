@@ -270,27 +270,12 @@ HandlesMap::Iterator HandlesMap::Iterator::operator++(int) {
   return tmp;
 }
 
-bool HandlesMap::checkIdIsReset(mem_handle::id_t id) {
-  bucket_type bucket_index = get_bucket_index(id);
-  uint64_t handle_index = get_handle_index(id);
-  CheckId(handle_index, bucket_index);
-  bool reset = handles_[bucket_index][handle_index].reset_;
-  if (handles_[bucket_index][handle_index].active_ && reset) {
-    handles_[bucket_index][handle_index].reset_ = false;
-  }
-  return reset;
-}
-
 void HandlesMap::ResetHandlesMap() {
-  for (int bucketIndex = 0; bucketIndex < (int)bucketInfo.size();
-       bucketIndex++) {
-    for (size_t i = 1; i < handles_[bucketIndex].size() - 1; i++) {
-      if (handles_[bucketIndex][i].active_) {
-        handles_[bucketIndex][i].reset_ = true;
-        handles_[bucketIndex][i].ptr_size_.size_ = 0;
-        handles_[bucketIndex][i].ptr_size_.ptr_ = nullptr;
-      }
-    }
+  for (int bucket_index = 0; bucket_index < (int)bucketInfo.size();
+       bucket_index++) {
+    handles_[bucket_index].clear();
+    handles_[bucket_index].emplace_back(Record{});
+    free_handles_[bucket_index] = {};
   }
 }
 } // namespace synapse_helpers

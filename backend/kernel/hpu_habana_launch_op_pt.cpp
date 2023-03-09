@@ -67,7 +67,7 @@ using namespace jitgraph_utils;
 namespace habana {
 
 std::future<void> Singleton_CompileThreadPool::m_compile_thread_handle;
-std::shared_future<void> Singleton_ExecThreadPool::m_exec_thread_handle;
+std::future<void> Singleton_ExecThreadPool::m_exec_thread_handle;
 
 // static initializations
 const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {

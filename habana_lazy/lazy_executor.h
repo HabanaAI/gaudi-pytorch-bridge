@@ -309,7 +309,7 @@ class HbExecutionContext {
   StridedViewContext viewContext;
 
   // Handle for the launch thread, only one thread is alive at a time.
-  std::shared_future<void> m_launch_thread_handle;
+  std::future<void> m_launch_thread_handle;
   void JoinPendingLaunchThread(bool wait_only = false);
   void HandleException() {
     if (C10_UNLIKELY(m_launch_thread_exception_handler)) {

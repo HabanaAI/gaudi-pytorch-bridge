@@ -712,7 +712,7 @@ class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
 
 class Singleton_ExecThreadPool : public HabanaLaunchOpPT {
  public:
-  static std::shared_future<void> m_exec_thread_handle;
+  static std::future<void> m_exec_thread_handle;
   static habana_helpers::ThreadPool& getInstance() {
     static habana_helpers::ThreadPool thread_pool_obj(1);
     return thread_pool_obj;
