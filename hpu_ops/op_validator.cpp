@@ -12,8 +12,6 @@
 #include <unistd.h>
 #include <sstream>
 #include <string>
-#include "generated/gather.h"
-#include "generated/index.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -23,9 +21,7 @@ namespace habana {
 
 namespace {
 
-// Shared layer is not initialized currently because of spdlogger
-// symbol issues.
-[[maybe_unused]] struct SharedLayerInitialization {
+struct SharedLayerInitialization {
   SharedLayerInitialization() {
     static auto status = synSharedLayerInit();
     TORCH_CHECK(status == synSuccess, "cannot initialize shared layer");
@@ -35,6 +31,8 @@ namespace {
     synSharedLayerFinit();
   }
 };
+
+SharedLayerInitialization _slu_initializer;
 
 gcapi::DeviceId_t synDeviceTypeToGcApiDeviceType(synDeviceType tp) {
   switch (tp) {
