@@ -106,7 +106,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/serialize/export.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
-  habana_kernels/binary_out_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/compare_kernels.cpp
   habana_kernels/conv_kernels.cpp
@@ -227,7 +226,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     habana_kernels/basic_kernels.cpp
     habana_kernels/binary_inplace_kernels.cpp
     habana_kernels/binary_kernels.cpp
-    habana_kernels/binary_out_kernels.cpp
     habana_kernels/compare_kernels.cpp
     habana_kernels/conv_bwd_kernels.cpp
     habana_kernels/conv_kernels.cpp

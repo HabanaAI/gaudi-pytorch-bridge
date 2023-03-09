@@ -871,6 +871,24 @@ class LazyOp {
        std::is_same<T, at::Tensor>::value),
       T>::type
   call(at::Tensor& self) {
+    std::string node_str = m_symbol.toQualString();
+    if ((node_str == "aten::mul") && (m_inputs.size() == 3)) {
+      // WA to enable autogen for mul_out in lazy
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+      auto id = GetHbLazyTensorId(m_inputs[2].toTensor());
+
+      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
+
+      if (params_ptr != nullptr) {
+        return mul_out_hpu_lazy(
+            m_inputs[0].toTensor(),
+            m_inputs[1].toTensor(),
+            m_inputs[2].toTensor());
+      }
+    }
+
     habana_lazy::ir::setCurrentModuleName(module_name);
     PT_LAZY_DEBUG(
         "Lazy Call Inplace/out or regular with acc thread:self :: ",
@@ -885,7 +903,7 @@ class LazyOp {
 
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
-    infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
+    infoToBackEnd->set_lazy_op_name(node_str);
 
     auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
