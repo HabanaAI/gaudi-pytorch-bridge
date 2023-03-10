@@ -427,13 +427,17 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
-  HandleScalarToTensor(*m_graph, stack);
+  auto& device = synapse_helpers::HPURegistrar::get_device(0);
+  auto graph = absl::get<synapse_helpers::graph>(
+      synapse_helpers::graph::create(device, {}, true));
+
+  HandleScalarToTensor(graph, stack);
 
   if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
-    HandleTypePromotion(*m_graph, stack);
+    HandleTypePromotion(graph, stack);
   }
 
-  AddNode(*m_graph, stack);
+  AddNode(graph, stack);
   m_meta_mode = false;
 
   return m_meta;

@@ -376,8 +376,6 @@ class OpBackend : public HabanaOperator {
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
 
-  synapse_helpers::graph* m_graph = nullptr;
-
   // For shape inference of outputs/intermediates
   bool m_meta_mode = false;
   OutputShapeInfRetType m_meta;
