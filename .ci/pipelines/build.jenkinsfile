@@ -62,10 +62,10 @@ def preBuildStages = [
         """)
     }
 ]
-if(env.GERRIT_PROJECT == 'pytorch-integration' && !env.isPromote) {
+if(env.GERRIT_PROJECT == 'pytorch-integration' && env.IS_PROMOTE == "false") {
     preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
 }
-if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Habana-Lightning-Plugins' ) && !env.isPromote) {
+if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Habana-Lightning-Plugins' ) && env.IS_PROMOTE == "false") {
     preBuildStages =  preBuildStages + pytorchLightningFork
 }
 preBuildStages =  preBuildStages + habanaLightningPlugins
