@@ -533,28 +533,33 @@ sizes_vec LayerNormOutputShape(const at::Stack& stack) {
 static sh::tensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
+    std::vector<sh::tensor>& storage,
     const OpBackend::TensorsPair& input,
     const c10::optional<OpBackend::TensorsPair>& weightOrBiasOpt,
     int64_t constant_numel,
     float constant_value,
     std::array<int64_t, 1>& weightOrBias_shape) {
   if (weightOrBiasOpt) {
+    sh::tensor* pWeightOrBias = &weightOrBiasOpt->sh_t;
+    if (weightOrBiasOpt->pt_t.scalar_type() != c10::kFloat) {
+      storage.push_back(OpBackend::BuildCast(
+          op,
+          graph,
+          pWeightOrBias->get(),
+          weightOrBiasOpt->pt_t.sizes(),
+          weightOrBiasOpt->pt_t.scalar_type(),
+          c10::kFloat));
+      pWeightOrBias = &storage.back();
+    }
+
     weightOrBias_shape = {weightOrBiasOpt->pt_t.numel()};
     auto weightOrBias = OpBackend::BuildReshape(
-        op,
-        graph,
-        weightOrBiasOpt->sh_t.get(),
-        weightOrBias_shape,
-        weightOrBiasOpt->pt_t.scalar_type());
+        op, graph, pWeightOrBias->get(), weightOrBias_shape, c10::kFloat);
     return weightOrBias;
   } else {
     weightOrBias_shape = {constant_numel};
     auto weightOrBias = OpBackend::BuildConstant(
-        op,
-        graph,
-        constant_value,
-        input.pt_t.scalar_type(),
-        weightOrBias_shape);
+        op, graph, constant_value, c10::kFloat, weightOrBias_shape);
     return weightOrBias;
   }
 }
@@ -583,10 +588,16 @@ void LayerNormHabanaOperator::AddNode(
       ? input_shape[input_ndim - 1]
       : normalized_shape_numel;
 
+  std::vector<sh::tensor> storage;
+  // Manual handling of reserved size - maximum number of calls to
+  // storage.push_back
+  storage.reserve(3);
+
   std::array<int64_t, 1> weightOrBias_shape = {};
   sh::tensor weight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
+      storage,
       input,
       weightOpt,
       weightOrBias_constant_numel,
@@ -596,6 +607,7 @@ void LayerNormHabanaOperator::AddNode(
   sh::tensor bias = CreateLayerNormBiasWeightTensor(
       this,
       graph,
+      storage,
       input,
       biasOpt,
       weightOrBias_constant_numel,
@@ -623,18 +635,14 @@ void LayerNormHabanaOperator::AddNode(
   int64_t n =
       c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
 
-  // Storage for only 1 element
-  // If more are necessary replace with vector, as in Bwd case
-  std::optional<sh::tensor> storage;
-
   int64_t input_reshaped_shape[] = {1, 1, m, n};
   if (!use_tpc_affine_path) {
-    storage = ReshapeHelper(
+    storage.push_back(ReshapeHelper(
         graph,
         localInput->get(),
         input_reshaped_shape,
-        input.pt_t.scalar_type());
-    localInput = &(*storage);
+        input.pt_t.scalar_type()));
+    localInput = &storage.back();
   }
 
   ns_LayerNormKernel::ParamsNorm params_norm{};
@@ -660,13 +668,18 @@ void LayerNormHabanaOperator::AddNode(
   auto outputShapes = LayerNormOutputShape(stack);
   int64_t mean_rstd_shape[] = {1, 1, m, 1};
 
+  auto getOutputType = [this](int i) {
+    return (i == 0) ? this->ScalarType() : c10::kFloat;
+  };
+
   std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
   for (int i = 0; i < outputShapes.size(); ++i) {
+    c10::ScalarType outputType = getOutputType(i);
     if (use_tpc_affine_path) {
-      node_output_attr.push_back({outputShapes[i], ScalarType(), i});
+      node_output_attr.push_back({outputShapes[i], outputType, i});
     } else {
       node_output_attr.push_back(
-          {i == 0 ? input_reshaped_shape : mean_rstd_shape, ScalarType()});
+          {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
     }
   }
 
@@ -682,8 +695,8 @@ void LayerNormHabanaOperator::AddNode(
     if (use_tpc_affine_path) {
       syn_out(i) = std::move(ln[i]);
     } else {
-      auto reshaped =
-          ReshapeHelper(graph, ln[i].get(), outputShapes[i], ScalarType(), i);
+      auto reshaped = ReshapeHelper(
+          graph, ln[i].get(), outputShapes[i], getOutputType(i), i);
       syn_out(i) = std::move(reshaped);
     }
   }
@@ -743,7 +756,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   std::vector<sh::tensor> storage;
   // Manual handling of reserved size - maximum number of calls to
   // storage.push_back
-  storage.reserve(4);
+  storage.reserve(7);
 
   for (int i = 0; i < 2; ++i) {
     const auto& src = (i == 0) ? grad_out : input;
@@ -758,6 +771,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   sh::tensor weight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
+      storage,
       input,
       weightOpt,
       c10::multiply_integers(
@@ -766,14 +780,25 @@ void LayerNormBwdHabanaOperator::AddNode(
       weightShape);
 
   std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
-  for (int i = 0; i < 2; ++i) {
+  std::array<unsigned, 2> storage_indices = {};
+  for (int i = 0; i < storage_indices.size(); ++i) {
     const auto& src = (i == 0) ? mean : rstd;
     storage.push_back(ReshapeHelper(
         graph, src.sh_t.get(), mean_rstd_as_4D, src.pt_t.scalar_type()));
+
+    if (src.pt_t.scalar_type() != c10::kFloat) {
+      storage.push_back(CastHelper(
+          graph,
+          storage.back().get(),
+          mean_rstd_as_4D,
+          src.pt_t.scalar_type(),
+          c10::kFloat));
+    }
+    storage_indices[i] = storage.size() - 1;
   }
 
-  const auto& mean_as_4D = storage[storage.size() - 2];
-  const auto& rstd_as_4D = storage.back();
+  const auto& mean_as_4D = storage[storage_indices[0]];
+  const auto& rstd_as_4D = storage[storage_indices[1]];
 
   auto outputShapes = LayerNormBwdOutputShape(stack);
 
@@ -789,10 +814,17 @@ void LayerNormBwdHabanaOperator::AddNode(
        rstd_as_4D.get(),
        weight.get()},
       {{sizes_as_4D, ScalarType()},
-       {weightShape, ScalarType()},
-       {weightShape, ScalarType()}},
+       {weightShape, c10::kFloat},
+       {weightShape, c10::kFloat}},
       &params,
       sizeof(params));
+
+  if (ScalarType() != c10::kFloat) {
+    for (int i = 1; i < lnbwd.size(); ++i) {
+      lnbwd[i] = CastHelper(
+          graph, lnbwd[i].get(), weightShape, c10::kFloat, ScalarType());
+    }
+  }
 
   static std::array<int, 3> outIds = {0, 2, 1};
   for (size_t i = 0; i < outIds.size(); ++i) {

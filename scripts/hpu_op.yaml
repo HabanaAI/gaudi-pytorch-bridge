@@ -4801,6 +4801,7 @@ native_layer_norm:
   guid: layer_norm_fwd
   op_backend: LayerNormHabanaOperator
   custom_output_shape: LayerNormOutputShape
+  out_dtypes: [input, Float, Float]
   out_ids: [0, 0, 0]
 
 native_layer_norm_backward:

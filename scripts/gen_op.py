@@ -1008,7 +1008,14 @@ def frontend(
                 not use_compute_type
             ), "Cannot use out_dtypes for frontends that use use_compute_type"
             code += "  hpu_op.set_scalar_types({{{}}});\n".format(
-                ", ".join(["at::k" + d for d in out_dtypes])
+                ", ".join(
+                    [
+                        d + ".scalar_type()"
+                        if d in param_vars
+                        else "at::k" + d
+                        for d in out_dtypes
+                    ]
+                )
             )
 
         if ctxop.get_op_frontend_class() == "ReductionFrontendTemplate":
@@ -1933,8 +1940,14 @@ def generate_autocast_ops(fgens, args, out_dir):
             "tuple_3_tensors_vector",
         ),
         ("::std::tuple<double,int64_t>", "tuple_double_int64"),
-        ("::std::tuple<at::Tensor,::std::vector<at::Tensor>>", "tuple_tensor_vector"),
-        ("::std::tuple<::std::vector<at::Tensor>,at::Tensor>", "tuple_vector_tensor"),
+        (
+            "::std::tuple<at::Tensor,::std::vector<at::Tensor>>",
+            "tuple_tensor_vector",
+        ),
+        (
+            "::std::tuple<::std::vector<at::Tensor>,at::Tensor>",
+            "tuple_vector_tensor",
+        ),
         (
             "::std::tuple<at::Tensor,::std::vector<at::Tensor>,::std::vector<at::Tensor>>",
             "tuple_tensor_2_vectors",

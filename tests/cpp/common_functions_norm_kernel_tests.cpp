@@ -15,11 +15,33 @@
 #include "variable_get.h"
 
 template <class T>
-void dump_tensor(const std::string& label, const at::Tensor& t, bool verbose) {
+const at::Tensor* convert_to_type_supported_on_cpu(
+    const at::Tensor& tin,
+    at::Tensor& storage) {
+  if (std::is_same_v<T, float>) {
+    switch (tin.scalar_type()) {
+      case torch::kBFloat16:
+      case torch::kFloat16:
+        storage = tin.to(torch::kFloat32);
+        return &storage;
+      default:
+        break;
+    }
+  }
+  return &tin;
+}
+
+template <class T>
+void dump_tensor(
+    const std::string& label,
+    const at::Tensor& tin,
+    bool verbose) {
   if (verbose) {
-    auto ptr = (T*)t.data_ptr();
-    std::cout << label << std::endl;
-    for (size_t i = 0; i < t.numel(); ++i) {
+    at::Tensor storage;
+    const auto* t = convert_to_type_supported_on_cpu<T>(tin, storage);
+    auto ptr = (T*)t->data_ptr();
+    std::cout << label << " shape = " << tin.sizes() << std::endl;
+    for (size_t i = 0; i < t->numel(); ++i) {
       std::cout << i << " : " << ptr[i] << std::endl;
     }
   }
@@ -28,14 +50,19 @@ void dump_tensor(const std::string& label, const at::Tensor& t, bool verbose) {
 template <class T>
 void dump_tensors(
     const std::string& label,
-    const at::Tensor& t1,
-    const at::Tensor& t2,
+    const at::Tensor& t1in,
+    const at::Tensor& t2in,
     bool verbose) {
   if (verbose) {
-    auto ptr1 = (T*)t1.data_ptr();
-    auto ptr2 = (T*)t2.data_ptr();
-    std::cout << label << std::endl;
-    for (size_t i = 0; (i < t1.numel()) && (i < t2.numel()); ++i) {
+    std::array<at::Tensor, 2> storage;
+    const auto* t1 = convert_to_type_supported_on_cpu<T>(t1in, storage[0]);
+    const auto* t2 = convert_to_type_supported_on_cpu<T>(t2in, storage[1]);
+
+    auto ptr1 = (T*)t1->data_ptr();
+    auto ptr2 = (T*)t2->data_ptr();
+    std::cout << label << " shapes = " << t1in.sizes() << ", " << t2in.sizes()
+              << std::endl;
+    for (size_t i = 0; (i < t1->numel()) && (i < t2->numel()); ++i) {
       auto d = fabs(ptr1[i] - ptr2[i]);
       auto r = ptr1[i] ? d / abs(ptr1[i]) : INFINITY;
       std::cout << i << " : " << ptr1[i] << " vs " << ptr2[i] << " D = " << d
@@ -48,6 +75,7 @@ std::vector<AtTensorPair> native_layer_norm_test(
     NativeLayerNormTestMode mode,
     NativeLayerNormTestWeight weight,
     NativeLayerNormTestBias bias,
+    c10::ScalarType dtype,
     bool verbose) {
   std::vector<AtTensorPair> result;
   result.reserve(mode == NativeLayerNormTestMode::FwdBwdAffine ? 6 : 3);
@@ -78,8 +106,12 @@ std::vector<AtTensorPair> native_layer_norm_test(
   auto input_tensor_cpu =
       torch::arange(
           input_num_samples, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape(input_shape);
+          .reshape(input_shape)
+          .to(dtype);
   torch::Tensor input_tensor_hpu = input_tensor_cpu.to(torch::kHPU);
+  if (dtype != torch::kFloat32) {
+    input_tensor_cpu = input_tensor_cpu.to(torch::kFloat32);
+  }
 
   dump_tensor<float>("Input:", input_tensor_cpu, verbose);
 
@@ -91,8 +123,12 @@ std::vector<AtTensorPair> native_layer_norm_test(
     weight_cpu_opt =
         torch::arange(
             norm_num_samples, torch::dtype(torch::kFloat).requires_grad(false))
-            .reshape(normalized_shape);
+            .reshape(normalized_shape)
+            .to(dtype);
     weight_hpu_opt = weight_cpu_opt->to(torch::kHPU);
+    if (dtype != torch::kFloat32) {
+      weight_cpu_opt = weight_cpu_opt->to(torch::kFloat32);
+    }
 
     dump_tensor<float>("Weight:", *weight_cpu_opt, verbose);
   }
@@ -100,8 +136,12 @@ std::vector<AtTensorPair> native_layer_norm_test(
     bias_cpu_opt =
         torch::arange(
             norm_num_samples, torch::dtype(torch::kFloat).requires_grad(false))
-            .reshape(normalized_shape);
+            .reshape(normalized_shape)
+            .to(dtype);
     bias_hpu_opt = bias_cpu_opt->to(torch::kHPU);
+    if (dtype != torch::kFloat32) {
+      bias_cpu_opt = bias_cpu_opt->to(torch::kFloat32);
+    }
 
     dump_tensor<float>("Bias:", *bias_cpu_opt, verbose);
   }
@@ -143,8 +183,12 @@ std::vector<AtTensorPair> native_layer_norm_test(
     auto grad_out_cpu =
         torch::arange(
             input_num_samples, torch::dtype(torch::kFloat).requires_grad(false))
-            .reshape(input_shape); // nchw
+            .reshape(input_shape)
+            .to(dtype); // nchw
     torch::Tensor grad_out_hpu = grad_out_cpu.to(torch::kHPU);
+    if (dtype != torch::kFloat32) {
+      grad_out_cpu = grad_out_cpu.to(torch::kFloat32);
+    }
 
     dump_tensor<float>("Grad_out:", grad_out_cpu, verbose);
 
@@ -168,14 +212,24 @@ std::vector<AtTensorPair> native_layer_norm_test(
         N = input_shape[0];
         mean_rstd_shape = {N, 1};
       }
+
       mean_cpu =
           torch::arange(N, torch::dtype(torch::kFloat).requires_grad(false))
-              .reshape(mean_rstd_shape);
+              .reshape(mean_rstd_shape)
+              .to(dtype);
       mean_hpu = mean_cpu.to(torch::kHPU);
+      if (dtype != torch::kFloat32) {
+        mean_cpu = mean_cpu.to(torch::kFloat32);
+      }
+
       rstd_cpu =
           torch::arange(N, torch::dtype(torch::kFloat).requires_grad(false))
-              .reshape(mean_rstd_shape);
+              .reshape(mean_rstd_shape)
+              .to(dtype);
       rstd_hpu = rstd_cpu.to(torch::kHPU);
+      if (dtype != torch::kFloat32) {
+        rstd_cpu = rstd_cpu.to(torch::kFloat32);
+      }
 
       dump_tensor<float>("Mean:", mean_cpu, verbose);
       dump_tensor<float>("Rstd:", rstd_cpu, verbose);
@@ -192,6 +246,7 @@ std::vector<AtTensorPair> native_layer_norm_test(
       weight_cpu_opt = torch::ones(
           normalized_shape, torch::dtype(torch::kFloat).requires_grad(false));
     }
+
     if (!bias_cpu_opt) {
       bias_cpu_opt = torch::zeros(
           normalized_shape, torch::dtype(torch::kFloat).requires_grad(false));

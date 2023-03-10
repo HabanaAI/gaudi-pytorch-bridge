@@ -230,6 +230,8 @@ add_executable(
   tensor_usage.cpp
   type_promotion_tests.cpp
   user_stream_tests.cpp
+  utils/dtype_supported_on_device.cpp
+  utils/hint_tolerance_values.cpp
   view_utils_tests.cpp)
 
 target_link_libraries(test_pt_integration PRIVATE habana_pytorch_plugin gtest nlohmann_json::nlohmann_json

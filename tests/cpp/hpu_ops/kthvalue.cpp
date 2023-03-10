@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {
@@ -99,28 +99,22 @@ class HpuOpTest : public HpuOpTestUtil {
   }
 };
 
-#define KTHVALUE_TESTS(TEST_NAME, DTYPE)                               \
-  TEST_F(HpuOpTest, TEST_NAME) {                                       \
-    habana::HABANAGuardImpl device_guard;                              \
-    device_guard.getDevice();                                          \
-    auto& device = synapse_helpers::HPURegistrar::get_device();        \
-    if (device.type() == synDeviceGaudi && DTYPE == torch::kFloat16) { \
-      GTEST_SKIP();                                                    \
-    }                                                                  \
-    testKthvalue({3, 4}, DTYPE, 2, 0, true);                           \
-    testKthvalue({3, 4}, DTYPE, 2, 0, false);                          \
-    testKthvalue({3, 4, 6, 8}, DTYPE, 3, 3, true);                     \
-    testKthvalue({3, 4, 6, 8}, DTYPE, 3, 3, false);                    \
-    testKthvalue({3, 4, 5, 2, 3, 2}, DTYPE, 4, 2, false);              \
-    testKthvalue({3, 4, 5, 2, 3, 2}, DTYPE, 4, 2, true);               \
+#define KTHVALUE_TESTS(TEST_NAME, DTYPE)                  \
+  TEST_F(HpuOpTest, TEST_NAME) {                          \
+    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {        \
+      GTEST_SKIP();                                       \
+    }                                                     \
+    testKthvalue({3, 4}, DTYPE, 2, 0, true);              \
+    testKthvalue({3, 4}, DTYPE, 2, 0, false);             \
+    testKthvalue({3, 4, 6, 8}, DTYPE, 3, 3, true);        \
+    testKthvalue({3, 4, 6, 8}, DTYPE, 3, 3, false);       \
+    testKthvalue({3, 4, 5, 2, 3, 2}, DTYPE, 4, 2, false); \
+    testKthvalue({3, 4, 5, 2, 3, 2}, DTYPE, 4, 2, true);  \
   }
 
 #define KTHVALUE_VALUES_TESTS(TEST_NAME, DTYPE)                         \
   TEST_F(HpuOpTest, TEST_NAME) {                                        \
-    habana::HABANAGuardImpl device_guard;                               \
-    device_guard.getDevice();                                           \
-    auto& device = synapse_helpers::HPURegistrar::get_device();         \
-    if (device.type() == synDeviceGaudi && DTYPE == torch::kFloat16) {  \
+    if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {                      \
       GTEST_SKIP();                                                     \
     }                                                                   \
     testKthvalueValues({3, 4}, {1, 4}, DTYPE, 2, 0, true);              \

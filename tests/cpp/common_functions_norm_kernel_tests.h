@@ -10,7 +10,8 @@
  *
  *******************************************************************************
  */
-#include <torch/torch.h>
+#include "utils/dtype_supported_on_device.h"
+#include "utils/hint_tolerance_values.h"
 
 struct AtTensorPair {
   at::Tensor cpu;
@@ -38,24 +39,37 @@ std::vector<AtTensorPair> native_layer_norm_test(
     NativeLayerNormTestMode,
     NativeLayerNormTestWeight,
     NativeLayerNormTestBias,
+    c10::ScalarType dtype,
     bool verbose = false);
 
-#define LAYER_NORM_TEST_2(BASE, MODE, WEIGHT, BIAS)                    \
-  TEST_F(BASE, LayerNorm##MODE##Weight##WEIGHT##Bias##BIAS##Execute) { \
-    auto results = native_layer_norm_test(                             \
-        NativeLayerNormTestMode::MODE,                                 \
-        NativeLayerNormTestWeight::WEIGHT##ined,                       \
-        NativeLayerNormTestBias::BIAS##ined);                          \
-    for (int i = 0; i < results.size(); ++i) {                         \
-      auto& result = results[i];                                       \
-      EXPECT_EQ(result.hpu.is_same_size(result.cpu), true)             \
-          << "HPU: " << result.hpu.sizes()                             \
-          << " vs CPU: " << result.cpu.sizes();                        \
-      EXPECT_EQ(allclose(result.hpu, result.cpu, 0.01, 0.01), true)    \
-          << "Maximum abs diff = "                                     \
-          << (result.hpu - result.cpu).abs().max().item<float>();      \
-    }                                                                  \
+#define LAYER_NORM_TEST_3(BASE, MODE, WEIGHT, BIAS, DT, DTYPE, PREC)       \
+  TEST_F(BASE, LayerNorm##MODE##Weight##WEIGHT##Bias##BIAS##DT##Execute) { \
+    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                  \
+      GTEST_SKIP();                                                        \
+    }                                                                      \
+    auto results = native_layer_norm_test(                                 \
+        NativeLayerNormTestMode::MODE,                                     \
+        NativeLayerNormTestWeight::WEIGHT##ined,                           \
+        NativeLayerNormTestBias::BIAS##ined,                               \
+        torch::DTYPE);                                                     \
+    for (int i = 0; i < results.size(); ++i) {                             \
+      auto& result = results[i];                                           \
+      if ((torch::DTYPE != torch::kFloat32) &&                             \
+          (result.hpu.scalar_type() != result.cpu.scalar_type())) {        \
+        result.cpu = result.cpu.to(result.hpu.scalar_type());              \
+      }                                                                    \
+      EXPECT_EQ(result.hpu.is_same_size(result.cpu), true)                 \
+          << "HPU: " << result.hpu.sizes()                                 \
+          << " vs CPU: " << result.cpu.sizes();                            \
+      EXPECT_EQ(allclose(result.hpu, result.cpu, PREC, PREC), true)        \
+          << HintToleranceValues(result.hpu, result.cpu, PREC, PREC);      \
+    }                                                                      \
   }
+
+#define LAYER_NORM_TEST_2(...)                          \
+  LAYER_NORM_TEST_3(__VA_ARGS__, F32, kFloat32, 0.01)   \
+  LAYER_NORM_TEST_3(__VA_ARGS__, BF16, kBFloat16, 0.01) \
+  LAYER_NORM_TEST_3(__VA_ARGS__, F16, kFloat16, 0.01)
 
 #define LAYER_NORM_TEST_1(...)        \
   LAYER_NORM_TEST_2(__VA_ARGS__, Def) \
