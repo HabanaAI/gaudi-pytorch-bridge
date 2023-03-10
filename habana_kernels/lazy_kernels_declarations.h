@@ -341,16 +341,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_backward_hpu_lazy(
     const at::Tensor& mean,
     const at::Tensor& istd,
     const at::Tensor& gamma);
-at::Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
-    at::Tensor& grad_input,
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& indices,
-    at::IntArrayRef kernel_size,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    bool ceil_mode);
 at::Tensor& uniform_hpu_lazy(
     at::Tensor& self,
     double from = 0,

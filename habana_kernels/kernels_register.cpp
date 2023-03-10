@@ -680,65 +680,6 @@ Tensor hpu_wrap::instance_norm(
   return InstanceNorm::apply(input, weight, bias, eps);
 }
 
-Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool ceil_mode,
-    const Tensor& indices,
-    Tensor& grad_input) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "max_pool2d_with_indices_backward_out :",
-      " grad_output=",
-      to_string(grad_output),
-      " input=",
-      to_string(input),
-      " kernel_size=",
-      to_string(kernel_size),
-      " stride=",
-      to_string(stride),
-      " padding=",
-      to_string(padding),
-      " dilation=",
-      to_string(dilation),
-      " ceil_mode=",
-      to_string(ceil_mode),
-      " indices=",
-      to_string(indices),
-      " grad_input=",
-      to_string(grad_input));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      max_pool2d_with_indices_backward,
-      PARAMS1(grad_input, grad_output, input, indices),
-      PARAMS2(
-          grad_output,
-          input,
-          kernel_size,
-          stride,
-          padding,
-          dilation,
-          ceil_mode,
-          indices,
-          grad_input),
-      grad_input)
-
-  return max_pool2d_with_indices_backward_out_hpu_lazy(
-      grad_input,
-      grad_output,
-      input,
-      indices,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode);
-}
-
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
     c10::optional<int64_t> output_size) {

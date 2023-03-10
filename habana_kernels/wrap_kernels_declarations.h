@@ -111,16 +111,6 @@ at::Tensor instance_norm(
     double momentum,
     double eps,
     bool cudnn_enabled);
-at::Tensor& max_pool2d_with_indices_backward_out(
-    const at::Tensor& grad_output,
-    const at::Tensor& self,
-    at::IntArrayRef kernel_size,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    bool ceil_mode,
-    const at::Tensor& indices,
-    at::Tensor& grad_input);
 at::Tensor dropout(const at::Tensor& input, double p, bool train);
 at::Tensor repeat_interleave(
     const at::Tensor& self,

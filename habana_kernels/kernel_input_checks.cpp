@@ -447,18 +447,6 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long}},
         },
         {
-            "max_pool2d_with_indices_backward_out",
-            {{at::ScalarType::Double,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Short,
-              at::ScalarType::Byte,
-              at::ScalarType::Int,
-              at::ScalarType::Bool,
-              at::ScalarType::Char,
-              at::ScalarType::Float,
-              at::ScalarType::Long}},
-        },
-        {
             "sum_out",
             {{at::ScalarType::Double,
               at::ScalarType::BFloat16,

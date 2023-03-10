@@ -25,21 +25,6 @@ enum MaxpoolVariant {
   MAXPOOL3D = 3,
 };
 
-static bool is_greco_device() {
-  return (
-      synapse_helpers::HPURegistrar::get_device().type() ==
-      synDeviceType::synDeviceGreco);
-}
-
-static void DummyOutput(
-    synapse_helpers::graph& graph,
-    PytorchKernelContextPtr& p_context_,
-    bool persistent,
-    bool external) {
-  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      p_context_->pt_outputs_.at(1), graph, persistent, external));
-}
-
 static int OutputShapeComputation(
     int input_shape,
     int kernel,
@@ -394,7 +379,7 @@ static synTransposeParams ChangeTransposePermutation(
   return trans_params;
 }
 
-static c10::ScalarType FindIndexType(c10::ScalarType input_tensor_type) {
+static c10::ScalarType FindRetainTensorType(c10::ScalarType input_tensor_type) {
   if (input_tensor_type == c10::ScalarType::BFloat16)
     return c10::ScalarType::Short;
   return c10::ScalarType::Byte;
@@ -442,7 +427,7 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
   const auto& final_out_shape = MaxPool3DIndicesOutputShape(stack);
   size_t size = 0;
   const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
-  auto index_type = FindIndexType(self.scalar_type());
+  auto index_type = FindRetainTensorType(self.scalar_type());
   std::vector<synapse_helpers::tensor> output;
   // TODO: SW-86955 move build op to code gen
 
@@ -493,52 +478,22 @@ void MaxPool3DWithIndicesBwd::AddNode(
 
 // Since the out varriant intices tensor has some issue
 // (https://jira.habana-labs.com/browse/SW-74263)
-void MaxPool2DWithIndicesOut::AddNode(
+void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack);
-  const torch::Tensor& self = stack.at(0).toTensor();
+  auto out_shape = ComputeOutputShapes(stack)[0];
   size_t size = 0;
   const auto& params = FillParams(stack, size);
 
-  auto index_type = FindIndexType(self.scalar_type());
-  std::string name = std::string();
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
-    name = habana_helpers::get_tensor_range(syn_in(0), graph);
-
-  // maxpool2d guid will return tuple of tensors except greco device
-  // (indices tensor, output tensor)
-  // For greco device, only `output tensor` will be returned
-
-  const bool greco_device = is_greco_device();
-  const bool is_dynamic = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-
-  std::vector<NodeAttr::NodeOutputAttr> output_attr;
-  if (greco_device) {
-    p_context_->syn_outputs_.pop_back();
-    // dummy output in place of indices tensor
-    DummyOutput(
-        graph,
-        p_context_,
-        IsOutputPersistent(1),
-        GetOutputMetaData(1).external);
-    if (is_dynamic)
-      output_attr.push_back({out_shape[0], ScalarType()});
-    else
-      output_attr.push_back({out_shape[0], ScalarType(), 0});
-  } else {
-      output_attr.push_back({out_shape[1], index_type, 1});
-      output_attr.push_back({out_shape[0], ScalarType(), 0});
-  }
+  auto index_type = FindRetainTensorType(ScalarType());
 
   auto maxpool2d = BuildOp(
       graph,
       "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      output_attr,
+      {{out_shape, index_type, 1}, {out_shape, ScalarType(), 0}},
       params.get(),
-      size,
-      name);
+      size);
 
   syn_out(0) = std::move(maxpool2d[1]);
   syn_out(1) = std::move(maxpool2d[0]);

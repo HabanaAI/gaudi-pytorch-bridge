@@ -172,31 +172,6 @@ Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
   FALLBACK_UNSUPPORTED_OP2_O(nonzero, PARAMS2(self, out), out);
 }
 
-Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool ceil_mode,
-    const Tensor& indices,
-    Tensor& grad_input) {
-  FALLBACK_UNSUPPORTED_OP2_O(
-      max_pool2d_with_indices_backward,
-      PARAMS2(
-          grad_output,
-          input,
-          kernel_size,
-          stride,
-          padding,
-          dilation,
-          ceil_mode,
-          indices,
-          grad_input),
-      grad_input);
-}
-
 // *************************************************
 // BELOW is list of symbols needed to link new frontend plugin but not relevant
 // for eager execution. They will be removed once backend dependencies
@@ -326,6 +301,7 @@ at::Tensor& allgather_hpu_lazy_out(
     [[maybe_unused]] at::Tensor& output_tensor) {
   EAGER_NOT_SUPPORTED;
 }
+
 at::Tensor& reduce_scatter_hpu_lazy_out(
     [[maybe_unused]] const at::Tensor& input_tensor,
     [[maybe_unused]] uint8_t reduce_op,

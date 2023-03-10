@@ -4948,32 +4948,6 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(instance_norm_backward, k)
 }
 
-Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
-    Tensor& grad_input,
-    const Tensor& grad_output,
-    const Tensor& input,
-    const Tensor& indices,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
-    bool ceil_mode) {
-  PT_LAZY_TRACE;
-  FALLBACK_UNSUPPORTED_OP2_O(
-      max_pool2d_with_indices_backward,
-      PARAMS2(
-          grad_output,
-          input,
-          kernel_size,
-          stride,
-          padding,
-          dilation,
-          ceil_mode,
-          indices,
-          grad_input),
-      grad_input)
-}
-
 at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
   PT_LAZY_TRACE;
   auto out_shape = DimVector({n});
