@@ -11,9 +11,30 @@
  *
  *******************************************************************************
  */
+#include <Python.h>
 #include "habana_helpers/logging.h"
 
 #define EAGER_NOT_SUPPORTED                                                   \
   HABANA_ASSERT(                                                              \
       false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
   std::terminate();
+
+namespace habana {
+namespace eager {
+
+struct gil_scoped_release_if_held {
+  gil_scoped_release_if_held() {
+    if (PyGILState_Check() && PyGILState_GetThisThreadState()) {
+      save_state = PyEval_SaveThread();
+    }
+  }
+  ~gil_scoped_release_if_held() {
+    if (save_state) {
+      PyEval_RestoreThread(save_state);
+    }
+  }
+  PyThreadState* save_state = nullptr;
+};
+
+} // namespace eager
+} // namespace habana

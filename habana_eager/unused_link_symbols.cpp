@@ -360,7 +360,8 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   //   function
   // 3. A TORCH_CHECK is added to ensure that the size at source
   //   matches with the destination.
-  pybind11::gil_scoped_release release;
+
+  habana::eager::gil_scoped_release_if_held release;
 
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
       at::ScalarType::Bool,

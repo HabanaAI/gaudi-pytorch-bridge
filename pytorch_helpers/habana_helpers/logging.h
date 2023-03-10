@@ -145,7 +145,7 @@ inline const char* CheckMsgImpl(const char*, const char* args) {
   return args;
 }
 
-void habana_assert(
+[[noreturn]] void habana_assert(
     const char* func,
     const char* file,
     uint32_t line,
