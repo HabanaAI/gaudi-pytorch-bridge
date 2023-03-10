@@ -70,10 +70,7 @@ if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Hab
 }
 preBuildStages =  preBuildStages + habanaLightningPlugins
 // TODO: SW-127368: compile PT 2.0 only in CI and for promote only for U20. This is temporary hack, untill issues fixed by dev.
-if(!env.isPromote){
-    preBuildStages =  preBuildStages + buildPytorchModulesNext
-}
-else if(env.OS == 'ubuntu20.04'){
+if(env.OS == 'ubuntu20.04'){
     preBuildStages =  preBuildStages + buildPytorchModulesNext
 }
 def buildCommands = [
