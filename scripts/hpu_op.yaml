@@ -1323,7 +1323,6 @@ bernoulli:
     Greco: [Float]
   guid: random_bernoulli_fwd
   op_frontend: GeneratorToSeed
-  legacy_eager: true
   op_backend: Bernoulli
   out_ids: [0]
   schema_args: "(Tensor self, *, Tensor seed) -> Tensor"
@@ -1336,8 +1335,7 @@ bernoulli_.float:
     Greco: [Float]
   guid: random_bernoulli_fwd
   inplace_ids: [0]
-  op_frontend: LazyBernoulliFrontend
-  legacy_eager: true
+  op_frontend: BernoulliFE
   op_backend: Bernoulli
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
 
@@ -1372,7 +1370,7 @@ bernoulli.float_out:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [Float]
   guid: random_bernoulli_fwd
-  op_frontend: LazyBernoulliOutFrontend
+  op_frontend: BernoulliOutFE
   op_backend: Bernoulli
   schema_args: "(Tensor self, Tensor p, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
@@ -3033,7 +3031,7 @@ geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
-  op_frontend: LazyGeometric
+  op_frontend: GeneratorToSeed
   op_backend: Geometric
   schema_args: "(Tensor(a!) self, float p, Tensor seed) -> Tensor(a!)"
 
@@ -3041,7 +3039,7 @@ geometric.out:
   force_default: false
   custom_fill_params: FillRandomNegativeBinomialParams
   dtypes: [BFloat16, Float]
-  op_frontend: LazyGeometric
+  op_frontend: GeneratorToSeedOut
   op_backend: Geometric
   schema_args: "(Tensor self, float p, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
@@ -4693,15 +4691,16 @@ multinomial:
   custom_output_shape: MultinomialOutputShape
   guid: random_multinomial_fwd
   out_ids: [0]
-  op_frontend: LazyRandomMulti
+  op_frontend: GeneratorToSeed
   op_backend: Multinomial
+  out_dtypes: [Long]
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed) -> Tensor"
 
 multinomial.out:
   dtypes: [BFloat16, Float]
   custom_output_shape: MultinomialOutputShape
   guid: random_multinomial_fwd
-  op_frontend: LazyRandomMultiOut
+  op_frontend: GeneratorToSeedOut
   op_backend: Multinomial
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
@@ -5811,14 +5810,14 @@ rrelu_with_noise:
 
 rrelu_with_noise_:
   dtypes: [BFloat16, Float]
-  op_frontend: LazyRreluOutInplace
+  op_frontend: GeneratorToSeed
   op_backend: Rrelu_with_noise
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
 
 rrelu_with_noise.out:
   dtypes: [BFloat16, Float]
-  op_frontend: LazyRreluOutInplace
+  op_frontend: GeneratorToSeedOut
   op_backend: Rrelu_with_noise
   schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 

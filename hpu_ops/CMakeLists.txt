@@ -228,21 +228,18 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/fill_gen.cpp
           lazy/foreach_gen.cpp
           lazy/frexp_gen.cpp
-          lazy/geometric_gen.cpp
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
           lazy/kthvalue_gen.cpp
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp
-          lazy/multinomial_gen.cpp
           lazy/nansum_gen.cpp
           lazy/norm_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
           lazy/reduction_template.cpp
           lazy/remainder_gen.cpp
-          lazy/rrelu_with_noise_gen.cpp
           lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp

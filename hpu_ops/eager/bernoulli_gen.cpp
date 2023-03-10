@@ -11,34 +11,31 @@
  *******************************************************************************
  */
 
-#include "generated/lazy/bernoulli.h"
+#include "generated/eager/bernoulli.h"
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
-static void ScalarPToTensor(at::IValue& p, const at::TensorOptions& options) {
-  p = habana_lazy::get_tensor_for_scalar(p.toDouble(), options);
+static void ScalarPToTensor(at::IValue& p) {
+  p = at::tensor(p.toDouble(), at::kHPU);
 }
 
 static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
-  gen_to_seed = get_seed_tensor_hpu(gen_to_seed.toOptional<at::Generator>());
+  int seed = get_seed_hpu(gen_to_seed.toOptional<at::Generator>());
+  at::TensorOptions o;
+  o = o.dtype(at::kInt).device(at::kHPU);
+  gen_to_seed = at::tensor(seed, o);
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
-    habana_lazy::LazyOp,
-    at::Tensor&,
-    BernoulliFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, BernoulliFE) {
   auto& p = get_inputs()[1];
-  ScalarPToTensor(p, inputs[0].toTensor().options());
+  ScalarPToTensor(p);
 
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
-    habana_lazy::LazyOp,
-    at::Tensor&,
-    BernoulliOutFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, BernoulliOutFE) {
   auto& p = get_inputs()[1];
-  ScalarPToTensor(p, inputs[0].toTensor().options());
+  ScalarPToTensor(p);
 
   ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
 }

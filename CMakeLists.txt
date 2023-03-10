@@ -286,7 +286,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     habana_lazy/visualize.cpp
     hpu_ops/lazy/add_composite_gen.cpp
     hpu_ops/lazy/arange_gen.cpp
-    hpu_ops/lazy/bernoulli_gen.cpp
     hpu_ops/lazy/binarycrossentropy_gen.cpp
     hpu_ops/lazy/bitwise_gen.cpp
     hpu_ops/lazy/bitwise_shift_gen.cpp
@@ -296,19 +295,16 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/embedding_gen.cpp
     hpu_ops/lazy/foreach_gen.cpp
     hpu_ops/lazy/frexp_gen.cpp
-    hpu_ops/lazy/geometric_gen.cpp
     hpu_ops/lazy/index_gen.cpp
     hpu_ops/lazy/index_select_gen.cpp
     hpu_ops/lazy/kthvalue_gen.cpp
     hpu_ops/lazy/logical_gen.cpp
     hpu_ops/lazy/max_min_gen.cpp
     hpu_ops/lazy/maxpool_gen.cpp
-    hpu_ops/lazy/multinomial_gen.cpp
     hpu_ops/lazy/nansum_gen.cpp
     hpu_ops/lazy/norm_gen.cpp
     hpu_ops/lazy/pow_gen.cpp
     hpu_ops/lazy/remainder_gen.cpp
-    hpu_ops/lazy/rrelu_with_noise_gen.cpp
     hpu_ops/lazy/threshold_gen.cpp
     hpu_ops/lazy/topk_util.cpp
     hpu_ops/lazy/trace_gen.cpp
