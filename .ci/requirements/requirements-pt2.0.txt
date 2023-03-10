@@ -1,3 +1,6 @@
---index-url=https://download.pytorch.org/whl/test/cpu-cxx11-abi/
+--extra-index-url=https://download.pytorch.org/whl/test/cpu-cxx11-abi/
 
 torch==2.0.0+cpu.cxx11.abi
+
+wheel>=0.38.4
+setuptools>=67.6
