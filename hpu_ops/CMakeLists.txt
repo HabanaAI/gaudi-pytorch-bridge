@@ -168,6 +168,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/smooth_l1_loss_gen.cpp
           backend/softmax_gen.cpp
           backend/softplus_gen.cpp
+          backend/sort_gen.cpp
           backend/take_gen.cpp
           backend/threshold_gen.cpp
           backend/topk_gen.cpp
@@ -241,6 +242,7 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/random_gen.cpp
           lazy/reduction_template.cpp
           lazy/remainder_gen.cpp
+          lazy/sort_gen.cpp
           lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp

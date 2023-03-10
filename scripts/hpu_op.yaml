@@ -6791,6 +6791,16 @@ topk.values:
   op_backend: Topk
   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
 
+sort.values_stable:
+  dtypes:
+    Gaudi: [Float, Int]
+    Gaudi2: [Float, Int]
+    Gaudi3: [Float, Int]
+    Greco: [Float, Int, Half, Char]
+  custom_output_shape: SortOutputShape
+  fallback_check: [SortFallbackCheck, self, stable, dim, descending]
+  op_backend: Sort
+
 trace:
   custom_output_shape: TraceOutputShape
   dtypes: [BFloat16, Float, Int]

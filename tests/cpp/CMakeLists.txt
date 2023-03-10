@@ -147,6 +147,7 @@ add_executable(
   hpu_ops/smooth_l1_loss.cpp
   hpu_ops/softmax.cpp
   hpu_ops/softplus.cpp
+  hpu_ops/sort.cpp
   hpu_ops/square.cpp
   hpu_ops/sum.cpp
   hpu_ops/take.cpp
