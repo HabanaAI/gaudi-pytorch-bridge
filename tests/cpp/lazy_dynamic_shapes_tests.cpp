@@ -1569,15 +1569,15 @@ void runTopkDynamicTest(
   int H = 2;
   int W = 20;
   c10::ScalarType dtype{torch::kInt32};
-  std::vector<int64_t> dimentions = {N, C, H, W};
+  std::vector<int64_t> dimensions = {N, C, H, W};
   for (int i = 0; i < K_values.size(); i++) {
     int change_dim_value = changing_dim_values[i];
     int k = K_values[i];
-    dimentions[dim] = change_dim_value;
+    dimensions[dim] = change_dim_value;
     PT_TEST_DEBUG("\nPTI_DBG :: TopKTest TEST ", i, "  --------\n");
 
     torch::Tensor input_cpu =
-        torch::randn(dimentions, torch::requires_grad(false));
+        torch::randn(dimensions, torch::requires_grad(false));
     // PRINT_TENSOR_WITH_DATA(input_cpu);
 
     torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
@@ -1598,7 +1598,7 @@ void runTopkDynamicTest(
         input_cpu.sizes(),
         " input_cpu.strides : ",
         input_cpu.strides());
-    PT_TEST_DEBUG("PTI_DBG :: dimentions : ", dimentions, ", k : ", k);
+    PT_TEST_DEBUG("PTI_DBG :: dimensions : ", dimensions, ", k : ", k);
     PT_TEST_DEBUG(
         "PTI_DBG :: output.shape : ",
         out0.sizes(),
@@ -1616,6 +1616,58 @@ TEST_F(LazyDynamicShapesTest, TopKTest1) {
   runTopkDynamicTest({5, 5, 5, 5, 5, 5}, {20, 33, 40, 35, 25, 28}, 3);
   // Changing K and W values
   runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
+}
+
+void runTopkOutDynamicTest(
+    std::vector<int> K_values,
+    std::vector<int> changing_dim_values,
+    int dim) {
+  std::vector<int64_t> dimensions = {1, 2, 2, 20};
+  for (int i = 0; i < K_values.size(); i++) {
+    int change_dim_value = changing_dim_values[i];
+    int k = K_values[i];
+    dimensions[dim] = change_dim_value;
+    PT_TEST_DEBUG("\nPTI_DBG :: TopKOutTest TEST ", i, "  --------\n");
+
+    torch::Tensor input_cpu =
+        torch::randn(dimensions, torch::requires_grad(false));
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+    auto cpu_values = torch::empty(0);
+    auto hpu_values = cpu_values.to(torch::kHPU);
+
+    auto cpu_indices = torch::empty(0).to(torch::kLong);
+    auto hpu_indices = cpu_indices.to(torch::kHPU);
+
+    torch::topk_out(hpu_values, hpu_indices, input_hpu, k);
+    torch::topk_out(cpu_values, cpu_indices, input_cpu, k);
+
+    HbLazyTensor::StepMarker({});
+    auto out0 = hpu_values.to(torch::kCPU);
+    auto out1 = hpu_indices.to(torch::kCPU);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: input_cpu.shape : ",
+        input_cpu.sizes(),
+        " input_cpu.strides : ",
+        input_cpu.strides());
+    PT_TEST_DEBUG("PTI_DBG :: dimensions : ", dimensions, ", k : ", k);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: output.shape : ",
+        out0.sizes(),
+        " output.strides : ",
+        out0.strides());
+
+    EXPECT_EQ(allclose(cpu_values, out0, 0, 0), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, TopKOutTest) {
+  // Changing K values
+  runTopkOutDynamicTest({5, 15, 25, 20, 6, 8}, {30, 30, 30, 30, 30, 30}, 3);
+  // Changing W values
+  runTopkOutDynamicTest({5, 5, 5, 5, 5, 5}, {20, 33, 40, 35, 25, 28}, 3);
+  // Changing K and W values
+  runTopkOutDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
 }
 
 TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
