@@ -153,7 +153,7 @@ void HPUGraph::replayV2(
     return;
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
+  if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   } else {
     habana_lazy::HbLazyTensor::StepMarker({});
