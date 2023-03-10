@@ -6777,7 +6777,9 @@ topk.values:
     Greco: [Float, Int, Half, Char]
   custom_output_shape: TopkOutputShape
   fallback_check: [TopkFallbackCheck, sorted]
+  op_frontend: LazyTopkOut
   op_backend: Topk
+  schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
 
 trace:
   custom_output_shape: TraceOutputShape
