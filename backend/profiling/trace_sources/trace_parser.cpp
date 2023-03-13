@@ -164,7 +164,7 @@ struct EngineDatabase {
         break;
       if (host_meta_event_ptr->engineIndex == 0 &&
           EngineType::isHost(host_meta_event_ptr->arguments.name)) {
-        auto& engine_type = engine_types[events_ptr->engineType];
+        auto& engine_type = engine_types[host_meta_event_ptr->engineType];
         engine_type.name = host_meta_event_ptr->arguments.name;
         break;
       }
