@@ -386,7 +386,7 @@ class PtTensorInfo {
   uint64_t tensor_id_{synapse_helpers::INVALID_SYN_TENSOR_ID};
 
   void* host_ptr_{nullptr};
-  DMAInputGeneratorType dma_gen_id_;
+  DMAInputGeneratorType dma_gen_id_ = DMAInputGeneratorType::INVALID;
 
   synTensor orig_syn_handle_{nullptr};
 
