@@ -277,7 +277,7 @@ void HpuTraceParser::processActivity(
 
     trace_sink.addCompleteActivity(
         {name,
-         {},
+         {std::make_pair("dataType", events_ptr->arguments.dataType)},
          getActivityType(events_ptr),
          getDevice(events_ptr),
          engine_type_database_->getLine(events_ptr->engineIndex)},
