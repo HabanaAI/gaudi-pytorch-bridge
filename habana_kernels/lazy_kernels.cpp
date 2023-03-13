@@ -4019,6 +4019,25 @@ Tensor& index_copy_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_copy_, func, self)
 }
 
+Tensor& masked_scatter_hpu_lazy_(
+    Tensor& self,
+    const Tensor& mask,
+    const Tensor& source) {
+  PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
+  auto broadcasted_mask = mask.broadcast_to(self.sizes().vec());
+  auto flattened_size = std::accumulate(
+      std::begin(source.sizes()),
+      std::end(source.sizes()),
+      1,
+      std::multiplies<size_t>());
+  auto flattened_values = at::reshape(source, {flattened_size});
+  c10::List<c10::optional<at::Tensor>> indices;
+  indices.push_back(broadcasted_mask);
+  return index_put_hpu_lazy_(self, indices, flattened_values, false);
+}
+
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,

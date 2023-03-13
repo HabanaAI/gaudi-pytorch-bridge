@@ -256,6 +256,10 @@ at::Tensor& index_copy_hpu_lazy_(
     int64_t dim,
     const at::Tensor& index,
     const at::Tensor& value);
+at::Tensor& masked_scatter_hpu_lazy_(
+    at::Tensor& self,
+    const at::Tensor& mask,
+    const at::Tensor& source);
 at::Tensor slice_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
