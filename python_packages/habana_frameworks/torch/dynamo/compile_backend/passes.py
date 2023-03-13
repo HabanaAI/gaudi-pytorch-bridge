@@ -158,11 +158,42 @@ def pass_mark_placement(stage: OptimizationPassPlacement, graph_module: torch.fx
     """
     assert graph_module is not None
 
+    def is_op_unsupported_in_graph(node):
+        node_target = node.target.__name__.split(".")[0]
+
+        unsupported_ops = [
+            # Tensor creation OPs.
+            "empty",
+            "zeros",
+            "ones",
+            # Random OPs.
+            "seed",
+            "manual_seed",
+            "initial_seed",
+            "get_rng_state",
+            "set_rng_state",
+            "rand",
+            "randn",
+            "randint",
+            "rand_like",
+            "randn_like",
+            "randint_like",
+            "randperm",
+            "poisson",
+            "bernoulli",
+            "multinomial",
+            "normal",
+        ]
+
+        return node_target in unsupported_ops
+
     for node in graph_module.graph.nodes:
         assert "placement" not in node.meta
 
         placement = None
-        if "placeholder" in node.op or "output" in node.op:
+        if node.op == "placeholder" or node.op == "output":
+            placement = "eager"
+        elif node.op == "call_function" and is_op_unsupported_in_graph(node):
             placement = "eager"
         elif "to_copy" in node.name:
             input_node = None
@@ -179,6 +210,15 @@ def pass_mark_placement(stage: OptimizationPassPlacement, graph_module: torch.fx
             else:
                 placement = "eager"
         elif node.meta["output_device"].type == "hpu":
+            # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.
+            # Let's create an assert that will fire in case this assumption proves wrong.
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node):
+                    # If you got into this assert, we might need to rewrite this part so we cluster only
+                    # these OPs that also have all inputs on HPU. Or debug why this OP have mixed device
+                    # tensors, that could be the original issue here.
+                    assert arg.meta["output_device"].type == "hpu"
+
             placement = "hpu_cluster"
         elif node.meta["output_device"].type == "cpu":
             placement = "eager"
@@ -400,8 +440,7 @@ def pass_eagerize_leaf_views(
 ) -> bool:
     """
     This pass is supposed to work on subgraphs and find nodes which are views and that emit these
-    views to the output node. It also supports finding chains of such views. Reason for this pass
-    is that backend do not support views tensors as outputs.
+    views to the output node. It also supports finding chains of such views.
 
     When such view node is found, mark original graph node as placed into `eager` so it does not
     end within clustered HPU submodules during repartition phase.

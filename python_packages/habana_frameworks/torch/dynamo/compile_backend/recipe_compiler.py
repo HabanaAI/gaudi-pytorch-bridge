@@ -12,7 +12,8 @@
 
 import torch
 
-from . import config
+from .config import configuration_flags
+
 
 class HabanaGraphModule(torch.nn.Module):
     def __init__(self, jit_ir):
@@ -22,12 +23,11 @@ class HabanaGraphModule(torch.nn.Module):
 
     def __call__(self, *args):
         from ._recipe_compiler_C import graph_compile, graph_launch
+
         inputs = [torch.Tensor(x) for x in args]
         if self._recipe_id is None:
             self.propagate_dtype(args)
-            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=inputs,
-                                            dynamic=False,
-                                            inference=False)
+            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=inputs, dynamic=False, inference=False)
         out = graph_launch(recipe_id=self._recipe_id, inputs=inputs)
         if len(out) == 1:
             return out[0]
@@ -35,6 +35,7 @@ class HabanaGraphModule(torch.nn.Module):
 
     def propagate_dtype(self, sample_input):
         from torch.jit._passes import _property_propagation
+
         torch._C._jit_pass_erase_shape_information(self._jit_ir.graph)
         _property_propagation.apply_input_props_using_example(self._jit_ir.graph, sample_input)
         torch._C._jit_pass_propagate_shapes_on_graph(self._jit_ir.graph)
@@ -47,7 +48,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule):
     run it eagerly depending on config.
     """
 
-    if config.use_compiled_recipes:
+    if configuration_flags["use_compiled_recipes"]:
         return HabanaGraphModule(jit_ir)
     else:
         # Return unchanged module, it will be ran eagerly.

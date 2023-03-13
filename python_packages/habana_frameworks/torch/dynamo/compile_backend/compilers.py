@@ -14,8 +14,6 @@ import torch
 import functorch
 
 from typing import List
-from torch._dynamo.backends.common import aot_autograd
-from torch._dynamo.backends.registry import register_backend
 
 from .internal import (
     preprocess_module,
@@ -26,11 +24,19 @@ from .internal import (
 )
 
 
-def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_compiler_inner(
+    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+):
     """
     This function will be called for each input FX graph. There will be at least
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
+
+    `is_training` parameter is not used now, but it can be used in case we need
+    to optimize inference and training differently
+
+    `is_backward` parameter is not used now, but it can be used in case we need
+    to optimize forward and backward passes differently
     """
     # Do initial preprocessing.
     preprocess_module(graph_module, example_inputs)
@@ -51,23 +57,29 @@ def _hpu_compile_inner(graph_module: torch.fx.GraphModule, example_inputs: List[
     return functorch.compile.make_boxed_func(clustered_module.forward)
 
 
-@register_backend
-def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
-    This function implements inference Habana backend for HPU, without AOT Autograd.
+    Just passthrough for forward pass training compilation.
     """
-
-    return _hpu_compile_inner(graph_module, example_inputs)
+    return hpu_compiler_inner(graph_module, example_inputs, True, False)
 
 
-@register_backend
-def aot_hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
-    This function implements training Habana backend for HPU, with AOT Autograd.
+    Just passthrough for backward pass training compilation.
     """
+    return hpu_compiler_inner(graph_module, example_inputs, True, True)
 
-    # Create AOT Autograd instance and feed it with Habana compile function.
-    return aot_autograd(
-        fw_compiler=_hpu_compile_inner,
-        bw_compiler=_hpu_compile_inner,
-    )(graph_module, example_inputs)
+
+def hpu_inference_compiler(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    """
+    Just passthrough for forward inference compilation.
+    """
+    return hpu_compiler_inner(graph_module, example_inputs, False, False)
+
+
+def hpu_inference_compiler_raise(*args):
+    """
+    Catch cases where someone tries to compile backward pass using inference backend. This is not expected usage.
+    """
+    raise Exception("tried to call backward pass compiler in inference backend")

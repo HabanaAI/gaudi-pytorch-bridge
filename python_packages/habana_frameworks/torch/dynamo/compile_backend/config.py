@@ -10,5 +10,4 @@
 #
 ###############################################################################
 
-use_compiled_recipes = False
-verbose = False
+configuration_flags = {"use_compiled_recipes": False, "verbose": False}

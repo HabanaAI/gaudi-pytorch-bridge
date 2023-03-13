@@ -59,14 +59,17 @@ def test_relu_cpuinput():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
         result_nocompile = raw_function(tensor)
-        result_compile = compiled_function(tensor)
+        result_compile_train = compiled_function_training(tensor)
+        result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile)
+        assert torch.equal(result_nocompile, result_compile_train)
+        assert torch.equal(result_compile_infer, result_compile_train)
 
 
 def test_relu_hpuinput():
@@ -75,14 +78,17 @@ def test_relu_hpuinput():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
         result_nocompile = raw_function(tensor)
-        result_compile = compiled_function(tensor)
+        result_compile_train = compiled_function_training(tensor)
+        result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile)
+        assert torch.equal(result_nocompile, result_compile_train)
+        assert torch.equal(result_compile_infer, result_compile_train)
 
 
 def test_device_partition_cpuinput():
@@ -103,14 +109,17 @@ def test_device_partition_cpuinput():
 
             return tmp5 + tmp15
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
         result_nocompile = raw_function(tensor)
-        result_compile = compiled_function(tensor)
+        result_compile_train = compiled_function_training(tensor)
+        result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile)
+        assert torch.equal(result_nocompile, result_compile_train)
+        assert torch.equal(result_compile_infer, result_compile_train)
 
 
 def test_device_partition_hpuinput():
@@ -131,14 +140,17 @@ def test_device_partition_hpuinput():
 
             return tmp5 + tmp15
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
         result_nocompile = raw_function(tensor)
-        result_compile = compiled_function(tensor)
+        result_compile_train = compiled_function_training(tensor)
+        result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile)
+        assert torch.equal(result_nocompile, result_compile_train)
+        assert torch.equal(result_compile_infer, result_compile_train)
 
 
 def test_leaf_views_1():
@@ -159,7 +171,7 @@ def test_leaf_views_1():
 
             return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -182,7 +194,7 @@ def test_leaf_views_2():
             x = x[:, :]
             return x.t()
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 
@@ -201,7 +213,7 @@ def test_leaf_views_3():
             d = b[:]
             return c, d
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_backend")
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 
@@ -210,6 +222,39 @@ def test_leaf_views_3():
 
         assert torch.equal(result1_nocompile.cpu(), result1_compile.cpu())
         assert torch.equal(result2_nocompile.cpu(), result2_compile.cpu())
+
+
+def test_create_tensor():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+
+        def raw_function():
+            out = torch.ones([2, 4], requires_grad=False, device=torch.device("hpu"))
+            return out
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        result_nocompile = raw_function()
+        result_compile = compiled_function()
+
+        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
+
+
+def test_use_random():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+
+        def raw_function():
+            out = torch.rand(8, 1, 32, 32, device=torch.device("hpu"))
+            return out
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        torch.manual_seed(0xBADC0FEE)
+        result_nocompile = raw_function()
+
+        torch.manual_seed(0xBADC0FEE)
+        result_compile = compiled_function()
+
+        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
 
 
 @pytest.mark.xfail
@@ -269,8 +314,8 @@ def test_simple_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
@@ -348,8 +393,8 @@ def test_simple_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")

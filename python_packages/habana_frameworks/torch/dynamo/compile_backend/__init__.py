@@ -12,18 +12,18 @@
 
 import os
 import logging
-from . import config
-from . import mid_backend
+from .config import configuration_flags
+from . import backends
 
 logging.basicConfig()
 
 if "PT_HPU_COMPILE_USE_RECIPES" in os.environ and os.environ["PT_HPU_COMPILE_USE_RECIPES"] == "True":
-    config.use_compiled_recipes = True
+    configuration_flags["use_compiled_recipes"] = True
 
 if "PT_HPU_COMPILE_VERBOSE" in os.environ and os.environ["PT_HPU_COMPILE_VERBOSE"] == "True":
-    config.verbose = True
+    configuration_flags["verbose"] = True
 
-if config.verbose:
+if configuration_flags["verbose"]:
     logger = logging.getLogger("aot_hpu_backend")
     logger.setLevel(logging.DEBUG)
     logger.info("config.verbose is ON")

@@ -205,7 +205,7 @@ def preprocess_module(graph_module: torch.fx.GraphModule, example_inputs: List[t
     TensorInfoPropagation(graph_module, fake_mode).propagate(*fake_inputs)
 
 
-def cluster_module(graph_module: torch.fx.GraphModule):
+def cluster_module(graph_module: torch.fx.GraphModule) -> torch.fx.GraphModule:
     """
     We need to make it a bit convoluted because we will analyze graph that was already
     partitioned and might have different set of nodes than original that we need apply the
