@@ -77,6 +77,14 @@ def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
     'Pytorch modules': 'build_pytorch_modules'
 ]
+def postRecoverArtifacts = [
+    'Post recover artifacts': { util ->
+        util.runShellCommandWrapper("""
+            mkdir -p \${PYTORCH_MODULES_RELEASE_BUILD}/pkgs_2.0.0
+            cp -a \${BUILD_ROOT}/builds_next/pkgs_2.0.0/* \${PYTORCH_MODULES_RELEASE_BUILD}/pkgs_2.0.0/
+        """)
+    }
+]
 def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'FUNC_SIM5']
 def requiredArtifact = [
     'SWTOOLS_SDK': ['bin', 'shared'],
@@ -104,6 +112,7 @@ genericBuilder(
     preBuildStages: preBuildStages,
     buildDependencies: buildDependencies,
     buildCommands: buildCommands,
+    postBuildStages: postRecoverArtifacts,
     testDependencies: testDependencies,
     requiredArtifact: requiredArtifact,
     manifest: manifest
