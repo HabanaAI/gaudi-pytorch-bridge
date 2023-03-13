@@ -22,6 +22,14 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             return HabanaParameterWrapper.__torch_function__
         return object.__getattribute__(self_, name)
 
+    def __setattr__(self, name: str, value) -> None:
+        try:
+            self_ = HabanaParameterWrapper.db[id(self)]
+        except KeyError:
+            HabanaParameterWrapper.db[id(self)] = self
+            self_ = self
+        return object.__setattr__(self_, name, value)
+
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -30,13 +38,19 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             for k, v in kwargs.items():
                 if type(v) == HabanaParameterWrapper:
                     kwargs[k] = HabanaParameterWrapper.db[id(v)]
-        args = [HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg for arg in args]
+        new_args = [None]* len(args)
+        for i in range(len(args)):
+            arg = args[i]
+            if type(arg) is list:
+                new_args[i] = [HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) == HabanaParameterWrapper else inner_arg for inner_arg in arg]
+            else:
+                new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg
         if func.__name__ == "__set__":
-            if hasattr(args[0], "device") and hasattr(args[1], "device"):
-                if args[0].device != args[1].device:
-                    args[0].change_device_placement(args[1].device)
+            if hasattr(new_args[0], "device") and hasattr(new_args[1], "device"):
+                if new_args[0].device != new_args[1].device:
+                    new_args[0].change_device_placement(new_args[1].device)
                     return
-        return super().__torch_function__(func, types, args, kwargs)
+        return super().__torch_function__(func, types, new_args, kwargs)
 
     def __del__(self):
         try:
