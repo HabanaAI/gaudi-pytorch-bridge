@@ -53,7 +53,6 @@ CacheFileHandler::CacheFileHandler() : curFolderSize{0} {
 
 void CacheFileHandler::init(std::string path) {
   cache_path = std::move(path);
-
   fs::path dir_path{cache_path};
   HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
   if (GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE)) {
@@ -169,7 +168,10 @@ void BasicCacheFileHandler::checkAndDelete() {
   try {
     auto de = fs::directory_iterator{dir_path};
 
-    while ((de != fs::end(de)) && (curFolderSize > getMaxFolderSize())) {
+    std::optional<uint64_t> recipe_cache_dir_max_size = getMaxFolderSize();
+
+    while ((de != fs::end(de)) && recipe_cache_dir_max_size.has_value() &&
+           (curFolderSize > recipe_cache_dir_max_size.value())) {
       std::string cache_id;
 
       std::string fname = de->path();
@@ -215,7 +217,6 @@ void BasicCacheFileHandler::checkAndDelete() {
       fs::remove(p2);
 
       curFolderSize -= size;
-
       de++;
     }
   } catch (fs::filesystem_error err) {

@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 
 namespace serialization {
@@ -38,6 +39,7 @@ class CacheFileHandler {
   std::string cache_path;
   // Updated once during Construction using env: PT_CACHE_FOLDER_SIZE_MB
   uint64_t maxFolderSize;
+
   std::mutex mtx;
 
  protected:
@@ -45,7 +47,12 @@ class CacheFileHandler {
   uint64_t curFolderSize;
 
   // Child classes can view 'maxFolderSize', but can not change it
-  uint64_t getMaxFolderSize() {
+  std::optional<uint64_t> getMaxFolderSize() {
+    // If set to 0 then recipe cache eviction is disabled.
+    if (maxFolderSize == 0) {
+      return std::nullopt;
+    }
+
     return maxFolderSize;
   }
 
