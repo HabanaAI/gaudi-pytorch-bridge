@@ -27,11 +27,7 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest) {
   auto hbias = bias.to(torch::kHPU);
 
   auto exp = torch::linear(in, wt, bias);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::linear_non2d_hpu_lazy(hin, hwt, hbias);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -44,20 +40,13 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest) {
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 1};
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      at::linear_backward(hin, hgrad_out, hwt, mask);
 
   // HbLazyTensor::StepMarker({});
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
-  std::cout << "bias_in_cpu" << grad_bias << std::endl;
-  std::cout << "hbias_in_cpu" << hgrad_bias << std::endl;
 
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }
@@ -77,11 +66,7 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest3d) {
   auto hbias = bias.to(torch::kHPU);
 
   auto exp = torch::linear(in, wt, bias);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::linear_non2d_hpu_lazy(hin, hwt, hbias);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -94,9 +79,8 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest3d) {
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 1};
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      at::linear_backward(hin, hgrad_out, hwt, mask);
 
   // hgrad_bias = hgrad_out.sum_to_size(hwt.sizes().vec()[0]);
   // hgrad_in = torch::matmul(grad_out, hwt);
@@ -107,12 +91,6 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest3d) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
-  std::cout << "bias_in_cpu" << grad_bias << std::endl;
-  std::cout << "hbias_in_cpu" << hgrad_bias << std::endl;
 
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }
@@ -132,11 +110,7 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest4d) {
   auto hbias = bias.to(torch::kHPU);
 
   auto exp = torch::linear(in, wt, bias);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::linear_non2d_hpu_lazy(hin, hwt, hbias);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -149,9 +123,8 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest4d) {
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 1};
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      at::linear_backward(hin, hgrad_out, hwt, mask);
 
   // hgrad_bias = hgrad_out.sum_to_size(hwt.sizes().vec()[0]);
   // hgrad_in = torch::matmul(grad_out, hwt);
@@ -162,12 +135,6 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest4d) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
-  std::cout << "bias_in_cpu" << grad_bias << std::endl;
-  std::cout << "hbias_in_cpu" << hgrad_bias << std::endl;
 
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }
@@ -187,11 +154,7 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest5d) {
   auto hbias = bias.to(torch::kHPU);
 
   auto exp = torch::linear(in, wt, bias);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::linear_non2d_hpu_lazy(hin, hwt, hbias);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -204,9 +167,8 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest5d) {
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 1};
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      at::linear_backward(hin, hgrad_out, hwt, mask);
 
   // hgrad_bias = hgrad_out.sum_to_size(hwt.sizes().vec()[0]);
   // hgrad_in = torch::matmul(grad_out, hwt);
@@ -217,12 +179,6 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest5d) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
-  std::cout << "bias_in_cpu" << grad_bias << std::endl;
-  std::cout << "hbias_in_cpu" << hgrad_bias << std::endl;
 
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }
@@ -241,11 +197,7 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest1d) {
   auto bias = torch::randn({out_features}, torch::requires_grad());
 
   auto exp = torch::linear(in, wt, bias);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = torch::linear(hin, hwt);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -258,9 +210,8 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest1d) {
 
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 1};
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      at::linear_backward(hin, hgrad_out, hwt, mask);
 
   // hgrad_bias = hgrad_out.sum_to_size(hwt.sizes().vec()[0]);
   // hgrad_in = torch::matmul(grad_out, hwt);
@@ -271,12 +222,6 @@ TEST_F(LazyLinearBwdTest, LinearBwdTest1d) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
-  std::cout << "bias_in_cpu" << grad_bias << std::endl;
-  std::cout << "hbias_in_cpu" << hgrad_bias << std::endl;
 
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }
@@ -288,11 +233,7 @@ TEST_F(LazyLinearBwdTest, MatmulTest) {
   auto hin_b = in_b.to(torch::kHPU);
 
   auto exp = torch::matmul(in_a, in_b);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::matmul_hpu_lazy(hin_a, hin_b);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -303,7 +244,6 @@ TEST_F(LazyLinearBwdTest, MatmulTest) {
   auto grad_in_b = in_b.grad();
 
   at::Tensor hgrad_in_a, hgrad_in_b;
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in_a, hgrad_in_b) =
       habana_lazy::matmul_backward_hpu_lazy(hgrad_out, hin_a, hin_b);
 
@@ -311,10 +251,6 @@ TEST_F(LazyLinearBwdTest, MatmulTest) {
 
   auto hgrad_in_a_cpu = hgrad_in_a.to(torch::kCPU);
   auto hgrad_in_b_cpu = hgrad_in_b.to(torch::kCPU);
-  std::cout << "grad_in_a" << grad_in_a << std::endl;
-  std::cout << "hgrad_in_a" << hgrad_in_a << std::endl;
-  std::cout << "grad_in_b" << grad_in_b << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in_b << std::endl;
 
   EXPECT_EQ(allclose(grad_in_a, hgrad_in_a, 0.01, 0.01), true);
 }
@@ -326,11 +262,7 @@ TEST_F(LazyLinearBwdTest, MatmulTest2d) {
   auto hin_b = in_b.to(torch::kHPU);
 
   auto exp = torch::matmul(in_a, in_b);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << "exp_cpu" << exp.cpu() << std::endl;
   auto exp_hpu = habana_lazy::matmul_hpu_lazy(hin_a, hin_b);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << "exp_hpu" << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -341,7 +273,6 @@ TEST_F(LazyLinearBwdTest, MatmulTest2d) {
   auto grad_in_b = in_b.grad();
 
   at::Tensor hgrad_in_a, hgrad_in_b;
-  std::cout << grad_out << std::endl;
   std::tie(hgrad_in_a, hgrad_in_b) =
       habana_lazy::matmul_backward_hpu_lazy(hgrad_out, hin_a, hin_b);
 
@@ -349,10 +280,6 @@ TEST_F(LazyLinearBwdTest, MatmulTest2d) {
 
   auto hgrad_in_a_cpu = hgrad_in_a.to(torch::kCPU);
   auto hgrad_in_b_cpu = hgrad_in_b.to(torch::kCPU);
-  std::cout << "grad_in_a" << grad_in_a << std::endl;
-  std::cout << "hgrad_in_a" << hgrad_in_a << std::endl;
-  std::cout << "grad_in_b" << grad_in_b << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in_b << std::endl;
 
   EXPECT_EQ(allclose(grad_in_a, hgrad_in_a, 0.01, 0.01), true);
 }

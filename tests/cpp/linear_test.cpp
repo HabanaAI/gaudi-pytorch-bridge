@@ -10,6 +10,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+
 class LazyLinearTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyLinearTest, LinearBwdTest) {
@@ -26,11 +27,7 @@ TEST_F(LazyLinearTest, LinearBwdTest) {
   auto bias = torch::randn({out_features}, torch::requires_grad());
 
   auto exp = torch::linear(in, wt);
-  std::cout << exp.sizes().vec() << std::endl;
-  std::cout << exp.cpu() << std::endl;
   auto exp_hpu = torch::linear(hin, hwt);
-  std::cout << exp_hpu.sizes().vec() << std::endl;
-  std::cout << exp_hpu.cpu() << std::endl;
 
   auto grad_out = torch::ones_like(exp.detach());
   auto hgrad_out = grad_out.detach().to(torch::kHPU);
@@ -44,15 +41,11 @@ TEST_F(LazyLinearTest, LinearBwdTest) {
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 0};
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      torch::linear_backward(hin, hgrad_out, hwt, mask);
 
   // HbLazyTensor::StepMarker({});
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  std::cout << "grad_wt" << grad_wt << std::endl;
-  std::cout << "hgrad_wt_cpu" << hgrad_wt_cpu << std::endl;
-  std::cout << "grad_in" << grad_in << std::endl;
-  std::cout << "hgrad_in_cpu" << hgrad_in << std::endl;
   EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
 }

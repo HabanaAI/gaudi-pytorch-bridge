@@ -759,11 +759,6 @@ at::Tensor& fp8_gemm_lazy(
     bool accumulate,
     at::Tensor& out);
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& grad_output,
-    const at::Tensor& weight,
-    ::std::array<bool, 3> output_mask);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> native_group_norm_hpu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight,

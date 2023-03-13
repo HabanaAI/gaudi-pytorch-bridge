@@ -123,6 +123,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/leakyrelu_gen.cpp
           backend/lerp_gen.cpp
           backend/linalg_cross_gen.cpp
+          backend/linear_backward_gen.cpp
           backend/linspace_gen.cpp
           backend/log10_gen.cpp
           backend/log_normal_gen.cpp

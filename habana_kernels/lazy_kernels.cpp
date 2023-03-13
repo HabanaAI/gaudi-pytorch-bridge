@@ -7373,41 +7373,6 @@ at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_transpose, k_, out)
 }
 
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& grad_output,
-    const at::Tensor& weight,
-    ::std::array<bool, 3> output_mask) {
-  PT_LAZY_TRACE;
-  PT_OP_TRACE;
-  c10::optional<at::Tensor> bias_opt;
-  auto bias_elem_count = weight.sizes().vec()[0];
-  std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
-  LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
-      "hpu::linear_bwd",
-      {grad_output, input, weight, output_mask[2]},
-      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
-  std::vector<at::Tensor> out_v;
-  auto out = k.get_result();
-  for_each_in_tuple(
-      out, [&out_v](const auto& result) { out_v.push_back(result); });
-  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
-    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
-  };
-
-  std::vector<at::Tensor> res_vec;
-  res_vec.emplace_back(std::get<0>(out));
-  res_vec.emplace_back(std::get<1>(out));
-  if (output_mask[2]) {
-    res_vec.emplace_back(std::get<02>(out));
-  } else {
-    res_vec.emplace_back(Tensor());
-  }
-  std::tuple<at::Tensor, at::Tensor, at::Tensor> res(
-      res_vec[0], res_vec[1], res_vec[2]);
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res)
-}
-
 inline bool is_main_thread_and_lazy_collectives_enabled() {
   return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) &&
       not(habana_lazy::AccThread::IsAccThreadEnabled() &&
