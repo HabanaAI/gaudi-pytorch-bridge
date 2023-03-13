@@ -14,6 +14,13 @@ testJobConfig:
       greco:
         hwType:
           sim:
+  cpp_suite_ssh:
+    envVars:
+      RUN_KVM_OVER_SSH: true
+    devices:
+      gaudi2:
+        hwType:
+          asic:
   topology:
     devices:
       gaudi2:
