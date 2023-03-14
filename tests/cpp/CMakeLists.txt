@@ -107,6 +107,7 @@ add_executable(
   hpu_ops/logsumexp.cpp
   hpu_ops/lt.cpp
   hpu_ops/masked_select.cpp
+  hpu_ops/masked_scatter.cpp
   hpu_ops/matmul.cpp
   hpu_ops/max_dim.cpp
   hpu_ops/max.cpp
