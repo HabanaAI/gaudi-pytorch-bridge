@@ -6,7 +6,6 @@ orchestratorConfig:
     runInCodeCoverage: true
 # Test_pytorch_modules_gaudi2_asic_cpp_suite to be replaced by Test_pytorch_modules_gaudi2_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_greco_sim_cpp_suite
 # PyTorch full graph tests
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_hls_asic_perf
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
@@ -40,10 +39,8 @@ orchestratorConfig:
 # deepspeed-fork <End>
   sanitizerConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
   codeCoverageConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_greco_sim_promote_training_suite
   coverityConfig:
     - testToLaunch: pytorch_modules/Scans/Coverity_Build_pytorch_modules
 stepConfig:
