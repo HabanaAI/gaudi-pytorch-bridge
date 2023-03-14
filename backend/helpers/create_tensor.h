@@ -134,5 +134,10 @@ std::vector<std::string> names(
 bool is_const_tensor(const at::Tensor& tensor);
 
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
-get_memory_permutation(const at::Tensor& tensor);
+get_tensor_memory_permutation(const at::Tensor& tensor);
+
+void set_tensor_memory_permutations(
+    at::Tensor& tensor,
+    synapse_helpers::layouts::MemoryPermutation permutation,
+    const synRetrievedLaunchTensorInfoExt* info = nullptr);
 } // namespace habana_helpers

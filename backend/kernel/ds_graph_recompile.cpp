@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -29,7 +29,7 @@ std::mutex habana::DynamicBucketInfoMap::mutex_;
 
 at::Tensor habana::CreateEmptyTensor(
     const PtTensorInfo& ti,
-    habana_lazy::ShapeTensorStruct& tensor_data,
+    habana::ShapeTensorStruct& tensor_data,
     const std::vector<int64_t>& tshape) {
   if (ti.tensor_type() == SHAPE_TENSOR) {
     auto pt_tensor = habana_lazy::empty_hpu_lazy(
@@ -48,8 +48,7 @@ at::Tensor habana::CreateEmptyTensor(
 
 torch::jit::Stack habana::CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
     habana_helpers::TensorShapes& input_shapes) {
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_input_stack;
@@ -67,7 +66,7 @@ torch::jit::Stack habana::CreateInputStack(
         tidx,
         "is missing from ",
         input_shapes);
-    habana_lazy::ShapeTensorStruct tensor_data;
+    habana::ShapeTensorStruct tensor_data;
     if (input_metadata.count(tidx)) {
       tensor_data = input_metadata[tidx];
     }
@@ -95,8 +94,7 @@ bool habana::RefineBucketDS(size_t graph_key) {
 
 bool habana::CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,

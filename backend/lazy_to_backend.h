@@ -14,12 +14,14 @@
 #pragma once
 #include <ATen/Tensor.h>
 #include <absl/strings/str_format.h>
+#include "backend/backend_meta.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
 
 namespace lazy_to_backend {
+
 bool is_const_tensor(const at::Tensor& tensor);
 void* host_ptr_for_const_tensor(const at::Tensor& tensor);
 

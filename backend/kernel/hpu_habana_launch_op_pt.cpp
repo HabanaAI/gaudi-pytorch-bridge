@@ -30,6 +30,7 @@
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
 
+#include "backend/backend_meta.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
@@ -368,12 +369,12 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     at::Tensor& pt_tensor,
     std::string idx) {
   PT_BRIDGE_TRACE;
-  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
+  auto tmeta = get_tensor_extra_meta(pt_tensor, true);
 
-  if (impl && impl->isShapeTensor()) {
-    void* host_ptr = impl->get_compile_host_ptr();
+  if (tmeta && tmeta->is_shape_tensor()) {
+    void* host_ptr = tmeta->get_compile_host_ptr();
     auto& syn_tensor = habana_op->AllocateSynapseInput(
-        *syn_graph_ptr, pt_tensor, true, impl->getTensorType(), host_ptr);
+        *syn_graph_ptr, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
     return syn_tensor;
   } else {
     habana_helpers::TensorShape min_shape, max_shape;
@@ -1725,8 +1726,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                   continue;
                 }
                 auto tensor = value_to_ivalue[value_in]->toTensor();
-                auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-                impl->SetConstTensor(true);
+                TensorExtraMeta::set_const_tensor(tensor, true);
                 // Setting Bias
                 if (mm_node->input(0)->node()) {
                   PT_BRIDGE_DEBUG(
@@ -1739,8 +1739,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                     continue;
                   }
                   auto tensor = value_to_ivalue[value_in]->toTensor();
-                  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-                  impl->SetConstTensor(true);
+                  TensorExtraMeta::set_const_tensor(tensor, true);
                 }
               }
               if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
@@ -1755,8 +1754,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                   continue;
                 }
                 auto tensor = value_to_ivalue[value_in]->toTensor();
-                auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-                impl->SetConstTensor(true);
+                TensorExtraMeta::set_const_tensor(tensor, true);
               }
             }
           }
@@ -1784,8 +1782,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
             continue;
           }
           auto tensor = value_to_ivalue[value_in]->toTensor();
-          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          impl->SetConstTensor(true);
+          TensorExtraMeta::set_const_tensor(tensor, true);
         } else if (cast_u.user->kind() == torch::jit::aten::linear) {
           PT_BRIDGE_DEBUG(
               ": linear : ",
@@ -1809,8 +1806,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
             continue;
           }
           auto tensor = value_to_ivalue[value_in]->toTensor();
-          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          impl->SetConstTensor(true);
+          TensorExtraMeta::set_const_tensor(tensor, true);
         }
       }
     }
@@ -1839,8 +1835,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
               continue;
             }
             auto mm_tensor = value_to_ivalue[mm_value_in]->toTensor();
-            auto mm_impl = habana_lazy::GetHbInternalTensorImpl(mm_tensor);
-            mm_impl->SetConstTensor(true);
+            TensorExtraMeta::set_const_tensor(mm_tensor, true);
             // Setting Transpose input as Constant
             auto value_in = node->input(0);
 
@@ -1849,8 +1844,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
               continue;
             }
             auto tensor = value_to_ivalue[value_in]->toTensor();
-            auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-            impl->SetConstTensor(true);
+            TensorExtraMeta::set_const_tensor(tensor, true);
           }
           if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
             PT_BRIDGE_DEBUG(
@@ -1864,8 +1858,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
               continue;
             }
             auto tensor = value_to_ivalue[value_in]->toTensor();
-            auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-            impl->SetConstTensor(true);
+            TensorExtraMeta::set_const_tensor(tensor, true);
           }
         }
       }
@@ -1881,8 +1874,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      impl->SetConstTensor(true);
+      TensorExtraMeta::set_const_tensor(tensor, true);
       // assumption is conv will always have bias in inference
       value_in = node->input(2);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
@@ -1890,8 +1882,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
         continue;
       }
       tensor = value_to_ivalue[value_in]->toTensor();
-      impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      impl->SetConstTensor(true);
+      TensorExtraMeta::set_const_tensor(tensor, true);
     } else if (node->kind() == torch::jit::aten::linear) {
       PT_BRIDGE_DEBUG(
           ": linear : ",
@@ -1904,16 +1895,13 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      impl->SetConstTensor(true);
+      TensorExtraMeta::set_const_tensor(tensor, true);
       if (node->inputs().size() > 2) {
         value_in = node->input(2);
         auto value_exists = value_to_ivalue.find(value_in);
         if (value_exists != std::end(value_to_ivalue)) {
           tensor = value_to_ivalue[value_in]->toTensor();
-          impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          if (impl)
-            impl->SetConstTensor(true);
+          TensorExtraMeta::set_const_tensor(tensor, true, true);
         }
       }
     } else if (
@@ -1930,16 +1918,13 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      impl->SetConstTensor(true);
+      TensorExtraMeta::set_const_tensor(tensor, true);
       if (node->inputs().size() > 2) {
         value_in = node->input(2);
         auto value_exists = value_to_ivalue.find(value_in);
         if (value_exists != std::end(value_to_ivalue)) {
           tensor = value_to_ivalue[value_in]->toTensor();
-          impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          if (impl)
-            impl->SetConstTensor(true);
+          TensorExtraMeta::set_const_tensor(tensor, true, true);
         }
       }
     }
@@ -2589,9 +2574,8 @@ void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
       at::Tensor pt_tensor = input.toTensor();
       habana_helpers::TensorShape shape(
           pt_tensor.sizes(), pt_tensor.scalar_type());
-      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-      HABANA_ASSERT(impl);
-      shape.set_tensor_type(impl->getTensorType());
+      auto tmeta = get_tensor_extra_meta(pt_tensor);
+      shape.set_tensor_type(tmeta->get_tensor_type());
       shape_map[i] = shape;
     }
   }
@@ -2604,26 +2588,25 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
     if (input.isTensor()) {
       at::Tensor pt_tensor = input.toTensor();
 
-      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-      HABANA_ASSERT(impl);
-      if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
-          impl->peekH2DDataForBucketing()) {
-        size_t h2d_size = impl->get_host_size();
+      auto tmeta = get_tensor_extra_meta(pt_tensor);
+      if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
+          tmeta->peek_H2D_data_for_bucketing()) {
+        size_t h2d_size = tmeta->get_host_size();
 
         std::vector<int64_t> h2d_vec;
-        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
-        if (h2d_dt_type == habana_lazy::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(impl->get_host_ptr());
+        habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
+        if (h2d_dt_type == habana::HostDataType::INT32_T) {
+          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
-        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(impl->get_host_ptr());
+        } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
+          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
-        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(impl->get_host_ptr());
+        } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
+          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             TORCH_CHECK(
@@ -2639,7 +2622,7 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
         }
 
         habana_helpers::TensorShape shape(h2d_vec, pt_tensor.scalar_type());
-        shape.set_tensor_type(impl->getTensorType());
+        shape.set_tensor_type(tmeta->get_tensor_type());
         shape_map[i] = shape;
       }
     }
@@ -2665,43 +2648,42 @@ void HabanaLaunchOpPT::SetH2DMinMaxData(
   for (size_t i = 0; i < stack.size(); ++i) {
     if (dynamic_shapes.count(i)) {
       auto& tensor = stack[i].toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      HABANA_ASSERT(impl);
-      if (impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
-          impl->peekH2DDataForBucketing()) {
-        habana_lazy::HostDataType h2d_dtype = impl->get_host_dt_type();
-        if (h2d_dtype == habana_lazy::HostDataType::UINT64_T) {
+      auto tmeta = get_tensor_extra_meta(tensor);
+      if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
+          tmeta->peek_H2D_data_for_bucketing()) {
+        habana::HostDataType h2d_dtype = tmeta->get_host_dt_type();
+        if (h2d_dtype == habana::HostDataType::UINT64_T) {
           std::vector<uint64_t> stride_data_vec;
           std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
           for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
             stride_data_vec.push_back(static_cast<uint64_t>(*it));
           }
           if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-            impl->set_min<uint64_t>(stride_data_vec);
+            tmeta->set_min<uint64_t>(stride_data_vec);
           } else {
-            impl->set_max<uint64_t>(stride_data_vec);
+            tmeta->set_max<uint64_t>(stride_data_vec);
           }
-        } else if (h2d_dtype == habana_lazy::HostDataType::UINT32_T) {
+        } else if (h2d_dtype == habana::HostDataType::UINT32_T) {
           std::vector<uint32_t> data_vec;
           std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
           for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
             data_vec.push_back(static_cast<uint32_t>(*it));
           }
           if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-            impl->set_min<uint32_t>(data_vec);
+            tmeta->set_min<uint32_t>(data_vec);
           } else {
-            impl->set_max<uint32_t>(data_vec);
+            tmeta->set_max<uint32_t>(data_vec);
           }
-        } else if (h2d_dtype == habana_lazy::HostDataType::INT32_T) {
+        } else if (h2d_dtype == habana::HostDataType::INT32_T) {
           std::vector<int32_t> data_vec;
           std::vector<int64_t> h2d_sif_data = dynamic_shapes.at(i).get_dims();
           for (auto it = h2d_sif_data.begin(); it != h2d_sif_data.end(); ++it) {
             data_vec.push_back(static_cast<int32_t>(*it));
           }
           if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-            impl->set_min<int32_t>(data_vec);
+            tmeta->set_min<int32_t>(data_vec);
           } else {
-            impl->set_max<int32_t>(data_vec);
+            tmeta->set_max<int32_t>(data_vec);
           }
         } else {
           PT_DYNAMIC_SHAPE_DEBUG(
@@ -2722,20 +2704,20 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
   for (size_t i = 0; i < stack.size(); ++i) {
     if (dynamic_shapes.count(i)) {
       auto& tensor = stack[i].toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
+      auto tmeta = get_tensor_extra_meta(tensor, true);
       //
       // TODO: When creating a new stack, we need to look, if this
       // can be done using storage less pytorch tensor, need to fix
       // this
       synTensorType tensor_type = DATA_TENSOR;
-      if (impl) {
-        tensor_type = impl->getTensorType();
+      if (tmeta) {
+        tensor_type = tmeta->get_tensor_type();
         // to empty_hpu_lazy
       }
 
       at::Tensor new_tensor;
       if (tensor_type == HOST_TO_DEVICE_TENSOR &&
-          impl->peekH2DDataForBucketing()) {
+          tmeta->peek_H2D_data_for_bucketing()) {
         new_tensor = habana_lazy::empty_hpu_lazy(
             tensor.sizes(),
             tensor.options(),
@@ -2755,23 +2737,23 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
        * Ensure propogation of shape tensor information for the new
        * tensor created for the stack.
        */
-      auto new_impl = habana_lazy::GetHbInternalTensorImpl(new_tensor);
-      HABANA_ASSERT(new_impl);
-      if (impl->get_shape_struct().has_shape_tensor_data()) {
-        new_impl->get_shape_struct() = impl->get_shape_struct();
+      auto new_tmeta = get_tensor_extra_meta(new_tensor);
+      if (tmeta->get_shape_struct().has_shape_tensor_data()) {
+        new_tmeta->get_shape_struct() = tmeta->get_shape_struct();
       }
-      new_impl->set_compile_host_ptr(impl);
-      if (impl) {
-        new_impl->setTensorType(impl->getTensorType());
+      new_tmeta->set_compile_host_ptr(tmeta);
+
+      if (tmeta) {
+        new_tmeta->set_tensor_type(tmeta->get_tensor_type());
       }
       if (tensor_type == HOST_TO_DEVICE_TENSOR &&
-          impl->peekH2DDataForBucketing()) {
-        new_impl->setH2DDataForBucketing();
-        new_impl->set_host_data(
-            impl->get_host_ptr(),
-            impl->get_host_size(),
-            impl->get_host_el_size(),
-            impl->get_host_dt_type());
+          tmeta->peek_H2D_data_for_bucketing()) {
+        new_tmeta->set_H2D_data_for_bucketing();
+        new_tmeta->set_host_data(
+            tmeta->get_host_ptr(),
+            tmeta->get_host_size(),
+            tmeta->get_host_el_size(),
+            tmeta->get_host_dt_type());
       }
 
       new_stack.push_back(torch::jit::IValue(new_tensor));
@@ -3187,7 +3169,7 @@ void RecipeValueSpec::create_outdup(
   }
 
   if (!ti.get_allow_permutation()) {
-    lazy_to_backend::set_memory_permutations(pt_outdup, {});
+    habana_helpers::set_tensor_memory_permutations(pt_outdup, {});
     PT_BRIDGE_DEBUG(
         "Resetting tensor ",
         ti.get_tensor_id(),
@@ -3201,7 +3183,7 @@ void RecipeValueSpec::create_outdup(
         ti.get_tensor_id(),
         VecToString(ti.getHbInternalPermute()),
         lazy_to_backend::FormatTokens::Permutations);
-    lazy_to_backend::set_memory_permutations(
+    habana_helpers::set_tensor_memory_permutations(
         pt_outdup, ti.getHbInternalPermute());
   }
   PT_BACKEND_DEBUG_TENSOR(

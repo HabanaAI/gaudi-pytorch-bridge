@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
@@ -199,7 +200,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       if (iter != synapse_to_pt_tensor.end()) {
         // updating the permute on the internal hb lazy tensor
         if (iter->second->isTensor()) {
-          lazy_to_backend::set_memory_permutations(
+          habana_helpers::set_tensor_memory_permutations(
               iter->second->toTensor(), permute_or_empty, &info);
         } else {
           TORCH_CHECK(
@@ -242,7 +243,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
               "Resetting tensor ",
               info->get_tensor_id(),
               " permutation because it is not allowed permutation");
-          lazy_to_backend::set_memory_permutations(
+          habana_helpers::set_tensor_memory_permutations(
               iter->second->toTensor(), {});
         }
       } else {
@@ -267,10 +268,10 @@ void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
     auto& src = iter->first->toTensor();
     PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
     if (src.has_storage()) {
-      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(src);
-      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
+      auto tmeta{get_tensor_extra_meta(src)};
+      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
-        if (hb_tensor->IsConstTensor() && (!hb_tensor->IsDataInHostMemory())) {
+        if (tmeta->is_const_tensor() && (!tmeta->is_data_in_host_memory())) {
           PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
           auto device_id = tensor.device_id();
           auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -288,7 +289,7 @@ void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
           while (!copyDone) {
             std::this_thread::yield();
           }
-          hb_tensor->SetDataInHostMemory(true);
+          tmeta->set_data_in_host_memory(true);
         }
       }
     }
@@ -339,15 +340,15 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     auto& src = iter->first->toTensor();
     PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
     if (src.has_storage()) {
-      auto hb_tensor = habana_lazy::GetHbInternalTensorImpl(src);
-      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
+      auto tmeta{get_tensor_extra_meta(src)};
+      PT_BRIDGE_DEBUG("tensor is_const_tensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
-        if (hb_tensor->IsConstTensor()) {
+        if (tmeta->is_const_tensor()) {
           PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
           // remove the const marking to avoid copy more than once
-          hb_tensor->SetConstTensor(false);
+          TensorExtraMeta::set_const_tensor(src, false);
           PT_BRIDGE_DEBUG(
-              "tensor IsConstTensor:  ", hb_tensor->IsConstTensor());
+              "tensor is_const_tensor:  ", tmeta->is_const_tensor());
           uint64_t section_size = 0, section_data = 0;
           synSectionId tensorSectionId;
           getTensorSectionId(

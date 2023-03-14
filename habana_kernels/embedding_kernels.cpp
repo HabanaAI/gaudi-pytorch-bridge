@@ -231,12 +231,11 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
   TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
   shape = inputs[2].toTensor().sizes().vec();
   at::Tensor host_tensor = inputs[1].toTensor();
-  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
-  HABANA_ASSERT(impl);
+  auto tmeta{get_tensor_extra_meta(host_tensor)};
   auto output_shape = inputs[2].toTensor().sizes().vec();
   auto input_shape = self.sizes().vec();
   TORCH_CHECK(
-      impl->get_host_dt_type() == habana_lazy::HostDataType::UINT32_T,
+      tmeta->get_host_dt_type() == habana::HostDataType::UINT32_T,
       "Incorrect datatype of HOST");
   if (habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MIN_SHAPE) {
@@ -247,7 +246,7 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
       // order of dims is reversed in H2D tensor
       data[ndim - i - 1] = output_shape[i] - input_shape[i];
     }
-    impl->set_min<uint32_t>(data);
+    tmeta->set_min<uint32_t>(data);
   } else if (
       habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MAX_SHAPE) {
@@ -258,7 +257,7 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
       // order of dims is reversed in H2D tensor
       data[ndim - i - 1] = output_shape[i] - input_shape[i];
     }
-    impl->set_max<uint32_t>(data);
+    tmeta->set_max<uint32_t>(data);
   }
 
   ns_PadKernelEx::Params param;

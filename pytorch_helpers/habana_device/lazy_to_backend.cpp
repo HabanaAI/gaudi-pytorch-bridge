@@ -12,13 +12,14 @@
  */
 
 #include "backend/lazy_to_backend.h"
+#include "backend/backend_meta.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 
 bool lazy_to_backend::is_const_tensor(const at::Tensor& tensor) {
-  const auto& hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
-  return hb_tensor->IsConstTensor();
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  return tmeta->is_const_tensor();
 }
 
 void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
@@ -26,20 +27,11 @@ void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
   return hb_tensor->get_host_ptr();
 }
 
+// TODO replace with use of tmeta
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
     get_memory_permutation(const at::Tensor& tensor) {
-  // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG(
-        "Skipping permutations for EagerOp with duplicate inputs...");
-    return {synapse_helpers::layouts::MemoryPermutation{}, false};
-  }
-  auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  if (hb_weight_impl)
-    return {
-        hb_weight_impl->GetMemoryPermutation(),
-        hb_weight_impl->GetDontAllowPermutation()};
-  return {synapse_helpers::layouts::MemoryPermutation{}, false};
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  return {tmeta->get_memory_permutation(), tmeta->get_dont_allow_permutation()};
 }
 
 bool lazy_to_backend::is_shape_tensor(const at::Tensor& tensor) {
@@ -297,10 +289,9 @@ at::Tensor habana_lazy::empty_hpu_lazy(
 
     // set metadata that its a shape tensor
     if (shape_tensor) {
-      habana_lazy::HbInternalTensorImpl* impl =
-          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-      if (impl) {
-        impl->setTensorType(tensor_type);
+      auto tmeta{habana::get_tensor_extra_meta(at_internal_tensor, true)};
+      if (tmeta) {
+        tmeta->set_tensor_type(tensor_type);
       }
     }
 

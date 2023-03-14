@@ -61,11 +61,11 @@ synapse_helpers::tensor& HabanaLaunchOpPT::allocate_synapse_tensor(
     at::Tensor& pt_tensor,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph) {
-  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-  if (impl && impl->isShapeTensor()) {
-    void* host_ptr = impl->get_compile_host_ptr();
+  auto tmeta{get_tensor_extra_meta(pt_tensor, true)};
+  if (tmeta && tmeta->is_shape_tensor()) {
+    void* host_ptr = tmeta->get_compile_host_ptr();
     auto& syn_tensor = habana_op->AllocateSynapseInput(
-        syn_graph, pt_tensor, true, impl->getTensorType(), host_ptr);
+        syn_graph, pt_tensor, true, tmeta->get_tensor_type(), host_ptr);
     return syn_tensor;
   } else {
     auto& syn_tensor =
@@ -478,10 +478,10 @@ void HabanaLaunchOpPT::RunHybridSif(
     for (auto const& input : op_input_stack) {
       if (input.isTensor()) {
         auto tensor = input.toTensor();
-        auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-        if (impl && impl->isH2DFrontEndShapeTensor() == false &&
-            (impl->getTensorType() == SHAPE_TENSOR ||
-             impl->getTensorType() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
+        auto tmeta{get_tensor_extra_meta(tensor, true)};
+        if (tmeta && tmeta->is_H2D_frontend_shape_tensor() == false &&
+            (tmeta->get_tensor_type() == SHAPE_TENSOR ||
+             tmeta->get_tensor_type() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
           input_shape_tensors_vec.emplace_back(tensor);
         }
       }

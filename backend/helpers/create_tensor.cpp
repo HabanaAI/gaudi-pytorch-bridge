@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -164,7 +164,7 @@ synapse_helpers::tensor create_tensor(
     }
 
     auto [permutation, dont_allow_permutation] =
-        lazy_to_backend::get_memory_permutation(tensor);
+        get_tensor_memory_permutation(tensor);
     if (!permutation.empty()) {
       PT_LAZY_DEBUG(
           "Setting permutation to tensor: ",
@@ -205,7 +205,7 @@ synapse_helpers::tensor create_tensor(
   std::vector<uint8_t> permutation;
   bool dont_allow_permutation = false;
   std::tie(permutation, dont_allow_permutation) =
-      lazy_to_backend::get_memory_permutation(tensor);
+      get_tensor_memory_permutation(tensor);
   if (!permutation.empty()) {
     // If we pass permutation to Synapse tensor, we must pass empty strides
     strides.clear();
@@ -223,7 +223,7 @@ synapse_helpers::tensor create_tensor(
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
     const_section = lazy_to_backend::is_const_tensor(tensor);
     if (const_section) {
-      host_ptr = lazy_to_backend::host_ptr_for_const_tensor(tensor);
+      host_ptr = habana::get_tensor_extra_meta(tensor)->get_host_ptr();
     }
   }
 
@@ -345,7 +345,7 @@ synapse_helpers::tensor create_tensor(
 
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
   auto [permutation, dont_allow_permutation] =
-      lazy_to_backend::get_memory_permutation(tensor);
+      get_tensor_memory_permutation(tensor);
   if (!permutation.empty()) {
     // If we pass permutation to Synapse tensor, we must pass empty strides
     strides.clear();
@@ -907,4 +907,50 @@ c10::ScalarType scalar_type(const c10::Scalar& s) {
   return type;
 }
 
+std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
+get_tensor_memory_permutation(const at::Tensor& tensor) {
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  return {tmeta->get_memory_permutation(), tmeta->get_dont_allow_permutation()};
+}
+
+void set_tensor_memory_permutations(
+    at::Tensor& tensor,
+    synapse_helpers::layouts::MemoryPermutation permutation,
+    const synRetrievedLaunchTensorInfoExt* info) {
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+
+  PT_BRIDGE_DEBUG(
+      "Updating the PT tensor meta address: ",
+      tmeta,
+      " storage address : ",
+      tensor.data_ptr(),
+      " with permutation: ",
+      VecToString(permutation),
+      " old permutation was: ",
+      VecToString(tmeta->get_memory_permutation()));
+
+  if (permutation.size() != tensor.sizes().size()) {
+    if (!permutation.empty()) {
+      if (info)
+        PT_BRIDGE_WARN(
+            "wrong permute size - info.tensorId=",
+            info->tensorId,
+            " tensor name: ",
+            info->tensorName,
+            "  permute_vec.size = ",
+            permutation.size(),
+            "  PT tensor shape.dims =",
+            tensor.sizes().size(),
+            " PT shape: ",
+            VecToString(tensor.sizes().vec()),
+            " synapse returned tensor dims: ",
+            info->tensorDims,
+            " synapse returned tensor shape: ",
+            VecToString(std::vector<uint64_t>(
+                info->tensorMaxSize, info->tensorMaxSize + info->tensorDims)));
+      HABANA_ASSERT(false);
+    }
+  }
+  tmeta->set_memory_permutation(permutation);
+}
 } // namespace habana_helpers

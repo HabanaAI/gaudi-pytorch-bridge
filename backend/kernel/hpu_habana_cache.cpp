@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <sstream>
 
+#include "backend/backend_meta.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -178,25 +179,25 @@ void RecipeArgumentSpec::ComputeH2DHashCode(
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-      if (impl && impl->getTensorType() == HOST_TO_DEVICE_TENSOR &&
-          impl->peekH2DDataForBucketing()) {
-        size_t h2d_size = impl->get_host_size();
+      auto tmeta{get_tensor_extra_meta(pt_tensor, true)};
+      if (tmeta && tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
+          tmeta->peek_H2D_data_for_bucketing()) {
+        size_t h2d_size = tmeta->get_host_size();
 
         std::vector<int64_t> h2d_vec;
-        habana_lazy::HostDataType h2d_dt_type = impl->get_host_dt_type();
-        if (h2d_dt_type == habana_lazy::HostDataType::INT32_T) {
-          int32_t* h2d_data = static_cast<int32_t*>(impl->get_host_ptr());
+        habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
+        if (h2d_dt_type == habana::HostDataType::INT32_T) {
+          int32_t* h2d_data = static_cast<int32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
-        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT32_T) {
-          uint32_t* h2d_data = static_cast<uint32_t*>(impl->get_host_ptr());
+        } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
+          uint32_t* h2d_data = static_cast<uint32_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             h2d_vec.push_back(static_cast<int64_t>(*h2d_data++));
           }
-        } else if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
-          uint64_t* h2d_data = static_cast<uint64_t*>(impl->get_host_ptr());
+        } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
+          uint64_t* h2d_data = static_cast<uint64_t*>(tmeta->get_host_ptr());
           for (size_t i = 0; i < h2d_size; i++) {
             uint64_t h2d_elem = *h2d_data++;
             TORCH_CHECK(
@@ -824,7 +825,7 @@ void RecipeValueSpec::update_output_permutation() {
           lazy_to_backend::FormatTokens::ImplPtr,
           lazy_to_backend::FormatTokens::DataPtr,
           VecToString(permute_vec));
-      lazy_to_backend::set_memory_permutations(tensor, permute_or_empty);
+      habana_helpers::set_tensor_memory_permutations(tensor, permute_or_empty);
       count++;
     }
   }

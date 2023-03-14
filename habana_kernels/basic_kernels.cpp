@@ -20,6 +20,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/backend_meta.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 #include <habana_device/PinnedMemoryAllocator.h>
@@ -952,7 +953,7 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
 
   auto impl_stride = habana_lazy::GetHbInternalTensorImpl(stride_t);
   HABANA_ASSERT(impl_stride);
-  habana_lazy::HostDataType h2d_dt_type = impl_stride->get_host_dt_type();
+  habana::HostDataType h2d_dt_type = impl_stride->get_host_dt_type();
   void* host_ptr = nullptr;
   if (dry_run) {
     host_ptr = impl_stride->get_compile_host_ptr();
@@ -960,21 +961,21 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
     host_ptr = impl_stride->get_host_ptr();
   }
 
-  if (h2d_dt_type == habana_lazy::HostDataType::INT32_T) {
+  if (h2d_dt_type == habana::HostDataType::INT32_T) {
     int32_t* h2d_data = static_cast<int32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
-  } else if (h2d_dt_type == habana_lazy::HostDataType::UINT32_T) {
+  } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
     uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
     h2d_data = h2d_data + sif_offset;
     for (size_t i = 0; i < data_size; i++) {
       strides.push_back(static_cast<int64_t>(*h2d_data++));
     }
-  } else if (h2d_dt_type == habana_lazy::HostDataType::UINT64_T) {
+  } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
     uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
     data_size = data_size / 2;
     size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
@@ -1147,14 +1148,14 @@ void StridedInsertOperator::compute_params_h2d(
       stride_data_vec.push_back(static_cast<uint64_t>(0));
     }
 
-    auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
+    auto tmeta{get_tensor_extra_meta(stride_tensor)};
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-      impl->set_min<uint64_t>(stride_data_vec);
+      tmeta->set_min<uint64_t>(stride_data_vec);
     } else if (
         habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-      impl->set_max<uint64_t>(stride_data_vec);
+      tmeta->set_max<uint64_t>(stride_data_vec);
     }
 
     const auto& end = p_context_->syn_inputs_.end();
@@ -1533,14 +1534,14 @@ void StridedViewOperator::compute_params_h2d(
       stride_data_vec.push_back(static_cast<uint64_t>(0));
     }
 
-    auto impl = habana_lazy::GetHbInternalTensorImpl(stride_tensor);
+    auto tmeta{get_tensor_extra_meta(stride_tensor)};
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-      impl->set_min<uint64_t>(stride_data_vec);
+      tmeta->set_min<uint64_t>(stride_data_vec);
     } else if (
         habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-      impl->set_max<uint64_t>(stride_data_vec);
+      tmeta->set_max<uint64_t>(stride_data_vec);
     }
 
     const auto& end = p_context_->syn_inputs_.end();
@@ -1745,9 +1746,8 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
   // This flag can be enabled in model scripts only if DDP
   // gradient_as_bucket_view = True
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT)) {
-    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(output);
     syn_tensor_output.set_dont_allow_permute(true);
-    hb_impl->SetDontAllowPermutation(true);
+    habana::get_tensor_extra_meta(output)->set_dont_allow_permutation(true);
   }
 
   p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_output));

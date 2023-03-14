@@ -209,7 +209,8 @@ bool FuseConvBatchnorm(
         continue;
       }
 
-      auto conv_w_permutation = conv_w_hb_tensor->GetMemoryPermutation();
+      auto conv_w_permutation =
+          conv_w_hb_tensor->get_tensor_extra_meta().get_memory_permutation();
       PT_LAZY_DEBUG(
           "Conv weight permutation vector: ", VecToString(conv_w_permutation));
 

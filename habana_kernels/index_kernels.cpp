@@ -17,6 +17,7 @@
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -2397,7 +2398,7 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
     at::Tensor host_tensor = inputs[0].toTensor();
 
     auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
-    if (impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T) {
+    if (impl->get_host_dt_type() == habana::HostDataType::INT32_T) {
       out.AddOutputTensor(TensorMetaData(
           output_shape_tensor.sizes().vec(),
           HabanaOperator::CalculateStrides(
@@ -2405,7 +2406,7 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
               output_shape_tensor.suggest_memory_format()),
           output_shape_tensor.scalar_type(),
           output_shape_tensor.suggest_memory_format()));
-    } else if (impl->get_host_dt_type() == habana_lazy::HostDataType::FLOAT_T) {
+    } else if (impl->get_host_dt_type() == habana::HostDataType::FLOAT_T) {
       out.AddOutputTensor(TensorMetaData(
           result.sizes().vec(),
           HabanaOperator::CalculateStrides(
@@ -2496,30 +2497,29 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
     }
 
     at::Tensor host_tensor = inputs[0].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
-    HABANA_ASSERT(impl);
+    auto tmeta{get_tensor_extra_meta(host_tensor)};
 
-    if (impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T) {
+    if (tmeta->get_host_dt_type() == habana::HostDataType::INT32_T) {
       if (habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::MIN_SHAPE) {
         auto data = get_start_step_end<int32_t>(output_shape_tensor.sizes());
-        impl->set_min<int32_t>(data);
+        tmeta->set_min<int32_t>(data);
       } else if (
           habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::MAX_SHAPE) {
         auto data = get_start_step_end<int32_t>(output_shape_tensor.sizes());
-        impl->set_max<int32_t>(data);
+        tmeta->set_max<int32_t>(data);
       }
-    } else if (impl->get_host_dt_type() == habana_lazy::HostDataType::FLOAT_T) {
+    } else if (tmeta->get_host_dt_type() == habana::HostDataType::FLOAT_T) {
       if (habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::MIN_SHAPE) {
         auto data = get_start_step_end<float>(result.sizes());
-        impl->set_min<float>(data);
+        tmeta->set_min<float>(data);
       } else if (
           habana::ShapeInference::GetCurrentPass() ==
           habana::ShapeInfo::InferencePass::MAX_SHAPE) {
         auto data = get_start_step_end<float>(result.sizes());
-        impl->set_max<float>(data);
+        tmeta->set_max<float>(data);
       }
     }
 

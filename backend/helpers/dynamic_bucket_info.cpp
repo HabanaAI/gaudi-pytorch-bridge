@@ -664,7 +664,7 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   Bucket new_bucket_computed = ConstructNewBucket(
       result_computed, buckets_[curr_mfu_id], min_dist_idx, choose_lower);
 
-  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>& input_metadata =
+  std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata =
       buckets_[curr_mfu_id].GetInputMetaData();
   Bucket& new_bucket_candidate{new_bucket_computed};
   uint64_t new_bucket_candidate_id = buckets_.size();

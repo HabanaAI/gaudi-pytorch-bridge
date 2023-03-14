@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,20 +25,18 @@ namespace habana {
 
 at::Tensor CreateEmptyTensor(
     const PtTensorInfo& ti,
-    habana_lazy::ShapeTensorStruct& tensor_data,
+    habana::ShapeTensorStruct& tensor_data,
     const std::vector<int64_t>& tshape);
 
 torch::jit::Stack CreateInputStack(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
     habana_helpers::TensorShapes& input_shapes);
 void PrintStack(torch::jit::Stack& st);
 
 bool CompileGraphWithRange(
     std::shared_ptr<habana::RecipeValueSpec> rvpsh,
-    std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-        input_metadata,
+    std::unordered_map<uint64_t, habana::ShapeTensorStruct>& input_metadata,
     habana_helpers::ResultShapes& input_ranges,
     habana_helpers::Bucket& new_bucket,
     size_t& new_recipe_key,

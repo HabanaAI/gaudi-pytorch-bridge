@@ -34,8 +34,8 @@ unsigned PermuteTensors::m_permute_counter = 0;
 void increasePermuteCount(torch::Tensor& weight) {
   HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
   auto hb_data{hb_tensor.EvaluateTensorData()};
-  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
-  hb_impl->increasePermutedCounter();
+  auto tmeta{habana::get_tensor_extra_meta(hb_data)};
+  tmeta->increase_permuted_counter();
 }
 
 void PermuteTensors::permuteWeight(torch::Tensor& weight) {
@@ -59,8 +59,8 @@ void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   HbLazyTensor hb_tensor = GetHbLazyTensor(weight);
   auto hb_data{hb_tensor.EvaluateTensorData()};
-  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(hb_data);
-  if (hb_impl->getPermutedCounter() >=
+  auto tmeta{habana::get_tensor_extra_meta(hb_data)};
+  if (tmeta->get_permuted_counter() >=
       GET_ENV_FLAG_NEW(PT_HPU_MAX_PERMUTE_THRESHOLD)) {
     PT_LAYOUTS_DEBUG(
         "Reached threshold permutations of ",

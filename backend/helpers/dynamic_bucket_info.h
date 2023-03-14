@@ -12,9 +12,9 @@
  */
 #pragma once
 
-#include "backend/helpers/dynamic_bucket_info_utils.h"
-
 #include <cstdint>
+#include "backend/backend_meta.h"
+#include "backend/helpers/dynamic_bucket_info_utils.h"
 
 #include <algorithm>
 #include <atomic>
@@ -23,6 +23,7 @@
 #include <limits>
 #include <mutex>
 
+#include "backend/lazy_to_backend.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 #include "backend/synapse_helpers/habana_tensor.h"
@@ -293,16 +294,14 @@ class Bucket {
     input_metadata_.clear();
     for (size_t i = 0; i < stack.size(); ++i) {
       auto& tensor = stack[i].toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      HABANA_ASSERT(impl);
-      if (impl->get_shape_struct().has_shape_tensor_data()) {
-        input_metadata_.emplace(i, impl->get_shape_struct());
+      auto tmeta{habana::get_tensor_extra_meta(tensor)};
+      if (tmeta->get_shape_struct().has_shape_tensor_data()) {
+        input_metadata_.emplace(i, tmeta->get_shape_struct());
       }
     }
   };
 
-  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct>&
-  GetInputMetaData() {
+  std::unordered_map<uint64_t, habana::ShapeTensorStruct>& GetInputMetaData() {
     return input_metadata_;
   }
 
@@ -449,7 +448,7 @@ class Bucket {
   bool time_improvement_met_{true};
   std::vector<size_t> input_hist_idxes_;
   std::vector<size_t> inherited_input_hist_idxes_;
-  std::unordered_map<uint64_t, habana_lazy::ShapeTensorStruct> input_metadata_;
+  std::unordered_map<uint64_t, habana::ShapeTensorStruct> input_metadata_;
 
   std::weak_ptr<habana::RecipeValueSpec> rvpwk_;
 };

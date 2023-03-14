@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -77,7 +77,7 @@ ArangeInputs<at::Tensor&>::ArangeInputs(
         params_vec.data(),
         params_vec.size(),
         sizeof(int),
-        habana_lazy::HostDataType::INT32_T);
+        habana::HostDataType::INT32_T);
 
     // Create a dummy shape tensor for the output, this shape tensor is not
     // added to synapse graph, but only ensures that when we match in bucket

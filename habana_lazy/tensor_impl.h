@@ -19,10 +19,12 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/macros/Macros.h>
 #include <c10/util/Optional.h>
+#include "backend/backend_meta.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "hpu_lazy_tensors.h"
+#include "hpu_ops/common/add_composite_gen.h"
 
 namespace habana_lazy {
 
@@ -89,79 +91,6 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   HbLazyTensor m_tensor;
 };
 
-enum class HostDataType {
-  INVALID_T = 0,
-  INT32_T = 1,
-  UINT32_T = 2,
-  UINT64_T = 3,
-  FLOAT_T = 4
-};
-
-inline std::ostream& operator<<(std::ostream& O, const HostDataType& t) {
-  switch (t) {
-    case HostDataType::INVALID_T:
-      O << "INVALID";
-      break;
-    case HostDataType::INT32_T:
-      O << "INT32";
-      break;
-    case HostDataType::UINT32_T:
-      O << "UINT32";
-      break;
-    case HostDataType::UINT64_T:
-      O << "UINT64";
-      break;
-    case HostDataType::FLOAT_T:
-      O << "FLOAT";
-      break;
-  }
-  return O;
-}
-
-struct ShapeTensorStruct {
-  bool contains_data = false;
-  std::vector<int64_t> strides{};
-  std::vector<int64_t> stride_ratio{};
-  int64_t offset = 0;
-
-  void set_strides_tensor_shape(std::vector<int64_t> input_strides) {
-    contains_data = true;
-    int len = input_strides.size();
-    for (int i = 0; i < len; i++) {
-      strides.push_back(input_strides[i]);
-    }
-  }
-
-  void set_offset_tensor_shape(int64_t offset_value) {
-    contains_data = true;
-    offset = offset_value;
-  }
-
-  void set_stride_ratio(std::vector<int64_t> ratios) {
-    contains_data = true;
-    int len = ratios.size();
-    for (int i = 0; i < len; i++) {
-      stride_ratio.push_back(ratios[i]);
-    }
-  }
-
-  bool has_shape_tensor_data() {
-    return contains_data;
-  }
-
-  std::vector<int64_t> get_stride_ratios() {
-    return stride_ratio;
-  }
-
-  int64_t get_offset() {
-    return offset;
-  }
-
-  std::vector<int64_t> get_stride_shape() {
-    return strides;
-  }
-};
-
 // Habana internal TensorImpl
 class HbInternalTensorImpl : public c10::TensorImpl {
  public:
@@ -169,149 +98,119 @@ class HbInternalTensorImpl : public c10::TensorImpl {
       c10::Storage&& tensor_storage,
       const caffe2::TypeMeta& data_type);
 
-  ~HbInternalTensorImpl() {
-    if (host_ptr_) {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
-      device.get_host_memory().free(host_ptr_);
-      device.get_host_memory().free(compile_host_ptr_);
-    }
+  // Shallow copy of compile_host_ptr_
+  void set_compile_host_ptr(const HbInternalTensorImpl* impl) {
+    get_tensor_extra_meta().clone_host_buffer_info(
+        impl->get_ctensor_extra_meta());
   }
 
-  static void AtenInitialize();
-  caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
+  // TODO [SW-127553] the following functions will be removed as we refactor
+  // code further
+  // Any new code should no longer assume HbInternalTensorImpl is present
+  // use get_extra_tensor_data()->* directly
 
-  void SetConstTensor(bool is_const_tensor);
-
-  c10::IntArrayRef GetTensorSize() const {
-    return sizes;
+  bool isRedundant() {
+    return get_ctensor_extra_meta().is_redundant();
   }
-  void SetTensorSize(c10::IntArrayRef s) {
-    sizes = s;
+
+  void setRedundant() {
+    get_tensor_extra_meta().set_redundant();
+  }
+
+  void* get_host_ptr() const {
+    return get_ctensor_extra_meta().get_host_ptr();
+  }
+
+  void set_host_ptr(void* host_ptr) {
+    get_tensor_extra_meta().set_host_ptr(host_ptr);
+  }
+
+  void* get_compile_host_ptr() const {
+    return get_ctensor_extra_meta().get_compile_host_ptr();
+  }
+
+  size_t get_host_size() const {
+    return get_ctensor_extra_meta().get_host_size();
+  }
+
+  size_t get_host_el_size() const {
+    return get_ctensor_extra_meta().get_host_el_size();
+  }
+
+  habana::HostDataType get_host_dt_type() const {
+    return get_ctensor_extra_meta().get_host_dt_type();
+  }
+
+  habana::ShapeTensorStruct& get_shape_struct() {
+    return get_tensor_extra_meta().get_shape_struct();
+  }
+
+  void set_host_data(
+      void* d,
+      int size,
+      int ele_size,
+      habana::HostDataType dt_type) {
+    get_tensor_extra_meta().set_host_data(d, size, ele_size, dt_type);
   }
 
   habana::LayoutFormat GetTensorLayout() const {
-    return tensor_layout;
+    return get_ctensor_extra_meta().get_tensor_layout();
   }
+
   void SetTensorLayout(habana::LayoutFormat layout) {
-    tensor_layout = layout;
+    get_tensor_extra_meta().set_tensor_layout(layout);
   }
 
-  bool IsDataInHostMemory() const {
-    return is_data_in_host_memory_;
+  void setH2DFrontEndShapeTensor() {
+    get_tensor_extra_meta().set_H2D_frontend_shape_tensor();
   }
 
-  void SetDataInHostMemory(bool is_data_in_host_memory) {
-    is_data_in_host_memory_ = is_data_in_host_memory;
-  }
-
-  bool IsConstTensor() const {
-    return is_const_tensor_;
+  void setH2DDataForBucketing() {
+    get_tensor_extra_meta().set_H2D_data_for_bucketing();
   }
 
   synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
-    return m_memory_permutation;
+    return get_ctensor_extra_meta().get_memory_permutation();
   }
 
   void SetMemoryPermutation(
       synapse_helpers::layouts::MemoryPermutation permutation) {
-    m_memory_permutation = permutation;
+    get_tensor_extra_meta().set_memory_permutation(permutation);
   }
 
-  bool GetDontAllowPermutation() const {
-    return m_dont_allow_permutation;
+  bool isShapeTensor() const {
+    return get_ctensor_extra_meta().is_shape_tensor();
   }
 
-  void SetDontAllowPermutation(bool allow) {
-    m_dont_allow_permutation = allow;
+  void SetTensorSize(size_t size) {
+    get_tensor_extra_meta().set_tensor_size(size);
   }
 
-  void setTensorType(synTensorType tensor_type) {
-    m_tensor_type = tensor_type;
+  c10::IntArrayRef GetTensorSize() const {
+    return get_ctensor_extra_meta().get_tensor_size();
   }
 
-  bool isShapeTensor() {
-    return habana_helpers::is_shape_tensor(m_tensor_type);
+  static void AtenInitialize();
+
+#if HAVE_TORCH_BACKEND_META_SUPPORT
+  const habana::TensorExtraMeta& get_ctensor_extra_meta() const {
+    return *habana::get_ctensor_extra_meta(*this);
   }
 
-  bool isH2DFrontEndShapeTensor() {
-    return m_is_h2d_fe_shape_tensor;
+  habana::TensorExtraMeta& get_tensor_extra_meta() {
+    return *habana::get_tensor_extra_meta(*this);
   }
-
-  void setH2DFrontEndShapeTensor() {
-    m_is_h2d_fe_shape_tensor = true;
+#else
+  const habana::TensorExtraMeta& get_ctensor_extra_meta() const {
+    return tmeta_;
   }
-
-  bool peekH2DDataForBucketing() {
-    return m_is_h2d_bucketing;
-  }
-
-  void setH2DDataForBucketing() {
-    m_is_h2d_bucketing = true;
-  }
-
-  synTensorType getTensorType() {
-    return m_tensor_type;
-  }
-
-  void increasePermutedCounter() {
-    m_permuted_counter++;
-  }
-  unsigned getPermutedCounter() const {
-    return m_permuted_counter;
-  }
-
-  void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
-  // Shallow copy of compile_host_ptr_
-  void set_compile_host_ptr(const HbInternalTensorImpl* impl);
-
-  void* get_host_ptr() const;
-  void set_host_ptr(void*);
-  void* get_compile_host_ptr() const;
-  size_t get_host_size() const;
-  size_t get_host_el_size() const;
-  HostDataType get_host_dt_type() const;
-
-  template <typename T>
-  void set_min(const std::vector<T>& d);
-  template <typename T>
-  void set_max(const std::vector<T>& d);
-  template <typename T>
-  void get_host_data(std::vector<T>& data);
-  /*template <typename T>
-  void set_min_max(const std::vector<T>& min, const std::vector<T>& max);*/
-  ShapeTensorStruct& get_shape_struct();
-
-  void setRedundant() {
-    m_is_redundant = true;
-  }
-
-  bool isRedundant() {
-    return m_is_redundant;
+  habana::TensorExtraMeta& get_tensor_extra_meta() {
+    return tmeta_;
   }
 
  private:
-  c10::IntArrayRef sizes;
-  habana::LayoutFormat tensor_layout = habana::LayoutFormat::NCHW;
-  synTensorType m_tensor_type = DATA_TENSOR;
-  bool is_const_tensor_ = false;
-  bool is_data_in_host_memory_ = false;
-
-  // Memory permutation represents how tensor layout is set in memory
-  synapse_helpers::layouts::MemoryPermutation m_memory_permutation;
-  bool m_dont_allow_permutation = false;
-  unsigned m_permuted_counter = 0;
-  bool m_is_h2d_fe_shape_tensor = false;
-  bool m_is_h2d_bucketing = false;
-
-  void* host_ptr_ = nullptr;
-  void* compile_host_ptr_ = nullptr;
-  size_t size_;
-  size_t total_elem_;
-  size_t el_size_;
-  int id_;
-  HostDataType dt_type_;
-  ShapeTensorStruct shape_tensor_struct_;
-  bool m_is_redundant = false;
+  habana::TensorExtraMeta tmeta_;
+#endif
 };
 
 } // namespace habana_lazy

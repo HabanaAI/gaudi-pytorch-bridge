@@ -65,8 +65,8 @@ habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
         if (tensor.has_storage()) {
           // std::cout << "[GetBackEndTensorImpl] [" << idx << "]" << std::endl
           // << std::flush;
-          impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          impl->SetTensorSize(tensor.sizes());
+          habana::get_tensor_extra_meta(tensor)->set_tensor_size(
+              tensor.sizes());
         }
       }
     }
@@ -78,8 +78,7 @@ habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
       if (tensor.has_storage()) {
         // std::cout << "[GetBackEndTensorImpl] [" << idx << "]" << std::endl <<
         // std::flush;
-        impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-        impl->SetTensorSize(tensor.sizes());
+        habana::get_tensor_extra_meta(tensor)->set_tensor_size(tensor.sizes());
       }
     }
   }

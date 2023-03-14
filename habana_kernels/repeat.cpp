@@ -132,9 +132,6 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
 
-  auto impl = habana_lazy::GetHbInternalTensorImpl(param_tensor);
-  HABANA_ASSERT(impl);
-
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
   int64_t size = static_cast<int64_t>(repeat_shape.size());
 
@@ -364,11 +361,11 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
   HABANA_ASSERT(impl);
 
   TORCH_CHECK(
-      impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
+      impl->get_host_dt_type() == habana::HostDataType::INT32_T,
       "Incorrect datatype of HOST ",
       impl->get_host_dt_type(),
       ", expecting ",
-      habana_lazy::HostDataType::INT32_T);
+      habana::HostDataType::INT32_T);
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
   auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0);

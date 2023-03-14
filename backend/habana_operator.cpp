@@ -400,7 +400,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       std::vector<uint8_t> permutation;
       bool dont_allow_permutation = false;
       std::tie(permutation, dont_allow_permutation) =
-          lazy_to_backend::get_memory_permutation(input);
+          habana_helpers::get_tensor_memory_permutation(input);
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(
               p_context_->syn_input_orig_[0],
