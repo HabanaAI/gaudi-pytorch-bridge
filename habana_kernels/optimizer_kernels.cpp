@@ -189,9 +189,16 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
           graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
+      // To do: Proper fix for adding control edges
+      // when adding constant tensor instead of constant node for lazy eager
+      // mode. There will be few less nodes.
       if (!graph.is_dry_run()) {
         // collect the nodes that need control edges
-        auto syn_node_id = graph.get_node_index(i * 18 + 1);
+        auto idx = i * 18 + 1;
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+          idx = idx - graph.get_num_of_const_tensors();
+        }
+        auto syn_node_id = graph.get_node_index(idx);
         syn_node_ids.emplace_back(syn_node_id);
       }
     }
@@ -305,9 +312,16 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
+      // To do: Proper fix for adding control edges
+      // when adding constant tensor instead of constant node for lazy eager
+      // mode. There will be few less nodes
       if (!graph.is_dry_run()) {
         // collect the nodes that need control edges
-        auto syn_node_id = graph.get_node_index(i * 18 + 17);
+        auto idx = i * 18 + 17;
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+          idx = idx - graph.get_num_of_const_tensors();
+        }
+        auto syn_node_id = graph.get_node_index(idx);
         syn_node_ids.emplace_back(syn_node_id);
       }
 
@@ -323,9 +337,16 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
 
+      // To do: Proper fix for adding control edges
+      // when adding constant tensor instead of constant node for lazy eager
+      // mode. There will be few less nodes.
       if (!graph.is_dry_run()) {
         // collect the nodes that need control edges
-        auto syn_node_id = graph.get_node_index(i * 18 + 17);
+        auto idx = i * 18 + 17;
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+          idx = idx - graph.get_num_of_const_tensors();
+        }
+        auto syn_node_id = graph.get_node_index(idx);
         syn_node_ids.emplace_back(syn_node_id);
       }
     }

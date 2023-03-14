@@ -681,6 +681,61 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       deterministic);
 }
 
+// Allocate constant synapse tensor of size '1' for handling scalars
+synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
+    synapse_helpers::graph& graph,
+    const c10::Scalar& scalar_val) {
+  // Double data type not supported in synapse convert it to float value on host
+  const auto& scalar_val_type = (scalar_val.type() == at::ScalarType::Double)
+      ? at::ScalarType::Float
+      : scalar_val.type();
+
+  void* host_ptr = nullptr;
+  const auto& host_ptr_size = elementSize(scalar_val_type);
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(p_context_->device_id_);
+  auto status = device.get_host_memory().malloc(&host_ptr, host_ptr_size);
+  HABANA_ASSERT(status == synSuccess);
+
+  if (scalar_val.type() == at::ScalarType::Double) {
+    // WA for copying float data to host_ptr
+    // If c10::Scalar is initialized with Float value
+    // its data type is still seen Double
+    auto lval = scalar_val.to<float>();
+    memcpy(host_ptr, (const char*)&lval, host_ptr_size);
+  } else {
+    memcpy(host_ptr, scalar_val.data_ptr(), host_ptr_size);
+  }
+
+  PT_KERNEL_DEBUG(
+      "constant host_ptr: ",
+      reinterpret_cast<size_t>(host_ptr),
+      " scalar value: ",
+      scalar_val,
+      " size: ",
+      host_ptr_size,
+      " org data_type: ",
+      scalar_val.type());
+
+  auto const_syn_tensor = habana_helpers::create_const_tensor(
+      {1},
+      {1},
+      graph,
+      false,
+      p_context_->device_id_,
+      scalar_val_type,
+      host_ptr,
+      host_ptr_size);
+
+  // Free host_ptr here only since copy_buffer is set true for const tensor
+  device.get_host_memory().free(host_ptr);
+
+  // Increment count for const tensors created for scalars
+  graph.increment_const_tensors();
+
+  return std::move(const_syn_tensor);
+}
+
 habana::RegisterKernel& habana::KernelRegistry() {
   static habana::RegisterKernel* Registry = new habana::RegisterKernel();
   return *Registry;

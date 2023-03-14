@@ -510,6 +510,10 @@ class HabanaOperator {
     return deterministic;
   }
 
+  synapse_helpers::tensor AllocateConstantSynapseTensor(
+      synapse_helpers::graph& graph,
+      const c10::Scalar& value);
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,

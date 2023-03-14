@@ -247,6 +247,12 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef constant_outshape = 1,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  static synapse_helpers::tensor BuildConstantTensor(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      const at::Scalar& val,
+      const at::IntArrayRef constant_outshape = 1);
+
   static synapse_helpers::tensor BuildReshape(
       OpBackend* op,
       synapse_helpers::graph& graph,

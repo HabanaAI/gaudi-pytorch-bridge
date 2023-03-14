@@ -758,6 +758,15 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     c10::optional<int> final_result_index) {
+  // For lazy eager mode, Allocate constant synapse tensor
+  // for non-persistent tensor of size {1}.
+  // To do: Add support for force data type to const tensor.
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+      !final_result_index.has_value() && !force_type.has_value() &&
+      constant_outshape.equals({1})) {
+    return OpBackend::BuildConstantTensor(op, graph, val);
+  }
+
   at::ScalarType valtype =
       force_type.has_value() ? force_type.value() : val.type();
 
@@ -784,6 +793,19 @@ synapse_helpers::tensor OpBackend::BuildConstant(
        sizeof(params)});
 
   return std::move(constant.at(0));
+}
+
+synapse_helpers::tensor OpBackend::BuildConstantTensor(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Scalar& val,
+    [[maybe_unused]] const at::IntArrayRef outshape) {
+  if (op->isMetaMode()) {
+    // dummy synapse tensor
+    return synapse_helpers::tensor::create_placeholder({1}, {1});
+  }
+
+  return op->AllocateConstantSynapseTensor(graph, val);
 }
 
 synapse_helpers::tensor OpBackend::BuildBroadcast(

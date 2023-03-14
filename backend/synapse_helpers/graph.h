@@ -244,6 +244,18 @@ class graph {
     numTensors = num_tensors;
   }
 
+  void set_num_of_const_tensors(uint32_t num_tensors) {
+    numConstTensors = num_tensors;
+  }
+
+  void increment_const_tensors(uint32_t count = 1) {
+    numConstTensors += count;
+  }
+
+  uint32_t get_num_of_const_tensors() {
+    return numConstTensors;
+  }
+
   uint32_t get_num_of_nodes() const {
     return numNodes;
   }
@@ -303,6 +315,7 @@ class graph {
   bool dynamic_graph_{false};
   synGraphHandle duplicate_graph_handle_{};
   uint32_t numTensors = 0;
+  uint32_t numConstTensors = 0;
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
 };

@@ -482,6 +482,20 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
 
+  // For lazy eager mode, Allocate constant synapse tensor
+  // in case of non-persistent tensor of size {1}.
+  const auto is_persistent = output_metadata.at(0).persistent;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && !is_persistent &&
+      input.sizes().equals({1})) {
+    auto const_syn_tensor = AllocateConstantSynapseTensor(graph, value);
+    p_context_->syn_outputs_.emplace_back(std::move(const_syn_tensor));
+
+    // non-persistent PT tensor created to maintain pt_outputs
+    auto output = habana::createPTTensor(input, false);
+    p_context_->pt_outputs_.emplace_back(output);
+    return;
+  }
+
   ns_ConstantKernel::Params params{};
   if (input.scalar_type() == c10::ScalarType::Int) {
     params.constant.i = value.to<int32_t>();
@@ -496,7 +510,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     SET_SIZE_STRIDE_1D(input);
   }
 
-  auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
+  auto output = habana::createPTTensor(input, is_persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   // Adding a clear for inputs as constant kernel expects no inputs
   // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway

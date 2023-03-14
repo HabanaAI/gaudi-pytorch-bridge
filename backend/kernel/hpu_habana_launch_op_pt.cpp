@@ -3570,7 +3570,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
       DuplicateSynapseGraph();
 
-      if ((syn_graph_ptr->get_num_of_tensors() !=
+      if (((syn_graph_ptr->get_num_of_tensors() -
+            syn_graph_ptr->get_num_of_const_tensors()) !=
            pt_to_synapse_tensors.size()) ||
           (habana_kernels.size() > 1)) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
@@ -3578,6 +3579,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
             " total number of tensors : ",
             syn_graph_ptr->get_num_of_tensors(),
+            " number of const tensors : ",
+            syn_graph_ptr->get_num_of_const_tensors(),
             " number of persistent tensors : ",
             pt_to_synapse_tensors.size(),
             " number of kernels : ",

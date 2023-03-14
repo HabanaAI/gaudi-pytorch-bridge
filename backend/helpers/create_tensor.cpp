@@ -627,6 +627,35 @@ synapse_helpers::tensor create_shape_tensor(
   return syn_tensor;
 }
 
+synapse_helpers::tensor create_const_tensor(
+    const c10::IntArrayRef& shape,
+    const c10::IntArrayRef& stride,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    int devid,
+    const c10::ScalarType dtype,
+    void* host_ptr,
+    const uint64_t host_ptr_size,
+    const std::string& name) {
+  auto builder =
+      synapse_helpers::tensor_builder(
+          shape, stride, pytorch_to_synapse_type(dtype))
+          .mark_persistence(persistent)
+          .mark_const(true, host_ptr, host_ptr_size)
+          .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
+  if (!name.empty()) {
+    builder.use_suffix(name);
+  }
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(devid),
+      graph.get_graph_handle());
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
+  PT_DYNAMIC_SHAPE_DEBUG("create_const_tensor ", syn_tensor);
+  return syn_tensor;
+}
+
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<at::Tensor>& tensors,
