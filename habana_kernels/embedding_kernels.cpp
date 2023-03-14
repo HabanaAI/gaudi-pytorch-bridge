@@ -561,6 +561,18 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
       output_metadata.at(0).persistent);
+  auto kernel_mode = inputs[4].toInt();
+  if (kernel_mode == 0) {
+    auto guid = "gather_with_valid_count_2d_" +
+        habana_helpers::name_suffix_from_type(input.scalar_type());
+    SetGuid(guid);
+    p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin() + 2);
+    p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin() + 2);
+  } else if (kernel_mode == 2) {
+    auto guid = "embedding_bag_sum_small_lengths_2d_fwd_" +
+        habana_helpers::name_suffix_from_type(input.scalar_type());
+    SetGuid(guid);
+  }
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
