@@ -350,70 +350,9 @@ void HPUDeviceAllocator::dump_memory_reporter() {
 
 namespace synapse_helpers {
 
-/**
-  The HPURegistrar object is created once for the first time
-  at::detail::HABANAGuardImpl::getDevice is called.
-  Since HPURegistrar object is a static, it gets destroyed when
-  main thread exits via exit_handler.
-  However, synapse has a few objects (like KernelDB) that are
-  thread_local static. They are created once per thread, and they
-  get destroyed from the main thread before the static objects are
-  destroyed. These synapse objects are required to be present when
-  the synapse devices are destroyed.
-  Currently, here is the sequence of object creation -
-   OSAL, KernelDB -> synapse devices -> HPURegistrar
-  We expect the destruction order to be -
-   ~HPURegistrar -> ~synapse devices -> ~OSAL, ~KernelDB
-  The destruction order, when KernelDB is created from more than one
-  thread (it gets created if a thread creates a synapse graph and compiles)
-   ~KernelDB ->  ~HPURegistrar -> ~synapse devices (This fails)
-
-  Hence, we have a thread_local HPURegistrarPerThreadTracker object.
-  This is used to drive the cleanup before the ~KernelDB happens. With this,
-  the object construction order -
-   OSAL, KernelDB -> synapse devices -> HPURegistrar,
-  HPURegistrarPerThreadTracker Object destruction order
-   ~HPURegistrarPerThreadTracker -> ~synapse devices -> ~KernelDB ->
-  ~HPURegistrar -> ~OSAL
- */
-class HPURegistrarPerThreadTracker {
- public:
-  HPURegistrarPerThreadTracker() = default;
-  ~HPURegistrarPerThreadTracker();
-};
-
 HPURegistrar& HPURegistrar::get_hpu_registrar() {
   static HPURegistrar instance;
-  thread_local static HPURegistrarPerThreadTracker per_thread_tracker;
   return instance;
-}
-
-HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
-  // Cleanup the synapse devices only for the main thread exit path
-  // This ensures synapse devices are removed before thread_local synapse
-  // objects (Ex: KernelDB) are gone.
-  if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
-    habana_lazy::AccThread::Get().SyncAccThreadPool();
-    habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
-    try {
-      habana_lazy::habana_lazy_executor
-          .getDeviceExecutionContext(
-              synapse_helpers::HPURegistrar::get_device().id())
-          ->JoinPendingLaunchThread();
-    } catch (std::exception& e) {
-      // Code should not throw exceptions in d'tors.
-      // JoinPendingLaunchThread can throw, so we just ignore it here,
-      // as it had to be handled already before. However, if it threw,
-      // we should fix it and clear the exception
-      PT_BRIDGE_DEBUG(
-          "JoinPendingLaunchThread should not throw here anymore. It did: ",
-          e.what());
-    }
-
-    HPURegistrar::deleteDevices();
-    habana::HPUDeviceAllocator::allocator_active_device_id = -1;
-    habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
-  }
 }
 
 } // namespace synapse_helpers
