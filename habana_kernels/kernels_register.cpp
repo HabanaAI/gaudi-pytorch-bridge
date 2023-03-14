@@ -2038,6 +2038,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");
   m.def(
       "repeat_inlv(Tensor input, Tensor repeats, int dim, Tensor out_shape) -> Tensor");
+  m.def("repeat_inlv_ht(Tensor input, Tensor repeats, int dim) -> Tensor");
   m.def(
       "nonzero(Tensor self, Tensor? nonzero_input_shape_tensor) -> (Tensor, Tensor)");
   m.def(

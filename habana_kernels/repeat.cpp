@@ -273,39 +273,6 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
   auto dim = inputs[2].toInt();
   auto out_shape = inputs[3].toTensor();
 
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
-    auto repeats_ht = inputs[1].toTensor();
-    TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
-    auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
-    HABANA_ASSERT(impl);
-
-    TORCH_CHECK(
-        impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
-        "Incorrect datatype of HOST ",
-        impl->get_host_dt_type(),
-        ", expecting ",
-        habana_lazy::HostDataType::INT32_T);
-
-    // set min/max for repeats_ht, this min/max is used only for memory
-    // allocations by synapse (not for actual compilation), therefore we can set
-    // only last element of ht to out_shape (rest of elements set to 0). Recall
-    // that out_shape is computed by summing elements in ht.
-    if (habana::ShapeInference::GetCurrentPass() ==
-        habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-      auto size_tensor = input.sizes().vec()[dim];
-      std::vector<int32_t> d(size_tensor, 0);
-      d[size_tensor - 1] = out_shape.sizes()[dim];
-      impl->set_min<int32_t>(d);
-    } else if (
-        habana::ShapeInference::GetCurrentPass() ==
-        habana::ShapeInfo::InferencePass::MAX_SHAPE) {
-      auto size_tensor = input.sizes().vec()[dim];
-      std::vector<int32_t> d(size_tensor, 0);
-      d[size_tensor - 1] = out_shape.sizes()[dim];
-      impl->set_max<int32_t>(d);
-    }
-  }
-
   ns_RepeatKernelGaudiTF::Params params;
   params.axis = input.dim() - 1 - dim;
   auto output = habana::createPTTensor(
@@ -319,9 +286,107 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
+    const at::Tensor& host_tensor) {
+  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+
+  bool is_dry_run = false;
+  if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE ||
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    is_dry_run = true;
+  }
+
+  void* host_ptr = nullptr;
+  if (is_dry_run) {
+    host_ptr = impl->get_compile_host_ptr();
+  } else {
+    host_ptr = impl->get_host_ptr();
+  }
+
+  size_t h2d_data_size = impl->get_host_size();
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    size_t data_size = h2d_data_size * impl->get_host_el_size();
+    host_ptr = static_cast<char*>(host_ptr) + data_size;
+  }
+
+  std::vector<int64_t> repeat;
+  uint32_t* h2d_data = static_cast<uint32_t*>(host_ptr);
+  for (size_t i = 0; i < h2d_data_size; i++) {
+    repeat.push_back(*h2d_data++);
+  }
+
+  return repeat;
+}
+
+OutputShapeInfRetType RepeatInlvOperatorHT::ComputeOutputShape(
+    torch::jit::Stack& inputs) {
+  OutputShapeInfRetType out;
+  auto input = inputs[0].toTensor();
+  auto repeats_ht = inputs[1].toTensor();
+
+  auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0);
+  auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+
+  auto out_metadata = TensorMetaData(
+      out_shape,
+      HabanaOperator::CalculateStrides(
+          out_shape, input.suggest_memory_format()),
+      input.scalar_type(),
+      input.suggest_memory_format());
+  out.AddOutputTensor(out_metadata);
+  return out;
+}
+
+void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for repeat-interleave operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for repeat-interleave operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 expected to be Int for repeat-interleave operator");
+
+  auto input = inputs[0].toTensor();
+  auto dim = inputs[2].toInt();
+
+  auto repeats_ht = inputs[1].toTensor();
+  TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
+  auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
+  HABANA_ASSERT(impl);
+
+  TORCH_CHECK(
+      impl->get_host_dt_type() == habana_lazy::HostDataType::INT32_T,
+      "Incorrect datatype of HOST ",
+      impl->get_host_dt_type(),
+      ", expecting ",
+      habana_lazy::HostDataType::INT32_T);
+
+  auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0);
+
+  auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+
+  ns_RepeatKernelGaudiTF::Params params;
+  params.axis = input.dim() - 1 - dim;
+  auto output = habana::createPTTensor(
+      input, out_shape, input.options(), output_metadata.at(0).persistent);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
         .add("aten::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
+        .add("hpu::repeat_inlv_ht", KERNEL_FN(RepeatInlvOperatorHT))
         .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));

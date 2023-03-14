@@ -5469,6 +5469,13 @@ at::Tensor repeat_inlv_hpu_lazy(
         repeats_cpu.sizes()[0],
         sizeof(int32_t),
         HostDataType::INT32_T);
+    impl->setH2DDataForBucketing();
+
+    auto output_shape =
+        RepeatInlvOperator::compute_output_shape(input, 0, out_size);
+    LazyOp<at::Tensor> k{
+        "hpu::repeat_inlv_ht", {input, repeats_tensor, 0}, {output_shape}};
+    return k.call();
   }
 
   auto output_shape =
@@ -5490,20 +5497,13 @@ at::Tensor repeat_inlv_hpu_lazy(
     stImpl->setH2DFrontEndShapeTensor();
   }
 
-  if (need_h2d_tensor) {
-    LazyOp<at::Tensor> k{
-        "hpu::repeat_inlv",
-        {input, repeats_tensor, 0, output_shape_tensor},
-        {output_shape}};
-    return k.call();
-  } else {
-    LazyOp<at::Tensor> k{
-        "hpu::repeat_inlv",
-        {input, repeats, 0, output_shape_tensor},
-        {output_shape}};
-    return k.call();
-  }
+  LazyOp<at::Tensor> k{
+      "hpu::repeat_inlv",
+      {input, repeats, 0, output_shape_tensor},
+      {output_shape}};
+  return k.call();
 }
+
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,

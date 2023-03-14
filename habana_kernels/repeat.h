@@ -46,7 +46,7 @@ struct RepeatOperatorHT : public RepeatOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  static std::vector<int64_t> ComputeRepeatShapefromH2DTensor(
+  std::vector<int64_t> ComputeRepeatShapefromH2DTensor(
       const at::Tensor& host_tensor);
 };
 
@@ -67,5 +67,20 @@ class RepeatInlvOperator : public HabanaOperator {
       const at::Tensor& input,
       int64_t dim,
       int64_t out_size);
+};
+class RepeatInlvOperatorHT : public RepeatInlvOperator {
+ public:
+  RepeatInlvOperatorHT(int device_id, c10::ScalarType scalarType)
+      : RepeatInlvOperator(device_id, scalarType) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+
+  std::vector<int64_t> ComputeRepeatShapefromH2DTensor(
+      const at::Tensor& host_tensor);
+
+  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
 };
 } // namespace habana
