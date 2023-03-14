@@ -16,11 +16,9 @@ import functorch
 from typing import List
 
 from .internal import (
-    preprocess_module,
     optimize_pre_partitioner,
-    cluster_module,
+    partition_module,
     optimize_post_partitioner,
-    compile_clusters,
 )
 
 
@@ -31,30 +29,19 @@ def hpu_compiler_inner(
     This function will be called for each input FX graph. There will be at least
     three separate graphs for FWD, BWD and optimizer. Each of these phases can
     also generate multiple graphs and calls to this function.
-
-    `is_training` parameter is not used now, but it can be used in case we need
-    to optimize inference and training differently
-
-    `is_backward` parameter is not used now, but it can be used in case we need
-    to optimize forward and backward passes differently
     """
-    # Do initial preprocessing.
-    preprocess_module(graph_module, example_inputs)
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module)
+    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
 
     # Partition the module based on propagated device placement data.
-    clustered_module = cluster_module(graph_module)
+    partitioned_module = partition_module(graph_module, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph after the partitioner.
-    optimize_post_partitioner(clustered_module)
-
-    # Generate compiled recipes for the HPU clusters in the module.
-    compile_clusters(clustered_module)
+    optimize_post_partitioner(partitioned_module, example_inputs, is_training, is_backward)
 
     # Return the module in boxed format required by AOT Autograd.
-    return functorch.compile.make_boxed_func(clustered_module.forward)
+    return functorch.compile.make_boxed_func(partitioned_module.forward)
 
 
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
