@@ -333,6 +333,11 @@ class OpBackend : public HabanaOperator {
     return {sg.stack[pos].toTensor(), SynInput(sg.GetAndIncrSynPos()).ref()};
   }
 
+  at::ScalarType HandleDtypePropagation(
+      const at::Stack& stack,
+      const at::Tensor& t,
+      at::ScalarType metadata_dtype);
+
   c10::optional<TensorsPair> getNextInputInternal(
       StackGetter& sg,
       c10::optional<TensorsPair>*) {

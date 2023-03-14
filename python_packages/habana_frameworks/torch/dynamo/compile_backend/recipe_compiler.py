@@ -11,12 +11,15 @@
 ###############################################################################
 
 import torch
+import logging
 
 from .config import configuration_flags
 
+logger = logging.getLogger("aot_hpu_backend")
 
 class HabanaGraphModule(torch.nn.Module):
     def __init__(self, jit_ir):
+        logger.debug("Creating HabanaGraphModule")
         super().__init__()
         self._jit_ir = jit_ir
         self._recipe_id = None
@@ -34,12 +37,13 @@ class HabanaGraphModule(torch.nn.Module):
         return out
 
     def propagate_dtype(self, sample_input):
-        from torch.jit._passes import _property_propagation
-
-        torch._C._jit_pass_erase_shape_information(self._jit_ir.graph)
-        _property_propagation.apply_input_props_using_example(self._jit_ir.graph, sample_input)
-        torch._C._jit_pass_propagate_shapes_on_graph(self._jit_ir.graph)
-        torch._C._jit_pass_propagate_dtype(self._jit_ir.graph)
+        if not configuration_flags["dtype_propagation_in_backend"]:
+            logger.debug("Running dtype propagation")
+            from torch.jit._passes import _property_propagation
+            torch._C._jit_pass_erase_shape_information(self._jit_ir.graph)
+            _property_propagation.apply_input_props_using_example(self._jit_ir.graph, sample_input)
+            torch._C._jit_pass_propagate_shapes_on_graph(self._jit_ir.graph)
+            torch._C._jit_pass_propagate_dtype(self._jit_ir.graph)
 
 
 def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule):

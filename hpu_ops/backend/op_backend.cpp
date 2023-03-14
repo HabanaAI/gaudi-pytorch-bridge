@@ -105,6 +105,40 @@ synapse_helpers::tensor_or_ref& OpBackend::SynInput(int index) {
   return p_context_->syn_inputs_.at(index);
 }
 
+at::ScalarType OpBackend::HandleDtypePropagation(
+    const at::Stack& stack,
+    const at::Tensor& t,
+    at::ScalarType metadata_dtype) {
+  if (c10::ScalarType::Undefined != metadata_dtype) {
+    return metadata_dtype;
+  }
+
+  auto propagated_dtype = c10::ScalarType::Undefined;
+
+  if (m_promote_type || m_promote_int_to_float) {
+    propagated_dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+        stack,
+        c10::nullopt,
+        m_promote_int_to_float ? habana_helpers::DTypeHelper::
+                                     DtypePromoteVariant::kPromoteIntToFloat
+                               : habana_helpers::DTypeHelper::
+                                     DtypePromoteVariant::kPromoteToCommon,
+        false,
+        c10::nullopt,
+        false,
+        false);
+  }
+
+  if (c10::ScalarType::Undefined == propagated_dtype) {
+    propagated_dtype = t.scalar_type();
+  }
+
+  HABANA_ASSERT(
+      c10::ScalarType::Undefined != propagated_dtype,
+      "Unable to find promoted dtype");
+  return propagated_dtype;
+}
+
 void OpBackend::HandleScalarToTensor(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -170,7 +204,9 @@ void OpBackend::HandleFn(
   int i = 0;
   for (const at::Tensor& t : tensors) {
     const auto& metadata = m_output_metadata.at(i);
-    const auto& dtype = metadata.dtype;
+
+    const auto& dtype = HandleDtypePropagation(stack, t, metadata.dtype);
+
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
 
     const auto& output = habana::createPTTensor(
