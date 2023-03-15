@@ -24,10 +24,9 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
             tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
     return tensor
 
-
-def fused_adam_test(dim=4):
+def fused_adam_test(dim=4, wd=0.1):
     torch.manual_seed(0)
-    d1, d2, lr, wd = 320, 256, 0.1, 0.1
+    d1, d2, lr = 320, 256, 0.1
     eps = 1e-6
     if dim == 4:
         u = torch.rand(d1, d2, 3, 3)
@@ -37,6 +36,7 @@ def fused_adam_test(dim=4):
         u = torch.rand(d1, d2, 3)
 
     print(" Input shape", u.shape)
+    print(" Input weight decay", wd)
 
     x = u.clone()
     x.requires_grad = True
@@ -96,3 +96,5 @@ if __name__ == "__main__":
     fused_adam_test(3)
     fused_adam_test(4)
     fused_adam_test(5)
+    fused_adam_test(5,0.09)
+    fused_adam_test(5,0.08)

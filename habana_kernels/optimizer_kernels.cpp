@@ -137,7 +137,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
   TORCH_CHECK(
-      inputs.size() == 10,
+      inputs.size() == 11,
       "Incorrect size of inputs for adamw optimizer graph creation call");
 
   auto gradients = inputs[0].toTensorList();
@@ -149,7 +149,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   auto beta1 = inputs[6].toScalar();
   auto beta2 = inputs[7].toScalar();
   auto epsilon = inputs[8].toScalar();
-  auto modified_wd = inputs[9].toScalar();
+  auto modified_wd_t = inputs[9].toTensor();
+  auto is_wd_modified = inputs[10].toScalar();
 
   /*  This are the operations we need to perform per parameter
       exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
@@ -165,7 +166,6 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<unsigned int>(weights.size());
   torch::jit::Stack stack;
-  std::vector<synNodeId> syn_node_ids;
 
   for (unsigned int i = 0; i < num_params; i++) {
     // Synapse Graph for single parameter update to be created here
@@ -181,26 +181,18 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto mul_wt_wd =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
 
-    if (modified_wd.toFloat() != 1.0) {
+    if (is_wd_modified.toBool()) {
+      // Weight tensor index == weight tensor list index + curr location i in
+      // tensor list
       mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      // Weight decay tensor index == after 4 tensor lists + 2 tensors
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 2]);
+
       stack.emplace_back(IValue(weights.get(i)));
-      stack.emplace_back(IValue(modified_wd));
+      stack.emplace_back(IValue(modified_wd_t));
       mul_wt_wd->AllocateAndAddSynapseNode(
           graph, stack, OutputMetaDataVector(1));
       stack.clear();
-
-      // To do: Proper fix for adding control edges
-      // when adding constant tensor instead of constant node for lazy eager
-      // mode. There will be few less nodes.
-      if (!graph.is_dry_run()) {
-        // collect the nodes that need control edges
-        auto idx = i * 18 + 1;
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-          idx = idx - graph.get_num_of_const_tensors();
-        }
-        auto syn_node_id = graph.get_node_index(idx);
-        syn_node_ids.emplace_back(syn_node_id);
-      }
     }
 
     // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
@@ -301,7 +293,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     auto add_wt =
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
 
-    if (modified_wd.toFloat() == 1.0) {
+    if (!is_wd_modified.toBool()) {
       // in this case weight directly comes as input to the fused kernel
       add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
       add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
@@ -311,20 +303,6 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(1.0));
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
-
-      // To do: Proper fix for adding control edges
-      // when adding constant tensor instead of constant node for lazy eager
-      // mode. There will be few less nodes
-      if (!graph.is_dry_run()) {
-        // collect the nodes that need control edges
-        auto idx = i * 18 + 17;
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-          idx = idx - graph.get_num_of_const_tensors();
-        }
-        auto syn_node_id = graph.get_node_index(idx);
-        syn_node_ids.emplace_back(syn_node_id);
-      }
-
     } else {
       // use the updated weight tensor after  weight decay operation
       add_wt->SetSynapseInput(mul_wt_wd->GetSynOutputs()[0]);
@@ -336,25 +314,12 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(1.0));
       add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
       stack.clear();
-
-      // To do: Proper fix for adding control edges
-      // when adding constant tensor instead of constant node for lazy eager
-      // mode. There will be few less nodes.
-      if (!graph.is_dry_run()) {
-        // collect the nodes that need control edges
-        auto idx = i * 18 + 17;
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-          idx = idx - graph.get_num_of_const_tensors();
-        }
-        auto syn_node_id = graph.get_node_index(idx);
-        syn_node_ids.emplace_back(syn_node_id);
-      }
     }
 
     // Note that these outputs are being filled just to keep GC
     // runtime happy No need to return these since updates on
     // weights, exp_avg, exp_avg_sq are all inplace
-    if (modified_wd.toFloat() != 1.0) {
+    if (is_wd_modified.toBool()) {
       p_context_->syn_outputs_.emplace_back(
           std::move(mul_wt_wd->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(mul_wt_wd->GetOutputs()[0]);
@@ -371,12 +336,6 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(
         std::move(add_wt->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(add_wt->GetOutputs()[0]);
-  }
-
-  if (!graph.is_dry_run()) {
-    // add nodes that need control edges
-    graph.clear_node_indices();
-    graph.set_node_indices(syn_node_ids);
   }
 }
 

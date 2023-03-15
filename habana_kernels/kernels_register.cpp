@@ -2282,7 +2282,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
   m.def(
-      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
+      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, Tensor(f!) weight_decay, bool is_wd_modified) -> ()");
   m.def(
       "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(

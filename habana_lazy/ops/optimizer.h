@@ -28,7 +28,7 @@ class OptimizerFusedAdamw : public Node {
     kbeta1Idx = 6,
     kbeta2Idx,
     kepsIdx,
-    kwdIdx
+    kwdIdx = 10
   };
   OptimizerFusedAdamw() = delete;
   OptimizerFusedAdamw(
@@ -41,7 +41,8 @@ class OptimizerFusedAdamw : public Node {
       const float beta1,
       const float beta2,
       const float epsilon,
-      const float weight_decay)
+      at::Tensor& weight_decay_t,
+      const bool is_wd_modified)
       : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerAdamW")) {
     AddInputVec(gradients);
     AddInputVec(weights);
@@ -60,8 +61,12 @@ class OptimizerFusedAdamw : public Node {
         beta2, static_cast<size_t>(OptimizerFusedAdamwIndex::kbeta2Idx));
     m_meta_data.set(
         epsilon, static_cast<size_t>(OptimizerFusedAdamwIndex::kepsIdx));
+
+    auto hl_weight_decay_t = GetOrCreateHbLazyTensor(weight_decay_t, c10::kHPU);
+    AddInput(hl_weight_decay_t.GetIrValue());
+
     m_meta_data.set(
-        weight_decay, static_cast<size_t>(OptimizerFusedAdamwIndex::kwdIdx));
+        is_wd_modified, static_cast<size_t>(OptimizerFusedAdamwIndex::kwdIdx));
   }
 
   std::string ToString() const {
@@ -78,9 +83,9 @@ class OptimizerFusedAdamw : public Node {
        << m_meta_data
               .get(static_cast<size_t>(OptimizerFusedAdamwIndex::kepsIdx))
               .toDouble()
-       << ", weight_decay="
+       << ", is_weight_decay_modified="
        << m_meta_data.get(static_cast<size_t>(OptimizerFusedAdamwIndex::kwdIdx))
-              .toDouble();
+              .toBool();
 
     return ss.str();
   }

@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "lazy_optimizer_kernels.h"
@@ -130,7 +133,9 @@ void optimizer_adamw_hpu_lazy(
   handle_collective(weights_v);
   handle_collective(exp_avg_v);
   handle_collective(exp_avg_sq_v);
+  at::Tensor modified_wd_t = get_tensor_for_scalar(modified_wd);
 
+  bool is_wd_modified = modified_wd != 1.0;
   auto func = [gradients_v = std::move(gradients_v),
                weights_v = std::move(weights_v),
                exp_avg_v = std::move(exp_avg_v),
@@ -140,7 +145,8 @@ void optimizer_adamw_hpu_lazy(
                beta1,
                beta2,
                epsilon,
-               modified_wd]() mutable {
+               modified_wd_t,
+               is_wd_modified]() mutable {
     TensorList gradients = gradients_v;
     TensorList weights = weights_v;
     TensorList exp_avg = exp_avg_v;
@@ -148,6 +154,7 @@ void optimizer_adamw_hpu_lazy(
 
     auto hl_lr_t = GetHbLazyTensor(lr_t);
     auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
+    auto hl_modified_wd_t = GetHbLazyTensor(modified_wd_t);
 
     ir::NodePtr node = std::make_shared<ir::OptimizerFusedAdamw>(
         gradients,
@@ -159,7 +166,8 @@ void optimizer_adamw_hpu_lazy(
         beta1,
         beta2,
         epsilon,
-        modified_wd);
+        modified_wd_t,
+        is_wd_modified);
 
     int64_t out_index = 0;
 
@@ -171,7 +179,7 @@ void optimizer_adamw_hpu_lazy(
         std::make_shared<habana_lazy::ir::ListUnpack>(out);
 
     for (size_t i = 0; i < weights.size(); i++) {
-      if (modified_wd != 1.0) {
+      if (is_wd_modified) {
         auto hl_wd = GetHbLazyTensor(weights[i]);
         hl_wd.IrSetNode(node_unpack, out_index++);
       }
@@ -204,7 +212,8 @@ void optimizer_adamw_hpu_lazy(
       beta1,
       beta2,
       epsilon,
-      modified_wd};
+      modified_wd_t,
+      is_wd_modified};
   RUNNING_HASH_COMBINE_OPERATOR(hpu::habanaOptimizerAdamW, vector_of_inputs);
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
