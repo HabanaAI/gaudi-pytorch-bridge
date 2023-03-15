@@ -264,6 +264,32 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
+  call(const at::Tensor& self) {
+    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+
+    HABANA_ASSERT(
+        self.device().type() == at::kHPU,
+        "Got a non-HPU tensor, expecting an HPU tensor");
+
+    auto out_shape = m_out_shapes.empty()
+        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
+        : m_out_shapes[0];
+    if (self.sizes() != out_shape) {
+      THHTensor_resizeNd(
+          self.unsafeGetTensorImpl(),
+          out_shape.size(),
+          out_shape.data(),
+          nullptr);
+    }
+
+    auto out_spec = OutputSpec{self.scalar_type(), self.device(), self.sizes()};
+    auto stack = run({out_spec});
+    HABANA_ASSERT(stack.size() == 1); // single output only
+    return self;
+  }
+
+  template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
       T self) {
     PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());

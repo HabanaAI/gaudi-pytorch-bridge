@@ -1331,7 +1331,7 @@ def is_eager_op(fname, rtype, sig, ctxop):
         elif rtype == "void" and "TensorList" in sig:
             return False
         elif rtype.startswith("const at::Tensor"):
-            return False
+            return True
         else:
             return True
     else:
