@@ -255,30 +255,41 @@ class EnvHelper {
 };
 
 class LazyTest : public ::testing::Test, public EnvHelper {
+ protected:
   void SetUp() override {
     // Save the original value
     SetLazyMode();
-
     SetSeed();
-
     DisableCpuFallback();
-
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
     TearDownBridge();
   }
 
   void TearDown() override {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
     // Restore the original value back
     RestoreMode();
   }
 
- protected:
   void ForceMode(unsigned mode) {
     SetMode(mode, 1);
+  }
+};
+
+class LazyDynamicTest : public LazyTest {
+ protected:
+  void SetUp() override {
+    SetDynamicMode();
+    DisableDynamicPassFallback();
+    habana::RecipeCacheLRU::get_cache().clear();
+    LazyTest::SetUp();
+  }
+
+  void TearDown() override {
+    UnsetDynamicMode();
+    RestoreDynamicPassFallback();
+    LazyTest::TearDown();
   }
 };
 

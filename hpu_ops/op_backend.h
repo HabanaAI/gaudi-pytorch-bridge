@@ -280,14 +280,15 @@ class OpBackend : public HabanaOperator {
   static synapse_helpers::tensor BuildScatterNDOnnx(
       OpBackend*,
       synapse_helpers::graph&,
-      const std::vector<std::reference_wrapper<synapse_helpers::tensor>>&,
+      const std::vector<synTensor>&,
       at::IntArrayRef,
       at::ScalarType,
+      int validCountTensorRank,
       c10::optional<int> = c10::nullopt);
 
   struct TensorsPair {
     const at::Tensor& pt_t;
-    synapse_helpers::tensor& sh_t;
+    synTensor syn_t;
   };
 
  protected:
@@ -336,7 +337,7 @@ class OpBackend : public HabanaOperator {
         pos,
         " type expected to be ",
         "tensor");
-    return {sg.stack[pos].toTensor(), SynInput(sg.GetAndIncrSynPos()).ref()};
+    return {sg.stack[pos].toTensor(), syn_in(sg.GetAndIncrSynPos())};
   }
 
   at::ScalarType HandleDtypePropagation(
@@ -355,7 +356,7 @@ class OpBackend : public HabanaOperator {
         " type expected to be ",
         "none or tensor");
     return sg.stack[pos].isTensor()
-        ? TensorsPair{sg.stack[pos].toTensor(), SynInput(sg.GetAndIncrSynPos()).ref()}
+        ? TensorsPair{sg.stack[pos].toTensor(), syn_in(sg.GetAndIncrSynPos())}
         : c10::optional<TensorsPair>{};
   }
 

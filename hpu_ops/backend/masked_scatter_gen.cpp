@@ -31,7 +31,7 @@ void MaskedScatter::AddNode(
   auto maskScalarType = mask.pt_t.scalar_type();
 
   auto broadcastedMask =
-      BroadcastHelper(graph, mask.sh_t.get(), selfShape, maskScalarType);
+      BroadcastHelper(graph, mask.syn_t, selfShape, maskScalarType);
 
   auto selfNrOfElements = self.pt_t.numel();
 
@@ -43,19 +43,20 @@ void MaskedScatter::AddNode(
       maskScalarType);
 
   auto flattenedSource = ReshapeHelper(
-      graph, source.sh_t.get(), {selfNrOfElements}, source.pt_t.scalar_type());
+      graph, source.syn_t, {selfNrOfElements}, source.pt_t.scalar_type());
 
   constexpr auto finalResultIndex = 0;
 
   auto scatterND = BuildScatterNDOnnx(
       this,
       graph,
-      {self.sh_t,
-       nonZeroForBroadcastedMask[0],
-       flattenedSource,
-       nonZeroForBroadcastedMask[1]},
+      {self.syn_t,
+       nonZeroForBroadcastedMask[0].get(),
+       flattenedSource.get(),
+       nonZeroForBroadcastedMask[1].get()},
       selfShape,
       self.pt_t.scalar_type(),
+      nonZeroForBroadcastedMask[1].shape().rank().value,
       finalResultIndex);
 
   syn_out(0) = std::move(scatterND);

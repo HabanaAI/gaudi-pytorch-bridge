@@ -13,26 +13,8 @@
 using namespace habana_lazy;
 using namespace at;
 
-class SifTest : public habana_lazy_test::LazyTest {
+class SifTest : public habana_lazy_test::LazyDynamicTest {
  protected:
-  void SetUp() override {
-    SetLazyMode();
-    SetSeed();
-    DisableCpuFallback();
-    SetDynamicMode();
-    DisableDynamicPassFallback();
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    habana::RecipeCacheLRU::get_cache().clear();
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-  }
-
-  void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    UnsetDynamicMode();
-    RestoreDynamicPassFallback();
-    RestoreMode();
-  }
-
   void validate_shape_start() {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
       SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);

@@ -906,15 +906,15 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNonZero(
 synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    const std::vector<std::reference_wrapper<synapse_helpers::tensor>>&
-        inTensors,
+    const std::vector<synTensor>& inTensors,
     at::IntArrayRef outShape,
     at::ScalarType inScalarType,
+    int validCountTensorRank,
     c10::optional<int> finalResultIndex) {
-  const auto& inputTensor = inTensors[0].get();
-  const auto& indexTensor = inTensors[1].get();
-  const auto& updatesTensor = inTensors[2].get();
-  const auto& validCountTensor = inTensors[3].get();
+  const auto& inputTensor = inTensors[0];
+  const auto& indexTensor = inTensors[1];
+  const auto& updatesTensor = inTensors[2];
+  const auto& validCountTensor = inTensors[3];
 
   constexpr auto allowedNrOfInTensors = 3; // +1 optional
   constexpr auto allowedValidCountTensorRank = 1;
@@ -933,31 +933,30 @@ synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
       nrOfInTensors,
       " tensors was given");
   HABANA_ASSERT(
-      validCountTensor.shape().rank().value == allowedValidCountTensorRank,
+      validCountTensorRank == allowedValidCountTensorRank,
       "ScatterND ValidCount tensor must have rank 1");
 
   const std::string guid = "scatter_nd_onnx_fwd_" +
       habana_helpers::name_suffix_from_type(inScalarType);
 
-  return std::move(
-      op->BuildOp(
-            graph,
-            guid,
-            [&]() {
-              std::vector<synTensor> res;
-              res.reserve(4);
-              res.insert(
-                  res.begin(),
-                  {inputTensor.get(), indexTensor.get(), updatesTensor.get()});
+  return std::move(op->BuildOp(
+                         graph,
+                         guid,
+                         [&]() {
+                           std::vector<synTensor> res;
+                           res.reserve(4);
+                           res.insert(
+                               res.begin(),
+                               {inputTensor, indexTensor, updatesTensor});
 
-              if (nrOfInTensors == allowedNrOfInTensors + 1) {
-                res.push_back(validCountTensor.get());
-              }
+                           if (nrOfInTensors == allowedNrOfInTensors + 1) {
+                             res.push_back(validCountTensor);
+                           }
 
-              return res;
-            }(),
-            {NodeAttr::NodeOutputAttr{
-                outShape, inScalarType, finalResultIndex}})
-          .at(0));
+                           return res;
+                         }(),
+                         {NodeAttr::NodeOutputAttr{
+                             outShape, inScalarType, finalResultIndex}})
+                       .at(0));
 }
 } // namespace habana

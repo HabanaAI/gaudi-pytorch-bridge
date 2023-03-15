@@ -15,35 +15,8 @@
 #include "habana_lazy_test_infra.h"
 
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyDynamicShapesSerializtionTest : public habana_lazy_test::LazyTest {
-  void SetUp() override {
-    SetLazyMode();
-
-    SetSeed();
-
-    DisableCpuFallback();
-
-    SetDynamicMode();
-
-    DisableDynamicPassFallback();
-
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    habana::RecipeCacheLRU::get_cache().clear();
-
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-  }
-
-  void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    UnsetDynamicMode();
-
-    RestoreDynamicPassFallback();
-
-    RestoreMode();
-  }
-};
+class LazyDynamicShapesSerializtionTest
+    : public habana_lazy_test::LazyDynamicTest {};
 
 std::string read_csv_file(std::string path) {
   std::string text = "", line;

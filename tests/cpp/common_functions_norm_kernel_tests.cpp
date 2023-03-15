@@ -76,12 +76,20 @@ std::vector<AtTensorPair> native_layer_norm_test(
     NativeLayerNormTestWeight weight,
     NativeLayerNormTestBias bias,
     c10::ScalarType dtype,
+    int dsIterNo,
+    int dsItersCount,
     bool verbose) {
   std::vector<AtTensorPair> result;
   result.reserve(mode == NativeLayerNormTestMode::FwdBwdAffine ? 6 : 3);
 
   std::vector<long> input_shape;
   std::vector<long> normalized_shape;
+
+  int typicallyTen = 10;
+  if (dsItersCount > 1) {
+    typicallyTen += 2 * dsIterNo - dsItersCount + 1;
+    std::cout << "Iteration Start -- " << dsIterNo << " ----" << std::endl;
+  }
 
   switch (mode) {
     case NativeLayerNormTestMode::FwdBwdAffine:
@@ -93,7 +101,7 @@ std::vector<AtTensorPair> native_layer_norm_test(
       normalized_shape = {4};
       break;
     default:
-      input_shape = {10, 1, 3, 4, 4}; // nchw
+      input_shape = {typicallyTen, 1, 3, 4, 4}; // nchw
       normalized_shape = {1, 3, 4, 4};
       break;
   }
@@ -200,8 +208,8 @@ std::vector<AtTensorPair> native_layer_norm_test(
     if (mode == NativeLayerNormTestMode::FwdBwdAffine) {
       mean_cpu = result[1].cpu;
       rstd_cpu = result[2].cpu;
-      mean_hpu = result[1].hpu;
-      rstd_hpu = result[2].hpu;
+      mean_hpu = result[1].hpu.to(torch::kHPU);
+      rstd_hpu = result[2].hpu.to(torch::kHPU);
     } else {
       int64_t N = 0;
       std::array<int64_t, 2> mean_rstd_shape = {};
@@ -283,6 +291,10 @@ std::vector<AtTensorPair> native_layer_norm_test(
       std::string label = std::string("Bwd output ") + std::to_string(i) + ':';
       dump_tensors<float>(label, result.back().hpu, result.back().cpu, verbose);
     }
+  }
+
+  if (dsItersCount > 1) {
+    std::cout << "Iteration End -- " << dsIterNo << " ----" << std::endl;
   }
 
   return result;

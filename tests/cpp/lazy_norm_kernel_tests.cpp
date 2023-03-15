@@ -34,6 +34,11 @@ LAYER_NORM_TEST(LazyNormKernelTest, Backward)
 LAYER_NORM_TEST(LazyNormKernelTest, BackwardGal)
 LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
 
+class LazyNormKernelDsTest : public habana_lazy_test::LazyDynamicTest {};
+
+LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Forward)
+LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Backward)
+
 TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
       torch::arange(240, torch::dtype(torch::kFloat).requires_grad(false))

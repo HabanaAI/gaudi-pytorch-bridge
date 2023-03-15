@@ -27,29 +27,19 @@ using namespace habana_lazy;
 // In this class both the pass fallback and compilation fallback is enabled
 class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
-    SetLazyMode();
-
-    SetSeed();
-
-    DisableCpuFallback();
-
     SetDynamicMode();
 
     EnableDynamicLaunchFallback();
 
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
+    habana_lazy_test::LazyTest::SetUp();
   }
 
   void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     UnsetDynamicMode();
 
     RestoreDynamicLaunchFallback();
 
-    RestoreMode();
+    habana_lazy_test::LazyTest::TearDown();
   }
 };
 

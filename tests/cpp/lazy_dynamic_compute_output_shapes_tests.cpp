@@ -31,28 +31,18 @@
 using namespace habana_lazy;
 
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyDynamicComputeOutputShapesTest : public habana_lazy_test::LazyTest {
+class LazyDynamicComputeOutputShapesTest
+    : public habana_lazy_test::LazyDynamicTest {
   void SetUp() override {
-    SetLazyMode();
-    SetSeed();
-    DisableCpuFallback();
-    SetDynamicMode();
-    DisableDynamicPassFallback();
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    habana::RecipeCacheLRU::get_cache().clear();
     if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
       SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
     }
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
+    habana_lazy_test::LazyDynamicTest::SetUp();
   }
 
   void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    UnsetDynamicMode();
-    RestoreDynamicPassFallback();
-    RestoreMode();
     UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+    habana_lazy_test::LazyDynamicTest::TearDown();
   }
 };
 

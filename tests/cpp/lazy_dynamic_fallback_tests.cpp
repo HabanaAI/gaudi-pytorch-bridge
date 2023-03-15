@@ -29,25 +29,13 @@ using namespace habana_lazy;
 // disabled
 class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
-    SetLazyMode();
-
-    SetSeed();
-
-    DisableCpuFallback();
-
     SetDynamicMode();
-
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-    TearDownBridge();
+    habana_lazy_test::LazyTest::SetUp();
   }
 
   void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
     UnsetDynamicMode();
-
-    RestoreMode();
+    habana_lazy_test::LazyTest::TearDown();
   }
 };
 

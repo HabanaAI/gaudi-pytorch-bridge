@@ -530,7 +530,7 @@ sizes_vec LayerNormOutputShape(const at::Stack& stack) {
   return {output_sizes, shape_mean_rstd, shape_mean_rstd};
 }
 
-static sh::tensor CreateLayerNormBiasWeightTensor(
+static synTensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
     std::vector<sh::tensor>& storage,
@@ -540,28 +540,27 @@ static sh::tensor CreateLayerNormBiasWeightTensor(
     float constant_value,
     std::array<int64_t, 1>& weightOrBias_shape) {
   if (weightOrBiasOpt) {
-    sh::tensor* pWeightOrBias = &weightOrBiasOpt->sh_t;
+    synTensor synWeightOrBias = weightOrBiasOpt->syn_t;
     if (weightOrBiasOpt->pt_t.scalar_type() != c10::kFloat) {
       storage.push_back(OpBackend::BuildCast(
           op,
           graph,
-          pWeightOrBias->get(),
+          synWeightOrBias,
           weightOrBiasOpt->pt_t.sizes(),
           weightOrBiasOpt->pt_t.scalar_type(),
           c10::kFloat));
-      pWeightOrBias = &storage.back();
+      synWeightOrBias = storage.back().get();
     }
 
     weightOrBias_shape = {weightOrBiasOpt->pt_t.numel()};
-    auto weightOrBias = OpBackend::BuildReshape(
-        op, graph, pWeightOrBias->get(), weightOrBias_shape, c10::kFloat);
-    return weightOrBias;
+    storage.push_back(OpBackend::BuildReshape(
+        op, graph, synWeightOrBias, weightOrBias_shape, c10::kFloat));
   } else {
     weightOrBias_shape = {constant_numel};
-    auto weightOrBias = OpBackend::BuildConstant(
-        op, graph, constant_value, c10::kFloat, weightOrBias_shape);
-    return weightOrBias;
+    storage.push_back(OpBackend::BuildConstant(
+        op, graph, constant_value, c10::kFloat, weightOrBias_shape));
   }
+  return storage.back().get();
 }
 
 void LayerNormHabanaOperator::AddNode(
@@ -591,10 +590,10 @@ void LayerNormHabanaOperator::AddNode(
   std::vector<sh::tensor> storage;
   // Manual handling of reserved size - maximum number of calls to
   // storage.push_back
-  storage.reserve(3);
+  storage.reserve(5);
 
   std::array<int64_t, 1> weightOrBias_shape = {};
-  sh::tensor weight = CreateLayerNormBiasWeightTensor(
+  synTensor synWeight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
       storage,
@@ -604,7 +603,7 @@ void LayerNormHabanaOperator::AddNode(
       1.0f,
       weightOrBias_shape);
 
-  sh::tensor bias = CreateLayerNormBiasWeightTensor(
+  synTensor synBias = CreateLayerNormBiasWeightTensor(
       this,
       graph,
       storage,
@@ -614,7 +613,7 @@ void LayerNormHabanaOperator::AddNode(
       0.0f,
       weightOrBias_shape);
 
-  sh::tensor* localInput = &input.sh_t;
+  synTensor synInput = input.syn_t;
 
   if (input_ndim < normalized_ndim ||
       !input_shape.slice(input_ndim - normalized_ndim)
@@ -638,11 +637,8 @@ void LayerNormHabanaOperator::AddNode(
   int64_t input_reshaped_shape[] = {1, 1, m, n};
   if (!use_tpc_affine_path) {
     storage.push_back(ReshapeHelper(
-        graph,
-        localInput->get(),
-        input_reshaped_shape,
-        input.pt_t.scalar_type()));
-    localInput = &storage.back();
+        graph, synInput, input_reshaped_shape, input.pt_t.scalar_type()));
+    synInput = storage.back().get();
   }
 
   ns_LayerNormKernel::ParamsNorm params_norm{};
@@ -686,7 +682,7 @@ void LayerNormHabanaOperator::AddNode(
   auto ln = BuildOp(
       graph,
       guid_,
-      {localInput->get(), bias.get(), weight.get()},
+      {synInput, synBias, synWeight},
       node_output_attr,
       paramsPtr,
       paramsSize);
@@ -717,16 +713,6 @@ sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
   return {input_size, weight_size, weight_size};
 }
 
-static void CheckMeanRstdSizes(
-    const char* label,
-    const OpBackend::TensorsPair& meanOrRstd) {
-  TORCH_CHECK(
-      meanOrRstd.pt_t.sizes().size() <= 4,
-      "Input ",
-      label,
-      " for LayerNormBackward is over 4 dims - unsupported!");
-}
-
 void LayerNormBwdHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -739,9 +725,6 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto output_mask = getNextInput<c10::List<bool>>(stackGetter);
-
-  CheckMeanRstdSizes("mean", mean);
-  CheckMeanRstdSizes("rstd", rstd);
 
   const auto input_shape = input.pt_t.sizes();
   const auto input_ndim = input.pt_t.dim();
@@ -756,19 +739,19 @@ void LayerNormBwdHabanaOperator::AddNode(
   std::vector<sh::tensor> storage;
   // Manual handling of reserved size - maximum number of calls to
   // storage.push_back
-  storage.reserve(7);
+  storage.reserve(8);
 
   for (int i = 0; i < 2; ++i) {
     const auto& src = (i == 0) ? grad_out : input;
-    storage.push_back(ReshapeHelper(
-        graph, src.sh_t.get(), sizes_as_4D, src.pt_t.scalar_type()));
+    storage.push_back(
+        ReshapeHelper(graph, src.syn_t, sizes_as_4D, src.pt_t.scalar_type()));
   }
 
-  const auto& grad_out_as_4D = storage[0];
-  const auto& input_as_4D = storage[1];
+  synTensor grad_out_as_4D = storage[0].get();
+  synTensor input_as_4D = storage[1].get();
 
   std::array<int64_t, 1> weightShape = {};
-  sh::tensor weight = CreateLayerNormBiasWeightTensor(
+  synTensor synWeight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
       storage,
@@ -784,7 +767,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   for (int i = 0; i < storage_indices.size(); ++i) {
     const auto& src = (i == 0) ? mean : rstd;
     storage.push_back(ReshapeHelper(
-        graph, src.sh_t.get(), mean_rstd_as_4D, src.pt_t.scalar_type()));
+        graph, src.syn_t, mean_rstd_as_4D, src.pt_t.scalar_type()));
 
     if (src.pt_t.scalar_type() != c10::kFloat) {
       storage.push_back(CastHelper(
@@ -797,8 +780,8 @@ void LayerNormBwdHabanaOperator::AddNode(
     storage_indices[i] = storage.size() - 1;
   }
 
-  const auto& mean_as_4D = storage[storage_indices[0]];
-  const auto& rstd_as_4D = storage[storage_indices[1]];
+  synTensor mean_as_4D = storage[storage_indices[0]].get();
+  synTensor rstd_as_4D = storage[storage_indices[1]].get();
 
   auto outputShapes = LayerNormBwdOutputShape(stack);
 
@@ -808,11 +791,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto lnbwd = BuildOp(
       graph,
       guid_,
-      {input_as_4D.get(),
-       grad_out_as_4D.get(),
-       mean_as_4D.get(),
-       rstd_as_4D.get(),
-       weight.get()},
+      {input_as_4D, grad_out_as_4D, mean_as_4D, rstd_as_4D, synWeight},
       {{sizes_as_4D, ScalarType()},
        {weightShape, c10::kFloat},
        {weightShape, c10::kFloat}},

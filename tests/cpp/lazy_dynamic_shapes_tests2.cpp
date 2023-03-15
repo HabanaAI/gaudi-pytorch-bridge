@@ -26,35 +26,7 @@
 
 using namespace habana_lazy;
 
-class LazyDynamicShapesTest2 : public habana_lazy_test::LazyTest {
-  void SetUp() override {
-    SetLazyMode();
-
-    SetSeed();
-
-    DisableCpuFallback();
-
-    SetDynamicMode();
-
-    DisableDynamicPassFallback();
-
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    habana::RecipeCacheLRU::get_cache().clear();
-
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-  }
-
-  void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-
-    UnsetDynamicMode();
-
-    RestoreDynamicPassFallback();
-
-    RestoreMode();
-  }
-};
+class LazyDynamicShapesTest2 : public habana_lazy_test::LazyDynamicTest {};
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
   int N = 2, C = 3, H = 4, W = 5;

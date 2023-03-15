@@ -31,25 +31,8 @@
 using namespace habana_lazy;
 
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyDynamicShapesBucketRefineTest : public habana_lazy_test::LazyTest {
-  void SetUp() override {
-    SetLazyMode();
-    SetSeed();
-    DisableCpuFallback();
-    SetDynamicMode();
-    DisableDynamicPassFallback();
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    habana::RecipeCacheLRU::get_cache().clear();
-    habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
-  }
-
-  void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
-    UnsetDynamicMode();
-    RestoreDynamicPassFallback();
-    RestoreMode();
-  }
-
+class LazyDynamicShapesBucketRefineTest
+    : public habana_lazy_test::LazyDynamicTest {
  public:
   void enable_bucket_refinement() {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD))
