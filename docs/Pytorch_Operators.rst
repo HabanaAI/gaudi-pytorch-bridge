@@ -466,6 +466,7 @@ less_equal                             Yes      Yes      Yes       Yes      No  
 less_equal\_                           Yes      Yes      Yes       Yes      No     torch.Tensor
 log                                    Yes      Yes      No        No       No     torch.Tensor
 log\_                                  Yes      Yes      No        No       No     torch.Tensor
+log_normal\_                           Yes      Yes      No        No       No     torch.Tensor
 log_softmax                            Yes      Yes      No        No       No     torch.Tensor
 log10                                  Yes      Yes      No        No       No     torch.Tensor
 log1p                                  Yes      Yes      No        No       No     torch.Tensor
