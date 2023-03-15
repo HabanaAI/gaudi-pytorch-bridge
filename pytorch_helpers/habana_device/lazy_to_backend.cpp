@@ -27,21 +27,6 @@ void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
   return hb_tensor->get_host_ptr();
 }
 
-// TODO replace with use of tmeta
-std::tuple<synapse_helpers::layouts::MemoryPermutation, bool> lazy_to_backend::
-    get_memory_permutation(const at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  return {tmeta->get_memory_permutation(), tmeta->get_dont_allow_permutation()};
-}
-
-bool lazy_to_backend::is_shape_tensor(const at::Tensor& tensor) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    return false;
-  }
-  auto hb_weight_impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  return hb_weight_impl->isShapeTensor();
-}
-
 bool lazy_to_backend::is_lazy_inference_call_context() {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     if (!habana_lazy::isDeviceInLoweringMode()) {
@@ -85,104 +70,6 @@ at::Tensor lazy_to_backend::create_empty_tensor(const PtTensorInfo& ti) {
   hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
   return pt_tensor;
 }
-
-void lazy_to_backend::set_memory_permutations(
-    at::Tensor& tensor,
-    synapse_helpers::layouts::MemoryPermutation permutation,
-    const synRetrievedLaunchTensorInfoExt* info) {
-  // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
-    return;
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  TORCH_CHECK(
-      impl,
-      "Failed to set the permutation because the BE tensor has no internal impl");
-
-  PT_BRIDGE_DEBUG(
-      "Updating the PT tensor HbInternalTensorImpl address: ",
-      impl,
-      " storage address : ",
-      impl->data(),
-      " with permutation: ",
-      VecToString(permutation),
-      " old permutation was: ",
-      VecToString(impl->GetMemoryPermutation()));
-
-  if (permutation.size() != tensor.sizes().size()) {
-    if (!permutation.empty()) {
-      if (info)
-        PT_BRIDGE_WARN(
-            "wrong permute size - info.tensorId=",
-            info->tensorId,
-            " tensor name: ",
-            info->tensorName,
-            "  permute_vec.size = ",
-            permutation.size(),
-            "  PT tensor shape.dims =",
-            tensor.sizes().size(),
-            " PT shape: ",
-            VecToString(tensor.sizes().vec()),
-            " synapse returned tensor dims: ",
-            info->tensorDims,
-            " synapse returned tensor shape: ",
-            VecToString(std::vector<uint64_t>(
-                info->tensorMaxSize, info->tensorMaxSize + info->tensorDims)));
-      HABANA_ASSERT(false);
-    }
-  }
-  impl->SetMemoryPermutation(permutation);
-}
-
-void lazy_to_backend::set_tensor_layout_format(
-    at::Tensor& tensor,
-    habana::LayoutFormat layout) {
-  // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("Skipping setting layout for EagerOp...");
-    return;
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  TORCH_CHECK(
-      impl,
-      "Failed to set tensor layout because the BE tensor has no internal impl");
-  impl->SetTensorLayout(layout);
-}
-
-habana::LayoutFormat lazy_to_backend::get_tensor_layout_format(
-    const at::Tensor& tensor) {
-  // It should be handled in SW-122018
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("Returning fixed NCHW layout for EagerOp...");
-    return habana::LayoutFormat::NCHW;
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  TORCH_CHECK(
-      impl,
-      "Failed to get tensor layout because the BE tensor has no internal impl");
-  return impl->GetTensorLayout();
-}
-
-void lazy_to_backend::set_host_ptr(const at::Tensor& tensor, void* host_ptr) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("Skipping host ptr for EagerOp...");
-    return;
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  TORCH_CHECK(impl, "not a lazy tensor");
-  return impl->set_host_ptr(host_ptr);
-}
-
-void* lazy_to_backend::get_host_ptr(const at::Tensor& tensor) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("returning null host ptr for EagerOp...");
-    return nullptr;
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  TORCH_CHECK(impl, "not a lazy tensor");
-  return impl->get_host_ptr();
-};
 
 std::string lazy_to_backend::detail::
     InternalFormatter<lazy_to_backend::FormatTokens>::format(

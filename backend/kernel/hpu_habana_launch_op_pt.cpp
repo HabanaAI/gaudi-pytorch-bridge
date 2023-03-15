@@ -444,9 +444,9 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         syn_tensor.get(),
         syn_tensor.tensor_type());
 
-    auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-    if (impl) {
-      ti->set_host_ptr(impl->get_host_ptr());
+    auto tmeta{get_tensor_extra_meta(pt_tensor)};
+    if (tmeta) {
+      ti->set_host_ptr(tmeta->get_host_ptr());
     }
     tiv.push_back(ti);
     ivalue_to_tensor_info_map[ivalue] = ti;
@@ -1035,8 +1035,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
                                  : c10::MemoryFormat::ChannelsLast;
       if (!is_restride_cl) {
         if (tensor.dim() == 4 || tensor.dim() == 5) {
-          auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(tensor);
-          hb_grad_weight->SetTensorLayout(habana::LayoutFormat::HWCK);
+          auto hb_grad_weight{get_tensor_extra_meta(tensor)};
+          hb_grad_weight->set_tensor_layout(habana::LayoutFormat::HWCK);
         }
         tensor.unsafeGetTensorImpl()->empty_tensor_restride(
             c10::MemoryFormat::Contiguous);
@@ -3260,15 +3260,15 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
       auto& tensor = input.toTensor();
-      auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-      bool is_shape_tensor = impl && impl->isShapeTensor();
+      auto tmeta{get_tensor_extra_meta(tensor, true)};
+      bool is_shape_tensor = tmeta && tmeta->is_shape_tensor();
       if (is_shape_tensor) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
             " input is a shape tensor ! ",
-            " impl : ",
-            impl);
+            " tmeta : ",
+            tmeta);
         break;
       }
     }

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <string>
 
+#include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
@@ -809,8 +810,9 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       output_metadata.at(1).persistent);
   if (output_metadata.at(1).persistent) {
     // set Weights layout HWCK
-    auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(grad_weight);
-    hb_grad_weight->SetTensorLayout(habana::LayoutFormat::HWCK);
+    auto hb_grad_weight{get_tensor_extra_meta(grad_weight, true)};
+    if (hb_grad_weight)
+      hb_grad_weight->set_tensor_layout(habana::LayoutFormat::HWCK);
   }
   auto grad_input_nhwc = habana::createPTTensor(
       input_nhwc,

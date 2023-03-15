@@ -15,6 +15,7 @@
 
 #include <sstream>
 
+#include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -75,10 +76,10 @@ void PtTensorInfo::populate_tinfo(
   mf_ = pt_tensor.suggest_memory_format();
   topts_ = pt_tensor.options();
 
-  std::tie(hb_internal_perm_, hb_dont_allow_permute_) =
-      lazy_to_backend::get_memory_permutation(pt_tensor);
-  hb_internal_lf_ = lazy_to_backend::get_tensor_layout_format(pt_tensor);
-
+  auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+  hb_internal_perm_ = tmeta->get_memory_permutation();
+  hb_dont_allow_permute_ = tmeta->get_dont_allow_permutation();
+  hb_internal_lf_ = tmeta->get_tensor_layout();
   PT_BACKEND_DEBUG_TENSOR(
       pt_tensor,
       "Saving the layout and permutation to the cache for tensor: %d",

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <string>
 
+#include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
@@ -540,13 +541,13 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
   at::Tensor bias;
   at::Tensor input = inputs[0].toTensor();
   at::Tensor weight = inputs[1].toTensor();
-  if (habana_lazy::GetHbInternalTensorImpl(weight)) {
+  auto tmeta{get_tensor_extra_meta(weight, true)};
+  if (tmeta) {
     PT_BRIDGE_DEBUG(
-        "ConvOp lowering weight HbInternal address: ",
-        habana_lazy::GetHbInternalTensorImpl(weight),
+        "ConvOp lowering weight tmeta address: ",
+        tmeta,
         " permute: ",
-        VecToString(habana_lazy::GetHbInternalTensorImpl(weight)
-                        ->GetMemoryPermutation()));
+        VecToString(tmeta->get_memory_permutation()));
   } else {
     PT_BRIDGE_DEBUG("ConvOp lowering - weight HbInternal address is null!")
   }

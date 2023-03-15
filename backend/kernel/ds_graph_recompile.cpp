@@ -12,6 +12,7 @@
  */
 
 #include "backend/kernel/ds_graph_recompile.h"
+#include "backend/backend_meta.h"
 #include "backend/kernel/hpu_habana_cache.h"
 
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -35,9 +36,9 @@ at::Tensor habana::CreateEmptyTensor(
     auto pt_tensor = habana_lazy::empty_hpu_lazy(
         tshape, ti.get_topts(), ti.get_mf(), false, SHAPE_TENSOR);
     if (tensor_data.has_shape_tensor_data()) {
-      auto new_impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-      HABANA_ASSERT(new_impl);
-      new_impl->get_shape_struct() = tensor_data;
+      auto new_tmeta{get_tensor_extra_meta(pt_tensor)};
+      HABANA_ASSERT(new_tmeta);
+      new_tmeta->get_shape_struct() = tensor_data;
     }
     return pt_tensor;
   }

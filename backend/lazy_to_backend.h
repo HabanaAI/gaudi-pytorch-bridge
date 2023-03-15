@@ -25,21 +25,8 @@ namespace lazy_to_backend {
 bool is_const_tensor(const at::Tensor& tensor);
 void* host_ptr_for_const_tensor(const at::Tensor& tensor);
 
-std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
-get_memory_permutation(const at::Tensor& tensor);
-void set_memory_permutations(
-    at::Tensor& tensor,
-    synapse_helpers::layouts::MemoryPermutation permutation,
-    const synRetrievedLaunchTensorInfoExt* info = nullptr);
-
-void set_tensor_layout_format(at::Tensor& tensor, habana::LayoutFormat format);
-habana::LayoutFormat get_tensor_layout_format(const at::Tensor& tensor);
-
 bool is_lazy_inference_call_context();
-bool is_shape_tensor(const at::Tensor& tensor);
 at::Tensor create_empty_tensor(const PtTensorInfo& ti);
-void set_host_ptr(const at::Tensor& tensor, void* host_ptr);
-void* get_host_ptr(const at::Tensor& tensor);
 
 /**
  * Tokens that can be passed to PT_BACKEND_DEBUG_TENSOR to insert

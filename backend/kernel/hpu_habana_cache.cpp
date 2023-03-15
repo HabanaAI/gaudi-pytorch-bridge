@@ -936,11 +936,10 @@ void RecipeValueSpec::update_patching_table(
     if (input.isTensor()) {
       auto& tensor = input.toTensor();
 
-      std::vector<uint8_t> permutation;
-      bool dont_allow_permutation = false;
-      std::tie(permutation, dont_allow_permutation) =
-          lazy_to_backend::get_memory_permutation(tensor);
-      if (false == lazy_to_backend::is_shape_tensor(tensor)) {
+      auto tmeta{habana::get_tensor_extra_meta(tensor)};
+      std::vector<uint8_t> permutation{tmeta->get_memory_permutation()};
+      bool dont_allow_permutation{tmeta->get_dont_allow_permutation()};
+      if (false == tmeta->is_shape_tensor()) {
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
@@ -954,8 +953,7 @@ void RecipeValueSpec::update_patching_table(
           dtinfos_patched_count++;
         }
       } else {
-        dtensorinfos->at(ridx)->set_host_ptr(
-            lazy_to_backend::get_host_ptr(tensor));
+        dtensorinfos->at(ridx)->set_host_ptr(tmeta->get_host_ptr());
       }
       ridx++;
     } else if (input.isTensorList()) {
@@ -963,10 +961,9 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(t);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
-        std::vector<uint8_t> permutation;
-        bool dont_allow_permutation = false;
-        std::tie(permutation, dont_allow_permutation) =
-            lazy_to_backend::get_memory_permutation(t);
+        auto tmeta{habana::get_tensor_extra_meta(t)};
+        std::vector<uint8_t> permutation{tmeta->get_memory_permutation()};
+        bool dont_allow_permutation{tmeta->get_dont_allow_permutation()};
         if (enable_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
