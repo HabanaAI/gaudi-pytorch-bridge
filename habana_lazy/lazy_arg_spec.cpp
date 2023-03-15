@@ -15,9 +15,6 @@
 #include "habana_lazy/passes/pass_utils.h"
 namespace habana_lazy {
 
-std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
-    LazyArgumentSpec::m_compiled_graph;
-
 LazyArgumentSpec::LazyArgumentSpec(
     bool with_grad,
     const at::ArrayRef<torch::jit::IValue>& input_refs,

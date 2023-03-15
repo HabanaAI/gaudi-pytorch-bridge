@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "aten_lazy_bridge.h"
 #include "habana_helpers/misc_utils.h"
@@ -18,16 +21,6 @@
 #include "tensor_impl.h"
 
 namespace habana_lazy {
-
-at::Tensor HbLazyToAtenTensor(
-    HbLazyTensor HbLazy_tensor,
-    const at::TensorOptions& tensor_options) {
-  at::Tensor tensor = HbLazy_tensor.ToTensor(/*detached=*/false);
-  // We need to copy the tensor since it is cached within the HbLazyTensor, and
-  // returning it directly might expose it to in place changes. Which there was
-  // COW option :)
-  return tensor.to(tensor_options, /*non_blocking=*/false, /*copy=*/true);
-}
 
 void CreateStorageForAtenTensor(
     size_t tensor_size,
@@ -114,6 +107,7 @@ HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor) {
   return dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
 }
 
+namespace {
 HbLazyTensor CheckAndUpdateSizeStride(
     HbLazyTensor hl_t,
     const at::Tensor& tensor) {
@@ -197,6 +191,7 @@ HbLazyTensor CheckAndUpdateSizeStride(
 
   return hl_t;
 }
+} // namespace
 
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
@@ -354,164 +349,10 @@ at::Tensor CreateHbLazyTensor(
   return tensor;
 }
 
-c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor) {
-  auto hb_tensor = TryGetHbLazyTensor(tensor);
-  if (!hb_tensor) {
-    return c10::nullopt;
-  }
-  return hb_tensor->GetDevice();
-}
-
 ir::Value GetIrValueForListConstruct(
     const ir::ValueList& values,
     bool optional) {
-  return ir::Value(std::make_shared<ir::ListConstruct>(values, optional));
-}
-
-std::vector<at::Tensor> HpuGetFallbackTensorList(
-    const std::vector<at::Tensor>& tensors) {
-  std::vector<at::Tensor> fbtensors;
-  fbtensors.reserve(tensors.size());
-  for (const auto& tensor : tensors) {
-    fbtensors.push_back(tensor.to(c10::kCPU));
-  }
-  return fbtensors;
-}
-
-void HpuGatherLazyFallbackTensorList(
-    const std::vector<at::Tensor>& tensors,
-    std::vector<HbLazyTensor>& tensors_to_execute) {
-  for (const auto& tensor : tensors) {
-    tensors_to_execute.push_back(GetOrCreateHbLazyTensor(tensor));
-  }
-}
-void HpuGatherLazyFallbackOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors,
-    std::vector<HbLazyTensor>& tensors_to_execute) {
-  for (const auto& tensor : tensors) {
-    if (tensor.has_value() && tensor.value().defined()) {
-      tensors_to_execute.push_back(GetOrCreateHbLazyTensor(tensor.value()));
-    }
-  }
-}
-
-const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors) {
-  std::vector<c10::optional<at::Tensor>> fbtensors;
-  fbtensors.reserve(tensors.size());
-  for (const auto& tensor : tensors) {
-    if (tensor.has_value() && tensor.value().defined()) {
-      fbtensors.emplace_back(tensor.value().to(c10::kCPU));
-    } else {
-      fbtensors.emplace_back(tensor);
-    }
-  }
-  return fbtensors;
-}
-
-c10::List<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
-    const c10::List<c10::optional<at::Tensor>>& tensors) {
-  c10::List<c10::optional<at::Tensor>> fbtensors;
-  fbtensors.reserve(tensors.size());
-  for (c10::optional<at::Tensor> tensor : tensors) {
-    if (tensor.has_value() && tensor.value().defined()) {
-      fbtensors.emplace_back(tensor.value().to(c10::kCPU));
-    } else {
-      fbtensors.emplace_back(tensor);
-    }
-  }
-  return fbtensors;
-}
-
-at::Tensor CreateHpuTensor(
-    const at::Tensor& tensor,
-    const c10::optional<c10::Device>& device) {
-  if (tensor.defined() && device) {
-    return tensor.contiguous().to(device.value());
-  }
-  return tensor;
-}
-
-std::vector<at::Tensor> CreateHpuTensors(
-    const std::vector<at::Tensor>& tensors,
-    const c10::optional<c10::Device>& device) {
-  std::vector<at::Tensor> htensors;
-  htensors.reserve(tensors.size());
-  for (auto& tensor : tensors) {
-    htensors.push_back(CreateHpuTensor(tensor, device));
-  }
-  return htensors;
-}
-
-void HpuUpdateTensors(
-    std::vector<at::Tensor>& dst_tensors,
-    std::vector<at::Tensor>& src_tensors,
-    const std::vector<size_t>& indices) {
-  for (auto index : indices) {
-    auto dst = dst_tensors.at(index);
-    auto src = src_tensors.at(index);
-    // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
-    // says:
-    // When a user passes one or more tensors to out= the contract is as
-    // follows:
-    // * if an out tensor has no elements it may be resized
-    // * passing out= tensors is numerically equivalent to performing the
-    //   operation and "safe" copying its results to the (possibly resized if
-    //   empty) out tensors
-
-    // if (dst.numel() == 0) {
-    if (dst.sizes() != src.sizes()) {
-      auto shape = at::DimVector(src.sizes());
-      THHTensor_resizeNd(
-          dst.unsafeGetTensorImpl(), shape.size(), shape.data(), nullptr);
-    }
-
-    dst.copy_(src, /*non_blocking*/ true);
-  }
-}
-c10::optional<c10::Device> GetHpuDevice(const at::Tensor& tensor) {
-  return tensor.device();
-}
-
-c10::optional<c10::Device> GetHpuDevice(
-    const c10::optional<at::Tensor>& tensor) {
-  if (!tensor.has_value()) {
-    return c10::nullopt;
-  }
-  return GetHpuDevice(*tensor);
-}
-
-c10::optional<c10::Device> GetHpuDevice(const at::TensorList& tensors) {
-  for (const auto& tensor : tensors) {
-    auto device = GetHpuDevice(tensor);
-    if (device) {
-      return device;
-    }
-  }
-  return c10::nullopt;
-}
-
-c10::optional<c10::Device> GetHpuDevice(
-    const at::TensorOptions& tensor_options) {
-  if (!tensor_options.has_device()) {
-    return c10::nullopt;
-  }
-  return GetHpuDevice(tensor_options.device());
-}
-
-c10::optional<c10::Device> GetHpuDevice(const c10::Device& device) {
-  if (device.type() != at::kHPU) {
-    return c10::nullopt;
-  }
-  return device;
-}
-
-c10::optional<c10::Device> GetHpuDevice(
-    const c10::optional<c10::Device>& device) {
-  if (!device) {
-    return c10::nullopt;
-  }
-  return GetHpuDevice(*device);
+  return {std::make_shared<ir::ListConstruct>(values, optional)};
 }
 
 void* GetLazyTensorDataPtr(const at::Tensor& t) {

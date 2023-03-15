@@ -25,7 +25,6 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_launch.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/lazy_arg_spec.h"
 #include "habana_lazy/ops/hpu_input.h"
@@ -747,6 +746,17 @@ void HbLazyTensor::applyPendingGraph() {
   }
 }
 
+namespace {
+inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
+  if (device_str.empty()) {
+    return SynapseDeviceToAtenDevice(
+        synapse_helpers::HPURegistrar::get_device());
+  }
+
+  return c10::Device(device_str);
+}
+} // namespace
+
 void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo,
@@ -1016,6 +1026,39 @@ void PostLaunch(
   // Restore the optimizations which are cleared forcefully in getlivetensors
   exec::OptPassCfg::GetInstance()->RestoreOptPass();
 }
+
+struct LaunchTensorsInfo {
+  std::vector<HbLazyTensor> tensors_ptr;
+  std::vector<std::shared_ptr<Data>> input_list;
+  std::vector<int> indices;
+  // Tensorids list which is part of current exec thread
+  std::vector<int64_t> executing_tids;
+  habana_lazy::ir::PostOrderData po_data;
+  exec::HlExec hlexec;
+  torch::jit::Stack stack;
+  bool async;
+  bool has_queued;
+  uint64_t launch_jobid;
+  bool dynamic_shape;
+};
+
+struct LaunchEagerInfo {
+  std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo;
+  std::vector<at::Tensor> retained_tensor_list;
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+      optimized_path_jit_ir_and_mdata;
+  std::string lazyOpName;
+  std::vector<std::vector<int64_t>> out_shapes;
+  size_t optimizedLazyEagerKey;
+  bool isOptimizedLazyEager;
+};
+
+struct LaunchStreamInfo {
+  const c10::hpu::HPUStream stream;
+  synEventHandle event_handle;
+  synapse_helpers::hpuStream_t event_stream;
+  bool event_flag;
+};
 
 void LaunchSyncTensorsGraph(
     LaunchTensorsInfo launch_info,

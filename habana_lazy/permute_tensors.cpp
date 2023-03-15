@@ -91,6 +91,7 @@ void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
   }
 }
 
+namespace {
 std::vector<int64_t> translateSynapsePermuteToPt(
     const std::vector<uint8_t>& synapse_permuate) {
   // first reverse vector and then change idx to mirror
@@ -119,6 +120,7 @@ std::vector<int64_t> calcNewStrides(
   }
   return new_strides_perm;
 }
+} // namespace
 
 void PermuteTensors::handlePermutedTensor(
     const torch::Tensor& permutedTensor,

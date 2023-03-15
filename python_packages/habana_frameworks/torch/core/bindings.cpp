@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
@@ -15,10 +18,12 @@
 #include "habana_lazy/hlexec.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 
+namespace {
 int GetCurrentThreadDevice() {
   auto& d = synapse_helpers::HPURegistrar::get_device();
   return d.id();
 }
+} // namespace
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });

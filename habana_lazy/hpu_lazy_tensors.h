@@ -467,21 +467,7 @@ class HbContextArena {
 
 inline c10::Device SynapseDeviceToAtenDevice(
     const synapse_helpers::device& device) {
-  return c10::Device(at::kHPU, device.id());
-}
-
-inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
-  if (device_str.empty()) {
-    return SynapseDeviceToAtenDevice(
-        synapse_helpers::HPURegistrar::get_device());
-  }
-
-  return c10::Device(device_str);
-}
-
-inline std::string GetCurrentThreadDevice() {
-  return SynapseDeviceToAtenDevice(synapse_helpers::HPURegistrar::get_device())
-      .str();
+  return {at::kHPU, static_cast<at::DeviceIndex>(device.id())};
 }
 
 // check to be performed in main thread before

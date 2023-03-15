@@ -66,10 +66,5 @@ class LazyArgumentSpec {
 
   size_t m_post_order_nodes_hash;
   size_t m_hash_code = 0;
-
-  //
-  // Cache for storing the compiled graph
-  static std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
-      m_compiled_graph;
 };
 } // namespace habana_lazy

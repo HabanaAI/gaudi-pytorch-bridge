@@ -272,7 +272,6 @@ at::Tensor add_slice_insert_node(
     const at::Tensor& insert_t,
     const std::vector<StridedOpSliceParams>& params);
 
-bool is_aliased_view(HbLazyTensorImpl& self, HbLazyTensorImpl& other);
 } // namespace habana_lazy
 
 #define LOCK_VIEW_TABLE_MUTEX(viewContext) \

@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <c10/core/TensorImpl.h>
 #include "backend/helpers/get_n_bytes.h"
@@ -18,10 +21,6 @@ namespace habana_lazy {
 inline bool IsDefined(const c10::optional<at::Tensor>& tensor) {
   return tensor.has_value() && tensor.value().defined();
 }
-
-at::Tensor HbLazyToAtenTensor(
-    HbLazyTensor HbLazy_tensor,
-    const at::TensorOptions& tensor_options);
 
 // Creates an ATen tensor with HbLazy type id from an HbLazyTensor.
 at::Tensor AtenFromHbLazyTensor(
@@ -82,9 +81,6 @@ int64_t GetHbLazyTensorId(
     const at::Tensor& tensor,
     bool get_updated = true,
     bool handle_collective = true);
-HbLazyTensor CheckAndUpdateSizeStride(
-    HbLazyTensor hl_t,
-    const at::Tensor& tensor);
 
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     const at::Tensor& tensor,
@@ -99,48 +95,14 @@ bool IsHbLazyTensor(const at::Tensor& tensor);
 ir::Value GetIrValueForNone();
 
 ir::Value GetIrValueForScalar(const c10::Scalar& scalar);
+
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
     const c10::optional<at::Device>& device);
-c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor);
 
 ir::Value GetIrValueForListConstruct(
     const ir::ValueList& values,
     bool optional = false);
 
-std::vector<at::Tensor> HpuGetFallbackTensorList(
-    const std::vector<at::Tensor>& tensors);
-void HpuGatherLazyFallbackTensorList(
-    const std::vector<at::Tensor>& tensors,
-    std::vector<HbLazyTensor>& tensors_to_execute);
-void HpuGatherLazyFallbackOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors,
-    std::vector<HbLazyTensor>& tensors_to_execute);
-const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors);
-c10::List<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
-    const c10::List<c10::optional<at::Tensor>>& tensors);
-
-at::Tensor CreateHpuTensor(
-    const at::Tensor& tensor,
-    const c10::optional<c10::Device>& device);
-std::vector<at::Tensor> CreateHpuTensors(
-    const std::vector<at::Tensor>& tensors,
-    const c10::optional<c10::Device>& device);
-
-void HpuUpdateTensors(
-    std::vector<at::Tensor>& dst_tensors,
-    std::vector<at::Tensor>& src_tensors,
-    const std::vector<size_t>& indices);
-
-c10::optional<c10::Device> GetHpuDevice(const at::Tensor& tensor);
-c10::optional<c10::Device> GetHpuDevice(
-    const c10::optional<at::Tensor>& tensor);
-c10::optional<c10::Device> GetHpuDevice(const at::TensorList& tensors);
-c10::optional<c10::Device> GetHpuDevice(
-    const at::TensorOptions& tensor_options);
-c10::optional<c10::Device> GetHpuDevice(const c10::Device& device);
-c10::optional<c10::Device> GetHpuDevice(
-    const c10::optional<c10::Device>& device);
 void* GetLazyTensorDataPtr(const at::Tensor& t);
 } // namespace habana_lazy
