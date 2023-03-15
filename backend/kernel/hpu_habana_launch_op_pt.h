@@ -55,13 +55,6 @@ using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, PtTensorInfoShared>;
 
-extern synapse_helpers::graph* global_graph_ptr;
-
-struct habanaTensorLayoutInfo {
-  LayoutFormat layout;
-  LayoutFormat layout_at_graph_entry;
-};
-
 enum ControlEdgeType {
   kCONTROL_EDGE_NONE = 0,
   kCONTROL_EDGE_,

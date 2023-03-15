@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -14,11 +17,6 @@
 #include "backend/habana_operator.h"
 
 namespace habana_lazy {
-
-struct habanaTensorLayoutInfo {
-  habana::LayoutFormat layout;
-  habana::LayoutFormat layout_at_graph_entry;
-};
 
 int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim);
 

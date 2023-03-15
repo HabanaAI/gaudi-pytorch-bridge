@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -87,31 +90,6 @@ class Permute : public ir::Node {
       : Node(c10::Symbol::fromQualString(op)) {
     HbLazyTensor hl_self = GetHbLazyTensor(self);
 
-    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
-
-    AddInput(hl_self.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(dims, static_cast<size_t>(PermuteIdx::kDimIdx));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", dims="
-       << m_meta_data.get(static_cast<size_t>(PermuteIdx::kDimIdx));
-    return ss.str();
-  }
-};
-
-class PermuteCL : public ir::Node {
- public:
-  enum class PermuteIdx { kDimIdx = 1 };
-  PermuteCL() = delete;
-  PermuteCL(const at::Tensor& self, at::IntArrayRef dims)
-      : Node(c10::Symbol::fromQualString("hpu::permute_cl")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
 
     AddInput(hl_self.GetIrValue());

@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -18,68 +21,6 @@
 
 namespace habana_lazy {
 namespace ir {
-
-class OptimizerFusedAdagrad : public Node {
- public:
-  enum class OptFusedAdaIndex { kwdIdx = 5, klrdIdx, kepsIdx };
-  OptimizerFusedAdagrad() = delete;
-  OptimizerFusedAdagrad(
-      const at::TensorList& gradients,
-      at::TensorList& weights,
-      at::TensorList& variances,
-      const at::Tensor& epoch_num,
-      const at::Tensor& lr,
-      const float wd,
-      const float lrd,
-      const float epsilon)
-      : ir::Node(
-            c10::Symbol::fromQualString("hpu::habanaOptimizerFusedAdagrad")) {
-    AddInputVec(gradients);
-    AddInputVec(weights);
-    AddInputVec(variances);
-
-    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHPU);
-    AddInput(hl_epoch_num.GetIrValue());
-
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
-    AddInput(hl_lr.GetIrValue());
-
-    m_meta_data.set(wd, static_cast<size_t>(OptFusedAdaIndex::kwdIdx));
-    m_meta_data.set(lrd, static_cast<size_t>(OptFusedAdaIndex::klrdIdx));
-    m_meta_data.set(epsilon, static_cast<size_t>(OptFusedAdaIndex::kepsIdx));
-  }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << Node::ToString() << ", wd="
-       << m_meta_data.get(static_cast<size_t>(OptFusedAdaIndex::kwdIdx))
-              .toDouble()
-       << ", lrd="
-       << m_meta_data.get(static_cast<size_t>(OptFusedAdaIndex::klrdIdx))
-              .toDouble()
-       << ", eps="
-       << m_meta_data.get(static_cast<size_t>(OptFusedAdaIndex::kepsIdx))
-              .toDouble();
-
-    return ss.str();
-  }
-
- private:
-  void AddInputVec(const at::TensorList& tensor_list) {
-    ValueList hl_tensors;
-    std::vector<at::Tensor> input_pt_vec;
-    for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
-      hl_tensors.push_back(hl_tensor.GetIrValue());
-      input_pt_vec.emplace_back(t);
-    }
-
-    auto input = GetIrValueForListConstruct(hl_tensors);
-    input.mp_node->AddInputPtTensors(input_pt_vec);
-    AddInput(input);
-  }
-};
 
 class OptimizerFusedAdamw : public Node {
  public:
@@ -176,136 +117,6 @@ class OptimizerFusedEMA : public Node {
   std::string ToString() const {
     std::stringstream ss;
     ss << Node::ToString() << ", decay=";
-    return ss.str();
-  }
-
- private:
-  void AddInputVec(const at::TensorList& tensor_list) {
-    ValueList hl_tensors;
-    std::vector<at::Tensor> input_pt_vec;
-    for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
-      hl_tensors.push_back(hl_tensor.GetIrValue());
-      input_pt_vec.emplace_back(t);
-    }
-
-    auto input = GetIrValueForListConstruct(hl_tensors);
-    input.mp_node->AddInputPtTensors(input_pt_vec);
-    AddInput(input);
-  }
-};
-class OptimizerFusedSGD : public Node {
- public:
-  enum class OptFusedSGDIndex { kwdIdx = 3, kmomIdx, kdampIdx, knesterovIdx };
-  OptimizerFusedSGD() = delete;
-  OptimizerFusedSGD(
-      const at::TensorList& gradients,
-      at::TensorList& weights,
-      const at::Tensor& lr,
-      const float wd,
-      const float mom,
-      const float damp,
-      const bool nesterov)
-      : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerFusedSGD")) {
-    AddInputVec(gradients);
-    AddInputVec(weights);
-
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
-    AddInput(hl_lr.GetIrValue());
-
-    m_meta_data.set(wd, static_cast<size_t>(OptFusedSGDIndex::kwdIdx));
-    m_meta_data.set(mom, static_cast<size_t>(OptFusedSGDIndex::kmomIdx));
-    m_meta_data.set(damp, static_cast<size_t>(OptFusedSGDIndex::kdampIdx));
-    m_meta_data.set(
-        nesterov, static_cast<size_t>(OptFusedSGDIndex::knesterovIdx));
-  }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << Node::ToString() << ", wd="
-       << m_meta_data.get(static_cast<size_t>(OptFusedSGDIndex::kwdIdx))
-              .toDouble()
-       << ", momentum="
-       << m_meta_data.get(static_cast<size_t>(OptFusedSGDIndex::kmomIdx))
-              .toDouble()
-       << ", dampening="
-       << m_meta_data.get(static_cast<size_t>(OptFusedSGDIndex::kdampIdx))
-              .toDouble()
-       << ", nesterov="
-       << m_meta_data.get(static_cast<size_t>(OptFusedSGDIndex::knesterovIdx))
-              .toBool();
-
-    return ss.str();
-  }
-
- private:
-  void AddInputVec(const at::TensorList& tensor_list) {
-    ValueList hl_tensors;
-    std::vector<at::Tensor> input_pt_vec;
-    for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
-      hl_tensors.push_back(hl_tensor.GetIrValue());
-      input_pt_vec.emplace_back(t);
-    }
-
-    auto input = GetIrValueForListConstruct(hl_tensors);
-    input.mp_node->AddInputPtTensors(input_pt_vec);
-    AddInput(input);
-  }
-};
-
-class OptimizerFusedSGDMomentum : public Node {
- public:
-  enum class OptFusedSGDMomentumIndex { kwdIdx = 6, kdampIdx, knesterovIdx };
-  OptimizerFusedSGDMomentum() = delete;
-  OptimizerFusedSGDMomentum(
-      const at::TensorList& gradients,
-      at::TensorList& weights,
-      at::TensorList& momentum,
-      const at::Tensor& epoch_num,
-      const at::Tensor& lr,
-      const at::Tensor& mom,
-      const float wd,
-      const float damp,
-      const bool nesterov)
-      : ir::Node(c10::Symbol::fromQualString(
-            "hpu::habanaOptimizerFusedSGDMomentum")) {
-    AddInputVec(gradients);
-    AddInputVec(weights);
-    AddInputVec(momentum);
-
-    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHPU);
-    AddInput(hl_epoch_num.GetIrValue());
-
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
-    AddInput(hl_lr.GetIrValue());
-
-    auto hl_mom = GetOrCreateHbLazyTensor(mom, c10::kHPU);
-    AddInput(hl_mom.GetIrValue());
-
-    m_meta_data.set(wd, static_cast<size_t>(OptFusedSGDMomentumIndex::kwdIdx));
-    m_meta_data.set(
-        damp, static_cast<size_t>(OptFusedSGDMomentumIndex::kdampIdx));
-    m_meta_data.set(
-        nesterov, static_cast<size_t>(OptFusedSGDMomentumIndex::knesterovIdx));
-  }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << Node::ToString() << ", wd="
-       << m_meta_data.get(static_cast<size_t>(OptFusedSGDMomentumIndex::kwdIdx))
-              .toDouble()
-       << ", dampening="
-       << m_meta_data
-              .get(static_cast<size_t>(OptFusedSGDMomentumIndex::kdampIdx))
-              .toDouble()
-       << ", nesterov="
-       << m_meta_data
-              .get(static_cast<size_t>(OptFusedSGDMomentumIndex::knesterovIdx))
-              .toBool();
-
     return ss.str();
   }
 
@@ -450,71 +261,6 @@ class OptimizerFusedLambPhase1 : public Node {
        << m_meta_data
               .get(static_cast<size_t>(OptimizerFusedLambPhase1Meta::kwdIdx))
               .toDouble();
-
-    return ss.str();
-  }
-
- private:
-  void AddInputVec(const std::vector<at::Tensor>& tensor_list) {
-    ValueList hl_tensors;
-    std::vector<at::Tensor> input_pt_vec;
-    for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
-      hl_tensors.push_back(hl_tensor.GetIrValue());
-      input_pt_vec.emplace_back(t);
-    }
-
-    auto input = GetIrValueForListConstruct(hl_tensors);
-    input.mp_node->AddInputPtTensors(input_pt_vec);
-    AddInput(input);
-  }
-};
-
-class OptimizerFusedLambPhase2 : public Node {
- public:
-  enum class OptimizerFusedLambPhase2Meta { kwdIdx = 6, kuselambIdx = 7 };
-  OptimizerFusedLambPhase2() = delete;
-  OptimizerFusedLambPhase2(
-      std::vector<at::Tensor>& weight_vec,
-      const std::vector<at::Tensor>& adam_norm_vec,
-      const std::vector<at::Tensor>& weight_norm_vec,
-      const std::vector<at::Tensor>& adam_step_vec,
-      const at::Tensor& neg_step_t,
-      const float weight_decay,
-      const int use_lamb)
-      : ir::Node(
-            c10::Symbol::fromQualString("hpu::habanaOptimizerLambPhase2")) {
-    AddInputVec(weight_vec);
-    AddInputVec(adam_norm_vec);
-    AddInputVec(weight_norm_vec);
-    AddInputVec(adam_step_vec);
-
-    auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
-    AddInput(hl_neg_step_t.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{neg_step_t};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(
-        weight_decay,
-        static_cast<size_t>(OptimizerFusedLambPhase2Meta::kwdIdx));
-    m_meta_data.set(
-        use_lamb,
-        static_cast<size_t>(OptimizerFusedLambPhase2Meta::kuselambIdx));
-  }
-
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << Node::ToString() << ", beta1="
-       << m_meta_data
-              .get(static_cast<size_t>(OptimizerFusedLambPhase2Meta::kwdIdx))
-              .toDouble()
-       << ", beta2="
-       << m_meta_data
-              .get(static_cast<size_t>(
-                  OptimizerFusedLambPhase2Meta::kuselambIdx))
-              .toInt();
 
     return ss.str();
   }

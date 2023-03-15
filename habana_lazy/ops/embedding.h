@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -17,52 +20,6 @@
 
 namespace habana_lazy {
 namespace ir {
-
-class Embedding_forward : public ir::Node {
- public:
-  enum class EmbeddingParams {
-    PADDING_INDEX = 2,
-    SCALE_GRADE_BY_FREQ_INDEX,
-    SPARSE_INDEX
-  };
-  Embedding_forward() : Node(c10::Symbol::fromQualString("aten::embedding")) {}
-  void Init(
-      const at::Tensor& weight,
-      const at::Tensor& indices,
-      int64_t padding_idx,
-      bool scale_grad_by_freq,
-      bool sparse) {
-    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
-    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
-    AddInput(hl_weight.GetIrValue());
-
-    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
-    hl_indices = HbLazyTensorViews::HandleViewsOrUpdate(indices, hl_indices);
-    AddInput(hl_indices.GetIrValue());
-
-    std::vector<at::Tensor> input_pt_vec{weight, indices};
-    AddInputPtTensors(input_pt_vec);
-
-    m_meta_data.set(
-        padding_idx, static_cast<size_t>(EmbeddingParams::PADDING_INDEX));
-    m_meta_data.set(
-        scale_grad_by_freq,
-        static_cast<size_t>(EmbeddingParams::SCALE_GRADE_BY_FREQ_INDEX));
-    m_meta_data.set(sparse, static_cast<size_t>(EmbeddingParams::SPARSE_INDEX));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", padding_idx="
-       << m_meta_data.get(static_cast<size_t>(EmbeddingParams::PADDING_INDEX))
-       << ", scale_grad_by_freq="
-       << m_meta_data.get(
-              static_cast<size_t>(EmbeddingParams::SCALE_GRADE_BY_FREQ_INDEX))
-       << ", sparse="
-       << m_meta_data.get(static_cast<size_t>(EmbeddingParams::SPARSE_INDEX));
-    return ss.str();
-  }
-};
 
 class Embedding_backward : public ir::Node {
  public:
