@@ -93,6 +93,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_fake_propagation,
+            pass_wa_mixed_devices,
             pass_mark_placement,
             pass_mark_fallbacks,
             pass_transform_fallbacks,
@@ -146,7 +147,15 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
     assert ctx.graph_module is not None
 
-    logger.debug("pass_graph_print at stage%s:\n%s", ctx.stage, ctx.graph_module.print_readable(False))
+    logger.debug("Readable:\n%s", ctx.graph_module.print_readable(False))
+    logger.debug("IR:\n%s", ctx.graph_module.graph)
+    logger.debug("Nodes:")
+    for node in ctx.graph_module.graph.nodes:
+        logger.debug("Node name: %s op: %s", node.name, node.op)
+        if node.op == "call_function":
+            logger.debug("    target: %s", node.target.__name__)
+        if "output_device" in node.meta:
+            logger.debug("    meta.output_device: %s", node.meta["output_device"])
     return False
 
 
@@ -241,8 +250,6 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
             self.fake_mode = fake_mode
 
         def run_node(self, node: torch.fx.Node):
-            logger.debug("Node: %s Op: %s Target: %s", node, node.op, node.target)
-
             with self.fake_mode:
                 result = super().run_node(node)
 
@@ -290,6 +297,57 @@ def pass_partition_and_fuse(ctx: OptimizerContext) -> bool:
     return False
 
 
+def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
+    """
+    This pass is supposed to find cases where HPU ops have mixed devices inputs. If for such
+    OP there is non-HPU input, it will add copy to HPU on it.
+
+    Disclaimer: this fixes an issue, but we don't know if such scenario should even occur. It
+    is visible in optimizers where there are constant_tensors (like beta params) that are not
+    FX graph inputs and according to device propagation they land on CPU, eventually mixing
+    with HPU parameters of the model.
+    """
+    assert ctx.graph_module is not None
+
+    graph_changed = False
+
+    nodes_to_fix_list = []
+    for node in ctx.graph_module.graph.nodes:
+        if (
+            node.op != "placeholder"
+            and node.op != "output"
+            and not (node.op == "call_function" and "to_copy" in node.target.__name__)
+            and node.meta["output_device"].type == "hpu"
+        ):
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node) and arg.meta["output_device"].type != "hpu":
+                    nodes_to_fix_list.append(node)
+                    break
+
+    for node in nodes_to_fix_list:
+        for arg in node.args:
+            if isinstance(arg, torch.fx.Node) and arg.meta["output_device"].type != "hpu":
+                with ctx.graph_module.graph.inserting_before(node):
+                    input_copy_node = ctx.graph_module.graph.call_function(
+                        torch.ops.aten._to_copy.default,
+                        (arg,),
+                        {"device": torch.device("hpu")},
+                    )
+                    input_copy_node.meta["output_device"] = torch.device("hpu")
+                    input_copy_node.meta["output_dtypes"] = [arg.meta["output_dtypes"][0]]
+                    input_copy_node.meta["output_layouts"] = [arg.meta["output_layouts"][0]]
+                    node.replace_input_with(arg, input_copy_node)
+                graph_changed = True
+
+    if graph_changed:
+        # Clean up the graph and log the situation.
+        ctx.graph_module.graph.eliminate_dead_code()
+        ctx.graph_module.recompile()
+        logger.debug("Detected mixed devices. Workaround applied.")
+
+    return graph_changed
+
+
 def pass_mark_placement(ctx: OptimizerContext) -> bool:
     """
     This pass is supposed to annotate nodes with their placement.
@@ -335,7 +393,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             placement = "eager"
         elif node.op == "call_function" and is_op_unsupported_in_graph(node):
             placement = "eager"
-        elif "to_copy" in node.name:
+        elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
             for arg in node.args:
                 if isinstance(arg, torch.fx.Node):
@@ -496,7 +554,7 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
         args = helper_get_node_args(node)
 
         for arg in args:
-            if isinstance(arg, torch.fx.Node) and "to_copy" in arg.name:
+            if isinstance(arg, torch.fx.Node) and arg.op == "call_function" and "to_copy" in arg.target.__name__:
                 # Candidate_node is a node that produces output we would
                 # like out original input to skip to.
                 candidate_node = None
@@ -528,7 +586,7 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
                         # This chain is not longer valid, bail out.
                         valid_chain = False
 
-                    if "to_copy" in chain_arg.name:
+                    if chain_arg.op == "call_function" and "to_copy" in chain_arg.target.__name__:
                         # This node is also a copy, let's go deeper.
                         current_node = chain_arg
                     else:
@@ -676,7 +734,11 @@ def pass_compile_clusters(ctx: OptimizerContext):
         from torch._functorch.compile_utils import strip_overloads
         from torch._functorch.compilers import _disable_jit_autocast
 
-        module = copy.deepcopy(input_module)
+        with torch.no_grad(), torch.utils._python_dispatch._disable_current_modes():
+            # Make sure to not create any side-effects during deepcopying.
+            # This is why we do it under these context managers.
+            module = copy.deepcopy(input_module)
+
         with _disable_jit_autocast():
             strip_overloads(module)
 

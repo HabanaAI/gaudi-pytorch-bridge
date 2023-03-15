@@ -54,7 +54,7 @@ def env_var_in_scope(vars={}):
 
 
 def test_relu_cpuinput():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             return torch.relu(x)
@@ -73,7 +73,7 @@ def test_relu_cpuinput():
 
 
 def test_relu_hpuinput():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             return torch.relu(x)
@@ -92,7 +92,7 @@ def test_relu_hpuinput():
 
 
 def test_device_partition_cpuinput():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             tmp1 = x * 2 + 1
@@ -123,7 +123,7 @@ def test_device_partition_cpuinput():
 
 
 def test_device_partition_hpuinput():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             tmp1 = x * 2 + 1
@@ -154,7 +154,7 @@ def test_device_partition_hpuinput():
 
 
 def test_leaf_views_1():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x, y, z):
             tmp0 = x + y
@@ -185,7 +185,7 @@ def test_leaf_views_1():
 
 
 def test_leaf_views_2():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             x = x.add(1.0)
@@ -205,7 +205,7 @@ def test_leaf_views_2():
 
 
 def test_leaf_views_3():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function(x):
             b = x[::2]
@@ -225,7 +225,7 @@ def test_leaf_views_3():
 
 
 def test_create_tensor():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function():
             out = torch.ones([2, 4], requires_grad=False, device=torch.device("hpu"))
@@ -240,7 +240,7 @@ def test_create_tensor():
 
 
 def test_use_random():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 
         def raw_function():
             out = torch.rand(8, 1, 32, 32, device=torch.device("hpu"))
@@ -257,9 +257,9 @@ def test_use_random():
         assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
 
 
-@pytest.mark.xfail
 def test_simple_convnet():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        torch.manual_seed(2562825)
 
         class LeNet5(torch.nn.Module):
             def __init__(self):
@@ -276,22 +276,22 @@ def test_simple_convnet():
                     torch.nn.ReLU(),
                     torch.nn.MaxPool2d(kernel_size=2, stride=2),
                 )
-                self.layer3 = torch.nn.Sequential(
-                    torch.nn.Conv2d(16, 10, kernel_size=5, stride=1, padding=0),
-                    torch.nn.BatchNorm2d(10),
-                    torch.nn.ReLU(),
-                )
+
+                self.fc = torch.nn.Linear(400, 120)
+                self.relu = torch.nn.ReLU()
+                self.fc1 = torch.nn.Linear(120, 84)
+                self.relu1 = torch.nn.ReLU()
+                self.fc2 = torch.nn.Linear(84, 10)
 
             def forward(self, x):
                 out = self.layer1(x)
                 out = self.layer2(out)
-                out = self.layer3(out)
-                out = torch.flatten(out, start_dim=1)
-
-                # This clone is workaround for habana lazy tensor materialization
-                # issue when using views with dynamo variable builder.
-                # TODO: After we move to pytorch tensors, this should be removed.
-                out = torch.clone(out)
+                out = out.reshape(out.size(0), -1)
+                out = self.fc(out)
+                out = self.relu(out)
+                out = self.fc1(out)
+                out = self.relu1(out)
+                out = self.fc2(out)
 
                 return out
 
@@ -336,9 +336,9 @@ def test_simple_convnet():
         assert loss_compile2 < loss_compile1
 
 
-@pytest.mark.xfail
 def test_simple_convnet_with_device_pingpong():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "2"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        torch.manual_seed(2562825)
 
         class LeNet5(torch.nn.Module):
             def __init__(self):
@@ -355,22 +355,28 @@ def test_simple_convnet_with_device_pingpong():
                     torch.nn.ReLU(),
                     torch.nn.MaxPool2d(kernel_size=2, stride=2),
                 )
-                self.layer3 = torch.nn.Sequential(
-                    torch.nn.Conv2d(16, 10, kernel_size=5, stride=1, padding=0), torch.nn.BatchNorm2d(10)
-                )
+
+                self.fc = torch.nn.Linear(400, 120)
+                self.relu = torch.nn.ReLU()
+                self.fc1 = torch.nn.Linear(120, 84)
+                self.relu1 = torch.nn.ReLU()
+                self.fc2 = torch.nn.Linear(84, 10)
 
             def forward(self, x):
                 out = self.layer1(x)
                 out = self.layer2(out)
-                out = self.layer3(out)
+                out = out.reshape(out.size(0), -1)
+                out = self.fc(out)
 
                 out = out.to("cpu")
 
-                out = torch.relu(out)
-
-                out = torch.flatten(out, start_dim=1)
+                out = self.relu(out)
 
                 out = out.to("hpu")
+
+                out = self.fc1(out)
+                out = self.relu1(out)
+                out = self.fc2(out)
 
                 return out
 

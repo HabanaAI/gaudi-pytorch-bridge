@@ -29,7 +29,7 @@ def is_cpu_fallback_required(node: torch.fx.Node) -> bool:
 
     # For now, just use hardcoded list instead of query
     # TODO: add shared layer query here and remove current mockup
-    ops_to_fallback = ["_native_batch_norm_legit_functional.default"]
+    ops_to_fallback = []
     if node.op == "call_function" and node.meta["output_device"].type == "hpu":
         for op in ops_to_fallback:
             if op == node.target.__name__:
