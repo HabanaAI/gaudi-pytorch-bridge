@@ -36,8 +36,8 @@ def fp8_gemm(
     use_bias: bool = False,
     fp32_output: bool = False,
     use_split_accumulator: bool = False,
-    transa : bool = True,
-    transb : bool = False
+    transa: bool = True,
+    transb: bool = False,
 ) -> torch.Tensor:
     """TN layout GEMM with fp8 inputs."""
 
@@ -117,7 +117,7 @@ def fp8_cast_transpose_bgrad_fused(
     cast_out = torch.empty_like(inp, dtype=torch.int8)
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
     transpose_out = torch.empty(inp.shape[1], inp.shape[0], dtype=torch.int8, device="hpu")
-    #TODO SW-124x458 replace with native fp8_cast_transpose_bgrad_fused call
+    #TODO SW-124458 replace with native fp8_cast_transpose_bgrad_fused call
     _cast_to_fp8(
         inp,
         fp8_meta_tensor,

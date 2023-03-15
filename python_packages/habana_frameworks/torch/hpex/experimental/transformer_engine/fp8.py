@@ -332,10 +332,8 @@ def _default_sf_compute(
 ) -> torch.Tensor:
     """Default function to convert amax to scaling factor."""
     exp = torch.floor(torch.log2(fp8_max / amax)) - margin
-    sf = torch.round(torch.pow(2, torch.abs(exp)))
+    sf = torch.pow(2.0, torch.abs(exp))
     sf = torch.where(amax > 0.0, sf, scale)
-    sf = torch.where(torch.isfinite(amax), sf, scale)
-    sf = torch.where(exp < 0, 1 / sf, sf)
 
     return sf
 

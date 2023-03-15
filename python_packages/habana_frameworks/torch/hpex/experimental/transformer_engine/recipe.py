@@ -49,10 +49,10 @@ class Format(Enum):
             FP8 gradient tensors in the backward pass are in e5m2 format with stochastic rounding applied
     """
 
-    E4M3 = _FormatHelper(max_fwd=448, max_bwd=448)
-    E5M2 = _FormatHelper(max_fwd=57344, max_bwd=57344)
+    E4M3 = _FormatHelper(max_fwd=448.0, max_bwd=448.0)
+    E5M2 = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0)
     HYBRID = _FormatHelper(max_fwd=E4M3.max_fwd, max_bwd=E5M2.max_bwd)
-    E5M2_HYBRID = _FormatHelper(max_fwd=57344, max_bwd=57344)
+    E5M2_HYBRID = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0)
 
 
 class _OverrideLinearPrecision(NamedTuple):
