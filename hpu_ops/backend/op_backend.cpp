@@ -710,7 +710,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
 
     c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
 
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
     bool use_explicit_seed = (0 != sr_seed) && to == at::kFp8r152;
 #else
     bool use_explicit_seed = false;

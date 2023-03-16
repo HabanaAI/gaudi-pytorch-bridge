@@ -675,7 +675,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
       return false;
     }
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
     case c10::ScalarType::Fp8r152: {
       return synapse_helpers::device_supports_fp8(
           synapse_helpers::HPURegistrar::get_device().type());

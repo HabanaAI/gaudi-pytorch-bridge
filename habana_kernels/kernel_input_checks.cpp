@@ -841,7 +841,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Char,
               at::ScalarType::Float,
               at::ScalarType::Long,
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
               at::ScalarType::Fp8r152
 #endif
             }},
@@ -857,7 +857,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Char,
               at::ScalarType::Float,
               at::ScalarType::Long,
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
               at::ScalarType::Fp8r152
 #endif
             }},

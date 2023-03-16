@@ -150,7 +150,7 @@ static auto get_platform_cast_map() {
       break;
   }
 
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
   if (synapse_helpers::device_supports_fp8(type)) {
     // fp8r152
     cast_map.insert(

@@ -7372,7 +7372,7 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res_vec)
 }
 
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
 at::Tensor habana_cast_to_fp8_lazy(
     const at::Tensor& input,
     bool stochastic_rounding,

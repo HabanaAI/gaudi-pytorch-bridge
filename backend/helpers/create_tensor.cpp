@@ -843,7 +843,7 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
         {c10::ScalarType::Double, synDataType::syn_type_float},
         {c10::ScalarType::Bool, synDataType::syn_type_int8},
         {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
         {c10::ScalarType::Fp8r152, synDataType::syn_type_fp8_152},
 #endif
   };

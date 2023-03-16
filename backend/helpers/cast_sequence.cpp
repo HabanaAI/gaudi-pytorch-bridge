@@ -225,7 +225,7 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
       return CastType::bf16;
     case at::ScalarType::Half:
       return CastType::fp16;
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
     case at::ScalarType::Fp8r152:
       return CastType::f8;
 #endif
@@ -254,7 +254,7 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::BFloat16;
     case CastType::fp16:
       return at::ScalarType::Half;
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
     case CastType::f8:
       return at::ScalarType::Fp8r152;
 #endif
@@ -299,7 +299,7 @@ std::vector<CastTypes> get_cast_sequence(CastTypes cast_types) {
 CastF32RoundMode_t get_cast_rounding_mode(
     c10::ScalarType dst_dtype,
     const bool stochastic_rounding_override) {
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#if HAVE_FP8R152_SUPPORT
   if ((stochastic_rounding_override ||
        GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
       dst_dtype == at::kFp8r152) {
