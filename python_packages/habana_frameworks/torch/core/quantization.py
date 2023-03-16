@@ -98,7 +98,6 @@ def hpu_initialize(model=None, optimizer=None, args=None):
     # media WA to not convert imagenet label tensor to int64
     if "GRECO_INFERENCE" not in environ:
         environ["GRECO_INFERENCE"] = "1"
-    hpu.disable_dynamic_shape()
     if model is not None:
         _read_min_max_overwrite()
         with _e_handler():
