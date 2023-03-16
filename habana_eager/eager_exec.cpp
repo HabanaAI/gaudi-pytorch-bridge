@@ -187,7 +187,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph() {
     graph->registerOutput(jit_value_out);
   }
 
-  post_process_eager_graph(graph, m_inputs);
+  post_process_eager_graph(graph);
 
   return graph;
   // TODO This is part of Create/ConstructJITGraph in HLExec. Do we need it?
@@ -410,14 +410,12 @@ std::string UniqueIdxVec::to_string() const {
   return absl::StrCat("{", absl::StrJoin(idx_, ",", Formatter()), "}");
 }
 
-void EagerExec::post_process_eager_graph(
-    std::shared_ptr<JitGraph>& graph,
-    const SmallTensorVector& inputs) {
+void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
     PT_BRIDGE_DEBUG("[Eager] Apply I/O View Handling pass.");
-    HandleInputOutputViews(graph, inputs);
+    HandleInputOutputViews(graph, m_inputs, m_eager_op_meta_data);
   }
 }
 

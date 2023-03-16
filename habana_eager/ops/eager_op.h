@@ -65,6 +65,10 @@ class EagerOpBase {
     m_scalar_types = scalar_types;
   }
 
+  void set_eager_op_info(EagerOpMetaData eager_op_meta_data) {
+    m_eager_op_meta_data = eager_op_meta_data;
+  }
+
   explicit EagerOpBase(
       const at::Symbol symbol,
       const std::vector<at::IValue>& inputs,
@@ -97,6 +101,7 @@ class EagerOpBase {
   const int m_out_index;
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;
+  EagerOpMetaData m_eager_op_meta_data;
 
  private:
   void set_inputs(const std::vector<at::IValue>& inputs) {

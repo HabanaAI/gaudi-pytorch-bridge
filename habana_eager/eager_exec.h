@@ -25,6 +25,59 @@ struct OutputSpec {
   c10::IntArrayRef sizes;
 };
 
+enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknowType };
+
+struct EagerOpMetaData {
+  EagerOpMetaData() {
+    op_kind = UnknowType;
+    op_name = "";
+    out_indices = {};
+  }
+
+  EagerOpMetaData(
+      eagerOpKind kind,
+      std::string name,
+      std::vector<int> indices) {
+    op_kind = kind;
+    op_name = name;
+    out_indices = indices;
+  }
+
+  std::string to_string() const {
+    std::string s = "{ ";
+    switch (op_kind) {
+      default:
+        s.append("UnknowType }");
+        return s;
+      case OutOfPlace:
+        s.append("OutOfPlace }");
+        return s;
+      case InplaceOut:
+        s.append("InplaceOut, ");
+        break;
+      case Inplace:
+        s.append("Inplace, ");
+        break;
+    }
+    s.append(op_name);
+    s.append(", {");
+    if (!out_indices.empty()) {
+      std::stringstream ss;
+      std::copy(
+          out_indices.begin(),
+          out_indices.end(),
+          std::ostream_iterator<int>(ss, " "));
+      s.append(ss.str());
+    }
+    s.append("} }");
+    return s;
+  }
+
+  eagerOpKind op_kind;
+  std::string op_name;
+  std::vector<int> out_indices;
+};
+
 /**
  * Wrapper over a vector to store input uniqueness info.
  */
@@ -66,12 +119,17 @@ class EagerExec {
         m_metadata{std::move(metadata)} {}
   torch::jit::Stack launch();
 
+  void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
+    m_eager_op_meta_data = eager_op_meta_data;
+  }
+
  private:
   size_t m_key;
   const at::Symbol& m_symbol;
   SmallTensorVector m_inputs;
   const std::vector<OutputSpec>& m_outputs;
   MetaDataMap m_metadata;
+  EagerOpMetaData m_eager_op_meta_data;
 
   std::shared_ptr<torch::jit::Graph> create_eager_graph();
   size_t calculate_operator_key(const UniqueIdxVec& parent_vec);
@@ -83,9 +141,7 @@ class EagerExec {
   void prune_duplicate_graph_inputs(
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
-  void post_process_eager_graph(
-      std::shared_ptr<torch::jit::Graph>& graph,
-      const SmallTensorVector& inputs);
+  void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
 };
 
 } // namespace eager

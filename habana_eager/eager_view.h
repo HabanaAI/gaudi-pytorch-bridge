@@ -14,6 +14,7 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/helpers/get_n_bytes.h"
+#include "habana_eager/eager_exec.h"
 #include "habana_kernels/kernel_utils.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
@@ -74,7 +75,8 @@ class ViewParam {
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
-    const SmallTensorVector& inputs);
+    const SmallTensorVector& inputs,
+    const EagerOpMetaData& eager_op_meta_data);
 
 } // namespace eager
 } // namespace habana

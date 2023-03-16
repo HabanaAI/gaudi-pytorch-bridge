@@ -840,6 +840,7 @@ def frontend(
     aten_sig,
     rtype,
     param_vars,
+    inplace_op_info,
     meta_vars,
     lazyop_call_args,
     sig,
@@ -1067,6 +1068,11 @@ def frontend(
                 else:
                     code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
         else:
+            if is_eager_frontend and is_eager_op_supported:
+                code_line = '{{{}, "{}", {{{}}}}}'.format(
+                    inplace_op_info[0], inplace_op_info[1], ", ".join(map(str, inplace_op_info[2]))
+                )
+                code += "  hpu_op.set_eager_op_info({});\n".format(code_line)
             code += "  {}hpu_op.call({})".format(
                 "" if rtype == "void" else "return ", lazyop_call_args
             )
@@ -1354,6 +1360,29 @@ def is_inplace_or_out_op(opname):
         return opname.endswith("_")
 
 
+def get_eager_op_info(ctxop, opname):
+    type = 'habana::eager::eagerOpKind::'
+    if opname.endswith("_out"):
+        type += 'InplaceOut'
+    elif opname.endswith("_grad_input"):
+        type += 'InplaceOut'
+    elif opname.endswith("_"):
+        if opname.endswith("resize_"):
+            type += 'OutOfPlace'
+        else:
+            type += 'Inplace'
+    else:
+        type += 'OutOfPlace'
+
+    ns = "hpu" if ctxop.custom_schema() else "aten"
+    name = opname
+    if type != 'habana::eager::eagerOpKind::OutOfPlace':
+        name = opname.rsplit('_',1)[0]
+    op_name = ns + "::" + name
+
+    return type, op_name
+
+
 def generate_code(
     ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend
 ):
@@ -1361,6 +1390,8 @@ def generate_code(
     ctxop = ctx.get_op(opname)
     op_frontend = "{} {{\n".format(sig)
     op_frontend += generate_entry_debug_code(tree, fname, params, is_eager_frontend)
+
+    op_type, op_name = get_eager_op_info(ctxop, fname)
 
     tfetcher = TensorFetcher("metatens")
     rtype = get_return_type_str(rwxtree, rwsig)
@@ -1372,6 +1403,7 @@ def generate_code(
     fc_params = []
     fc = ctxop.get_fallback_check()
 
+    out_indices = []
     for i, p in enumerate(params):
         ptype = param_type(p)
         cptype = type_core(ptype)
@@ -1402,12 +1434,16 @@ def generate_code(
             xname = tfetcher.add(pname, True)
             meta_param_vars.append(xname)
             call_args.append(pname)
+            out_indices.append(i)
 
         if rtype == "void":
             if cptype == "TensorList" or cptype == "Tensor":
                 call_args.append(pname)
+                out_indices.append(i)
+
         elif rtype == "const at::Tensor &" and cptype == "Tensor":
             call_args.append(pname)
+            out_indices.append(i)
 
         if fc and pname in fc[1:]:
             param_types = re.findall(r"([^(,)]+)(?!.*\()", funsig)
@@ -1424,6 +1460,9 @@ def generate_code(
         lazyop_call_args = "{}".format(", ".join(call_args))
         if type_core(tree.children[0]) == "::std::tuple":
             lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
+
+    inplace_op_info = [op_type, op_name, out_indices]
+
     op_frontend += frontend(
         ctxop,
         tfetcher,
@@ -1432,6 +1471,7 @@ def generate_code(
         aten_sig,
         rtype,
         param_vars,
+        inplace_op_info,
         meta_param_vars,
         lazyop_call_args,
         sig,
@@ -2094,6 +2134,7 @@ def generate(args):
         '#include "hpu_ops/cpu_fallback.h"\n'
         '#include "hpu_ops/eager/reduction_template.h"\n'
         '#include "hpu_ops/op_validator.h"\n'
+        '#include "habana_eager/eager_exec.h"\n'
         '#include "habana_eager/ops/eager_op.h"\n'
     )
 

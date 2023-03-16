@@ -68,12 +68,17 @@ static JitNode* insert_strided_view_node(
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
-    const SmallTensorVector& inputs) {
+    const SmallTensorVector& inputs,
+    const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_TRACE;
+
+  PT_BRIDGE_DEBUG(
+      "[HandleInputOutputViews] Eager Op Info = ",
+      eager_op_meta_data.to_string());
 
   JitNode* node{nullptr};
 
-  // only single-node graph is assumed
+  // We are expecting only single non prim::Constant node in a given graph
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
     if (it->kind() == at::prim::Constant)
       continue;

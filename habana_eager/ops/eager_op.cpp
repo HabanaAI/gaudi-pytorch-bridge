@@ -33,6 +33,8 @@ torch::jit::Stack EagerOpBase::run(const std::vector<OutputSpec>& out_spec) {
   habana::eager::EagerExec hlexec{
       m_symbol, input_backend_pt_vec, out_spec, std::move(metadata)};
 
+  hlexec.set_eager_op_info(m_eager_op_meta_data);
+
   // Launch the execution
   return hlexec.launch();
 }
