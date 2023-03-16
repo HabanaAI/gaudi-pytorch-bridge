@@ -30,9 +30,11 @@ def split_embedding_codegen_lookup_function(
     total_D: int,
     indices: torch.Tensor,
     offsets: torch.Tensor,
-    pooling_mode: int
+    pooling_mode: int,
+    kernel_mode: List[int] = None,
 ) -> torch.Tensor:
-
+    if kernel_mode is None:
+        kernel_mode = [1]*len(weights_offsets)
     assert pooling_mode == 0, f"Only PoolingMode.SUM is supported for HPU"
     assert total_D == D_offsets[-1], f"total_D ({total_D}) must match D_offsets[-1] ({D_offsets[-1]})"
 
@@ -66,13 +68,16 @@ def split_embedding_codegen_lookup_function(
 
         t_offsets = offsets[t*B:(t+1)*B+1]
 
-        valid_count = torch.tensor([indices.numel(),t_offsets.numel()], dtype=torch.int32, device="hpu")
+        if kernel_mode[t] == 0:
+            valid_count = torch.tensor([indices.numel()], dtype=torch.int32, device="hpu")
+        else:
+            valid_count = torch.tensor([indices.numel(),t_offsets.numel()], dtype=torch.int32, device="hpu")
         emb_out = _hpex_C.embedding_bag_sum_fwd(
                                 t_weights,
                                 indices,
                                 t_offsets,
                                 valid_count,
-                                1
+                                kernel_mode[t]
         )
 
         outputs.append(emb_out)
