@@ -14,7 +14,8 @@
 # Changes:
 # - Changed device type to "hpu"
 # - Added MatMul layer
-# - Removd unused code paths
+# - Added SelfAttention layer
+# - Removed unused code paths
 
 """Top level Transformer Engine PyTorch modules"""
 import os
@@ -394,7 +395,10 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
     @staticmethod
     def grad_output_preprocess(
-        ctx, grad_output: torch.Tensor, row_parallel_mode: bool
+        ctx,
+        grad_output: torch.Tensor,
+        row_parallel_mode: bool,
+        grad_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors] = tex.FP8BwdTensors.GRAD_OUTPUT1
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """Utility function for backward.
         Returns tuple in order (all optional/None based on training precion/recipe):
@@ -434,7 +438,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             grad_output_c = cast_to_fp8(
                 grad_output_mat,
                 ctx.fp8_meta["scaling_bwd"],
-                tex.FP8BwdTensors.GRAD_OUTPUT1,
+                grad_tensor,
                 fp8_dtype_backward,
                 stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
             )
@@ -450,7 +454,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         grad_output_c = cast_to_fp8(
             grad_output_mat,
             ctx.fp8_meta["scaling_bwd"],
-            tex.FP8BwdTensors.GRAD_OUTPUT1,
+            grad_tensor,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
         )
@@ -2498,3 +2502,869 @@ class MatMul(TransformerEngineBaseModule):
         self.post_forward()
 
         return out
+
+class _SelfAttentionScoresAndValue(torch.autograd.Function):
+    """SelfAttentionScoresAndValue semi-top level module
+    Calls custom hpu extensions.
+    """
+
+    @staticmethod
+    def _transpose_for_scores_fp8(
+        x: torch.Tensor,
+        num_attention_heads: int,
+        attention_head_size: int
+    ) -> torch.Tensor:
+        new_x_shape = x.size()[:-1] + (num_attention_heads, attention_head_size)
+        x = torch.ops.hpu.fp8_reshape(x, new_x_shape)
+        out = torch.empty(
+            (x.shape[0], x.shape[2], x.shape[1], x.shape[3]), device="hpu", dtype=torch.int8
+        )
+        torch.ops.hpu.fp8_permute(x, [0,2,1,3], out)
+        return out
+
+    @staticmethod
+    def _grad_transpose_for_scores(x: torch.Tensor) -> torch.Tensor:
+        # Permutation opposite to (0,2,1,3)
+        x = x.permute(0, 2, 1, 3)
+        # Collapse last two dimentions
+        return x.reshape(x.size()[:-2] + (-1,))
+
+    @staticmethod
+    def _transpose_key_for_scores_fp8(
+        x: torch.Tensor,
+        num_attention_heads: int,
+        attention_head_size: int
+    ) -> torch.Tensor:
+        new_x_shape = x.size()[:-1] + (num_attention_heads, attention_head_size)
+        x = torch.ops.hpu.fp8_reshape(x, new_x_shape)
+        out = torch.empty(
+            (x.shape[0], x.shape[2], x.shape[3], x.shape[1]), device="hpu", dtype=torch.int8
+        )
+        torch.ops.hpu.fp8_permute(x, [0,2,3,1], out)
+        return out
+
+    @staticmethod
+    def _grad_transpose_key_for_scores(x: torch.Tensor) -> torch.Tensor:
+        # Permutation opposite to (0,2,3,1)
+        x = x.permute(0,3,1,2)
+        # Collapse last two dimentions
+        return x.reshape(x.size()[:-2] + (-1,))
+
+    @staticmethod
+    def forward(
+        ctx,
+        inp: torch.Tensor,
+        query_weight: torch.Tensor,
+        query_bias: torch.Tensor,
+        key_weight: torch.Tensor,
+        key_bias: torch.Tensor,
+        value_weight: torch.Tensor,
+        value_bias: torch.Tensor,
+        num_attention_heads: int,
+        attention_head_size: int,
+        is_first_microbatch: Union[bool, None],
+        fp8: bool,
+        fp8_meta: Dict[str, Any],
+        fuse_wgrad_accumulation: bool,
+        tp_group: Union[dist_group_type, None],
+        sequence_parallel: bool,
+        tensor_parallel: bool,
+        activation_dtype: torch.dtype,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Make sure input dimensions are compatible
+        in_features = query_weight.shape[-1]
+        assert inp.shape[-1] == in_features, "GEMM not possible"
+        assert key_weight.shape[-1] == in_features, "GEMM not possible"
+        assert value_weight.shape[-1] == in_features, "GEMM not possible"
+        inputmat = inp.view((-1, in_features))
+
+        update_fp8_weights = is_first_microbatch is None or is_first_microbatch
+
+        # Cast for native AMP
+        inputmat = cast_if_needed(inputmat, activation_dtype)
+
+        assert fp8
+        fp8_dtype_forward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=True)
+
+        # Input cast - common for query, key and value
+        inputmat = cast_to_fp8(
+            inputmat,
+            fp8_meta["scaling_fwd"],
+            tex.FP8FwdTensors.GEMM1_INPUT,
+            fp8_dtype_forward,
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+        )
+
+        # Query matmul
+        bias_dtype = (
+            torch.bfloat16
+            if activation_dtype == torch.float32
+            else activation_dtype
+        )
+        query_bias = cast_if_needed(query_bias, bias_dtype)
+
+        if update_fp8_weights:
+            query_weight_fp8 = cast_to_fp8(
+                query_weight,
+                fp8_meta["scaling_fwd"],
+                tex.FP8FwdTensors.GEMM1_WEIGHT,
+                fp8_dtype_forward,
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            )
+
+        query_out = fp8_gemm(
+            query_weight_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
+            inputmat,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
+            activation_dtype,
+            bias=query_bias,
+            use_bias=True,
+        )
+
+        # Key matmul
+        bias_dtype = (
+            torch.bfloat16
+            if activation_dtype == torch.float32
+            else activation_dtype
+        )
+        key_bias = cast_if_needed(key_bias, bias_dtype)
+
+        if update_fp8_weights:
+            key_weight_fp8 = cast_to_fp8(
+                key_weight,
+                fp8_meta["scaling_fwd"],
+                tex.FP8FwdTensors.GEMM2_WEIGHT,
+                fp8_dtype_forward,
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            )
+
+        key_out = fp8_gemm(
+            key_weight_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM2_WEIGHT],
+            fp8_dtype_forward,
+            inputmat,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
+            activation_dtype,
+            bias=key_bias,
+            use_bias=True,
+        )
+
+        # Value matmul
+        bias_dtype = (
+            torch.bfloat16
+            if activation_dtype == torch.float32
+            else activation_dtype
+        )
+        value_bias = cast_if_needed(value_bias, bias_dtype)
+
+        if update_fp8_weights:
+            value_weight_fp8 = cast_to_fp8(
+                value_weight,
+                fp8_meta["scaling_fwd"],
+                tex.FP8FwdTensors.GEMM3_WEIGHT,
+                fp8_dtype_forward,
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            )
+
+        value_out = fp8_gemm(
+            value_weight_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM3_WEIGHT],
+            fp8_dtype_forward,
+            inputmat,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
+            activation_dtype,
+            bias=value_bias,
+            use_bias=True,
+        )
+
+        query_out = query_out.view(-1, *inp.shape[1:-1], query_out.shape[-1])
+        key_out = key_out.view(-1, *inp.shape[1:-1], key_out.shape[-1])
+        value_out = value_out.view(-1, *inp.shape[1:-1], value_out.shape[-1])
+
+        # Take the dot product between "query" and "key" to get the raw attention scores.
+        query_layer_fp8 = cast_to_fp8(
+            query_out,
+            fp8_meta["scaling_fwd"],
+            tex.FP8FwdTensors.GEMM4_INPUT,
+            fp8_dtype_forward,
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+        )
+
+        key_layer_fp8 = cast_to_fp8(
+            key_out,
+            fp8_meta["scaling_fwd"],
+            tex.FP8FwdTensors.GEMM4_WEIGHT,
+            fp8_dtype_forward,
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+        )
+
+        query_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
+            query_layer_fp8, num_attention_heads, attention_head_size)
+        key_layer_fp8 = _SelfAttentionScoresAndValue._transpose_key_for_scores_fp8(
+            key_layer_fp8, num_attention_heads, attention_head_size)
+
+        attention_scores = fp8_gemm(
+            key_layer_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM4_WEIGHT],
+            fp8_dtype_forward,
+            query_layer_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM4_INPUT],
+            fp8_dtype_forward,
+            activation_dtype,
+            transa = False,
+            transb = False,
+        )
+
+        ctx.save_for_backward(
+            inputmat
+            if fp8 and not fp8_meta["recipe"].override_linear_precision.wgrad
+            else None,
+            query_weight_fp8
+            if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad
+            else None,
+            query_weight,
+            key_weight_fp8
+            if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad
+            else None,
+            key_weight,
+            value_weight_fp8
+            if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad
+            else None,
+            value_weight,
+            query_layer_fp8,
+            key_layer_fp8,
+            fp8_meta["scaling_fwd"].scale_inv.clone() if fp8 else None,
+        )
+        ctx.activation_dtype = activation_dtype
+        ctx.fp8 = fp8
+        ctx.fp8_meta = fp8_meta
+        ctx.fuse_wgrad_accumulation = fuse_wgrad_accumulation
+        ctx.is_first_microbatch = is_first_microbatch
+        ctx.sequence_parallel = sequence_parallel
+        ctx.tensor_parallel = tensor_parallel
+        ctx.inp_shape = inp.shape
+        ctx.tp_group = tp_group
+
+        return attention_scores, value_out
+
+
+    @staticmethod
+    def backward(
+        ctx,
+        attention_scores_grad_output: torch.Tensor,
+        value_grad_output: torch.Tensor
+    ) -> Tuple[Union[torch.Tensor, None], ...]:
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta)
+
+        (
+            inputmat_fp8,
+            query_weight_fp8,
+            query_weight,
+            key_weight_fp8,
+            key_weight,
+            value_weight_fp8,
+            value_weight,
+            query_layer_fp8,
+            key_layer_fp8,
+            fwd_scale_inverses,
+        ) = ctx.saved_tensors
+
+        assert ctx.fp8
+        fp8_dtype_forward = get_fp8_te_dtype(
+            ctx.fp8_meta["recipe"], fprop_tensor=True
+        )
+        fp8_dtype_backward = get_fp8_te_dtype(
+            ctx.fp8_meta["recipe"], fprop_tensor=False
+        )
+
+        attention_scores_grad_output_c = cast_to_fp8(
+            attention_scores_grad_output,
+            ctx.fp8_meta["scaling_bwd"],
+            tex.FP8BwdTensors.GRAD_OUTPUT4,
+            fp8_dtype_backward,
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+        )
+
+        # attention scores DGRAD
+        query_layer_grad = fp8_gemm(
+            key_layer_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_WEIGHT],
+            fp8_dtype_forward,
+            attention_scores_grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT4],
+            fp8_dtype_backward,
+            ctx.activation_dtype,
+            transa = True,
+            transb = False
+        )
+
+        key_layer_grad = fp8_gemm(
+            attention_scores_grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[
+                tex.FP8BwdTensors.GRAD_OUTPUT4
+            ],
+            fp8_dtype_backward,
+            query_layer_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_INPUT],
+            fp8_dtype_forward,
+            ctx.activation_dtype,
+            transa = False,
+            transb = True,
+        )
+
+        query_grad_output = _SelfAttentionScoresAndValue._grad_transpose_for_scores(query_layer_grad)
+        key_grad_output = _SelfAttentionScoresAndValue._grad_transpose_key_for_scores(key_layer_grad)
+
+        ctx.use_bias = True
+        (
+            query_grad_output,
+            query_grad_output_c,
+            query_grad_bias,
+        ) = TransformerEngineBaseModule.grad_output_preprocess(
+            ctx, query_grad_output, row_parallel_mode=False,
+            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT1
+        )
+
+        (
+            key_grad_output,
+            key_grad_output_c,
+            key_grad_bias,
+        ) = TransformerEngineBaseModule.grad_output_preprocess(
+            ctx, key_grad_output, row_parallel_mode=False,
+            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT2
+        )
+
+        (
+            value_grad_output,
+            value_grad_output_c,
+            value_grad_bias,
+        ) = TransformerEngineBaseModule.grad_output_preprocess(
+            ctx, value_grad_output, row_parallel_mode=False,
+            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT3
+        )
+
+        inputmat_fp8_total = inputmat_fp8
+
+        if ctx.is_first_microbatch is not None:
+            accumulate_wgrad_into_param_main_grad = (
+                ctx.fuse_wgrad_accumulation and not ctx.is_first_microbatch
+            )
+        else:
+            accumulate_wgrad_into_param_main_grad = ctx.fuse_wgrad_accumulation
+
+        # query DGRAD
+        query_dgrad = fp8_gemm(
+            query_weight_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
+            query_grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+            fp8_dtype_backward,
+            ctx.activation_dtype,
+            transa=False,
+            transb=False,
+        )
+
+        if query_weight.requires_grad:
+            # query WGRAD
+            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+            query_wgrad = fp8_gemm(
+                inputmat_fp8_total,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                fp8_dtype_forward,
+                query_grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    tex.FP8BwdTensors.GRAD_OUTPUT1
+                ],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                accumulate=accumulate_wgrad_into_param_main_grad,
+                fp32_output=ctx.fuse_wgrad_accumulation,
+                out=query_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                transa=False,
+                transb=True,
+            )
+
+        # key DGRAD
+        key_dgrad = fp8_gemm(
+            key_weight_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM2_WEIGHT],
+            fp8_dtype_forward,
+            key_grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT2],
+            fp8_dtype_backward,
+            ctx.activation_dtype,
+            transa=False,
+            transb=False,
+        )
+
+        if key_weight.requires_grad:
+            # key WGRAD
+            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+            key_wgrad = fp8_gemm(
+                inputmat_fp8_total,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                fp8_dtype_forward,
+                key_grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    tex.FP8BwdTensors.GRAD_OUTPUT2
+                ],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                accumulate=accumulate_wgrad_into_param_main_grad,
+                fp32_output=ctx.fuse_wgrad_accumulation,
+                out=key_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                transa=False,
+                transb=True,
+            )
+
+        # value DGRAD
+        value_dgrad = fp8_gemm(
+            value_weight_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM3_WEIGHT],
+            fp8_dtype_forward,
+            value_grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT3],
+            fp8_dtype_backward,
+            ctx.activation_dtype,
+            transa=False,
+            transb=False,
+        )
+
+        if value_weight.requires_grad:
+            # value WGRAD
+            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+            value_wgrad = fp8_gemm(
+                inputmat_fp8_total,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                fp8_dtype_forward,
+                value_grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    tex.FP8BwdTensors.GRAD_OUTPUT3
+                ],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                accumulate=accumulate_wgrad_into_param_main_grad,
+                fp32_output=ctx.fuse_wgrad_accumulation,
+                out=value_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                transa=False,
+                transb=True,
+            )
+
+        TransformerEngineBaseModule.post_backward(
+            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
+        )
+
+        # Gradient with respect to input - sum of the gradients of gemms
+        dgrad = value_dgrad + key_dgrad + query_dgrad
+
+        return (
+            dgrad.view(ctx.inp_shape),
+            query_wgrad if query_weight.requires_grad else None,
+            query_grad_bias,
+            key_wgrad if key_weight.requires_grad else None,
+            key_grad_bias,
+            value_wgrad if value_weight.requires_grad else None,
+            value_grad_bias,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+
+class SelfAttentionScoresAndValue(TransformerEngineBaseModule):
+    """
+    Applies the first part of self attention module as implemented in Bert script.
+    It replaces query, key and value linear modules, as well as transposes
+    and attention scores calculation.
+
+    Parameters
+    ----------
+    hidden_size : int
+                  The last dimension of input tensor.
+    num_attention_heads : int
+                  Number of attention heads. hidden_size must be divisible by this number.
+
+    Other parameters
+    ----------------
+    All other parameters have the same meaning as in standard TE modules (e.g. Linear).
+    """
+    def __init__(
+        self,
+        hidden_size: int,
+        num_attention_heads: int,
+        sequence_parallel: bool = False,
+        fuse_wgrad_accumulation: bool = False,
+        tp_group: Optional[dist_group_type] = None,
+        tp_size: int = 1,
+        get_rng_state_tracker: Optional[Callable] = None,
+        skip_weight_param_allocation: bool = False,
+        params_dtype: torch.dtype = torch.float32,
+    ) -> None:
+        super().__init__()
+        self.fuse_wgrad_accumulation = fuse_wgrad_accumulation
+
+        if tp_group is None:
+            self.tp_size = tp_size
+            if tp_size == 1:
+                self.set_tensor_parallel_group(tp_group)
+        else:
+            self.tp_size = get_distributed_world_size(tp_group)
+            self.set_tensor_parallel_group(tp_group)
+        self.set_nccl_overlap_warning_if_tp()
+
+        self.sequence_parallel = (self.tp_size > 1) and sequence_parallel
+
+        # Self attention stuff
+        if hidden_size % num_attention_heads != 0:
+            raise ValueError(
+                "The hidden size (%d) is not a multiple of the number of attention "
+                "heads (%d)" % (hidden_size, num_attention_heads))
+        self.num_attention_heads = num_attention_heads
+        self.attention_head_size = int(hidden_size / num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
+
+        # Initialize weights and biases
+        init_method = get_default_init_method()
+
+        def initialize_weight_and_bias(init_method):
+            weight = Parameter(
+                torch.empty(
+                    self.all_head_size,
+                    hidden_size,
+                    device="hpu",
+                    dtype=params_dtype,
+                )
+            )
+
+            initialize_affine_weight_gpu(
+                weight,
+                init_method,
+                get_rng_state_tracker,
+                partition_dim=0,
+                stride=1,
+            )
+
+            bias = Parameter(
+                torch.empty(
+                    self.all_head_size,
+                    device="hpu",
+                    dtype=params_dtype,
+                )
+            )
+
+            with torch.no_grad():
+                bias.zero_()
+
+            return weight, bias
+
+        if not skip_weight_param_allocation:
+            self.query_weight, self.query_bias = initialize_weight_and_bias(init_method)
+            self.key_weight, self.key_bias     = initialize_weight_and_bias(init_method)
+            self.value_weight, self.value_bias = initialize_weight_and_bias(init_method)
+
+        self.fp8_weight_shapes.append(torch.Size((self.all_head_size, hidden_size,)))
+        self.fp8_weight_shapes.append(torch.Size((self.all_head_size, hidden_size,)))
+        self.fp8_weight_shapes.append(torch.Size((self.all_head_size, hidden_size,)))
+
+    def forward(self,
+        hidden_states,
+        is_first_microbatch: Optional[bool] = None
+    ):
+        # Four gemms are used inside this layer, which means four pairs of
+        # meta info about scaling (amax_history, scale, scale_inv).
+        # In forward pass, the indexes are used as follows:
+        # - GEMM1_INPUT:  input, common for query, key and value gemms,
+        # - GEMM1_WEIGHT: query weight,
+        # - GEMM2_INPUT:  not used,
+        # - GEMM2_WEIGHT: key weight,
+        # - GEMM3_INPUT:  not used,
+        # - GEMM3_WEIGHT: value weight,
+        # - GEMM4_INPUT:  first input to attention scores gemm (output from query gemm)
+        # - GEMM4_WEIGHT: second input to attention scores gemm (output from key gemm)
+        # And in backward pass:
+        # - GRAD_OUTPUT1: query grad,
+        # - GRAD_OUTPUT2: key grad,
+        # - GRAD_OUTPUT3: value grad,
+        # - GRAD_OUTPUT4: attention scores grad,
+        inp = self.pre_forward(hidden_states, num_gemms = 4)
+
+        attention_scores, value_out = _SelfAttentionScoresAndValue.apply(
+            inp,
+            self.query_weight,
+            self.query_bias,
+            self.key_weight,
+            self.key_bias,
+            self.value_weight,
+            self.value_bias,
+            self.num_attention_heads,
+            self.attention_head_size,
+            is_first_microbatch,
+            self.fp8,
+            self.fp8_meta,
+            self.fuse_wgrad_accumulation,
+            self.tp_group,
+            self.sequence_parallel,
+            self.tp_size > 1,
+            self.activation_dtype,
+        )
+
+        self.post_forward()
+
+        return attention_scores, value_out
+
+
+class _SelfAttentionContext(torch.autograd.Function):
+    """SelfAttentionContext semi-top level module
+    Calls custom hpu extensions.
+    """
+
+    @staticmethod
+    def forward(
+        ctx,
+        attention_probs_input: torch.Tensor,
+        mixed_value_layer_input: torch.Tensor,
+        num_attention_heads,
+        attention_head_size,
+        is_first_microbatch: Union[bool, None],
+        fp8: bool,
+        fp8_meta: Dict[str, Any],
+        fuse_wgrad_accumulation: bool,
+        tp_group: Union[dist_group_type, None],
+        sequence_parallel: bool,
+        tensor_parallel: bool,
+        activation_dtype: torch.dtype,
+    ) -> torch.Tensor:
+        dim0 = attention_probs_input.shape[-1]
+        dim1 = mixed_value_layer_input.shape[-2]
+        assert dim0 == dim1, "GEMM not possible"
+        dim2 = attention_probs_input.shape[-3]
+        assert dim2 == num_attention_heads, "GEMM not possible"
+
+        # Cast for native AMP
+        attention_probs = cast_if_needed(attention_probs_input, activation_dtype)
+        mixed_value_layer = cast_if_needed(mixed_value_layer_input, activation_dtype)
+
+        assert fp8
+        fp8_dtype_forward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=True)
+
+        attention_probs_fp8 = cast_to_fp8(
+            attention_probs,
+            fp8_meta["scaling_fwd"],
+            tex.FP8FwdTensors.GEMM1_INPUT,
+            fp8_dtype_forward,
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+        )
+
+        mixed_value_layer_fp8 = cast_to_fp8(
+            mixed_value_layer,
+            fp8_meta["scaling_fwd"],
+            tex.FP8FwdTensors.GEMM1_WEIGHT,
+            fp8_dtype_forward,
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+        )
+
+        value_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
+            mixed_value_layer_fp8, num_attention_heads, attention_head_size)
+
+        out = fp8_gemm(
+            value_layer_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
+            attention_probs_fp8,
+            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
+            activation_dtype,
+            transa = False,
+            transb = False,
+        )
+
+        ctx.save_for_backward(
+            attention_probs_fp8,
+            value_layer_fp8,
+            fp8_meta["scaling_fwd"].scale_inv.clone() if fp8 else None,
+        )
+        ctx.activation_dtype = activation_dtype
+        ctx.fp8 = fp8
+        ctx.fp8_meta = fp8_meta
+        ctx.fuse_wgrad_accumulation = fuse_wgrad_accumulation
+        ctx.is_first_microbatch = is_first_microbatch
+        ctx.sequence_parallel = sequence_parallel
+        ctx.tensor_parallel = tensor_parallel
+        ctx.tp_group = tp_group
+
+        return out
+
+
+    @staticmethod
+    def backward(
+        ctx,
+        grad_output: torch.Tensor
+    ) -> Tuple[Union[torch.Tensor, None], ...]:
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta)
+
+        (
+            attention_probs_fp8,
+            value_layer_fp8,
+            fwd_scale_inverses,
+        ) = ctx.saved_tensors
+
+        assert ctx.fp8
+        fp8_dtype_forward = get_fp8_te_dtype(
+            ctx.fp8_meta["recipe"], fprop_tensor=True
+        )
+        fp8_dtype_backward = get_fp8_te_dtype(
+            ctx.fp8_meta["recipe"], fprop_tensor=False
+        )
+
+        grad_output_c = cast_to_fp8(
+            grad_output,
+            ctx.fp8_meta["scaling_bwd"],
+            tex.FP8BwdTensors.GRAD_OUTPUT1,
+            fp8_dtype_backward,
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+        )
+
+        attention_probs_grad = fp8_gemm(
+            value_layer_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
+            grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+            fp8_dtype_backward,
+            ctx.activation_dtype,
+            transa = True,
+            transb = False
+        )
+
+        value_layer_grad = fp8_gemm(
+            grad_output_c,
+            ctx.fp8_meta["scaling_bwd"].scale_inv[
+                tex.FP8BwdTensors.GRAD_OUTPUT1
+            ],
+            fp8_dtype_backward,
+            attention_probs_fp8,
+            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
+            ctx.activation_dtype,
+            transa = False,
+            transb = True,
+        )
+
+        mixed_value_layer_grad = _SelfAttentionScoresAndValue._grad_transpose_for_scores(value_layer_grad)
+
+        TransformerEngineBaseModule.post_backward(
+            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
+        )
+
+        return (
+            attention_probs_grad,
+            mixed_value_layer_grad,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+
+class SelfAttentionContext(TransformerEngineBaseModule):
+    """
+    Applies the second phase of self attention module as implemented in Bert script.
+    It replaces value transposition and context layer calculation.
+
+    Parameters
+    ----------
+    hidden_size : int
+                  The last dimension of input tensor.
+    num_attention_heads : int
+                  Number of attention heads. hidden_size must be divisible by this number.
+
+    Other parameters
+    ----------------
+    All other parameters have the same meaning as in standard TE modules (e.g. Linear).
+    """
+    def __init__(
+        self,
+        hidden_size: int,
+        num_attention_heads: int,
+        sequence_parallel: bool = False,
+        fuse_wgrad_accumulation: bool = False,
+        tp_group: Optional[dist_group_type] = None,
+        tp_size: int = 1,
+    ) -> None:
+        super().__init__()
+        self.fuse_wgrad_accumulation = fuse_wgrad_accumulation
+
+        # TE module stuff
+        if tp_group is None:
+            self.tp_size = tp_size
+            if tp_size == 1:
+                self.set_tensor_parallel_group(tp_group)
+        else:
+            self.tp_size = get_distributed_world_size(tp_group)
+            self.set_tensor_parallel_group(tp_group)
+        self.set_nccl_overlap_warning_if_tp()
+
+        self.sequence_parallel = (self.tp_size > 1) and sequence_parallel
+
+        # Self attention stuff
+        if hidden_size % num_attention_heads != 0:
+            raise ValueError(
+                "The hidden size (%d) is not a multiple of the number of attention "
+                "heads (%d)" % (hidden_size, num_attention_heads))
+        self.num_attention_heads = num_attention_heads
+        self.attention_head_size = int(hidden_size / num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
+
+
+    def forward(self,
+        attention_probs,
+        value_layer,
+        is_first_microbatch: Optional[bool] = None
+    ):
+        attention_probs = self.pre_forward(attention_probs, num_gemms = 1)
+
+        self.set_activation_dtype(value_layer)
+        value_layer = value_layer.contiguous()
+
+        context_layer = _SelfAttentionContext.apply(
+            attention_probs,
+            value_layer,
+            self.num_attention_heads,
+            self.attention_head_size,
+            is_first_microbatch,
+            self.fp8,
+            self.fp8_meta,
+            self.fuse_wgrad_accumulation,
+            self.tp_group,
+            self.sequence_parallel,
+            self.tp_size > 1,
+            self.activation_dtype,
+        )
+
+        self.post_forward()
+
+        return context_layer
+
+

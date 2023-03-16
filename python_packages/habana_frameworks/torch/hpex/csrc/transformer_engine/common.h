@@ -46,12 +46,24 @@ enum FP8FwdTensors {
   GEMM1_INPUT = 0,
   GEMM1_WEIGHT = 1,
   GEMM2_INPUT = 2,
-  GEMM2_WEIGHT = 3
+  GEMM2_WEIGHT = 3,
+  GEMM3_INPUT = 4,
+  GEMM3_WEIGHT = 5,
+  GEMM4_INPUT = 6,
+  GEMM4_WEIGHT = 7,
+  GEMM5_INPUT = 8,
+  GEMM5_WEIGHT = 9,
 };
 
 // Used as named indices on the `scale`, `scale_inv`,
 // and `amax` tensors in the `FP8TensorMeta` class.
-enum FP8BwdTensors { GRAD_OUTPUT1 = 0, GRAD_OUTPUT2 = 1 };
+enum FP8BwdTensors {
+  GRAD_OUTPUT1 = 0,
+  GRAD_OUTPUT2 = 1,
+  GRAD_OUTPUT3 = 2,
+  GRAD_OUTPUT4 = 3,
+  GRAD_OUTPUT5 = 4,
+};
 
 } // namespace transformer_engine
 

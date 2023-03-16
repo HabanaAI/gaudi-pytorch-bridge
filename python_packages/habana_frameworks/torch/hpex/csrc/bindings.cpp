@@ -337,9 +337,18 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value("GEMM1_INPUT", transformer_engine::FP8FwdTensors::GEMM1_INPUT)
       .value("GEMM1_WEIGHT", transformer_engine::FP8FwdTensors::GEMM1_WEIGHT)
       .value("GEMM2_INPUT", transformer_engine::FP8FwdTensors::GEMM2_INPUT)
-      .value("GEMM2_WEIGHT", transformer_engine::FP8FwdTensors::GEMM2_WEIGHT);
+      .value("GEMM2_WEIGHT", transformer_engine::FP8FwdTensors::GEMM2_WEIGHT)
+      .value("GEMM3_INPUT", transformer_engine::FP8FwdTensors::GEMM3_INPUT)
+      .value("GEMM3_WEIGHT", transformer_engine::FP8FwdTensors::GEMM3_WEIGHT)
+      .value("GEMM4_INPUT", transformer_engine::FP8FwdTensors::GEMM4_INPUT)
+      .value("GEMM4_WEIGHT", transformer_engine::FP8FwdTensors::GEMM4_WEIGHT)
+      .value("GEMM5_INPUT", transformer_engine::FP8FwdTensors::GEMM5_INPUT)
+      .value("GEMM5_WEIGHT", transformer_engine::FP8FwdTensors::GEMM5_WEIGHT);
 
   py::enum_<transformer_engine::FP8BwdTensors>(m, "FP8BwdTensors")
       .value("GRAD_OUTPUT1", transformer_engine::FP8BwdTensors::GRAD_OUTPUT1)
-      .value("GRAD_OUTPUT2", transformer_engine::FP8BwdTensors::GRAD_OUTPUT2);
+      .value("GRAD_OUTPUT2", transformer_engine::FP8BwdTensors::GRAD_OUTPUT2)
+      .value("GRAD_OUTPUT3", transformer_engine::FP8BwdTensors::GRAD_OUTPUT3)
+      .value("GRAD_OUTPUT4", transformer_engine::FP8BwdTensors::GRAD_OUTPUT4)
+      .value("GRAD_OUTPUT5", transformer_engine::FP8BwdTensors::GRAD_OUTPUT5);
 }
