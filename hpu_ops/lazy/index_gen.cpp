@@ -301,7 +301,6 @@ LazyIndex<at::Tensor>::LazyIndex(
           out_shapes_fn,
           -1) {
   habana_lazy::NoAccThread no_acc_thread;
-
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   auto self_sizes = self.sizes().vec();
@@ -353,7 +352,6 @@ LazyIndex<at::Tensor>::LazyIndex(
       }
     }
   }
-
   if (advanced_indexing) {
     for (auto input : indices_in_orig) {
       auto o1 = input.toOptional<at::Tensor>();
@@ -365,15 +363,23 @@ LazyIndex<at::Tensor>::LazyIndex(
           has_bool_mask = true;
           auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(o1.value());
           t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
-          std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
-          c10::IntArrayRef dims_sz(dims_sz_vec);
-          auto nz_indices =
-              habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
-          for (auto i : c10::irange((int)nz_indices.size())) {
-            auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
-            bool_indices_vec.emplace_back(nzi);
-            indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+          if (t_nz.dim() > 1) {
+            std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+            c10::IntArrayRef dims_sz(dims_sz_vec);
+            auto nz_indices =
+                habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
+            for (auto i : c10::irange((int)nz_indices.size())) {
+              auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
+              bool_indices_vec.emplace_back(nzi);
+              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+            }
+          } else {
+            bool_indices_vec.emplace_back(t_nz);
+            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
           }
+        } else {
+          bool_indices_vec.emplace_back(o1.value());
+          indices_in_ivals_vec.push_back(c10::IValue(o1.value()));
         }
       }
     }

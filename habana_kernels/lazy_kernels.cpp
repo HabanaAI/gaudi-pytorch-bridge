@@ -2912,14 +2912,20 @@ static c10::List<c10::optional<at::Tensor>> check_for_boolean_advanced_indexing(
         has_bool_mask = true;
         auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(input);
         t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
-        std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
-        c10::IntArrayRef dims_sz(dims_sz_vec);
-        auto nz_indices =
-            habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
-        for (auto i : c10::irange((int)nz_indices.size())) {
-          auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
-          bool_indices_vec.emplace_back(nzi);
+        if (t_nz.dim() > 1) {
+          std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+          c10::IntArrayRef dims_sz(dims_sz_vec);
+          auto nz_indices =
+              habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
+          for (auto i : c10::irange((int)nz_indices.size())) {
+            auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
+            bool_indices_vec.emplace_back(nzi);
+          }
+        } else {
+          bool_indices_vec.emplace_back(t_nz);
         }
+      } else {
+        bool_indices_vec.emplace_back(input);
       }
     }
   }
@@ -3045,7 +3051,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   for (; i < self.dim(); i++) {
     index_all_elems[i] = true;
   }
-
   int64_t repeats_needed[self.dim()];
   int64_t repeat_interleaves_needed[self.dim()];
   for (i = 0; i < self.dim(); i++) {
