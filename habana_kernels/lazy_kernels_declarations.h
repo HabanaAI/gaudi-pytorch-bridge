@@ -262,34 +262,15 @@ at::Tensor slice_hpu_lazy(
     c10::optional<int64_t> start,
     c10::optional<int64_t> end,
     int64_t step);
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-at::Tensor select_hpu_lazy(const at::Tensor& self, int64_t dim, int64_t index);
-#else
 at::Tensor select_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
-    c10::SymInt index);
-#endif
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor select_backward_hpu_lazy(
-    const at::Tensor& grad,
-    at::IntArrayRef input_sizes,
-    int64_t dim,
-    int64_t index);
-#elif IS_PYTORCH_OLDER_THAN(1, 14)
-at::Tensor select_backward_hpu_lazy(
-    const at::Tensor& grad,
-    at::SymIntArrayRef input_sizes,
-    int64_t dim,
-    int64_t index);
+#if IS_PYTORCH_OLDER_THAN(1, 14)
+    int64_t
 #else
-at::Tensor select_backward_hpu_lazy(
-    const at::Tensor& grad,
-    at::SymIntArrayRef input_sizes,
-    int64_t dim,
-    at::SymInt index);
+    c10::SymInt
 #endif
-
+        index);
 at::Tensor masked_select_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mask);

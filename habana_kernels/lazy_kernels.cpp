@@ -4156,44 +4156,6 @@ at::Tensor select_hpu_lazy(
 }
 #endif
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor select_backward_hpu_lazy(
-    const Tensor& grad,
-    at::IntArrayRef input_sizes,
-    int64_t dim,
-    int64_t index) {
-  PT_LAZY_TRACE;
-
-  return at::native::select_backward(grad, input_sizes, dim, index);
-}
-#elif IS_PYTORCH_OLDER_THAN(1, 14)
-Tensor select_backward_hpu_lazy(
-    const Tensor& grad,
-    at::SymIntArrayRef input_sizes,
-    int64_t dim,
-    int64_t index) {
-  PT_LAZY_TRACE;
-
-  return at::native::select_backward(
-      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index);
-}
-#else
-Tensor select_backward_hpu_lazy(
-    const Tensor& grad,
-    at::SymIntArrayRef input_sizes,
-    int64_t dim,
-    c10::SymInt index) {
-  PT_LAZY_TRACE;
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-  return at::native::select_backward(
-      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index.expect_int());
-#else
-  return at::select_backward(
-      grad, C10_AS_INTARRAYREF_SLOW(input_sizes), dim, index.expect_int());
-#endif
-}
-#endif
-
 bool can_convert(const Scalar& value) {
   if (value.isFloatingPoint()) {
     auto float_value = value.toFloat();

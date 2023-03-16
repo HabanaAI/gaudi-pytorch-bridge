@@ -566,11 +566,6 @@ as_strided_:
   override_fn: as_strided_hpu_lazy_
   acc_thread: true
 
-select_backward:
-  force_default: false
-  override_fn: select_backward_hpu_lazy
-  acc_thread: true
-
 set_:
   override_fn: set_
 
