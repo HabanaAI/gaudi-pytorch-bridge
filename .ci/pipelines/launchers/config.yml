@@ -64,7 +64,7 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 # below test is added to run the exisiting cpp test in KVM over ssh, this is a trial
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_ssh
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_cpp_suite_ssh
   silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
