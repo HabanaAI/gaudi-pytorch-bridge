@@ -15,7 +15,6 @@ import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hpu", "-hh", help="HPU ops file", required=True)
-parser.add_argument("--filter", "-f", action="store_true")
 parser.add_argument("--verbose", "-v", action="store_true")
 
 
@@ -23,30 +22,19 @@ def bool_to_yes(v):
     return "YES" if v else "NO"
 
 
-def filter(op, filtered_out):
-    dot_pos = op.find(".")
-    if dot_pos >= 0:
-        filtered_out.add(op[dot_pos:])
-        op = op[:dot_pos]
-
-    return op, filtered_out
-
-
 def read_ops(args, file):
-    filtered_out = set()
     ops = set()
     with open(file, "r") as read_obj:
         for line in read_obj:
-            op = line.strip().replace("aten::", "")
-
-            if args.filter:
-                op, filtered_out = filter(op, filtered_out)
-
+            op = line.strip()
+            last_space = op.rfind(" ")
+            if last_space >= 0:
+                op = op[last_space + 1 :]
             ops.add(op)
 
     if args.verbose:
-        for filt in sorted(filtered_out):
-            print(filt)
+        for op in sorted(ops):
+            print(op)
 
     return sorted(ops)
 
@@ -62,10 +50,7 @@ def read_http_aten_ops_supported(args, url):
         posb += len(pattern)
         pose = html_doc.find("<", posb)
         if pose >= 0:
-            op = html_doc[posb:pose]
-            if args.filter:
-                op, filtered_out = filter(op, set())
-
+            op = "aten::" + html_doc[posb:pose]
             ops.add(op)
             max_len = max(max_len, len(op))
             posb = html_doc.find(pattern, pose)
