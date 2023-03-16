@@ -138,7 +138,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
-  habana_kernels/upsample_kernels.cpp
   habana_kernels/custom_op_kernel.cpp
   habana_lazy/aten_lazy_bridge.cpp
   habana_lazy/lazy_graph_hash_disabler.cpp
@@ -252,7 +251,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     habana_kernels/threshold_kernels.cpp
     habana_kernels/topk_kernels.cpp
     habana_kernels/unary_kernels.cpp
-    habana_kernels/upsample_kernels.cpp
     habana_lazy/aten_lazy_bridge.cpp
     habana_lazy/debug_utils.cpp
     habana_lazy/hlexec.cpp

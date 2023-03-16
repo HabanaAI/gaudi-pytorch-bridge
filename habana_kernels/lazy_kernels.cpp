@@ -37,7 +37,6 @@
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
