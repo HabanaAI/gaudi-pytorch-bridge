@@ -251,6 +251,10 @@ class Bucket {
   const DynamicRanges& getRanges() const {
     return ranges_;
   }
+  void updateRanges(uint64_t idx, std::pair<int64_t, int64_t> minmax) {
+    HABANA_ASSERT(idx < ranges_.size());
+    ranges_[idx] = minmax;
+  }
   void setRanges(const DynamicRanges& r) {
     ranges_ = r;
   }
@@ -471,6 +475,12 @@ class DynamicBucketInfo {
   bool AreDynamicDimsContained() const {
     return buckets_.size() > 1;
   }
+
+  void UpdateShapes(
+      uint64_t bucket,
+      int64_t input_idx,
+      int64_t dim_idx,
+      int64_t new_val);
 
   ResultShapes CalculateShapes(uint64_t bucket);
 

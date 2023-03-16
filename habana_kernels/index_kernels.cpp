@@ -1976,21 +1976,20 @@ void SliceOperator::AllocateAndAddSynapseNode(
         start = input - output * step
         */
 
-        // TODO: Enable this lines once we have a mechanism to update the
-        // bucket back for the changes done from allocateandadd
-
-        // if (out_shape[i] != 0) {
-        //   start[i] = inp_shape[i] - (out_shape[i] * step[i]);
-        // }
+        // start shape tensor is updated, so change the buckets as well if
+        // start is there in bucket
+        if (out_shape[i] != 0) {
+          start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+        }
       }
       // Modify the start and output shape in name shape map to create valid
       // ranges
       synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_output.id(), out_shape);
-      // synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
-      // habana::ShapeInference::UpdateShapeInfo(
-      //     graph, syn_tensor_start.id(), start);
+      synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
+      habana::ShapeInference::UpdateShapeInfo(
+          graph, syn_tensor_start.id(), start);
     }
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {

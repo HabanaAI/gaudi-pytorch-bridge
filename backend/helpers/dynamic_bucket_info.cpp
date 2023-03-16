@@ -357,6 +357,41 @@ DynamicBucketInfo::DynamicBucketInfo(size_t key)
   max_policy_ = getPolicy(max_policy_seq.at(0) - zero_offset);
 }
 
+void DynamicBucketInfo::UpdateShapes(
+    uint64_t bucket,
+    int64_t tensor_idx,
+    int64_t dim_idx,
+    int64_t new_val) {
+  // This function can update both min/max values based on current pass;
+  HABANA_ASSERT(
+      ((habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MAX_SHAPE) ||
+       (habana::ShapeInference::GetCurrentPass() ==
+        habana::ShapeInfo::InferencePass::MIN_SHAPE)),
+      "UpdateShape is supported from min/max passes only")
+
+  auto& dynamic_dims = buckets_[bucket].getDynamicDims();
+  if (dynamic_dims.count(tensor_idx) &&
+      dynamic_dims.at(tensor_idx).count(dim_idx)) {
+    auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
+    auto& ranges = buckets_[bucket].getRanges();
+    HABANA_ASSERT(
+        (range_idx < ranges.size()), "UpdateShapes ranges exceed the index");
+
+    std::pair<int64_t, int64_t> new_minmax;
+    bool isMax =
+        (habana::ShapeInference::GetCurrentPass() ==
+         habana::ShapeInfo::InferencePass::MAX_SHAPE);
+
+    if (isMax) {
+      new_minmax = std::make_pair(ranges[range_idx].first, new_val);
+    } else {
+      new_minmax = std::make_pair(new_val, ranges[range_idx].second);
+    }
+    buckets_[bucket].updateRanges(range_idx, new_minmax);
+  }
+}
+
 ResultShapes DynamicBucketInfo::CalculateShapes(uint64_t bucket) {
   ResultShapes result;
   TORCH_CHECK(

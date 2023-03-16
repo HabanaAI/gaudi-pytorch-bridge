@@ -2085,8 +2085,79 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       ProcessStridedInsertAtOutput(
           node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {
+      std::vector<std::tuple<std::vector<int64_t>, std::vector<int64_t>>>
+          minmax_list;
+      // Currently max update which is less than bucket range issue exists for
+      // slice. If other node needs this, can be added here.
+      bool needUpdateMinMax =
+          ((habana::ShapeInference::GetCurrentPass() ==
+            habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+           (habana::ShapeInference::GetMaxPolicyInUse() !=
+            habana_helpers::DynamicDimsPolicy::CURRENT) &&
+           strcmp(node->kind().toQualString(), "hpu::slice") == 0);
+      if (needUpdateMinMax) {
+        minmax_list.resize(
+            input_stack.size(),
+            std::make_tuple(std::vector<int64_t>(), std::vector<int64_t>()));
+        for (int i = 0; i < input_stack.size(); i++) {
+          auto& inp = input_stack[i];
+          if (inp.isTensor()) {
+            minmax_list[i] = habana::ShapeInference::GetMinMaxShape(
+                HabanaKernel->SynInput(i).ref().id());
+          }
+        }
+      }
+
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputs_metadata);
+      if (needUpdateMinMax) {
+        for (int i = 0; i < input_stack.size(); i++) {
+          auto& inp = input_stack[i];
+          if (inp.isTensor()) {
+            // Check only for max, bucket mismatch issue happens for max only.
+            auto new_max = std::get<1>(habana::ShapeInference::GetMinMaxShape(
+                HabanaKernel->SynInput(i).ref().id()));
+            auto max_from_list = std::get<1>(minmax_list[i]);
+            HABANA_ASSERT(new_max.size() == max_from_list.size());
+            for (auto j = 0; j < new_max.size(); j++) {
+              if (new_max[j] != max_from_list[j]) {
+                auto ivalHash = inp.hash().toInt();
+                auto input_idx = 0;
+                if (m_ival_hash_to_input_index_map.count(ivalHash)) {
+                  input_idx = m_ival_hash_to_input_index_map[ivalHash];
+                } else {
+                  HABANA_ASSERT(
+                      0,
+                      "NOT found the entry in m_ival_hash_to_input_index_map index:",
+                      ivalHash,
+                      " total-entries:",
+                      m_ival_hash_to_input_index_map.size());
+                }
+                PT_DYNAMIC_SHAPE_DEBUG(
+                    "Need update bucket ",
+                    current_bucket_id_,
+                    "  oldval:",
+                    max_from_list[j],
+                    " newval:",
+                    new_max[j],
+                    " inputIdx:",
+                    input_idx,
+                    " dimIdx:",
+                    j,
+                    " current policy:",
+                    habana::ShapeInference::GetMaxPolicyInUse());
+                {
+                  // Update with new shapes
+                  std::lock_guard<std::mutex> lg(
+                      current_dbipsh_->get_refine_mutex());
+                  current_dbipsh_->UpdateShapes(
+                      current_bucket_id_, input_idx, j, new_max[j]);
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     static std::unordered_set<std::string> cs_jit_ir_ops_;
@@ -2542,6 +2613,7 @@ void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
     auto value_input = jit_ir_graph->inputs().at(j);
     auto ivpsh = pt_stack_sh[j];
     value_to_ivalue[value_input] = ivpsh;
+    m_ival_hash_to_input_index_map[ivpsh->hash().toInt()] = j;
   }
   PT_BRIDGE_END;
 }
@@ -2833,6 +2905,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   graph_input_info.current_bucket_id = current_bucket_id_;
   graph_input_info.min_policy = current_dbipsh_->GetMinPolicy();
   graph_input_info.max_policy = current_dbipsh_->GetMaxPolicy();
+  habana::ShapeInference::SetMinMaxPolicyInUse(
+      graph_input_info.min_policy, graph_input_info.max_policy);
 
   cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
       input_refs, graph_key, op_strs, cur_ds_token_);
@@ -2995,6 +3069,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   }
 
   CompileAndRunDynamicGraph(graph_input_info);
+  m_ival_hash_to_input_index_map.clear();
+
   habana_helpers::DynamicBucketInfo::inc_original_recipe_count();
   current_dbipsh_->get_statistics()->GetDigest(
       cur_rargpsh->graphHashCode(),
@@ -4185,6 +4261,8 @@ void HabanaLaunchOpPT::handle_pass_exception(
 
   // The above switch case changes the policy, get new ranges with changed
   // policy.
+  habana::ShapeInference::SetMinMaxPolicyInUse(
+      graph_input_info.min_policy, graph_input_info.max_policy);
   current_dbipsh_->UpdateBucketWithPolicy(
       graph_input_info.current_bucket_id,
       graph_input_info.act_input_tshapes,

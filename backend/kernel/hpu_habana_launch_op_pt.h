@@ -187,6 +187,9 @@ class HabanaLaunchOpPT {
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
+  // A map holding the ival hash and inputidx. 1-1 map for all inputs
+  std::unordered_map<int64_t, int64_t> m_ival_hash_to_input_index_map = {};
+
  private:
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;

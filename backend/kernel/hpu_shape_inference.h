@@ -12,6 +12,7 @@
  */
 #pragma once
 #include <iostream>
+#include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/tensor_shape.h"
 #include "backend/synapse_helpers/graph.h"
 
@@ -54,12 +55,19 @@ class ShapeInfo {
 
   virtual ~ShapeInfo() {
     m_pass = InferencePass::INVALID;
+    m_min_policy_inuse = habana_helpers::MIN_POLICY_DEFAULT;
+    m_max_policy_inuse = habana_helpers::MAX_POLICY_DEFAULT;
+
     m_min_shapes.clear();
     m_max_shapes.clear();
     m_actual_shapes.clear();
   }
 
   InferencePass m_pass;
+  habana_helpers::DynamicDimsPolicy m_min_policy_inuse{
+      habana_helpers::MIN_POLICY_DEFAULT};
+  habana_helpers::DynamicDimsPolicy m_max_policy_inuse{
+      habana_helpers::MAX_POLICY_DEFAULT};
   IdShapeMap m_min_shapes;
   IdShapeMap m_max_shapes;
   IdShapeMap m_actual_shapes;
@@ -125,6 +133,21 @@ class ShapeInference {
 
   static ShapeInfo::InferencePass GetCurrentPass() {
     return m_shape_info->m_pass;
+  }
+
+  static habana_helpers::DynamicDimsPolicy GetMinPolicyInUse() {
+    return m_shape_info->m_min_policy_inuse;
+  }
+
+  static habana_helpers::DynamicDimsPolicy GetMaxPolicyInUse() {
+    return m_shape_info->m_max_policy_inuse;
+  }
+
+  static void SetMinMaxPolicyInUse(
+      habana_helpers::DynamicDimsPolicy min_policy,
+      habana_helpers::DynamicDimsPolicy max_policy) {
+    m_shape_info->m_min_policy_inuse = min_policy;
+    m_shape_info->m_max_policy_inuse = max_policy;
   }
 
   static void ResetSifTensorId() {
