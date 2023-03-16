@@ -4848,6 +4848,201 @@ Tensor batch_norm_backward_elemt_lazy(
   return std::tie(out1, out2);
 }
 
+std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
+    const Tensor& input,
+#if IS_PYTORCH_OLDER_THAN(1, 13)
+    IntArrayRef normalized_shape_,
+#else
+    c10::SymIntArrayRef normalized_shape_c10,
+#endif
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
+    double eps) {
+  PT_LAZY_TRACE;
+
+#if !IS_PYTORCH_OLDER_THAN(1, 13)
+  auto normalized_shape_ = C10_AS_INTARRAYREF_SLOW(normalized_shape_c10);
+#endif
+
+  auto weight = weight_opt.value_or(Tensor());
+  auto sizes_vec = input.sizes().vec();
+  // check whether we can use a perf optimized TPC exec path
+  auto use_tpc_affine_path =
+      LayerNormOperator::is_tpc_affine_path(input, normalized_shape_, weight);
+  std::vector<int64_t> normalized_shape_vec = normalized_shape_.vec();
+  if (use_tpc_affine_path) { // if optimized path, then we can't have
+                             // N/mini-batch-size for generating
+                             // weights/biases
+    sizes_vec.erase(sizes_vec.begin());
+    // NOTE: Add Hack to indicate to lowering kernel that
+    // elementwise_affine=False Without this we have to change the schema and
+    // add a new variable to indicate the path. If, in future, TPC moves fully
+    // to use optimized path, we can remove this.
+    if (normalized_shape_vec.size() == (size_t)input.dim() - 1) {
+      normalized_shape_vec.insert(normalized_shape_vec.begin(), 1);
+    }
+  }
+  IntArrayRef normalized_shape = normalized_shape_vec;
+  if (!weight.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    weight = torch::ones(normalized_shape_vec, options);
+  }
+
+  auto bias = bias_opt.value_or(Tensor());
+  if (!bias.defined()) {
+    auto options = torch::TensorOptions()
+                       .dtype(input.dtype())
+                       .device(torch::kHPU)
+                       .requires_grad(false);
+    bias = torch::zeros(normalized_shape_vec, options);
+  }
+
+  auto sizes = LayerNormOperator::getOutputSizes(input, normalized_shape);
+
+  ir::NodePtr node = std::make_shared<ir::LayerNormForward>();
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>, ir::LayerNormForward> k{
+      node, {input, normalized_shape, weight, bias, eps}, sizes};
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [node = std::move(node),
+               op = std::move(k),
+               out_v = std::move(out_v),
+               input,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               weight,
+               bias,
+               eps]() mutable {
+    auto node_derived = std::dynamic_pointer_cast<ir::LayerNormForward>(node);
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    node_derived->Init(input, normalized_shape, weight, bias, eps);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm, func, out)
+}
+
+std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+#if IS_PYTORCH_OLDER_THAN(1, 13)
+    IntArrayRef normalized_shape,
+#else
+    c10::SymIntArrayRef normalized_shape_,
+#endif
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
+    std::array<bool, 3> grad_input_mask) {
+  PT_LAZY_TRACE;
+
+#if !IS_PYTORCH_OLDER_THAN(1, 13)
+  auto normalized_shape = C10_AS_INTARRAYREF_SLOW(normalized_shape_);
+#endif
+
+  // Get Output Image
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  using U = ir::LayerNormBackward;
+  class Kernel : public LazyOp<T, U> {
+   public:
+    Kernel(
+        ir::NodePtr node,
+        const at::Tensor& dY,
+        const at::Tensor& X,
+        IntArrayRef normalized_shape,
+        const at::Tensor& mean,
+        const at::Tensor& rstd,
+        const c10::optional<Tensor>& weight_opt,
+        const c10::optional<Tensor>& bias_opt,
+        std::array<bool, 3> grad_input_mask)
+        : LazyOp<T, U>(
+              std::move(node),
+              {dY,
+               X,
+               mean,
+               rstd,
+               weight_opt,
+               bias_opt,
+               normalized_shape,
+               grad_input_mask},
+              {},
+              -1),
+          dY{dY},
+          normalized_shape{normalized_shape},
+          weight_opt{weight_opt},
+          grad_input_mask{grad_input_mask} {}
+
+   private:
+    T get_result_overrideable() override {
+      auto gamma = weight_opt.value_or(Tensor());
+      auto sizes = LayerNormBackwardOperator::getOutputSizes(dY, gamma);
+      auto result_dY = empty_hpu_lazy(
+          sizes[0], dY.options(), dY.suggest_memory_format(), false);
+      at::Tensor result2, result3;
+      result2 = empty_hpu_lazy(
+          sizes[1], gamma.options(), gamma.suggest_memory_format(), false);
+      result3 = empty_hpu_lazy(
+          sizes[2], gamma.options(), gamma.suggest_memory_format(), false);
+      return std::make_tuple(result_dY, result2, result3);
+    }
+    const at::Tensor& dY;
+    IntArrayRef normalized_shape;
+    const c10::optional<Tensor>& weight_opt;
+    std::array<bool, 3> grad_input_mask;
+  };
+
+  ir::NodePtr node = std::make_shared<ir::LayerNormBackward>();
+  std::vector<int64_t> normalized_shape_vec = normalized_shape.vec();
+
+  Kernel k(
+      node,
+      dY,
+      X,
+      normalized_shape,
+      mean,
+      rstd,
+      weight_opt,
+      bias_opt,
+      grad_input_mask);
+  auto out = k.get_result();
+  std::vector<at::Tensor> out_v;
+  for_each_in_tuple(
+      out, [&out_v](const auto& result) { out_v.push_back(result); });
+
+  auto func = [op = std::move(k),
+               out_v = std::move(out_v),
+               node = std::move(node),
+               dY,
+               X,
+               normalized_shape_vec = std::move(normalized_shape_vec),
+               mean,
+               rstd,
+               weight_opt,
+               bias_opt,
+               grad_input_mask = std::move(grad_input_mask)]() mutable {
+    IntArrayRef normalized_shape = normalized_shape_vec;
+    auto derived_node = std::dynamic_pointer_cast<ir::LayerNormBackward>(node);
+    derived_node->Init(
+        dY,
+        X,
+        normalized_shape,
+        mean,
+        rstd,
+        weight_opt,
+        bias_opt,
+        grad_input_mask);
+    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(native_layer_norm_backward, func, out)
+}
+
 std::tuple<Tensor, Tensor, Tensor> native_group_norm_hpu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight_opt,

@@ -200,8 +200,8 @@ std::vector<AtTensorPair> native_layer_norm_test(
     if (mode == NativeLayerNormTestMode::FwdBwdAffine) {
       mean_cpu = result[1].cpu;
       rstd_cpu = result[2].cpu;
-      mean_hpu = result[1].hpu;
-      rstd_hpu = result[2].hpu;
+      mean_hpu = result[1].hpu.to(torch::kHPU);
+      rstd_hpu = result[2].hpu.to(torch::kHPU);
     } else {
       int64_t N = 0;
       std::array<int64_t, 2> mean_rstd_shape = {};

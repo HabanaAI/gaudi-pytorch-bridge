@@ -359,6 +359,39 @@ batch_norm_backward_reduce_lazy(
     double momentum,
     double eps,
     const at::Tensor& counts);
+#if IS_PYTORCH_OLDER_THAN(1, 13)
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
+    const at::Tensor& input,
+    at::IntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    at::IntArrayRef normalized_shape,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    std::array<bool, 3> grad_input_mask);
+#else
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
+    const at::Tensor& input,
+    c10::SymIntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    c10::SymIntArrayRef normalized_shape_,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    std::array<bool, 3> grad_input_mask);
+#endif
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight_opt,

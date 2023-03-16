@@ -20,6 +20,128 @@
 namespace habana_lazy {
 namespace ir {
 
+class LayerNormForward : public ir::Node {
+ public:
+  enum class LayerNormForwardMeta {
+    NORMALIZED_INDEX = 1,
+    WEIGHT_INDEX,
+    BIAS_INDEX,
+    EPS_INDEX
+  };
+  LayerNormForward()
+      : Node(c10::Symbol::fromQualString("aten::native_layer_norm")) {}
+
+  void Init(
+      const at::Tensor& input,
+      at::IntArrayRef normalized_shape,
+      const c10::optional<at::Tensor>& weight_opt,
+      const c10::optional<at::Tensor>& bias_opt,
+      double eps) {
+    auto weight = weight_opt.value();
+    auto bias = bias_opt.value();
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    hl_input = HbLazyTensorViews::HandleViewsOrUpdate(input, hl_input);
+    AddInput(hl_input.GetIrValue());
+    std::vector<at::Tensor> input_pt_vec{input};
+    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
+    hl_weight = HbLazyTensorViews::HandleViewsOrUpdate(weight, hl_weight);
+    AddInput(hl_weight.GetIrValue());
+    input_pt_vec.emplace_back(weight);
+
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+    hl_bias = HbLazyTensorViews::HandleViewsOrUpdate(bias, hl_bias);
+    AddInput(hl_bias.GetIrValue());
+    input_pt_vec.emplace_back(bias);
+
+    AddInputPtTensors(input_pt_vec);
+    m_meta_data.set(
+        normalized_shape,
+        static_cast<size_t>(LayerNormForwardMeta::NORMALIZED_INDEX));
+    m_meta_data.set(eps, static_cast<size_t>(LayerNormForwardMeta::EPS_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", normalized_shape="
+       << m_meta_data.get(
+              static_cast<size_t>(LayerNormForwardMeta::NORMALIZED_INDEX))
+       << ", EPS="
+       << m_meta_data.get(static_cast<size_t>(LayerNormForwardMeta::EPS_INDEX));
+    return ss.str();
+  }
+};
+
+class LayerNormBackward : public ir::Node {
+ public:
+  enum class LayerNormBackwardMeta {
+    NORMALIZED_INDEX = 2,
+    MEAN_INDEX,
+    RSTD_INDEX,
+    WEIGHT_INDEX,
+    BIAS_INDEX,
+    MASK_INDEX
+  };
+  LayerNormBackward()
+      : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {}
+
+  void Init(
+      const at::Tensor& dY,
+      const at::Tensor& X,
+      at::IntArrayRef normalized_shape,
+      const at::Tensor& mean,
+      const at::Tensor& rstd,
+      const c10::optional<at::Tensor>& weight_opt,
+      const c10::optional<at::Tensor>& bias_opt,
+      std::array<bool, 3> grad_input_mask) {
+    auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHPU);
+    hl_dY = HbLazyTensorViews::HandleViewsOrUpdate(dY, hl_dY);
+    AddInput(hl_dY.GetIrValue());
+    auto hl_X = GetOrCreateHbLazyTensor(X, c10::kHPU);
+    hl_X = HbLazyTensorViews::HandleViewsOrUpdate(X, hl_X);
+    AddInput(hl_X.GetIrValue());
+    auto hl_mean = GetOrCreateHbLazyTensor(mean, c10::kHPU);
+    hl_mean = HbLazyTensorViews::HandleViewsOrUpdate(mean, hl_mean);
+    AddInput(hl_mean.GetIrValue());
+    auto hl_rstd = GetOrCreateHbLazyTensor(rstd, c10::kHPU);
+    hl_rstd = HbLazyTensorViews::HandleViewsOrUpdate(rstd, hl_rstd);
+    AddInput(hl_rstd.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{dY, X, mean, rstd};
+    auto gamma = weight_opt.value();
+
+    auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHPU);
+    hl_gamma = HbLazyTensorViews::HandleViewsOrUpdate(gamma, hl_gamma);
+    AddInput(hl_gamma.GetIrValue());
+    input_pt_vec.emplace_back(gamma);
+    auto bias = bias_opt.value();
+
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
+    hl_bias = HbLazyTensorViews::HandleViewsOrUpdate(bias, hl_bias);
+    AddInput(hl_bias.GetIrValue());
+    input_pt_vec.emplace_back(bias);
+    AddInputPtTensors(input_pt_vec);
+    m_meta_data.set(
+        normalized_shape,
+        static_cast<size_t>(LayerNormBackwardMeta::NORMALIZED_INDEX));
+    c10::List<bool> boolList{
+        grad_input_mask[0], grad_input_mask[1], grad_input_mask[2]};
+    m_meta_data.set(
+        boolList, static_cast<size_t>(LayerNormBackwardMeta::MASK_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", normalized_shape="
+       << m_meta_data.get(
+              static_cast<size_t>(LayerNormBackwardMeta::NORMALIZED_INDEX))
+
+       << ", Output Mask="
+       << m_meta_data.get(
+              static_cast<size_t>(LayerNormBackwardMeta::MASK_INDEX));
+    return ss.str();
+  }
+};
+
 class FusedNorm : public ir::Node {
  public:
   enum class FusedNormMeta {

@@ -564,6 +564,8 @@ static sh::tensor CreateLayerNormBiasWeightTensor(
   }
 }
 
+HPU_OP_BACKEND(LayerNormHabanaOperator)
+
 void LayerNormHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -726,6 +728,8 @@ static void CheckMeanRstdSizes(
       label,
       " for LayerNormBackward is over 4 dims - unsupported!");
 }
+
+HPU_OP_BACKEND(LayerNormBwdHabanaOperator)
 
 void LayerNormBwdHabanaOperator::AddNode(
     sh::graph& graph,

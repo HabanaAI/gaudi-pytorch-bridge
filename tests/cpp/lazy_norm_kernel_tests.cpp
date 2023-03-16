@@ -30,9 +30,9 @@ using namespace at;
 class LazyNormKernelTest : public habana_lazy_test::LazyTest {};
 
 LAYER_NORM_TEST(LazyNormKernelTest, Forward)
-LAYER_NORM_TEST(LazyNormKernelTest, Backward)
-LAYER_NORM_TEST(LazyNormKernelTest, BackwardGal)
-LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
+LAYER_NORM_TEST_2(LazyNormKernelTest, Backward, Def, Def)
+LAYER_NORM_TEST_2(LazyNormKernelTest, BackwardGal, Def, Def)
+LAYER_NORM_TEST_2(LazyNormKernelTest, FwdBwdAffine, Def, Def)
 
 TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
