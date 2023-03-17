@@ -7458,4 +7458,25 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(expand_into_jagged_permute, op)
 }
 
+at::Tensor _ragged_softmax(
+    const at::Tensor& self,
+    int64_t dim,
+    bool half_to_float,
+    const at::Tensor& valid_count) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "HpuOp _ragged_softmax :",
+      " self=",
+      to_string(self),
+      " dim=",
+      to_string(dim),
+      " half_to_float=",
+      to_string(half_to_float));
+
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::ragged_softmax", {self, dim, half_to_float, valid_count}};
+  RUN_MAYBE_WITH_ACC_THREAD(_ragged_softmax, hpu_op);
+}
+
 } // namespace habana_lazy

@@ -13,6 +13,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include <algorithm>
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/recipe.h"
@@ -20,8 +21,6 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/softmax_kernels.h"
-
-#include <algorithm>
 
 using namespace torch;
 using namespace habana;

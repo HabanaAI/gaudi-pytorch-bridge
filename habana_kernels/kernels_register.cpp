@@ -2170,6 +2170,14 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
+at::Tensor _ragged_softmax_wrap(
+    const at::Tensor& self,
+    int64_t dim,
+    bool half_to_float,
+    const at::Tensor& valid_count) {
+  return habana_lazy::_ragged_softmax(self, dim, half_to_float, valid_count);
+}
+
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
@@ -2441,6 +2449,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_permute_2D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
+  m.def(
+      "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2455,6 +2465,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_layernorm", fp8_layernorm_wrap);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
+  m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

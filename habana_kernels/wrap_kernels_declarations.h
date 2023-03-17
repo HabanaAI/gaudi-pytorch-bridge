@@ -389,6 +389,11 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size);
+at::Tensor _ragged_softmax_wrap(
+    const at::Tensor& self,
+    int64_t dim,
+    bool half_to_float,
+    const at::Tensor& valid_count);
 
 namespace vision {
 namespace ops {
