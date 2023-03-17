@@ -17,9 +17,7 @@ orchestratorConfig:
     silentMode: true
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
     silentMode: true
-# Reason: https://jira.habana-labs.com/browse/SW-127443
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology
-    silentMode: true
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi2_asic_pytorch_fairseq_topology
 # PyTorch Operators and feature validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
