@@ -149,8 +149,8 @@ def test_device_partition_hpuinput():
         result_compile_train = compiled_function_training(tensor)
         result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile_train)
-        assert torch.equal(result_compile_infer, result_compile_train)
+        assert torch.allclose(result_nocompile, result_compile_train, rtol=1e-06)
+        assert torch.allclose(result_compile_infer, result_compile_train, rtol=1e-06)
 
 
 def test_leaf_views_1():

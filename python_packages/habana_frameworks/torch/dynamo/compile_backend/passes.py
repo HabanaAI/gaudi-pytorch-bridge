@@ -366,6 +366,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "empty",
             "zeros",
             "ones",
+            "clone", # SW-136398
             # Random OPs.
             "seed",
             "manual_seed",
@@ -383,6 +384,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "bernoulli",
             "multinomial",
             "normal",
+            # Other
+            "convolution", # SW-137174
+            "_native_batch_norm_legit_functional", # SW-137176
         ]
 
         return node_target in unsupported_ops

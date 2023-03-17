@@ -22,6 +22,11 @@
 namespace habana {
 namespace graph {
 
+namespace pass {
+void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph>& graph);
+void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph>& graph);
+} // namespace pass
+
 class GraphExec {
  public:
   GraphExec(

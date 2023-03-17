@@ -51,10 +51,10 @@ GraphExec::GraphExec(
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference) {
-  m_graph_name = "habana_graph_" + std::to_string(m_graph_index);
-  // Remove 'self' from graph parameters
-  m_graph->eraseInput(0);
   PT_EAGER_DEBUG("Compling graph (recipe_id: ", recipe_id, ")\n", *m_graph);
+  m_graph_name = "habana_graph_" + std::to_string(m_graph_index);
+  pass::SanitizeGraphInput(m_graph);
+  pass::HandleTupleOnOutput(m_graph);
 }
 
 std::vector<at::Tensor> GraphExec::launch(std::vector<at::Tensor>& inputs) {
