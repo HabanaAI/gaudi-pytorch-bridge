@@ -56,6 +56,10 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_pt2_features_hpu
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   silentMode: false
   gerritTriggerMap:
