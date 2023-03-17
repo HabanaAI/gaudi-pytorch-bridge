@@ -805,11 +805,9 @@ def generate_entry_debug_code(t, fname, params, is_eager_frontend):
     if not is_eager_frontend:
         code = "  PT_OP_TRACE;\n"
         code += "  PT_LAZY_TRACE;\n"
-        frontend_type = "lazy"
     else:
         code = "  PT_EAGER_TRACE;\n"
-        frontend_type = "eager"
-    code += '  PT_OP_INFO("HpuOp {} {} :"'.format(frontend_type, fname)
+    code += '  PT_OP_INFO("HpuOp {} :"'.format(fname)
     for p in params:
         pname = param_name(p)
         code += ', " {}=", to_string({})'.format(pname, pname)
@@ -966,7 +964,7 @@ def frontend(
 
             # for not supported eager ops in Eager compilation, unconditionally
             # fallback to CPU
-            args_str = ", ".join(param_vars)
+            args_str=", ".join(param_vars)
             if overload:
                 code += f"  FALLBACK_UNSUPPORTED_OP2_O({opname}, PARAMS2({args_str}), {overload})\n"
             else:
@@ -1292,7 +1290,6 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
             or "TensorList" in sig  # TensorList ops
         )
 
-
 # List of override_fn ops that are supporting eager frontend
 eager_ops_override_fns_whitelist = [
     "_copy_from",
@@ -1300,17 +1297,17 @@ eager_ops_override_fns_whitelist = [
     "as_strided_hpu_lazy2",
     "set_source_Storage_storage_offset",
     "view_hpu_lazy",
-    "_local_scalar_dense_hpu_lazy",
+    "_local_scalar_dense_hpu_lazy"
 ]
 
 eager_custom_frontends_whitelist = [
     "BernoulliFE",
     "BernoulliFEOut",
-    "ClampFE",
+    "ReductionFrontendTemplate",
     "FillFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
-    "ReductionFrontendTemplate",
+    "ClampFE"
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
@@ -1960,10 +1957,7 @@ def generate_autocast_ops(fgens, args, out_dir):
             "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,int64_t,int64_t,at::Tensor>",
             "tuple_4_tensors_4_int64_tensor",
         ),
-        (
-            "::std::tuple<at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor>",
-            "tuple_2_tensors_2_int64_tensor",
-        ),
+        ("::std::tuple<at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor>", "tuple_2_tensors_2_int64_tensor"),
         ("SymIntArrayRef", "IntArrayRef"),
         ("c10::SymInt", "int64_t"),
     )

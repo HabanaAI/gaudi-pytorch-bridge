@@ -12,7 +12,10 @@
 
 namespace habana {
 
-static sizes_vec SplitOutputShape(int64_t dim, std::vector<int64_t> outshape) {
+static sizes_vec SplitOutputShape(
+    bool,
+    int64_t dim,
+    std::vector<int64_t> outshape) {
   TORCH_CHECK(
       outshape[dim] == 3,
       "LinAlgCross: dimension ",
@@ -209,7 +212,9 @@ void LinAlgCross::AddNode(
   int index_position = index - transpose_shape.begin();
 
   auto split_shape = SplitOutputShape(
-      is_scd ? dim : index_position, is_scd ? outshape : transpose_shape)[0];
+      true,
+      is_scd ? dim : index_position,
+      is_scd ? outshape : transpose_shape)[0];
 
   // converting index position to synapse order
   auto axis = get_dim_in_tpc_order(index_position, self.dim());

@@ -7511,11 +7511,9 @@ view.dtype:
   override_fn: view_dtype_hpu_lazy
   acc_thread: true
 
-linear_backward:
-  custom_output_shape: ComputeLinearBwdShape
-  guid: linear_bwd
-  op_backend: LinearBackward # Reorder inputs in cguid as per pytorch and remove backend (SW-136384)
-  out_ids: [0, 0, 0]
+#linear_backward:
+#  override_fn: linear_bwd_hpu_lazy
+#  acc_thread: true
 
 where.self:
   custom_output_shape: WhereOutputShape

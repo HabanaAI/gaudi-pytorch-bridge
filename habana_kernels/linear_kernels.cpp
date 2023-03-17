@@ -1531,4 +1531,5 @@ static auto& LinearKernelsKernelRegistry =
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
         .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator))
         .add("aten::linear", KERNEL_FN_DROP_ARG2(LinearForwardOperator))
+        .add("hpu::linear_bwd", KERNEL_FN(LinearBackwardOperator))
         .add("hpu::linear_ex_bwd", KERNEL_FN(LinearBackwardOperator));
