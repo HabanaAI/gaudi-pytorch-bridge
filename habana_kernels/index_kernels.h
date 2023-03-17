@@ -95,11 +95,6 @@ class GatherOperator : public HabanaOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& self,
-      int64_t dim_,
-      const at::Tensor& index);
-
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
@@ -454,26 +449,6 @@ class ArangeOperatorHT : public ArangeOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-};
-
-class IndexOperator : public HabanaOperator {
- public:
-  IndexOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "gather_nd_mxnet_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.changes_dims = true;
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& input,
-      at::TensorList indices);
 };
 
 // torch::unique Operator

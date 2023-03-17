@@ -147,6 +147,8 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     c10::List<int64_t> adv_index_dims,
     bool get_adv_indexing_out_shape);
 
+std::vector<int64_t> indices_size(at::TensorList indices);
+
 } // namespace habana
 
 #define PARAMS_STUB(structname) \

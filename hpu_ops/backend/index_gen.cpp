@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/arange.h"
@@ -17,12 +20,13 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/backend/arange.h"
 #include "hpu_ops/common/arange_gen.h"
+#include "hpu_ops/common/index.h"
 
 #define MAX_TPC_SUPPORTED_REPEAT_DIMS (5)
 
 namespace habana {
 
-// brodcast index tensor shape and get the correct shape and size
+// broadcast index tensor shape and get the correct shape and size
 static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   auto size = indices[0].sizes().vec();
   for (size_t i = 1; i < indices.size(); i++) {
@@ -96,7 +100,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
     const at::Tensor input = stack_tensor(stack, 0);
     auto indices = stack.at(1).toTensorList().vec();
     sizes_vec shape = std::vector<std::vector<int64_t>>{
-        {IndexOperator::compute_output_shape(input, indices)}};
+        {ComputeIndexOperatorOutputShape(input, indices)}};
     return shape;
   }
 }
@@ -168,7 +172,7 @@ void IndexHabanaOperator::AddNode(
     // for this particular indices configuration gather_mxnet throws GC
     // compilation error, therefore use simple gather for now
     if (indices.size() == 1 && indices.get(0).dim() == 1) {
-      auto outshape = GatherOperator::compute_output_shape(self, 0, indices[0]);
+      auto outshape = ComputeGatherOperatorOutputShape(self, 0, indices[0]);
 
       int dim = 0;
       bool sparse_grad = false;
@@ -238,7 +242,7 @@ void IndexHabanaOperator::AddNode(
 
     auto catop = std::move(catop1.at(0));
 
-    auto shape = IndexOperator::compute_output_shape(self, tensorlist);
+    auto shape = ComputeIndexOperatorOutputShape(self, tensorlist);
     auto indexOp = BuildOp(
         graph,
         "gather_nd_mxnet_fwd_" +
@@ -533,6 +537,55 @@ void IndexHabanaOperator::AddNode(
         ReshapeHelper(graph, indexOp[0].get(), final_shape, ScalarType(), 0);
     syn_out(0) = std::move(index_out);
   } // end - advanced indexing present
+}
+
+// index is implemented using mxnet_gatherNd, refer below for output shape
+// computation
+// ref:https://github.com/apache/incubator-mxnet/blob/master/src/operator/tensor/indexing_op.h#L1319
+std::vector<int64_t> ComputeIndexOperatorOutputShape(
+    const at::Tensor& input,
+    at::TensorList indices) {
+  auto input_shape = input.sizes();
+  auto indices_shape = indices_size(indices);
+
+  if (input.dim() == 0 && input.numel() == 1)
+    return {input.sizes().vec()};
+
+  auto output_rank = static_cast<int64_t>(
+      indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
+
+  std::vector<int64_t> output_shape(output_rank, -1);
+
+  for (size_t i = 0; i < indices_shape.size() - 1; i++) {
+    output_shape[i] = indices_shape[i + 1];
+  }
+
+  for (int64_t i = 0;
+       i < static_cast<int64_t>(input.ndimension() - indices_shape[0]);
+       i++) {
+    output_shape[indices_shape.size() - 1 + i] =
+        input_shape[indices_shape[0] + i];
+  }
+  return output_shape;
+}
+
+std::vector<int64_t> ComputeGatherOperatorOutputShape(
+    const at::Tensor& self,
+    int64_t dim_,
+    const at::Tensor& index) {
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  auto shape = self.sizes().vec();
+  if (shape.size()) {
+    // for gather op, output size is same as index
+    if (self.dim() == index.dim()) {
+      shape = index.sizes().vec();
+    } else {
+      // for index_select and other index ops
+      shape.erase(shape.begin() + dim);
+      shape.insert(shape.begin() + dim, index.numel());
+    }
+  }
+  return shape;
 }
 
 } // namespace habana

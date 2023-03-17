@@ -38,6 +38,7 @@
 #include "habana_kernels/topk_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/common/index.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
@@ -125,25 +126,6 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   return depth;
 }
 
-std::vector<int64_t> GatherOperator::compute_output_shape(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index) {
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  auto shape = self.sizes().vec();
-  if (shape.size()) {
-    // for gather op, output size is same as index
-    if (self.dim() == index.dim()) {
-      shape = index.sizes().vec();
-    } else {
-      // for index_select and other index ops
-      shape.erase(shape.begin() + dim);
-      shape.insert(shape.begin() + dim, index.numel());
-    }
-  }
-  return shape;
-}
-
 Tensor GatherOperator::AllocateOutput(
     torch::jit::Stack& inputs,
     const OutputMetaData& output_metadata) {
@@ -151,7 +133,7 @@ Tensor GatherOperator::AllocateOutput(
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
 
-  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
+  auto shape = ComputeGatherOperatorOutputShape(self, dim_, index);
 
   auto output = habana::createPTTensor(
       self,
@@ -2646,140 +2628,6 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
   }
 }
 
-// brodcast index tensor shape and get the correct shape and size
-std::vector<int64_t> broadcast_size(at::TensorList indices) {
-  auto size = indices[0].sizes().vec();
-  for (size_t i = 1; i < indices.size(); i++) {
-    size = infer_size(size, indices[i].sizes());
-  }
-  return size;
-}
-
-// get the first index tensor shape and size
-std::vector<int64_t> indices_size(at::TensorList indices) {
-  auto first_size = broadcast_size(indices);
-
-  int64_t in_tensor_count = indices.size(); // num input tensors
-
-  std::vector<int64_t> out_size{in_tensor_count};
-  out_size.insert(out_size.end(), first_size.begin(), first_size.end());
-
-  return out_size;
-}
-// index is implemented using mxnet_gatherNd, refer below for output shape
-// computation
-// ref:https://github.com/apache/incubator-mxnet/blob/master/src/operator/tensor/indexing_op.h#L1319
-std::vector<int64_t> IndexOperator::compute_output_shape(
-    const Tensor& input,
-    at::TensorList indices) {
-  auto input_shape = input.sizes();
-  auto indices_shape = indices_size(indices);
-
-  if (input.dim() == 0 && input.numel() == 1)
-    return {input.sizes().vec()};
-
-  auto output_rank = static_cast<int64_t>(
-      indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
-
-  std::vector<int64_t> output_shape(output_rank, -1);
-
-  for (size_t i = 0; i < indices_shape.size() - 1; i++) {
-    output_shape[i] = indices_shape[i + 1];
-  }
-
-  for (int64_t i = 0;
-       i < static_cast<int64_t>(input.ndimension() - indices_shape[0]);
-       i++) {
-    output_shape[indices_shape.size() - 1 + i] =
-        input_shape[indices_shape[0] + i];
-  }
-  return output_shape;
-}
-
-void IndexOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for gather2d operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
-  TORCH_CHECK(
-      inputs[1].isTensorList(),
-      "Input 1 type expected to be TensorList for [] operator");
-
-  auto input = inputs[0].toTensor();
-  auto tensorlist = inputs[1].toTensorList().vec();
-
-  auto max_size = broadcast_size(tensorlist);
-  auto device_id = this->p_context_->device_id_;
-  auto scalar_type = tensorlist[0].scalar_type();
-
-  std::vector<Tensor> cat_input;
-  auto cat_indices = make_operator<CatOperator>(device_id, scalar_type);
-
-  for (size_t i = 0; i < tensorlist.size(); i++) {
-    // broadcast index tensor to largest index tensor size
-    auto bcastOp = make_operator<BroadcastOperator>(device_id, scalar_type);
-    Stack stack = {IValue(tensorlist[i]), IValue(max_size), IValue(false)};
-    bcastOp->SetSynapseInput(p_context_->syn_inputs_[i + 1]);
-    bcastOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-
-    stack.clear();
-
-    std::vector<int64_t> expanded_size{1};
-    for (auto s : bcastOp->GetOutputs()[0].sizes()) {
-      expanded_size.push_back(s);
-    }
-    stack = {IValue(bcastOp->GetOutputs()[0]), IValue(expanded_size)};
-    auto ReshapeOp = make_operator<ReshapeOperator>(device_id, scalar_type);
-    ReshapeOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-    ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-
-    cat_input.emplace_back(ReshapeOp->GetOutputs()[0]);
-    cat_indices->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
-  }
-  // index is implemented using mxnet_gatherNd, where indices needs to be
-  // single tensor, wherease we get tensorlist. so we stack the tensors
-  // from tensorlist by reshape followed by cat
-
-  Stack stack = {IValue(cat_input), IValue(0)};
-  cat_indices->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-
-  auto shape = compute_output_shape(input, tensorlist);
-
-  auto output = habana::createPTTensor(
-      input,
-      IntArrayRef(shape.data(), shape.size()),
-      input.options(),
-      input.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-
-  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
-  synapse_helpers::tensor& arg2_syn_tensor =
-      std::move(cat_indices->GetSynOutputs()[0]);
-
-  std::vector<synTensor> syn_inputs;
-  syn_inputs.emplace_back(arg1_syn_tensor.get());
-  syn_inputs.emplace_back(arg2_syn_tensor.get());
-
-  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
-  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
-
-  graph.add_node(
-      std::move(syn_inputs),
-      std::move(syn_outputs),
-      nullptr,
-      0,
-      guid_,
-      nullptr,
-      nullptr,
-      nullptr,
-      deterministic);
-}
-
 void Unique_Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -2982,7 +2830,6 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   int elements = self.numel();
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
-
 
   // The first output tensor contains unique elements.
   // The second output tensor contains the number of unique elements.

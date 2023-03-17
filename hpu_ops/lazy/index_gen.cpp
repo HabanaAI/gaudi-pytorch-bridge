@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -17,6 +17,7 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "hpu_ops/common/index.h"
 
 #define MAX_DIMS_FOR_ADVANCED_INDEXING (8)
 
@@ -435,7 +436,7 @@ at::Tensor LazyIndex<at::Tensor>::get_result_overrideable() {
     return habana_lazy::empty_hpu_lazy(
         shape, input.options(), input.suggest_memory_format(), false);
   } else {
-    auto shape = IndexOperator::compute_output_shape(input, indices);
+    auto shape = ComputeIndexOperatorOutputShape(input, indices);
     return habana_lazy::empty_hpu_lazy(
         shape, input.options(), input.suggest_memory_format(), false);
   }
