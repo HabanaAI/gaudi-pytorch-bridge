@@ -177,6 +177,13 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPT* hbLaunchOp,
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
       bool is_shape_agnostic_cache_miss);
+  static void ExecuteSynapseCache(
+      synapse_helpers::hpuStream_t hpu_stream,
+      size_t graph_key_with_perm,
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      HabanaLaunchOpPT* hbLaunchOp,
+      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+      std::shared_ptr<RecipeArgumentSpec> cur_rargpsh);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 

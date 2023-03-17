@@ -365,6 +365,7 @@ class HlExec {
       std::vector<torch::jit::Value*>& redundant_inputs);
 
   void CreateNodeBcastMap(const ir::NodePtrList& nodes);
+  void IdentifyAndSetGraphNodes(const ir::NodePtrList& nodes);
   GraphPtr mp_g_;
   OptimizedJITGraphAndMetaDataPtr mp_g_and_meta_data_{nullptr};
   size_t m_g_hash_;

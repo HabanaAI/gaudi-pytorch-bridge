@@ -216,6 +216,14 @@ struct OptimizedJITGraphAndMetaData {
     return stack_idx_fwd_graph_builder;
   }
 
+  void set_is_eager_compiler_supported(bool flag) {
+    is_eager_compiler_supported = flag;
+  }
+
+  bool get_is_eager_compiler_supported() const {
+    return is_eager_compiler_supported;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -243,6 +251,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<uint64_t> stack_idx_fwd_graph_builder{};
   habana_helpers::HabanaFrontendTypes frontend_type =
       habana_helpers::HabanaFrontendTypes::INVALID;
+  bool is_eager_compiler_supported = true;
 };
 
 /**

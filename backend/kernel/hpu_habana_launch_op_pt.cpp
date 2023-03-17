@@ -3340,6 +3340,67 @@ void habana::HabanaLaunchOpPT::CompileSynapse(
   PT_BRIDGE_END;
 }
 
+// call this function for recipe caching (graph/eager)
+void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
+    synapse_helpers::hpuStream_t hpu_stream,
+    size_t graph_key_with_perm,
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    HabanaLaunchOpPT* hbLaunchOp,
+    std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
+    std::shared_ptr<RecipeArgumentSpec> cur_rargpsh) {
+  PT_BRIDGE_BEGIN;
+  RecipeValueSpec& rv = *cur_rvalpsh;
+  rv.update_hit_count();
+
+  PT_BRIDGE_DEBUG(
+      hbLaunchOp->id_str,
+      ": ",
+      "HabanaOp recipe cache hit :: key ",
+      cur_rargpsh->hashCode(),
+      "\n",
+      rv.header_str(),
+      "\n",
+      rv.digest_str());
+  PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
+  PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
+
+  std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
+      std::make_shared<std::vector<IValPtrShared>>(
+          std::vector<IValPtrShared>());
+
+  std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
+      std::make_shared<std::vector<IValPtrShared>>(
+          std::vector<IValPtrShared>());
+
+  rv.update_patching_table(
+      input_refs,
+      intermediate_tensors_ptr,
+      dma_inputs_ptr,
+      hbLaunchOp->m_map_shape.m_actual_shapes);
+
+  if (hbLaunchOp->enable_tensor_dump_) {
+    hbLaunchOp->DumpTensors_pre(rv);
+  }
+  rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+
+  if (hbLaunchOp->enable_tensor_dump_) {
+    hbLaunchOp->DumpTensors(rv);
+  }
+
+  std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
+  if (path != "") {
+    hbLaunchOp->DumpStaticCompilationStatistics(graph_key_with_perm);
+  }
+
+  // Update the stack from the recipe itself
+  hbLaunchOp->UpdateOutputs(rv);
+  PT_BRIDGE_DEBUG("Returning cached recipe : ", cur_rargpsh->hashCode());
+  hbLaunchOp->ReturnCachedRecipe(rv);
+
+  hbLaunchOp->ClearStatics();
+  PT_BRIDGE_END;
+}
+
 void habana::HabanaLaunchOpPT::ExecuteSynapse(
     synapse_helpers::hpuStream_t hpu_stream,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
@@ -3470,7 +3531,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
       graph_key_with_perm);
 
   idx += 1;
-  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
+      (eager_mode &&
+       !jit_graph_and_meta_data->get_is_eager_compiler_supported())) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
         false, input_refs, jit_ir_graph, graph_key, op_strs);
   }
@@ -3480,55 +3543,13 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
-      RecipeValueSpec& rv = *cur_rvalpsh;
-      rv.update_hit_count();
-
-      PT_BRIDGE_DEBUG(
-          id_str,
-          ": ",
-          "HabanaOp recipe cache hit :: key ",
-          cur_rargpsh->hashCode(),
-          "\n",
-          rv.header_str(),
-          "\n",
-          rv.digest_str());
-      PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
-      PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
-
-      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
-
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
-
-      rv.update_patching_table(
+      ExecuteSynapseCache(
+          hpu_stream,
+          graph_key_with_perm,
           input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr,
-          m_map_shape.m_actual_shapes);
-
-      if (enable_tensor_dump_) {
-        DumpTensors_pre(rv);
-      }
-      rv.launch(
-          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
-
-      if (enable_tensor_dump_) {
-        DumpTensors(rv);
-      }
-
-      std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
-      if (path != "") {
-        DumpStaticCompilationStatistics(graph_key_with_perm);
-      }
-
-      // Update the stack from the recipe itself
-      UpdateOutputs(rv);
-      ReturnCachedRecipe(rv);
-
-      ClearStatics();
+          this,
+          cur_rvalpsh,
+          cur_rargpsh);
       PT_BRIDGE_END;
       return;
     } else {
@@ -3541,6 +3562,58 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     }
   }
   // recipe caching :: end
+
+  // eager recipe caching :: begin
+  if (eager_mode &&
+      !jit_graph_and_meta_data->get_is_eager_compiler_supported()) {
+    PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh->hashCode());
+    cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
+
+    if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
+      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+          !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+
+        auto doNothingLambda = [] {};
+        Singleton_CompileThreadPool::m_compile_thread_handle =
+            Singleton_CompileThreadPool::getInstance().enqueue(doNothingLambda);
+
+        Singleton_CompileThreadPool::JoinPendingExecuteThread();
+
+        Singleton_ExecThreadPool::m_exec_thread_handle =
+            Singleton_ExecThreadPool::getInstance().enqueue(
+                ExecuteSynapseCache,
+                hpu_stream,
+                graph_key_with_perm,
+                input_refs,
+                this,
+                cur_rvalpsh,
+                cur_rargpsh);
+
+        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+      } else {
+        ExecuteSynapseCache(
+            hpu_stream,
+            graph_key_with_perm,
+            input_refs,
+            this,
+            cur_rvalpsh,
+            cur_rargpsh);
+      }
+      PT_BRIDGE_END;
+      return;
+    } else {
+      PT_BRIDGE_DEBUG(
+          id_str,
+          ": ",
+          "HabanaOp recipe cache miss :: key ",
+          cur_rargpsh->hashCode());
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
+    }
+  }
+  // eager recipe caching :: end
 
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
@@ -3814,8 +3887,10 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   }
 
   constexpr bool dry_run = false;
+  const auto use_eager_compiler =
+      eager_mode && jit_graph_and_meta_data->get_is_eager_compiler_supported();
   auto syn_graph = habana_helpers::create_graph(
-      device.id(), GetSynapseGraphName(), dry_run, eager_mode);
+      device.id(), GetSynapseGraphName(), dry_run, use_eager_compiler);
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph);
   if (enable_shape_agnostic_caching_) {

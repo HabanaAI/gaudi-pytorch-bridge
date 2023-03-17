@@ -502,6 +502,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
                 mp_g_, input_refs, unique_cntr, node_bcast_map_);
         mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
             m_fwd_graph_stack_map_);
+        IdentifyAndSetGraphNodes(po_data.post_order);
       }};
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
@@ -646,6 +647,17 @@ void HlExec::CreateNodeBcastMap(const ir::NodePtrList& nodes) {
           node_bcast_map_.end(),
           node->get_broadcast_details().begin(),
           node->get_broadcast_details().end());
+    }
+  }
+}
+
+void HlExec::IdentifyAndSetGraphNodes(const ir::NodePtrList& nodes) {
+  for (const auto& node : nodes) {
+    if (std::string(node->op().toQualString()).find("hpu::habanaOptimizer") !=
+        std::string::npos) {
+      mp_g_and_meta_data_->set_is_eager_compiler_supported(false);
+      mp_g_and_meta_data_->set_is_shape_agnostic_supported(false);
+      break;
     }
   }
 }
