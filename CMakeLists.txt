@@ -35,10 +35,19 @@ if(UPSTREAM_COMPILE)
   ADD_DEFINITIONS(-DUPSTREAM_COMPILE)
 endif(UPSTREAM_COMPILE)
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
+find_package(PythonLibs REQUIRED)
+find_package(Torch REQUIRED)
+
+include(pt_ver)
+set_up_pt_ver_mechanism()
+
 if(SANITIZER)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr -fsanitize-address-use-after-scope -O0")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
 endif(SANITIZER)
+
 find_program(CCACHE ccache)
 if (CCACHE)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
@@ -60,18 +69,10 @@ if(NOT DEFINED CLANG_TIDY OR CLANG_TIDY)
   endif()
 endif()
 
-find_package(Torch REQUIRED)
-find_package(PythonLibs REQUIRED)
-
 get_property(torch_flags TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS)
 if(NOT "${torch_flags}" STREQUAL "")
   add_compile_options("${torch_flags}")
 endif()
-
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-
-include(pt_ver)
-set_up_pt_ver_mechanism()
 
 include(AddNPUStackDependencies)
 
