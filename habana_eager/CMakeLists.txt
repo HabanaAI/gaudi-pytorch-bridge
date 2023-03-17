@@ -15,6 +15,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/cpu_fallback.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/op_validator.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/bernoulli_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/clamp_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
@@ -56,6 +57,7 @@ target_include_directories(habana_pytorch2_frontend
 target_include_directories(habana_pytorch2_frontend SYSTEM
   PUBLIC
     $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
     $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
     ${PYTHON_INCLUDE_DIRS})
@@ -67,7 +69,8 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${PROJECT_SOURCE_DIR
 target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch2_frontend
   PRIVATE
-  habana_serialization
+    habana_serialization
+    pytorch_synapse_utils_shim
     torch
     nlohmann_json::nlohmann_json
     absl::strings

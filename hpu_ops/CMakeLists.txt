@@ -281,8 +281,8 @@ target_include_directories(habana_pytorch_frontend_ops PRIVATE ${PROJECT_SOURCE_
 target_include_directories(habana_pytorch_frontend_ops PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch_frontend_ops
   PRIVATE
-  habana_serialization
-  pytorch_synapse_utils_shim
+    habana_serialization
+    pytorch_synapse_utils_shim
     torch
     nlohmann_json::nlohmann_json
     absl::strings
