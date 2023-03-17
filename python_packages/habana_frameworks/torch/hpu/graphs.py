@@ -330,7 +330,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False):
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
         # V2 can only be used for inputs which can expressed as a list
-        if not kwargs and is_seq_of_tensor(args):
+        if not asynchronous and not kwargs and is_seq_of_tensor(args):
             use_replay_v2 = True
         else:
             use_replay_v2 = False
@@ -363,7 +363,7 @@ def wrap_in_hpu_graph(module, asynchronous=False):
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
         # V2 can only be used for inputs which can expressed as a list
-        if not kwargs and is_seq_of_tensor(args):
+        if not asynchronous and not kwargs and is_seq_of_tensor(args):
             use_replay_v2 = True
         else:
             use_replay_v2 = False
