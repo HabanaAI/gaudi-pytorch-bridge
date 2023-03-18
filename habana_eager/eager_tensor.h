@@ -87,7 +87,7 @@ class HbEagerTensorPool {
   }
 
  public:
-  at::Tensor get_backend_tensor(at::Tensor& frontend_tensor);
+  at::Tensor get_backend_tensor(const at::Tensor& frontend_tensor);
 
  private:
   HbEagerTensorPool() = default;

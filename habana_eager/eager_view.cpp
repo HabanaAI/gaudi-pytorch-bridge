@@ -80,15 +80,14 @@ void HandleInputOutputViews(
 
   // We are expecting only single non prim::Constant node in a given graph
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
-    if (it->kind() == at::prim::Constant)
-      continue;
-    else {
+    if (it->kind() != at::prim::Constant &&
+        it->kind() != at::prim::ListConstruct) {
       TORCH_CHECK(
           node == nullptr,
           "Expecting exactly one non-const node, but already found ",
-          node->kind(),
+          node->kind().toQualString(),
           " and ",
-          it->kind());
+          it->kind().toQualString());
       node = *it;
     }
   }

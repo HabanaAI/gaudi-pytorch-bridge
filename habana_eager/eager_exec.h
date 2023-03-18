@@ -107,27 +107,26 @@ class UniqueIdxVec {
 class EagerExec {
  public:
   EagerExec(
-      const at::Symbol& symbol,
-      const SmallTensorVector&
-          inputs, // TODO SmallTensorVector is pretty bad for passing
-                  // ownership because these are inline we need to copy
-      const std::vector<OutputSpec>& outputs,
-      habana::eager::MetaDataMap&& metadata)
+      at::Symbol symbol,
+      std::vector<at::IValue>&& inputs,
+      std::vector<OutputSpec>&& outputs)
       : m_symbol{symbol},
-        m_inputs{inputs},
-        m_outputs{outputs},
-        m_metadata{std::move(metadata)} {}
+        m_inputs(std::move(inputs)),
+        m_outputs(std::move(outputs)) {}
+
   torch::jit::Stack launch();
 
   void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
     m_eager_op_meta_data = eager_op_meta_data;
   }
+  enum class ProcessList { asTensor, asList };
 
  private:
   size_t m_key;
-  const at::Symbol& m_symbol;
-  SmallTensorVector m_inputs;
-  const std::vector<OutputSpec>& m_outputs;
+  const at::Symbol m_symbol;
+  SmallTensorVector m_tensor_inputs;
+  const std::vector<at::IValue> m_inputs;
+  const std::vector<OutputSpec> m_outputs;
   MetaDataMap m_metadata;
   EagerOpMetaData m_eager_op_meta_data;
 
@@ -142,6 +141,9 @@ class EagerExec {
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
   void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
+
+  template <ProcessList process_list = ProcessList::asList, class T>
+  void traversing_inputs(T&& visitor);
 };
 
 } // namespace eager

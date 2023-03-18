@@ -37,7 +37,8 @@ at::Tensor HbEagerTensorPool::get_tensor() {
  *  TBD: Measure the cost for shallow_copy_from(), possibly optimize by copying
  *  only subset of what it copies.
  */
-at::Tensor HbEagerTensorPool::get_backend_tensor(at::Tensor& frontend_tensor) {
+at::Tensor HbEagerTensorPool::get_backend_tensor(
+    const at::Tensor& frontend_tensor) {
   std::chrono::steady_clock::time_point t_start;
   if (take_timestamp) {
     t_start = std::chrono::steady_clock::now();

@@ -1329,19 +1329,7 @@ def is_eager_op(fname, rtype, sig, ctxop):
         else:
             return False
 
-    if is_inplace_or_out_op(fname):
-        if rtype == "void" and "TensorList" in sig:
-            return False
-        else:
-            return True
-    else:
-        if "TensorList" in sig:
-            return False
-        elif rtype == "void":
-            return False
-        else:
-            return True
-
+    return True
 
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):

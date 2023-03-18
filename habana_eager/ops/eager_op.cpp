@@ -24,14 +24,9 @@ auto eager_frontend_enabled = []() {
 
 namespace habana {
 namespace eager {
-torch::jit::Stack EagerOpBase::run(const std::vector<OutputSpec>& out_spec) {
-  SmallTensorVector input_pt_vec, input_backend_pt_vec;
-  habana::eager::MetaDataMap metadata;
-  create_inputs(input_pt_vec, metadata);
-  convert_inputs_to_backend_tensors(input_pt_vec, input_backend_pt_vec);
-
+torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
   habana::eager::EagerExec hlexec{
-      m_symbol, input_backend_pt_vec, out_spec, std::move(metadata)};
+      m_symbol, std::move(m_inputs), std::move(out_spec)};
 
   hlexec.set_eager_op_info(m_eager_op_meta_data);
 

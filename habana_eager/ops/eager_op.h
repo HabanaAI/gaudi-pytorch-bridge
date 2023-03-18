@@ -93,7 +93,7 @@ class EagerOpBase {
         });
   }
 
-  torch::jit::Stack run(const std::vector<OutputSpec>& out_spec);
+  torch::jit::Stack run(std::vector<OutputSpec>&& out_spec);
 
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
@@ -127,62 +127,6 @@ class EagerOpBase {
       ++idx;
     }
     m_inputs = inputsHpu;
-  }
-
-  bool is_metadata_candidate(const at::IValue& input) const {
-    return input.isBool() || input.isDevice() || input.isIntList() ||
-        input.isDoubleList() || input.isBoolList() || input.isString() ||
-        input.isNone() ||
-        (input.isList() &&
-         !input.toList().elementType()->cast<at::TensorType>());
-  }
-
-  void create_inputs(
-      SmallTensorVector& input_pt_vec,
-      habana::eager::MetaDataMap& metadata) {
-    for (size_t i = 0; i < m_inputs.size(); ++i) {
-      const at::IValue& input = m_inputs[i];
-      if (m_metadata_indices.count(i)) {
-        HABANA_ASSERT(metadata.insert({i, input}).second);
-        continue;
-      }
-
-      if (input.isScalar() || is_metadata_candidate(input)) {
-        HABANA_ASSERT(metadata.insert({i, input}).second);
-      } else if (input.isTensor()) {
-        const at::Tensor& t = input.toTensor();
-        if (t.defined()) {
-          HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-          input_pt_vec.emplace_back(t);
-        } else {
-          HABANA_ASSERT(metadata.insert({i, torch::jit::IValue()}).second);
-        }
-      } else if (input.isList()) {
-        const auto& list = input.toListRef();
-
-        for (const auto& li : list) {
-          HABANA_ASSERT(
-              li.isTensor(),
-              "Got unhandled list item type: ",
-              li.tagKind(),
-              " for ",
-              m_symbol.toQualString(),
-              " at index ",
-              i,
-              ".");
-          input_pt_vec.emplace_back(li.toTensor());
-        }
-      } else {
-        PT_BRIDGE_FATAL(
-            "Got unhandled type: ",
-            input.tagKind(),
-            " for ",
-            m_symbol.toQualString(),
-            " at index ",
-            i);
-        HABANA_ASSERT(0);
-      }
-    }
   }
 };
 
@@ -337,7 +281,7 @@ class EagerOp : public EagerOpBase {
           OutputSpec{el.scalar_type(), el.device(), el.sizes()});
     });
 
-    auto stack = run({out_spec});
+    auto stack = run(std::move(out_spec));
     HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
     return self;
   }
@@ -356,6 +300,96 @@ class EagerOp : public EagerOpBase {
     HABANA_ASSERT(stack.size() == 1); // single output only
     auto out = stack.at(0).toTensor();
     return out.item().to<T>();
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      at::TensorList tensors1,
+      at::TensorList tensors2) {
+    PT_EAGER_DEBUG(
+        "Eager call void ( 2x TensorList ) :: ", m_symbol.toQualString());
+
+    for (const auto& tensor : tensors1) {
+      HABANA_ASSERT(
+          tensor.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+    }
+    for (const auto& tensor : tensors2) {
+      HABANA_ASSERT(
+          tensor.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+    }
+
+    std::vector<OutputSpec> out_spec;
+    for (auto& el : tensors1) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    }
+
+    auto stack = run(std::move(out_spec));
+    HABANA_ASSERT(stack.size() == tensors1.size());
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      at::TensorList tensors) {
+    PT_EAGER_DEBUG(
+        "Eager call void ( 1x TensorList ) :: ", m_symbol.toQualString());
+
+    // size_t i;
+    for (const auto& tensor : tensors) {
+      HABANA_ASSERT(
+          tensor.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+    }
+
+    std::vector<OutputSpec> out_spec;
+    for (auto& el : tensors) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    }
+
+    auto stack = run(std::move(out_spec));
+    HABANA_ASSERT(stack.size() == tensors.size());
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      const std::vector<at::Tensor>& tensors) {
+    PT_EAGER_DEBUG(
+        "Eager call void ( const ref std::vector<at::Tensor> ) :: ",
+        m_symbol.toQualString());
+
+    for (const auto& tensor : tensors) {
+      HABANA_ASSERT(
+          tensor.device().type() == at::kHPU,
+          "Got a non-HPU tensor, expecting an HPU tensor");
+    }
+
+    std::vector<OutputSpec> out_spec;
+    for (auto& el : tensors) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    }
+
+    auto stack = run(std::move(out_spec));
+    HABANA_ASSERT(stack.size() == tensors.size());
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      const at::Tensor& tensor) {
+    PT_EAGER_DEBUG(
+        "Eager call void ( const ref at::Tensor ) :: ",
+        m_symbol.toQualString());
+
+    HABANA_ASSERT(
+        tensor.device().type() == at::kHPU,
+        "Got a non-HPU tensor, expecting an HPU tensor");
+
+    auto stack = run(
+        {OutputSpec{tensor.scalar_type(), tensor.device(), tensor.sizes()}});
+    HABANA_ASSERT(stack.size() == 1); // single output only
   }
 
   // For regular variants
@@ -385,7 +419,7 @@ class EagerOp : public EagerOpBase {
           OutputSpec{el.scalar_type(), el.device(), el.sizes()});
     });
 
-    auto stack = run({out_spec});
+    auto stack = run(std::move(out_spec));
     HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
 
     ReturnType outputs;
