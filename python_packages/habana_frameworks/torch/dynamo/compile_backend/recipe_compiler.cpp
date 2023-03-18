@@ -12,19 +12,24 @@
  */
 
 #include <pybind11/stl.h>
+#include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/extension.h>
-
 #include "habana_eager/graph_exec.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "graph_compile",
       [](std::shared_ptr<torch::jit::Graph> graph,
-         std::vector<at::Tensor>& inputs,
+         const py::tuple& inputs,
          bool dynamic,
          bool inference) {
+        torch::jit::Stack stack;
+        stack.reserve(inputs.size());
+        for (auto& obj : inputs) {
+          stack.push_back(torch::jit::toTypeInferredIValue(obj));
+        }
         auto& graph_storage{habana::graph::GraphStorage::get()};
-        return graph_storage.add_new_recipe(graph, inputs, dynamic, inference);
+        return graph_storage.add_new_recipe(graph, stack, dynamic, inference);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
@@ -33,9 +38,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("inference"));
   m.def(
       "graph_launch",
-      [](size_t recipe_id, std::vector<at::Tensor>& inputs) {
+      [](size_t recipe_id, const py::tuple& inputs) {
+        torch::jit::Stack stack;
+        stack.reserve(inputs.size());
+        for (auto& obj : inputs) {
+          stack.push_back(torch::jit::toTypeInferredIValue(obj));
+        }
         auto& graph_storage{habana::graph::GraphStorage::get()};
-        return graph_storage.launch_recipe(recipe_id, inputs);
+        return torch::jit::createPyObjectForStack(
+            graph_storage.launch_recipe(recipe_id, stack));
       },
       py::return_value_policy::copy,
       py::arg("recipe_id"),

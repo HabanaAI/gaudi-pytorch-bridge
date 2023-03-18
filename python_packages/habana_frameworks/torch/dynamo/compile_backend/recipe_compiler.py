@@ -27,14 +27,10 @@ class HabanaGraphModule(torch.nn.Module):
     def __call__(self, *args):
         from ._recipe_compiler_C import graph_compile, graph_launch
 
-        inputs = [torch.Tensor(x) for x in args]
         if self._recipe_id is None:
             self.propagate_dtype(args)
-            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=inputs, dynamic=False, inference=False)
-        out = graph_launch(recipe_id=self._recipe_id, inputs=inputs)
-        if len(out) == 1:
-            return out[0]
-        return out
+            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=args, dynamic=False, inference=False)
+        return graph_launch(recipe_id=self._recipe_id, inputs=args)
 
     def propagate_dtype(self, sample_input):
         if not configuration_flags["dtype_propagation_in_backend"]:

@@ -35,7 +35,7 @@ class GraphExec {
       bool dynamic,
       bool inference);
 
-  std::vector<at::Tensor> launch(std::vector<at::Tensor>& inputs);
+  torch::jit::Stack launch(torch::jit::Stack& inputs);
 
  private:
   size_t m_graph_index;
@@ -51,12 +51,10 @@ class GraphStorage {
 
   size_t add_new_recipe(
       std::shared_ptr<torch::jit::Graph> graph,
-      std::vector<at::Tensor>& example_inputs,
+      torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference);
-  std::vector<at::Tensor> launch_recipe(
-      size_t recipe_id,
-      std::vector<at::Tensor>& inputs);
+  torch::jit::Stack launch_recipe(size_t recipe_id, torch::jit::Stack& inputs);
 
  private:
   GraphStorage(){};

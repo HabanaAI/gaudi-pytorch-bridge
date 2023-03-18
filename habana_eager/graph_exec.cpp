@@ -27,7 +27,7 @@ GraphStorage& GraphStorage::get() {
 
 size_t GraphStorage::add_new_recipe(
     std::shared_ptr<torch::jit::Graph> graph,
-    std::vector<at::Tensor>& example_inputs,
+    torch::jit::Stack& example_inputs,
     bool dynamic,
     bool inference) {
   size_t output_recipe_id{m_storage_vec.size()};
@@ -35,9 +35,9 @@ size_t GraphStorage::add_new_recipe(
   return output_recipe_id;
 }
 
-std::vector<at::Tensor> GraphStorage::launch_recipe(
+torch::jit::Stack GraphStorage::launch_recipe(
     size_t recipe_id,
-    std::vector<at::Tensor>& inputs) {
+    torch::jit::Stack& inputs) {
   HABANA_ASSERT(recipe_id < m_storage_vec.size());
   return m_storage_vec[recipe_id].launch(inputs);
 }
@@ -57,20 +57,13 @@ GraphExec::GraphExec(
   pass::HandleTupleOnOutput(m_graph);
 }
 
-std::vector<at::Tensor> GraphExec::launch(std::vector<at::Tensor>& inputs) {
+torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
   synEventHandle event_handle{};
   synapse_helpers::hpuStream_t event_stream{0};
   bool event_flag{0};
-
-  torch::jit::Stack stack;
-  stack.reserve(inputs.size());
-
-  for (const auto& in : inputs) {
-    stack.emplace_back(in);
-  }
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(stack, m_graph->inputs().size());
@@ -91,16 +84,7 @@ std::vector<at::Tensor> GraphExec::launch(std::vector<at::Tensor>& inputs) {
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{graph_and_meta};
     habana_launch_op_.run(stack);
-
-    std::vector<at::Tensor> outputs;
-    size_t num_outputs{m_graph->outputs().size()};
-    outputs.reserve(num_outputs);
-
-    for (size_t ii = 0; ii < num_outputs; ii++) {
-      HABANA_ASSERT(stack[ii].isTensor());
-      outputs.push_back(stack[ii].toTensor());
-    }
-    return outputs;
+    return stack;
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
   }
