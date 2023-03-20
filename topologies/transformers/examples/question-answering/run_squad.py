@@ -82,6 +82,7 @@ logger = logging.getLogger(__name__)
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_QUESTION_ANSWERING_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
+
 def compute_position_ids(input_ids):
     input_shape = input_ids.size()
     seq_length = input_shape[1]
@@ -90,6 +91,7 @@ def compute_position_ids(input_ids):
     position_ids = position_ids_.contiguous()
     return position_ids
 
+
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -97,20 +99,23 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
+
 def to_list(tensor):
     return tensor.detach().cpu().tolist()
+
 
 def enable_tracing():
     torch._C._debug_set_autodiff_subgraph_inlining(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
     try:
-            import habana_frameworks.torch.core as htcore
+        import habana_frameworks.torch.core as htcore
     except ImportError:
-            assert False,"Could Not import habana_frameworks.torch.core"
+        assert False, "Could Not import habana_frameworks.torch.core"
 
     htcore.enable()
     htcore.remove_inplace_ops()
+
 
 def train(args, train_dataset, model, tokenizer, trainMetaData):
     """ Train the model """
@@ -119,7 +124,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler,
+                                  batch_size=args.train_batch_size, drop_last=True)
 
     if args.max_steps > 0:
         t_total = args.max_steps
@@ -171,9 +177,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
     if args.use_lazy_mode:
         try:
-           import habana_frameworks.torch.core as htcore
+            import habana_frameworks.torch.core as htcore
         except ImportError:
-           assert False, "Could Not import habana_frameworks.torch.core"
+            assert False, "Could Not import habana_frameworks.torch.core"
 
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
@@ -264,8 +270,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 steps_trained_in_current_epoch -= 1
                 continue
 
-            ## Habana doesn't support Long tensors
-            ## Hence we need to convert start and end positions to int
+            # Habana doesn't support Long tensors
+            # Hence we need to convert start and end positions to int
             if args.use_habana:
                 batch[0] = batch[0].to(dtype=torch.int32)
                 batch[1] = batch[1].to(dtype=torch.int32)
@@ -288,11 +294,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 "position_ids": position_ids
             }
 
-            input_keys = ('input_ids', 'attention_mask', 'token_type_ids', 'start_positions', 'end_positions', "position_ids")
+            input_keys = ('input_ids', 'attention_mask', 'token_type_ids',
+                          'start_positions', 'end_positions', "position_ids")
             input_dict = {k: inputs[k] for k in input_keys if k in inputs}
             target = inputs['end_positions']
             tensor_dummy = torch.zeros(1).to(device)
-
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
                 del inputs["token_type_ids"]
@@ -306,10 +312,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
 
-            if args.logging_steps ==1:
+            if args.logging_steps == 1:
                 tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
             if args.use_jit_trace and is_model_traced == False:
-                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy,
+                                              tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
                 is_model_traced = True
                 if args.use_habana:
                     if args.use_fused_clip_norm:
@@ -324,7 +331,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                             model_trace, bucket_cap_mb=230, find_unused_parameters=True, gradient_as_bucket_view=True
                         )
             if args.use_jit_trace:
-                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
+                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy,
+                                      tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
             else:
                 outputs = model(**inputs)
 
@@ -333,9 +341,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
             if args.local_rank != -1:
                 if mpi_comm is not None:
-                  mpi_comm.Barrier()
+                    mpi_comm.Barrier()
                 else:
-                  torch.distributed.barrier()
+                    torch.distributed.barrier()
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -374,10 +382,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                     else:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                if args.logging_steps ==1:
-                    tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
+                if args.logging_steps == 1:
+                    tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to(
+                        'cpu'), loss.item(), trainMetaData.ParamsDump, False)
 
-                if args.use_habana and args.hmp and not(args.use_fused_adam):
+                if args.use_habana and args.hmp and not (args.use_fused_adam):
                     from habana_frameworks.torch.hpex import hmp
                     with hmp.disable_casts():
                         optimizer.step()
@@ -400,17 +409,16 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     else:
                         torch.distributed.barrier()
 
-
                 # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    for loss_t in loss_list :
+                    for loss_t in loss_list:
                         tr_loss += loss_t.item()
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
                         result = evaluate(args, model, tokenizer, trainMetaData)
                         for key, value in result.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
-                        result = dict(("global_step-{}_".format(global_step)+k, v) for k, v in result.items())
+                        result = dict(("global_step-{}_".format(global_step) + k, v) for k, v in result.items())
                         logger.info("Results: {}".format(result))
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
                     average_loss = (tr_loss - logging_loss) / args.logging_steps
@@ -424,7 +432,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
 
-                    ## Saving model, optimizer and scheduler checkpoints for HPU
+                    # Saving model, optimizer and scheduler checkpoints for HPU
                     if args.use_habana:
                         # Take care of distributed/parallel training
                         model_to_save = model.module if hasattr(model, "module") else model
@@ -439,7 +447,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         param_groups_copy = optimizer.state_dict()['param_groups']
                         state_dict_copy = {}
                         for st_key, st_val in optimizer.state_dict()['state'].items():
-                            st_val_copy={}
+                            st_val_copy = {}
                             for k, v in st_val.items():
                                 if isinstance(v, torch.Tensor):
                                     st_val_copy[k] = v.to('cpu')
@@ -484,7 +492,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
+def evaluate(args, model, tokenizer, trainMetaData, prefix=""):
     dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
@@ -495,9 +503,9 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
 
     if args.use_lazy_mode:
         try:
-           import habana_frameworks.torch.core as htcore
+            import habana_frameworks.torch.core as htcore
         except ImportError:
-           assert False, "Could Not import habana_frameworks.torch.core"
+            assert False, "Could Not import habana_frameworks.torch.core"
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     is_eval_traced = False
@@ -521,8 +529,8 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     current_eval_step = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         trainMetaData.tracept.start(time.time(), 'eval_iteration_' + str(current_eval_step))
-        ## Habana doesn't support Long tensors
-        ## Hence we need to convert start and end positions to int
+        # Habana doesn't support Long tensors
+        # Hence we need to convert start and end positions to int
         if args.use_habana:
             batch[0] = batch[0].to(dtype=torch.int32)
             batch[1] = batch[1].to(dtype=torch.int32)
@@ -556,11 +564,13 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
             if args.use_jit_trace and is_eval_traced == False:
-                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy,
+                                              tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
                 model_trace.eval()
                 is_eval_traced = True
             if args.use_jit_trace:
-                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)
+                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy,
+                                      tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)
             else:
                 outputs = model(**inputs)
 
@@ -599,7 +609,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
 
             all_results.append(result)
 
-        trainMetaData.tracept.end(time.time(),   'eval_iteration_' + str(current_eval_step))
+        trainMetaData.tracept.end(time.time(), 'eval_iteration_' + str(current_eval_step))
         current_eval_step += 1
 
     evalTime = timeit.default_timer() - start_time
@@ -922,11 +932,15 @@ def main():
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
     parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
     parser.add_argument("--use_fused_adam", action="store_true", help="Whether to use fused adamw on habana device")
-    parser.add_argument("--use_fused_clip_norm", action="store_true", help="Whether to use fused clip norm on habana device")
-    parser.add_argument('--use_device_profiler', action='store_true', default=False, help='Enable device profiler activation via API')
-    parser.add_argument("--device_profiler_step", type=int, default=10, help="Step number on which device profiler is activated")
+    parser.add_argument("--use_fused_clip_norm", action="store_true",
+                        help="Whether to use fused clip norm on habana device")
+    parser.add_argument('--use_device_profiler', action='store_true', default=False,
+                        help='Enable device profiler activation via API')
+    parser.add_argument("--device_profiler_step", type=int, default=10,
+                        help="Step number on which device profiler is activated")
     parser.add_argument('--use_lazy_mode', action='store_true', help='run model in lazy execution mode')
-    parser.add_argument("--log_device_mem_alloc", action='store_true', default=False, help="Log live memory allocations on device at the given point")
+    parser.add_argument("--log_device_mem_alloc", action='store_true', default=False,
+                        help="Log live memory allocations on device at the given point")
 
     args = parser.parse_args()
 
@@ -991,17 +1005,17 @@ def main():
                     args.local_rank = args.rank
             else:
                 mpi_comm = None
-                raise('Not an MPI run')
+                raise ('Not an MPI run')
         except Exception as e:
             mpi_comm = None
             if 'WORLD_SIZE' in os.environ and 'RANK' in os.environ and 'LOCAL_RANK' in os.environ:
                 args.world_size = int(os.environ["WORLD_SIZE"])
-                args.rank       = int(os.environ["RANK"])
+                args.rank = int(os.environ["RANK"])
                 args.local_rank = int(os.environ["LOCAL_RANK"])
             elif 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
                 args.world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
                 args.local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
-                args.rank       = args.local_rank
+                args.rank = args.local_rank
             else:
                 print("Single node run")
 
@@ -1016,13 +1030,11 @@ def main():
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
 
-
         if args.hmp:
             print(args.hmp_bf16)
             from habana_frameworks.torch.hpex import hmp
             hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
-                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
-
+                        fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -1059,7 +1071,7 @@ def main():
 
     args.model_type = args.model_type.lower()
 
-    extra_kwargs = {'attention_probs_dropout_prob': 0.0, 'hidden_dropout_prob' : 0.0}  if args.no_dropout else {}
+    extra_kwargs = {'attention_probs_dropout_prob': 0.0, 'hidden_dropout_prob': 0.0} if args.no_dropout else {}
 
     config = AutoConfig.from_pretrained(
         args.config_name if args.config_name else args.model_name_or_path,
