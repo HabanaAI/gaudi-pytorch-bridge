@@ -32,15 +32,6 @@ class UnaryOperator : public HabanaOperator {
       torch::jit::Stack& inputs) override;
 };
 
-// Tanh Operator
-class TanhOperator : public UnaryOperator {
- public:
-  TanhOperator(int device_id, c10::ScalarType scalarType)
-      : UnaryOperator(
-            device_id,
-            "tanh_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
-};
-
 // Abs Operator
 class AbsOperator : public UnaryOperator {
  public:
@@ -87,54 +78,6 @@ class ReciprocalOperator : public ReciprocalOutOperator {
       : ReciprocalOutOperator(device_id, scalarType) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-//
-// HbGelu Operator
-class HbGeluOperator : public HabanaOperator {
- public:
-  HbGeluOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "gelu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  void SetEagerMode() {
-    is_eager_mode = true;
-  }
-
-  bool isEagerMode() const {
-    return is_eager_mode;
-  }
-
- private:
-  bool is_eager_mode = false;
-};
-
-//
-// Gelu Backward Operator
-class GeluBackwardOperator : public HabanaOperator {
- public:
-  GeluBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "gelu_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
