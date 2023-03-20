@@ -216,9 +216,6 @@ sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack) {
 // Forward Output Shape - Bilinear2D
 std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape for Synapse layout handling mode");
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -248,43 +245,7 @@ sizes_vec UpsampleBilinear2DFwdOutputShape(const at::Stack& stack) {
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    out_shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
-  } else {
-    if (!habana_lazy::isDeviceInLoweringMode()) {
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1)};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            static_cast<int64_t>(self.sizes()[2] * scale_h),
-            static_cast<int64_t>(self.sizes()[3] * scale_w)};
-      }
-    } else {
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1),
-            self.sizes()[3]};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            static_cast<int64_t>(self.sizes()[1] * scale_h),
-            static_cast<int64_t>(self.sizes()[2] * scale_w),
-            self.sizes()[3]};
-      }
-    }
-  }
+  out_shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
@@ -298,18 +259,10 @@ sizes_vec UpsampleBilinear2DBwdOutputShape(const at::Stack& stack) {
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!habana_lazy::isDeviceInLoweringMode() ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    return {outshape};
-  } else { // always in NHWC - backend
-    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
-  }
+  return {outshape};
 }
 std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape for Synapse layout handling mode");
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
@@ -340,45 +293,7 @@ sizes_vec UpsampleNearest2DFwdOutputShape(const at::Stack& stack) {
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale)
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    out_shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
-  } else {
-    if (!habana_lazy::isDeviceInLoweringMode()) {
-      // NCHW
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1)};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            static_cast<int64_t>(self.sizes()[2] * scale_h),
-            static_cast<int64_t>(self.sizes()[3] * scale_w)};
-      }
-    } else {
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1),
-            self.sizes()[3]};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            static_cast<int64_t>(self.sizes()[1] * scale_h),
-            static_cast<int64_t>(self.sizes()[2] * scale_w),
-            self.sizes()[3]};
-      }
-    }
-  }
+  out_shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
@@ -394,19 +309,11 @@ sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack) {
       : stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!habana_lazy::isDeviceInLoweringMode() ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    return {outshape};
-  } else {
-    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
-  }
+  return {outshape};
 }
 
 std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape for Synapse layout handling mode");
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
@@ -437,43 +344,7 @@ sizes_vec UpsampleBicubic2DFwdOutputShape(const at::Stack& stack) {
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    out_shape = UpsampleBicubic2DFwdOutputShapeSynapseLayout(stack);
-  } else {
-    if (!habana_lazy::isDeviceInLoweringMode()) {
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1)};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            self.sizes()[1],
-            static_cast<int64_t>(self.sizes()[2] * scale_h),
-            static_cast<int64_t>(self.sizes()[3] * scale_w)};
-      }
-    } else {
-      if (!out_size.isNone()) {
-        out_shape = {
-            self.sizes()[0],
-            out_size.toIntVector().at(0),
-            out_size.toIntVector().at(1),
-            self.sizes()[3]};
-      } else if (!scale.isNone()) {
-        double scale_w = scale.toDoubleVector().at(1);
-        double scale_h = scale.toDoubleVector().at(0);
-        out_shape = {
-            self.sizes()[0],
-            static_cast<int64_t>(self.sizes()[1] * scale_h),
-            static_cast<int64_t>(self.sizes()[2] * scale_w),
-            self.sizes()[3]};
-      }
-    }
-  }
+  out_shape = UpsampleBicubic2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
       self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
@@ -487,12 +358,7 @@ sizes_vec UpsampleBicubic2DBwdOutputShape(const at::Stack& stack) {
   std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  if (!habana_lazy::isDeviceInLoweringMode() ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true) {
-    return {outshape};
-  } else { // always in NHWC - backend
-    return {{outshape[0], outshape[2], outshape[3], outshape[1]}};
-  }
+  return {outshape};
 }
 // Forward Output Shape - Nearest3D
 sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack) {
@@ -1118,41 +984,20 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
   std::vector<synapse_helpers::tensor> output;
   op->CreateShapeTensorInput(
       graph, op->ScalarType(), outshape, input, SHAPE_TENSOR);
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    output = UpsampleCommonFuncSynapseLayout(
-        op,
-        graph,
-        upsample_mode,
-        isForward,
-        input,
-        out_size,
-        align_corners,
-        scales,
-        scale_w,
-        scale_h,
-        scale_d,
-        outshape,
-        self_tensor);
-  }
-  //! PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING
-  else {
-    output = UpsampleCommonFuncOldLayout(
-        op,
-        graph,
-        upsample_mode,
-        isForward,
-        input,
-        out_size,
-        align_corners,
-        scales,
-        scale_w,
-        scale_h,
-        scale_d,
-        outshape,
-        self_tensor);
-  }
-  return output;
+  return UpsampleCommonFuncSynapseLayout(
+      op,
+      graph,
+      upsample_mode,
+      isForward,
+      input,
+      out_size,
+      align_corners,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      outshape,
+      self_tensor);
 }
 
 // AddNode FWD 1D Linear function

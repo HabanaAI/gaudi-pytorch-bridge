@@ -739,8 +739,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
             ivpsh, output_nodes[output_nodes_idx], out_tensor_syn);
 
         // set permutation flag for persistent tensors
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-            GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
             !is_hccl_send_mark_step()) {
           if (!ti->is_ZST()) {
             setSynapsePermuteFlag(out_tensor_syn, ti);
@@ -2451,8 +2450,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   }
 
   // allow permutation only for output tensors
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
       !is_hccl_send_mark_step()) {
     for (auto ti : output_tensorinfo_map) {
       auto ival = ti.first;
@@ -3434,10 +3432,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   // Check whether dynamic shape is needed
   size_t graph_key_with_perm = graph_key;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
-  }
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
 
   PT_BRIDGE_DEBUG(
       "Lowering:\n",

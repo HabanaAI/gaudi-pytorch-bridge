@@ -10,10 +10,8 @@ from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
+
 def permute_4d_5d_tensor(tensor, to_filters_last):
-    import habana_frameworks.torch.utils.debug as htdebug
-    if htdebug._is_enabled_weight_permute_pass() is True:
-        return tensor
     if tensor.ndim == 4:
         if to_filters_last:
             tensor = tensor.permute((2, 3, 1, 0))
@@ -26,16 +24,17 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
             tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
     return tensor
 
+
 def fused_adam_test(dim=4):
     torch.manual_seed(0)
     d1, d2, lr, wd = 320, 256, 0.1, 0.1
     eps = 1e-6
-    if dim==4:
-        u = torch.rand(d1, d2,3,3)
-    elif dim==5:
-        u = torch.rand(d1, d2,3,3,3)
+    if dim == 4:
+        u = torch.rand(d1, d2, 3, 3)
+    elif dim == 5:
+        u = torch.rand(d1, d2, 3, 3, 3)
     else:
-        u = torch.rand(d1, d2,3)
+        u = torch.rand(d1, d2, 3)
 
     print(" Input shape", u.shape)
 
@@ -49,23 +48,23 @@ def fused_adam_test(dim=4):
     loss_x.backward()
 
     # Modify the parameters by subtracting the gradient
-    optim_x = AdamW([x], lr=lr, weight_decay = wd,eps=eps)
+    optim_x = AdamW([x], lr=lr, weight_decay=wd, eps=eps)
     optim_x.step()
 
     x_cpu = x
 
     # Enable this env to validate lazy path
-    #os.environ['PT_HPU_LAZY_MODE'] = "1"
+    # os.environ['PT_HPU_LAZY_MODE'] = "1"
 
     y = v.detach().to(habana)
-    y = permute_4d_5d_tensor(y,True)
-    #htcore.mark_step()
+    y = permute_4d_5d_tensor(y, True)
+    # htcore.mark_step()
 
     y.requires_grad = True
 
     print("Shape 1", y.shape)
 
-    optim_y = FusedAdamW([y], lr=lr, weight_decay = wd,eps=eps)
+    optim_y = FusedAdamW([y], lr=lr, weight_decay=wd, eps=eps)
     htcore.mark_step()
 
     # Compute loss
@@ -82,12 +81,12 @@ def fused_adam_test(dim=4):
 
     htcore.mark_step()
 
-    y = permute_4d_5d_tensor(y,False)
+    y = permute_4d_5d_tensor(y, False)
     y_cpu = y.to(cpu)
 
-    max1 = x_cpu-y_cpu
+    max1 = x_cpu - y_cpu
     max1 = max1.abs()
-    print(x_cpu.max(),y_cpu.max(),max1.max())
+    print(x_cpu.max(), y_cpu.max(), max1.max())
     comp = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
 
     print('Optimizer output match :: {}'.format(comp))

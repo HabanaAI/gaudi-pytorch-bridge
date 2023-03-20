@@ -30,13 +30,11 @@
 #include "passes/fold_conv_batchnorm.h"
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
-#include "passes/permute_graph.h"
 #include "passes/recalculate_batchnorm_params.h"
 #include "passes/remove_redundant_memcpy.h"
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
-#include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "visualize.h"
 
@@ -634,10 +632,8 @@ size_t HlExec::GetGraphIndex(
     return visualize::GetGraphIndex(hash);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    hash = at::hash_combine(hash, perm_hash_code);
-  }
+  auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash = at::hash_combine(hash, perm_hash_code);
 
   static std::mutex s_mutex;
   std::lock_guard<std::mutex> guard(s_mutex);
@@ -815,23 +811,6 @@ void HlExec::Optimize(
     std::vector<torch::jit::Value*>& redundant_inputs) {
   PT_LAZY_TRACE;
   visualize::DumpPreGraph(mp_g_, m_g_hash_);
-
-  // Permute Pass to insert permute nodes should be run before any other JIT
-  // optimization pass. Reason for this is because Permute pass relies on extra
-  // information (e.g. dims) for each tensor added at JIT graph graph creation
-  // time to decide on permute node insertion. If any other pass runs before
-  // permute pass and inserts a new node (e.g. inplace replacement pass removes
-  // inplace node and adds corresponding out-of-place node), then this new node
-  // will not have required extra information for permute pass to work properly.
-  if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
-    InsertPermute_graph(mp_g_, stack);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "insert_permute");
-  }
-
-  if (OptPassCfg::GetInstance()->IsEnabledWeightPermutePass()) {
-    InsertWeightPermute_graph(mp_g_, stack);
-    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "insert_weight_permute");
-  }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {
     fuse_mm_transpose(mp_g_);

@@ -78,14 +78,13 @@ void PtTensorInfo::populate_tinfo(
   std::tie(hb_internal_perm_, hb_dont_allow_permute_) =
       lazy_to_backend::get_memory_permutation(pt_tensor);
   hb_internal_lf_ = lazy_to_backend::get_tensor_layout_format(pt_tensor);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_BACKEND_DEBUG_TENSOR(
-        pt_tensor,
-        "Saving the layout and permutation to the cache for tensor: %d",
-        " permutation: %s",
-        tensor_id,
-        lazy_to_backend::FormatTokens::Permutations);
-  }
+
+  PT_BACKEND_DEBUG_TENSOR(
+      pt_tensor,
+      "Saving the layout and permutation to the cache for tensor: %d",
+      " permutation: %s",
+      tensor_id,
+      lazy_to_backend::FormatTokens::Permutations);
 
   if (get_buffer_syn() != 0) {
     // set valid offset

@@ -21,34 +21,19 @@ sizes_vec GridSampler2dOutputShape(const at::Stack& stack) {
   auto grid = stack.at(GRID_POS).toTensor();
   // In the spatial (4-D) case, for input with shape (N,C,H^in,W^in) and grid
   // with shape (N,H^out,W^out,2), the output will have shape (N,C,H^out,W^out)
-  if (!habana_lazy::isDeviceInLoweringMode() ||
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ==
-          true) { // compute shape call from front-end
-    // sizes are always in NCHW (irrespective of storage layout of physical
-    // data)
-    constexpr int N_SELF = 0;
-    constexpr int C_SELF = 1;
-    constexpr int H_GRID = 1;
-    constexpr int W_GRID = 2;
-    std::vector<int64_t> shape{
-        self.sizes()[N_SELF],
-        self.sizes()[C_SELF],
-        grid.sizes()[H_GRID],
-        grid.sizes()[W_GRID]};
-    return {shape};
-  } else { // compute shape call from back-end
-    // sizes are always in NHWC (required permutes have been done on input)
-    constexpr int N_SELF = 0;
-    constexpr int C_SELF = 3;
-    constexpr int H_GRID = 1;
-    constexpr int W_GRID = 2;
-    std::vector<int64_t> shape{
-        self.sizes()[N_SELF],
-        grid.sizes()[H_GRID],
-        grid.sizes()[W_GRID],
-        self.sizes()[C_SELF]};
-    return {shape};
-  }
+  // compute shape call from front-end
+  // sizes are always in NCHW (irrespective of storage layout of physical
+  // data)
+  constexpr int N_SELF = 0;
+  constexpr int C_SELF = 1;
+  constexpr int H_GRID = 1;
+  constexpr int W_GRID = 2;
+  std::vector<int64_t> shape{
+      self.sizes()[N_SELF],
+      self.sizes()[C_SELF],
+      grid.sizes()[H_GRID],
+      grid.sizes()[W_GRID]};
+  return {shape};
 }
 
 std::shared_ptr<void> FillGridSamplerParams(

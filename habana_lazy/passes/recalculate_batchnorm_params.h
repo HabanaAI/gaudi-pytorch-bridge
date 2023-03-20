@@ -13,7 +13,6 @@
 #include <c10/core/TensorImpl.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/passes/weight_permute_graph.h"
 #include "habana_lazy/tensor_impl.h"
 
 namespace habana_lazy {

@@ -22,10 +22,8 @@ namespace habana_lazy {
 
 SBSInterfaceMap SBSInterface::m_special_sbs_ops = {
     {"aten::convolution_overrideable",
-     std::static_pointer_cast<SBSInterface>(std::make_shared<SBSPermutable>(
-         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)
-             ? -1
-             : 1 /*weight index*/))},
+     std::static_pointer_cast<SBSInterface>(
+         std::make_shared<SBSPermutable>(-1))},
     {"hpu::nonzero",
      std::static_pointer_cast<SBSInterface>(std::make_shared<SBSDisabledOp>())},
     // Failed in LazyIndexKernelTest.IndexTest

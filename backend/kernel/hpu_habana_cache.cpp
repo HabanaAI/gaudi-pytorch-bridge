@@ -109,10 +109,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     const std::string& op_strs)
     : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
   hash_code = graph_hash_code;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    hash_code = at::hash_combine(hash_code, perm_hash_code);
-  }
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   graph_with_permute_hash_code = hash_code;
 }
 
@@ -130,10 +128,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    hash_code = at::hash_combine(hash_code, perm_hash_code);
-  }
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   dynamic_hash_code = hash_code;
 }
 
@@ -154,10 +150,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   ComputeH2DHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, h2d_hash_code);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    hash_code = at::hash_combine(hash_code, perm_hash_code);
-  }
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   /*Add deterministic flag as well here*/
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     torch::jit::graph_node_list graph_nodes = irgraph->nodes();
@@ -737,8 +731,7 @@ inline void RecipeValueSpec::update_new_tensor(
       " perm : ",
       VecToString(permute_or_empty));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
     if (tinfo->is_output() && !tinfo->is_duplicate() && !tinfo->is_ZST()) {
       if (tinfo->get_allow_permutation()) {
         synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
@@ -763,8 +756,7 @@ inline void RecipeValueSpec::update_new_tensor(
 void RecipeValueSpec::update_output_permutation() {
   PT_BRIDGE_BEGIN;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
     std::vector<synRetrievedLaunchTensorInfoExt> tensor_info_vec;
 
     std::vector<IValPtrShared> outputs = {};

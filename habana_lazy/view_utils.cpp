@@ -493,7 +493,7 @@ void HbLazyTensorViews::add_strided_view_node_parallel_impl(
 
   if (is_update_view) {
     std::tie(params.sizes, params.strides) =
-        AsStridedOperator::compute_output_shape(self, size_in, stride_in);
+        AsStridedOperator::compute_output_shape(size_in, stride_in);
     updateViewTable(out, params);
 
     // book keeping to aid addition of strided view outputs for gradient views

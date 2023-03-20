@@ -91,9 +91,6 @@ class OptPassCfg {
   void SetPermutePass(const bool flag) {
     pass.enable_permute_pass = flag;
   }
-  void SetWeightPermutePass(const bool flag) {
-    pass.enable_weight_permute_pass = flag;
-  }
   void SetReplaceInplaceOps(const bool flag) {
     pass.enable_replace_inplace_ops = flag;
   }
@@ -129,16 +126,7 @@ class OptPassCfg {
     return pass.enable_fuse_bn_relu_optimization;
   }
   bool IsEnabledPermutePass() const {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      return false;
-    }
-    return pass.enable_permute_pass;
-  }
-  bool IsEnabledWeightPermutePass() const {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      return false;
-    }
-    return pass.enable_weight_permute_pass;
+    return false;
   }
   bool IsEnabledReplaceInplaceOps() const {
     return pass.enable_replace_inplace_ops;
@@ -170,7 +158,6 @@ class OptPassCfg {
     pass.enable_replace_views = true;
     pass.enable_bn_param_recalculation = false;
     pass.enable_fuse_conv_bn_optimization = false;
-    pass.enable_weight_permute_pass = false;
   }
 
   void BkupAndDisableAndAllOptPass() {
@@ -193,7 +180,6 @@ class OptPassCfg {
       pass.enable_replace_views = false;
       pass.enable_bn_param_recalculation = false;
       pass.enable_fuse_conv_bn_optimization = false;
-      pass.enable_weight_permute_pass = false;
     }
   }
 
@@ -214,7 +200,6 @@ class OptPassCfg {
     bool enable_fuse_t_mm_optimization;
     bool enable_fuse_bn_relu_optimization;
     bool enable_permute_pass;
-    bool enable_weight_permute_pass;
     bool enable_replace_inplace_ops;
     bool enable_replace_views;
     bool enable_bn_param_recalculation;

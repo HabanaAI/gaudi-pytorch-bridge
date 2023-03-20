@@ -281,64 +281,13 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  auto in = torch::randn(
-      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto wt = torch::randn(
-      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0, 0}, {1}, 1);
-  auto exp = torch::relu(exp1);
-
-  auto h_in = in.to(torch::kHPU);
-  // add permute-cl
-  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-  auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
-
-  auto result1 =
-      torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  auto result = torch::relu(result1);
-
-  Tensor out = result.to(kCPU);
-  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  // TODO: Removed once make sure removed from all tests lists
+  return;
 }
 
 // input(CL) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  auto in = torch::randn(
-      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto wt = torch::randn(
-      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  auto exp = torch::relu(exp1);
-
-  auto h_in = in.to(torch::kHPU);
-  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-  Tensor h_in_cl_out = h_in_cl.to(kCPU);
-
-  auto h_in1 = h_in_cl_out.to(torch::kHPU);
-  auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
-
-  auto result1 =
-      torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  auto result = torch::relu(result1);
-
-  Tensor out = result.to(kCPU);
-  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input(NCHW) -> conv2d -> relu
@@ -354,12 +303,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW) {
   // HPU graph input in nchw format, permut gets added, weights need permute
   auto h_in = in.to(torch::kHPU);
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
   Tensor out = result.to(kCPU);
@@ -383,12 +326,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
   // HPU graph input in nchw format, permut gets added, weights need permute
   auto h_in = in.to(torch::kHPU);
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(result);
   Tensor out = result.to(kCPU);
@@ -401,64 +338,12 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
 
 // input(CL) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  auto in = torch::randn(
-      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-  auto wt = torch::randn(
-      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-
-  // HPU graph for restride_cl
-  auto h_in = in.to(torch::kHPU);
-  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-  Tensor h_in_cl_out = h_in_cl.to(kCPU);
-  auto h_in1 = h_in_cl_out.to(torch::kHPU);
-  auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
-
-  auto result = torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  torch::leaky_relu_(result);
-  Tensor out = result.to(kCPU);
-  // CPU graph
-  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  torch::leaky_relu_(exp);
-
-  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  auto in = torch::randn(
-      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-
-  auto wt = torch::randn(
-      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-  auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
-  auto h_in = in.to(torch::kHPU);
-  // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
-  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
-  auto result =
-      torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  torch::leaky_relu_(result);
-  Tensor out = result.to(kCPU);
-
-  auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-  torch::leaky_relu_(exp);
-
-  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
@@ -472,12 +357,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace) {
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto h_in = in.to(torch::kHPU);
   // HPU graph
   auto result = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -501,12 +380,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto h_in = in.to(torch::kHPU);
   auto h_in1 = in1.to(torch::kHPU);
   // HPU graph
@@ -531,12 +404,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF) {
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto h_in1 = in1.to(torch::kHPU);
   auto h_in1_cl = permute_cl_hpu_lazy(h_in1, {0, 2, 3, 1});
   Tensor h_in_cl_out = h_in1_cl.to(kCPU);
@@ -570,27 +437,12 @@ TEST_F(GraphOptimizeTest, PermutePassTestInplace_Debug) {
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto h_wt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    h_wt = wt_hwck.to(torch::kHPU);
-  }
   auto h_in = in.to(torch::kHPU);
-#if 0
-  // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
-  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
-  torch::leaky_relu_(h_in_cl);
-  auto result1 = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
-  auto result = torch::relu(result1);
-  Tensor out = result.to(kCPU);
-#else
   // Input permute taken care by permute pass (PASS scenerio)
   torch::leaky_relu_(h_in);
   auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
   Tensor out = result.to(kCPU);
-#endif
 
   // CPU graph
   torch::leaky_relu_(in);
@@ -604,68 +456,12 @@ TEST_F(GraphOptimizeTest, PermutePassTestInplace_Debug) {
 
 // input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  for (int i = 0; i < 2; i++) {
-    auto in = torch::randn(
-        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto wt = torch::randn(
-        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    auto exp = torch::relu(exp1);
-
-    auto h_in = in.to(torch::kHPU);
-    // add permute-cl
-    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-    auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
-
-    auto result1 =
-        torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    auto result = torch::relu(result1);
-
-    Tensor out = result.to(kCPU);
-    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  }
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input(CL) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  for (int i = 0; i < 2; i++) {
-    auto in = torch::randn(
-        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto wt = torch::randn(
-        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    auto exp = torch::relu(exp1);
-
-    auto h_in = in.to(torch::kHPU);
-    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-    Tensor h_in_cl_out = h_in_cl.to(kCPU);
-
-    auto h_in1 = h_in_cl_out.to(torch::kHPU);
-    auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
-
-    auto result1 =
-        torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    auto result = torch::relu(result1);
-
-    Tensor out = result.to(kCPU);
-    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  }
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input(NCHW) -> conv2d -> relu
@@ -682,12 +478,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_cache) {
     // HPU graph input in nchw format, permut gets added, weights need permute
     auto h_in = in.to(torch::kHPU);
     auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
     auto result1 =
         torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     auto result = torch::relu(result1);
@@ -710,12 +500,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky_cache) {
     // HPU graph input in nchw format, permut gets added, weights need permute
     auto h_in = in.to(torch::kHPU);
     auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
     auto result =
         torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(result);
@@ -730,103 +514,17 @@ TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky_cache) {
 
 // input(CL) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_InplaceCL_cache) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  for (int i = 0; i < 2; i++) {
-    auto in = torch::randn(
-        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
-    auto wt = torch::randn(
-        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
-
-    // HPU graph for restride_cl
-    auto h_in = in.to(torch::kHPU);
-    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-    Tensor h_in_cl_out = h_in_cl.to(kCPU);
-    auto h_in1 = h_in_cl_out.to(torch::kHPU);
-    auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
-
-    auto result =
-        torch::conv2d(h_in1, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(result);
-    Tensor out = result.to(kCPU);
-    // CPU graph
-    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(exp);
-
-    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  }
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace_cache) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  for (int i = 0; i < 2; i++) {
-    auto in = torch::randn(
-        {6, 4, 28, 28},
-        torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-
-    auto wt = torch::randn(
-        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-    auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
-    auto h_in = in.to(torch::kHPU);
-    // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
-    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
-    auto result =
-        torch::conv2d(h_in_cl, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(result);
-    Tensor out = result.to(kCPU);
-
-    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(exp);
-
-    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  }
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
 TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace_cache) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
-    return;
-  for (int i = 0; i < 2; i++) {
-    auto in = torch::randn(
-        {6, 4, 28, 28},
-        torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-    auto wt = torch::randn(
-        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
-    auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
-    auto h_in = in.to(torch::kHPU);
-    // HPU graph
-    auto result =
-        torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(result);
-    torch::abs_(result);
-    Tensor out = result.to(kCPU);
-    // CPU graph
-    auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::leaky_relu_(exp);
-    torch::abs_(exp);
-
-    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  }
+  // TODO: Removed once make sure removed from all tests lists
 }
 
 // Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
@@ -841,12 +539,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
     auto wt = torch::randn(
         {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
     auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
     auto h_in = in.to(torch::kHPU);
     auto h_in1 = in1.to(torch::kHPU);
     // HPU graph
@@ -875,12 +567,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF_cache) {
     auto wt = torch::randn(
         {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
     auto h_wt = wt.to(torch::kHPU);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-      h_wt = wt_hwck.to(torch::kHPU);
-    }
     auto h_in1 = in1.to(torch::kHPU);
     auto h_in1_cl = permute_cl_hpu_lazy(h_in1, {0, 2, 3, 1});
     Tensor h_in_cl_out = h_in1_cl.to(kCPU);
@@ -1027,12 +713,6 @@ TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
   auto hwt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    hwt = wt_hwck.to(torch::kHPU);
-  }
   auto hC = hA.reshape({1, -1, 1, 1});
   auto hConv = torch::conv2d(hB, hwt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto hRelu = hConv.relu();
@@ -1053,12 +733,6 @@ TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);
   auto hwt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    hwt = wt_hwck.to(torch::kHPU);
-  }
   auto hConv = torch::conv2d(hB, hwt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto hRelu = hConv.relu();
   auto hIndex = torch::index(hRelu, {indices1, indices2});
@@ -1080,13 +754,6 @@ TEST_F(GraphOptimizeTest, ConvCatConv) {
       torch::arange(36, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({3, 3, 2, 2}); // hwck
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    tHabanaW = wt_hwck.to(torch::kHPU);
-  }
-
   auto input_tensor2 =
       torch::arange(90, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 6, 5}); // nchw
@@ -1102,13 +769,6 @@ TEST_F(GraphOptimizeTest, ConvCatConv) {
       torch::arange(192, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({8, 6, 2, 2}); // hwck
   torch::Tensor tHabanaW2 = weight_tensor2.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck2 = weight_tensor2.permute({2, 3, 1, 0}).contiguous();
-    tHabanaW2 = wt_hwck2.to(torch::kHPU);
-  }
-
   torch::Tensor outConv3 =
       torch::conv2d(catOut, tHabanaW2, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto out = outConv3.to(torch::kCPU);
@@ -1145,13 +805,11 @@ TEST_F(GraphOptimizeTest, WeightExpandViewTest) {
   at::Tensor wt = weight0.view({32, 32, 1, 2});
   auto exp1 = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0, 0}, {1}, 1);
   auto exp = torch::relu(exp1);
-  habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(true);
   auto h_in = in.to(torch::kHPU);
   auto h_weight0 = weight0.to(torch::kHPU);
   auto h_wt = torch::as_strided(h_weight0, wt.sizes(), wt.strides(), 0);
   auto result1 = torch::conv2d(h_in, h_wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   auto result = torch::relu(result1);
   Tensor out = result.to(kCPU);
-  habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(false);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }

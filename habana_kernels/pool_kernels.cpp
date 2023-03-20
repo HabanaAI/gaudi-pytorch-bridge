@@ -39,11 +39,7 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    bool ceil_mode,
-    bool is_input_nhwc = false) {
-  const auto is_synapse_layout_handling_enabled =
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
-
+    bool ceil_mode) {
   const int filter_H = at::native::safe_downcast<int, int64_t>(kernel_size[0]);
   const int filter_W = kernel_size.size() == 1
       ? filter_H
@@ -75,20 +71,10 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
   unsigned int input_dim2 = 2;
   unsigned int input_dim3 = 3;
 
-  if (is_synapse_layout_handling_enabled) {
-    input_dim0 = synapse_helpers::layouts::INPUT_N_IDX;
-    input_dim1 = synapse_helpers::layouts::INPUT_C_IDX;
-    input_dim2 = synapse_helpers::layouts::INPUT_H_IDX;
-    input_dim3 = synapse_helpers::layouts::INPUT_W_IDX;
-  } else if (is_input_nhwc) {
-    // If the input is already converted to NHWC, then the
-    // input dimensions should be picked up in {0, 3, 1, 2}
-    // order.
-    input_dim0 = 0;
-    input_dim1 = 3;
-    input_dim2 = 1;
-    input_dim3 = 2;
-  }
+  input_dim0 = synapse_helpers::layouts::INPUT_N_IDX;
+  input_dim1 = synapse_helpers::layouts::INPUT_C_IDX;
+  input_dim2 = synapse_helpers::layouts::INPUT_H_IDX;
+  input_dim3 = synapse_helpers::layouts::INPUT_W_IDX;
 
   const int64_t N = input.size(input_dim0);
   const int64_t C = input.size(input_dim1);
@@ -100,11 +86,7 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
   const int64_t output_W = at::native::pooling_output_shape<int64_t>(
       input_W, filter_W, pad_W, stride_W, dilation_W, ceil_mode);
 
-  if (is_synapse_layout_handling_enabled) {
-    return {N, C, output_H, output_W};
-  } else {
-    return {N, output_H, output_W, C};
-  }
+  return {N, C, output_H, output_W};
 }
 
 namespace {
@@ -153,7 +135,7 @@ OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
   bool ceil_mode = inputs[5].toBool();
 
   auto shape_out = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+      input, kernel_size, stride, padding, dilation, ceil_mode);
 
   OutputShapeInfRetType out;
   // output tensor
@@ -213,7 +195,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(syn_pool_params);
 
   auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+      input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // Setup output tensors
   auto output_nhwc = habana::createPTTensor(
@@ -274,7 +256,7 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   bool ceil_mode = inputs[5].toBool();
 
   auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+      input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // Setup output tensors
   auto output_nhwc = at::empty(

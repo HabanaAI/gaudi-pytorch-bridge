@@ -24,14 +24,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_fallback_op_count", []() {
     return habana::HpuFallbackHelper::get()->get_op_count();
   });
-  m.def("is_enabled_weight_permute_pass", []() {
-    return habana_lazy::exec::OptPassCfg::GetInstance()
-        ->IsEnabledWeightPermutePass();
-  });
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
   });
-
   m.def(
       "enable_eliminate_common_subexpression",
       [](const bool flag) {
@@ -95,13 +90,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       },
       py::arg("flag"));
   m.def(
-      "enable_weight_permute_pass",
-      [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(
-            flag);
-      },
-      py::arg("flag"));
-  m.def(
       "enable_replace_views",
       [](const bool flag) {
         habana_lazy::exec::OptPassCfg::GetInstance()->SetReplaceViews(flag);
@@ -153,9 +141,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("save_ds_checkpoint", [](std::string path) {
     habana_lazy::exec::HlExec::SaveDSCheckpoint(path);
-  });
-  m.def("is_enabled_synapse_layout_handling", []() {
-    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
   });
   m.def("clear_dynamic_bucket_recipe_info", []() {
     habana::ClearDynamicBucketRecipeInfo();

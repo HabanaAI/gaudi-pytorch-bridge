@@ -1,3 +1,6 @@
+import habana_frameworks.torch.utils.experimental as htexp
+import torch
+from habana_frameworks.torch.utils import profiler as htprofiler
 from habana_frameworks.torch.utils import debug as htdebug
 htdebug._set_dynamic_mode()
 htdebug._set_module_name("test_name")
@@ -10,11 +13,7 @@ htdebug._enable_fuse_bn_relu_optimization(False)
 htdebug._enable_permute_pass(False)
 htdebug._enable_replace_inplace_ops(False)
 htdebug._enable_replace_views(False)
-htdebug._enable_weight_permute_pass(False)
-print(htdebug._is_enabled_weight_permute_pass())
-htdebug._enable_weight_permute_pass(True)
-print(htdebug._is_enabled_weight_permute_pass())
-#htdebug._run_saved_model()
+# htdebug._run_saved_model()
 
 htdebug._memstat_livealloc("test memory live alloc")
 htdebug._memstat_devmem_start_collect("test memory start collect")
@@ -30,18 +29,14 @@ htdebug._dump_recipe_memory_stat()
 htdebug._dump_synapse_recipe_memory_stat()
 htdebug._dump_dynamic_shape_memory_stat()
 
-print(htdebug._is_enabled_synapse_layout_handling())
 print(htdebug._is_enabled_lazy_collectives())
 
 htdebug._mem_log("User level memory log point")
 
-from habana_frameworks.torch.utils import profiler as htprofiler
 htprofiler._setup_profiler()
 htprofiler._start_profiler()
 htprofiler._stop_profiler()
 
-import torch
-import habana_frameworks.torch.utils.experimental as htexp
 print("device_type", htexp._get_device_type())
 print("compute_stream", htexp._compute_stream())
 x = torch.randn(10, device='hpu')

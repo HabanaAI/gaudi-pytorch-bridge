@@ -86,13 +86,8 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
   roi_params.aligned = aligned;
   std::vector<int64_t> out_shape;
   auto channel_dim = synapse_helpers::layouts::INPUT_C_IDX;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == false) {
-    out_shape.assign(
-        {num_rois.sizes()[0], output_h, output_w, input.sizes()[channel_dim]});
-  } else {
-    out_shape.assign(
-        {num_rois.sizes()[0], input.sizes()[channel_dim], output_h, output_w});
-  }
+  out_shape.assign(
+      {num_rois.sizes()[0], input.sizes()[channel_dim], output_h, output_w});
 
   auto output = habana::createPTTensor(
       input, out_shape, input.options(), output_metadata.at(0).persistent);
@@ -235,17 +230,10 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
   // fallback from max_policy = Caclulated to max_policy = Historic if required
   constexpr float segPerAxis = 16;
   constexpr float maxVlmCount = 320;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == false) {
-    TORCH_CHECK(
-        (std::ceil(input_shape.sizes()[1] / segPerAxis) *
-         std::ceil(input_shape.sizes()[2] / segPerAxis)) <= maxVlmCount,
-        "VLM count exceeded in Roi_align_bwd, input image size too large to handle")
-  } else {
-    TORCH_CHECK(
-        (std::ceil(input_shape.sizes()[2] / segPerAxis) *
-         std::ceil(input_shape.sizes()[3] / segPerAxis)) <= maxVlmCount,
-        "VLM count exceeded in Roi_align_bwd, input image size too large to handle")
-  }
+  TORCH_CHECK(
+      (std::ceil(input_shape.sizes()[2] / segPerAxis) *
+       std::ceil(input_shape.sizes()[3] / segPerAxis)) <= maxVlmCount,
+      "VLM count exceeded in Roi_align_bwd, input image size too large to handle")
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {

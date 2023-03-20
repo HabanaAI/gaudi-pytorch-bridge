@@ -1,4 +1,5 @@
 from __future__ import print_function
+from topologies import tools
 import model as resnet_models
 import datetime
 import os
@@ -29,7 +30,6 @@ except ImportError:
     assert False, "Could Not import habana_frameworks.torch.utils.debug"
 
 sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
-from topologies import tools
 
 try:
     from apex import amp
@@ -61,6 +61,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
 
     return loss, output
 
+
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False, is_autocast=False):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ", device=device)
@@ -68,22 +69,20 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     metric_logger.add_meter('img/s', utils.SmoothedValue(window_size=10, fmt='{value}'))
 
     header = 'Epoch: [{}]'.format(epoch)
-    last_print_time= time.time()
+    last_print_time = time.time()
 
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         trainMetaData.tracept.start(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
 
         if not args.channels_last:
-            import habana_frameworks.torch.core as htcore
-            if htcore.is_enabled_synapse_layout_handling():
-                image = image.contiguous()
+            image = image.contiguous()
 
         image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
 
         if args.distributed:
             utils.barrier()
 
-        dl_ex_start_time=time.time()
+        dl_ex_start_time = time.time()
 
         if args.channels_last:
             import habana_frameworks.torch.core as htcore
@@ -95,13 +94,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             if args.run_lazy_mode:
                 htcore.mark_step()
 
-
         # for tensor probing use print_freq as 1 or at desired iteration multiple
         if trainMetaData.current_train_step % print_freq == 0:
             tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
         loss, output = train_model(model, criterion, optimizer, image, target,
-                                           trainMetaData, apex, args.run_lazy_mode, is_autocast=is_autocast)
+                                   trainMetaData, apex, args.run_lazy_mode, is_autocast=is_autocast)
 
         if trainMetaData.current_train_step % print_freq == 0:
             # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
@@ -112,11 +110,11 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
             batch_size = image.shape[0]
             metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
-            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size*print_freq)
-            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size*print_freq)
+            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size * print_freq)
+            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size * print_freq)
             current_time = time.time()
             last_print_time = dl_ex_start_time if args.dl_time_exclude else last_print_time
-            metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - last_print_time))
+            metric_logger.meters['img/s'].update(batch_size * print_freq / (current_time - last_print_time))
             last_print_time = time.time()
 
         trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
@@ -136,9 +134,7 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
 
             if not args.channels_last:
-                import habana_frameworks.torch.core as htcore
-                if htcore.is_enabled_synapse_layout_handling():
-                    image = image.contiguous()
+                image = image.contiguous()
 
             image = image.to(device, non_blocking=True)
 
@@ -196,7 +192,7 @@ def enable_tracing(device):
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        if(device == torch.device('hpu')):
+        if (device == torch.device('hpu')):
             htcore.enable()
         sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
         return sample_trace_tensor
@@ -260,11 +256,13 @@ def load_data(traindir, valdir, cache_dataset, distributed):
 
     return dataset, dataset_test, train_sampler, test_sampler
 
+
 def lr_vec_fcn(values, milestones):
     lr_vec = []
-    for n in range(len(milestones)-1):
-        lr_vec += [values[n]]*(milestones[n+1]-milestones[n])
+    for n in range(len(milestones) - 1):
+        lr_vec += [values[n]] * (milestones[n + 1] - milestones[n])
     return lr_vec
+
 
 def adjust_learning_rate(optimizer, epoch, lr_vec):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
@@ -272,49 +270,6 @@ def adjust_learning_rate(optimizer, epoch, lr_vec):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-#permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
-#and permute from RSCK to KCRS is used for checkpoint saving
-def permute_params(model, to_filters_last, lazy_mode):
-    if htcore.is_enabled_synapse_layout_handling():
-        print("permute_params disabled")
-        return
-    if htdebug._is_enabled_weight_permute_pass() is True:
-        return
-    with torch.no_grad():
-        for name, param in model.named_parameters():
-            if(param.ndim == 4):
-                if to_filters_last:
-                    param.data = param.data.permute((2, 3, 1, 0))
-                else:
-                    param.data = param.data.permute((3, 2, 0, 1))  # permute RSCK to KCRS
-
-    htcore.mark_step()
-
-# permute the momentum from filters first (KCRS) to filters last(RSCK) or vice versa.
-# and permute from RSCK to KCRS is used for checkpoint saving
-# Used for Habana device only
-
-
-def permute_momentum(optimizer, to_filters_last, lazy_mode):
-    if htcore.is_enabled_synapse_layout_handling():
-        print("permute_momentum disabled")
-        return
-    if htdebug._is_enabled_weight_permute_pass() is True:
-        return
-    # Permute the momentum buffer before using for checkpoint
-    for group in optimizer.param_groups:
-        for p in group['params']:
-            param_state = optimizer.state[p]
-            if 'momentum_buffer' in param_state:
-                buf = param_state['momentum_buffer']
-                if(buf.ndim == 4):
-                    if to_filters_last:
-                        buf = buf.permute((2, 3, 1, 0))
-                    else:
-                        buf = buf.permute((3, 2, 0, 1))
-                    param_state['momentum_buffer'] = buf
-
-    htcore.mark_step()
 
 def main(args):
 
@@ -400,13 +355,13 @@ def main(args):
 
         data_loader_test = data_loader_type(
             dataset_test, batch_size=test_batch_size, sampler=test_sampler,
-            num_workers=args.workers, pin_memory=pin_memory,pin_memory_device=pin_memory_device, drop_last=True)
+            num_workers=args.workers, pin_memory=pin_memory, pin_memory_device=pin_memory_device, drop_last=True)
     else:
         data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
         data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
 
     print("Creating model")
-    #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
+    # model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
     # Instead of importing resnet model from the standard torchvision package,
     # import from a local copy. A local copy of resnet model file is used so that
     # modifications can be done to the resnet model if necessary.
@@ -417,10 +372,10 @@ def main(args):
     trainMetaData.log_live_mem_alloc("After model.to()")
 
     if args.channels_last:
-        if(device == torch.device('cuda')):
+        if (device == torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
             model.to(memory_format=torch.channels_last)
-        elif(args.device == 'hpu'):
+        elif (args.device == 'hpu'):
             print('Converting model params to channels_last format on Habana')
             # TODO:
             # model.to(device).to(memory_format=torch.channels_last)
@@ -448,16 +403,12 @@ def main(args):
     optimizer = sgd_optimizer(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
-    if(args.device == 'hpu'):
-        permute_params(model, True, args.run_lazy_mode)
-        permute_momentum(optimizer, True, args.run_lazy_mode)
-
     if args.apex:
         model, optimizer = amp.initialize(model, optimizer,
                                           opt_level=args.apex_opt_level
                                           )
     if args.custom_lr_values is not None:
-        lr_vec = lr_vec_fcn([args.lr]+args.custom_lr_values, [0]+args.custom_lr_milestones+[args.epochs])
+        lr_vec = lr_vec_fcn([args.lr] + args.custom_lr_values, [0] + args.custom_lr_milestones + [args.epochs])
         lr_scheduler = None
     else:
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
@@ -487,7 +438,7 @@ def main(args):
             # To improve resnext101 dist performance, decrease number of all_reduce calls to 1 by increasing bucket size to 200
             bucket_size_mb = 200 if 'resnext101' in args.model else 100
             model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=bucket_size_mb, broadcast_buffers=False,
-                    first_bucket_cap_mb=bucket_size_mb)
+                                                              first_bucket_cap_mb=bucket_size_mb)
         else:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
@@ -495,9 +446,7 @@ def main(args):
     model_for_train = model
 
     if args.resume:
-        if(args.device == 'hpu'):
-            permute_params(model_without_ddp, False, args.run_lazy_mode)
-            permute_momentum(optimizer, False, args.run_lazy_mode)
+        if (args.device == 'hpu'):
 
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
@@ -505,13 +454,7 @@ def main(args):
         if lr_scheduler is not None:
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
-        #Permute the weight momentum buffer before using for checkpoint
-        if(args.device == 'hpu'):
-            permute_momentum(optimizer, True, args.run_lazy_mode)
-
         args.start_epoch = checkpoint['epoch'] + 1
-        if(args.device == 'hpu'):
-            permute_params(model_without_ddp, True, args.run_lazy_mode)
 
     if args.test_only:
         evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
@@ -529,21 +472,19 @@ def main(args):
             adjust_learning_rate(optimizer, epoch, lr_vec)
 
         train_one_epoch(model_for_train, criterion, optimizer, data_loader,
-                device, epoch, args.print_freq, trainMetaData, args.apex, is_autocast=args.is_autocast)
+                        device, epoch, args.print_freq, trainMetaData, args.apex, is_autocast=args.is_autocast)
         if lr_scheduler is not None:
             lr_scheduler.step()
 
-        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq, is_autocast=args.is_autocast)
+        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData,
+                 device=device, print_freq=args.print_freq, is_autocast=args.is_autocast)
 
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'hpu':
-                permute_params(model_without_ddp, False, args.run_lazy_mode)
                 # Use this model only to copy the state_dict of the actual model
                 copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
                 copy_model.load_state_dict(model_without_ddp.state_dict())
-                # Permute the weight momentum buffer before saving in checkpoint
-                permute_momentum(optimizer, False, args.run_lazy_mode)
 
                 for state in optimizer.state.values():
                     for k, v in state.items():
@@ -567,8 +508,6 @@ def main(args):
                     for k, v in state.items():
                         if isinstance(v, torch.Tensor):
                             state[k] = v.to('hpu')
-                permute_params(model_without_ddp, True, args.run_lazy_mode)
-                permute_momentum(optimizer, True, args.run_lazy_mode)
 
             else:
                 checkpoint = {
@@ -602,7 +541,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch Classification Training')
 
     parser.add_argument('--data-path', default='/software/data/pytorch/imagenet/ILSVRC2012/', help='dataset')
-    parser.add_argument('--dl-time-exclude', default='True', type=lambda x: x.lower() == 'true', help='Set to False to include data load time')
+    parser.add_argument('--dl-time-exclude', default='True', type=lambda x: x.lower() ==
+                        'true', help='Set to False to include data load time')
     parser.add_argument('--model', default='resnet18',
                         help='select Resnet models from resnet18, resnet34, resnet50, resnet101, resnet152, resnext50_32x4d, resnext101_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2')
     parser.add_argument('--device', default='hpu', help='device')
@@ -610,7 +550,7 @@ def parse_args():
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--dl-worker-type', default='MP', type=lambda x: x.upper(),
-                        choices = ["MP", "HABANA"], help='select multiprocessing or habana accelerated')
+                        choices=["MP", "HABANA"], help='select multiprocessing or habana accelerated')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
     parser.add_argument('--process-per-node', default=8, type=int, metavar='N',
@@ -623,7 +563,8 @@ def parse_args():
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     parser.add_argument('--lr-step-size', default=30, type=int, help='decrease lr every step-size epochs')
-    parser.add_argument('--custom-lr-values', default=None, metavar='N', type=float, nargs='+', help='custom lr values list')
+    parser.add_argument('--custom-lr-values', default=None, metavar='N',
+                        type=float, nargs='+', help='custom lr values list')
     parser.add_argument('--custom-lr-milestones', default=None, metavar='N', type=int, nargs='+',
                         help='custom lr milestones list')
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
@@ -686,7 +627,8 @@ def parse_args():
     parser.add_argument('--deterministic', action="store_true",
                         help='Whether or not to make data loading deterministic;This does not make execution deterministic')
     mixed_precision_group = parser.add_mutually_exclusive_group()
-    mixed_precision_group.add_argument('--autocast', dest='is_autocast', action='store_true', help='enable autocast mode on Gaudi')
+    mixed_precision_group.add_argument('--autocast', dest='is_autocast',
+                                       action='store_true', help='enable autocast mode on Gaudi')
     mixed_precision_group.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
     parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')

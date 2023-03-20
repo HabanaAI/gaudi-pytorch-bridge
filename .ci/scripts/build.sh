@@ -1137,15 +1137,15 @@ run_pytorch_modules_tests()
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
     	if [ "$__dut" == "gaudi" ]; then
-        (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+        (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
         echo "Running tests on Gaudi2"
-	(set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
+	(set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
     		__test_status=$?
 	elif [ "$__dut" == "gaudi3" ]; then
 	echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*)
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*)
 		__test_status=$?
         elif [ "$__dut" == "greco" ]; then
         echo "Running greco tests"
@@ -1345,7 +1345,7 @@ run_pytorch_qa_tests()
             test_path="topologies_tests"
        elif [ "$__pytest_marks" == "-m=smoke_dist" ] || [ "$__pytest_marks" == "-m=smoke_dist_gaudi2" ] || [ "$__pytest_marks" == "-m=smoke_dist_gaudi3" ] && [ "$__suite_type" == "distributed" ]; then
           #run distributed tests other than topology
-            (set -x; LOCK_GAUDI_SYNAPSE_API=1 PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING=true $opts ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"distributed_ci.xml"")
+            (set -x; LOCK_GAUDI_SYNAPSE_API=1 $opts ${__pytorch_qa_test_path} "--junit-xml=${__xml}_"distributed_ci.xml"")
             __test_status=$?
             return ${__test_status}
        fi

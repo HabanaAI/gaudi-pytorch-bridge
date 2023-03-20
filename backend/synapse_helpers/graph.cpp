@@ -279,18 +279,16 @@ synapse_error_o graph::add_node(
   }
 
   for (auto& tensor : outputs) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      PT_LAZY_DEBUG(
-          "synapse output tensors should not carry permutation. Clearing the permutation from synapse output tensor.");
-      synTensorPermutation perm;
-      perm.dims = 0;
-      auto status = synTensorSetPermutation(tensor, &perm);
-      HABANA_ASSERT(
-          status == synStatus::synSuccess,
-          "Node " + node_type + "  failed.",
-          " Err: ",
-          status);
-    }
+    PT_LAZY_DEBUG(
+        "synapse output tensors should not carry permutation. Clearing the permutation from synapse output tensor.");
+    synTensorPermutation perm;
+    perm.dims = 0;
+    auto status = synTensorSetPermutation(tensor, &perm);
+    HABANA_ASSERT(
+        status == synStatus::synSuccess,
+        "Node " + node_type + "  failed.",
+        " Err: ",
+        status);
   }
   PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());
   if (!in_build_phase_) {

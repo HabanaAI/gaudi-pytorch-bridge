@@ -441,13 +441,6 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    tHabanaW = wt_hwck.to(torch::kHPU);
-    IncrementNumberOfCopiesToHPU();
-  }
 
   auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
@@ -514,13 +507,6 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
             torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    tHabanaW = wt_hwck.to(torch::kHPU);
-    IncrementNumberOfCopiesToHPU();
-  }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
     IncrementNumberOfCopiesToHPU(); // as part of permuteWeight we copy weight
                                     // to device again.
@@ -614,14 +600,6 @@ TEST_P(SBSWithParamsTest, DynamicShapeSBSTest4) {
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     IncrementNumberOfCopiesToHPU();
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW)) {
-        IncreaseNumberOfViewOps(3); // as_strided + add_view + toCPU in SBS
-      }
-    }
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor out_conv = torch::conv2d(

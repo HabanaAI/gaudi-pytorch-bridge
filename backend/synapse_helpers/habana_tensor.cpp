@@ -320,22 +320,20 @@ synapse_error_o tensor::set_permutation() {
     return {};
   }
   synStatus status;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_SYNHELPER_DEBUG(
-        "Calling synTensorSetPermutation on: ",
-        tensor_id_,
-        "  permutation size: ",
-        permutation_.size(),
-        " permutation: ",
-        VecToString(permutation_));
-    synTensorPermutation synPermutation;
-    std::copy(
-        permutation_.begin(), permutation_.end(), synPermutation.permutation);
-    synPermutation.dims = permutation_.size();
-    status = synTensorSetPermutation(tensor_, &synPermutation);
-    SYNAPSE_SUCCESS_CHECK_WITH_OP(
-        "synTensorSetPermutation failed.", status, cleanup());
-  }
+  PT_SYNHELPER_DEBUG(
+      "Calling synTensorSetPermutation on: ",
+      tensor_id_,
+      "  permutation size: ",
+      permutation_.size(),
+      " permutation: ",
+      VecToString(permutation_));
+  synTensorPermutation synPermutation;
+  std::copy(
+      permutation_.begin(), permutation_.end(), synPermutation.permutation);
+  synPermutation.dims = permutation_.size();
+  status = synTensorSetPermutation(tensor_, &synPermutation);
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "synTensorSetPermutation failed.", status, cleanup());
   return {};
 }
 

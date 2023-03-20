@@ -85,14 +85,12 @@ at::Tensor lazy_to_backend::create_empty_tensor(const PtTensorInfo& ti) {
         internal_lf_new);
     hb_internal_tensor->SetTensorLayout(internal_lf_new);
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_BRIDGE_DEBUG(
-        "Setting synapse permutation as saved in the cache to the output tensor id: ",
-        ti.get_tensor_id(),
-        " permutation: ",
-        VecToString(ti.getHbInternalPermute()));
-    hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
-  }
+  PT_BRIDGE_DEBUG(
+      "Setting synapse permutation as saved in the cache to the output tensor id: ",
+      ti.get_tensor_id(),
+      " permutation: ",
+      VecToString(ti.getHbInternalPermute()));
+  hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
   return pt_tensor;
 }
 

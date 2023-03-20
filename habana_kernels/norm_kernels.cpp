@@ -1239,52 +1239,18 @@ void FusedNormLazyOperator::AllocateAndAddSynapseNode(
 }
 
 std::vector<int64_t> InstanceNormOperator::compute_output_shape(
-    at::Tensor input,
-    c10::MemoryFormat mf) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto is_norm_3d = is_5d_tensor(input.sizes().vec());
-    auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
-                                   : synapse_helpers::layouts::INPUT_C_IDX;
-    return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
-  }
-  // fetch channel dimension based on memory format
+    at::Tensor input) {
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
-  constexpr int nchw_idx = 1;
-  if (is_norm_3d) {
-    auto nhwc_idx = 4;
-
-    TORCH_CHECK(
-        mf != c10::MemoryFormat::ChannelsLast,
-        "Memory format should be ChannelsLast3d/Contiguous for 3d norm");
-
-    auto channels_idx =
-        (mf == c10::MemoryFormat::ChannelsLast3d) ? nhwc_idx : nchw_idx;
-
-    return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
-  } else {
-    auto nhwc_idx = 3;
-
-    TORCH_CHECK(
-        mf != c10::MemoryFormat::ChannelsLast3d,
-        "Memory format should be ChannelsLast/Contiguous for 2d norm");
-
-    auto channels_idx =
-        (mf == c10::MemoryFormat::ChannelsLast) ? nhwc_idx : nchw_idx;
-
-    return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
-  }
+  auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
+                                 : synapse_helpers::layouts::INPUT_C_IDX;
+  return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
 }
 
 OutputShapeInfRetType InstanceNormOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   const auto input = inputs[0].toTensor();
-  auto is_norm_3d = is_5d_tensor(input.sizes().vec());
   auto beta = inputs[1].toTensor();
-
-  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
-                                  : c10::MemoryFormat::ChannelsLast;
-  auto mean_var_shape =
-      InstanceNormOperator::compute_output_shape(input, memory_format);
+  auto mean_var_shape = InstanceNormOperator::compute_output_shape(input);
 
   OutputShapeInfRetType out;
   out.AddOutputTensor(TensorMetaData(
@@ -1343,10 +1309,7 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
   auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
-                                  : c10::MemoryFormat::ChannelsLast;
-  auto mean_var_shape =
-      InstanceNormOperator::compute_output_shape(input, memory_format);
+  auto mean_var_shape = InstanceNormOperator::compute_output_shape(input);
 
   auto current_mean = habana::createPTTensor(
       beta,
@@ -1379,41 +1342,11 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
 }
 
 std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
-    at::Tensor input,
-    c10::MemoryFormat mf) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto is_norm_3d = is_5d_tensor(input.sizes().vec());
-    auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
-                                   : synapse_helpers::layouts::INPUT_C_IDX;
-    return {input.sizes().vec()[channels_idx]};
-  }
-  // fetch channel dimension based on memory format
+    at::Tensor input) {
   auto is_norm_3d = is_5d_tensor(input.sizes().vec());
-  constexpr int nchw_idx = 1;
-
-  if (is_norm_3d) {
-    auto nhwc_idx = 4;
-
-    TORCH_CHECK(
-        mf != c10::MemoryFormat::ChannelsLast,
-        "Memory format should be ChannelsLast3d/Contiguous for 3d norm");
-
-    auto channels_idx =
-        (mf == c10::MemoryFormat::ChannelsLast3d) ? nhwc_idx : nchw_idx;
-
-    return {input.sizes().vec()[channels_idx]};
-  } else {
-    auto nhwc_idx = 3;
-
-    TORCH_CHECK(
-        mf != c10::MemoryFormat::ChannelsLast3d,
-        "Memory format should be ChannelsLast/Contiguous for 2d norm");
-
-    auto channels_idx =
-        (mf == c10::MemoryFormat::ChannelsLast) ? nhwc_idx : nchw_idx;
-
-    return {input.sizes().vec()[channels_idx]};
-  }
+  auto channels_idx = is_norm_3d ? synapse_helpers::layouts::INPUT_3D_C_IDX
+                                 : synapse_helpers::layouts::INPUT_C_IDX;
+  return {input.sizes().vec()[channels_idx]};
 }
 
 OutputShapeInfRetType InstanceNormBackwardOperator::ComputeOutputShape(
@@ -1421,12 +1354,8 @@ OutputShapeInfRetType InstanceNormBackwardOperator::ComputeOutputShape(
   auto input = in_stack[0].toTensor();
   auto mean = in_stack[2].toTensor();
 
-  auto is_norm_3d = is_5d_tensor(input.sizes().vec());
-
-  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
-                                  : c10::MemoryFormat::ChannelsLast;
   auto grad_beta_gamma_shape =
-      InstanceNormBackwardOperator::compute_output_shape(input, memory_format);
+      InstanceNormBackwardOperator::compute_output_shape(input);
 
   OutputShapeInfRetType out;
   out.AddOutputTensor(TensorMetaData(
@@ -1483,10 +1412,8 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
   auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  auto memory_format = is_norm_3d ? c10::MemoryFormat::ChannelsLast3d
-                                  : c10::MemoryFormat::ChannelsLast;
   auto grad_beta_gamma_shape =
-      InstanceNormBackwardOperator::compute_output_shape(input, memory_format);
+      InstanceNormBackwardOperator::compute_output_shape(input);
 
   auto grad_beta = habana::createPTTensor(
       mean,

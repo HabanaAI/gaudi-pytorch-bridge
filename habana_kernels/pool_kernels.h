@@ -68,7 +68,6 @@ class PoolHelper {
       const at::IntArrayRef stride,
       const at::IntArrayRef padding,
       const at::IntArrayRef dilation,
-      bool ceil_mode,
-      bool is_input_nhwc);
+      bool ceil_mode);
 };
 } // namespace habana

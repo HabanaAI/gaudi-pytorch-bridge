@@ -90,7 +90,7 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
       stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
   auto outshape = PoolHelper::compute_output_shape(
-      self, kernel_size, stride, pad, dilation, ceil_mode, false);
+      self, kernel_size, stride, pad, dilation, ceil_mode);
   return {outshape};
 }
 

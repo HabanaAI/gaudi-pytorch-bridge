@@ -41,9 +41,6 @@ void increasePermuteCount(torch::Tensor& weight) {
 void PermuteTensors::permuteWeight(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "PermuteWeight only for Synapse layout handling mode");
-  TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HPU,
       "permuteWeight only for HPU tensors");
 
@@ -136,24 +133,21 @@ void PermuteTensors::handlePermutedTensor(
       cpuTensor.device().type() == c10::DeviceType::CPU,
       "handlePermutedTensor cpuTensor should be CPU");
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto synapse_permute = getMemoryPermutation(permutedTensor);
-    if (synapse_permute.size() != 0) {
-      if (non_blocking) {
-        TORCH_CHECK(
-            false, "handlePermutedTensor we only support non_blocking = false");
-      }
-      // translate synapse permtue to pt permute
-      auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
-      // calculate new strides according to permutation
-      auto strides = calcNewStrides(permutedTensor, pt_permute);
-      auto old_sizes = cpuTensor.sizes();
-      // set cpu tensor with old sizes + new strides
-      cpuTensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-          old_sizes, strides);
-      // permute tensor back to host
-      cpuTensor = cpuTensor.contiguous();
+  auto synapse_permute = getMemoryPermutation(permutedTensor);
+  if (synapse_permute.size() != 0) {
+    if (non_blocking) {
+      TORCH_CHECK(
+          false, "handlePermutedTensor we only support non_blocking = false");
     }
+    // translate synapse permtue to pt permute
+    auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
+    // calculate new strides according to permutation
+    auto strides = calcNewStrides(permutedTensor, pt_permute);
+    auto old_sizes = cpuTensor.sizes();
+    // set cpu tensor with old sizes + new strides
+    cpuTensor.unsafeGetTensorImpl()->set_sizes_and_strides(old_sizes, strides);
+    // permute tensor back to host
+    cpuTensor = cpuTensor.contiguous();
   }
 }
 
@@ -195,10 +189,7 @@ void PermuteTensors::clearPermuteInformation(
   TORCH_CHECK(
       permutedTensor.device().type() == c10::DeviceType::HPU,
       "clearPermuteInformation permutedTensor should be HPU");
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    setMemoryPermutation(permutedTensor, {});
-  }
+  setMemoryPermutation(permutedTensor, {});
 }
 
 void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {

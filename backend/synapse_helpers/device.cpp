@@ -256,9 +256,6 @@ void dumpEnvSettings() {
               << GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION) << "\n";
     std::clog << " PT_ENABLE_DEFRAGMENTATION_INFO = "
               << GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO) << "\n";
-    std::clog << " PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)
-              << "\n";
     std::clog << " PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = "
               << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) << "\n";
     std::clog << " PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = "

@@ -108,7 +108,7 @@ class AsStridedOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
-  compute_output_shape(const at::Tensor&, c10::IntArrayRef, c10::IntArrayRef);
+      compute_output_shape(c10::IntArrayRef, c10::IntArrayRef);
 };
 
 // As Strided for channels last

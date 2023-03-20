@@ -69,10 +69,6 @@ static const std::unordered_map<const SynapseLayoutFormat, const char*>
 
 inline std::vector<const char*> getSynapseLayoutFormat(
     const std::vector<SynapseLayoutFormat>& layout_format) {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    return {};
-  }
-
   std::vector<const char*> layouts;
   layouts.reserve(layout_format.size());
   for (size_t i = 0; i < layout_format.size(); i++) {
@@ -161,13 +157,11 @@ enum LegacyLayoutIndex {
   SET_LAYOUT_IDX_VAR(WEIGHT_KERNEL_3D_R_IDX) \
   SET_LAYOUT_IDX_VAR(WEIGHT_KERNEL_3D_S_IDX)
 
-#define SET_LAYOUT_IDX_VAR(name)                                      \
-  const unsigned name =                                               \
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) == true \
-      ? static_cast<unsigned>(_##name)                                \
-      : static_cast<unsigned>(__##name);
+#define SET_LAYOUT_IDX_VAR(name) \
+  const unsigned name = static_cast<unsigned>(_##name);
 LIST_OF_LAYOUT_IDX
 #undef SET_LAYOUT_IDX_VAR
+#undef LIST_OF_LAYOUT_IDX
 
 } // namespace layouts
 } // namespace synapse_helpers

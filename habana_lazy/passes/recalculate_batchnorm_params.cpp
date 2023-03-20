@@ -16,7 +16,6 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
-#include "weight_permute_graph.h"
 
 #include <cmath>
 #include <iterator>
@@ -26,20 +25,33 @@
 #include "habana_lazy/lazy_executor.h"
 #include "pass_utils.h"
 
-using namespace torch;
-using namespace torch::jit;
+namespace {
+size_t getValuePosInStack(
+    std::shared_ptr<Graph>& graph,
+    const torch::jit::Value* value) {
+  auto graph_ins = graph->inputs();
+  size_t idx = 0;
+  for (auto value_in : graph_ins) {
+    if (value->unique() == value_in->unique()) {
+      return idx;
+    }
+    idx++;
+  }
+  return -1;
+}
+} // namespace
 
 namespace habana_lazy {
 
 habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx) {
   habana_lazy::HbInternalTensorImpl* impl{nullptr};
 
   if (idx != -1) {
-    if (node->input(idx)->type() == NoneType::get()) {
+    if (node->input(idx)->type() == torch::jit::NoneType::get()) {
       // std::cout << "[GetBackEndTensorImpl] [" << idx << "] NoneType" <<
       // std::endl << std::flush;
       return impl;
@@ -141,12 +153,12 @@ bool recomputeBatchnormParams(
 void* GetDataInHostBuffer(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx) {
   void* host_ptr{nullptr};
 
   if (idx != -1) {
-    if (node->input(idx)->type() == NoneType::get()) {
+    if (node->input(idx)->type() == torch::jit::NoneType::get()) {
       // std::cout << "[GetDataInHostBuffer] [" << idx << "] NoneType" <<
       // std::endl << std::flush;
       return host_ptr;
@@ -240,7 +252,7 @@ void* GetDataInHostBuffer(
 void UpdateDataInDeviceMem(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
-    Node* node,
+    torch::jit::Node* node,
     const int idx,
     void* host_ptr) {
   at::Tensor tensor;
@@ -259,7 +271,7 @@ void UpdateDataInDeviceMem(
   // std::cout << "[UpdateDataInDeviceMem] [" << idx << "] size_in_bytes: " <<
   // size_in_bytes << std::endl << std::flush;
 
-  WithInsertPoint guard(node);
+  torch::jit::WithInsertPoint guard(node);
   std::atomic<bool> copyDone{false};
   auto syn_error = device.copy_data_to_device(
       (void*)host_ptr,
@@ -321,7 +333,8 @@ void RecalculateBatchnormParams(
         continue;
       }
 
-      auto bn_eps = constant_as<double>(bn->namedInput("eps")).value();
+      auto bn_eps =
+          torch::jit::constant_as<double>(bn->namedInput("eps")).value();
 
       // std::cout << "[RecalculateBatchnormParams] [recompute batchnorm Params]
       // with bn_eps = " << bn_eps << std::endl << std::flush;

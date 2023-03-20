@@ -132,9 +132,6 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const bool transposed,
     const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape only for Synapse layout handling mode");
 
   bool conv3d = is_5d_tensor(shape_in, shape_wt);
   return conv3d ? compute_output_shape_3d(
@@ -170,9 +167,6 @@ std::vector<int64_t> ConvOperator::compute_output_shape_2d(
     const bool transposed,
     const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape only for Synapse layout handling mode");
   TORCH_CHECK(
       !is_5d_tensor(shape_in, shape_wt),
       "compute_output_shape of 2d conv kernels");
@@ -217,9 +211,6 @@ std::vector<int64_t> ConvOperator::compute_output_shape_3d(
     const bool transposed,
     const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
-  TORCH_CHECK(
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING),
-      "compute_output_shape only for Synapse layout handling mode");
   TORCH_CHECK(
       is_5d_tensor(shape_in, shape_wt),
       "compute_output_shape of 3d conv kernels");
@@ -309,8 +300,8 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const bool ceil_mode,
     const bool transposed,
     c10::MemoryFormat memory_format,
-    const bool is_conv_3d,
-    const bool is_weight_hwck,
+    [[maybe_unused]] const bool is_conv_3d,
+    [[maybe_unused]] const bool is_weight_hwck,
     const int64_t groups) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
@@ -319,236 +310,16 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
           (memory_format == c10::MemoryFormat::Contiguous),
       "Only ChannelsLast3d, ChannelsLast and Contiguous supported");
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    return compute_output_shape(
-        shape_in,
-        shape_wt,
-        pad,
-        stride,
-        dilation,
-        output_padding,
-        ceil_mode,
-        transposed,
-        groups);
-  }
-
-  // the following is required to this function being called during
-  // both the lazy and the eager modes of execution with different
-  // entry points
-  auto is_conv_3d_recheck = is_conv_3d || is_5d_tensor(shape_in, shape_wt);
-  if (is_conv_3d_recheck) {
-    const int64_t dim_pos_in[5] = {
-        LayoutFormatWithDepthDims::N,
-        LayoutFormatWithDepthDims::D,
-        LayoutFormatWithDepthDims::H,
-        LayoutFormatWithDepthDims::W,
-        LayoutFormatWithDepthDims::C};
-    const int64_t dim_pos_wt[5] = {
-        LayoutFormatWithDepthDims::N,
-        LayoutFormatWithDepthDims::C,
-        LayoutFormatWithDepthDims::D,
-        LayoutFormatWithDepthDims::H,
-        LayoutFormatWithDepthDims::W};
-    const int64_t dim_pos_in_chlast[5] = {
-        LayoutFormatWithDepthDims::N,
-        LayoutFormatWithDepthDims::C,
-        LayoutFormatWithDepthDims::D,
-        LayoutFormatWithDepthDims::H,
-        LayoutFormatWithDepthDims::W};
-    const int64_t wt_hwck_dims[5] = {
-        LayoutFormatWithDepthDims::D,
-        LayoutFormatWithDepthDims::H,
-        LayoutFormatWithDepthDims::W,
-        LayoutFormatWithDepthDims::C,
-        LayoutFormatWithDepthDims::N};
-
-    const int64_t* p_dim_pos_in;
-    const int64_t* p_dim_pos_wt;
-
-    TORCH_CHECK(
-        memory_format != c10::MemoryFormat::ChannelsLast,
-        "Memory format should be ChannelsLast3d/Contiguous in Conv3d");
-
-    if (memory_format == c10::MemoryFormat::ChannelsLast3d) {
-      p_dim_pos_in = dim_pos_in_chlast;
-    } else {
-      p_dim_pos_in = dim_pos_in;
-    }
-
-    p_dim_pos_wt = dim_pos_wt;
-    if (!is_weight_hwck) {
-      p_dim_pos_wt = wt_hwck_dims;
-    }
-    const auto input_D = shape_in[p_dim_pos_in[1]];
-    const auto pad_D = pad[0];
-    const auto dil_D = dilation[0];
-    const auto filter_D = shape_wt[p_dim_pos_wt[0]];
-    const auto stride_D = stride[0];
-    const auto output_pad_D = output_padding[0];
-
-    const auto output_D = habana_helpers::compute_output_size(
-        input_D,
-        pad_D,
-        dil_D,
-        filter_D,
-        stride_D,
-        output_pad_D,
-        false,
-        transposed);
-
-    const auto input_H = shape_in[p_dim_pos_in[2]];
-    const auto pad_H = pad[1];
-    const auto dil_H = dilation[1];
-    const auto filter_H = shape_wt[p_dim_pos_wt[1]];
-    const auto stride_H = stride[1];
-    const auto output_pad_H = output_padding[1];
-
-    const auto output_H = habana_helpers::compute_output_size(
-        input_H,
-        pad_H,
-        dil_H,
-        filter_H,
-        stride_H,
-        output_pad_H,
-        false,
-        transposed);
-
-    const auto input_W = shape_in[p_dim_pos_in[3]];
-    const auto pad_W = pad[2];
-    const auto dil_W = dilation[2];
-    const auto filter_W = shape_wt[p_dim_pos_wt[2]];
-    const auto stride_W = stride[2];
-    const auto output_pad_W = output_padding[2];
-
-    const auto output_W = habana_helpers::compute_output_size(
-        input_W,
-        pad_W,
-        dil_W,
-        filter_W,
-        stride_W,
-        output_pad_W,
-        false,
-        transposed);
-
-    auto K = shape_wt[p_dim_pos_wt[4]];
-    int64_t out_filter = K;
-
-    if (transposed) {
-      // for conv_transpose3d weights are in DHWKC format
-      K = shape_wt[p_dim_pos_wt[3]];
-      out_filter = K * groups;
-    }
-    std::vector<int64_t> out_shape;
-
-    if (memory_format == c10::MemoryFormat::ChannelsLast3d) {
-      out_shape.push_back(shape_in[0]);
-      out_shape.push_back(output_D);
-      out_shape.push_back(output_H);
-      out_shape.push_back(output_W);
-      out_shape.push_back(out_filter);
-    } else {
-      out_shape.push_back(shape_in[0]);
-      out_shape.push_back(out_filter);
-      out_shape.push_back(output_D);
-      out_shape.push_back(output_H);
-      out_shape.push_back(output_W);
-    }
-    return out_shape;
-  } else {
-    const int64_t dim_pos_in[4] = {
-        LayoutFormatDims::N,
-        LayoutFormatDims::H,
-        LayoutFormatDims::W,
-        LayoutFormatDims::C};
-    const int64_t dim_pos_wt[4] = {
-        LayoutFormatDims::N,
-        LayoutFormatDims::C,
-        LayoutFormatDims::H,
-        LayoutFormatDims::W};
-    const int64_t dim_pos_in_chlast[4] = {
-        LayoutFormatDims::N,
-        LayoutFormatDims::C,
-        LayoutFormatDims::H,
-        LayoutFormatDims::W};
-    const int64_t wt_hwck_dims[4] = {
-        LayoutFormatDims::H,
-        LayoutFormatDims::W,
-        LayoutFormatDims::C,
-        LayoutFormatDims::N};
-    const int64_t* p_dim_pos_in;
-    const int64_t* p_dim_pos_wt;
-
-    TORCH_CHECK(
-        memory_format != c10::MemoryFormat::ChannelsLast3d,
-        "Memory format should be ChannelsLast/Contiguous in Conv2d");
-    if (memory_format == c10::MemoryFormat::ChannelsLast) {
-      p_dim_pos_in = dim_pos_in_chlast;
-    } else {
-      p_dim_pos_in = dim_pos_in;
-    }
-
-    p_dim_pos_wt = dim_pos_wt;
-    if (!is_weight_hwck) {
-      p_dim_pos_wt = wt_hwck_dims;
-    }
-
-    const auto input_H = shape_in[p_dim_pos_in[1]];
-    const auto pad_H = pad[0];
-    const auto dil_H = dilation[0];
-    const auto filter_H = shape_wt[p_dim_pos_wt[0]];
-    const auto stride_H = stride[0];
-    const auto output_pad_H = output_padding[0];
-
-    const auto output_H = habana_helpers::compute_output_size(
-        input_H,
-        pad_H,
-        dil_H,
-        filter_H,
-        stride_H,
-        output_pad_H,
-        false,
-        transposed);
-
-    const auto input_W = shape_in[p_dim_pos_in[2]];
-    const auto pad_W = pad[1];
-    const auto dil_W = dilation[1];
-    const auto filter_W = shape_wt[p_dim_pos_wt[1]];
-    const auto stride_W = stride[1];
-    const auto output_pad_W = output_padding[1];
-
-    const auto output_W = habana_helpers::compute_output_size(
-        input_W,
-        pad_W,
-        dil_W,
-        filter_W,
-        stride_W,
-        output_pad_W,
-        false,
-        transposed);
-
-    auto K = shape_wt[p_dim_pos_wt[3]];
-    int64_t out_filter = K;
-
-    if (transposed) {
-      // for conv_transpose2d weights are in HWKC format
-      K = shape_wt[p_dim_pos_wt[2]];
-      out_filter = K * groups;
-    }
-    std::vector<int64_t> out_shape;
-
-    if (memory_format == c10::MemoryFormat::ChannelsLast) {
-      out_shape.push_back(shape_in[0]);
-      out_shape.push_back(output_H);
-      out_shape.push_back(output_W);
-      out_shape.push_back(out_filter);
-    } else {
-      out_shape.push_back(shape_in[0]);
-      out_shape.push_back(out_filter);
-      out_shape.push_back(output_H);
-      out_shape.push_back(output_W);
-    }
-    return out_shape;
-  }
+  return compute_output_shape(
+      shape_in,
+      shape_wt,
+      pad,
+      stride,
+      dilation,
+      output_padding,
+      ceil_mode,
+      transposed,
+      groups);
 }
 
 OutputShapeInfRetType SpatialConv3DOperator::ComputeOutputShape(
@@ -644,8 +415,7 @@ void SpatialConv3DOperator::AllocateAndAddSynapseNode(
          synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
          synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
     // conv_transpose2d weights are in DHWKC format
-    weight_channel =
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ? 0 : 4;
+    weight_channel = 0;
   }
 
   habana_helpers::check_convolution_params(
@@ -810,8 +580,7 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
          synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     // conv_transpose2d weights are in HWKC format
-    weight_channel =
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) ? 0 : 3;
+    weight_channel = 0;
   }
 
   habana_helpers::check_convolution_params(
@@ -926,20 +695,18 @@ OutputShapeInfRetType ConvOperator::ComputeOutputShape(
     } else {
       OutputShapeInfRetType out;
       auto computeOutputShapeReshapeOp = [&]() {
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-          // reshape bias to match to NCHW output format
-          auto reshapeOp = make_operator<ReshapeOperator>(
-              this->p_context_->device_id_, input.scalar_type());
-          int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
-          c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
-          // Jit Stack for Reshape
-          std::vector<c10::IValue> stackReshape;
-          stackReshape.emplace_back(IValue(bias));
-          stackReshape.emplace_back(IValue(shape));
-          auto reshapeOp_out =
-              out.call_ComputeOutputShape(reshapeOp, stackReshape);
-          bias = std::get<1>(reshapeOp_out.GetOutputTensor(0));
-        }
+        // reshape bias to match to NCHW output format
+        auto reshapeOp = make_operator<ReshapeOperator>(
+            this->p_context_->device_id_, input.scalar_type());
+        int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
+        c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+        // Jit Stack for Reshape
+        std::vector<c10::IValue> stackReshape;
+        stackReshape.emplace_back(IValue(bias));
+        stackReshape.emplace_back(IValue(shape));
+        auto reshapeOp_out =
+            out.call_ComputeOutputShape(reshapeOp, stackReshape);
+        bias = std::get<1>(reshapeOp_out.GetOutputTensor(0));
       };
 
       auto computeOutputShapeAddOp = [&](OutputShapeInfRetType& scOp_out) {
@@ -1070,27 +837,22 @@ void ConvOperator::AllocateAndAddSynapseNode(
             std::vector<c10::IValue> stack;
             auto ReshapeOp = make_operator<ReshapeOperator>(
                 this->p_context_->device_id_, input.scalar_type());
-            bool need_reshape =
-                GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING);
-            if (need_reshape) {
-              // reshape bias to match to NCHW output format
-              ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-              int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
-              c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
-              // Build Params for the graph
-              stack.emplace_back(IValue(bias));
-              stack.emplace_back(IValue(shape));
-              ReshapeOp->AllocateAndAddSynapseNode(
-                  graph, stack, OutputMetaDataVector(1));
-              stack.clear();
-              bias = ReshapeOp->GetOutputs()[0];
-            }
+            // reshape bias to match to NCHW output format
+            ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+            int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
+            c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+            // Build Params for the graph
+            stack.emplace_back(IValue(bias));
+            stack.emplace_back(IValue(shape));
+            ReshapeOp->AllocateAndAddSynapseNode(
+                graph, stack, OutputMetaDataVector(1));
+            stack.clear();
+            bias = ReshapeOp->GetOutputs()[0];
+
             auto addOp = make_operator<AddOperator>(
                 this->p_context_->device_id_, input.scalar_type());
             addOp->SetSynapseInput(scOp->GetSynOutputs()[0]);
-            addOp->SetSynapseInput(
-                need_reshape ? ReshapeOp->GetSynOutputs()[0]
-                             : p_context_->syn_inputs_[2]);
+            addOp->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
             // Build Params for the graph
             Scalar alphaValue = 1.0;
             stack.emplace_back(IValue(scOp->GetOutputs()[0]));

@@ -17,7 +17,6 @@
 #include <torch/script.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
-#include "weight_permute_graph.h"
 
 #include <cmath>
 #include <iterator>

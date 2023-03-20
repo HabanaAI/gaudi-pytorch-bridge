@@ -441,9 +441,7 @@ class InstanceNormOperator : public habana::HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   // used to compute output shapes of current mean and var
-  static std::vector<int64_t> compute_output_shape(
-      at::Tensor input,
-      c10::MemoryFormat mf);
+  static std::vector<int64_t> compute_output_shape(at::Tensor input);
 };
 
 class InstanceNormBackwardOperator : public habana::HabanaOperator {
@@ -475,9 +473,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
   // used to compute output shapes of current mean and var
-  static std::vector<int64_t> compute_output_shape(
-      at::Tensor input,
-      c10::MemoryFormat mf);
+  static std::vector<int64_t> compute_output_shape(at::Tensor input);
 };
 
 class GroupNormForwardOperator : public habana::HabanaOperator {

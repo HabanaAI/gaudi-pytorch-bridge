@@ -88,26 +88,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   auto lr = torch::tensor({0.01});
 
   auto hgrad = grad.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
-    hgrad = grad_hwck.to(torch::kHPU);
-  }
   auto hwts = wts.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
-    hwts = wts_hwck.to(torch::kHPU);
-  }
   auto hmoments = moments.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
-    hmoments = moments_hwck.to(torch::kHPU);
-  }
   auto hepoch_num = epoch_num.to(torch::kHPU);
   auto hlr = lr.to(torch::kHPU);
 
@@ -137,26 +119,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
   auto lr = torch::tensor({0.01});
 
   auto hgrad = grad.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
-    hgrad = grad_hwck.to(torch::kHPU);
-  }
   auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
-    hwts = wts_hwck.to(torch::kHPU).view({5, 4, 3, 3});
-  }
   auto hmoments = moments.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
-    hmoments = moments_hwck.to(torch::kHPU);
-  }
   auto hepoch_num = epoch_num.to(torch::kHPU);
   auto hlr = lr.to(torch::kHPU);
 
@@ -194,26 +158,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_Wt_Grad_View) {
   auto lr = torch::tensor({0.01});
 
   auto hgrad = grad.to(torch::kHPU).view({5, 4, 3, 3});
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
-    hgrad = grad_hwck.to(torch::kHPU).view({5, 4, 3, 3});
-  }
   auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wts_hwck = wts.permute({2, 3, 1, 0}).contiguous();
-    hwts = wts_hwck.to(torch::kHPU).view({5, 4, 3, 3});
-  }
   auto hmoments = moments.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto moments_hwck = moments.permute({2, 3, 1, 0}).contiguous();
-    hmoments = moments_hwck.to(torch::kHPU);
-  }
   auto hepoch_num = epoch_num.to(torch::kHPU);
   auto hlr = lr.to(torch::kHPU);
 
@@ -250,12 +196,6 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp_WtView) {
   auto lr = torch::tensor({0.01});
 
   auto hgrad = grad.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto grad_hwck = grad.permute({2, 3, 1, 0}).contiguous();
-    hgrad = grad_hwck.to(torch::kHPU);
-  }
   auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
   auto hvar = var.to(torch::kHPU);
   auto hepoch_num = epoch_num.to(torch::kHPU);

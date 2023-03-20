@@ -163,20 +163,16 @@ synapse_helpers::tensor create_tensor(
       max_stride[d - 1] = max_stride[d] * max[d];
     }
 
-    std::vector<uint8_t> permutation;
-    bool dont_allow_permutation = false;
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      std::tie(permutation, dont_allow_permutation) =
-          lazy_to_backend::get_memory_permutation(tensor);
-      if (!permutation.empty()) {
-        PT_LAZY_DEBUG(
-            "Setting permutation to tensor: ",
-            name,
-            " id: ",
-            tensor_id,
-            " permutation: ",
-            VecToString(permutation));
-      }
+    auto [permutation, dont_allow_permutation] =
+        lazy_to_backend::get_memory_permutation(tensor);
+    if (!permutation.empty()) {
+      PT_LAZY_DEBUG(
+          "Setting permutation to tensor: ",
+          name,
+          " id: ",
+          tensor_id,
+          " permutation: ",
+          VecToString(permutation));
     }
 
     auto builder =
@@ -208,20 +204,18 @@ synapse_helpers::tensor create_tensor(
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
   std::vector<uint8_t> permutation;
   bool dont_allow_permutation = false;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    std::tie(permutation, dont_allow_permutation) =
-        lazy_to_backend::get_memory_permutation(tensor);
-    if (!permutation.empty()) {
-      // If we pass permutation to Synapse tensor, we must pass empty strides
-      strides.clear();
-      PT_LAZY_DEBUG(
-          "Setting permutation to tensor: ",
-          name,
-          " id: ",
-          tensor_id,
-          " permutation: ",
-          VecToString(permutation));
-    }
+  std::tie(permutation, dont_allow_permutation) =
+      lazy_to_backend::get_memory_permutation(tensor);
+  if (!permutation.empty()) {
+    // If we pass permutation to Synapse tensor, we must pass empty strides
+    strides.clear();
+    PT_LAZY_DEBUG(
+        "Setting permutation to tensor: ",
+        name,
+        " id: ",
+        tensor_id,
+        " permutation: ",
+        VecToString(permutation));
   }
 
   bool const_section = false;
@@ -350,22 +344,18 @@ synapse_helpers::tensor create_tensor(
   }
 
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
-  std::vector<uint8_t> permutation;
-  bool dont_allow_permutation = false;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    std::tie(permutation, dont_allow_permutation) =
-        lazy_to_backend::get_memory_permutation(tensor);
-    if (!permutation.empty()) {
-      // If we pass permutation to Synapse tensor, we must pass empty strides
-      strides.clear();
-      PT_LAZY_DEBUG(
-          "Setting permutation to tensor: ",
-          name,
-          " id: ",
-          tensor_id,
-          " permutation: ",
-          VecToString(permutation));
-    }
+  auto [permutation, dont_allow_permutation] =
+      lazy_to_backend::get_memory_permutation(tensor);
+  if (!permutation.empty()) {
+    // If we pass permutation to Synapse tensor, we must pass empty strides
+    strides.clear();
+    PT_LAZY_DEBUG(
+        "Setting permutation to tensor: ",
+        name,
+        " id: ",
+        tensor_id,
+        " permutation: ",
+        VecToString(permutation));
   }
 
   auto builder =
@@ -734,12 +724,9 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
                      .mark_external(external)
                      .set_offset(tensor.get_offset())
                      .with_is_shape_agnostic_on(tensor.is_shape_agnostic());
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_LAZY_DEBUG(
-        "Setting a duplicate tensor with permutation: ", tensor.permutation());
-    builder.with_permutation(tensor.permutation());
-  }
+  PT_LAZY_DEBUG(
+      "Setting a duplicate tensor with permutation: ", tensor.permutation());
+  builder.with_permutation(tensor.permutation());
   if (tensor.has_dynamic_shape()) {
     builder.with_dynamic_shape(tensor.dynamic_shape());
   }
@@ -795,10 +782,8 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
       builder.with_dynamic_shape(dynamic_shape);
     }
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    PT_LAZY_DEBUG("Setting a duplicate tensor with permutation: ", permutation);
-    builder.with_permutation(permutation);
-  }
+  PT_LAZY_DEBUG("Setting a duplicate tensor with permutation: ", permutation);
+  builder.with_permutation(permutation);
   auto maybe_tensor = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
       tensor.graph());

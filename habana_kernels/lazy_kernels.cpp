@@ -774,59 +774,9 @@ at::Tensor handleWeightTensorLayout(const Tensor& src) {
       LayoutFormatWithDepthDims::N};
 
   auto sizes = src.sizes().vec();
-  auto is_5d_tensor = src.dim() == 5;
   auto hb_tensor = GetHbLazyTensor(src);
   auto tensor_data = hb_tensor.EvaluateTensorData();
-  auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(tensor_data);
 
-  // weights HWCK -> NCHW
-  if ((hl_tensor_data->GetTensorLayout() == habana::LayoutFormat::HWCK) &&
-      (habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass())) {
-    std::vector<long int> swapped_sizes = {
-        sizes[out_pos[0]],
-        sizes[out_pos[1]],
-        sizes[out_pos[2]],
-        sizes[out_pos[3]]};
-    std::vector<long int> swapped_sizes_5d = {
-        sizes[out_pos_5d[0]],
-        sizes[out_pos_5d[1]],
-        sizes[out_pos_5d[2]],
-        sizes[out_pos_5d[3]],
-        sizes[out_pos_5d[4]]};
-    if (is_5d_tensor) {
-      auto new_strides =
-          CalculateStrides5d(swapped_sizes_5d, c10::MemoryFormat::Contiguous);
-      auto strided_tensor =
-          // as_strided_hpu_lazy(src, swapped_sizes_5d, new_strides, 0);
-          as_strided_layout_hpu_lazy(src, swapped_sizes_5d, new_strides);
-      //{4, 3, 0, 1, 2}
-      auto permute_tensor = permute_hpu_lazy_internal(
-          strided_tensor,
-          {LayoutFormatWithDepthDims::W,
-           LayoutFormatWithDepthDims::H,
-           LayoutFormatWithDepthDims::N,
-           LayoutFormatWithDepthDims::C,
-           LayoutFormatWithDepthDims::D});
-      HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
-      tensor_data = hb_tensor.EvaluateTensorData();
-    } else {
-      auto new_strides =
-          CalculateStrides(swapped_sizes, c10::MemoryFormat::Contiguous);
-      auto strided_tensor =
-          // as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
-          as_strided_layout_hpu_lazy(src, swapped_sizes, new_strides);
-      //{3, 2, 0, 1}
-      auto permute_tensor = permute_hpu_lazy_internal(
-          strided_tensor,
-          {LayoutFormatDims::W,
-           LayoutFormatDims::H,
-           LayoutFormatDims::N,
-           LayoutFormatDims::C});
-      HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
-      tensor_data = hb_tensor.EvaluateTensorData();
-    }
-  }
   return tensor_data;
 }
 
@@ -1149,17 +1099,16 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   auto self_internal_tesor{self_hb_tensor.EvaluateTensorData()};
 
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto hb_impl = habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
-    auto synapse_permute = hb_impl->GetMemoryPermutation();
-    if (synapse_permute.size() != 0) {
-      PT_LAYOUTS_DEBUG(
-          "clearing memory permute, id ",
-          self_hb_tensor.getTensorUniqueId(),
-          " permute ",
-          VecToString(synapse_permute))
-      hb_impl->SetMemoryPermutation({});
-    }
+
+  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
+  auto synapse_permute = hb_impl->GetMemoryPermutation();
+  if (synapse_permute.size() != 0) {
+    PT_LAYOUTS_DEBUG(
+        "clearing memory permute, id ",
+        self_hb_tensor.getTensorUniqueId(),
+        " permute ",
+        VecToString(synapse_permute))
+    hb_impl->SetMemoryPermutation({});
   }
 
   // self may have been resized, so re-set its size and strides
@@ -1407,18 +1356,10 @@ ir::NodePtr create_as_strided_node(
   ir::NodePtr node = nullptr;
 
   auto offset = storage_offset.value_or(self.storage_offset());
-  auto mf = self.suggest_memory_format();
-
   if (habana_helpers::GetRefineDynamicShapeStatus()) {
     std::string node_str =
         (is_out) ? "hpu::strided_view_out_ds" : "hpu::strided_view_ds";
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                  (mf == c10::MemoryFormat::ChannelsLast3d))
-          ? "hpu::strided_view_cl_ds"
-          : "hpu::strided_view_ds";
-    }
     PT_DYNAMIC_SHAPE_DEBUG(
         "Strided view Real size = ",
         orig_size.vec(),
@@ -1487,12 +1428,6 @@ ir::NodePtr create_as_strided_node(
     std::string node_str =
         (is_out) ? "hpu::strided_view_out" : "hpu::strided_view";
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-      node_str = ((mf == c10::MemoryFormat::ChannelsLast) ||
-                  (mf == c10::MemoryFormat::ChannelsLast3d))
-          ? "hpu::strided_view_cl"
-          : "hpu::strided_view";
-    }
     node =
         std::make_shared<ir::StridedView>(self, size, stride, offset, node_str);
   }
@@ -2192,68 +2127,6 @@ Tensor& mul_out_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
-namespace {
-Tensor permute_wt_hpu(const Tensor& self) {
-  at::Tensor result = self;
-  if (habana_lazy::exec::OptPassCfg::GetInstance()
-          ->IsEnabledWeightPermutePass() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)) {
-    habana_lazy::NoAccThread no_acc_thread;
-    if (self.dim() == 4 || self.dim() == 5) {
-      auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-      auto layout_format = hb_tensor.GetTensorLayout();
-
-      int64_t dim_out_pos[] = {
-          LayoutFormatDims::H,
-          LayoutFormatDims::W,
-          LayoutFormatDims::C,
-          LayoutFormatDims::N};
-      int64_t dim_out_pos_3d[] = {
-          LayoutFormatWithDepthDims::D,
-          LayoutFormatWithDepthDims::H,
-          LayoutFormatWithDepthDims::W,
-          LayoutFormatWithDepthDims::C,
-          LayoutFormatWithDepthDims::N};
-      IntArrayRef dims_ = dim_out_pos;
-      if (self.dim() == 5)
-        dims_ = dim_out_pos_3d;
-
-      std::string op_name;
-
-      if (layout_format != habana::LayoutFormat::HWCK) {
-        op_name = "hpu::permute_weight";
-      } else {
-        op_name = "hpu::permuted_weight_restride";
-      }
-
-      hb_tensor.SetTensorLayout(habana::LayoutFormat::HWCK);
-      std::vector<at::IValue> vector_of_inputs;
-      vector_of_inputs = {self, dims_};
-
-      using T = at::Tensor;
-      class Kernel : public LazyOp<T> {
-       public:
-        Kernel(
-            const std::string& op_name,
-            const std::vector<at::IValue>& vector_of_inputs)
-            : LazyOp<T>(op_name, vector_of_inputs, nullptr, -1) {}
-
-       private:
-        T get_result_overrideable() override {
-          auto inputs = get_inputs();
-          auto self = inputs[0].toTensor();
-          return empty_strided_hpu_lazy(
-              self.sizes(), self.strides(), self.options(), false);
-        }
-      };
-      Kernel kernel{op_name, vector_of_inputs};
-      return kernel.call();
-    }
-  }
-  return result;
-}
-} // namespace
-
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
@@ -2268,34 +2141,16 @@ Tensor convolution_hpu_lazy(
   const auto& bias = bias_opt.value_or(Tensor());
   Tensor weight_hpu = weight;
   Tensor bias_dummy = {};
-  if (weight.device().type() == c10::DeviceType::CPU &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING))
+  if (weight.device().type() == c10::DeviceType::CPU)
     weight_hpu = weight.to(c10::kHPU, true);
 
-  if (habana_lazy::exec::OptPassCfg::GetInstance()
-          ->IsEnabledWeightPermutePass()) {
-    habana_lazy::NoAccThread no_acc_thread;
-    weight_hpu = weight.to(c10::kHPU, true);
-    HbLazyTensor src_hb_tensor =
-        GetOrCreateHbLazyTensor(weight_hpu, weight_hpu.device());
-    if (src_hb_tensor.isStorageAttached()) {
-      auto at_internal_tensor = src_hb_tensor.EvaluateTensorData();
-      if (at_internal_tensor.has_storage()) {
-        auto hb_tensor =
-            habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-        hb_tensor->SetTensorLayout(habana::LayoutFormat::HWCK);
-      }
-    }
-  }
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE) ||
-       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE))) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE)) {
     habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
     print_tensor_debug(weight_hpu);
   }
 
-  auto weight_hwck = permute_wt_hpu(weight_hpu);
+  auto& weight_hwck = weight_hpu;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
     print_tensor_debug(weight_hwck);
@@ -2329,39 +2184,6 @@ Tensor convolution_hpu_lazy(
     }
   }
 
-  bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
-                             ->IsEnabledWeightPermutePass())
-      ? false
-      : true;
-  if (weight_hwck.device().type() == c10::DeviceType::CPU &&
-      (!habana_lazy::exec::OptPassCfg::GetInstance()
-            ->IsEnabledWeightPermutePass()) &&
-      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING)) {
-    auto is_5d_layout = weight_hwck.dim() == 5;
-    c10::MemoryFormat memory_format = is_5d_layout
-        ? c10::MemoryFormat::ChannelsLast3d
-        : c10::MemoryFormat::ChannelsLast;
-    std::array<int64_t, 4> swapped_dims_4d = {
-        LayoutFormatDims::H,
-        LayoutFormatDims::W,
-        LayoutFormatDims::C,
-        LayoutFormatDims::N};
-    std::array<int64_t, 5> swapped_dims_5d = {
-        LayoutFormatWithDepthDims::D,
-        LayoutFormatWithDepthDims::H,
-        LayoutFormatWithDepthDims::W,
-        LayoutFormatWithDepthDims::C,
-        LayoutFormatWithDepthDims::N};
-    IntArrayRef dims_ = swapped_dims_4d;
-    if (is_5d_layout)
-      dims_ = swapped_dims_5d;
-    std::vector<int64_t> strides(weight_hwck.sizes().size());
-    weight_hwck = weight_hwck.permute(dims_).contiguous(memory_format);
-    habana_helpers::recalc_strides(strides, weight_hwck.sizes().vec());
-    IntArrayRef new_strides = strides;
-    weight_hwck.unsafeGetTensorImpl()->set_sizes_and_strides(
-        weight_hwck.sizes(), new_strides);
-  }
   LazyOp<at::Tensor> k(
       "aten::convolution_overrideable",
       {input,
@@ -2384,7 +2206,7 @@ Tensor convolution_hpu_lazy(
           transposed,
           c10::MemoryFormat::Contiguous,
           false,
-          is_weight_hwck,
+          true,
           groups)});
 
   RUN_MAYBE_WITH_ACC_THREAD(convolution, k)
@@ -2402,7 +2224,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     int64_t groups,
     std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
-  auto weight_hwck = permute_wt_hpu(weight);
+  auto& weight_hwck = weight;
   // Construct using LazyOp templated with class ir::Convolution
   std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
   ir::NodePtr node = std::make_shared<ir::Convolution>(
@@ -5300,8 +5122,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
     double eps) {
   PT_LAZY_TRACE;
 
-  auto mean_var_shape = InstanceNormOperator::compute_output_shape(
-      input, c10::MemoryFormat::Contiguous);
+  auto mean_var_shape = InstanceNormOperator::compute_output_shape(input);
 
   using T = std::tuple<Tensor, Tensor, Tensor>;
   LazyOp<T> k(
@@ -5322,8 +5143,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
   PT_LAZY_TRACE;
 
   auto grad_beta_gamma_shape =
-      InstanceNormBackwardOperator::compute_output_shape(
-          input, c10::MemoryFormat::Contiguous);
+      InstanceNormBackwardOperator::compute_output_shape(input);
   using T = std::tuple<Tensor, Tensor, Tensor>;
   LazyOp<T> k(
       "hpu::instance_norm_backward",

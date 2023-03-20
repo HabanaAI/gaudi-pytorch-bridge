@@ -106,11 +106,6 @@ TEST_F(SifTest, SimpleGraph) {
         torch::randn({N, C, H, W}, torch::requires_grad(false));
     torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    }
 
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
@@ -291,12 +286,6 @@ TEST_F(SifTest, DISABLED_ConvTranspose2dBwd) {
   auto hin = in.to(torch::kHPU);
   auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
   auto hwt = wt.to(torch::kHPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    auto wt_hwck = wt.detach().permute({2, 3, 1, 0}).contiguous();
-    hwt = wt_hwck.to(torch::kHPU);
-  }
   auto bias = torch::randn({5}, torch::requires_grad()); // k
   auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
@@ -325,15 +314,7 @@ TEST_F(SifTest, DISABLED_ConvTranspose2dBwd) {
 
   auto hgrad_wt_cpu = hgrad_wt.to(torch::kCPU);
   auto hgrad_in_cpu = hgrad_in.to(torch::kCPU);
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-      !habana_lazy::exec::OptPassCfg::GetInstance()
-           ->IsEnabledWeightPermutePass()) {
-    EXPECT_EQ(
-        allclose(grad_wt, hgrad_wt_cpu.permute({3, 2, 0, 1}), 0.01, 0.01),
-        true);
-  } else {
-    EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
-  }
+  EXPECT_EQ(allclose(grad_wt, hgrad_wt_cpu, 0.01, 0.01), true);
   validate_shape_end();
 }
 
@@ -391,11 +372,6 @@ TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
     auto h_weight_tensor = weight_tensor.to(torch::kHPU);
     auto h_weight_tensor_hwck = h_weight_tensor;
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_LAYOUT_HANDLING) &&
-        !habana_lazy::exec::OptPassCfg::GetInstance()
-             ->IsEnabledWeightPermutePass()) {
-      h_weight_tensor_hwck = h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
-    }
     auto h_out_conv = torch::conv_transpose2d(
         h_relu_tensor, h_weight_tensor_hwck, h_bias, 1, 0, 0, 1, 1);
     auto out_conv = torch::conv_transpose2d(

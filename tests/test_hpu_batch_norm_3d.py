@@ -4,7 +4,8 @@ import torch.nn.functional as F
 import os
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 import habana_frameworks.torch.core as htcore
-#load_habana_module()
+# load_habana_module()
+
 
 class Fp32GroupNorm(nn.GroupNorm):
     def __init__(self, *args, **kwargs):
@@ -20,26 +21,26 @@ class Fp32GroupNorm(nn.GroupNorm):
         )
         return output.type_as(input)
 
+
 class FeatureExtractor(nn.Module):
     def __init__(self, **cfg):
         super().__init__()
 
-        n_in          = cfg["n_in"]
-        n_out         = cfg["n_out"]
-        k             = cfg["k"]
-        stride        = cfg["stride"]
+        n_in = cfg["n_in"]
+        n_out = cfg["n_out"]
+        k = cfg["k"]
+        stride = cfg["stride"]
         is_group_norm = cfg["is_group_norm"]
-        self.device   = cfg["device"]
+        self.device = cfg["device"]
 
-        self.conv       = nn.Conv1d(n_in, n_out, k, stride=stride, bias=False)
+        self.conv = nn.Conv1d(n_in, n_out, k, stride=stride, bias=False)
         nn.init.kaiming_normal_(self.conv.weight)
 
-        self.droupout   = nn.Dropout(p=1e-20)
+        self.droupout = nn.Dropout(p=1e-20)
         self.group_norm = Fp32GroupNorm(n_out, n_out, affine=True)
-        self.gelu       = nn.GELU()
+        self.gelu = nn.GELU()
 
         self.is_group_norm = is_group_norm
-
 
     def forward(self, x):
         pre_shape = x.shape
@@ -52,6 +53,7 @@ class FeatureExtractor(nn.Module):
 
         return x
 
+
 def test(device, use_lazy_mode):
 
     if device == "hpu":
@@ -62,17 +64,16 @@ def test(device, use_lazy_mode):
             print(f"Eager Mode ==========")
             os.environ["PT_HPU_LAZY_MODE"] = "2"
 
-    in_d        = 1
-    #conv_feature_layers = [(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]
+    in_d = 1
+    # conv_feature_layers = [(512, 10, 5), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 3, 2), (512, 2, 2), (512, 2, 2)]
     conv_feature_layers = [(16, 10, 5), (16, 3, 2), (16, 3, 2), (16, 3, 2), (16, 3, 2), (16, 2, 2), (16, 2, 2)]
     conv_layers = nn.ModuleList()
 
     for dim, k, stride in conv_feature_layers:
-        fe_blk = FeatureExtractor(n_in=in_d, n_out=dim, k=k, stride=stride, is_group_norm=(in_d==1), device=device).to(device=device)
+        fe_blk = FeatureExtractor(n_in=in_d, n_out=dim, k=k, stride=stride,
+                                  is_group_norm=(in_d == 1), device=device).to(device=device)
         conv_layers.append(fe_blk)
         in_d = dim
-
-    htcore.enable_weight_permute_pass(True)
 
     #  x = torch.rand((8, 1, 121920)).float()
     x = torch.rand((8, 1, 1200)).float()
@@ -98,5 +99,3 @@ for d in device:
 
     test(device=d, use_lazy_mode=False)
     test(device=d, use_lazy_mode=True)
-
-
