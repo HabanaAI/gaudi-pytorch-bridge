@@ -148,6 +148,9 @@ def wrapped_to(self, *args, **kwargs):
     weight_sharing_exception = Exception("Weight sharing unsuccessful. "
                                          "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
 
+    # Convert all parameters to habana parameters
+    for_all_parameters_in_submodules(convert_to_habana_parameters)
+
     # Collect all parameters
     for_all_parameters_in_submodules(collect_parameters)
     collected_parameters_before = collected_parameters.copy()
@@ -159,9 +162,6 @@ def wrapped_to(self, *args, **kwargs):
 
     # Call original model.to
     result = self.original_to(*args, **kwargs)
-
-    #Convert all parameters to habana parameters
-    for_all_parameters_in_submodules(convert_to_habana_parameters)
 
     # Collect all new parameters
     for_all_parameters_in_submodules(collect_parameters)
