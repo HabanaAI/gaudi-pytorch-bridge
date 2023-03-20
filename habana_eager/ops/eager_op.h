@@ -341,6 +341,24 @@ class EagerOp : public EagerOpBase {
     return self;
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
+    PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
+
+    auto result = at::empty(
+        1,
+        get_inputs().at(0).toTensor().options().dtype(
+            c10::CppTypeToScalarType<T>::value));
+    auto out_spec =
+        OutputSpec{result.scalar_type(), result.device(), result.sizes()};
+    auto stack = run({out_spec});
+    HABANA_ASSERT(stack.size() == 1); // single output only
+    auto out = stack.at(0).toTensor();
+    auto out_cpu = out.to(c10::DeviceType::CPU, true);
+
+    return *out_cpu.data_ptr<T>();
+  }
+
   // For regular variants
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {

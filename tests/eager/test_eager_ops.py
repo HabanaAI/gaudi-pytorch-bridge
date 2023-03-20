@@ -8,6 +8,22 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 
+@pytest.mark.parametrize("data1, data2", [((2,3), (2,3)),
+                                          ((6), (6, 0)),
+                                          ((2,), (1,)),
+                                         ])
+def test_equal(data1, data2):
+    cpu_tensor1 = torch.Tensor(data1).type(torch.float32)
+    hpu_tensor1 = cpu_tensor1.to("hpu")
+
+    cpu_tensor2 = torch.Tensor(data2).type(torch.float32)
+    hpu_tensor2 = cpu_tensor2.to("hpu")
+
+    cpu_result = torch.equal(cpu_tensor1, cpu_tensor2)
+    hpu_result = torch.equal(hpu_tensor1, hpu_tensor2)
+
+    assert hpu_result == cpu_result
+
 @pytest.mark.parametrize("shape_in, shape_out", [((2,3), (4,6)),
                                                  ((4,6), (2,3)),
                                                    ((2,3,4,5), (3,4,5,6))
