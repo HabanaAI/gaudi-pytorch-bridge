@@ -23,9 +23,7 @@ orchestratorConfig:
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_pt2_features_hpu
-    silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_pt2_features_hpu
-    silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite
 # Dtype validation <Start>
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
