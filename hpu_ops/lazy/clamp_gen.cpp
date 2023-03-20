@@ -97,13 +97,13 @@ static void convert_params_to_tensors(
       max, self.options().dtype(compute_dtype));
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, at::Tensor, ClampFE, -1) {}
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, at::Tensor&, ClampFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, ClampFE, -1, at::Tensor) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, ClampFE, at::Tensor&) {
   convert_params_to_tensors(
       get_inputs(), inputs.at(0).toTensor().scalar_type());
 }
 
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(habana_lazy::LazyOp, at::Tensor, ClampFE) {
+HPU_OP_FRONTEND_CREATE_RESULT_ONLY(habana_lazy::LazyOp, ClampFE, at::Tensor) {
   auto& inputs = get_inputs();
   const auto& dtype = get_scalar_types()[0];
   convert_params_to_tensors(inputs, dtype);

@@ -25,8 +25,8 @@ static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     habana_lazy::LazyOp,
-    at::Tensor&,
-    BernoulliFE) {
+    BernoulliFE,
+    at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p, inputs[0].toTensor().options());
 
@@ -35,8 +35,8 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     habana_lazy::LazyOp,
-    at::Tensor&,
-    BernoulliOutFE) {
+    BernoulliOutFE,
+    at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p, inputs[0].toTensor().options());
 

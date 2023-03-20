@@ -26,14 +26,14 @@ static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
   gen_to_seed = at::tensor(seed, o);
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, BernoulliFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliFE, at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p);
 
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, BernoulliOutFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliOutFE, at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p);
 

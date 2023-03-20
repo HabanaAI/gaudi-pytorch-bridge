@@ -70,7 +70,6 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       syn_inputs.emplace_back(nullptr);
       syn_inputs.emplace_back(nullptr);
       CreateShapeTensorInput(graph, ScalarType(), {k}, syn_inputs);
-      ;
 
       ns_TopkNodeV2::ParamsV4 params;
       params.axis = self.dim() - dim - 1;

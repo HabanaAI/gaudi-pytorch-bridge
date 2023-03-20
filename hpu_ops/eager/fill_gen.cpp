@@ -15,7 +15,7 @@
 #include "hpu_ops/common/fill.h"
 
 namespace habana {
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, FillFE) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, FillFE, at::Tensor&) {
   CastBoolToInt(get_inputs());
 }
 } // namespace habana

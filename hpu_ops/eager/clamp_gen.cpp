@@ -18,10 +18,10 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 namespace habana {
-HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, at::Tensor, ClampFE, -1) {}
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, ClampFE) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, ClampFE, -1, at::Tensor) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, ClampFE, at::Tensor&) {}
 
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(eager::EagerOp, at::Tensor, ClampFE) {
+HPU_OP_FRONTEND_CREATE_RESULT_ONLY(eager::EagerOp, ClampFE, at::Tensor) {
   auto& inputs = get_inputs();
   const auto& dtype = get_scalar_types()[0];
   const auto& t = inputs.at(0).toTensor();

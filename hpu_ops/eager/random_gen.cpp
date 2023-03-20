@@ -26,18 +26,18 @@ static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
   gen_to_seed = at::tensor(seed, o);
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor&, GeneratorToSeed) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, at::Tensor, GeneratorToSeed) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor) {
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     eager::EagerOp,
-    at::Tensor&,
-    GeneratorToSeedOut) {
+    GeneratorToSeedOut,
+    at::Tensor&) {
   ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
 }
 } // namespace habana

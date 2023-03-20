@@ -964,7 +964,7 @@ def frontend(
 
             # for not supported eager ops in Eager compilation, unconditionally
             # fallback to CPU
-            args_str=", ".join(param_vars)
+            args_str = ", ".join(param_vars)
             if overload:
                 code += f"  FALLBACK_UNSUPPORTED_OP2_O({opname}, PARAMS2({args_str}), {overload})\n"
             else:
@@ -1008,9 +1008,7 @@ def frontend(
             code += "  hpu_op.set_scalar_types({{{}}});\n".format(
                 ", ".join(
                     [
-                        d + ".scalar_type()"
-                        if d in param_vars
-                        else "at::k" + d
+                        d + ".scalar_type()" if d in param_vars else "at::k" + d
                         for d in out_dtypes
                     ]
                 )
@@ -1290,6 +1288,7 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
             or "TensorList" in sig  # TensorList ops
         )
 
+
 # List of override_fn ops that are supporting eager frontend
 eager_ops_override_fns_whitelist = [
     "_copy_from",
@@ -1297,17 +1296,19 @@ eager_ops_override_fns_whitelist = [
     "as_strided_hpu_lazy2",
     "set_source_Storage_storage_offset",
     "view_hpu_lazy",
-    "_local_scalar_dense_hpu_lazy"
+    "_local_scalar_dense_hpu_lazy",
 ]
 
 eager_custom_frontends_whitelist = [
     "BernoulliFE",
     "BernoulliFEOut",
+    "ClampFE",
     "ReductionFrontendTemplate",
     "FillFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
-    "ClampFE"
+    "ReductionFrontendTemplate",
+    "TopKFE",
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
@@ -1716,7 +1717,9 @@ def generate_all(fgen):
 
     op_validator_generator = fgen.ctxop.get_op_validator_generator()
     if op_validator_generator is not None:
-        dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
+        dtype_defs += op_validator_generator.get_validator_data_def(
+            is_out_fn(fgen.func)
+        )
 
     if fgen.op_frontend:
         # Lazy functions
@@ -1957,7 +1960,10 @@ def generate_autocast_ops(fgens, args, out_dir):
             "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,int64_t,int64_t,at::Tensor>",
             "tuple_4_tensors_4_int64_tensor",
         ),
-        ("::std::tuple<at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor>", "tuple_2_tensors_2_int64_tensor"),
+        (
+            "::std::tuple<at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor>",
+            "tuple_2_tensors_2_int64_tensor",
+        ),
         ("SymIntArrayRef", "IntArrayRef"),
         ("c10::SymInt", "int64_t"),
     )
@@ -2129,7 +2135,8 @@ def generate_backend(fgens, fgen_files):
             (gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0
         ) or (idx + 1) == len(fgens):
             backend_inclusions = (
-                "\n" '#include "hpu_ops/op_validator.h"\n' 
+                "\n"
+                '#include "hpu_ops/op_validator.h"\n'
                 '#include "hpu_ops/backend/reduction_template.h"\n'
             )
             print(

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,12 +10,16 @@
  *
  *******************************************************************************
  */
-
-#include "generated/lazy/fill.h"
-#include "hpu_ops/common/fill.h"
+#include "generated/eager/topk.h"
 
 namespace habana {
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, FillFE, at::Tensor&) {
-  CastBoolToInt(get_inputs());
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    eager::EagerOp,
+    TopKFE,
+    std::tuple<at::Tensor&, at::Tensor&>) {
+  auto& k_input = get_inputs()[1];
+
+  // TODO: Remove this tensor https://jira.habana-labs.com/browse/SW-120925
+  k_input = at::empty(k_input.toInt(), at::kHPU);
 }
 } // namespace habana

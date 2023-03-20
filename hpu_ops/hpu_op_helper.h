@@ -194,29 +194,29 @@ std::vector<int64_t> indices_size(at::TensorList indices);
     T get_result_overrideable() override;                                     \
   };
 
-#define HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, out_index)  \
-  template <>                                                          \
-  op<T>::op(                                                           \
-      const std::string& qualstring,                                   \
-      const std::vector<at::IValue>& inputs,                           \
-      const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn) \
+#define HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, op, out_index, T...) \
+  template <>                                                            \
+  op<T>::op(                                                             \
+      const std::string& qualstring,                                     \
+      const std::vector<at::IValue>& inputs,                             \
+      const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)   \
       : FEServiceClass<T>(qualstring, inputs, out_shapes_fn, out_index)
 
-#define HPU_OP_FRONTEND_CREATE_RESULT(FEServiceClass, T, op) \
-  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, -1)     \
-  template <>                                                \
-  T op<T>::get_result_overrideable()
-
-#define HPU_OP_FRONTEND_CREATE_RESULT_ONLY(FEServiceClass, T, op) \
-  template <>                                                     \
-  T op<T>::get_result_overrideable()
-
-#define HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(FEServiceClass, T, op) \
+#define HPU_OP_FRONTEND_CREATE_RESULT(FEServiceClass, op, T...) \
+  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, op, -1, T...)     \
   template <>                                                   \
-  T op<T>::get_result_overrideable() {                          \
-    return FEServiceClass<T>::get_result_overrideable();        \
-  }                                                             \
-  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, T, op, 0)
+  T op<T>::get_result_overrideable()
+
+#define HPU_OP_FRONTEND_CREATE_RESULT_ONLY(FEServiceClass, op, T...) \
+  template <>                                                        \
+  T op<T>::get_result_overrideable()
+
+#define HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(FEServiceClass, op, T...) \
+  template <>                                                      \
+  T op<T>::get_result_overrideable() {                             \
+    return FEServiceClass<T>::get_result_overrideable();           \
+  }                                                                \
+  HPU_OP_FRONTEND_CUSTOM_CTOR(FEServiceClass, op, 0, T)
 
 #define FILL_PARAMS_DECL(fn) \
   std::shared_ptr<void> fn(const at::Stack&, size_t&);

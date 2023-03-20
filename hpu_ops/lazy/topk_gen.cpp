@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "generated/lazy/topk.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -53,25 +52,10 @@ std::tuple<at::Tensor, at::Tensor> LazyTopk<
   return {values, indices};
 }
 
-template <>
-LazyTopkOut<std::tuple<at::Tensor&, at::Tensor&>>::LazyTopkOut(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<std::tuple<at::Tensor&, at::Tensor&>>(
-          qualstring,
-          inputs,
-          out_shapes_fn,
-          -1) {
-  auto input = get_inputs();
-  convert_k_to_tensor(input);
-  set_inputs(input);
-}
-
-template <>
-std::tuple<at::Tensor&, at::Tensor&> LazyTopkOut<
-    std::tuple<at::Tensor&, at::Tensor&>>::get_result_overrideable() {
-  return LazyOp<
-      std::tuple<at::Tensor&, at::Tensor&>>::get_result_overrideable();
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    habana_lazy::LazyOp,
+    TopKFE,
+    std::tuple<at::Tensor&, at::Tensor&>) {
+  convert_k_to_tensor(get_inputs());
 }
 } // namespace habana
