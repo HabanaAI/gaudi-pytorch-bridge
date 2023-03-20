@@ -153,7 +153,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/passes/fold_conv_batchnorm.cpp
   habana_lazy/passes/fuse_mm_transpose.cpp
   habana_lazy/passes/fuse_bn_relu_residual_add.cpp
-  habana_lazy/passes/remove_redundant_memcpy.cpp
   habana_lazy/passes/transform_graph.cpp
   habana_lazy/passes/replace_inplace_ops.cpp
   habana_lazy/passes/replace_views_with_reshapes.cpp
@@ -265,7 +264,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     habana_lazy/passes/fuse_mm_transpose.cpp
     habana_lazy/passes/pass_utils.cpp
     habana_lazy/passes/recalculate_batchnorm_params.cpp
-    habana_lazy/passes/remove_redundant_memcpy.cpp
     habana_lazy/passes/replace_inplace_ops.cpp
     habana_lazy/passes/replace_views_with_reshapes.cpp
     habana_lazy/passes/transform_graph.cpp

@@ -17,11 +17,6 @@
 #include "backend/habana_operator.h"
 
 namespace habana_lazy {
-
-int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim);
-
-int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim);
-
 at::IntArrayRef getDimsForLayout5d(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order);
@@ -29,12 +24,6 @@ at::IntArrayRef getDimsForLayout5d(
 at::IntArrayRef getDimsForLayout(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order);
-
-bool isRetunrOut(
-    std::shared_ptr<torch::jit::Graph>& graph,
-    const torch::jit::Value* value_out);
-
-bool is_4d_5d_value(const torch::jit::Value* value_in);
 
 class WeightIdentificationPass {
  public:

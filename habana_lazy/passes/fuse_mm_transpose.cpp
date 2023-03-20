@@ -14,16 +14,11 @@
 
 #include "fuse_mm_transpose.h"
 
-using namespace torch::jit;
-
 namespace habana_lazy {
 
-using Graph = torch::jit::Graph;
-using Pattern = std::tuple<std::string, std::string>;
-using Patterns = std::vector<Pattern>;
-
-void fuse_mm_transpose(std::shared_ptr<Graph>& graph) {
+void fuse_mm_transpose(std::shared_ptr<torch::jit::Graph>& graph) {
   torch::jit::graph_node_list graph_nodes = graph->nodes();
+  using Node = torch::jit::Node;
   std::unordered_map<Node*, std::pair<Node*, Node*>> tmmt_nodes;
   for (auto* node : graph_nodes) {
     if (node->kind() == torch::jit::aten::t) {
@@ -47,10 +42,10 @@ void fuse_mm_transpose(std::shared_ptr<Graph>& graph) {
     auto next_mm_node = node.first;
     auto first_t_node = node.second.first;
     auto last_t_node = node.second.second;
-    WithInsertPoint insert_point(next_mm_node);
+    torch::jit::WithInsertPoint insert_point(next_mm_node);
     auto op = c10::Symbol::fromQualString("hpu::mm_t");
-    auto transpose_val = graph->insertConstant(IValue(true));
-    auto no_transpose_val = graph->insertConstant(IValue(false));
+    auto transpose_val = graph->insertConstant(at::IValue(true));
+    auto no_transpose_val = graph->insertConstant(at::IValue(false));
     bool At_B_flag = next_mm_node->input(0) == first_t_node->output(0);
     bool A_Bt_flag = next_mm_node->input(1) == first_t_node->output(0);
     if (At_B_flag) {

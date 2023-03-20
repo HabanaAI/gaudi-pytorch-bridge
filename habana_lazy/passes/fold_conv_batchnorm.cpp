@@ -27,11 +27,7 @@
 #include "pass_utils.h"
 #include "recalculate_batchnorm_params.h"
 
-using namespace torch;
-using namespace torch::jit;
-
-namespace habana_lazy {
-
+namespace {
 bool computeUpdatedConvWeightAndBias(
     c10::IntArrayRef sizes,
     float* cw,
@@ -41,7 +37,7 @@ bool computeUpdatedConvWeightAndBias(
     float* w,
     float* b,
     double bn_eps,
-    bool cw_permution_in_hpu) {
+    bool cw_permutation_in_hpu) {
   if ((cw == nullptr) || (cb == nullptr) || (v == nullptr) || (m == nullptr) ||
       (w == nullptr) || (b == nullptr)) {
     PT_LAZY_DEBUG("[computeUpdatedConvWeightAndBias] Null Ptr!");
@@ -52,11 +48,6 @@ bool computeUpdatedConvWeightAndBias(
   int ky = sizes.at(2);
   int ci = sizes.at(1);
   int co = sizes.at(0);
-
-  // std::cout << "kx size: " << kx << std::endl << std::flush;
-  // std::cout << "ky size: " << ky << std::endl << std::flush;
-  // std::cout << "ci size: " << ci << std::endl << std::flush;
-  // std::cout << "co size: " << co << std::endl << std::flush;
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto device_id = device.id();
@@ -84,13 +75,11 @@ bool computeUpdatedConvWeightAndBias(
 
   // Weight calculation
   // Ref: at::Tensor new_w = p.conv_w * (p.bn_w * bn_var_rsqrt).reshape(sizes);
-  if (cw_permution_in_hpu) {
+  if (cw_permutation_in_hpu) {
     for (auto i = 0; i < co; i++) {
       auto t = s[i];
       for (auto a = 0; a < ci * ky * kx; a++) {
-        // std::cout << "cw[" << a << "] = " << cw[a] << "------->";
         cw[a] = (float)((double)cw[a] * t);
-        // std::cout << cw[a] << std::endl << std::flush;
       }
       cw += (ci * ky * kx);
     }
@@ -99,9 +88,7 @@ bool computeUpdatedConvWeightAndBias(
       for (auto j = 0; j < ci; j++) {
         for (auto i = 0; i < co; i++) {
           auto t = s[i];
-          // std::cout << "cw[" << i << "] = " << cw[i] << "------->";
           cw[i] = (float)((double)cw[i] * t);
-          // std::cout << cw[i] << std::endl << std::flush;
         }
         cw += co;
       }
@@ -151,9 +138,9 @@ bool computeUpdatedConvWeightAndBias(
 
 void CheckIfAutoCastNodePresent(
     std::shared_ptr<Graph>& graph,
-    Node* conv,
-    std::vector<Node*>& w_auto_cast,
-    std::vector<Node*>& b_auto_cast) {
+    torch::jit::Node* conv,
+    std::vector<torch::jit::Node*>& w_auto_cast,
+    std::vector<torch::jit::Node*>& b_auto_cast) {
   for (auto node : graph->nodes()) {
     if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
       auto cast_uses = node->output(0)->uses();
@@ -182,7 +169,7 @@ bool FuseConvBatchnorm(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
     std::vector<torch::jit::Value*>& redundant_inputs) {
-  std::vector<Node*> nodes_for_deletion;
+  std::vector<torch::jit::Node*> nodes_for_deletion;
   std::vector<int32_t> indices_for_deletion;
   bool graph_modified = false;
   PtTensorInferenceData::get_instance().print_map();
@@ -195,16 +182,17 @@ bool FuseConvBatchnorm(
       auto conv = node->inputs().at(0)->node();
       auto bn = node;
 
-      std::vector<Node*> w_auto_cast;
-      std::vector<Node*> b_auto_cast;
+      std::vector<torch::jit::Node*> w_auto_cast;
+      std::vector<torch::jit::Node*> b_auto_cast;
       CheckIfAutoCastNodePresent(graph, conv, w_auto_cast, b_auto_cast);
       auto auto_cast = (w_auto_cast.size() > 0) && (b_auto_cast.size() > 0);
 
       auto ib = auto_cast ? -1 : 2;
       auto nb = auto_cast ? b_auto_cast.at(0) : conv;
 
-      auto conv_b_hb_tensor = GetBackEndTensorImpl(graph, stack, nb, ib);
-      auto conv_b = GetDataInHostBuffer(graph, stack, nb, ib);
+      auto conv_b_hb_tensor =
+          habana_lazy::GetBackEndTensorImpl(graph, stack, nb, ib);
+      auto conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
       if (!conv_b_hb_tensor || !conv_b) {
         PT_LAZY_DEBUG(
             "[FuseConvBatchnorm] Convolution without bias not yet supported");
@@ -214,8 +202,9 @@ bool FuseConvBatchnorm(
       auto iw = auto_cast ? -1 : 1;
       auto nw = auto_cast ? w_auto_cast.at(0) : conv;
 
-      auto conv_w_hb_tensor = GetBackEndTensorImpl(graph, stack, nw, iw);
-      auto conv_w = GetDataInHostBuffer(graph, stack, nw, iw);
+      auto conv_w_hb_tensor =
+          habana_lazy::GetBackEndTensorImpl(graph, stack, nw, iw);
+      auto conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
       if (!conv_w_hb_tensor || !conv_w) {
         continue;
       }
@@ -234,7 +223,7 @@ bool FuseConvBatchnorm(
       // }
 
       int idx_bias = 1;
-      auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
+      auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b) {
         continue;
       }
@@ -244,7 +233,8 @@ bool FuseConvBatchnorm(
           bn->input(idx_bias)->debugName());
 
       int idx_weight = 2;
-      auto bn_w = GetDataInHostBuffer(graph, stack, bn, idx_weight);
+      auto bn_w =
+          habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_weight);
       if (!bn_w) {
         redundant_inputs.pop_back();
         continue;
@@ -255,7 +245,8 @@ bool FuseConvBatchnorm(
           bn->input(idx_weight)->debugName());
 
       int idx_running_mean = 3;
-      auto bn_rm = GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
+      auto bn_rm =
+          habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_mean);
       if (!bn_rm) {
         redundant_inputs.pop_back();
         redundant_inputs.pop_back();
@@ -267,7 +258,8 @@ bool FuseConvBatchnorm(
           bn->input(idx_running_mean)->debugName());
 
       int idx_running_var = 4;
-      auto bn_rv = GetDataInHostBuffer(graph, stack, bn, idx_running_var);
+      auto bn_rv =
+          habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_running_var);
       if (!bn_rv) {
         redundant_inputs.pop_back();
         redundant_inputs.pop_back();
@@ -279,7 +271,8 @@ bool FuseConvBatchnorm(
           "[FuseConvBatchnorm] redundant_input: ",
           bn->input(idx_running_var)->debugName());
 
-      auto bn_eps = constant_as<double>(bn->namedInput("eps")).value();
+      auto bn_eps =
+          torch::jit::constant_as<double>(bn->namedInput("eps")).value();
 
       auto status = computeUpdatedConvWeightAndBias(
           conv_w_hb_tensor->GetTensorSize(),
@@ -301,14 +294,16 @@ bool FuseConvBatchnorm(
       }
 
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update conv parameters");
-      UpdateDataInDeviceMem(graph, stack, nw, iw, conv_w);
-      UpdateDataInDeviceMem(graph, stack, nb, ib, conv_b);
+      habana_lazy::UpdateDataInDeviceMem(graph, stack, nw, iw, conv_w);
+      habana_lazy::UpdateDataInDeviceMem(graph, stack, nb, ib, conv_b);
 
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update batch-norm parameters");
-      UpdateDataInDeviceMem(graph, stack, bn, idx_bias, bn_b);
-      UpdateDataInDeviceMem(graph, stack, bn, idx_weight, bn_w);
-      UpdateDataInDeviceMem(graph, stack, bn, idx_running_mean, bn_rm);
-      UpdateDataInDeviceMem(graph, stack, bn, idx_running_var, bn_rv);
+      habana_lazy::UpdateDataInDeviceMem(graph, stack, bn, idx_bias, bn_b);
+      habana_lazy::UpdateDataInDeviceMem(graph, stack, bn, idx_weight, bn_w);
+      habana_lazy::UpdateDataInDeviceMem(
+          graph, stack, bn, idx_running_mean, bn_rm);
+      habana_lazy::UpdateDataInDeviceMem(
+          graph, stack, bn, idx_running_var, bn_rv);
 
       bn->output()->replaceAllUsesWith(conv->output());
       nodes_for_deletion.emplace_back(bn);
@@ -330,7 +325,9 @@ bool FuseConvBatchnorm(
   PT_LAZY_DEBUG("[FuseConvBatchnorm] Exit");
   return graph_modified;
 }
+} // namespace
 
+namespace habana_lazy {
 bool FoldConvBatchnorm(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,

@@ -14,22 +14,17 @@
 
 #include "fuse_bn_relu_residual_add.h"
 
-using namespace torch::jit;
-
 namespace habana_lazy {
-
-using Graph = torch::jit::Graph;
-
 /* Threshold backward takes relu's input as one of the input thereby preventing
 the GC to fuse BN, residual add and relu nodes. Rewrite the graph to make
 threshold backward take relu's output  instead. This works because of the
 special property of threshold backward function bein invariant to Relu's
 input/output*/
 
-void fuse_bn_relu(std::shared_ptr<Graph>& graph) {
+void fuse_bn_relu(std::shared_ptr<torch::jit::Graph>& graph) {
   torch::jit::graph_node_list graph_nodes = graph->nodes();
 
-  std::vector<Node*> threshold_backward_node_vec;
+  std::vector<torch::jit::Node*> threshold_backward_node_vec;
 
   // collect threshold backward nodes
   for (auto* node : graph_nodes) {
@@ -48,7 +43,7 @@ void fuse_bn_relu(std::shared_ptr<Graph>& graph) {
       auto u_node = u.user;
 
       if (strcmp(u_node->kind().toQualString(), "aten::relu") == 0) {
-        WithInsertPoint insert_point(node);
+        torch::jit::WithInsertPoint insert_point(node);
         auto new_threshold_backward = graph->create(
             op, {node->input(0), u_node->output(0), node->input(2)}, 1);
         new_threshold_backward->output(0)->copyMetadata(node->output(0));

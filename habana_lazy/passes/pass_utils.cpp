@@ -12,71 +12,6 @@
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana_lazy {
-
-int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
-  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
-  // is not clear. Note that for 5d layout channel dim is 1 for
-  // NCDHW and 4 for NDHWC
-  int layout_dim = dim;
-  if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatWithDepthDims::N,
-        habana::LayoutFormatWithDepthDims::C,
-        habana::LayoutFormatWithDepthDims::D,
-        habana::LayoutFormatWithDepthDims::H,
-        habana::LayoutFormatWithDepthDims::W};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatWithDepthDims::N,
-        habana::LayoutFormatWithDepthDims::W,
-        habana::LayoutFormatWithDepthDims::C,
-        habana::LayoutFormatWithDepthDims::D,
-        habana::LayoutFormatWithDepthDims::H};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatWithDepthDims::W,
-        habana::LayoutFormatWithDepthDims::H,
-        habana::LayoutFormatWithDepthDims::N,
-        habana::LayoutFormatWithDepthDims::C,
-        habana::LayoutFormatWithDepthDims::D};
-    layout_dim = dimarr[dim];
-  } else {
-    HABANA_ASSERT(0);
-  }
-  return layout_dim;
-}
-
-int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
-  int layout_dim = dim;
-  if (layout == habana::LayoutFormat::NCHW) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatDims::N,
-        habana::LayoutFormatDims::C,
-        habana::LayoutFormatDims::H,
-        habana::LayoutFormatDims::W};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::NHWC) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatDims::N,
-        habana::LayoutFormatDims::W,
-        habana::LayoutFormatDims::C,
-        habana::LayoutFormatDims::H};
-    layout_dim = dimarr[dim];
-  } else if (layout == habana::LayoutFormat::HWCK) {
-    int64_t dimarr[] = {
-        habana::LayoutFormatDims::W,
-        habana::LayoutFormatDims::H,
-        habana::LayoutFormatDims::N,
-        habana::LayoutFormatDims::C};
-    layout_dim = dimarr[dim];
-  } else {
-    HABANA_ASSERT(0);
-  }
-  return layout_dim;
-}
-
 at::IntArrayRef getDimsForLayout5d(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order) {
@@ -232,24 +167,6 @@ at::IntArrayRef getDimsForLayout(
   }
 
   return dims;
-}
-
-bool isRetunrOut(
-    std::shared_ptr<torch::jit::Graph>& graph,
-    const torch::jit::Value* value_out) {
-  auto node_return = graph->return_node();
-  for (auto value : node_return->inputs()) {
-    if (value_out == value)
-      return true;
-  }
-  return false;
-}
-
-bool is_4d_5d_value(const torch::jit::Value* value_in) {
-  return (*value_in->type()->cast<TensorType>()->dim() == 4 ||
-          *value_in->type()->cast<TensorType>()->dim() == 5)
-      ? true
-      : false;
 }
 
 bool WeightIdentificationPass::isTensor(const torch::jit::Value* value) {
