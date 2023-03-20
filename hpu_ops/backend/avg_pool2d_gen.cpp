@@ -9,7 +9,7 @@
  */
 #include "generated/backend/avg_pool2d.h"
 #include "generated/backend/avg_pool2d_backward.h"
-#include "habana_kernels/pool_kernels.h"
+#include "hpu_ops/backend/pool_helpers.h"
 
 #define CHECK_DIM(input_size)                                        \
   TORCH_CHECK(                                                       \
@@ -89,7 +89,7 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   auto pad =
       stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
-  auto outshape = PoolHelper::compute_output_shape(
+  auto outshape = compute_pool_kernel_output_shape(
       self, kernel_size, stride, pad, dilation, ceil_mode);
   return {outshape};
 }

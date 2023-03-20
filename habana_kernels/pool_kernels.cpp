@@ -27,68 +27,9 @@
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/tensor_impl.h"
+#include "hpu_ops/backend/pool_helpers.h"
 
 namespace habana {
-/**
- * @brief Compute shape for output tensor(s) from given input tensor shape
- *         & pooling params such as kernel, stride, pad, dilation, ceil_mode
- */
-std::vector<int64_t> PoolHelper::compute_output_shape(
-    const at::Tensor& input,
-    const at::IntArrayRef kernel_size,
-    const at::IntArrayRef stride,
-    const at::IntArrayRef padding,
-    const at::IntArrayRef dilation,
-    bool ceil_mode) {
-  const int filter_H = at::native::safe_downcast<int, int64_t>(kernel_size[0]);
-  const int filter_W = kernel_size.size() == 1
-      ? filter_H
-      : at::native::safe_downcast<int, int64_t>(kernel_size[1]);
-
-  const int stride_H = stride.empty()
-      ? filter_H
-      : at::native::safe_downcast<int, int64_t>(stride[0]);
-  const int stride_W = stride.empty()
-      ? filter_W
-      : stride.size() == 1 ? stride_H
-                           : at::native::safe_downcast<int, int64_t>(stride[1]);
-
-  const int pad_H = at::native::safe_downcast<int, int64_t>(padding[0]);
-  const int pad_W = padding.size() == 1
-      ? pad_H
-      : at::native::safe_downcast<int, int64_t>(padding[1]);
-
-  const int dilation_H = at::native::safe_downcast<int, int64_t>(dilation[0]);
-  const int dilation_W = dilation.size() == 1
-      ? dilation_H
-      : at::native::safe_downcast<int, int64_t>(dilation[1]);
-
-  // input NCHW, output NHWC
-  // weight KCHW, where K - output channels
-  // pad, stride HW
-  unsigned int input_dim0 = 0;
-  unsigned int input_dim1 = 1;
-  unsigned int input_dim2 = 2;
-  unsigned int input_dim3 = 3;
-
-  input_dim0 = synapse_helpers::layouts::INPUT_N_IDX;
-  input_dim1 = synapse_helpers::layouts::INPUT_C_IDX;
-  input_dim2 = synapse_helpers::layouts::INPUT_H_IDX;
-  input_dim3 = synapse_helpers::layouts::INPUT_W_IDX;
-
-  const int64_t N = input.size(input_dim0);
-  const int64_t C = input.size(input_dim1);
-  const int64_t input_H = input.size(input_dim2);
-  const int64_t input_W = input.size(input_dim3);
-
-  const int64_t output_H = at::native::pooling_output_shape<int64_t>(
-      input_H, filter_H, pad_H, stride_H, dilation_H, ceil_mode);
-  const int64_t output_W = at::native::pooling_output_shape<int64_t>(
-      input_W, filter_W, pad_W, stride_W, dilation_W, ceil_mode);
-
-  return {N, C, output_H, output_W};
-}
-
 namespace {
 /**
  * @brief Fill generic pooling params structure
@@ -125,7 +66,7 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
 }
 } // namespace
 
-OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
+OutputShapeInfRetType MaxPool2dOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -134,7 +75,7 @@ OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
   const auto dilation = inputs[4].toIntList().vec();
   bool ceil_mode = inputs[5].toBool();
 
-  auto shape_out = PoolHelper::compute_output_shape(
+  auto shape_out = compute_pool_kernel_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
   OutputShapeInfRetType out;
@@ -161,7 +102,7 @@ OutputShapeInfRetType MaxPool2dWithIndicesOperator::ComputeOutputShape(
   return out;
 }
 
-void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
+void MaxPool2dOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     at::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
@@ -194,7 +135,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
 
-  auto out_shape = PoolHelper::compute_output_shape(
+  auto out_shape = compute_pool_kernel_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // Setup output tensors
@@ -247,7 +188,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   }
 }
 
-void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+void MaxPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
   const auto stride = inputs[2].toIntList().vec();
@@ -255,7 +196,7 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto dilation = inputs[4].toIntList().vec();
   bool ceil_mode = inputs[5].toBool();
 
-  auto out_shape = PoolHelper::compute_output_shape(
+  auto out_shape = compute_pool_kernel_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // Setup output tensors

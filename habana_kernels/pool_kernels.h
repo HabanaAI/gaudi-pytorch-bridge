@@ -16,27 +16,22 @@ namespace habana {
 
 // Pool Operator
 //
-class MaxPool2dWithIndicesOperator : public HabanaOperator {
+class MaxPool2dOperator : public HabanaOperator {
  public:
-  MaxPool2dWithIndicesOperator(int device_id, c10::ScalarType scalarType)
+  MaxPool2dOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
             "maxpool_2d_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::NHWC,
-         LayoutFormat::ANY,
-         LayoutFormat::ANY,
-         LayoutFormat::ANY,
-         LayoutFormat::ANY,
-         LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     kernel_meta_data_.synapse_output_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC});
+    p_context_->excluded_output_indices_ = {0};
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -47,27 +42,5 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
 
   virtual OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
-};
-
-class MaxPool2dOperator : public MaxPool2dWithIndicesOperator {
- public:
-  MaxPool2dOperator(int device_id, c10::ScalarType scalarType)
-      : MaxPool2dWithIndicesOperator(device_id, scalarType) {
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
-    kernel_meta_data_.output_layout.assign(
-        {LayoutFormat::NHWC, LayoutFormat::NHWC});
-    p_context_->excluded_output_indices_ = {0};
-  }
-};
-
-class PoolHelper {
- public:
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& input,
-      const at::IntArrayRef kernel_size,
-      const at::IntArrayRef stride,
-      const at::IntArrayRef padding,
-      const at::IntArrayRef dilation,
-      bool ceil_mode);
 };
 } // namespace habana
