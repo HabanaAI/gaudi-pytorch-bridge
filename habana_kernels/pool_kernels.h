@@ -70,22 +70,5 @@ class PoolHelper {
       const at::IntArrayRef dilation,
       bool ceil_mode,
       bool is_input_nhwc);
-
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& input,
-      const at::IntArrayRef output_size,
-      bool is_input_nhwc);
-
-  static std::vector<int64_t> compute_output_shape_synapse(
-      const at::Tensor& input,
-      const at::IntArrayRef kernel_size,
-      const at::IntArrayRef stride,
-      const at::IntArrayRef padding,
-      const at::IntArrayRef dilation,
-      bool ceil_mode);
-
-  static std::vector<int64_t> compute_output_shape_synapse(
-      const at::Tensor& input,
-      const at::IntArrayRef output_size);
 };
 } // namespace habana
