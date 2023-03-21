@@ -711,7 +711,7 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
       "constant host_ptr: ",
       reinterpret_cast<size_t>(host_ptr),
       " scalar value: ",
-      scalar_val,
+      Logger::_str_wrapper(scalar_val),
       " size: ",
       host_ptr_size,
       " org data_type: ",
