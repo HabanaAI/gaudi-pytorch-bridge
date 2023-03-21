@@ -17,6 +17,8 @@ orchestratorConfig:
     silentMode: true
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
     silentMode: true
+  - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed
+    silentMode: true
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology
   - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi2_asic_pytorch_fairseq_topology
 # PyTorch Operators and feature validation <Start>
