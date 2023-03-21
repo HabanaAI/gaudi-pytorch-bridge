@@ -239,6 +239,22 @@ def test_create_tensor():
         assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
 
 
+def test_multiple_runs():
+    def raw_function(x):
+        x = x * 2 + 1
+        x = x + 11
+        x = x / 3
+        return F.relu(x)
+
+    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+    for _ in range(10):
+        input_tensor = torch.rand(8, 8).to("hpu")
+        tensor_raw = raw_function(input_tensor)
+        tensor_compiled = compiled_function(input_tensor)
+        assert torch.allclose(tensor_raw, tensor_compiled, rtol=1e-06)
+
+
 def test_use_random():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
 

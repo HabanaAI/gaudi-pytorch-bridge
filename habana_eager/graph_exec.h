@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <torch/csrc/jit/ir/ir.h>
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana {
 namespace graph {
@@ -32,6 +33,7 @@ class GraphExec {
   GraphExec(
       size_t recipe_id,
       std::shared_ptr<torch::jit::Graph> graph,
+      torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference);
 
@@ -43,6 +45,7 @@ class GraphExec {
   std::string m_graph_name;
   bool m_dynamic;
   bool m_inference;
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
 };
 
 class GraphStorage {

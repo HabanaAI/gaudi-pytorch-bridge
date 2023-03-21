@@ -66,6 +66,7 @@ struct HandleTupleOnOutputPass {
 };
 
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph>& graph) {
+  PT_EAGER_TRACE;
   if (0 == graph->inputs().size()) {
     // No input to sanitize...
     return;
@@ -79,6 +80,7 @@ void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph>& graph) {
 }
 
 void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph>& graph) {
+  PT_EAGER_TRACE;
   HandleTupleOnOutputPass pass{graph};
   bool changed{pass.run()};
   if (changed) {
