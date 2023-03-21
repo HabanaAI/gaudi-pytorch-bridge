@@ -359,17 +359,6 @@ TEST_F(LazyIndexKernelTest, IndexCopyInplaceTest_2) {
   index_copy(0);
 }
 
-TEST_F(LazyIndexKernelTest, Onehot) {
-  auto onehot = [](std::string device, int64_t num_classes) {
-    auto t = (torch::arange(20) % 4).view({4, 5}).to(device);
-    auto result = torch::one_hot(t, num_classes);
-    return result.to("cpu");
-  };
-
-  EXPECT_TRUE(allclose(onehot("cpu", 4), onehot("hpu", 4)));
-  EXPECT_TRUE(allclose(onehot("cpu", -1), onehot("hpu", -1)));
-}
-
 TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);

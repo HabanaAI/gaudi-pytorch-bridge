@@ -565,28 +565,4 @@ class UnsqueezeOperator : public HabanaOperator {
       torch::jit::Stack& inputs) override;
 };
 
-// OneHot Operator
-//
-class OneHotOperator : public HabanaOperator {
- public:
-  OneHotOperator(int device_id, [[maybe_unused]] c10::ScalarType scalarType)
-      : HabanaOperator(
-            "one_hot_fwd_" +
-            habana_helpers::name_suffix_from_type(c10::ScalarType::Float)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& self,
-      int64_t num_classes);
-};
-
 } // namespace habana

@@ -5990,32 +5990,6 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     return topk_hpu_lazy_impl(self, size_dim, dim, descending, true);
 }
 
-at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
-  PT_LAZY_TRACE;
-  auto shape = self.sizes().vec();
-
-  // empty tensor could be converted to one hot representation,
-  // but shape inference is not possible.
-  if (self.numel() == 0) {
-    if (num_classes <= 0) {
-      AT_ERROR("Can not infer total number of classes from empty tensor.");
-    } else {
-      shape.push_back(num_classes);
-      return at::empty(shape, self.options());
-    }
-  }
-
-  if (num_classes == -1) {
-    num_classes = self.max().item().toLong() + 1;
-  }
-
-  LazyOp<at::Tensor> k(
-      "aten::one_hot",
-      {self, num_classes},
-      {OneHotOperator::compute_output_shape(self, num_classes)});
-  RUN_MAYBE_WITH_ACC_THREAD(one_hot, k)
-}
-
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   PT_LAZY_TRACE;
   Scalar out;

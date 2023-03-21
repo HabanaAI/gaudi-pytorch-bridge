@@ -5255,14 +5255,15 @@ _weight_norm_interface_backward:
   out_ids: [0, 0]
 
 one_hot:
+  custom_output_shape: OneHotOutputShape
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
     Greco: [BFloat16, Float, Int, Half]
-  override_fn: one_hot_hpu_lazy
-  acc_thread: true
+  op_backend: OneHot
+  out_ids: [0]
 
 permute:
   force_default: false
