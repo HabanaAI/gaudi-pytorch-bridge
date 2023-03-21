@@ -4447,11 +4447,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   auto running_var = std::get<4>(preprocess_results);
 
   bool inference_mode = !training && running_tensor_mean.defined();
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    inference_mode = true;
-  }
-
   if (!inference_mode) { /*training mode*/
     auto res_ = _batch_norm_fwd_training(
         input,
