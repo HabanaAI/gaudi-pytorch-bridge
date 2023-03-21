@@ -1024,6 +1024,62 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
   return work;
 }
 
+c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const AllToAllOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
+  auto flattenedIn = newLikeFlat(inputTensors);
+  auto flattenedOut = newLikeFlat(outputTensors);
+  for (const auto i : c10::irange(inputTensors.size())) {
+    flattenedIn[i].copy_(inputTensors.at(i));
+  }
+  std::vector<at::Tensor> inputTensorsFlat;
+  std::vector<at::Tensor> outputTensorsFlat;
+  inputTensorsFlat.push_back(flattenedIn);
+  outputTensorsFlat.push_back(flattenedOut);
+  auto work = collective(
+      inputTensorsFlat,
+      outputTensorsFlat,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
+        int64_t count = input.numel();
+        auto type = getHCCLDataType(input.scalar_type());
+        hcclResult_t hccl_result{hcclSuccess};
+        const auto scalar_type = input.scalar_type();
+        getCountDatatype(scalar_type, count, type);
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] alltoall with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            count,
+            " data_type :: ",
+            getHCCLDataType(input.scalar_type()));
+
+        hccl_result = hcclAlltoAll(
+            send_buffer, recv_buffer, count, type, hccl_comm, stream);
+        return hccl_result;
+      });
+
+  work->wait();
+  for (const auto i : c10::irange(outputTensors.size())) {
+    outputTensors.at(i).copy_(
+        flattenedOut[i].to(inputTensors.at(i).scalar_type()));
+  }
+
+  PT_DISTRIBUTED_END;
+  return work;
+}
+
 c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     at::Tensor& outputTensor,
     at::Tensor& inputTensor,
