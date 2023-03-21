@@ -13,8 +13,6 @@
 import os
 import torch
 import torch.nn.functional as F
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 
@@ -55,6 +53,7 @@ def env_var_in_scope(vars={}):
 
 def test_relu_cpuinput():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             return torch.relu(x)
@@ -74,6 +73,7 @@ def test_relu_cpuinput():
 
 def test_relu_hpuinput():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             return torch.relu(x)
@@ -93,6 +93,7 @@ def test_relu_hpuinput():
 
 def test_device_partition_cpuinput():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             tmp1 = x * 2 + 1
@@ -124,6 +125,7 @@ def test_device_partition_cpuinput():
 
 def test_device_partition_hpuinput():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             tmp1 = x * 2 + 1
@@ -155,6 +157,7 @@ def test_device_partition_hpuinput():
 
 def test_leaf_views_1():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x, y, z):
             tmp0 = x + y
@@ -183,9 +186,41 @@ def test_leaf_views_1():
         assert torch.equal(result1.cpu(), result1_compiled.cpu())
         assert torch.equal(result2.cpu(), result2_compiled.cpu())
 
+@pytest.mark.xfail
+def test_leaf_views_1_dynamic():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        def raw_function(x, y, z):
+            tmp0 = x + y
+
+            tmp1 = F.relu(tmp0)
+
+            tmp2 = z * 2
+
+            tmp3 = tmp1 * tmp2.to("hpu")
+
+            tmp4 = x / tmp3
+
+            tmp5 = F.tanh(tmp4)
+
+            return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend", dynamic=True)
+
+        input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor3 = torch.rand(8, 1, 32, 32).to("cpu")
+
+        result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
+        result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
+
+        assert torch.equal(result1.cpu(), result1_compiled.cpu())
+        assert torch.equal(result2.cpu(), result2_compiled.cpu())
 
 def test_leaf_views_2():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             x = x.add(1.0)
@@ -206,6 +241,7 @@ def test_leaf_views_2():
 
 def test_leaf_views_3():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function(x):
             b = x[::2]
@@ -226,6 +262,7 @@ def test_leaf_views_3():
 
 def test_create_tensor():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function():
             out = torch.ones([2, 4], requires_grad=False, device=torch.device("hpu"))
@@ -257,6 +294,7 @@ def test_multiple_runs():
 
 def test_use_random():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
 
         def raw_function():
             out = torch.rand(8, 1, 32, 32, device=torch.device("hpu"))
@@ -273,8 +311,178 @@ def test_use_random():
         assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
 
 
-def test_simple_convnet():
+def test_simple_sgd_convnet():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        torch.manual_seed(2562825)
+
+        class LeNet5(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer1 = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(6),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+                self.layer2 = torch.nn.Sequential(
+                    torch.nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(16),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+
+                self.fc = torch.nn.Linear(400, 120)
+                self.relu = torch.nn.ReLU()
+                self.fc1 = torch.nn.Linear(120, 84)
+                self.relu1 = torch.nn.ReLU()
+                self.fc2 = torch.nn.Linear(84, 10)
+
+            def forward(self, x):
+                out = self.layer1(x)
+                out = self.layer2(out)
+                out = out.reshape(out.size(0), -1)
+                out = self.fc(out)
+                out = self.relu(out)
+                out = self.fc1(out)
+                out = self.relu1(out)
+                out = self.fc2(out)
+
+                return out
+
+        model = LeNet5().to("hpu")
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        criterion = torch.nn.CrossEntropyLoss()
+
+        def raw_function_test(x, y):
+            result = model(x)
+            loss = criterion(result, y)
+
+            return loss, result
+
+        def raw_function_train(x, y):
+            loss, _ = raw_function_test(x, y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            return loss
+
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+
+        input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
+
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+
+        assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
+        assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
+
+        loss_compile1 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile2 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile3 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile4 = compiled_function_train(input_tensor1, input_tensor2)
+
+        assert loss_compile4 < loss_compile3
+        assert loss_compile3 < loss_compile2
+        assert loss_compile2 < loss_compile1
+
+
+def test_simple_sgd_convnet_with_device_pingpong():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        torch.manual_seed(2562825)
+
+        class LeNet5(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer1 = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(6),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+                self.layer2 = torch.nn.Sequential(
+                    torch.nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(16),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+
+                self.fc = torch.nn.Linear(400, 120)
+                self.relu = torch.nn.ReLU()
+                self.fc1 = torch.nn.Linear(120, 84)
+                self.relu1 = torch.nn.ReLU()
+                self.fc2 = torch.nn.Linear(84, 10)
+
+            def forward(self, x):
+                out = self.layer1(x)
+                out = self.layer2(out)
+                out = out.reshape(out.size(0), -1)
+                out = self.fc(out)
+
+                out = out.to("cpu")
+
+                out = self.relu(out)
+
+                out = out.to("hpu")
+
+                out = self.fc1(out)
+                out = self.relu1(out)
+                out = self.fc2(out)
+
+                return out
+
+        model = LeNet5().to("hpu")
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        criterion = torch.nn.CrossEntropyLoss()
+
+        def raw_function_test(x, y):
+            result = model(x)
+            loss = criterion(result, y)
+
+            return loss, result
+
+        def raw_function_train(x, y):
+            loss, _ = raw_function_test(x, y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            return loss
+
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+
+        input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
+        input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
+
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+
+        assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
+        assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
+
+        loss_compile1 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile2 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile3 = compiled_function_train(input_tensor1, input_tensor2)
+        loss_compile4 = compiled_function_train(input_tensor1, input_tensor2)
+
+        assert loss_compile4 < loss_compile3
+        assert loss_compile3 < loss_compile2
+        assert loss_compile2 < loss_compile1
+
+@pytest.mark.xfail # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
+def test_simple_adam_convnet():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
         torch.manual_seed(2562825)
 
         class LeNet5(torch.nn.Module):
@@ -351,9 +559,11 @@ def test_simple_convnet():
         assert loss_compile3 < loss_compile2
         assert loss_compile2 < loss_compile1
 
-
-def test_simple_convnet_with_device_pingpong():
+@pytest.mark.xfail # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
+def test_simple_adam_convnet_with_device_pingpong():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
         torch.manual_seed(2562825)
 
         class LeNet5(torch.nn.Module):

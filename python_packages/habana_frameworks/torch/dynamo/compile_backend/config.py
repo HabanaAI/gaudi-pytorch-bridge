@@ -10,7 +10,8 @@
 #
 ###############################################################################
 
+
 configuration_flags = {
-    "use_compiled_recipes": False,
+    "use_compiled_recipes": True,
     "verbose": False,
     "dtype_propagation_in_backend": True}

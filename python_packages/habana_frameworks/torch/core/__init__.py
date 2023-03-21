@@ -88,4 +88,8 @@ def _enable_weight_sharing_if_needed():
 
 if is_lazy():
     _enable_weight_sharing_if_needed()
+else:
+    # Initialize torch.compile backend in non-lazy mode.
+    import habana_frameworks.torch.dynamo.compile_backend
+
 _enable_profiler_if_needed()

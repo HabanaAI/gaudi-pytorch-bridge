@@ -72,10 +72,7 @@ def partition_module(
     while graph_changed:
         # Deep copy the graph because currently used CapabilityBasedPartitioner will
         # modify the graph in-place and we want to re-start from original on each iteration.
-        with torch.no_grad(), torch.utils._python_dispatch._disable_current_modes():
-            # Make sure to not create any side-effects during deepcopying.
-            # This is why we do it under these context managers.
-            copied_graph_module = copy.deepcopy(graph_module)
+        copied_graph_module = copy.deepcopy(graph_module)
 
         # OUTPUT META BUG WORKAROUND
         # Fun fact - node.meta is supposed to be guaranteed to be copied when graph

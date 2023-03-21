@@ -71,7 +71,7 @@ def optimize_graph(
     for optimization_pass in get_passes(stage):
         pass_name = optimization_pass.__name__
         env_name = "PT_HPU_DISABLE_" + pass_name
-        if env_name in os.environ and os.environ[env_name] == "True":
+        if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
             logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
         else:
             logger.debug("running %s pass at stage %s", pass_name, stage)
@@ -95,7 +95,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_fake_propagation,
-            pass_wa_mixed_devices,
+            pass_wa_mixed_devices, # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
             pass_mark_fallbacks,
             pass_transform_fallbacks,
@@ -112,7 +112,6 @@ def get_passes(stage: OptimizationPassPlacement):
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
         return [
             # These passes will be ran once, they have to work on graph with submodules.
-            pass_wa_fix_output,
             pass_graph_print,
             pass_compile_clusters,
         ]
@@ -363,6 +362,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     def is_op_unsupported_in_graph(node):
         node_target = node.target.__name__.split(".")[0]
 
+        # This is list of OPs that need to be ran eagerly at this point of time.
         unsupported_ops = [
             # Tensor creation OPs.
             "empty",
@@ -611,41 +611,6 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
-
-def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
-    """
-    This pass is supposed to workaround an issue with global output not being the last
-    node in the graph. Details below.
-    """
-    assert ctx.graph_module is not None
-    graph_changed = False
-
-    # AOT Autograd BUG WORKAROUND
-    # (https://github.com/pytorch/pytorch/issues/92245):
-    # This is workaround for optimizer graphs that are not functionalized at
-    # this point. Issue is that optimizer has no outputs and it will cause
-    # wrong topological sort and execution. After optimizer is correctly
-    # functionalized by AOT Autograd, this code should be removed.
-    output_node = None
-    last_node_after_output = None
-    for n in ctx.graph_module.graph.nodes:
-        if output_node:
-            last_node_after_output = n
-
-        if n.op == "output":
-            output_node = n
-    if last_node_after_output is not None:
-        logger.warning("It seems graph wasn't functionalized, fixing output node.")
-        ctx.graph_module.graph.erase_node(output_node)
-        ctx.graph_module.graph.node_copy(output_node)
-        ctx.graph_module.recompile()
-        graph_changed = True
-
-    # WORKAROUND END
-
-    return graph_changed
-
-
 def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     """
     This pass is supposed to work on subgraphs and find nodes which are views and that emit these
@@ -741,10 +706,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         from torch._functorch.compile_utils import strip_overloads
         from torch._functorch.compilers import _disable_jit_autocast
 
-        with torch.no_grad(), torch.utils._python_dispatch._disable_current_modes():
-            # Make sure to not create any side-effects during deepcopying.
-            # This is why we do it under these context managers.
-            module = copy.deepcopy(input_module)
+        module = copy.deepcopy(input_module)
 
         with _disable_jit_autocast():
             strip_overloads(module)
