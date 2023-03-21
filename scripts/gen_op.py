@@ -1344,7 +1344,7 @@ def is_eager_op(fname, rtype, sig, ctxop):
         elif "TensorList" in sig:
             return False
         elif rtype == "bool":
-            return True
+            return False
         elif rtype == "void":
             return False
         else:
