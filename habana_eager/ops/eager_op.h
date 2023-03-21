@@ -239,7 +239,7 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
-    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -271,7 +271,7 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call(const at::Tensor& self) {
-    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -297,7 +297,8 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
       T self) {
-    PT_EAGER_DEBUG("Eager Call Inplace/out :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG(
+        "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
 
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         m_out_shapes.empty() ||
@@ -343,7 +344,7 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_arithmetic<T>::value, T>::type call() {
-    PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG("Eager Call arithmetic :: ", m_symbol.toQualString());
 
     auto result = at::empty(
         1,
@@ -375,7 +376,7 @@ class EagerOp : public EagerOpBase {
 
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
-    PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
+    PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
 
     // TODO avoid calling get_result
     auto result = get_result();
