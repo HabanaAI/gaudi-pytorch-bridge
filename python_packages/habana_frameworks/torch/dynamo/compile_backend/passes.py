@@ -37,6 +37,7 @@ class OptimizerContext:
     example_inputs: List[torch.Tensor]
     is_training: bool
     is_backward: bool
+    is_dynamic: bool
     ids_to_nodes: dict
     stage: OptimizationPassPlacement
 
@@ -62,8 +63,9 @@ def optimize_graph(
     For example:
     PT_HPU_DISABLE_pass_eagerize_leaf_views=True
     """
-
-    ctx = OptimizerContext(graph_module, example_inputs, is_training, is_backward, ids_to_nodes, stage)
+    from torch._dynamo import config
+    is_dynamic = config.dynamic_shapes
+    ctx = OptimizerContext(graph_module, example_inputs, is_training, is_backward, is_dynamic, ids_to_nodes, stage)
 
     graph_changed = False
     for optimization_pass in get_passes(stage):
@@ -366,7 +368,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "empty",
             "zeros",
             "ones",
-            "clone", # SW-136398
+            "clone",  # SW-136398
             # Random OPs.
             "seed",
             "manual_seed",
@@ -385,8 +387,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "multinomial",
             "normal",
             # Other
-            "convolution", # SW-137174
-            "_native_batch_norm_legit_functional", # SW-137176
+            "convolution",  # SW-137174
+            "_native_batch_norm_legit_functional",  # SW-137176
         ]
 
         return node_target in unsupported_ops
@@ -798,7 +800,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
             submod = ctx.graph_module.get_submodule(n.target)
 
             jit_ir_function = generate_jit_ir_from_module(submod)
-            callable_recipe = get_callable_recipe(jit_ir_function, submod)
+            callable_recipe = get_callable_recipe(
+                jit_ir_function, submod, is_training=ctx.is_training, is_dynamic=ctx.is_dynamic)
 
             ctx.graph_module.delete_submodule(n.target)
             ctx.graph_module.add_submodule(n.target, callable_recipe)

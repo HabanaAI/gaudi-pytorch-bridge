@@ -76,13 +76,14 @@ void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph>& graph) {
       "self" == first_graph_input->debugName()) {
     graph->eraseInput(0);
   }
-  PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
 }
 
 void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph>& graph) {
   HandleTupleOnOutputPass pass{graph};
-  pass.run();
-  PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
+  bool changed{pass.run()};
+  if (changed) {
+    PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
+  }
 }
 
 } // namespace pass
