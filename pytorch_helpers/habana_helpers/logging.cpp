@@ -110,7 +110,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
 namespace Logger {
 
 uint64_t get_tid_internal() {
-  static thread_local uint64_t tid{static_cast<uint64_t>(gettid())};
+  static thread_local uint64_t tid{static_cast<uint64_t>(syscall(__NR_gettid))};
   return tid;
 }
 
