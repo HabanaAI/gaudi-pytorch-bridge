@@ -28,6 +28,7 @@
 
 #include "backend/helpers/tensor_utils.h"
 
+#include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_operator.h"
 #include "backend/helpers/get_n_bytes.h"

@@ -12,23 +12,57 @@
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-add_executable(
-  test_pt_integration
-  acc_thread_pool_tests.cpp
-  common_functions_norm_kernel_tests.cpp
-  compute_shapes.cpp
-  debug_utils_tests.cpp
-  ds_bucket_tests.cpp
-  ds_cache_tests.cpp
-  eager_kernel_tests.cpp
-  env_flags_test.cpp
-  fallback_tests.cpp
-  gen_ops.cpp
-  graph_optimize_passes.cpp
-  habana_lazy_test_infra.cpp
+set(lazy_tests_src
+    lazy_add_composite_tests.cpp
+    lazy_basic_kernel_tests.cpp
+    lazy_binary_composite_kernel_tests.cpp
+    lazy_binary_inplace_kernel_tests.cpp
+    lazy_binary_kernel_tests.cpp
+    lazy_bitwise_kernel_tests.cpp
+    lazy_cache_tests.cpp
+    lazy_compare_kernel_tests.cpp
+    lazy_control_edge_tests.cpp
+    lazy_conv_kernel_tests.cpp
+    lazy_custom_kernel_tests.cpp
+    lazy_custom_op_kernel_test.cpp
+    lazy_dynamic_compute_output_shapes_tests.cpp
+    lazy_dynamic_fallback_tests.cpp
+    lazy_dynamic_launch_fallback_test.cpp
+    lazy_dynamic_shapes_bucket_refine.cpp
+    lazy_dynamic_shapes_serialize_tests.cpp
+    lazy_dynamic_shapes_tests.cpp
+    lazy_dynamic_shapes_tests2.cpp
+    lazy_eager_tests.cpp
+    lazy_eager_view_tests.cpp
+    lazy_embedding_kernel_tests.cpp
+    lazy_execution_test.cpp
+    lazy_fill_kernel_tests.cpp
+    lazy_forward_running_hash_tests.cpp
+    lazy_index_kernel_tests.cpp
+    lazy_jit_graph_tests.cpp
+    lazy_linear_kernel_tests.cpp
+    lazy_loss_kernel_tests.cpp
+    lazy_mask_scalar_kernel_test.cpp
+    lazy_misc_tests.cpp
+    lazy_norm_kernel_tests.cpp
+    lazy_pool_kernel_tests.cpp
+    lazy_random_gen_kernel_tests.cpp
+    lazy_reduction_kernel_tests.cpp
+    lazy_shape_agnostic_tests.cpp
+    lazy_softmax_kernel_tests.cpp
+    lazy_special_kernel_tests.cpp
+    lazy_stride_tests.cpp
+    lazy_tensor_api_tests.cpp
+    lazy_tensor_shape_kernel_tests.cpp
+    lazy_unary_kernel_tests.cpp
+    lazy_upsample_kernel_tests.cpp
+    lazy_where_kernel_tests.cpp
+)
+
+set(hpu_ops_tests_src
+  hpu_ops/_assert_async.cpp
   hpu_ops/_masked_scale.cpp
   hpu_ops/adaptive_avg_pool2d.cpp
-  hpu_ops/_assert_async.cpp
   hpu_ops/addbmm.cpp
   hpu_ops/addmm.cpp
   hpu_ops/addmv.cpp
@@ -108,8 +142,8 @@ add_executable(
   hpu_ops/logspace.cpp
   hpu_ops/logsumexp.cpp
   hpu_ops/lt.cpp
-  hpu_ops/masked_select.cpp
   hpu_ops/masked_scatter.cpp
+  hpu_ops/masked_select.cpp
   hpu_ops/matmul.cpp
   hpu_ops/max_dim.cpp
   hpu_ops/max.cpp
@@ -127,6 +161,7 @@ add_executable(
   hpu_ops/nextafter.cpp
   hpu_ops/nll_loss.cpp
   hpu_ops/norm.cpp
+  hpu_ops/one_hot.cpp
   hpu_ops/op_logger.cpp
   hpu_ops/poisson.cpp
   hpu_ops/pow.cpp
@@ -173,53 +208,22 @@ add_executable(
   hpu_ops/view.cpp
   hpu_ops/where.cpp
   hpu_ops/xlogy.cpp
-  hpu_ops/zero.cpp
-  hpu_ops/one_hot.cpp
+)
+
+list(APPEND misc_tests_src
+  acc_thread_pool_tests.cpp
+  common_functions_norm_kernel_tests.cpp
+  compute_shapes.cpp
+  debug_utils_tests.cpp
+  ds_bucket_tests.cpp
+  ds_cache_tests.cpp
+  eager_kernel_tests.cpp
+  env_flags_test.cpp
+  fallback_tests.cpp
+  gen_ops.cpp
+  graph_optimize_passes.cpp
+  habana_lazy_test_infra.cpp
   inference_pass_tests.cpp
-  lazy_add_composite_tests.cpp
-  lazy_basic_kernel_tests.cpp
-  lazy_binary_composite_kernel_tests.cpp
-  lazy_binary_inplace_kernel_tests.cpp
-  lazy_binary_kernel_tests.cpp
-  lazy_bitwise_kernel_tests.cpp
-  lazy_cache_tests.cpp
-  lazy_compare_kernel_tests.cpp
-  lazy_control_edge_tests.cpp
-  lazy_conv_kernel_tests.cpp
-  lazy_custom_kernel_tests.cpp
-  lazy_custom_op_kernel_test.cpp
-  lazy_dynamic_compute_output_shapes_tests.cpp
-  lazy_dynamic_fallback_tests.cpp
-  lazy_dynamic_launch_fallback_test.cpp
-  lazy_dynamic_shapes_bucket_refine.cpp
-  lazy_dynamic_shapes_serialize_tests.cpp
-  lazy_dynamic_shapes_tests.cpp
-  lazy_dynamic_shapes_tests2.cpp
-  lazy_eager_tests.cpp
-  lazy_eager_view_tests.cpp
-  lazy_embedding_kernel_tests.cpp
-  lazy_execution_test.cpp
-  lazy_fill_kernel_tests.cpp
-  lazy_forward_running_hash_tests.cpp
-  lazy_index_kernel_tests.cpp
-  lazy_jit_graph_tests.cpp
-  lazy_linear_kernel_tests.cpp
-  lazy_loss_kernel_tests.cpp
-  lazy_mask_scalar_kernel_test.cpp
-  lazy_misc_tests.cpp
-  lazy_norm_kernel_tests.cpp
-  lazy_pool_kernel_tests.cpp
-  lazy_random_gen_kernel_tests.cpp
-  lazy_reduction_kernel_tests.cpp
-  lazy_shape_agnostic_tests.cpp
-  lazy_softmax_kernel_tests.cpp
-  lazy_special_kernel_tests.cpp
-  lazy_stride_tests.cpp
-  lazy_tensor_api_tests.cpp
-  lazy_tensor_shape_kernel_tests.cpp
-  lazy_unary_kernel_tests.cpp
-  lazy_upsample_kernel_tests.cpp
-  lazy_where_kernel_tests.cpp
   linear_test.cpp
   linear_2d_bwd.cpp
   main.cpp
@@ -236,11 +240,35 @@ add_executable(
   user_stream_tests.cpp
   utils/dtype_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
-  view_utils_tests.cpp)
+  view_utils_tests.cpp
+)
 
-target_link_libraries(test_pt_integration PRIVATE habana_pytorch_plugin gtest nlohmann_json::nlohmann_json
-                                                  absl::strings)
+add_executable(
+  test_pt_integration
+  ${lazy_tests_src}
+  ${hpu_ops_tests_src}
+  ${misc_tests_src}
+)
 target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
+
+if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
+  # Remove tests unrelated or not working with PT2
+  list(REMOVE_ITEM misc_tests_src
+    graph_optimize_passes.cpp
+    # Doesn't compile
+    linear_2d_bwd.cpp
+    linear_test.cpp
+    nms_tests.cpp
+    post_order_tests.cpp
+    sif_tests.cpp
+  )
+
+  add_executable(
+    test_pt2_integration
+    ${hpu_ops_tests_src}
+    ${misc_tests_src})
+  target_compile_definitions(test_pt2_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
+endif()
 
 find_package(Python COMPONENTS Interpreter Development)
 
@@ -264,6 +292,7 @@ endif()
 
 configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
+
 target_link_libraries(
   test_pt_integration
   PRIVATE "${PYTHON3_LIB}"
@@ -276,6 +305,8 @@ target_link_libraries(
           pthread
           stdc++
           stdc++fs
+          nlohmann_json::nlohmann_json
+          absl::strings
           dl
           npu::hllogger)
 
@@ -284,3 +315,29 @@ add_custom_command(
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>
           ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>)
+
+if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
+  target_link_libraries(
+    test_pt2_integration
+    PRIVATE "${PYTHON3_LIB}"
+            torch
+            habana_pytorch_backend
+            habana_pytorch2_plugin
+            gtest
+            gtest_main
+            util
+            pthread
+            stdc++
+            stdc++fs
+            nlohmann_json::nlohmann_json
+            absl::strings
+            dl
+            npu::hllogger)
+  add_custom_command(
+    TARGET test_pt2_integration
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt2_integration>
+            ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt2_integration>)
+endif()
+
+
