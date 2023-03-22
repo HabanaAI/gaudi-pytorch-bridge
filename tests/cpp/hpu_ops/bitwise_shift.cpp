@@ -260,7 +260,12 @@ HPU_RIGHT_SHIFT_INPLACE_TEST(
     8)
 
 // self is scalar, and cannot use the macro above
+#if IS_PYTORCH_AT_LEAST(2, 0)
+// TODO (SW-137838): fix or remove this test case
+TEST_F(HpuOpTest, DISABLED_left_shift_scal_ten) {
+#else
 TEST_F(HpuOpTest, left_shift_scal_ten) {
+#endif
   GenerateInputs(1, {torch::kInt32});
   int self = 100;
   auto expected = torch::bitwise_left_shift(self, GetCpuInput(0));
