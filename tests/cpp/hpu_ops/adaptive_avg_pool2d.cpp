@@ -30,8 +30,13 @@ class HpuOpTest : public HpuOpTestUtil {
     if (is_out) {
 #if IS_PYTORCH_AT_LEAST(1, 13)
       // op flavor not existent in 1.12
-      auto expected = torch::empty(0);
-      auto result = torch::empty(0, "hpu");
+      std::vector<int64_t> output_size_with_batch = input_shapes[0].vec();
+      std::copy_n(
+          output_size.begin(),
+          output_size.size(),
+          output_size_with_batch.end() - output_size.size());
+      auto expected = torch::empty(output_size_with_batch).to(dtype);
+      auto result = torch::empty(output_size_with_batch, "hpu").to(dtype);
       torch::_adaptive_avg_pool2d_outf(GetCpuInput(0), output_size, expected);
       torch::_adaptive_avg_pool2d_outf(GetHpuInput(0), output_size, result);
       Compare(expected, result, rtol, atol);
@@ -55,8 +60,8 @@ class HpuOpTest : public HpuOpTestUtil {
       atol = 1e-02;
     }
     if (is_out) {
-      auto expected = torch::empty(0);
-      auto result = torch::empty(0, "hpu");
+      auto expected = torch::empty(input_shapes[1]).to(dtype);
+      auto result = torch::empty(input_shapes[1], "hpu").to(dtype);
 #if IS_PYTORCH_AT_LEAST(1, 13)
       // op flavor not existent in 1.12
       torch::_adaptive_avg_pool2d_backward_outf(
