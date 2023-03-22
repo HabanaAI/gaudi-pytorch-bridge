@@ -11,12 +11,78 @@
  *******************************************************************************
  */
 
-#include "copy_from.h"
+#include "habana_eager/ops/copy_from.h"
+#include "backend/backend_meta.h"
+#include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "eager_op.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/ops/eager_op.h"
+#include "habana_kernels/tensor_shape_kernels.h"
+#include "hpu_ops/op_logger.h"
 
 namespace {
+
+std::vector<int64_t> translateSynapsePermuteToPt(
+    const std::vector<uint8_t>& synapse_permuate) {
+  // first reverse vector and then change idx to mirror
+  // NHWC 2013 -> 3102 -> 0231
+  // RSCK 3201 -> 1023 -> 2310
+  std::vector<int64_t> pt_permute(
+      synapse_permuate.rbegin(), synapse_permuate.rend());
+  for (size_t i = 0; i < synapse_permuate.size(); i++) {
+    pt_permute[i] = pt_permute.size() - pt_permute[i] - 1;
+  }
+  return pt_permute;
+}
+
+std::vector<int64_t> calcNewStrides(
+    const torch::Tensor& permutedTensor,
+    const std::vector<int64_t>& pt_permute) {
+  // compute strides based on new sizes after permute
+  // permtue the strides
+  std::vector<int64_t> new_sizes, new_strides;
+  std::tie(new_sizes, new_strides) =
+      PermuteOperator::compute_output_shape(permutedTensor, pt_permute);
+
+  std::vector<int64_t> new_strides_perm(new_strides.size());
+  for (size_t i = 0; i < new_strides.size(); i++) {
+    new_strides_perm[pt_permute[i]] = new_strides[i];
+  }
+  return new_strides_perm;
+}
+void handlePermutedTensor(
+    const torch::Tensor& permutedTensor,
+    const torch::Tensor& cpuTensor,
+    bool non_blocking) {
+  PT_EAGER_TRACE;
+  // print_tensor_debug(permutedTensor);
+  // print_tensor_debug(cpuTensor);
+  TORCH_CHECK(
+      permutedTensor.device().type() == c10::DeviceType::HPU,
+      "handlePermutedTensor permutedTensor should be HPU");
+  TORCH_CHECK(
+      cpuTensor.device().type() == c10::DeviceType::CPU,
+      "handlePermutedTensor cpuTensor should be CPU");
+
+  auto tmeta{habana::get_tensor_extra_meta(permutedTensor)};
+  auto synapse_permute = tmeta->get_memory_permutation();
+  if (synapse_permute.size() != 0) {
+    if (non_blocking) {
+      TORCH_CHECK(
+          false, "handlePermutedTensor we only support non_blocking = false");
+    }
+    // translate synapse permtue to pt permute
+    auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
+    // calculate new strides according to permutation
+    auto strides = calcNewStrides(permutedTensor, pt_permute);
+    auto old_sizes = cpuTensor.sizes();
+    // set cpu tensor with old sizes + new strides
+    cpuTensor.unsafeGetTensorImpl()->set_sizes_and_strides(old_sizes, strides);
+    // permute tensor back to host
+    cpuTensor.copy_(cpuTensor.contiguous());
+  }
+}
+
 // Backend it treating Long(int64) as Int(int32) and Double as Float.
 // In Lazy, we track this under the hood, and implicitly up/down cast data.
 // In Eager, we cannot track it, so we 'unpack' tensors received from HPU
@@ -86,6 +152,7 @@ at::Tensor _copy_from_d2h(
   } else {
     habana_helpers::copy_data_to_host(self_, dst, non_blocking);
   }
+  handlePermutedTensor(self, dst, non_blocking);
   return dst;
 }
 
