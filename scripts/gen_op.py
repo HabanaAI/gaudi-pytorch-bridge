@@ -1330,20 +1330,12 @@ def is_eager_op(fname, rtype, sig, ctxop):
             return False
 
     if is_inplace_or_out_op(fname):
-        if rtype.startswith("::std::tuple<at::Tensor"):
-            return True
-        elif rtype == "void" and "TensorList" in sig:
+        if rtype == "void" and "TensorList" in sig:
             return False
-        elif rtype.startswith("const at::Tensor"):
-            return True
         else:
             return True
     else:
-        if rtype.startswith("::std::tuple<at::Tensor"):
-            return True
-        elif "TensorList" in sig:
-            return False
-        elif rtype == "bool":
+        if "TensorList" in sig:
             return False
         elif rtype == "void":
             return False

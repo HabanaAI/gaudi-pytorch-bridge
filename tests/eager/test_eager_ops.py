@@ -8,9 +8,10 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 
-@pytest.mark.parametrize("data1, data2", [((2,3), (2,3)),
-                                          ((6), (6, 0)),
+@pytest.mark.parametrize("data1, data2", [
                                           ((2,), (1,)),
+                                          ((2,3), (2,3)),
+                                          ((6,), (6, 0)),
                                          ])
 def test_equal(data1, data2):
     cpu_tensor1 = torch.Tensor(data1).type(torch.float32)

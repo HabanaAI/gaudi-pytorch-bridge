@@ -355,9 +355,7 @@ class EagerOp : public EagerOpBase {
     auto stack = run({out_spec});
     HABANA_ASSERT(stack.size() == 1); // single output only
     auto out = stack.at(0).toTensor();
-    auto out_cpu = out.to(c10::DeviceType::CPU, true);
-
-    return *out_cpu.data_ptr<T>();
+    return out.item().to<T>();
   }
 
   // For regular variants
