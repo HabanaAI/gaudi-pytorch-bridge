@@ -147,7 +147,7 @@ TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_scale_CL) {
   c10::optional<double> scale_h(0.6);
   c10::optional<double> scale_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
-  std::vector<int64_t> output_size = {2, 7, 1, 6};
+  std::vector<int64_t> output_size = {1, 6};
 
   auto expected = torch::upsample_bicubic2d_backward(
       GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
@@ -171,7 +171,7 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
   c10::optional<double> scale_h(0.6);
   c10::optional<double> scale_w(1.7);
   std::vector<int64_t> input_size = {2, 7, 3, 4};
-  std::vector<int64_t> output_size = {2, 7, 1, 6};
+  std::vector<int64_t> output_size = {1, 6};
 
   auto expected = torch::upsample_bicubic2d_backward(
       GetCpuInput(0),

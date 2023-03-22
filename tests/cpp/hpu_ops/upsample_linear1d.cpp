@@ -80,7 +80,7 @@ TEST_F(HpuOpTest, upsample_linear1d_bwd_scale) {
 TEST_F(HpuOpTest, upsample_linear1d_bwd_scale) {
   GenerateInputs(1, {{2, 3, 8}});
   c10::optional<double> scale(2.0);
-  std::vector<int64_t> output_size = {2, 3, 8};
+  std::vector<int64_t> output_size = {8};
   std::vector<int64_t> input_size = {2, 3, 4};
 
   auto expected = torch::upsample_linear1d_backward(

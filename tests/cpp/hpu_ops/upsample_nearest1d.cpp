@@ -88,11 +88,12 @@ TEST_F(HpuOpTest, upsample_nearest1d_bwd_scale) {
   GenerateInputs(1, {{10, 5, 12}});
   c10::optional<double> scale_factor(3.0);
   std::vector<int64_t> input_size = {10, 5, 4};
+  std::vector<int64_t> output_size = {12};
 
   auto expected = torch::upsample_nearest1d_backward(
-      GetCpuInput(0), {}, input_size, scale_factor);
+      GetCpuInput(0), output_size, input_size, scale_factor);
   auto result = torch::upsample_nearest1d_backward(
-      GetHpuInput(0), {}, input_size, scale_factor);
+      GetHpuInput(0), output_size, input_size, scale_factor);
   Compare(expected, result);
 }
 #endif
