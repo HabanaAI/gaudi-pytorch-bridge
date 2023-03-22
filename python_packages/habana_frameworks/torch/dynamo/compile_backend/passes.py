@@ -13,6 +13,7 @@
 import os
 import logging
 import torch
+import contextlib
 
 from enum import Enum
 from typing import List
@@ -245,10 +246,14 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
         def __init__(
             self,
             graph_module: torch.fx.GraphModule,
-            fake_mode: torch._subclasses.FakeTensorMode = None,
+            fakemode_already_enabled: bool,
+            fake_mode: torch._subclasses.FakeTensorMode,
         ):
             super().__init__(graph_module)
-            self.fake_mode = fake_mode
+            if fakemode_already_enabled:
+                self.fake_mode = contextlib.nullcontext()
+            else:
+                self.fake_mode = fake_mode
 
         def run_node(self, node: torch.fx.Node):
             with self.fake_mode:
@@ -263,18 +268,26 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
 
     from torch._dynamo.utils import (
         fake_mode_from_tensors,
-        deepcopy_to_fake_tensor,
+        deepcopy_to_fake_tensor
     )
+    from torch.utils._python_dispatch import _get_current_dispatch_mode_stack
 
-    fake_mode = fake_mode_from_tensors(ctx.example_inputs)
-    logger.debug("example_inputs fake mode: %s", fake_mode)
-    logger.debug("####input graph_module:####\n%s", ctx.graph_module.print_readable(False))
-    if fake_mode is None:
-        fake_mode = torch._subclasses.FakeTensorMode()
-        fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
-    else:
-        fake_inputs = ctx.example_inputs
-    TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*fake_inputs)
+    # We need to make sure we run in fake_mode.
+    fakemode_already_enabled = False
+    for mode in _get_current_dispatch_mode_stack():
+        if isinstance(mode, torch._subclasses.FakeTensorMode):
+            fakemode_already_enabled = True
+            break
+
+    fake_mode = None
+    fake_inputs = ctx.example_inputs
+    if not fakemode_already_enabled:
+        fake_mode = fake_mode_from_tensors(ctx.example_inputs)
+        if fake_mode is None:
+            fake_mode = torch._subclasses.FakeTensorMode()
+            fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
+
+    TensorInfoPropagation(ctx.graph_module, fakemode_already_enabled, fake_mode).propagate(*fake_inputs)
 
     return True
 

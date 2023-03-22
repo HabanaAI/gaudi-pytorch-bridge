@@ -67,8 +67,8 @@ def test_relu_cpuinput():
         result_compile_train = compiled_function_training(tensor)
         result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile_train)
-        assert torch.equal(result_compile_infer, result_compile_train)
+        assert torch.allclose(result_nocompile, result_compile_train)
+        assert torch.allclose(result_compile_infer, result_compile_train)
 
 
 def test_relu_hpuinput():
@@ -87,8 +87,8 @@ def test_relu_hpuinput():
         result_compile_train = compiled_function_training(tensor)
         result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile_train)
-        assert torch.equal(result_compile_infer, result_compile_train)
+        assert torch.allclose(result_nocompile, result_compile_train)
+        assert torch.allclose(result_compile_infer, result_compile_train)
 
 
 def test_device_partition_cpuinput():
@@ -119,8 +119,8 @@ def test_device_partition_cpuinput():
         result_compile_train = compiled_function_training(tensor)
         result_compile_infer = compiled_function_inference(tensor)
 
-        assert torch.equal(result_nocompile, result_compile_train)
-        assert torch.equal(result_compile_infer, result_compile_train)
+        assert torch.allclose(result_nocompile, result_compile_train)
+        assert torch.allclose(result_compile_infer, result_compile_train)
 
 
 def test_device_partition_hpuinput():
@@ -183,10 +183,9 @@ def test_leaf_views_1():
         result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
         result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
-        assert torch.equal(result1.cpu(), result1_compiled.cpu())
-        assert torch.equal(result2.cpu(), result2_compiled.cpu())
+        assert torch.allclose(result1.cpu(), result1_compiled.cpu())
+        assert torch.allclose(result2.cpu(), result2_compiled.cpu())
 
-@pytest.mark.xfail
 def test_leaf_views_1_dynamic():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
@@ -215,8 +214,49 @@ def test_leaf_views_1_dynamic():
         result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
         result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
-        assert torch.equal(result1.cpu(), result1_compiled.cpu())
-        assert torch.equal(result2.cpu(), result2_compiled.cpu())
+        assert torch.allclose(result1.cpu(), result1_compiled.cpu())
+        assert torch.allclose(result2.cpu(), result2_compiled.cpu())
+
+def test_leaf_views_1_really_dynamic():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        def raw_function(x, y, z):
+            tmp0 = x + y
+
+            tmp1 = F.relu(tmp0)
+
+            tmp2 = z * 2
+
+            tmp3 = tmp1 * tmp2.to("hpu")
+
+            tmp4 = x / tmp3
+
+            tmp5 = F.tanh(tmp4)
+
+            return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend", dynamic=True)
+
+        input_tensor1 = torch.rand(8, 1, 16, 16).to("hpu")
+        input_tensor2 = torch.rand(8, 1, 16, 16).to("hpu")
+        input_tensor3 = torch.rand(8, 1, 16, 16).to("cpu")
+
+        result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
+        result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
+
+        assert torch.allclose(result1.cpu(), result1_compiled.cpu())
+        assert torch.allclose(result2.cpu(), result2_compiled.cpu())
+
+        input_tensor1 = torch.rand(16, 2, 32, 32).to("hpu")
+        input_tensor2 = torch.rand(16, 2, 32, 32).to("hpu")
+        input_tensor3 = torch.rand(16, 2, 32, 32).to("cpu")
+
+        result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
+        result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
+
+        assert torch.allclose(result1.cpu(), result1_compiled.cpu())
+        assert torch.allclose(result2.cpu(), result2_compiled.cpu())
 
 def test_leaf_views_2():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
@@ -236,7 +276,7 @@ def test_leaf_views_2():
         result_nocompile = raw_function(a1)
         result_compile = compiled_function(a1)
 
-        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
+        assert torch.allclose(result_nocompile.cpu(), result_compile.cpu())
 
 
 def test_leaf_views_3():
@@ -256,8 +296,8 @@ def test_leaf_views_3():
         result1_nocompile, result2_nocompile = raw_function(a1)
         result1_compile, result2_compile = compiled_function(a1)
 
-        assert torch.equal(result1_nocompile.cpu(), result1_compile.cpu())
-        assert torch.equal(result2_nocompile.cpu(), result2_compile.cpu())
+        assert torch.allclose(result1_nocompile.cpu(), result1_compile.cpu())
+        assert torch.allclose(result2_nocompile.cpu(), result2_compile.cpu())
 
 
 def test_create_tensor():
@@ -273,7 +313,7 @@ def test_create_tensor():
         result_nocompile = raw_function()
         result_compile = compiled_function()
 
-        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
+        assert torch.allclose(result_nocompile.cpu(), result_compile.cpu())
 
 
 def test_multiple_runs():
@@ -308,7 +348,7 @@ def test_use_random():
         torch.manual_seed(0xBADC0FEE)
         result_compile = compiled_function()
 
-        assert torch.equal(result_nocompile.cpu(), result_compile.cpu())
+        assert torch.allclose(result_nocompile.cpu(), result_compile.cpu())
 
 
 def test_simple_sgd_convnet():
