@@ -79,6 +79,9 @@ include(AddNPUStackDependencies)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 
+set(CMAKE_INSTALL_PREFIX "")
+message(STATUS "Installation prefix set to ${CMAKE_INSTALL_PREFIX}")
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -169,8 +172,9 @@ add_library(habana_pytorch_plugin SHARED
   ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
 add_subdirectory(hpu_ops)
+add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
-target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8) # TODO: change to 1?
+target_compile_definitions(habana_pytorch_plugin PUBLIC "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8) # TODO: change to 1?
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
@@ -197,6 +201,8 @@ add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
   $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
 )
+
+install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
 if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   add_subdirectory(habana_eager)
@@ -336,6 +342,7 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
   )
   add_dependencies(habana_pytorch2_plugin habana_pytorch_frontend_ops)
+  install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 endif()
 
 option(BUILD_TESTS "Build gtest binaries" ON)
@@ -348,7 +355,7 @@ if (BUILD_TESTS)
 endif()
 
 
-option(BUILD_PKGS "Build python packages" ON)
+option(BUILD_PKGS "Build python packages" OFF)
 option(INSTALL_PKGS "Install python packages" OFF)
 
 # additional args will be treated as dependencies - relative to the PACKAGE location

@@ -1,41 +1,39 @@
-# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+#!/usr/bin/env python
+###############################################################################
+# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
 
-from setuptools import setup, Extension
-from torch.utils import cpp_extension
-from pathlib import Path
+from setuptools import setup
+from setup_utils import get_version, PrebuiltPtExtension, SkipBuildExt, InstallCMakeLibs
 import os
-import sys
+import shutil
 
-if not os.environ.get("BUILD_ROOT_LATEST"):
-      print("Expected 'BUILD_ROOT_LATEST' to be set")
-      sys.exit(1)
+release_build_dir_var = "PYTORCH_MODULES_RELEASE_BUILD"
+release_build_dir = os.getenv(release_build_dir_var)
+if release_build_dir is None:
+    raise EnvironmentError(f"{release_build_dir_var} not set")
+build_dir = os.path.join(release_build_dir, 'pytorch_helpers/dataloader/habana_dataloader')
+if os.path.exists(build_dir):
+    shutil.rmtree(build_dir)
+os.makedirs(build_dir)
 
-if not os.environ.get("THIRD_PARTIES_ROOT"):
-      print("Expected 'THIRD_PARTIES_ROOT' to be set")
-      sys.exit(1)
+wheel_build_dir_var = "PYTORCH_MODULES_WHL_BUILD_DIR"
+wheel_build_dir = os.getenv(wheel_build_dir_var)
+if wheel_build_dir is None:
+    raise EnvironmentError(f"{wheel_build_dir_var} not set")
 
-def get_version():
-    HABANA_DEFAULT_VERSION = "0.0.0.0"
-    version = os.getenv('RELEASE_VERSION')
-    if version:
-        build_number = os.getenv('RELEASE_BUILD_NUMBER')
-        if build_number:
-            return version + '.' + build_number
-        else:
-            return version + '.0'
-    else:
-        try:
-            import subprocess
-            import re
-            describe = (
-                subprocess.check_output(
-                    ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])
-                .decode("ascii").strip())
-            sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
-            return HABANA_DEFAULT_VERSION + "+" + sha
-        except Exception as e:
-            print("Error getting version: {}".format(e), file=sys.stderr)
-            return f"{HABANA_DEFAULT_VERSION}+unknown"
+wheel_pt_vers_var = "PT_WHEEL_VERS"
+wheel_pt_vers = os.getenv(wheel_pt_vers_var)
+if wheel_pt_vers is None:
+    raise EnvironmentError(f"{wheel_pt_vers_var} not set")
 
 setup(name='habana-torch-dataloader',
       version=get_version(),
@@ -47,21 +45,18 @@ setup(name='habana-torch-dataloader',
       author_email="support@habana.ai",
       zip_safe=False,
       packages=["habana_dataloader"],
-      ext_modules=[cpp_extension.CppExtension(  'habana_dataloader.habana_dl_app',
-                                                ['main.cpp'],
-                                                include_dirs=[
-                                                      os.path.join(os.path.dirname(os.path.realpath(__file__)), 'include'),
-                                                      os.path.join(os.environ["PYTORCH_FORK_ROOT"], "third_party", "pybind11", "include"),
-                                                      os.path.join(os.environ["THIRD_PARTIES_ROOT"], "json", "include")
-                                                ],
-                                                libraries=['aeon'],
-                                                library_dirs=[
-                                                      os.environ["BUILD_ROOT_LATEST"]
-                                                ],
-                                                runtime_library_dirs=[
-                                                      os.environ["BUILD_ROOT_LATEST"],
-                                                      cpp_extension.TORCH_LIB_PATH
-                                                ]
-                                              )
-                  ],
-      cmdclass={'build_ext': cpp_extension.BuildExtension})
+      ext_modules=[PrebuiltPtExtension('habana_dataloader.habana_dl_app', release_build_dir)],
+      cmdclass={'build_ext': SkipBuildExt,
+                'install_lib': InstallCMakeLibs(
+                    module_namespace=os.path.join("habana_dataloader"),
+                    wheel_name="habana_torch_dataloader",
+                    wheel_pt_vers=wheel_pt_vers,
+                    wheel_build_dir=wheel_build_dir,
+                    ignore_func=shutil.ignore_patterns('*.debug', '__pycache__')),
+                },
+      options={'egg_info': {'egg_base': build_dir},
+               'build': {'build_base': os.path.join(build_dir, 'build')},
+               'bdist_wheel': {'dist_dir': os.path.join(build_dir, 'dist')},
+               'sdist': {'dist_dir': os.path.join(build_dir, 'dist')},
+               },
+      )

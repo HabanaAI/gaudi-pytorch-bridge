@@ -891,11 +891,15 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
               (num_elements > chunk_size) ? chunk_size : num_elements;
+          const void* offseted_send_buffer = reinterpret_cast<const void*>(
+              reinterpret_cast<const char*>(send_buffer) + data_offset);
+          void* offseted_recv_buffer = reinterpret_cast<void*>(
+              reinterpret_cast<char*>(recv_buffer) + data_offset);
           PT_DISTRIBUTED_DEBUG(
               "[PYT-DIST] allreduce with input_address :: ",
-              (send_buffer + data_offset),
+              offseted_send_buffer,
               " output_address :: ",
-              (recv_buffer + data_offset),
+              offseted_recv_buffer,
               " elem_cnt :: ",
               num_elements_in_current_chunk,
               " data_type :: ",
@@ -903,8 +907,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
 
           if (!this->emulate_distributed_) {
             hccl_result = hcclAllReduce(
-                send_buffer + data_offset,
-                recv_buffer + data_offset,
+                offseted_send_buffer,
+                offseted_recv_buffer,
                 num_elements_in_current_chunk,
                 getHCCLDataType(input.scalar_type()),
                 getHCCLReduceOp(reduceOp),
@@ -933,8 +937,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce_coalesced(
-    std::vector<at::Tensor>& tensors,
-    const AllreduceCoalescedOptions& opts) {
+    std::vector<at::Tensor>& /*tensors*/,
+    const AllreduceCoalescedOptions& /*opts*/) {
   throw std::runtime_error(
       "allreduce_coalesced is currently not supported with HCCL");
 }
@@ -988,8 +992,10 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
               (num_elements > chunk_size) ? chunk_size : num_elements;
           if (!this->emulate_distributed_) {
             hccl_result = hcclReduce(
-                send_buffer + data_offset,
-                recv_buffer + data_offset,
+                reinterpret_cast<const void*>(
+                    reinterpret_cast<const char*>(send_buffer) + data_offset),
+                reinterpret_cast<void*>(
+                    reinterpret_cast<char*>(recv_buffer) + data_offset),
                 num_elements_in_current_chunk,
                 getHCCLDataType(input.scalar_type()),
                 getHCCLReduceOp(reduceOp),
@@ -1379,9 +1385,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::gather(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::scatter(
-    std::vector<at::Tensor>& outputTensors,
-    std::vector<std::vector<at::Tensor>>& inputTensors,
-    const ScatterOptions& opts) {
+    std::vector<at::Tensor>& /*outputTensors*/,
+    std::vector<std::vector<at::Tensor>>& /*inputTensors*/,
+    const ScatterOptions& /*opts*/) {
   throw std::runtime_error("ProcessGroupHCCL does not support scatter");
 }
 
@@ -1669,8 +1675,8 @@ void ProcessGroupHCCL::groupEnd() {
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::recvAnysource(
-    std::vector<at::Tensor>& tensors,
-    int tag) {
+    std::vector<at::Tensor>& /*tensors*/,
+    int /*tag*/) {
   throw std::runtime_error("ProcessGroupHCCL does not support recv");
 }
 

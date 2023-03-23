@@ -10,6 +10,11 @@
 #
 ###############################################################################
 
+set(TARGET_NAME pytorch_helpers)
+add_library(${TARGET_NAME} INTERFACE)
+target_include_directories(${TARGET_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${TARGET_NAME} INTERFACE nlohmann_json)
+
 if (BUILD_DIST)
  message ("Building only pytorch_helpers for the usage in distributed")
  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -53,3 +58,4 @@ endif ()
 
 add_subdirectory(synapse_utils_shim)
 
+add_subdirectory(dataloader/habana_dataloader)

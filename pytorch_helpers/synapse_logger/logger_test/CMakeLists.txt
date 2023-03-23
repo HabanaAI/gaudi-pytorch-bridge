@@ -36,17 +36,10 @@ endif (SANITIZER)
 set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS})
 set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS})
 
+list(APPEND CMAKE_MODULE_PATH $ENV{PYTORCH_MODULES_ROOT_PATH}/cmake)
+
 include(ExternalProject)
-
-add_library(Synapse SHARED IMPORTED)
-set_target_properties(Synapse PROPERTIES
-  IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libSynapse.so"
-  INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_ROOT}/include"
-  )
-
-add_library(tpc_kernels SHARED IMPORTED)
-set_target_properties(tpc_kernels PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
+include(AddNPUStackDependencies)
 
 add_executable(Test test.cxx ../compare.cxx)
 target_include_directories(Test SYSTEM PRIVATE $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)

@@ -29,6 +29,7 @@ add_custom_command(TARGET pytorch_synapse_logger POST_BUILD
   "$<TARGET_FILE:pytorch_synapse_logger>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:pytorch_synapse_logger>")
 separate_debug_symbols(pytorch_synapse_logger)
 target_link_libraries(pytorch_synapse_logger PRIVATE ${CMAKE_DL_LIBS} absl::strings absl::str_format absl::variant)
+install(TARGETS pytorch_synapse_logger LIBRARY DESTINATION habana_torch_plugin/lib)
 
 set(PY_SYNAPSE_LOGGER_I ${CMAKE_CURRENT_SOURCE_DIR}/py_synapse_logger.i)
 #set(SWIG "SWIG-NOTFOUND")
@@ -95,3 +96,6 @@ add_custom_command(TARGET _py_pytorch_synapse_logger POST_BUILD
   "$<TARGET_FILE:_py_pytorch_synapse_logger>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:_py_pytorch_synapse_logger>"
   COMMAND ${CMAKE_COMMAND} -E create_symlink
   "${CMAKE_BINARY_DIR}/py_synapse_logger.py" "$ENV{BUILD_ROOT_LATEST}/py_pytorch_synapse_logger.py")
+
+install(TARGETS _py_pytorch_synapse_logger LIBRARY DESTINATION habana_torch_plugin/lib)
+install(FILES $ENV{BUILD_ROOT_LATEST}/py_pytorch_synapse_logger.py DESTINATION habana_torch_plugin/lib)

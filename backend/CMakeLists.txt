@@ -110,3 +110,4 @@ target_link_libraries(habana_pytorch_backend PUBLIC Synapse)
 endif()
 
 separate_debug_symbols(habana_pytorch_backend)
+install(TARGETS habana_pytorch_backend LIBRARY DESTINATION habana_torch_plugin/lib)

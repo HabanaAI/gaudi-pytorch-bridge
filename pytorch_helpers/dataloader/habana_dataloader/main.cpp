@@ -21,7 +21,7 @@
 #include "nlohmann/json.hpp"
 #include "pybind11_json.hpp"
 
-using nlohmann::json;
+using nlohmannV340::json;
 
 namespace py = pybind11;
 namespace aeondataloader = scaleoutdemoloader;
@@ -356,7 +356,7 @@ class SsdHDL : public HabanaAcceleratedPytorchDL {
   }
 
  private:
-  uint64_t m_max_gt_boxes;
+  int64_t m_max_gt_boxes;
 };
 
 class Factory {

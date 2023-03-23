@@ -11,9 +11,6 @@ __pycache__/
 *.so.*
 *.bin
 *.used
-*.egg-info/
-*.eggs/
-dist
 *.pbtxt
 *.swp
 *.swo

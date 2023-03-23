@@ -744,6 +744,7 @@ def prepare_build_dirs(
                 prepare_single_build_directory(
                     pt_modules_root,
                     clean,
+                    whl_build_dir,
                     pmake,
                     build_envs,
                     cmake_config,
@@ -831,7 +832,7 @@ def create_collect_binaries_target(
         pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
         cmake_config_upper = cmake_config.upper()
         pmake(
-            '\tfind -D exec $${DESTINATION} "(" -name "*.so*" -o -name "*.py" ")" '
+            '\tfind -D exec $${DESTINATION} -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
             '-a -not -name "libtorch.so*" '
             "-exec cp -fs {} "
             f"$$BUILD_ROOT_{cmake_config_upper} \;"
@@ -894,14 +895,13 @@ def create_wheel_target_for_single_python(
     pmake(
         f'\tRELEASE_VERSION="{get_release_version()}" PT_WHEEL_VERS="{pt_wheel_vers}" '
         f'PT_WHEEL_NAME="{full_wheel_name}" PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} '
-        f"python3 -m pip wheel {verbosity} --no-deps -w dist . &&\\"
+        f"PYTHONPATH=$$PYTORCH_MODULES_ROOT_PATH/python_packages:$$PYTHONPATH "
+        f"PYTORCH_MODULES_BUILD=${{PYTORCH_MODULES_{cmake_configuration}_BUILD}} "
+        f"python3 -m pip wheel {verbosity} --no-deps -w {pkgs_dir} ."
     )
-    wheel_pattern = f"$$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir}/dist/*.whl"
     if versioned_pkgs_dir:
+        wheel_pattern = f"{pkgs_dir}/*.whl"
         pmake(f"\tcp {wheel_pattern} {versioned_pkgs_dir}")
-    pmake(
-        f"\tmv {wheel_pattern} {pkgs_dir}"
-    )
 
     pmake(f"{new_serializer}: {serializer}")
 
@@ -923,6 +923,8 @@ def create_wheel_target_for_single_python(
         whl_source_dir,
         venv_dirs,
     )
+
+    log.debug(f"Created wheel config: {wheel_config}")
 
     return new_serializer, wheel_config
 
@@ -1058,6 +1060,7 @@ class CMakeFlags:
 def prepare_single_build_directory(
     pt_modules_root,
     clean,
+    whl_build_dir,
     pmake,
     build_envs,
     cmake_config: str,
@@ -1088,14 +1091,18 @@ def prepare_single_build_directory(
     for build_env in build_envs:
         pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
-    wheel_installs = [  # TODO: replace `all` with `install`
-        f"\t{'-' if build_env.optional else ''}cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target all"
+    pt_ver_dir = common_venv_build_env.pt_ver_and_src.version.label.replace(".", "_")
+    wheel_installs = [
+        f"\t{'-' if build_env.optional else ''} " \
+        f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} " \
+        f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install"
         for build_env in build_envs
     ]
     pmake("\n".join(wheel_installs))
     pmake(f"{subtarget}/ctest: {subtarget}/all")
     pmake(
-        f"\tcd {current_ver_build_dir} && {activate} && LD_LIBRARY_PATH={current_ver_build_dir}:$$LD_LIBRARY_PATH ctest --output-on-failure"
+        f"\tcd {current_ver_build_dir} && {activate} && "
+        f"LD_LIBRARY_PATH={current_ver_build_dir}:$$LD_LIBRARY_PATH ctest --output-on-failure"
     )
 
 
@@ -1172,7 +1179,7 @@ def build(
     work_dir,
     jobs=default_job_count,
     targets=("all",),
-    verbose=False,
+    verbose=0,
     extra_make_flags=tuple(),
     use_icecc=False,
 ):
