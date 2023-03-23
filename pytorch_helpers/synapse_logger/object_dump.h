@@ -29,7 +29,7 @@ enum class data_dump_category : unsigned {
 };
 
 bool logger_is_enabled(data_dump_category cat);
-bool log_observer_is_enabled();
+bool log_observer_is_enabled(std::string_view name);
 void log(const absl::string_view payload);
 void on_log(std::string_view name, std::string_view args, bool begin);
 

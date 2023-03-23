@@ -25,18 +25,18 @@ namespace profile {
 Profiler::Profiler(TraceSink& sink) : trace_sink_{sink} {}
 
 void Profiler::init_sources(
-    bool synapse_profiler,
     bool synapse_logger,
     bool bridge,
-    bool memory) {
-  if (synapse_profiler) {
-    trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
+    bool memory,
+    const std::vector<std::string>& mandatory_events) {
+  trace_sources_.push_back(std::make_unique<SynapseProfilerSource>());
+  if (synapse_logger || !mandatory_events.empty()) {
+    trace_sources_.push_back(std::make_unique<SynapseLoggerSource>(
+        synapse_logger, mandatory_events));
   }
-  if (synapse_logger) {
-    trace_sources_.push_back(std::make_unique<SynapseLoggerSource>());
-  }
-  if (bridge) {
-    trace_sources_.push_back(std::make_unique<BridgeLogsSource>());
+  if (bridge || !mandatory_events.empty()) {
+    trace_sources_.push_back(
+        std::make_unique<BridgeLogsSource>(bridge, mandatory_events));
   }
   if (memory) {
     trace_sources_.push_back(std::make_unique<MemorySource>());

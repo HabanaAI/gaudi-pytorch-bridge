@@ -455,8 +455,8 @@ bool logger_is_enabled(data_dump_category cat) {
   return logger.is_enabled(cat);
 }
 
-bool log_observer_is_enabled() {
-  return logger.is_event_logger_enabled();
+bool log_observer_is_enabled(std::string_view name) {
+  return logger.is_event_logger_enabled(name);
 }
 
 void log(absl::string_view payload) {

@@ -13,7 +13,7 @@ class SynapseLoggerObserver {
       pid_t tid,
       int64_t dtime,
       bool is_begin) = 0;
-  virtual bool enabled() = 0;
+  virtual bool enabled(std::string_view name) = 0;
 };
 
 extern "C" void register_synapse_logger_oberver(

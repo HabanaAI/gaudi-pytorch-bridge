@@ -239,8 +239,8 @@ class SynapseLogger {
     return (0 != (source_cat_mask_ & static_cast<uint64_t>(cat)));
   }
 
-  bool is_event_logger_enabled() {
-    return observer_ != nullptr && observer_->enabled();
+  bool is_event_logger_enabled(std::string_view name) {
+    return observer_ != nullptr && observer_->enabled(name);
   }
 
   bool should_use_null_backend() {

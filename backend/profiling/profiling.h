@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace habana {
 namespace profile {
@@ -116,10 +117,10 @@ class Profiler {
  public:
   Profiler(TraceSink& sink);
   void init_sources(
-      bool synapse_profiler,
       bool synapse_logger,
       bool bridge,
-      bool memory);
+      bool memory,
+      const std::vector<std::string>& mandatory_events);
   void start();
   void stop();
 
@@ -131,7 +132,7 @@ class Profiler {
 namespace bridge {
 void trace_start(std::string_view id);
 void trace_end(std::string_view id);
-bool is_enabled();
+bool is_enabled(std::string_view id);
 }; // namespace bridge
 
 }; // namespace profile

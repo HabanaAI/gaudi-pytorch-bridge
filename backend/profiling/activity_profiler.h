@@ -14,15 +14,16 @@
 #pragma once
 #include <string.h>
 #include <string_view>
+#include <vector>
 
 namespace habana {
 namespace profile {
 void export_profiler_logs(std::string_view path);
 void setup_profiler_sources(
-    bool synapse_profiler,
     bool synapse_logger,
     bool bridge,
-    bool memory);
+    bool memory,
+    const std::vector<std::string>& mandatory_events);
 void start_profiler_session();
 void stop_profiler_session();
 }; // namespace profile

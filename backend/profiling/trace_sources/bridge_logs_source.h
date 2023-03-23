@@ -19,12 +19,18 @@ namespace profile {
 
 class BridgeLogsSource : public TraceSource {
  public:
+  BridgeLogsSource(
+      bool is_active,
+      const std::vector<std::string>& mandatory_events);
   ~BridgeLogsSource() override;
   void start() override;
   void stop() override;
   void extract(TraceSink& output) override;
   TraceSourceVariant get_variant() override;
   void set_offset(unsigned offset) override;
+
+ private:
+  bool is_active{false};
 };
 }; // namespace profile
 }; // namespace habana

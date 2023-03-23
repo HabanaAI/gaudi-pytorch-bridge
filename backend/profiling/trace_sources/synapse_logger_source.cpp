@@ -12,6 +12,7 @@
  */
 
 #include "synapse_logger_source.h"
+#include <regex>
 #include <unordered_set>
 #include "pytorch_helpers/synapse_shim/synapse_api_shim.h"
 
@@ -46,19 +47,25 @@ std::unordered_map<std::string, std::string> convert(std::string_view input) {
 }
 } // namespace
 
-SynapseLoggerSource::SynapseLoggerSource() {
+SynapseLoggerSource::SynapseLoggerSource(
+    bool is_active,
+    const std::vector<std::string>& mandatory_events)
+    : catch_all_events_(is_active), mandatory_events_{mandatory_events} {
   EnableSynapseApiLogger(this);
 }
 
 void SynapseLoggerSource::start() {
-  enabled_ = true;
+  is_started_ = true;
 }
 
 void SynapseLoggerSource::stop() {
-  enabled_ = false;
+  is_started_ = false;
 }
 
 void SynapseLoggerSource::extract(TraceSink& trace_sink) {
+  if (events_.empty()) {
+    return;
+  }
   std::unordered_set<pid_t> pids;
   std::lock_guard<std::mutex> lg{m};
   for (const auto& event : events_) {
@@ -93,15 +100,43 @@ void SynapseLoggerSource::on_log(
     pid_t tid,
     int64_t time,
     bool begin) {
-  std::string event_name{name};
-  std::string event_args{args};
-  std::lock_guard<std::mutex> lg{m};
-  events_.emplace_back(
-      std::move(event_name), std::move(event_args), pid, tid, time, begin);
+  if (enabled(name)) {
+    std::string event_name{name};
+    std::string event_args{args};
+    std::lock_guard<std::mutex> lg{m};
+    events_.emplace_back(
+        std::move(event_name), std::move(event_args), pid, tid, time, begin);
+  }
 }
 
-bool SynapseLoggerSource::enabled() {
-  return enabled_;
+bool SynapseLoggerSource::enabled(std::string_view name) {
+  if (is_started_) {
+    return catch_all_events_ || exists_on_mandatory_list(name);
+  }
+  return false;
+}
+
+bool SynapseLoggerSource::exists_on_mandatory_list(std::string_view name) {
+  decltype(checked_.go)::iterator it_checked{};
+  {
+    std::lock_guard<std::mutex> lg{checked_.m};
+    it_checked = checked_.go.find(name.data());
+  }
+  if (it_checked != checked_.go.end()) {
+    return it_checked->second;
+  }
+  bool matched{false};
+  for (const auto& mandatory_event : mandatory_events_) {
+    std::regex mandatory_event_regex(
+        mandatory_event, std::regex_constants::ECMAScript);
+    if (std::regex_search(name.begin(), name.end(), mandatory_event_regex)) {
+      matched = true;
+      break;
+    }
+  }
+  std::lock_guard<std::mutex> lg{checked_.m};
+  checked_.go.emplace(name.data(), matched);
+  return matched;
 }
 } // namespace profile
 } // namespace habana

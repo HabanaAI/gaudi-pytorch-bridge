@@ -233,7 +233,7 @@ inline void concat_args([[maybe_unused]] std::ostream& out) {}
 
 #define API_LOG_RESULT(...)                                                  \
   do {                                                                       \
-    if (synapse_logger::log_observer_is_enabled()) {                         \
+    if (synapse_logger::log_observer_is_enabled(__FUNCTION__)) {             \
       synapse_logger::ostr_t out{synapse_logger::get_ostr()};                \
       out << "status:" << std::dec << status;                                \
       if (!synapse_logger::is_status_success((status))) {                    \
@@ -261,7 +261,7 @@ inline void concat_args([[maybe_unused]] std::ostream& out) {}
 
 #define API_LOG_CALL(...)                                            \
   do {                                                               \
-    if (synapse_logger::log_observer_is_enabled()) {                 \
+    if (synapse_logger::log_observer_is_enabled(__FUNCTION__)) {     \
       synapse_logger::ostr_t out{synapse_logger::get_ostr()};        \
       concat_args(out, ##__VA_ARGS__);                               \
       synapse_logger::on_log(__FUNCTION__, out.str(), true);         \

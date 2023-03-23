@@ -38,7 +38,8 @@ def register_habana_activity_profiler():
             activities = [self._exchange_activity(activity) for activity in activities]
             synapse_logger = debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
-            hpu_profiler._setup_activity_profiler_sources(True, synapse_logger, bridge_profile, profile_memory)
+            mandatory_events = self._get_mandatory_events()
+            hpu_profiler._setup_activity_profiler_sources(synapse_logger, bridge_profile, profile_memory, mandatory_events)
 
             super().__init__(
                 activities=activities,
@@ -58,6 +59,17 @@ def register_habana_activity_profiler():
                 return original_activity.CPU
             if activity == torch.profiler.ProfilerActivity.CUDA:
                 return original_activity.CUDA
+
+        def _get_mandatory_events(self):
+            return [
+                "SyncTensorsGraphInternal",
+                "ExecuteCachedGraph",
+                "LaunchSyncTensorsGraph",
+                "synEventRecord",
+                "synEventSynchronize",
+                "synLaunchWithExternalEventsExt",
+                "hpu_lazy"
+            ]
 
         def start_trace(self):
             if self.hpu_profiling_active:

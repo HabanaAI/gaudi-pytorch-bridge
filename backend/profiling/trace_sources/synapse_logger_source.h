@@ -16,6 +16,8 @@
 #include <strings.h>
 #include <deque>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 #include "backend/profiling/profiling.h"
 #include "pytorch_helpers/synapse_logger/synapse_logger_observer.h"
 
@@ -25,7 +27,9 @@ namespace profile {
 class SynapseLoggerSource : public TraceSource,
                             public synapse_logger::SynapseLoggerObserver {
  public:
-  SynapseLoggerSource();
+  SynapseLoggerSource(
+      bool is_active,
+      const std::vector<std::string>& mandatory_events);
   virtual ~SynapseLoggerSource() = default;
   void start() override;
   void stop() override;
@@ -41,9 +45,11 @@ class SynapseLoggerSource : public TraceSource,
       int64_t dtime,
       bool begin) override;
 
-  virtual bool enabled() override;
+  virtual bool enabled(std::string_view name = "") override;
 
  private:
+  bool exists_on_mandatory_list(std::string_view name = "");
+
   struct Event {
     std::string name;
     std::string args;
@@ -70,6 +76,13 @@ class SynapseLoggerSource : public TraceSource,
   bool enabled_{false};
   unsigned offset_{};
   std::mutex m{};
+  bool is_started_{false};
+  bool catch_all_events_{false};
+  std::vector<std::string> mandatory_events_;
+  struct {
+    std::unordered_map<const char*, bool> go;
+    std::mutex m{};
+  } checked_;
 };
 } // namespace profile
 } // namespace habana

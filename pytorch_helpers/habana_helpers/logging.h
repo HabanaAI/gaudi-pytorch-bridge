@@ -69,7 +69,9 @@ enum class LoggerType {
 // helpers are independent of  torch libraries
 namespace Logger {
 
-inline bool isTracingForced(const HlLogger::LoggerType& mod) {
+inline bool isTracingForced(
+    const HlLogger::LoggerType& mod,
+    std::string_view name) {
   static std::unordered_map<HlLogger::LoggerType, uint64_t> mask_map{
       {HlLogger::LoggerType::PT_DEVICE, 0x1},
       {HlLogger::LoggerType::PT_KERNEL, 0x2},
@@ -104,7 +106,7 @@ inline bool isTracingForced(const HlLogger::LoggerType& mod) {
     return true;
   else
     // tensorboard enabled
-    return habana::profile::bridge::is_enabled();
+    return habana::profile::bridge::is_enabled(name);
 }
 
 inline std::string DebugString(const HlLogger::LoggerType& mod) {
@@ -413,13 +415,14 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_END PT_MOD_END(PT_DISTRIBUTED)
 #define PT_LAZY_END PT_MOD_END(PT_LAZY)
 
-#define PT_MOD_SCOPE(MOD, PNAME, NAME)                                      \
-  std::optional<PTFuncLog> ptFuncLogger{};                                  \
-  bool isTraceLoggerEnabled{hl_logger::logLevelAtLeast(                     \
-      HlLogger::LoggerType::MOD, HLLOG_LEVEL_TRACE)};                       \
-  bool isTracingForced{Logger::isTracingForced(HlLogger::LoggerType::MOD)}; \
-  if (isTraceLoggerEnabled or isTracingForced) {                            \
-    ptFuncLogger.emplace(#MOD, PNAME, NAME, isTraceLoggerEnabled);          \
+#define PT_MOD_SCOPE(MOD, PNAME, NAME)                             \
+  std::optional<PTFuncLog> ptFuncLogger{};                         \
+  bool isTraceLoggerEnabled{hl_logger::logLevelAtLeast(            \
+      HlLogger::LoggerType::MOD, HLLOG_LEVEL_TRACE)};              \
+  bool isTracingForced{                                            \
+      Logger::isTracingForced(HlLogger::LoggerType::MOD, NAME)};   \
+  if (isTraceLoggerEnabled or isTracingForced) {                   \
+    ptFuncLogger.emplace(#MOD, PNAME, NAME, isTraceLoggerEnabled); \
   }
 
 #define PT_MOD_TRACE(MOD, PNAME, NAME) PT_MOD_SCOPE(MOD, PNAME, NAME)

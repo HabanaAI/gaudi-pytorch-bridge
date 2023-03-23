@@ -18,6 +18,8 @@
 #include <chrono>
 #include <deque>
 #include <mutex>
+#include <regex>
+#include <unordered_set>
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace {
@@ -32,11 +34,11 @@ uint64_t NowMicros() {
 namespace habana {
 namespace profile {
 
-struct BridgeLogger : public TraceSource {
-  BridgeLogger() = default;
-  ~BridgeLogger() override = default;
+struct BridgeLogsSourceImpl : public TraceSource {
+  BridgeLogsSourceImpl() = default;
+  ~BridgeLogsSourceImpl() override = default;
   void log(std::string_view id, bool is_begin) {
-    if (enabled()) {
+    if (enabled(id)) {
       int64_t dtime = NowMicros();
       pid_t tid = syscall(__NR_gettid);
       std::string event_id{id};
@@ -44,20 +46,65 @@ struct BridgeLogger : public TraceSource {
       events_.emplace_back(std::move(event_id), dtime, tid, is_begin);
     }
   }
-  bool enabled() {
-    return enabled_;
+  void set_mandatory_events(
+      const std::vector<std::string>& mandatory_events,
+      bool catch_all_events) {
+    std::copy(
+        std::begin(mandatory_events),
+        std::end(mandatory_events),
+        std::inserter(mandatory_events_, mandatory_events_.end()));
+    mandatory_list_initialized_ = true;
+    catch_all_events_ = catch_all_events;
   }
-  static BridgeLogger& instance() {
-    static BridgeLogger source;
+  bool enabled(std::string_view name = "") {
+    if (is_started_) {
+      if (catch_all_events_) {
+        return true;
+      }
+      if (mandatory_list_initialized_) {
+        return exists_on_mandatory_list(name);
+      }
+    }
+    return false;
+  }
+  bool exists_on_mandatory_list(std::string_view name = "") {
+    // Below memoization technique is used to cache already computed values for
+    // particular functions. Each function name is validated using regex rules
+    // stored inside mandatory_events_. This computation could be expensive so
+    // results are stored.
+    {
+      std::lock_guard<std::mutex> lg{checked_.m};
+      auto it_checked = checked_.go.find(name.data());
+      if (it_checked != checked_.go.end()) {
+        return it_checked->second;
+      }
+    }
+    bool matched{false};
+    for (const auto& mandatory_event : mandatory_events_) {
+      std::regex mandatory_event_regex(
+          mandatory_event, std::regex_constants::ECMAScript);
+      if (std::regex_search(name.begin(), name.end(), mandatory_event_regex)) {
+        matched = true;
+        break;
+      }
+    }
+    std::lock_guard<std::mutex> lg{checked_.m};
+    checked_.go.emplace(name.data(), matched);
+    return matched;
+  }
+  static BridgeLogsSourceImpl& instance() {
+    static BridgeLogsSourceImpl source;
     return source;
   }
   void start() {
-    enabled_ = true;
+    is_started_ = true;
   }
   void stop() {
-    enabled_ = false;
+    is_started_ = false;
   }
   void extract(TraceSink& output) {
+    if (events_.empty())
+      return;
     pid_t pid = getpid() + offset_;
     std::lock_guard<std::mutex> lg{m};
     for (const auto& event : events_) {
@@ -87,39 +134,53 @@ struct BridgeLogger : public TraceSource {
         : name(std::move(name)), time(time), tid(tid), begin(begin) {}
   };
   std::deque<Event> events_;
-  std::atomic<bool> enabled_{false};
+  std::atomic<bool> is_started_{false};
+  std::atomic<bool> mandatory_list_initialized_{false};
+  std::atomic<bool> catch_all_events_{false};
+  std::unordered_set<std::string> mandatory_events_;
+  struct {
+    std::unordered_map<const char*, bool> go;
+    std::mutex m{};
+  } checked_;
   unsigned offset_{};
   std::mutex m{};
 };
 
+BridgeLogsSource::BridgeLogsSource(
+    bool is_requested,
+    const std::vector<std::string>& mandatory_events) {
+  BridgeLogsSourceImpl::instance().set_mandatory_events(
+      mandatory_events, is_requested);
+}
+
 BridgeLogsSource::~BridgeLogsSource() {}
 
 void BridgeLogsSource::start() {
-  BridgeLogger::instance().start();
+  BridgeLogsSourceImpl::instance().start();
 }
 void BridgeLogsSource::stop() {
-  BridgeLogger::instance().stop();
+  BridgeLogsSourceImpl::instance().stop();
 }
 void BridgeLogsSource::extract(TraceSink& output) {
-  BridgeLogger::instance().extract(output);
+  BridgeLogsSourceImpl::instance().extract(output);
 }
 
 TraceSourceVariant BridgeLogsSource::get_variant() {
-  return BridgeLogger::instance().get_variant();
+  return BridgeLogsSourceImpl::instance().get_variant();
 }
 void BridgeLogsSource::set_offset(unsigned offset) {
-  BridgeLogger::instance().set_offset(offset);
+  BridgeLogsSourceImpl::instance().set_offset(offset);
 }
 
 namespace bridge {
 void trace_start(std::string_view id) {
-  BridgeLogger::instance().log(id, true);
+  BridgeLogsSourceImpl::instance().log(id, true);
 }
 void trace_end(std::string_view id) {
-  BridgeLogger::instance().log(id, false);
+  BridgeLogsSourceImpl::instance().log(id, false);
 }
-bool is_enabled() {
-  return BridgeLogger::instance().enabled();
+bool is_enabled(std::string_view name) {
+  return BridgeLogsSourceImpl::instance().enabled(name);
 }
 }; // namespace bridge
 }; // namespace profile
