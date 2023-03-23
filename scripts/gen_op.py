@@ -359,8 +359,8 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
 
         def generate_supported_dtypes(dtypes):
             if type(dtypes) is dict:
-                if "Greco" in dtypes:
-                    dtypes = dtypes["Greco"]
+                if "Gaudi3" in dtypes:
+                    dtypes = dtypes["Gaudi3"]
                 else:
                     dtypes = []
             assert type(dtypes) is list, f"Cannot handle dtypes for {ctxop.opname}"

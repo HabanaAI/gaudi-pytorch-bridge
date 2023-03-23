@@ -397,12 +397,11 @@ bool CheckNodeWithSharedLayerValidator::Validate(
     at::ScalarType compute_type,
     const std::vector<at::IValue>& values) {
   bool result;
-  if (getDeviceId() == gcapi::DEVICE_ID_GRECO) {
+  if (getDeviceType() == gcapi::DEVICE_ID_GAUDI3) {
     result = ValidateWithDTypes(compute_type, values);
   } else {
     result = ValidateWithSharedLayer(compute_type, values);
   }
-
   if (not result) {
     PT_OP_INFO("Fallback for op", m_opname);
   }
