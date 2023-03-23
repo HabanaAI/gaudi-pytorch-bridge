@@ -19,7 +19,7 @@ class DistSetup:
         self.world_size = world_size
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12340'
-        import habana_frameworks.torch.core.hccl
+        import habana_frameworks.torch.distributed.hccl
         dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
 
     def __del__(self):

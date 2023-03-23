@@ -79,8 +79,8 @@ class TrainMetaData():
 
     def log_live_mem_alloc(self, msg):
         if self.log_live_mem_alloc_enabled:
-            import habana_frameworks.torch.core as htcore
-            htcore.memstat_livealloc(msg)
+            import habana_frameworks.torch.utils.debug as htdebug
+            htdebug._memstat_livealloc(msg)
 
     # Enable/disable saving of checkpoint/model
     def set_save_checkpoint_enable(self, enable=True):

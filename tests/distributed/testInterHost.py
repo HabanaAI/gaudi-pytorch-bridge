@@ -22,7 +22,7 @@ device = torch.device('hpu')
 
 def setup(rank, world_size):
   print('Setup HCCL')
-  import habana_frameworks.torch.core.hccl
+  import habana_frameworks.torch.distributed.hccl
   dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
 
   time.sleep(15)
