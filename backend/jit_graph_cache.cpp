@@ -321,14 +321,14 @@ bool OptimizedJITGraphAndMetaData::get_is_control_edge_processing_required() {
   return is_control_edge_processing_required;
 }
 
-void OptimizedJITGraphAndMetaData::SetBackendType(
+void OptimizedJITGraphAndMetaData::SetFrontendType(
     habana_helpers::HabanaFrontendTypes type) {
-  backend_type = type;
+  frontend_type = type;
 }
 
-habana_helpers::HabanaFrontendTypes OptimizedJITGraphAndMetaData::
-    GetBackendType() {
-  return backend_type;
+const habana_helpers::HabanaFrontendTypes& OptimizedJITGraphAndMetaData::
+    GetFrontendType() {
+  return frontend_type;
 }
 
 // JitGraphCache Functions

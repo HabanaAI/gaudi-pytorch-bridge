@@ -775,8 +775,9 @@ synapse_helpers::tensor OpBackend::BuildConstant(
     c10::optional<int> final_result_index) {
   // For lazy eager mode, Allocate constant synapse tensor
   // for non-persistent tensor of size {1}.
-  // To do: Add support for force data type to const tensor.
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+  // To do: Check support for force data type to const tensor.
+  //        Confirm if CGUID dtype promotion can take care of it.
+  if (op->GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER &&
       !final_result_index.has_value() && !force_type.has_value() &&
       constant_outshape.equals({1})) {
     return OpBackend::BuildConstantTensor(op, graph, val);

@@ -485,8 +485,8 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   // For lazy eager mode, Allocate constant synapse tensor
   // in case of non-persistent tensor of size {1}.
   const auto is_persistent = output_metadata.at(0).persistent;
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 && !is_persistent &&
-      input.sizes().equals({1})) {
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER &&
+      !is_persistent && input.sizes().equals({1})) {
     auto const_syn_tensor = AllocateConstantSynapseTensor(graph, value);
     p_context_->syn_outputs_.emplace_back(std::move(const_syn_tensor));
 

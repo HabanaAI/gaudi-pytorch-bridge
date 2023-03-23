@@ -245,3 +245,39 @@ def test_clamp_variants():
     result_hpu = torch.clamp(hpu_tensor, min, max).to("cpu")
     result_cpu = torch.clamp(cpu_tensor, min, max)
     assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)
+
+def test_add():
+    cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = torch.add(hpu_tensor, 2).to("cpu")
+    result_cpu = torch.add(cpu_tensor, 2)
+
+    assert torch.equal(result_hpu, result_cpu)
+
+def test_add_with_alpha():
+    cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = hpu_tensor.add_(3, 2).to("cpu")
+    result_cpu = cpu_tensor.add_(3, 2)
+
+    assert torch.equal(result_hpu, result_cpu)
+
+def test_div():
+    cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = torch.div(hpu_tensor, 3).to("cpu")
+    result_cpu = torch.div(cpu_tensor, 3)
+
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+def test_eq():
+    cpu_tensor = torch.randint(0, 2, (10,), dtype=torch.int32)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = torch.eq(hpu_tensor, 1).to("cpu")
+    result_cpu = torch.eq(cpu_tensor, 1)
+
+    assert torch.equal(result_hpu, result_cpu)

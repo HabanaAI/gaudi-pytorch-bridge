@@ -163,9 +163,9 @@ struct OptimizedJITGraphAndMetaData {
 
   bool get_is_control_edge_processing_required();
 
-  void SetBackendType(habana_helpers::HabanaFrontendTypes type);
+  void SetFrontendType(habana_helpers::HabanaFrontendTypes type);
 
-  habana_helpers::HabanaFrontendTypes GetBackendType();
+  const habana_helpers::HabanaFrontendTypes& GetFrontendType();
 
   void set_syn_graph_empty_flag(bool flag) {
     is_syn_graph_empty = flag;
@@ -265,8 +265,8 @@ struct OptimizedJITGraphAndMetaData {
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   bool is_shape_agnostic_supported = true;
   std::vector<uint64_t> stack_idx_fwd_graph_builder{};
-  habana_helpers::HabanaFrontendTypes backend_type =
-      habana_helpers::HabanaFrontendTypes::EAGER;
+  habana_helpers::HabanaFrontendTypes frontend_type =
+      habana_helpers::HabanaFrontendTypes::INVALID;
 };
 
 /**

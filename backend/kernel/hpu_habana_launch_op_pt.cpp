@@ -2028,6 +2028,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       HabanaKernel->setDeterministic(node->i(one));
     }
 
+    // Set kernel execution mode
+    HabanaKernel->SetExecutionMode(jit_graph_and_meta_data->GetFrontendType());
+
     PT_BRIDGE_DEBUG("Going to add ", *node);
 
     static std::unordered_set<std::string> jit_ir_ops_;

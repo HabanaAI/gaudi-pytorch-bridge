@@ -13,6 +13,7 @@
 #pragma once
 #include <synapse_api_types.h>
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/habana_types.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_shape.h"
@@ -514,6 +515,14 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const c10::Scalar& value);
 
+  void SetExecutionMode(habana_helpers::HabanaFrontendTypes mode) {
+    execution_mode = mode;
+  }
+
+  const habana_helpers::HabanaFrontendTypes& GetExecutionMode() {
+    return execution_mode;
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
@@ -532,6 +541,8 @@ class HabanaOperator {
   //
   std::vector<HabanaOperatorPtr> kernels_;
   bool deterministic{false};
+  habana_helpers::HabanaFrontendTypes execution_mode{
+      habana_helpers::HabanaFrontendTypes::INVALID};
 };
 
 class RegisterKernel {
