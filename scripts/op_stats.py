@@ -408,6 +408,7 @@ def main(args):
     for line in l_auto_ops_decl:
         if "REGISTER_HPU_BACKEND" in line:
             op_name = line.split('.REGISTER_HPU_BACKEND("')[1].split('",')[0]
+            op_name=op_name.split("::")[1] if "aten::" in op_name or "hpu::" in op_name else op_name
             # Skip adding to "auto" ops list if op is registered as part of auto code,
             #  but is actually manual op overridden in yaml
             if is_op_overridden_in_yaml(op_name, manual_ops_override_list):
