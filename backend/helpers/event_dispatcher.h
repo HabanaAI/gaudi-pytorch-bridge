@@ -33,6 +33,7 @@ class EventDispatcher {
     GRAPH_COMPILE,
     MARK_STEP,
     PROCESS_EXIT,
+    DEVICE_ACQUIRED,
     CUSTOM_EVENT,
   };
 
@@ -110,6 +111,9 @@ inline std::ostream& operator<<(
       break;
     case EventDispatcher::Topic::PROCESS_EXIT:
       o << "PROCESS_EXIT";
+      break;
+    case EventDispatcher::Topic::DEVICE_ACQUIRED:
+      o << "DEVICE_ACQUIRED";
       break;
     case EventDispatcher::Topic::CUSTOM_EVENT:
       o << "CUSTOM_EVENT";

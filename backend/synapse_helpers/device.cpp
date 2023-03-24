@@ -27,6 +27,7 @@
 
 #include <synapse_api.h>
 
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/kernel/refinement_engine.h"
 
 #include "habana_helpers/logging.h"
@@ -480,6 +481,9 @@ synapse_error_v<std::shared_ptr<device>> device::create(
 
   if (status != synSuccess) {
     return synapse_error{"Device acquire failed.", status};
+  } else {
+    habana_helpers::EmitEvent(
+        habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
   }
 
   std::shared_ptr<device> device_ptr{new device(

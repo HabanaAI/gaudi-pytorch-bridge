@@ -31,8 +31,32 @@ class MetricManager(object):
             self._metric_saver.process_trigger(MetricDumpTrigger.mark_step,
                                                self._global_metrics)
 
-        EventDispatcher.instance().subscribe(EventId.MARK_STEP,
-                                             mark_step_event_callback_fn)
+        def dev_acquired_event_callback_fn(timestamp, event_params):
+            self._metric_saver.enable()
+
+        ed = EventDispatcher.instance()
+        self._mark_step_event_handle = ed.subscribe(EventId.MARK_STEP,
+                                                    mark_step_event_callback_fn)
+
+        self._dev_acquired_event_handle = ed.subscribe(EventId.DEVICE_ACQUIRED,
+                                                       dev_acquired_event_callback_fn)
+
+    def __del__(self):
+        atexit.unregister(self._at_exit_callback)
+
+        ed = EventDispatcher.instance()
+        ed.unsubscribe(self._mark_step_event_handle)
+        self._mark_step_event_handle = None
+
+        ed.unsubscribe(self._dev_acquired_event_handle)
+        self._dev_acquired_event_handle = None
+
+        for global_metric in self._global_metrics:
+            del global_metric
+        self._global_metrics = []
+
+        del self._metric_saver
+        self._metric_saver = None
 
     def register(self, name, metric_class):
         assert name not in self._metrics_types, f"Metric with given name ({name}) is already registered"
@@ -59,6 +83,7 @@ class MetricManager(object):
 
     def store_global_metrics(self, file_name, format):
         saver = MetricSaver(file_name, triggers=[MetricDumpTrigger.user], format=format)
+        saver.enable()
         saver.process_trigger(MetricDumpTrigger.user, self._global_metrics)
         saver.close()
 
@@ -159,8 +184,16 @@ class GraphCompilationMetric(Metric):
         self.stop()
 
 
-_metric_mgr = MetricManager()
-_metric_mgr.register("graph_compilation", GraphCompilationMetric)
+_metric_mgr = None
+
+
+def _init_metric_mgr():
+    global _metric_mgr
+    _metric_mgr = MetricManager()
+    _metric_mgr.register("graph_compilation", GraphCompilationMetric)
+
+
+_init_metric_mgr()
 
 
 def metric_global(name: str) -> Metric:

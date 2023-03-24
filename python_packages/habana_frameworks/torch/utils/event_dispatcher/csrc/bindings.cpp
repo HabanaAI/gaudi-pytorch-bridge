@@ -50,6 +50,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value(
           "PROCESS_EXIT", habana_helpers::EventDispatcher::Topic::PROCESS_EXIT)
       .value(
+          "DEVICE_ACQUIRED",
+          habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED)
+      .value(
           "CUSTOM_EVENT", habana_helpers::EventDispatcher::Topic::CUSTOM_EVENT);
   m.add_object("_cleanup", py::capsule(cleanup_callback));
 

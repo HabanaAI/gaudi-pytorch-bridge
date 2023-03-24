@@ -20,6 +20,31 @@ from .exceptions import InvalidMetricDumpTrigger, InvalidMetricDumpFileFormat
 
 
 class MetricWriter(metaclass=abc.ABCMeta):
+    def __init__(self, name):
+        self._name = name
+        os.makedirs(os.path.dirname(self._name), exist_ok=True)
+        self._handle = self._create_unique_file()
+
+    def _create_unique_file(self):
+        handle = None
+        curr_metric_file_name = self._name
+        curr_index = 0
+        while not handle:
+            try:
+                handle = open(curr_metric_file_name, "x")
+            except FileExistsError:
+                pass
+
+            if handle:
+                self._name = curr_metric_file_name
+                break
+
+            curr_index += 1
+            curr_metric_file_name = f"{self._name}.{curr_index}"
+
+        self._name = curr_metric_file_name
+        return handle
+
     @abc.abstractmethod
     def write(self, name, stats, dump_trigger):
         raise NotImplementedError
@@ -56,7 +81,7 @@ class MetricJsonWriter(MetricWriter):
             return super().default(obj)
 
     def __init__(self, name):
-        self._handle = open(f"{name}", "w")
+        super().__init__(name)
         self._handle.write("[")
         self._handle.flush()
         self._first_obj_written = False
@@ -94,7 +119,7 @@ class MetricTextWriter(MetricWriter):
     """
 
     def __init__(self, name):
-        self._handle = open(f"{name}", "w")
+        super().__init__(name)
 
     def write(self, name, stats, dump_trigger, timestamp):
         """Writes object to TEXT file.
@@ -157,6 +182,28 @@ class MetricSaver:
         MetricDumpFormat.text: MetricTextWriter,
     }
 
+    def __init__(self, file_name="", triggers=[MetricDumpTrigger.user], format=METRIC_FILE_FORMAT_DEFAULT):
+        if file_name:
+            use_env = False
+            self._metric_file_base_name = file_name
+        else:
+            use_env = True
+            self._metric_file_base_name = self._get_env(self.METRIC_FILE_ENV_VAR,
+                                                        self.METRIC_FILE_ENV_VAR_ALT,
+                                                        None)
+
+        self._saver_enabled = True if self._metric_file_base_name else False
+
+        self._metric_dump_triggers = []
+        self._metric_writer = MetricNullWriter()
+
+        if self._saver_enabled:
+            self._metric_dump_triggers = self._get_metric_dump_trigger_from_env() if use_env else triggers
+            self._metric_file_format = self._get_metric_dump_format_from_env() if use_env else format
+            self._metric_writer = MetricNullWriter()  # metric saver is created lazily when it is needed
+
+        self._saver_activated = False
+
     def _get_env(self, env_name, alt_env_name=None, default_value=None):
         if env_name in os.environ:
             return os.environ[env_name]
@@ -193,42 +240,33 @@ class MetricSaver:
                 return f"{base_name}-rank{os.environ[env_var]}{ext}"
         return f"{base_name}{ext}"
 
-    def __init__(self, file_name="", triggers=[MetricDumpTrigger.user], format=METRIC_FILE_FORMAT_DEFAULT):
-        if file_name:
-            use_env = False
-            metric_file_name = file_name
-        else:
-            use_env = True
-            metric_file_name = self._get_env(self.METRIC_FILE_ENV_VAR,
-                                             self.METRIC_FILE_ENV_VAR_ALT,
-                                             None)
+    def _get_metric_writer(self):
+        if isinstance(self._metric_writer, MetricNullWriter) and self._saver_enabled and self._saver_activated:
+            metric_file_name = self._determine_file_name_for_multinode(self._metric_file_base_name)
+            self._metric_writer = MetricSaver.FORMAT_TO_WRITER_MAP[self._metric_file_format](metric_file_name)
 
-        saver_enabled = True if metric_file_name else False
-
-        self._metric_dump_triggers = []
-        self._metric_writer = MetricNullWriter()
-
-        if saver_enabled:
-            self._metric_dump_triggers = self._get_metric_dump_trigger_from_env() if use_env else triggers
-            metric_file_format = self._get_metric_dump_format_from_env() if use_env else format
-
-            metric_file_name = self._determine_file_name_for_multinode(metric_file_name)
-            self._metric_writer = MetricSaver.FORMAT_TO_WRITER_MAP[metric_file_format](metric_file_name)
+        return self._metric_writer
 
     @property
     def metric_change_callback(self):
         def callback(timestamp, metric_name, stats):
             if MetricDumpTrigger.metric_change in self._metric_dump_triggers and self._metric_writer is not None:
-                self._metric_writer.write(metric_name, stats, MetricDumpTrigger.metric_change, timestamp=timestamp)
+                self._get_metric_writer().write(metric_name, stats, MetricDumpTrigger.metric_change, timestamp=timestamp)
 
         return callback
+
+    def enable(self):
+        self._saver_activated = True
 
     def process_trigger(self, trigger, metrics=[]):
         if trigger in self._metric_dump_triggers:
             for metric in metrics:
-                self._metric_writer.write(metric.name(), metric.stats(
+                self._get_metric_writer().write(metric.name(), metric.stats(
                 ), trigger, timestamp=datetime.now())
 
     def close(self):
         self._metric_writer.close()
         self._metric_writer = MetricNullWriter()
+
+    def __del__(self):
+        self.close()

@@ -20,6 +20,7 @@ from habana_frameworks.torch.hpu.metrics import metric_global, metric_localconte
 from habana_frameworks.torch.utils.event_dispatcher import *
 import multiprocessing
 from multiprocessing import Process, Queue
+import torch.multiprocessing as pt_mp
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -60,7 +61,7 @@ class TestMetricsAPI:
 
         last_total_time = 0
         for curr_iter, shape in enumerate(shapes):
-            compute_single_step(shape, device, curr_iter+1)
+            compute_single_step(shape, device, curr_iter + 1)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
             assert gc_metric_dict["TotalTime"] > last_total_time
@@ -132,19 +133,19 @@ class TestMetricsAPI:
 
         with metric_localcontext("graph_compilation") as outer_gc_metric:
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device, i+1) for i in range(3)]
+                [compute_single_step(next(shapes), device, i + 1) for i in range(1, 4)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device, i+1) for i in range(2)]
+                [compute_single_step(next(shapes), device, i + 1) for i in range(4, 6)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device, i+1) for i in range(3)]
+                [compute_single_step(next(shapes), device, i + 1) for i in range(6, 9)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 3
 
             with metric_localcontext("graph_compilation") as inner_gc_metric:
-                [compute_single_step(next(shapes), device, i+1) for i in range(2)]
+                [compute_single_step(next(shapes), device, i + 1) for i in range(9, 11)]
             assert dict(inner_gc_metric.stats())["TotalNumber"] == 2
 
         assert dict(outer_gc_metric.stats())["TotalNumber"] == 10
@@ -377,6 +378,70 @@ class TestMetricsDump:
 
         # check generated_on field if is in iso format
         assert datetime.datetime.fromisoformat(metric["generated_on"])
+
+    @staticmethod
+    def _sample_worker_process_that_does_nothing():
+        pass
+
+    def test_metric_no_dump_when_dev_not_acquired(self, runner, tmp_path):
+        metric_file = f"{tmp_path}/metric.json"
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file}
+
+        runner(TestMetricsDump._sample_worker_process_that_does_nothing, env=env_vars)
+        assert not os.path.exists(metric_file)
+
+    @staticmethod
+    def worker_process_for_mp(rank, world_size, call_initialize_dist_hpu):
+        if call_initialize_dist_hpu:
+            import habana_frameworks.torch.distributed.hccl as hccl
+            hccl.initialize_distributed_hpu(world_size, rank, rank)
+
+        device = torch.device('hpu')
+        torch.random.manual_seed(42)
+        compute_single_step([3, 2, 1], device)
+
+    @staticmethod
+    def _sample_worker_running_processes_via_torch_mp(world_size, call_initialize_dist_hpu):
+        pt_mp.start_processes(
+            TestMetricsDump.worker_process_for_mp,
+            nprocs=world_size,
+            args=(world_size, call_initialize_dist_hpu),
+            daemon=False,
+            start_method="spawn",
+        )
+
+    @pytest.mark.parametrize("call_init_dist_hpu", [True, False])
+    def test_metric_run_processes_via_torch_mp(self, runner, tmp_path, call_init_dist_hpu):
+        metric_file = f"{tmp_path}/metric.json"
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file}
+
+        world_size = 2
+
+        runner(TestMetricsDump._sample_worker_running_processes_via_torch_mp,
+               world_size, call_init_dist_hpu, env=env_vars)
+
+        for rank in range(world_size):
+            if call_init_dist_hpu:
+                core, ext = metric_file.rsplit(".")
+                file_with_rank = f"{core}-rank{rank}.{ext}"
+            else:
+                file_with_rank = f"{metric_file}.{rank}" if rank > 0 else metric_file
+
+            with open(file_with_rank, "r") as f:
+                payload = f.read()
+            parsed = TestMetricsDump._parse_dump(payload, "json")
+
+            assert len(parsed) == 1
+            metric = parsed[0]
+            assert metric["metric_name"] == "graph_compilation"
+            assert metric["triggered_by"] == "process_exit"
+            assert int(metric["statistics"]["TotalNumber"]) == 1
+            assert int(metric["statistics"]["TotalTime"]) > 0
+
+        if call_init_dist_hpu:
+            assert not os.path.exists(metric_file), \
+                "When 'initialize_distributed_hpu' is called then metrics should" \
+                " be stored in files with suffix 'rankX'"
 
     @staticmethod
     def _sample_worker_process_with_manual_metric_dump(metric_file, metric_format):
