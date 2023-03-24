@@ -80,29 +80,30 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
       break;
     }
   }
+  auto output_rank = static_cast<int64_t>(
+      indices_shape.size() + (int)input_shape.size() - indices_shape[0] - 1);
+  std::vector<int64_t> output_shape(output_rank, -1);
   if (get_adv_indexing_out_shape && advanced_indexing) {
-    std::vector<int64_t> output_shape;
     int64_t largest_specified_index_t_size = 0;
     for (int i = 0; i < (int)input_shape.size(); i++) {
       if (adv_index_dims[i] > largest_specified_index_t_size)
         largest_specified_index_t_size = adv_index_dims[i];
     }
     bool explicit_index_found = false;
-    for (int i = 0; i < (int)input_shape.size(); i++) {
+    for (int i = 0; i < (int)input_shape.size(); ++i) {
       if (adv_index_dims[i]) { // dim has explicit index tensor
         if (!explicit_index_found) {
-          output_shape.emplace_back(largest_specified_index_t_size);
+          output_shape[i] = largest_specified_index_t_size;
           explicit_index_found = true;
         }
       } else { // advanced indexing done on this dim
-        output_shape.emplace_back(input_shape[i]);
+        output_shape[i] = input_shape[i];
       }
     }
-    return output_shape;
+    for (auto i{input_shape.size()}; i < output_rank; ++i) {
+      output_shape[i] = 1;
+    }
   } else {
-    auto output_rank = static_cast<int64_t>(
-        indices_shape.size() + (int)input_shape.size() - indices_shape[0] - 1);
-    std::vector<int64_t> output_shape(output_rank, -1);
     for (size_t i = 0; i < indices_shape.size() - 1; i++) {
       output_shape[i] = indices_shape[i + 1];
     }
@@ -112,8 +113,8 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
       output_shape[indices_shape.size() - 1 + i] =
           input_shape[indices_shape[0] + i];
     }
-    return output_shape;
   }
+  return output_shape;
 }
 
 } // namespace habana
