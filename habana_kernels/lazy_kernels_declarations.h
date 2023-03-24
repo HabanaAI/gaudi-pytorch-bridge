@@ -71,22 +71,6 @@ at::Tensor& set_source_Storage_storage_offset(
     at::SymIntArrayRef stride);
 at::Tensor view_hpu(const at::Tensor& self, at::SymIntArrayRef size);
 at::Tensor view_dtype_hpu(const at::Tensor& self_, c10::ScalarType dtype);
-at::Tensor add_tensor_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& other,
-    const at::Scalar& alpha);
-at::Tensor add_scalar_hpu_lazy(
-    const at::Tensor& self,
-    const at::Scalar& other,
-    const at::Scalar& alpha);
-at::Tensor& add_scalar_hpu_lazy_(
-    at::Tensor& self,
-    const at::Scalar& other,
-    const at::Scalar& alpha);
-at::Tensor& add_tensor_hpu_lazy_(
-    at::Tensor& self,
-    const at::Tensor& other,
-    const at::Scalar& alpha);
 at::Tensor baddbmm_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& batch1,

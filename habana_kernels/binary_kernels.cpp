@@ -793,8 +793,3 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
 }
-
-static auto& BinaryKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::add.Tensor", KERNEL_FN(AddOperator))
-        .add("aten::add.Scalar", KERNEL_FN(AddOperator));

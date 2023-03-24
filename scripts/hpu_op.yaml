@@ -668,69 +668,82 @@ acosh_:
 
 add.Tensor:
   force_default: false
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  override_fn: add_tensor_hpu_lazy
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  out_ids: [0]
+  scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 add.Scalar:
   force_default: false
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  override_fn: add_scalar_hpu_lazy
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  out_ids: [0]
   promote_to_common_type: [self, other]
 
 add_.Scalar:
   force_default: false
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  override_fn: add_scalar_hpu_lazy_
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  inplace_ids: [0]
+  scalar_ids: [1, 2]
   promote_to_common_type: [self, other]
 
 add_.Tensor:
   force_default: false
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  override_fn: add_tensor_hpu_lazy_
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  inplace_ids: [0]
+  scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 add.out:
   broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  guid: add_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
+  scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 add.Scalar_out:
   force_default: false
+  custom_fill_params: FillBinaryAddParams
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Int, Half, Char]
-  guid: add_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   promote_to_common_type: [self, other]
 
@@ -6593,13 +6606,13 @@ std_mean.correction:
 sub.Tensor:
   force_default: false
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -6607,41 +6620,41 @@ sub.Tensor:
 sub.Scalar:
   force_default: false
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
   promote_to_common_type: [self, other]
 
 sub_.Tensor:
   force_default: false
-  broadcast: true
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
+  guid: binary_with_alpha_fwd
   inplace_ids: [0]
-  op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 sub_.Scalar:
   force_default: false
-  broadcast: true
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -6649,25 +6662,26 @@ sub_.Scalar:
 sub.Scalar_out:
   force_default: false
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   promote_to_common_type: [self, other]
 
 sub.out:
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
     Greco: [BFloat16, Float, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
+  scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 sum:
