@@ -446,8 +446,6 @@ def main(args):
     model_for_train = model
 
     if args.resume:
-        if (args.device == 'hpu'):
-
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
