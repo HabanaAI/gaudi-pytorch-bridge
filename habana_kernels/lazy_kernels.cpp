@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <utility>
+#include "backend/backend_meta.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging_pt.h"
@@ -1084,15 +1085,15 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
 
-  auto hb_impl = habana_lazy::GetHbInternalTensorImpl(self_internal_tesor);
-  auto synapse_permute = hb_impl->GetMemoryPermutation();
+  auto tmeta{get_tensor_extra_meta(self_internal_tesor)};
+  auto synapse_permute = tmeta->get_memory_permutation();
   if (synapse_permute.size() != 0) {
     PT_LAYOUTS_DEBUG(
         "clearing memory permute, id ",
         self_hb_tensor.getTensorUniqueId(),
         " permute ",
         VecToString(synapse_permute))
-    hb_impl->SetMemoryPermutation({});
+    tmeta->set_memory_permutation({});
   }
 
   // self may have been resized, so re-set its size and strides
@@ -1252,10 +1253,8 @@ ir::NodePtr strided_view_h2d(
       HOST_TO_DEVICE_TENSOR);
   auto hl_stride_st = GetOrCreateHbLazyTensor(stride_st, c10::kHPU);
   auto hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
-  habana_lazy::HbInternalTensorImpl* impl =
-      habana_lazy::GetHbInternalTensorImpl(hl_stride_internal);
-  HABANA_ASSERT(impl);
-  impl->set_host_data(
+  auto tmeta{get_tensor_extra_meta(hl_stride_internal)};
+  tmeta->set_host_data(
       stride_data_vec.data(),
       stride_data_vec.size(),
       sizeof(uint64_t),
@@ -1268,7 +1267,7 @@ ir::NodePtr strided_view_h2d(
       node_str = "hpu::strided_view_orig_ds_h2d";
     }
 
-    impl->setH2DDataForBucketing();
+    tmeta->set_H2D_data_for_bucketing();
     node = std::make_shared<ir::StridedView>(
         self, out_size_st, stride_st, node_str);
   } else {
@@ -1280,12 +1279,12 @@ ir::NodePtr strided_view_h2d(
 
     auto offset_t = GetHbLazyTensor(offset_st);
     auto tensor_offset = offset_t.CurrentTensorAttached().value();
-    auto impl_offset = habana_lazy::GetHbInternalTensorImpl(tensor_offset);
-    HABANA_ASSERT(impl_offset, "impl_offset is invalid");
+
+    auto tmeta_offset{get_tensor_extra_meta(tensor_offset)};
 
     // Mark this front end shape tensor as it does not need synapse tensor.
     // It carries stride_ratios info for BE lowering kernel.
-    impl_offset->setH2DFrontEndShapeTensor();
+    tmeta_offset->set_H2D_frontend_shape_tensor();
 
     std::vector<int64_t> stride_ratios;
     auto self_strides = orig_stride.vec();
@@ -1294,8 +1293,8 @@ ir::NodePtr strided_view_h2d(
     for (uint64_t i = 0; i < len; i++) {
       stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
     }
-    impl_offset->get_shape_struct().set_strides_tensor_shape(stride_sizes);
-    impl_offset->get_shape_struct().set_stride_ratio(stride_ratios);
+    tmeta_offset->get_shape_struct().set_strides_tensor_shape(stride_sizes);
+    tmeta_offset->get_shape_struct().set_stride_ratio(stride_ratios);
     PT_DYNAMIC_SHAPE_DEBUG(
         "Setting stride ratio = ", stride_ratios, " offset = ", offset);
 
@@ -1327,11 +1326,10 @@ Tensor empty_as_strided_lazy(
         storage_offset.value());
   }
 
-  auto hb_at_internal_self = habana_lazy::GetHbInternalTensorImpl(self);
-  auto hb_at_internal_tensor =
-      habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-  auto layout_format = hb_at_internal_self->GetTensorLayout();
-  hb_at_internal_tensor->SetTensorLayout(layout_format);
+  auto tmeta_self{get_tensor_extra_meta(self)};
+  auto tmeta_internal_tensor{get_tensor_extra_meta(at_internal_tensor)};
+  auto layout_format = tmeta_self->get_tensor_layout();
+  tmeta_internal_tensor->set_tensor_layout(layout_format);
 
   return at_internal_tensor;
 }
@@ -1408,8 +1406,7 @@ ir::NodePtr create_as_strided_node(
     } else {
       auto lazy_ten = GetHbLazyTensor(out_size_st);
       auto tensor_size_st = lazy_ten.CurrentTensorAttached().value();
-      auto impl_size_st = habana_lazy::GetHbInternalTensorImpl(tensor_size_st);
-      HABANA_ASSERT(impl_size_st, "impl_size_st is invalid");
+      auto tmeta{get_tensor_extra_meta(tensor_size_st)};
 
       std::vector<int64_t> stride_ratios;
       auto self_strides = orig_stride.vec();
@@ -1418,8 +1415,8 @@ ir::NodePtr create_as_strided_node(
       for (uint64_t i = 0; i < len; i++) {
         stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
       }
-      impl_size_st->get_shape_struct().set_strides_tensor_shape(stride_sizes);
-      impl_size_st->get_shape_struct().set_stride_ratio(stride_ratios);
+      tmeta->get_shape_struct().set_strides_tensor_shape(stride_sizes);
+      tmeta->get_shape_struct().set_stride_ratio(stride_ratios);
       PT_DYNAMIC_SHAPE_DEBUG(
           "Setting stride ratio = ", stride_ratios, " offset = ", offset);
 
@@ -2391,19 +2388,17 @@ Tensor constant_pad_hpu_lazy(
             GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
         auto hl_output_shape_tensor_internal =
             hl_output_shape_tensor.CurrentTensorAttached().value();
-        auto stImpl = habana_lazy::GetHbInternalTensorImpl(
-            hl_output_shape_tensor_internal);
-        if (stImpl) {
-          stImpl->setH2DFrontEndShapeTensor();
+        auto tmeta_shape_tensor_internal{
+            get_tensor_extra_meta(hl_output_shape_tensor_internal, true)};
+        if (tmeta_shape_tensor_internal) {
+          tmeta_shape_tensor_internal->set_H2D_frontend_shape_tensor();
         }
         auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
 
         auto hl_param_internal =
             hl_params_shape.CurrentTensorAttached().value();
-        habana_lazy::HbInternalTensorImpl* impl =
-            habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-        HABANA_ASSERT(impl);
-        impl->set_host_data(
+        auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+        tmeta->set_host_data(
             pad_ht_vec.data(),
             pad_ht_vec.size(),
             sizeof(uint32_t),
@@ -4960,9 +4955,8 @@ at::Tensor& randperm_hpu_lazy_ht(Tensor& output, int64_t n, at::Tensor seed) {
       HOST_TO_DEVICE_TENSOR);
   auto hl_params_shape = GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
   auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-  habana_lazy::HbInternalTensorImpl* impl =
-      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-  impl->set_host_data(
+  auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+  tmeta->set_host_data(
       params_vec.data(),
       params_vec.size(),
       sizeof(int32_t),
@@ -5041,16 +5035,13 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
 
   auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
 
-  habana_lazy::HbInternalTensorImpl* impl =
-      habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-  HABANA_ASSERT(impl);
-
-  impl->set_host_data(
+  auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+  tmeta->set_host_data(
       params_vec.data(),
       params_vec.size(),
       sizeof(int32_t),
       HostDataType::INT32_T);
-  impl->setH2DDataForBucketing();
+  tmeta->set_H2D_data_for_bucketing();
   auto out_shape = RepeatOperator::compute_output_shape(self, repeats);
 
   vector_of_inputs = {self, params_shape};
@@ -5146,15 +5137,13 @@ at::Tensor repeat_inlv_hpu_lazy(
     auto hl_params_shape = GetOrCreateHbLazyTensor(repeats_tensor, c10::kHPU);
 
     auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-    habana_lazy::HbInternalTensorImpl* impl =
-        habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-    HABANA_ASSERT(impl);
-    impl->set_host_data(
+    auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+    tmeta->set_host_data(
         repeats_cpu.data_ptr(),
         repeats_cpu.sizes()[0],
         sizeof(int32_t),
         HostDataType::INT32_T);
-    impl->setH2DDataForBucketing();
+    tmeta->set_H2D_data_for_bucketing();
 
     auto output_shape =
         RepeatInlvOperator::compute_output_shape(input, 0, out_size);
@@ -5176,10 +5165,9 @@ at::Tensor repeat_inlv_hpu_lazy(
       GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
   auto hl_output_shape_tensor_internal =
       hl_output_shape_tensor.CurrentTensorAttached().value();
-  auto stImpl =
-      habana_lazy::GetHbInternalTensorImpl(hl_output_shape_tensor_internal);
-  if (stImpl) {
-    stImpl->setH2DFrontEndShapeTensor();
+  auto tmeta{get_tensor_extra_meta(hl_output_shape_tensor_internal, true)};
+  if (tmeta) {
+    tmeta->set_H2D_frontend_shape_tensor();
   }
 
   LazyOp<at::Tensor> k{

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -189,11 +189,9 @@ ir::NodePtr strided_insert_h2d(
       HOST_TO_DEVICE_TENSOR);
   auto hl_stride_st = GetOrCreateHbLazyTensor(stride_st, c10::kHPU);
   auto hl_stride_internal = hl_stride_st.CurrentTensorAttached().value();
-  habana_lazy::HbInternalTensorImpl* impl =
-      habana_lazy::GetHbInternalTensorImpl(hl_stride_internal);
-  HABANA_ASSERT(impl);
+  auto tmeta{get_tensor_extra_meta(hl_stride_internal)};
 
-  impl->set_host_data(
+  tmeta->set_host_data(
       stride_data_vec.data(),
       stride_data_vec.size(),
       sizeof(uint64_t),
@@ -201,7 +199,7 @@ ir::NodePtr strided_insert_h2d(
 
   if (orig_t.sizes().size() != strides.size() ||
       IsStridesRatioZero(self_strides, stride_sizes)) {
-    impl->setH2DDataForBucketing();
+    tmeta->set_H2D_data_for_bucketing();
     node_str = "hpu::strided_insert_orig_ds_h2d";
     node = std::make_shared<ir::StridedInsert>(
         orig_t, insert_t, stride_st, node_str);

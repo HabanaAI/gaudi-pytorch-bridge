@@ -70,10 +70,8 @@ ArangeInputs<at::Tensor&>::ArangeInputs(
         habana_lazy::GetOrCreateHbLazyTensor(params_shape, c10::kHPU);
 
     auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
-    habana_lazy::HbInternalTensorImpl* impl =
-        habana_lazy::GetHbInternalTensorImpl(hl_param_internal);
-    HABANA_ASSERT(impl);
-    impl->set_host_data(
+    auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+    tmeta->set_host_data(
         params_vec.data(),
         params_vec.size(),
         sizeof(int),

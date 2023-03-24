@@ -177,8 +177,8 @@ void* GetDataInHostBuffer(
         if (tensor.has_storage()) {
           // std::cout << "[GetDataInHostBuffer] [" << idx << "] has_storage" <<
           // std::endl << std::flush;
-          auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-          host_ptr = impl->get_host_ptr();
+          auto tmeta{habana::get_tensor_extra_meta(tensor)};
+          host_ptr = tmeta->get_host_ptr();
           if (host_ptr == nullptr) {
             auto& device = synapse_helpers::HPURegistrar::get_device();
             auto device_id = device.id();
@@ -216,8 +216,8 @@ void* GetDataInHostBuffer(
       if (tensor.has_storage()) {
         // std::cout << "[GetDataInHostBuffer] [" << idx << "] has_storage" <<
         // std::endl << std::flush;
-        auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-        host_ptr = impl->get_host_ptr();
+        auto tmeta{habana::get_tensor_extra_meta(tensor)};
+        host_ptr = tmeta->get_host_ptr();
         if (host_ptr == nullptr) {
           auto& device = synapse_helpers::HPURegistrar::get_device();
           auto device_id = device.id();

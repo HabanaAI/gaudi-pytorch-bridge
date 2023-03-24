@@ -24,7 +24,6 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "hpu_lazy_tensors.h"
-#include "hpu_ops/common/add_composite_gen.h"
 
 namespace habana_lazy {
 
@@ -117,40 +116,12 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     get_tensor_extra_meta().set_redundant();
   }
 
-  void* get_host_ptr() const {
-    return get_ctensor_extra_meta().get_host_ptr();
-  }
-
-  void set_host_ptr(void* host_ptr) {
-    get_tensor_extra_meta().set_host_ptr(host_ptr);
-  }
-
   void* get_compile_host_ptr() const {
     return get_ctensor_extra_meta().get_compile_host_ptr();
   }
 
-  size_t get_host_size() const {
-    return get_ctensor_extra_meta().get_host_size();
-  }
-
-  size_t get_host_el_size() const {
-    return get_ctensor_extra_meta().get_host_el_size();
-  }
-
-  habana::HostDataType get_host_dt_type() const {
-    return get_ctensor_extra_meta().get_host_dt_type();
-  }
-
   habana::ShapeTensorStruct& get_shape_struct() {
     return get_tensor_extra_meta().get_shape_struct();
-  }
-
-  void set_host_data(
-      void* d,
-      int size,
-      int ele_size,
-      habana::HostDataType dt_type) {
-    get_tensor_extra_meta().set_host_data(d, size, ele_size, dt_type);
   }
 
   habana::LayoutFormat GetTensorLayout() const {

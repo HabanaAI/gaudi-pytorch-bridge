@@ -24,8 +24,8 @@ bool lazy_to_backend::is_const_tensor(const at::Tensor& tensor) {
 }
 
 void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
-  const auto& hb_tensor = habana_lazy::GetHbInternalTensorImpl(tensor);
-  return hb_tensor->get_host_ptr();
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  return tmeta->get_host_ptr();
 }
 
 bool lazy_to_backend::is_lazy_inference_call_context() {

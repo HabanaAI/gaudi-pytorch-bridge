@@ -2397,8 +2397,8 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
     auto result = inputs[1].toTensor();
     at::Tensor host_tensor = inputs[0].toTensor();
 
-    auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
-    if (impl->get_host_dt_type() == habana::HostDataType::INT32_T) {
+    auto tmeta{get_tensor_extra_meta(host_tensor)};
+    if (tmeta->get_host_dt_type() == habana::HostDataType::INT32_T) {
       out.AddOutputTensor(TensorMetaData(
           output_shape_tensor.sizes().vec(),
           HabanaOperator::CalculateStrides(
@@ -2406,7 +2406,7 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
               output_shape_tensor.suggest_memory_format()),
           output_shape_tensor.scalar_type(),
           output_shape_tensor.suggest_memory_format()));
-    } else if (impl->get_host_dt_type() == habana::HostDataType::FLOAT_T) {
+    } else if (tmeta->get_host_dt_type() == habana::HostDataType::FLOAT_T) {
       out.AddOutputTensor(TensorMetaData(
           result.sizes().vec(),
           HabanaOperator::CalculateStrides(

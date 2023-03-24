@@ -951,14 +951,13 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
   std::vector<int64_t> strides;
   size_t data_size = stride_t.sizes()[0];
 
-  auto impl_stride = habana_lazy::GetHbInternalTensorImpl(stride_t);
-  HABANA_ASSERT(impl_stride);
-  habana::HostDataType h2d_dt_type = impl_stride->get_host_dt_type();
+  auto tmeta{get_tensor_extra_meta(stride_t)};
+  habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
   void* host_ptr = nullptr;
   if (dry_run) {
-    host_ptr = impl_stride->get_compile_host_ptr();
+    host_ptr = tmeta->get_compile_host_ptr();
   } else {
-    host_ptr = impl_stride->get_host_ptr();
+    host_ptr = tmeta->get_host_ptr();
   }
 
   if (h2d_dt_type == habana::HostDataType::INT32_T) {

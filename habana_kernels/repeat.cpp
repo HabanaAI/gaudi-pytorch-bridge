@@ -53,7 +53,7 @@ std::vector<int64_t> RepeatOperator::compute_reshape_output(
 
 std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
     const at::Tensor& host_tensor) {
-  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+  auto tmeta{get_tensor_extra_meta(host_tensor)};
 
   bool is_dry_run = false;
   if (habana::ShapeInference::GetCurrentPass() ==
@@ -65,15 +65,15 @@ std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
 
   void* host_ptr = nullptr;
   if (is_dry_run) {
-    host_ptr = impl->get_compile_host_ptr();
+    host_ptr = tmeta->get_compile_host_ptr();
   } else {
-    host_ptr = impl->get_host_ptr();
+    host_ptr = tmeta->get_host_ptr();
   }
 
-  size_t h2d_data_size = impl->get_host_size();
+  size_t h2d_data_size = tmeta->get_host_size();
   if (habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    size_t data_size = h2d_data_size * impl->get_host_el_size();
+    size_t data_size = h2d_data_size * tmeta->get_host_el_size();
     host_ptr = static_cast<char*>(host_ptr) + data_size;
   }
 
@@ -285,7 +285,7 @@ void RepeatInlvOperator::AllocateAndAddSynapseNode(
 
 std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
     const at::Tensor& host_tensor) {
-  auto impl = habana_lazy::GetHbInternalTensorImpl(host_tensor);
+  auto tmeta{get_tensor_extra_meta(host_tensor)};
 
   bool is_dry_run = false;
   if (habana::ShapeInference::GetCurrentPass() ==
@@ -297,15 +297,15 @@ std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
 
   void* host_ptr = nullptr;
   if (is_dry_run) {
-    host_ptr = impl->get_compile_host_ptr();
+    host_ptr = tmeta->get_compile_host_ptr();
   } else {
-    host_ptr = impl->get_host_ptr();
+    host_ptr = tmeta->get_host_ptr();
   }
 
-  size_t h2d_data_size = impl->get_host_size();
+  size_t h2d_data_size = tmeta->get_host_size();
   if (habana::ShapeInference::GetCurrentPass() ==
       habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    size_t data_size = h2d_data_size * impl->get_host_el_size();
+    size_t data_size = h2d_data_size * tmeta->get_host_el_size();
     host_ptr = static_cast<char*>(host_ptr) + data_size;
   }
 
@@ -325,7 +325,7 @@ OutputShapeInfRetType RepeatInlvOperatorHT::ComputeOutputShape(
   auto repeats_ht = inputs[1].toTensor();
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 
   auto out_metadata = TensorMetaData(
@@ -357,18 +357,17 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 
   auto repeats_ht = inputs[1].toTensor();
   TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_host_to_device_tensor());
-  auto impl = habana_lazy::GetHbInternalTensorImpl(repeats_ht);
-  HABANA_ASSERT(impl);
+  auto tmeta{get_tensor_extra_meta(repeats_ht)};
 
   TORCH_CHECK(
-      impl->get_host_dt_type() == habana::HostDataType::INT32_T,
+      tmeta->get_host_dt_type() == habana::HostDataType::INT32_T,
       "Incorrect datatype of HOST ",
-      impl->get_host_dt_type(),
+      tmeta->get_host_dt_type(),
       ", expecting ",
       habana::HostDataType::INT32_T);
 
   auto repeat_vec = ComputeRepeatShapefromH2DTensor(repeats_ht);
-  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0);
+  auto out_size = std::accumulate(repeat_vec.begin(), repeat_vec.end(), 0ll);
 
   auto out_shape = RepeatInlvOperator::compute_output_shape(input, 0, out_size);
 
