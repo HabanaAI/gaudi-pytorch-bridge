@@ -445,6 +445,8 @@ class HabanaLaunchOpPT {
       const OutputShapeInfRetType& output,
       std::vector<IdxTensorTup>& intermediate_shape_tensor_cs);
   void handlePrimNodes(torch::jit::Node* node);
+  void handlePrimConstantNode(torch::jit::Node* node);
+  void handlePrimListConstructNode(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 

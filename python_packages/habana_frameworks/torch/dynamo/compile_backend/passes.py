@@ -96,7 +96,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_fake_propagation,
-            pass_wa_mixed_devices, # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
             pass_mark_fallbacks,
             pass_transform_fallbacks,
@@ -379,6 +379,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         unsupported_ops = [
             # Tensor creation OPs.
             "empty",
+            "empty_like",
             "zeros",
             "ones",
             "clone",  # SW-136398
@@ -399,10 +400,14 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "bernoulli",
             "multinomial",
             "normal",
-            "max_pool2d_with_indices",
+            # "max_pool2d_with_indices",
+            # "max_pool2d_with_indices_backward",
             # Other
             "convolution",  # SW-137174
+            "convolution_backward",
             "_native_batch_norm_legit_functional",  # SW-137176
+            "native_batch_norm_backward",
+            "addcmul",
         ]
 
         return node_target in unsupported_ops
@@ -623,6 +628,7 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
     ctx.graph_module.recompile()
 
     return graph_changed
+
 
 def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     """

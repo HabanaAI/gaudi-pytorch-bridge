@@ -1191,89 +1191,9 @@ void HabanaLaunchOpPT::handleRestrideNode(
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   PT_BRIDGE_TRACE;
   if (node->kind() == torch::jit::prim::Constant) {
-    auto node_vals = node->outputs();
-    bool is_jit_cached_graph_info_available =
-        jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
-    for (const auto value : node_vals) {
-      IValPtrShared ivptrsh = nullptr;
-      if (is_jit_cached_graph_info_available == false) {
-        ivptrsh = std::make_shared<IVal>(toIValue(value).value());
-      }
-      if (value->type()->kind() == c10::TypeKind::TensorType) {
-        if (is_jit_cached_graph_info_available == false) {
-          auto ivptrshUpdated = castConstantTensor(ivptrsh);
-          jit_graph_and_meta_data->set_prim_nodes_ival(ivptrshUpdated);
-        }
-        auto ivptrsh_updated = jit_graph_and_meta_data->get_prim_nodes_ival(
-            prim_nodes_ival_counter);
-        value_to_ivalue[value] = ivptrsh_updated;
-        std::string irn{"%intermediate_"};
-        irn += std::to_string(intermediate_index);
-        intermediate_index++;
-
-        auto tensor = ivptrsh_updated->toTensor();
-        meta_syn_tensors.push_back(habana_helpers::create_tensor(
-            tensor, *syn_graph_ptr, true, false, tensor.scalar_type()));
-        SharedSynTensorOrRefListPtr tensorList =
-            std::make_shared<SynTensorOrRefList>();
-        tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
-        PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-            tensor,
-            meta_syn_tensors.back().name(),
-            irn,
-            watch_tensor_flag_,
-            meta_syn_tensors.back().id(),
-            meta_syn_tensors.back().get(),
-            meta_syn_tensors.back().tensor_type());
-
-        ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
-        aten_intermediates.push_back(tensor);
-      } else {
-        if (is_jit_cached_graph_info_available == false) {
-          jit_graph_and_meta_data->set_prim_nodes_ival(ivptrsh);
-        } else {
-          ivptrsh = jit_graph_and_meta_data->get_prim_nodes_ival(
-              prim_nodes_ival_counter);
-        }
-        value_to_ivalue[value] = ivptrsh;
-      }
-      prim_nodes_ival_counter++;
-    }
+    handlePrimConstantNode(node);
   } else if (node->kind() == torch::jit::prim::ListConstruct) {
-    const auto& node_ins = node->inputs();
-    IValPtrShared ivptrsh_list;
-
-    // ListConstruct can have optional and non-optional tensors as item types
-    if (node->output()->type()->containedTypes()[0]->kind() ==
-        OptionalType::Kind) {
-      c10::List<c10::optional<at::Tensor>> opttensorList;
-      for (const auto& value_in : node_ins) {
-        auto ivptrsh = value_to_ivalue[value_in];
-        if (ivptrsh->isTensor()) {
-          opttensorList.emplace_back(ivptrsh->toTensor());
-        } else {
-          opttensorList.emplace_back(c10::nullopt);
-        }
-      }
-
-      // convert opttensorList to Ivalue and update the stack
-      ivptrsh_list = std::make_shared<IVal>(opttensorList);
-    } else {
-      c10::List<at::Tensor> tensorList;
-      for (const auto& value_in : node_ins) {
-        auto ivptrsh = value_to_ivalue[value_in];
-        if (ivptrsh->isTensor()) {
-          tensorList.emplace_back(ivptrsh->toTensor());
-        }
-      }
-
-      // convert tensorList to Ivalue and update the stack
-      ivptrsh_list = std::make_shared<IVal>(tensorList);
-    }
-    auto node_vals = node->outputs();
-    HABANA_ASSERT(node_vals.size() == 1);
-    value_to_ivalue[node_vals[0]] = ivptrsh_list;
+    handlePrimListConstructNode(node);
   } else if (node->kind() == torch::jit::prim::ListUnpack) {
     // currently lowering code supports only TensorList+Unpack combination
     // [ToDo] Standalone ListUnpack support is not added here
@@ -1282,6 +1202,110 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         (node->kind() == torch::jit::prim::Constant) ||
         (node->kind() == torch::jit::prim::ListConstruct) ||
         (node->kind() == torch::jit::prim::ListUnpack));
+  }
+}
+
+void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
+  const auto& node_ins = node->inputs();
+  auto node_vals = node->outputs();
+  HABANA_ASSERT(node_vals.size() == 1);
+
+  // ListConstruct can have optional and non-optional tensors as item types
+  if (node->output()->type()->containedTypes()[0]->kind() ==
+      OptionalType::Kind) {
+    c10::List<c10::optional<at::Tensor>> opttensorList;
+    for (const auto& value_in : node_ins) {
+      auto ivptrsh = value_to_ivalue[value_in];
+      if (ivptrsh->isTensor()) {
+        opttensorList.emplace_back(ivptrsh->toTensor());
+      } else {
+        opttensorList.emplace_back(c10::nullopt);
+      }
+    }
+    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(opttensorList);
+    return;
+  }
+
+  auto ivptrsh = value_to_ivalue[node_ins[0]];
+
+  // Handle construction of list consisting tensor only
+  if (ivptrsh->isTensor()) {
+    c10::List<at::Tensor> tensorList;
+    for (const auto& value_in : node_ins) {
+      ivptrsh = value_to_ivalue[value_in];
+      // Constructed list should be homogenous
+      HABANA_ASSERT(ivptrsh->isTensor());
+      tensorList.emplace_back(ivptrsh->toTensor());
+    }
+    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(tensorList);
+    return;
+  }
+
+  //  Handle construction of list consisting ints only
+  if (ivptrsh->isInt()) {
+    c10::List<int64_t> intList;
+    for (const auto& value_in : node_ins) {
+      ivptrsh = value_to_ivalue[value_in];
+      // Constructed list should be homogenous
+      HABANA_ASSERT(ivptrsh->isInt());
+      intList.emplace_back(ivptrsh->toInt());
+    }
+    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(intList);
+    return;
+  }
+
+  HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
+}
+
+void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
+  auto node_vals = node->outputs();
+  bool is_jit_cached_graph_info_available =
+      jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
+  for (const auto value : node_vals) {
+    IValPtrShared ivptrsh = nullptr;
+    if (is_jit_cached_graph_info_available == false) {
+      ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+    }
+    if (value->type()->kind() == c10::TypeKind::TensorType) {
+      if (is_jit_cached_graph_info_available == false) {
+        auto ivptrshUpdated = castConstantTensor(ivptrsh);
+        jit_graph_and_meta_data->set_prim_nodes_ival(ivptrshUpdated);
+      }
+      auto ivptrsh_updated =
+          jit_graph_and_meta_data->get_prim_nodes_ival(prim_nodes_ival_counter);
+      value_to_ivalue[value] = ivptrsh_updated;
+      std::string irn{"%intermediate_"};
+      irn += std::to_string(intermediate_index);
+      intermediate_index++;
+
+      auto tensor = ivptrsh_updated->toTensor();
+      meta_syn_tensors.push_back(habana_helpers::create_tensor(
+          tensor, *syn_graph_ptr, true, false, tensor.scalar_type()));
+      SharedSynTensorOrRefListPtr tensorList =
+          std::make_shared<SynTensorOrRefList>();
+      tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
+      pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
+      PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+          tensor,
+          meta_syn_tensors.back().name(),
+          irn,
+          watch_tensor_flag_,
+          meta_syn_tensors.back().id(),
+          meta_syn_tensors.back().get(),
+          meta_syn_tensors.back().tensor_type());
+
+      ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
+      aten_intermediates.push_back(tensor);
+    } else {
+      if (is_jit_cached_graph_info_available == false) {
+        jit_graph_and_meta_data->set_prim_nodes_ival(ivptrsh);
+      } else {
+        ivptrsh = jit_graph_and_meta_data->get_prim_nodes_ival(
+            prim_nodes_ival_counter);
+      }
+      value_to_ivalue[value] = ivptrsh;
+    }
+    prim_nodes_ival_counter++;
   }
 }
 
