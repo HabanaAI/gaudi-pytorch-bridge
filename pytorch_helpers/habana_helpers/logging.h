@@ -291,7 +291,7 @@ class PTFuncLog {
     if (isActive) {
       auto message{Logger::print_hdr()};
       HLLOG_TRACE(
-          PT_TRACE, FORMAT_AND_MSG(message, module, ": begin of ", pName));
+          PT_TRACE, FORMAT_AND_MSG(message, module, ": end of ", pName));
     }
     synapse_helpers::trace_end(name.data());
     habana::profile::bridge::trace_end(name);
@@ -491,6 +491,8 @@ class PTFuncLog {
       __VA_ARGS__)
 
 #define PT_OP_INFO(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
+#define PT_FALLBACK_INFO(...) \
+  HLLOG_INFO(PT_FALLBACK, FORMAT_AND_MSG(__VA_ARGS__));
 
 // End of logging macros
 
