@@ -120,6 +120,25 @@ torch::jit::Stack EagerExec::launch() {
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
   if (graph_and_meta) {
     PT_EAGER_DEBUG("Eager Op JIT graph cache HIT for key ", key);
+    for (const auto& in : m_tensor_inputs) {
+      if (in.is_contiguous()) {
+        continue;
+      }
+
+      // If an input tensor is not contiguous view handling JIT IR pass would
+      // have modified the input tensor to 1D base tensor. Need to perform this
+      // operation for the cache hit case as well
+      int64_t elem_size =
+          c10::elementSize(habana_helpers::getInternalDtype(in.scalar_type()));
+      auto impl = in.unsafeGetTensorImpl();
+      auto total_num_elements =
+          (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
+      impl->set_storage_offset(0);
+      impl->set_sizes_and_strides(
+          at::IntArrayRef{total_num_elements}, at::IntArrayRef{1});
+      PT_EAGER_DEBUG(
+          "Eager op: Input tensor converted to base for the cache hit case");
+    }
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
     auto graph{create_eager_graph()};

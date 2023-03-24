@@ -17,6 +17,14 @@ from .config import configuration_flags
 
 logger = logging.getLogger("aot_hpu_backend")
 
+def get_updated_args(args):
+    args_new = []
+    for arg in args:
+        if torch.is_tensor(arg):
+            args_new.append(arg.contiguous())
+        else:
+            args_new.append(arg)
+    return args_new
 
 class HabanaGraphModule(torch.nn.Module):
     def __init__(self, jit_ir, is_training=False, dynamic=False):
@@ -30,11 +38,13 @@ class HabanaGraphModule(torch.nn.Module):
     def __call__(self, *args):
         from ._recipe_compiler_C import graph_compile, graph_launch
 
+        args_new = get_updated_args(args)
+
         if self._recipe_id is None:
             self.propagate_dtype(args)
-            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=args,
+            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs= tuple(args_new),
                                             dynamic=self._dynamic, inference=self._inference)
-        return graph_launch(recipe_id=self._recipe_id, inputs=args)
+        return graph_launch(recipe_id=self._recipe_id, inputs= tuple(args_new))
 
     def propagate_dtype(self, sample_input):
         if not configuration_flags["dtype_propagation_in_backend"]:

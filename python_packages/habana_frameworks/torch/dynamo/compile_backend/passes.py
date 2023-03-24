@@ -647,6 +647,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
         is_view = False
         view_ops = [
             "view",
+            "_unsafe_view",
             "as_strided",
             "slice",
             "select",

@@ -875,4 +875,5 @@ static auto& TensorShapeKernelsKernelRegistry =
         .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
+        .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("aten::split_with_sizes", KERNEL_FN_GLOBAL(SplitWithSizeOperator));
