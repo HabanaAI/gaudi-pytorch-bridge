@@ -37,6 +37,7 @@
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/session.h"
+#include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 
 namespace synapse_helpers {
@@ -320,7 +321,7 @@ device::device(
   create_default_stream();
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
-
+  ReleaseFreeMemory();
   DisableDynamicShapeGaudi3();
   dumpEnvSettings();
   is_hcl_same_addr_enabled_ =

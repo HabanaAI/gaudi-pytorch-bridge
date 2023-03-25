@@ -59,6 +59,7 @@
 
 #include "backend/jitgraph_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 using namespace torch::jit;
@@ -2794,26 +2795,27 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   size_t num_recipes = 1;
   bool dropped{true};
   // Keep evicting recipes until the memory usage goes below threshold
-  while (dropped && habana::IsHostMemoryThresholdReached()) {
-    dropped = dropCachedRecipe_LRU(num_recipes);
-    if (dropped) {
-      auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
-      auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
-      auto dropped_dbi = DynamicBucketInfoMap::get_instance().get(dropped_arg);
-      if (dropped_dbi != nullptr) {
-        // We are dropping the recipie but keeping the bucket
-        /*
-        auto dropped_bid = dropped_dbi->EvictBucket(dropped_val);
-        if ((dropped_dbi == current_dbipsh_) &&
-            dropped_bid < current_bucket_id_) {
-          current_bucket_id_ -= 1;
-          dsi_bucket_id = current_bucket_id_;
+  if (habana::IsHostMemoryThresholdReached()) {
+    // Remove in chunks of 512MB
+    int64_t eviction_threshold_left = 512 * 1024 * 1024;
+    while (dropped && eviction_threshold_left > 0) {
+      dropped = dropCachedRecipe_LRU(num_recipes);
+      if (dropped) {
+        auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
+        auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
+        auto dropped_dbi =
+            DynamicBucketInfoMap::get_instance().get(dropped_arg);
+        if (dropped_dbi != nullptr) {
+          // Update the eviction threshold left after removing this recipe
+          eviction_threshold_left -=
+              dropped_val->recipe->get_recipe_host_mem_size();
+          static_cast<void>(dsi_bucket_id);
+          dropped_dbi->ResetSynapseRecipePtr(dropped_val);
         }
-        */
-        static_cast<void>(dsi_bucket_id);
-        dropped_dbi->ResetSynapseRecipePtr(dropped_val);
       }
     }
+    // Call TcMalloc extension to release memory
+    synapse_helpers::ReleaseFreeMemory();
   }
 }
 

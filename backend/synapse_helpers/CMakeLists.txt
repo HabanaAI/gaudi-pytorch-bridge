@@ -12,6 +12,7 @@
 
 add_library(
   pytorch_synapse_helpers OBJECT
+  tcmalloc_helper.cpp
   device.cpp
   env_flags.cpp
   event.cpp
