@@ -146,6 +146,7 @@ function pytorch_usage()
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --py-version           Python version"
+        echo -e "       --no-fe                Disable front-end build"
         echo -e "  -h,  --help                 Prints this help"
     fi
 
@@ -816,6 +817,7 @@ build_pytorch_tb_plugin()
     local __configure=""
     local __whl_params=" sdist bdist_wheel"
     local __build_package="true"
+    local __build_frontend="true"
     local __result
     local __set_py_vers="false"
     # parameter while-loop
@@ -831,6 +833,9 @@ build_pytorch_tb_plugin()
         -r  | --release )
             ;;
         -d  | --debug )
+            ;;
+        --no-fe )
+            __build_frontend=""
             ;;
         --dist )
             __whl_params=" sdist bdist_wheel"
@@ -872,7 +877,26 @@ build_pytorch_tb_plugin()
         restore_python_version
         return $__result
     fi
-    popd
+
+    if [ -n "$__build_frontend" ]; then
+        ./scripts/setup.sh
+        __result=$?
+        if [ $__result -ne 0 ]; then
+            echo "front end setup failed"
+            popd
+            restore_python_version
+            return $__result
+        fi
+
+        ./scripts/build.sh
+        __result=$?
+        if [ $__result -ne 0 ]; then
+            echo "front end build failed"
+            popd
+            restore_python_version
+            return $__result
+        fi
+    fi
 
     install_cmd=($__pip_cmd install wheel)
     if ! __running_in_venv; then
