@@ -1,5 +1,4 @@
 from __future__ import print_function
-from topologies import tools
 import model as resnet_models
 import datetime
 import os
@@ -30,6 +29,7 @@ except ImportError:
     assert False, "Could Not import habana_frameworks.torch.utils.debug"
 
 sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
+from topologies import tools
 
 try:
     from apex import amp
