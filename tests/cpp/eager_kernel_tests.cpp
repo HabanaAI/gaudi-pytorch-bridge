@@ -355,7 +355,7 @@ TEST_F(EagerKernelTest, Isnan0DTest) {
 }
 
 LAYER_NORM_TEST(EagerKernelTest, Forward)
-LAYER_NORM_TEST_2(EagerKernelTest, Backward, Def, Def)
+LAYER_NORM_TEST(EagerKernelTest, Backward)
 
 TEST_F(EagerKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});

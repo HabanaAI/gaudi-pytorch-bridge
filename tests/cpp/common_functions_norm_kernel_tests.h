@@ -58,18 +58,17 @@ std::vector<AtTensorPair> native_layer_norm_test(
           (result.hpu.scalar_type() != result.cpu.scalar_type())) {        \
         result.cpu = result.cpu.to(result.hpu.scalar_type());              \
       }                                                                    \
-      if (i == 0) {                                                        \
-        EXPECT_EQ(result.hpu.is_same_size(result.cpu), true)               \
-            << "HPU: " << result.hpu.sizes()                               \
-            << " vs CPU: " << result.cpu.sizes();                          \
-        EXPECT_EQ(allclose(result.hpu, result.cpu, PREC, PREC), true)      \
-            << HintToleranceValues(result.hpu, result.cpu, PREC, PREC);    \
-      }                                                                    \
+      EXPECT_EQ(result.hpu.is_same_size(result.cpu), true)                 \
+          << "HPU: " << result.hpu.sizes()                                 \
+          << " vs CPU: " << result.cpu.sizes();                            \
+      EXPECT_EQ(allclose(result.hpu, result.cpu, PREC, PREC), true)        \
+          << HintToleranceValues(result.hpu, result.cpu, PREC, PREC);      \
     }                                                                      \
   }
 
 #define LAYER_NORM_TEST_2(...)                          \
   LAYER_NORM_TEST_3(__VA_ARGS__, F32, kFloat32, 0.01)   \
+  LAYER_NORM_TEST_3(__VA_ARGS__, BF16, kBFloat16, 0.01) \
   LAYER_NORM_TEST_3(__VA_ARGS__, F16, kFloat16, 0.01)
 
 #define LAYER_NORM_TEST_1(...)        \

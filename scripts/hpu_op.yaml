@@ -4831,16 +4831,21 @@ native_layer_norm:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
-  override_fn: layer_norm_hpu_lazy
-  acc_thread: true
+  guid: layer_norm_fwd
+  op_backend: LayerNormHabanaOperator
+  custom_output_shape: LayerNormOutputShape
+  out_dtypes: [input, Float, Float]
+  out_ids: [0, 0, 0]
 
 native_layer_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  override_fn: layer_norm_backward_hpu_lazy
-  acc_thread: true
+  guid: layer_norm_bwd
+  op_backend: LayerNormBwdHabanaOperator
+  custom_output_shape: LayerNormBwdOutputShape
+  out_ids: [0, 0, 0]
 
 ne.Tensor_out:
   custom_output_shape: BinaryOutputShape
