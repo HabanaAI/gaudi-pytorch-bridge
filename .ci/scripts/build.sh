@@ -274,7 +274,7 @@ build_pytorch_modules()
         return $__result
     fi
 
-    git submodule update --init --recursive --force --jobs 8
+    git submodule update --init --recursive
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
@@ -396,7 +396,7 @@ build_pytorch_dist()
         return $__result
     fi
 
-    git submodule update --init --recursive --force --jobs 8
+    git submodule update --init --recursive
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
@@ -617,7 +617,7 @@ build_pytorch_fork()
         return $__result
     fi
 
-    git submodule update --init --recursive --force --jobs 8
+    git submodule update --init --recursive
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
