@@ -795,6 +795,7 @@ TEST_F(LazyNormKernelTest, WeightNormTest) {
   at::Tensor g_in =
       at::randn({1, 1, 128}, at::device(at::kCPU).dtype(at::kFloat));
   int64_t dim(2);
+
   // CPU Run
   at::Tensor output_ = at::_weight_norm(v_in, g_in, dim);
   // Prepare HPU inputs
@@ -805,6 +806,53 @@ TEST_F(LazyNormKernelTest, WeightNormTest) {
   // Compare CPU vs HPU
   at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
   EXPECT_EQ(allclose(h_output__cpu, output_, 0.0001), true);
+}
+
+TEST_F(LazyNormKernelTest, WeightNormDinoTest) {
+  at::Tensor v_in =
+      at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+  at::Tensor g_in =
+      at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+  int64_t dim = 0;
+  // CPU Run
+  at::Tensor output_ = at::_weight_norm(v_in, g_in, dim);
+  // Prepare HPU inputs
+  at::Tensor h_v_in = v_in.to(at::device(at::kHPU));
+  at::Tensor h_g_in = g_in.to(at::device(at::kHPU));
+  // HPU Run
+  at::Tensor h_output_ = at::_weight_norm(h_v_in, h_g_in, dim);
+  // Compare CPU vs HPU
+  at::Tensor h_output__cpu = h_output_.to(at::device(at::kCPU));
+  EXPECT_EQ(allclose(h_output__cpu, output_, 0.0001), true);
+}
+
+TEST_F(LazyNormKernelTest, WeightNormBackwardExecute) {
+  auto w_grad = at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+  torch::Tensor tHabanaW_grad = w_grad.to(torch::kHPU);
+  auto saved_v =
+      at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+  torch::Tensor tHabanaSaved_v = saved_v.to(torch::kHPU);
+
+  auto saved_g = at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+  torch::Tensor tHabanaSaved_g = saved_g.to(torch::kHPU);
+
+  auto saved_norms =
+      at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+  torch::Tensor tHabanaSaved_norms = saved_norms.to(torch::kHPU);
+
+  auto results = torch::_weight_norm_interface_backward(
+      tHabanaW_grad, tHabanaSaved_v, tHabanaSaved_g, tHabanaSaved_norms, 0);
+
+  auto results_cpu = torch::_weight_norm_interface_backward(
+      w_grad, saved_v, saved_g, saved_norms, 0);
+  at::Tensor result_grad_v = (std::get<0>(results)).to(torch::kCPU);
+  at::Tensor result_grad_g = (std::get<1>(results)).to(torch::kCPU);
+
+  at::Tensor result_grad_v_cpu = std::get<0>(results_cpu);
+  at::Tensor result_grad_g_cpu = std::get<1>(results_cpu);
+
+  EXPECT_EQ(allclose(result_grad_v, result_grad_v_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(result_grad_g, result_grad_g_cpu, 0.01, 0.01), true);
 }
 
 TEST_F(LazyNormKernelTest, NormScalarDimOutTest) {

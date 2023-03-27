@@ -843,7 +843,6 @@ void WeightNormOp::AddNode(
       g_in.device());
 
   auto outsize_norm_op = v_in.sizes()[dim];
-
   std::vector<int64_t> dim_to_norm;
   for (int64_t i = 0; i < v_in.ndimension(); ++i) {
     if (i != dim) // skip given dimension
@@ -871,7 +870,7 @@ void WeightNormOp::AddNode(
         dim_to_norm,
         false,
         ord,
-        {{outsize_norm_op, dtype, 1}},
+        {{outsize_norm_op, dtype}},
         false));
   } else {
     normOp.emplace_back(NormCommon(
@@ -883,27 +882,28 @@ void WeightNormOp::AddNode(
         dim_to_norm,
         false,
         ord,
-        {{outsize_norm_op, ScalarType(), 1}},
+        {{outsize_norm_op, ScalarType()}},
         false));
   }
-  auto outsize_div_op = at::infer_size(g_in.sizes(), outsize_norm_op);
+
+  auto reshapeOp =
+      ReshapeHelper(graph, normOp[0].get(), g_in.sizes(), ScalarType(), 1);
+
   const std::string opStringSuffix =
       "_fwd_" + habana_helpers::name_suffix_from_type(ScalarType());
   auto divOp = BuildOp(
       graph,
       "div" + opStringSuffix,
-      {syn_in(1), normOp[0].get()},
-      {{outsize_div_op, ScalarType()}});
-
-  auto outsize_mul_op = at::infer_size(v_in.sizes(), outsize_div_op);
+      {syn_in(1), reshapeOp.get()},
+      {{g_in.sizes(), ScalarType()}});
   auto mulOp = BuildOp(
       graph,
       "mult" + opStringSuffix,
       {syn_in(0), divOp.at(0).get()},
-      {{outsize_mul_op, ScalarType(), 0}});
+      {{v_in.sizes(), ScalarType(), 0}});
 
   syn_out(0) = std::move(mulOp[0]);
-  syn_out(1) = std::move(normOp[0]);
+  syn_out(1) = std::move(reshapeOp);
 }
 
 sizes_vec WeightNormBwdOutputShape(const at::Stack& stack) {
@@ -920,10 +920,7 @@ sizes_vec WeightNormBwdOutputShape(const at::Stack& stack) {
   } else {
     bcast_size[last_dim] = last_size;
   }
-  auto shapes1 = at::infer_size(grad_w.sizes(), saved_v.sizes());
-  auto shapes2 = at::infer_size(saved_norms.sizes(), saved_g.sizes());
-  auto shapes3 = at::infer_size(shapes1, shapes2);
-  auto shapes = at::infer_size(shapes3, bcast_size);
+  auto shapes = at::infer_size(grad_w.sizes(), saved_v.sizes());
   return {shapes, bcast_size};
 }
 
@@ -960,7 +957,6 @@ void WeightNormBwdOp::AddNode(
   // ...but saved_norms might be Float when saved_g and saved_v are half.
   // To consider:  saved_norms.to(..., True );
 
-  /////auto norms = saved_norms.to(saved_g.scalar_type());
   std::vector<synapse_helpers::tensor> norms_cast;
   if (saved_norms.scalar_type() != saved_g.scalar_type()) {
     norms_cast.emplace_back(CastHelper(
@@ -1009,16 +1005,13 @@ void WeightNormBwdOp::AddNode(
 
     int reductionDimension = reshape_outshape.size() - axis - 1;
     reduce_params.reductionDimension = reductionDimension;
-    auto sumOp13 = BuildOp(
+    per_dim_sums = BuildOp(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {reshapeOp12.get()},
-        {{{reshape_outshape[reductionDimension]}, ScalarType()}},
+        {{bcast_size, ScalarType()}},
         &reduce_params,
         sizeof(reduce_params));
-
-    per_dim_sums.emplace_back(
-        ReshapeHelper(graph, sumOp13[0].get(), bcast_size, ScalarType()));
   } else {
     bcast_size[last_dim] = last_size;
     auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
@@ -1044,16 +1037,13 @@ void WeightNormBwdOp::AddNode(
     int reductionDimension = reshape_outshape.size() - axis - 1;
     reduce_params.reductionDimension = reductionDimension;
 
-    auto sumOp13 = BuildOp(
+    per_dim_sums = BuildOp(
         graph,
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {reshapeOp12.get()},
-        {{{reshape_outshape[reductionDimension]}, ScalarType()}},
+        {{bcast_size, ScalarType()}},
         &reduce_params,
         sizeof(reduce_params));
-
-    per_dim_sums.emplace_back(
-        ReshapeHelper(graph, sumOp13[0].get(), bcast_size, ScalarType()));
   }
 
   auto outsize_divOp21 = at::infer_size(saved_g.sizes(), saved_norms.sizes());
@@ -1074,8 +1064,7 @@ void WeightNormBwdOp::AddNode(
         graph,
         "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
         {syn_in(2), syn_in(3)},
-        {{outsize_divOp21, ScalarType()}});
-
+        {{saved_g.sizes(), ScalarType()}});
     mulOp22 = BuildOp(
         graph,
         "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
@@ -1093,16 +1082,16 @@ void WeightNormBwdOp::AddNode(
       graph,
       "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), divOp23[0].get()},
-      {{outsize_mulOp24, ScalarType()}});
+      {{saved_v.sizes(), ScalarType()}});
 
-  auto outsize_subOp25 = at::infer_size(grad_w.sizes(), outsize_mulOp24);
+  auto outsize_subOp25 = at::infer_size(grad_w.sizes(), saved_v.sizes());
   subOp25 = BuildOp(
       graph,
       "sub_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), mulOp24[0].get()},
       {{outsize_subOp25, ScalarType()}});
 
-  auto outsize_grad_v = at::infer_size(outsize_divOp21, outsize_subOp25);
+  auto outsize_grad_v = at::infer_size(saved_g.sizes(), outsize_subOp25);
   grad_v = BuildOp(
       graph,
       "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
