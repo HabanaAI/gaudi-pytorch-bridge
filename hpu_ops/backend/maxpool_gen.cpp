@@ -523,7 +523,6 @@ void MaxPool2DWithIndicesOut::AddNode(
   const bool is_dynamic = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attr;
-  int64_t maxpool_out_index;
   if (greco_device) {
     p_context_->syn_outputs_.pop_back();
     // dummy output in place of indices tensor
@@ -536,16 +535,9 @@ void MaxPool2DWithIndicesOut::AddNode(
       output_attr.push_back({out_shape[0], ScalarType()});
     else
       output_attr.push_back({out_shape[0], ScalarType(), 0});
-    maxpool_out_index = 0;
   } else {
-    if (is_dynamic) {
-      output_attr.push_back({out_shape[1], index_type});
-      output_attr.push_back({out_shape[0], ScalarType()});
-    } else {
       output_attr.push_back({out_shape[1], index_type, 1});
       output_attr.push_back({out_shape[0], ScalarType(), 0});
-    }
-    maxpool_out_index = 1;
   }
 
   auto maxpool2d = BuildOp(
@@ -557,31 +549,8 @@ void MaxPool2DWithIndicesOut::AddNode(
       size,
       name);
 
-  // Identity Kernel was added in dynamic case alone
-  // Without this, we will get tensor missing error.
-  if (is_dynamic) {
-    auto output = BuildOp(
-        graph,
-        "identity",
-        {maxpool2d[maxpool_out_index].get()},
-        {{out_shape[maxpool_out_index], ScalarType(), 0}});
-    syn_out(0) = std::move(output.at(0));
-  } else {
-    syn_out(0) = std::move(maxpool2d[maxpool_out_index]);
-  }
-
-  if (!greco_device) {
-    if (is_dynamic) {
-      auto output_indx = BuildOp(
-          graph,
-          "identity",
-          {maxpool2d[0].get()},
-          {{out_shape[1], index_type, 1}});
-      syn_out(1) = std::move(output_indx.at(0));
-    } else {
-      syn_out(1) = std::move(maxpool2d[0]);
-    }
-  }
+  syn_out(0) = std::move(maxpool2d[1]);
+  syn_out(1) = std::move(maxpool2d[0]);
 }
 
 // Since the out varriant intices tensor has some issue

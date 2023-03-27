@@ -535,10 +535,25 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     NodeAttr node_attr) {
   if (op->isMetaMode()) {
     auto& meta = op->GetMeta();
+    const auto& output_attrs_size = node_attr.output_attrs.size();
     std::vector<synapse_helpers::tensor> out;
-    out.reserve(node_attr.output_attrs.size());
+    out.reserve(output_attrs_size);
 
-    for (const auto& attr : node_attr.output_attrs) {
+    std::vector<NodeAttr::NodeOutputAttr> ordered_output_attrs =
+        node_attr.output_attrs;
+    if (output_attrs_size > 1) {
+      // Rearrange output_attrs as per final_result_index
+      for (auto i = 0; i < output_attrs_size; ++i) {
+        const auto& attr = node_attr.output_attrs.at(i);
+        if (attr.final_result_index.has_value()) {
+          ordered_output_attrs.at(attr.final_result_index.value()) = attr;
+        } else {
+          ordered_output_attrs.at(i) = attr;
+        }
+      }
+    }
+
+    for (const auto& attr : ordered_output_attrs) {
       const auto& attr_strides = HabanaOperator::CalculateStrides(
           attr.sizes.vec(), at::MemoryFormat::Contiguous);
       const auto& md = TensorMetaData(
