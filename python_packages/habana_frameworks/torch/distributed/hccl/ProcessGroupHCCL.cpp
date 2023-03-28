@@ -575,7 +575,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
-      recipe_counter.increase();
 
       struct ResourceHolder {
         at::Tensor tensor_;
@@ -592,6 +591,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
           fn(tensor, tensor_address, *comm, collective_stream, peerRank);
       TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
 
+      recipe_counter.increase();
       deviceCtxt->submit_events(
           collective_stream,
           tensor_storage_ptr,
@@ -696,7 +696,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
-      recipe_counter.increase();
 
       struct ResourceHolder {
         std::vector<at::Tensor> tensors_;
@@ -725,6 +724,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
              collective_stream);
       TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
 
+      recipe_counter.increase();
       deviceCtxt->submit_events(
           collective_stream,
           output_storage_ptr,

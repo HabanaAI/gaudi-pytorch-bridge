@@ -1617,7 +1617,6 @@ void RecipeValueSpec::launch(
     }
 
     auto& recipe_counter = device.get_active_recipe_counter();
-    recipe_counter.increase();
 
     std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
     {
@@ -1651,7 +1650,6 @@ void RecipeValueSpec::launch(
         habana_lazy::log_dev_mem_stats(
             "Post-Launch", get_graph_name(), workspace_size);
         if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-          recipe_counter.decrease_and_notify();
           auto& error = error_optional.value();
           PT_BRIDGE_FATAL(
               "syn launch encountered : ", error.error, " ", error.status);
@@ -1660,6 +1658,7 @@ void RecipeValueSpec::launch(
         PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");
       }
     }
+    recipe_counter.increase();
 
     // register events for external tensors on compute
     for (size_t i = 0; i < ext_events.size(); ++i) {

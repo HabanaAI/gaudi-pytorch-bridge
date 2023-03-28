@@ -72,19 +72,21 @@ void event::synchronize() const {
 }
 
 void event::complete() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  if (done_)
-    PT_SYNHELPER_FATAL("Event ", this, " already done");
-  done_ = true;
-  if (done_cb_)
-    done_cb_();
-  if (handle_) {
-    if (handle_owner)
-      event_handle_cache_.release_handle(handle_);
-    handle_ = nullptr;
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (done_)
+      PT_SYNHELPER_FATAL("Event ", this, " already done");
+    done_ = true;
+    if (done_cb_)
+      done_cb_();
+    if (handle_) {
+      if (handle_owner)
+        event_handle_cache_.release_handle(handle_);
+      handle_ = nullptr;
+    }
+    done_cb_ = nullptr; // explicit destruction of cb to release any internally
+                        // held objects
   }
-  done_cb_ = nullptr; // explicit destruction of cb to release any internally
-                      // held objects
   ready_var_.notify_all();
 }
 

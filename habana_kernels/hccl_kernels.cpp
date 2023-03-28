@@ -195,7 +195,6 @@ void collective(
           collective_stream);
 
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
-      recipe_counter.increase();
 
       struct ResourceHolder {
         std::vector<at::Tensor> pt_tensor;
@@ -224,6 +223,7 @@ void collective(
              std::move(comm),
              collective_stream);
       TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+      recipe_counter.increase();
       deviceCtxt->submit_events(
           collective_stream,
           output_storage_ptr,

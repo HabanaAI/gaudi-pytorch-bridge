@@ -86,11 +86,17 @@ std::mutex device::device_mtx;
 void active_recipe_counter::increase() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   ++counter_state_;
+  ++total_submitted_;
 }
 
 void active_recipe_counter::decrease_and_notify() {
-  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
-  --counter_state_;
+  {
+    std::unique_lock<std::mutex> cond_lock(counter_mutex_);
+    if (counter_state_ == 0)
+      PT_SYNHELPER_FATAL("Counter state is invalid")
+    --counter_state_;
+    ++total_freed_;
+  }
   cv_.notify_all();
 }
 
@@ -103,6 +109,15 @@ bool active_recipe_counter::is_zero() {
 uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   if (counter_state_ > 0) {
+    if ((total_submitted_ - total_freed_) != counter_state_) {
+      PT_SYNHELPER_DEBUG(
+          "wait_for_next_decrease_call counter::",
+          counter_state_,
+          " total_submitted::",
+          total_submitted_,
+          " total_freed::",
+          total_freed_);
+    }
     // NOTE: This is a common blocking flow for recipe execution.
     // Due to its blocking nature, and in many cases like mark_step(),
     // there is a possibility that in background it has been already

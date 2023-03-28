@@ -82,7 +82,9 @@ class active_recipe_counter {
   uint32_t get_count();
 
  private:
-  uint32_t counter_state_{0};
+  uint64_t counter_state_{0};
+  uint64_t total_submitted_{0};
+  uint64_t total_freed_{0};
   std::condition_variable cv_;
   std::mutex counter_mutex_;
 };

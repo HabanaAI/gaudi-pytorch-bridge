@@ -179,12 +179,7 @@ size_t device_memory::get_max_cntgs_chunk_size() const {
   return suballoc_->get_max_cntgs_chunk_size();
 }
 
-/* recipe count is incremented before the allocation
- * of device memory for the the tensor, so the
- * default count is 1 which includes the current recipe
- * we are doing allocation.
- */
-#define DEFAULT_RECIPE_COUNT 1
+#define DEFAULT_RECIPE_COUNT 0
 
 // warapper for malloc/free for pool startegy not equal to 5
 synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
@@ -309,7 +304,7 @@ void* device_memory::workspace_alloc(
       return ptr;
     } else if (ws_size < actual_size) {
       auto& recipe_counter = device_.get_active_recipe_counter();
-      while (recipe_counter.get_count() > 1) {
+      while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
         recipe_counter.wait_for_next_decrease_call();
       }
 
@@ -355,7 +350,7 @@ void* device_memory::workspace_alloc(
 
       if (v_ptr == nullptr) {
         habana_lazy::log_dev_mem_stats("OOM-Workspace", "", req_size);
-        while (recipe_counter.get_count() > 1) {
+        while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
           recipe_counter.wait_for_next_decrease_call();
         }
         PT_DEVMEM_DEBUG(
@@ -441,11 +436,12 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
   PT_DEVMEM_DEBUG("Recipes in queue::", recipe_counter.get_count());
   if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT &&
       (size > DEFAULT_ALIGNMENT && !suballoc_->is_memory_available(size))) {
-    uint32_t counter_state{0};
+    uint64_t counter_state{0};
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
-    } while (counter_state > DEFAULT_RECIPE_COUNT &&
-             !suballoc_->is_memory_available(size));
+      if (suballoc_->is_memory_available(size))
+        break;
+    } while (counter_state > DEFAULT_RECIPE_COUNT);
 
     habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Lock-Addr", "", size);
   }
@@ -871,7 +867,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     habana_lazy::log_dev_mem_stats("OOM-Tensor", "", size);
 
     // check and wait for recipe execution to complete
-    uint32_t counter_state{0};
+    uint64_t counter_state{0};
     if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
       do {
         counter_state = recipe_counter.wait_for_next_decrease_call();

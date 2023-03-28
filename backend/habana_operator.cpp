@@ -193,13 +193,12 @@ static void launchRecipe(
     device.add_wait_events_on_stream(in_event_addr, stream_handle);
 
     auto& recipe_counter = device.get_active_recipe_counter();
-    recipe_counter.increase();
     bool status = recipe->launch(
         input_buffers, output_buffers, address_lock, stream_handle);
     if (!status) {
-      recipe_counter.decrease_and_notify();
       TORCH_CHECK(false, "syn launch failed");
     }
+    recipe_counter.increase();
     auto holder = std::make_shared<ResourceHolder>();
     holder->address_lock = std::move(address_lock);
     const auto& recipe_ptr = recipe->getRecipeHandle();
