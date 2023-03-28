@@ -735,6 +735,33 @@ void SliceInsertOperator::ComputeParams(
   }
 }
 
+void SliceInsertOperator::ValidateSliceInsertInputs(
+    std::vector<int64_t>& inp_shape,
+    std::vector<int64_t>& out_shape,
+    std::vector<int64_t>& step,
+    std::vector<int64_t>& start) {
+  for (unsigned i = 0; i < inp_shape.size(); i++) {
+    if (inp_shape[i]) {
+      TORCH_CHECK(
+          (start[i] < inp_shape[i]),
+          "SliceInsert starts param, which is greater or equal to the dimension");
+    }
+
+    // original equation as per at::native::slice
+    // sizes[dim] = (end_val - start_val + step - 1) / step; // round-up
+    // inverse to find end
+    // end_val = sizes[dim]*step + 1 - step + start_val
+    auto end_val = out_shape[i] * step[i] + 1 - step[i] + start[i];
+
+    TORCH_CHECK(
+        (end_val <= inp_shape[i]),
+        "SliceInsert invalid end param, which is greater or equal to the dimension",
+        end_val,
+        " ",
+        inp_shape[i]);
+  }
+}
+
 void SliceInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -752,6 +779,13 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(
         p_context_->syn_inputs_[3].ref().is_shape_tensor(),
         "Synapse input4 type expected to be shape tensor");
+
+    auto inp_shape = self.sizes().vec();
+    auto out_shape = inputs[1].toTensor().sizes().vec();
+    auto step = inputs[2].toTensor().sizes().vec();
+    auto start = inputs[3].toTensor().sizes().vec();
+
+    ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
   } else {
     TORCH_CHECK(
         inputs.size() == 3,

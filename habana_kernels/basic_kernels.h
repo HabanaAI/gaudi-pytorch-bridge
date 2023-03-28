@@ -140,6 +140,12 @@ class SliceInsertOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
 
+  void ValidateSliceInsertInputs(
+      std::vector<int64_t>& inp_shape,
+      std::vector<int64_t>& out_shape,
+      std::vector<int64_t>& step,
+      std::vector<int64_t>& start);
+
   void FixSliceParams(
       at::Tensor self,
       int64_t& dim,

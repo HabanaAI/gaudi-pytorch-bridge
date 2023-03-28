@@ -19,6 +19,7 @@
 
 #include "backend/create_pt_tensor.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -1965,6 +1966,10 @@ void SliceOperator::AllocateAndAddSynapseNode(
 
     if (habana::ShapeInference::GetCurrentPass() ==
         habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+      std::vector<int64_t> min, max;
+      synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
+      std::tie(min, max) =
+          habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
       for (uint64_t i = 0; i < inp_shape.size(); i++) {
         out_shape[i] =
             out_shape[i] < inp_shape[i] ? out_shape[i] : inp_shape[i];
@@ -1979,7 +1984,22 @@ void SliceOperator::AllocateAndAddSynapseNode(
         // start shape tensor is updated, so change the buckets as well if
         // start is there in bucket
         if (out_shape[i] != 0) {
+          auto old_start = start[i];
           start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+          if (old_start != start[i]) {
+            // If the newly calculated value is less than current value keep the
+            // current value Since the current value is not available in
+            // AllocateAndAdd, used a hack to find it from the max value
+            if ((habana::ShapeInference::GetMaxPolicyInUse() ==
+                 habana_helpers::DynamicDimsPolicy::CALCULATED) &&
+                (min[i] != max[i])) {
+              auto curr_val = max[i] /
+                  habana_helpers::DynamicBucketInfo::default_max_multiplier_;
+              if (start[i] < curr_val) {
+                start[i] = curr_val;
+              }
+            }
+          }
         }
       }
       // Modify the start and output shape in name shape map to create valid
@@ -1987,7 +2007,6 @@ void SliceOperator::AllocateAndAddSynapseNode(
       synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_output.id(), out_shape);
-      synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_start.id(), start);
     }
