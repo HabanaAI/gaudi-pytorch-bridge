@@ -448,20 +448,15 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
 
   // maxpool3d guid will return tuple of tensors (indices tensor, output
   // tensor)
-  auto maxpool3d = OpBackend::BuildNode(
+  return OpBackend::BuildNode(
       op,
       graph,
       {"maxpool_3d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type),
        {input.at(0)},
-       {{final_out_shape[0], index_type, 0},
-        {final_out_shape[0], scalar_type, 1}},
+       {{final_out_shape[0], index_type, 1},
+        {final_out_shape[0], scalar_type, 0}},
        params.get(),
        size});
-
-  // It's reversed, as the calling function expects it this way
-  output.emplace_back(std::move(maxpool3d.at(1)));
-  output.emplace_back(std::move(maxpool3d.at(0)));
-  return output;
 }
 
 // Since the out varriant intices tensor has some issue
@@ -472,12 +467,8 @@ void MaxPool3DWithIndicesOut::AddNode(
   auto output = Maxpool3dWithIndicesFwdCommonFunc(
       this, graph, stack, {syn_in(0)}, ScalarType());
 
-  syn_out(0) = std::move(output.at(0));
-  syn_out(1) = std::move(output.at(1));
-
-  // Maxpool3d with indices fwd Output  order should be like (Output Tensor,
-  // Output Index) so swapping is needed.
-  std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
+  syn_out(0) = std::move(output.at(1));
+  syn_out(1) = std::move(output.at(0));
 }
 
 void MaxPool3DWithIndicesBwd::AddNode(
