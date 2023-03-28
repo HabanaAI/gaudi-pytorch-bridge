@@ -67,14 +67,17 @@ def split_embedding_codegen_lookup_function(
         )[t_weights_from // D:t_weights_to // D]
 
         t_offsets = offsets[t*B:(t+1)*B+1]
+        t_indices = indices[t*B:(t+1)*B]
 
         if kernel_mode[t] == 0:
-            valid_count = torch.tensor([indices.numel()], dtype=torch.int32, device="hpu")
+            valid_count = torch.tensor([t_indices.numel()], dtype=torch.int32, device="hpu")
+        elif kernel_mode[t] == 2:
+            valid_count = torch.tensor([t_offsets.numel()], dtype=torch.int32, device="hpu")
         else:
-            valid_count = torch.tensor([indices.numel(),t_offsets.numel()], dtype=torch.int32, device="hpu")
+            valid_count = torch.tensor([t_offsets.numel(),t_offsets.numel()], dtype=torch.int32, device="hpu")
         emb_out = _hpex_C.embedding_bag_sum_fwd(
                                 t_weights,
-                                indices,
+                                indices if kernel_mode[t] else t_indices,
                                 t_offsets,
                                 valid_count,
                                 kernel_mode[t]

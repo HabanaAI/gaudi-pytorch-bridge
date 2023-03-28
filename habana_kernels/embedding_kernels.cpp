@@ -555,13 +555,15 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
   TORCH_CHECK(valid_count.dim() == 1, "valid count tensor should be 1D")
 
+  auto kernel_mode = inputs[4].toInt();
+  auto output_size_dim0 =
+      kernel_mode ? (offsets.sizes()[0] - 1) : indices.sizes()[0];
   auto output = habana::createPTTensor(
       input,
-      {offsets.sizes()[0] - 1, input.size(1)},
+      {output_size_dim0, input.size(1)},
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
       output_metadata.at(0).persistent);
-  auto kernel_mode = inputs[4].toInt();
   if (kernel_mode == 0) {
     auto guid = "gather_with_valid_count_2d_" +
         habana_helpers::name_suffix_from_type(input.scalar_type());
