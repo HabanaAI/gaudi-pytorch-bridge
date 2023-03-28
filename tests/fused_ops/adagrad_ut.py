@@ -3,6 +3,7 @@ import os
 import sys
 import torch
 
+import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.optimizers import FusedAdagrad
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 load_habana_module()
@@ -60,9 +61,10 @@ if __name__ == "__main__":
 
         # Compute gradients of the parameters w.r.t. the loss
         loss_y.backward()
+        htcore.mark_step()
 
         optim_y.step()
-
+        htcore.mark_step()
     print('after  adagrad_habana.step y ::\n{}'.format(y.to(cpu)))
 
     x1_cpu = x1.to(cpu)
