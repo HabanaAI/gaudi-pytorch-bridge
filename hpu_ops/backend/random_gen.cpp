@@ -88,12 +88,8 @@ std::shared_ptr<void> FillUniformParams(const at::Stack& stack, size_t& size) {
 void RandomSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  // Discard self tensor, input is seed tensor only
-  p_context_->syn_inputs_.pop_front();
-  HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
-
   auto outshape = stack_tensor(stack, 0).sizes();
-  std::vector<synTensor> inputs{syn_in(0)};
+  std::vector<synTensor> inputs{syn_in(1)};
   CreateShapeTensorInput(
       graph,
       ScalarType() == c10::ScalarType::Int ? at::kFloat : ScalarType(),
