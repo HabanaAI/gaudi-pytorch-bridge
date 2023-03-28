@@ -39,7 +39,6 @@ orchestratorConfig:
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
   - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
-    silentMode: true
 # deepspeed-fork <End>
   sanitizerConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
