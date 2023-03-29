@@ -685,3 +685,35 @@ def test_simple_adam_convnet_with_device_pingpong():
         assert loss_compile4 < loss_compile3
         assert loss_compile3 < loss_compile2
         assert loss_compile2 < loss_compile1
+
+
+def test_relu_than_maxpool():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+        torch.manual_seed(2562825)
+
+        class TestModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer1 = torch.nn.Sequential(
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2)
+                )
+
+            def forward(self, x):
+                x = self.layer1(x)
+                return x
+
+        model = TestModel().to("hpu")
+
+        def raw_function(x):
+            return model(x)
+
+        compiled_fnc = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        tensor = torch.rand(8, 16, 10, 10, device="cpu").to("hpu")
+
+        res_ver = raw_function(tensor)
+        res = compiled_fnc(tensor)
+
+        assert torch.allclose(res, res_ver, rtol=1e-06)
