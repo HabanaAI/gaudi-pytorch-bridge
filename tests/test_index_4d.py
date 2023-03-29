@@ -16,7 +16,8 @@ def index_original(device) -> torch.Tensor:
     #return x[:, a, b, :]
     #return x[:, :, a, b]
     #return x[:, a, :, c]
-    return x[a, :, :, c]
+    return x[torch.tensor([1,2]).to('cpu'),:,:,c]
+    #return x[a, :, :, c]
 if __name__ == '__main__':
     device = torch.device("hpu")
     index_res = index_original(device)

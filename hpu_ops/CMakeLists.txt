@@ -62,6 +62,7 @@ add_custom_command(OUTPUT
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RedispatchFunctions.h
 )
 add_library(habana_pytorch_backend_ops OBJECT
+          indexing_ops_helper.cpp
           backend/_assert_async_gen.cpp
           backend/_masked_scale_gen.cpp
           backend/adaptive_avg_pool2d_gen.cpp
@@ -224,6 +225,7 @@ target_link_libraries(habana_pytorch_backend_ops
 add_library(habana_pytorch_frontend_ops OBJECT
           cpu_fallback.cpp
           supported_dtypes.cpp
+          indexing_ops_helper.cpp
           lazy/add_composite_gen.cpp
           lazy/arange_gen.cpp
           lazy/bernoulli_gen.cpp

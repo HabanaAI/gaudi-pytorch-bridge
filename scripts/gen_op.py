@@ -1315,6 +1315,8 @@ eager_custom_frontends_whitelist = [
     "FillFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
+    "IndexFE",
+    "IndexOutFE",
     "ReductionFrontendTemplate",
     "TopKFE",
 ]

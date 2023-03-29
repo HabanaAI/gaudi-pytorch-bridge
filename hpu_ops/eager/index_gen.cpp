@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,23 +11,47 @@
  *******************************************************************************
  */
 
-#include "generated/lazy/gather.h"
-#include "generated/lazy/index.h"
-#include "habana_kernels/lazy_kernels.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
+#include <c10_ver/core/SymIntArrayRef.h>
+#include "generated/eager/index.h"
+#include "habana_eager/ops/eager_op.h"
+#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/indexing_ops_helper.h"
+#include "pytorch_helpers/habana_device/HPUEvent.h"
 
 namespace habana {
 
 FALLBACK_CHECK(
     IndexFallbackCheck,
     [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
+  at::Stack stack = {indices};
+  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
+  // TBD: NOTE: For eager: we are going to execute on CPU if indices are either
+  // boolean or they are on CPU
+  for (auto input : indices_in) {
+    auto o1 = input.toOptional<at::Tensor>();
+    if (o1.has_value() && o1.value().defined() &&
+        o1.value().device() == torch::kCPU) {
+      return false;
+    } else if (
+        o1.has_value() && o1.value().defined() &&
+        (o1.value().scalar_type() != c10::ScalarType::Bool)) {
+      continue;
+    } else if (
+        o1.has_value() && (o1.value().scalar_type() == c10::ScalarType::Bool)) {
+      return false;
+    }
+  }
   return true;
 };
 
-static inline void index_fe(torch::jit::Stack& in_stack) {
-  auto& sub_inputs = in_stack;
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexFE, at::Tensor) {
+  TORCH_CHECK(
+      0, "IndexFE is not expected to be called for PT 2.0 as i is DFDT");
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
+  auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   c10::ArrayRef<c10::IValue> indices_in_orig = sub_inputs.at(1).toListRef();
   std::vector<at::IValue> inputs_vec = sub_inputs; // inputs_orig;
@@ -141,14 +165,11 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   }
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
+      TORCH_CHECK(0, "Indexing with CPU tensors is not supported for PT 2.0");
       indices_vec[i] = indices_vec[i].to(c10::kHPU);
     }
   }
 
-  // handle views for tensorlist indices
-  at::TensorList indices_in_list(indices_vec);
-  indices_vec =
-      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
   // for case where indices are Boolean tensor(s), convert these to integer
   // indices using nonzero operator before calling index
   auto bool_non_adv_indexing_case =
@@ -162,59 +183,29 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     }
   }
 
-  at::TensorList indices =
+  at::TensorList indices_out_list =
       (bool_non_adv_indexing_case) ? indices_vec_out : indices_vec;
-
-  auto indices_out_vec =
-      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices);
-  at::TensorList indices_out_list(indices_out_vec);
-  int orig_in_tensor_type_count = (int)in_stack.size();
-  in_stack.resize(in_stack.size() + 3);
-  in_stack.at(0) = self_permuted;
-  in_stack.at(1) = indices_out_list;
+  // at::TensorList indices_out_list(indices);
+  int orig_in_tensor_type_count = (int)get_inputs().size();
+  get_inputs().resize(get_inputs().size() + 3);
+  get_inputs().at(0) = c10::IValue(self_permuted);
+  get_inputs().at(1) = c10::IValue(indices_out_list);
   if (3 == orig_in_tensor_type_count) { // out variant
-    auto& sub_inputs = in_stack;
+    auto& sub_inputs = get_inputs();
     auto out = sub_inputs.at(2).toTensor();
-    in_stack.at(2) = advanced_indexing_dims;
-    in_stack.at(3) = implicit_indices_pos_vec;
-    in_stack.at(4) = self_permute_dims;
-    in_stack.at(5) = out;
+    get_inputs().at(2) = advanced_indexing_dims;
+    get_inputs().at(3) = implicit_indices_pos_vec;
+    get_inputs().at(4) = self_permute_dims;
+    get_inputs().at(5) = out;
   } else {
-    in_stack.at(2) = advanced_indexing_dims;
-    in_stack.at(3) = implicit_indices_pos_vec;
-    in_stack.at(4) = self_permute_dims;
+    get_inputs().at(2) = advanced_indexing_dims;
+    get_inputs().at(3) = implicit_indices_pos_vec;
+    get_inputs().at(4) = self_permute_dims;
   }
 }
 
-template <>
-IndexFE<at::Tensor>::IndexFE(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs_orig,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(
-          qualstring,
-          inputs_orig,
-          out_shapes_fn,
-          -1) {
-  habana_lazy::NoAccThread no_acc_thread;
-  index_fe(get_inputs());
-}
-
-HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, IndexOutFE, -1, at::Tensor&) {
-  index_fe(get_inputs());
-}
-
-template <>
-at::Tensor IndexFE<at::Tensor>::get_result_overrideable() {
-  auto res_shape = get_index_result_shape(get_inputs());
-  const at::Tensor input = get_inputs()[0].toTensor();
-  return get_index_result(input, res_shape);
-}
-
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
-    habana_lazy::LazyOp,
-    IndexOutFE,
-    at::Tensor&) {
+HPU_OP_FRONTEND_CREATE_RESULT_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
   return get_index_result_out(get_inputs());
 }
+
 } // namespace habana

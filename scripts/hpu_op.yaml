@@ -3390,10 +3390,25 @@ index.Tensor:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
     Greco: [BFloat16, Float, Int, Half]
   guid: index
+  fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
-  op_frontend: LazyIndex
+  op_frontend: IndexFE
   schema_args: "(Tensor self, Tensor[] indices, int[8] advanced_indexing_dims, int[8] implicit_indices_pos_vec, int[8] self_permute_dims) -> Tensor"
   out_ids: [0]
+
+index.Tensor_out:
+  force_default: false
+  custom_output_shape: IndexOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Greco: [BFloat16, Float, Int, Half]
+  guid: index
+  fallback_check: [IndexFallbackCheck, indices]
+  op_backend: IndexHabanaOperator
+  op_frontend: IndexOutFE
+  schema_args: "(Tensor self, Tensor[] indices, int[8] advanced_indexing_dims, int[8] implicit_indices_pos_vec, int[8] self_permute_dims, Tensor(a!) out) -> Tensor(a!)"
 
 isfinite:
   force_default: false

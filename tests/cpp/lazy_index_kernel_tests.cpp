@@ -810,3 +810,40 @@ TEST_F(LazyIndexKernelTest, squeezeTestNodim) {
 
   EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
 }
+
+TEST_F(LazyIndexKernelTest, IndexOutTest) {
+  // SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 0, 0);
+  torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  std::vector<torch::Tensor> vec_cpu{torch::tensor({0, 1}), torch::tensor({1})};
+
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  // auto tensorlist = indices.vec();
+  indices_cpu.reserve(vec_cpu.size() + 1);
+  at::Tensor undef_t;
+  indices_cpu.push_back(undef_t);
+  for (const auto& t : vec_cpu) {
+    indices_cpu.push_back(c10::make_optional(t));
+  }
+
+  // auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kInt32);
+  // auto out_hpu = at::index(input_hpu, vec_hpu);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  // auto tensorlist = indices.vec();
+  indices_list.reserve(vec_cpu.size() + 1);
+  indices_list.push_back(undef_t);
+  for (const auto& t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
+  }
+  std::vector<int64_t> out_size = {4, 2};
+  torch::ScalarType dtype = input_cpu.scalar_type();
+  auto expected = torch::empty(out_size, dtype);
+  auto res = torch::empty(out_size, torch::TensorOptions(dtype).device("hpu"));
+
+  auto out_cpu = at::index_out(expected, input_cpu, indices_cpu);
+
+  auto out_hpu = at::index_out(res, input_hpu, indices_list);
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}
