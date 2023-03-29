@@ -13,11 +13,11 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
-
 namespace habana_lazy {
 namespace ir {
 
@@ -200,9 +200,12 @@ struct SliceInsert : public ir::Node {
       for (int i = 0; i < num_slice_params; i++) {
         int64_t dim = params[i * 4];
         int64_t start = params[i * 4 + 1];
+        int64_t end = params[i * 4 + 2];
         int64_t step = params[i * 4 + 3];
 
-        dim = at::maybe_wrap_dim(dim, dims, /*wrap_scalar=*/true);
+        // one place to wrap all dim, start and end indicies
+        habana::SliceOperator::compute_output_shape(
+            orig_t, dim, start, end, step);
         start_vec[dim] = start;
         step_vec[dim] = step;
       }
