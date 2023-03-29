@@ -11,9 +11,9 @@
  *******************************************************************************
  */
 
+#include "copy_from.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "eager_op.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
 
 namespace {
 // Backend it treating Long(int64) as Int(int32) and Double as Float.
@@ -31,8 +31,18 @@ void unpackData(const at::Tensor& t) {
 }
 } // namespace
 
-// TODO Put under namesapce habana::eager
-namespace habana_lazy {
+namespace habana {
+namespace eager {
+
+at::Tensor _copy_from_and_resize(
+    const at::Tensor& self,
+    const at::Tensor& dst) {
+  auto sizes = self.sizes().vec();
+  if (self.sizes() != dst.sizes()) {
+    dst.resize_(self.sizes());
+  }
+  return dst.copy_(self);
+}
 
 at::Tensor create_base(const at::Tensor& self) {
   auto self_impl = self.unsafeGetTensorImpl();
@@ -162,4 +172,5 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
 }
-} // namespace habana_lazy
+} // namespace eager
+} // namespace habana

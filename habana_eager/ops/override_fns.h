@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,16 +10,10 @@
  *
  *******************************************************************************
  */
+
 #pragma once
-
-#include <ATen/core/TensorBody.h>
-
-namespace habana {
-namespace eager {
-at::Tensor as_strided_hpu(
-    const at::Tensor& self,
-    c10::SymIntArrayRef size,
-    c10::SymIntArrayRef stride,
-    c10::optional<c10::SymInt> storage_offset);
-} // namespace eager
-} // namespace habana
+#include "as_strided.h"
+#include "copy_from.h"
+#include "local_scalar_dense.h"
+#include "set.h"
+#include "view.h"

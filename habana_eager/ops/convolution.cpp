@@ -14,10 +14,8 @@
 #include <c10/util/Optional.h>
 #include <c10_ver/core/SymIntArrayRef.h>
 #include "backend/synapse_helpers/layout_utils.h"
-#include "habana_lazy/hpu_stage_submission.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
 
 #if IS_PYTORCH_AT_LEAST(2, 0)
 #define TO_SYMINT_MAYBE(x) c10::fromIntArrayRefSlow(x)
@@ -39,7 +37,6 @@ at::Tensor convolution_overrideable(
     int64_t groups) {
   using namespace at;
   using namespace habana;
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "HpuOp convolution_overrideable :",
@@ -88,7 +85,6 @@ convolution_backward_overrideable(
     at::IntArrayRef output_padding,
     int64_t groups,
     ::std::array<bool, 3> output_mask) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "HpuOp convolution_backward_overrideable :",

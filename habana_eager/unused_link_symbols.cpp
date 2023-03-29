@@ -11,8 +11,7 @@
  *******************************************************************************
  */
 
-#include <pybind11/pybind11.h>
-#include "habana_eager/helpers.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
@@ -203,6 +202,10 @@ Tensor& hpu_wrap::max_pool2d_with_indices_backward_out(
 // for eager execution. They will be removed once backend dependencies
 // are cleared out as a part of SW-123330
 // *************************************************
+#define EAGER_NOT_SUPPORTED                                                   \
+  HABANA_ASSERT(                                                              \
+      false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
+  std::terminate();
 
 namespace habana_lazy {
 
@@ -219,14 +222,6 @@ std::vector<at::Tensor> split_with_sizes_hpu_lazy(
 
 at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
-}
-
-Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
-  auto sizes = self.sizes().vec();
-  if (self.sizes() != dst.sizes()) {
-    dst.resize_(self.sizes());
-  }
-  return dst.copy_(self);
 }
 
 at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
@@ -270,15 +265,6 @@ bool is_inplace(at::Symbol) {
 }
 
 void strided_insert_hpu_lazy(const Tensor&, const Tensor&, bool) {
-  EAGER_NOT_SUPPORTED;
-}
-
-at::Tensor& set_source_Storage_storage_offset(
-    at::Tensor&,
-    at::Storage,
-    int64_t,
-    at::IntArrayRef,
-    at::IntArrayRef) {
   EAGER_NOT_SUPPORTED;
 }
 
@@ -364,33 +350,4 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
-Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
-  PT_LAZY_TRACE;
-  c10::Scalar r;
-  // Note:
-  // 1. This macro expands to more types than HPU supports,
-  //   but that should not be an issue issue.
-  // 2. Pytorch uses this function to check a specific emement of a tensor
-  //   eg. embedding_bag validates the first value offsets to be 0 using this
-  //   function
-  // 3. A TORCH_CHECK is added to ensure that the size at source
-  //   matches with the destination.
-
-  habana::eager::gil_scoped_release_if_held release;
-
-  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
-      at::ScalarType::Bool,
-      at::ScalarType::BFloat16,
-      self.scalar_type(),
-      "_local_scalar_dense",
-      [&] {
-        scalar_t val;
-        TORCH_CHECK(
-            elementSize(self.scalar_type()) == sizeof(val),
-            " source and destination size mismatch");
-        habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
-        r = c10::Scalar(val);
-      });
-  return r;
-}
 } // namespace habana_lazy

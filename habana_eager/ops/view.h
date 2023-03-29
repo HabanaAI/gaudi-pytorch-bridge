@@ -39,7 +39,7 @@ at::Tensor alias_with_sizes_and_strides(
   return self_;
 }
 
-at::Tensor view(const at::Tensor& self, c10::SymIntArrayRef size);
+at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size);
 
 } // namespace eager
 } // namespace habana

@@ -973,8 +973,10 @@ def frontend(
             code += "  // ANYTHING BELOW IS JUST FOR REFERENCE WHEN MIGRATING TO EAGER OP\n\n"
 
     if ctxop.get_override_fn():
-        code_line = "  return habana_lazy::{}({})".format(
-            ctxop.get_override_fn(), ", ".join(param_vars)
+        code_line = "  return {}::{}({})".format(
+            "habana::eager" if is_eager_frontend else "habana_lazy",
+            ctxop.get_override_fn(),
+            ", ".join(param_vars),
         )
         if is_eager_frontend and not is_eager_op_supported:
             code += "  // MOVE TO EAGER: {}\n".format(code_line)
@@ -1070,7 +1072,9 @@ def frontend(
         else:
             if is_eager_frontend and is_eager_op_supported:
                 code_line = '{{{}, "{}", {{{}}}}}'.format(
-                    inplace_op_info[0], inplace_op_info[1], ", ".join(map(str, inplace_op_info[2]))
+                    inplace_op_info[0],
+                    inplace_op_info[1],
+                    ", ".join(map(str, inplace_op_info[2])),
                 )
                 code += "  hpu_op.set_eager_op_info({});\n".format(code_line)
             code += "  {}hpu_op.call({})".format(
@@ -1298,18 +1302,19 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
 # List of override_fn ops that are supporting eager frontend
 eager_ops_override_fns_whitelist = [
     "_copy_from",
-    "_copy_from_and_resize_lazy",
-    "as_strided_hpu_lazy2",
+    "_copy_from_and_resize",
+    "as_strided_hpu",
+    "set_",
+    "set_source_Storage",
     "set_source_Storage_storage_offset",
-    "view_hpu_lazy",
-    "_local_scalar_dense_hpu_lazy",
+    "view_hpu",
+    "_local_scalar_dense_hpu",
 ]
 
 eager_custom_frontends_whitelist = [
     "BernoulliFE",
     "BernoulliFEOut",
     "ClampFE",
-    "ReductionFrontendTemplate",
     "FillFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
@@ -1331,6 +1336,7 @@ def is_eager_op(fname, rtype, sig, ctxop):
 
     return True
 
+
 def is_inplace_or_out_op(opname):
     if opname.endswith("_out"):
         return True
@@ -1341,23 +1347,23 @@ def is_inplace_or_out_op(opname):
 
 
 def get_eager_op_info(ctxop, opname):
-    type = 'habana::eager::eagerOpKind::'
+    type = "habana::eager::eagerOpKind::"
     if opname.endswith("_out"):
-        type += 'InplaceOut'
+        type += "InplaceOut"
     elif opname.endswith("_grad_input"):
-        type += 'InplaceOut'
+        type += "InplaceOut"
     elif opname.endswith("_"):
         if opname.endswith("resize_"):
-            type += 'OutOfPlace'
+            type += "OutOfPlace"
         else:
-            type += 'Inplace'
+            type += "Inplace"
     else:
-        type += 'OutOfPlace'
+        type += "OutOfPlace"
 
     ns = "hpu" if ctxop.custom_schema() else "aten"
     name = opname
-    if type != 'habana::eager::eagerOpKind::OutOfPlace':
-        name = opname.rsplit('_',1)[0]
+    if type != "habana::eager::eagerOpKind::OutOfPlace":
+        name = opname.rsplit("_", 1)[0]
     op_name = ns + "::" + name
 
     return type, op_name
@@ -2109,13 +2115,12 @@ def generate(args):
         '#include "hpu_ops/op_validator.h"\n'
     )
     eager_inclusions = (
-        '#include "habana_kernels/lazy_kernels_declarations.h"\n'
-        '#include "habana_kernels_ver/lazy_kernels_declarations.h"\n'
         '#include "hpu_ops/cpu_fallback.h"\n'
         '#include "hpu_ops/eager/reduction_template.h"\n'
         '#include "hpu_ops/op_validator.h"\n'
         '#include "habana_eager/eager_exec.h"\n'
         '#include "habana_eager/ops/eager_op.h"\n'
+        '#include "habana_eager/ops/override_fns.h"\n'
     )
 
     generate_frontend(fgens, fgen_files, lazy_inclusions, "lazy")

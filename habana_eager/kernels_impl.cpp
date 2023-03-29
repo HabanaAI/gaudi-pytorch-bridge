@@ -16,10 +16,8 @@
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/view.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 
@@ -52,30 +50,6 @@ Tensor hpu_wrap::empty_strided(
       size, stride, dtype, layout, device, pin_memory);
 }
 
-Tensor habana_lazy::view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
-  PT_EAGER_TRACE;
-  return habana::eager::view(self_, size);
-}
-
-Tensor habana_lazy::as_strided_hpu_lazy2(
-    const Tensor& self,
-    SymIntArrayRef size,
-    SymIntArrayRef stride,
-    c10::optional<SymInt> offset) {
-  PT_EAGER_TRACE;
-  return habana::eager::as_strided(self, size, stride, offset);
-}
-
-at::Tensor& habana_lazy::set_source_Storage_storage_offset(
-    at::Tensor& self,
-    at::Storage source,
-    at::SymInt storage_offset,
-    at::SymIntArrayRef size,
-    at::SymIntArrayRef stride) {
-  PT_EAGER_TRACE;
-  return habana::eager::set_(self, source, storage_offset, size, stride);
-}
-
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     SymIntArrayRef size,
@@ -91,5 +65,5 @@ Tensor hpu_wrap::_reshape_alias(
       to_string(stride));
   FALLBACK_IF_UNSUPPORTED_OP(
       _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
-  return habana_lazy::view_hpu_lazy(self, size);
+  return habana::eager::view_hpu(self, size);
 }

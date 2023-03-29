@@ -26,8 +26,9 @@ add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/supported_dtypes.cpp
           ops/as_strided.cpp
           ops/empty.cpp
-          ops/copy.cpp
+          ops/copy_from.cpp
           ops/convolution.cpp
+          ops/local_scalar_dense.cpp
           ops/set.cpp
           ops/view.cpp
           ops/pin_memory.cpp

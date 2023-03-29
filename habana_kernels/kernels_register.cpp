@@ -186,7 +186,7 @@ Tensor hpu_wrap::_reshape_alias(
     return as_strided_hpu_lazy(self, size, stride, self.storage_offset());
   }
 
-  return view_hpu_lazy(self, size);
+  return view_hpu(self, size);
 }
 
 #else
@@ -223,7 +223,7 @@ Tensor hpu_wrap::_reshape_alias(
         self.storage_offset());
   }
 
-  return view_hpu_lazy(self, size);
+  return view_hpu(self, size);
 }
 
 #if IS_PYTORCH_OLDER_THAN(2, 1)
@@ -1023,7 +1023,7 @@ Tensor hpu_wrap::_unsafe_view(
       "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
   FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
 
-  return view_hpu_lazy(self, size);
+  return view_hpu(self, size);
 }
 #endif
 

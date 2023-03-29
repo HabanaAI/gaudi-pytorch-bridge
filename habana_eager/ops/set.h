@@ -16,11 +16,13 @@
 
 namespace habana {
 namespace eager {
-at::Tensor& set_(
+at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
     at::SymInt storage_offset,
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride);
+at::Tensor& set_source_Storage(at::Tensor& self, at::Storage source);
+at::Tensor& set_(at::Tensor& self);
 } // namespace eager
 } // namespace habana

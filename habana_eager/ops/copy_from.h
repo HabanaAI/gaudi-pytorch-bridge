@@ -11,24 +11,14 @@
  *******************************************************************************
  */
 
-#include "habana_eager/ops/as_strided.h"
-#include <ATen/native/Resize.h>
-
+#pragma once
+#include <ATen/core/TensorBody.h>
 namespace habana {
 namespace eager {
-at::Tensor as_strided_hpu(
+at::Tensor _copy_from(
     const at::Tensor& self,
-    c10::SymIntArrayRef size,
-    c10::SymIntArrayRef stride,
-    c10::optional<c10::SymInt> storage_offset_) {
-  auto storage_offset = storage_offset_.value_or(self.storage_offset());
-  auto result = at::detail::make_tensor<at::TensorImpl>(
-      c10::TensorImpl::VIEW,
-      c10::Storage(self.storage()),
-      self.key_set(),
-      self.dtype());
-  at::native::setStrided(result, size, stride, storage_offset);
-  return result;
-}
+    const at::Tensor& dst,
+    bool non_blocking);
+at::Tensor _copy_from_and_resize(const at::Tensor& self, const at::Tensor& dst);
 } // namespace eager
 } // namespace habana

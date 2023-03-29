@@ -12,13 +12,6 @@
  *******************************************************************************
  */
 #include <Python.h>
-#include "habana_helpers/logging.h"
-
-#define EAGER_NOT_SUPPORTED                                                   \
-  HABANA_ASSERT(                                                              \
-      false, "Frontend Op ", __func__, " not supported with new Eager mode"); \
-  std::terminate();
-
 namespace habana {
 namespace eager {
 

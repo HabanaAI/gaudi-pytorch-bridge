@@ -17,7 +17,7 @@
 
 namespace habana {
 namespace eager {
-at::Tensor view(const at::Tensor& self, c10::SymIntArrayRef size) {
+at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto inferred_size = at::infer_size_dv(size, self.numel());
   auto stride = at::detail::computeStride(
       self.sym_sizes(), self.sym_strides(), inferred_size);

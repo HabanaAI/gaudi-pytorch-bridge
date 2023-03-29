@@ -24,20 +24,13 @@
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 namespace habana_lazy {
-// Move these eager ops to some where appropriate
-// Should be handled as a part of SW-119196
-
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,
     bool non_blocking);
-
 at::Tensor& set_source_Storage(at::Tensor& self, at::Storage source);
 at::Tensor& set_source_Tensor(at::Tensor& self, const at::Tensor& source);
 at::Tensor& set_(at::Tensor& self);
-
-// End of eager ops
-
 at::Tensor& copy_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& src,
@@ -47,19 +40,11 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor as_strided_hpu_lazy2(
-    const at::Tensor& self,
-    at::IntArrayRef size,
-    at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset);
-#else
-at::Tensor as_strided_hpu_lazy2(
+at::Tensor as_strided_hpu(
     const at::Tensor& self,
     c10::SymIntArrayRef size,
     c10::SymIntArrayRef stride,
     c10::optional<c10::SymInt> storage_offset);
-#endif
 at::Tensor alias_hpu_lazy(const at::Tensor& self);
 void strided_insert_hpu_lazy(
     const at::Tensor&,
@@ -81,21 +66,11 @@ const at::Tensor& as_strided_hpu_lazy_(
 at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
-    int64_t storage_offset,
-    at::IntArrayRef size,
-    at::IntArrayRef stride);
-at::Tensor& set_source_Storage_storage_offset(
-    at::Tensor& self,
-    at::Storage source,
     at::SymInt storage_offset,
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor view_hpu_lazy(const at::Tensor& self_, at::IntArrayRef size);
-#else
-at::Tensor view_hpu_lazy(const at::Tensor& self, at::SymIntArrayRef size);
-#endif
-at::Tensor view_dtype_hpu_lazy(const at::Tensor& self_, c10::ScalarType dtype);
+at::Tensor view_hpu(const at::Tensor& self, at::SymIntArrayRef size);
+at::Tensor view_dtype_hpu(const at::Tensor& self_, c10::ScalarType dtype);
 at::Tensor add_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -128,9 +103,6 @@ at::Tensor& mul_out_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
     at::Tensor& out);
-at::Tensor floor_divide_tensor_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& other);
 at::Tensor convolution_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,
@@ -429,9 +401,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_hpu_lazy(
     bool sorted,
     bool return_inverse,
     bool return_counts);
-at::Tensor _copy_from_and_resize_lazy(
-    const at::Tensor& self,
-    const at::Tensor& dst);
+at::Tensor _copy_from_and_resize(const at::Tensor& self, const at::Tensor& dst);
 at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,
@@ -490,7 +460,7 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
     bool descending);
-at::Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
+at::Scalar _local_scalar_dense_hpu(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     const at::Tensor& gradients,

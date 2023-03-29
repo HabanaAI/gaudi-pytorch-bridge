@@ -20,7 +20,7 @@
 namespace habana {
 namespace eager {
 
-at::Tensor& set_(
+at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
     at::SymInt storage_offset,
@@ -35,12 +35,7 @@ at::Tensor& set_(
       self.unsafeGetTensorImpl(), C10_AS_INTARRAYREF_SLOW(size), int_stride);
   return self;
 }
-} // namespace eager
-} // namespace habana
 
-// TODO: These need to be inside habana::eager namespace
-// Will be handled by SW-119196
-namespace habana_lazy {
 at::Tensor& set_source_Storage(at::Tensor& self, at::Storage source) {
   int64_t new_size =
       static_cast<int64_t>(source.nbytes() / self.dtype().itemsize());
@@ -67,4 +62,5 @@ at::Tensor& set_(at::Tensor& self) {
   return self;
 }
 
-} // namespace habana_lazy
+} // namespace eager
+} // namespace habana

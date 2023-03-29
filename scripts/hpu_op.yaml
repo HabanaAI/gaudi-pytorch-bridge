@@ -104,7 +104,7 @@ _copy_from:
   override_fn: _copy_from
 
 _copy_from_and_resize:
-  override_fn: _copy_from_and_resize_lazy
+  override_fn: _copy_from_and_resize
 
 _foreach_abs:
   dtypes: [BFloat16, Float]
@@ -558,7 +558,7 @@ _index_put_impl_:
   override_fn: _index_put_impl_hpu_lazy_
 
 as_strided:
-  override_fn: as_strided_hpu_lazy2
+  override_fn: as_strided_hpu
   acc_thread: true
 
 as_strided_:
@@ -579,7 +579,7 @@ set_.source_Storage_storage_offset:
   override_fn: set_source_Storage_storage_offset
 
 _local_scalar_dense:
-  override_fn: _local_scalar_dense_hpu_lazy
+  override_fn: _local_scalar_dense_hpu
 
 _unique2:
   dtypes:
@@ -7542,12 +7542,12 @@ vdot.out:
   guid: dot_fwd
 
 view:
-  override_fn: view_hpu_lazy
+  override_fn: view_hpu
   acc_thread: true
 
 view.dtype:
   force_default: false
-  override_fn: view_dtype_hpu_lazy
+  override_fn: view_dtype_hpu
   acc_thread: true
 
 #linear_backward:

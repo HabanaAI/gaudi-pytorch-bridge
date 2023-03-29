@@ -404,7 +404,7 @@ void updateDstDependencies(const Tensor& dst) {
   RUNNING_HASH_COMBINE_OPERATOR(hpu::control_edge_, {dst});
 }
 
-Tensor _copy_from_and_resize_lazy(const Tensor& self, const Tensor& dst) {
+Tensor _copy_from_and_resize(const Tensor& self, const Tensor& dst) {
   auto sizes = self.sizes().vec();
   if (self.sizes() != dst.sizes()) {
     dst.resize_(self.sizes());
@@ -1440,19 +1440,7 @@ ir::NodePtr create_as_strided_node(
 // During lazy we set up the as strided tensor meta data
 // when we get a call back from lowering, we attache the tensor from same memory
 // as source
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor as_strided_hpu_lazy2(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
-    c10::optional<int64_t> offset) {
-  PT_LAZY_TRACE;
-  auto storage_offset_val = offset.value_or(self.storage_offset());
-
-  auto size_in = size;
-  auto stride_in = stride;
-#else
-Tensor as_strided_hpu_lazy2(
+Tensor as_strided_hpu(
     const Tensor& self,
     SymIntArrayRef size,
     SymIntArrayRef stride,
@@ -1463,7 +1451,6 @@ Tensor as_strided_hpu_lazy2(
 
   auto size_in = C10_AS_INTARRAYREF_SLOW(size);
   auto stride_in = C10_AS_INTARRAYREF_SLOW(stride);
-#endif
   // lazy within lazy. as strided node is not here. Only the view table update
   // happens here
 
@@ -1591,26 +1578,13 @@ const Tensor& as_strided_hpu_lazy_(
 at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
-    at::SymInt storage_offset,
-    at::SymIntArrayRef size,
-    at::SymIntArrayRef stride) {
-  return set_source_Storage_storage_offset(
-      self,
-      source,
-      storage_offset.expect_int(),
-      C10_AS_INTARRAYREF_SLOW(size),
-      C10_AS_INTARRAYREF_SLOW(stride));
-}
-
-Tensor& set_source_Storage_storage_offset(
-    Tensor& self,
-    Storage source,
-    int64_t storage_offset,
-    IntArrayRef size,
-    IntArrayRef stride) {
+    at::SymInt storage_offset_,
+    at::SymIntArrayRef size_,
+    at::SymIntArrayRef /*stride*/) {
   PT_LAZY_TRACE
+  auto storage_offset = storage_offset_.expect_int();
+  auto size = C10_AS_INTARRAYREF_SLOW(size_);
   // TODO Handle stride
-  static_cast<void>(stride);
 
   auto lazy_ten = GetHbLazyTensor(self);
   auto impl = lazy_ten.getAttachedTensorImpl();
@@ -1657,15 +1631,9 @@ void view_hpu_lazy_parallel_impl(
       });
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor view_hpu_lazy(const Tensor& self_, IntArrayRef size) {
-  PT_LAZY_TRACE;
-  auto size_ = size;
-#else
-Tensor view_hpu_lazy(const Tensor& self_, SymIntArrayRef size) {
+Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   PT_LAZY_TRACE;
   auto size_ = C10_AS_INTARRAYREF_SLOW(size);
-#endif
   auto inferred_size = habana_helpers::infer_size(size_, self_.numel());
   auto stride =
       at::detail::computeStride(self_.sizes(), self_.strides(), inferred_size);
@@ -1760,7 +1728,7 @@ inline DimVector compute_strides_for_view_dtype_upsize(
   return new_strides;
 }
 
-Tensor view_dtype_hpu_lazy(const Tensor& self, ScalarType dtype) {
+Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
   PT_LAZY_TRACE;
   if (self.scalar_type() == dtype) {
     return self;
@@ -1781,7 +1749,7 @@ Tensor view_dtype_hpu_lazy(const Tensor& self, ScalarType dtype) {
     return self.to(dtype);
   }
 
-  auto new_tensor = view_hpu_lazy(self, fromIntArrayRefUnchecked(self.sizes()));
+  auto new_tensor = view_hpu(self, fromIntArrayRefUnchecked(self.sizes()));
   auto* impl = new_tensor.unsafeGetTensorImpl();
   impl->set_storage_and_dtype(self.storage(), type_meta);
   if (self_element_size == new_element_size) {
@@ -4758,7 +4726,7 @@ native_group_norm_backward_hpu_lazy(
   rszarr_bn_fwd_mean[1] = Nmod;
   c10::IntArrayRef bn_in_view_shape(rszarr_bn_in, input_.dim());
   auto bn_fwd_in = at::reshape(
-      input_, bn_in_view_shape); // view_hpu_lazy(input, bn_in_view_shape);
+      input_, bn_in_view_shape); // view_hpu(input, bn_in_view_shape);
   if (use_bn_fwd_in_gn_bwd) {
     Tensor bn_wt1, bn_bt1, bn_rm1, bn_rv1;
     auto x = batch_norm_hpu_lazy(
@@ -5899,7 +5867,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   RUN_MAYBE_WITH_ACC_THREAD(one_hot, k)
 }
 
-Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
+Scalar _local_scalar_dense_hpu(const Tensor& self) {
   PT_LAZY_TRACE;
   Scalar out;
   // If self is a lazy tensor make sure the execution till the point of self
@@ -6120,12 +6088,8 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
     // Index flipping to match the cpu results
     Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
     auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-    inverse_result = view_hpu_lazy(inverse_result, self.sizes());
-#else
     inverse_result =
-        view_hpu_lazy(inverse_result, fromIntArrayRefUnchecked(self.sizes()));
-#endif
+        view_hpu(inverse_result, fromIntArrayRefUnchecked(self.sizes()));
 
     flush_op(1);
     return std::make_tuple(result, inverse_result);
