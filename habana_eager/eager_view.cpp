@@ -68,7 +68,7 @@ static JitNode* insert_strided_view_node(
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
-    const SmallTensorVector& inputs,
+    const std::vector<at::Tensor>& inputs,
     const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_TRACE;
 

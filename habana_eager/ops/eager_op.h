@@ -81,18 +81,6 @@ class EagerOpBase {
   }
 
  protected:
-  void convert_inputs_to_backend_tensors(
-      SmallTensorVector& input_pt_vec,
-      SmallTensorVector& input_backend_pt_vec) {
-    std::transform(
-        input_pt_vec.begin(),
-        input_pt_vec.end(),
-        std::back_inserter(input_backend_pt_vec),
-        [](at::Tensor& t_) {
-          return HbEagerTensorPool::getInstance().get_backend_tensor(t_);
-        });
-  }
-
   torch::jit::Stack run(std::vector<OutputSpec>&& out_spec);
 
   const at::Symbol m_symbol;

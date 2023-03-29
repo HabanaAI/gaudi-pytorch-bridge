@@ -43,14 +43,13 @@ struct overloaded : Ts... {
 };
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
-} // namespace
 
-template <
-    EagerExec::ProcessList process_list = EagerExec::ProcessList::asList,
-    class T>
-void EagerExec::traversing_inputs(T&& visitor) {
-  for (size_t i = 0; i < m_inputs.size(); ++i) {
-    const at::IValue& input = m_inputs[i];
+enum class ProcessList { asTensor, asList };
+
+template <ProcessList process_list = ProcessList::asList, class T>
+void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    const at::IValue& input = inputs[i];
     if (input.isScalar() || is_metadata_candidate(input)) {
       visitor(input);
     } else if (input.isTensor()) {
@@ -82,6 +81,22 @@ void EagerExec::traversing_inputs(T&& visitor) {
     }
   }
 }
+} // namespace
+
+std::vector<at::Tensor> convert_inputs_to_backend_tensors(
+    std::vector<at::IValue>& inputs) {
+  std::vector<at::Tensor> tensor_inputs;
+  traversing_inputs<ProcessList::asTensor>(
+      inputs,
+      overloaded{// metadata
+                 [](const torch::jit::IValue&) {},
+                 // tensors
+                 [&tensor_inputs](const at::Tensor& t) {
+                   tensor_inputs.push_back(
+                       HbEagerTensorPool::getInstance().get_backend_tensor(t));
+                 }});
+  return tensor_inputs;
+}
 
 torch::jit::Stack EagerExec::launch() {
   PT_EAGER_TRACE;
@@ -94,15 +109,6 @@ torch::jit::Stack EagerExec::launch() {
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size - out is 1, so size(inputs)
-
-  traversing_inputs<ProcessList::asTensor>(overloaded{
-      // metadata
-      [](const torch::jit::IValue&) {},
-      // tensors
-      [this](const at::Tensor& t) {
-        m_tensor_inputs.push_back(
-            HbEagerTensorPool::getInstance().get_backend_tensor(t));
-      }});
 
   stack.reserve(m_tensor_inputs.size());
 
@@ -182,39 +188,41 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph() {
   std::vector<JitValue*> node_inputs;
 
   auto inp_it = m_tensor_inputs.begin();
-  traversing_inputs(overloaded{
-      //  const
-      [&node_inputs, &graph](const torch::jit::IValue& c) {
-        node_inputs.push_back(graph->insertConstant(c));
-      },
-      // tensor inputs
-      [&node_inputs, &graph, &inp_it](const at::Tensor&) {
-        auto t = graph->addInput(inp_it->toString());
-        t->setType(c10::TensorType::createContiguous(
-            inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
-        node_inputs.push_back(t);
-        ++inp_it;
-      },
-      // list tensors input
-      [&node_inputs, &graph, &inp_it](
-          const c10::ArrayRef<torch::jit::IValue>& list) {
-        std::vector<JitValue*> list_inp_args;
-        for (int i = 0; i < list.size(); ++i) {
-          auto t = graph->addInput(inp_it->toString());
-          t->setType(c10::TensorType::createContiguous(
-              inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
-          list_inp_args.push_back(t);
-          ++inp_it;
-        }
-        auto jit_node = graph->create(
-            c10::Symbol::fromQualString("prim::ListConstruct"),
-            list_inp_args,
-            1);
-        // Do we need to handle Optional ?
-        jit_node->output()->setType(torch::jit::ListType::ofTensors());
-        graph->insertNode(jit_node);
-        node_inputs.push_back(jit_node->output(0));
-      }});
+  traversing_inputs(
+      m_inputs,
+      overloaded{
+          //  const
+          [&node_inputs, &graph](const torch::jit::IValue& c) {
+            node_inputs.push_back(graph->insertConstant(c));
+          },
+          // tensor inputs
+          [&node_inputs, &graph, &inp_it](const at::Tensor&) {
+            auto t = graph->addInput(inp_it->toString());
+            t->setType(c10::TensorType::createContiguous(
+                inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
+            node_inputs.push_back(t);
+            ++inp_it;
+          },
+          // list tensors input
+          [&node_inputs, &graph, &inp_it](
+              const c10::ArrayRef<torch::jit::IValue>& list) {
+            std::vector<JitValue*> list_inp_args;
+            for (int i = 0; i < list.size(); ++i) {
+              auto t = graph->addInput(inp_it->toString());
+              t->setType(c10::TensorType::createContiguous(
+                  inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
+              list_inp_args.push_back(t);
+              ++inp_it;
+            }
+            auto jit_node = graph->create(
+                c10::Symbol::fromQualString("prim::ListConstruct"),
+                list_inp_args,
+                1);
+            // Do we need to handle Optional ?
+            jit_node->output()->setType(torch::jit::ListType::ofTensors());
+            graph->insertNode(jit_node);
+            node_inputs.push_back(jit_node->output(0));
+          }});
 
   auto jit_node = graph->create(m_symbol, node_inputs, m_outputs.size());
 
@@ -259,35 +267,40 @@ size_t EagerExec::calculate_operator_key(const UniqueIdxVec& parent_vec) {
 
   std::unordered_set<size_t> input_hash_values;
   int inp_index = 0;
-  traversing_inputs<ProcessList::asTensor>(overloaded{
-      [this, &optimized_key, &inp_index](const torch::jit::IValue& input) {
-        optimized_key = at::hash_combine(optimized_key, inp_index++);
-        if (input.isScalar()) {
-          optimized_key = at::hash_combine(
-              optimized_key, at::IValue::hash(input.toScalar()));
-        } else if (input.isList()) {
-          for (auto& v : input.toListRef()) {
-            optimized_key =
-                at::hash_combine(optimized_key, at::IValue::hash(v));
-          }
-        } else {
-          // at::IValue::hash of None is zero, same as for zero scalar,
-          // in order to distinguish None and Zero scalar we ignore None
-          if (!input.isNone()) {
-            optimized_key =
-                at::hash_combine(optimized_key, at::IValue::hash(input));
-          }
-        }
-      },
-      [this, &optimized_key, &input_hash_values, &inp_index](
-          const at::Tensor& input) {
-        optimized_key = at::hash_combine(optimized_key, inp_index++);
-        size_t input_hash_val = c10::get_hash(input.unsafeGetTensorImpl());
-        if (input_hash_values.count(input_hash_val) == 0) {
-          input_hash_values.emplace(input_hash_val);
-          update_key_for_tensor(input, optimized_key);
-        }
-      }});
+  auto inp_it = m_tensor_inputs.begin();
+  traversing_inputs<ProcessList::asTensor>(
+      m_inputs,
+      overloaded{
+          [this, &optimized_key, &inp_index](const torch::jit::IValue& input) {
+            optimized_key = at::hash_combine(optimized_key, inp_index++);
+            if (input.isScalar()) {
+              optimized_key = at::hash_combine(
+                  optimized_key, at::IValue::hash(input.toScalar()));
+            } else if (input.isList()) {
+              for (auto& v : input.toListRef()) {
+                optimized_key =
+                    at::hash_combine(optimized_key, at::IValue::hash(v));
+              }
+            } else {
+              // at::IValue::hash of None is zero, same as for zero scalar,
+              // in order to distinguish None and Zero scalar we ignore None
+              if (!input.isNone()) {
+                optimized_key =
+                    at::hash_combine(optimized_key, at::IValue::hash(input));
+              }
+            }
+          },
+          [this, &optimized_key, &input_hash_values, &inp_index, &inp_it](
+              const at::Tensor&) {
+            optimized_key = at::hash_combine(optimized_key, inp_index++);
+            size_t input_hash_val =
+                c10::get_hash(inp_it->unsafeGetTensorImpl());
+            if (input_hash_values.count(input_hash_val) == 0) {
+              input_hash_values.emplace(input_hash_val);
+              update_key_for_tensor(*inp_it, optimized_key);
+            }
+            ++inp_it;
+          }});
   return optimized_key;
 }
 

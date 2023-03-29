@@ -108,9 +108,11 @@ class EagerExec {
  public:
   EagerExec(
       at::Symbol symbol,
+      std::vector<at::Tensor>&& tensor_inputs,
       std::vector<at::IValue>&& inputs,
       std::vector<OutputSpec>&& outputs)
       : m_symbol{symbol},
+        m_tensor_inputs(std::move(tensor_inputs)),
         m_inputs(std::move(inputs)),
         m_outputs(std::move(outputs)) {}
 
@@ -119,12 +121,11 @@ class EagerExec {
   void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
     m_eager_op_meta_data = eager_op_meta_data;
   }
-  enum class ProcessList { asTensor, asList };
 
  private:
   size_t m_key;
   const at::Symbol m_symbol;
-  SmallTensorVector m_tensor_inputs;
+  const std::vector<at::Tensor> m_tensor_inputs;
   const std::vector<at::IValue> m_inputs;
   const std::vector<OutputSpec> m_outputs;
   MetaDataMap m_metadata;
@@ -141,10 +142,8 @@ class EagerExec {
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
   void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
-
-  template <ProcessList process_list = ProcessList::asList, class T>
-  void traversing_inputs(T&& visitor);
 };
-
+std::vector<at::Tensor> convert_inputs_to_backend_tensors(
+    std::vector<at::IValue>& inputs);
 } // namespace eager
 } // namespace habana
