@@ -4251,7 +4251,6 @@ masked_fill_.Scalar:
   guid: where
   op_backend: MaskedFill
   inplace_ids: [0]
-  scalar_ids: [2]
 
 masked_fill_.Tensor:
   dtypes:
