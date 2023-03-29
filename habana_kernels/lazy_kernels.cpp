@@ -2944,7 +2944,17 @@ Tensor& _index_put_impl_hpu_lazy_(
       "index_put op doesn't support more than ",
       MAX_DIMS_FOR_ADVANCED_INDEXING,
       " dims");
-  at::Tensor self_permuted = self;
+  at::Tensor self_permuted;
+  if (self.device().type() != c10::DeviceType::HPU)
+    self_permuted = self.to(c10::kHPU);
+  else
+    self_permuted = self;
+
+  at::Tensor value_in;
+  if (value.device().type() != c10::DeviceType::HPU)
+    value_in = value.to(c10::kHPU);
+  else
+    value_in = value;
   if (advanced_indexing) {
     at::Stack stack;
     stack.emplace_back(self);
@@ -2987,7 +2997,8 @@ Tensor& _index_put_impl_hpu_lazy_(
       indices_out_opt_vec);
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
-  index_put_hpu_lazy_(self_permuted, indices_out_opt_list, value, accumulate);
+  index_put_hpu_lazy_(
+      self_permuted, indices_out_opt_list, value_in, accumulate);
   return self;
 }
 
