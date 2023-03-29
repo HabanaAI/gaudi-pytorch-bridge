@@ -117,6 +117,7 @@ class HandlesMap {
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
   void Erase(mem_handle::id_t id);
   void MarkMemoryFixed(mem_handle::id_t id);
+  bool checkIdIsReset(mem_handle::id_t id);
   void ResetHandlesMap();
   bucket_type getBucketIndexForGivenTensorSize(size_t size);
   struct MemoryRecord {
@@ -178,6 +179,7 @@ class HandlesMap {
     PtrSize ptr_size_{};
     bool fixed_ = false;
     bool active_ = false;
+    bool reset_ = false;
     Record() = default;
     Record(size_t size) : ptr_size_(size), active_(true) {}
   };
