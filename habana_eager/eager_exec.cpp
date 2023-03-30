@@ -455,11 +455,48 @@ std::string UniqueIdxVec::to_string() const {
   return absl::StrCat("{", absl::StrJoin(idx_, ",", Formatter()), "}");
 }
 
+void EagerExec::set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
+  PT_EAGER_TRACE;
+
+  m_eager_op_meta_data = eager_op_meta_data;
+
+  std::vector<int>& out_indices = m_eager_op_meta_data.out_indices;
+  if (!out_indices.empty()) {
+    PT_EAGER_DEBUG(
+        "[EagerExec::set_eager_op_info] Before remap => ",
+        m_eager_op_meta_data.to_string());
+
+    size_t tensor_idx = 0;
+    size_t out_indices_idx = 0;
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      const at::IValue& input = m_inputs[i];
+      if (input.isTensor()) {
+        const at::Tensor& t = input.toTensor();
+        if (t.defined()) {
+          HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+          if (out_indices.at(out_indices_idx) == (int)i) {
+            out_indices.at(out_indices_idx) = tensor_idx;
+            out_indices_idx++;
+            if (out_indices_idx >= out_indices.size()) {
+              break;
+            }
+          }
+          tensor_idx++;
+        }
+      }
+    }
+
+    PT_EAGER_DEBUG(
+        "[EagerExec::set_eager_op_info] After remap => ",
+        m_eager_op_meta_data.to_string());
+  }
+}
+
 void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
-    PT_BRIDGE_DEBUG("[Eager] Apply I/O View Handling pass.");
+    PT_EAGER_DEBUG("[Eager] Apply I/O View Handling pass.");
     HandleInputOutputViews(graph, m_tensor_inputs, m_eager_op_meta_data);
   }
 }

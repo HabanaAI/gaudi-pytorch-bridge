@@ -88,8 +88,24 @@ def test_relu_2d_discontiguous_slice():
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
 
-# TODO Enable the below tests after JIT IR pass is implemented
-@pytest.mark.xfail(reason="SW-119307")
+def test_relu_inplace_1d_noncontiguous_view():
+    cpu_tensor = torch.randn([4])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    torch.relu_(hpu_tensor[::2])
+    torch.relu_(cpu_tensor[::2])
+
+    torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol = 0.001, rtol = 0.001)
+
+def test_relu_inplace_2d_noncontiguous_view():
+    cpu_tensor = torch.randn([4,4])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    torch.relu_(hpu_tensor[0::2,0::2])
+    torch.relu_(cpu_tensor[0::2,0::2])
+
+    torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol = 0.001, rtol = 0.001)
+
 def test_relu_inplace_noncontiguous_view():
     cpu_tensor = torch.randn([4])
     hpu_tensor = cpu_tensor.to("hpu")
@@ -101,6 +117,38 @@ def test_relu_inplace_noncontiguous_view():
     result_cpu = torch.relu_(cpu_tensor)
 
     assert torch.allclose(result_hpu, result_cpu, atol = 0.001, rtol = 0.001)
+
+def test_aminmax_multi_output_view_row():
+    cpu_tensor = torch.randn([2, 5])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_min_tensor = torch.randn([2, 5])
+    hpu_min_tensor = cpu_min_tensor.to("hpu")
+
+    cpu_max_tensor = torch.randn([2, 5])
+    hpu_max_tensor = cpu_max_tensor.to("hpu")
+
+    cpu_min_tensor[1], cpu_max_tensor[1] = cpu_tensor.aminmax(dim=0, keepdim=True)
+    hpu_min_tensor[1], hpu_max_tensor[1] = hpu_tensor.aminmax(dim=0, keepdim=True)
+
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol = 0.001, rtol = 0.001)
+
+def test_aminmax_multi_output_view_col():
+    cpu_tensor = torch.randn([2, 5])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_min_tensor = torch.randn([10])
+    hpu_min_tensor = cpu_min_tensor.to("hpu")
+
+    cpu_max_tensor = torch.randn([10])
+    hpu_max_tensor = cpu_max_tensor.to("hpu")
+
+    cpu_min_tensor[0::2], cpu_max_tensor[0::2] = cpu_tensor.aminmax(dim=0, keepdim=True)
+    hpu_min_tensor[0::2], hpu_max_tensor[0::2] = hpu_tensor.aminmax(dim=0, keepdim=True)
+
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol = 0.001, rtol = 0.001)
 
 def test_d2d_noncontiguous_views_src():
     cpu_src_tensor = torch.randn([4])

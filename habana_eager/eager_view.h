@@ -73,6 +73,13 @@ class ViewParam {
 
 } __attribute__((aligned(64)));
 
+struct StridedOutInfo {
+  size_t index;
+  at::Tensor tensor;
+  JitValue* value;
+  std::unique_ptr<ViewParam> param;
+};
+
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::Tensor>& inputs,

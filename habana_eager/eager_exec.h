@@ -118,9 +118,7 @@ class EagerExec {
 
   torch::jit::Stack launch();
 
-  void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
-    m_eager_op_meta_data = eager_op_meta_data;
-  }
+  void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data);
 
  private:
   size_t m_key;

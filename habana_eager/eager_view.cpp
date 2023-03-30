@@ -23,7 +23,7 @@ static void set_deterministic(JitNode* node) {
     auto one = torch::jit::attr::alpha;
     auto& device = synapse_helpers::HPURegistrar::get_device();
     node->i_(one, device.getDeterministic());
-    PT_BRIDGE_DEBUG(
+    PT_EAGER_DEBUG(
         "Deterministic val during Jit Node creation: ", node->i(one));
   }
 }
@@ -66,13 +66,140 @@ static JitNode* insert_strided_view_node(
   return jit_node;
 }
 
+static bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
+  return (
+      (eager_op_meta_data.op_kind == habana::eager::eagerOpKind::Inplace) ||
+      (eager_op_meta_data.op_kind == habana::eager::eagerOpKind::InplaceOut));
+}
+
+static size_t get_number_of_input_tensors(
+    JitNode* node,
+    const std::vector<at::Tensor>& inputs,
+    const EagerOpMetaData& eager_op_meta_data) {
+  PT_EAGER_DEBUG("JIT node inputs count : ", node->inputs().size());
+  PT_EAGER_DEBUG("JIT node outputs count : ", node->outputs().size());
+  PT_EAGER_DEBUG("Total input tensors : ", inputs.size());
+
+  switch (eager_op_meta_data.op_kind) {
+    case InplaceOut:
+      HABANA_ASSERT(!eager_op_meta_data.out_indices.empty());
+      PT_EAGER_DEBUG(
+          "Total output tensors : ", eager_op_meta_data.out_indices.size());
+      HABANA_ASSERT(inputs.size() >= eager_op_meta_data.out_indices.size());
+      return (inputs.size() - eager_op_meta_data.out_indices.size());
+    case Inplace:
+    case OutOfPlace:
+    default:
+      return (inputs.size());
+  }
+}
+
+static at::Tensor get_output_tensor(
+    const std::vector<at::Tensor>& inputs,
+    const EagerOpMetaData& eager_op_meta_data,
+    size_t index) {
+  auto output_idx = eager_op_meta_data.out_indices[index];
+  at::Tensor output_tensor = inputs.at(output_idx);
+  return output_tensor;
+}
+
+static JitValue* get_output_jitval(
+    JitNode* node,
+    const EagerOpMetaData& eager_op_meta_data,
+    size_t index) {
+  auto output_idx = eager_op_meta_data.out_indices[index];
+  return node->input(output_idx);
+}
+
+static void collect_output_view_param(
+    JitNode* node,
+    const std::vector<at::Tensor>& inputs,
+    const EagerOpMetaData& eager_op_meta_data,
+    std::vector<StridedOutInfo>& strided_out_info) {
+  if (!eager_op_meta_data.out_indices.empty()) {
+    auto n_output_ts = eager_op_meta_data.out_indices.size();
+    for (size_t idx = 0; idx < n_output_ts; idx++) {
+      at::Tensor output_tensor =
+          get_output_tensor(inputs, eager_op_meta_data, idx);
+      if (!output_tensor.is_contiguous()) {
+        StridedOutInfo s;
+        s.index = idx;
+        s.tensor = output_tensor;
+        s.value = get_output_jitval(node, eager_op_meta_data, idx);
+        s.param = std::make_unique<ViewParam>();
+        s.param->setParam(output_tensor);
+        strided_out_info.emplace_back(std::move(s));
+      }
+    }
+  }
+}
+
+static JitNode* replace_with_out_of_place_op(
+    std::shared_ptr<JitGraph>& graph,
+    JitNode* node,
+    const EagerOpMetaData& eager_op_meta_data) {
+  torch::jit::WithInsertPoint insert_point(node);
+  std::string new_kind = eager_op_meta_data.op_name;
+
+  auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
+  new_node->addInput(node->input(0));
+  for (size_t i = 1; i < node->inputs().size(); ++i) {
+    new_node->addInput(node->input(i));
+  }
+  new_node->setScope(node->scope());
+  new_node->copyAttributes(*node);
+  new_node->output(0)->copyMetadata(node->output(0));
+  graph->insertNode(new_node);
+  node->output(0)->replaceAllUsesWith(new_node->output(0));
+  node->destroy();
+
+  return new_node;
+}
+
+static JitNode* insert_strided_insert_node(
+    std::shared_ptr<JitGraph> graph,
+    JitNode* node,
+    const EagerOpMetaData& eager_op_meta_data,
+    StridedOutInfo& s) {
+  size_t idx = s.index;
+  at::Tensor& output = s.tensor;
+  std::unique_ptr<ViewParam>& p = s.param;
+
+  auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
+  auto value_strides =
+      graph->insertConstant(torch::jit::IValue(p->getViewStrides()));
+  auto value_offset =
+      graph->insertConstant(torch::jit::IValue(p->getViewOffset()));
+
+  auto jit_node = graph->create(
+      op_strided_insert,
+      {s.value, node->output(idx), value_strides, value_offset},
+      1);
+
+  jit_node->input(0)->setType(c10::TensorType::createContiguous(
+      output.scalar_type(), output.device(), {p->getTotalElements()}));
+
+  jit_node->input(1)->setType(c10::TensorType::createContiguous(
+      output.scalar_type(), output.device(), p->getViewSizes()));
+
+  jit_node->output(0)->setType(c10::TensorType::createContiguous(
+      output.scalar_type(), output.device(), {p->getTotalElements()}));
+
+  set_deterministic(jit_node);
+  graph->insertNode(jit_node);
+
+  node->output(idx)->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
+
+  return jit_node;
+}
+
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::Tensor>& inputs,
     const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_TRACE;
 
-  PT_BRIDGE_DEBUG(
+  PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Eager Op Info = ",
       eager_op_meta_data.to_string());
 
@@ -92,37 +219,85 @@ void HandleInputOutputViews(
     }
   }
 
-  PT_BRIDGE_DEBUG(
-      "\nBefore SV node insertion:=====================\n",
+  // Check if the op type is inplace or inplace-out.
+  // If yes, check if output is strided and if so, collect output view param
+  // now. This view param will be used in output view handling later.
+
+  bool is_inplace_op = check_inplace_op(eager_op_meta_data);
+  std::vector<StridedOutInfo> strided_out_info;
+  if (is_inplace_op) {
+    collect_output_view_param(
+        node, inputs, eager_op_meta_data, strided_out_info);
+  }
+
+  PT_EAGER_DEBUG(
+      "\nSV node insertion:=====================\n",
       "JIT_IR_Graph_BEGIN\n",
       "Graph ",
-      "[Before Pass]",
+      "[Before]",
       '\n',
       graph->toString(),
       "JIT_IR_Graph_END\n");
 
   auto strided_view_node = 0;
-  for (size_t idx = 0; idx < inputs.size(); idx++) {
-    std::unique_ptr<ViewParam> p = std::make_unique<ViewParam>();
+  auto n_input_ts =
+      get_number_of_input_tensors(node, inputs, eager_op_meta_data);
+  for (size_t idx = 0; idx < n_input_ts; idx++) {
     at::Tensor input_tensor = inputs.at(idx);
     if (!input_tensor.is_contiguous()) {
-      p->setParam(input_tensor);
-      insert_strided_view_node(graph, input_tensor, node, idx, p);
+      std::unique_ptr<ViewParam> p_in = std::make_unique<ViewParam>();
+      p_in->setParam(input_tensor);
+      insert_strided_view_node(graph, input_tensor, node, idx, p_in);
       strided_view_node++;
     }
   }
 
   if (strided_view_node > 0) {
-    PT_BRIDGE_DEBUG(
-        "\nAfter SV node insertion:=====================\n",
+    PT_EAGER_DEBUG(
+        "\nSV node insertion:=====================\n",
         "JIT_IR_Graph_BEGIN\n",
         "Graph ",
-        "[After Pass]",
+        "[After]",
         '\n',
         graph->toString(),
         "JIT_IR_Graph_END\n");
   } else {
-    PT_BRIDGE_DEBUG("\nSV node insertion not required.=====================\n");
+    PT_EAGER_DEBUG("\nSV node insertion not required.=====================\n");
+  }
+
+  if (is_inplace_op) {
+    if (strided_out_info.empty()) {
+      return;
+    }
+
+    // We reach this point if the op type is inplace or inplace-out with strided
+    // output. Note, output view param is already collected.
+
+    JitNode* new_node =
+        replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+
+    PT_EAGER_DEBUG(
+        "\nSI node insertion:=====================\n",
+        "JIT_IR_Graph_BEGIN\n",
+        "Graph ",
+        "[Before]",
+        '\n',
+        graph->toString(),
+        "JIT_IR_Graph_END\n");
+
+    for (size_t idx = 0; idx < strided_out_info.size(); idx++) {
+      insert_strided_insert_node(
+          graph, new_node, eager_op_meta_data, strided_out_info.at(idx));
+    }
+
+    PT_EAGER_DEBUG(
+        "\nSI node insertion:=====================\n",
+        "JIT_IR_Graph_BEGIN\n",
+        "Graph ",
+        "[After]",
+        '\n',
+        graph->toString(),
+        "JIT_IR_Graph_END\n");
   }
 }
 
