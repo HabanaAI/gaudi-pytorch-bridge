@@ -49,7 +49,9 @@ std::unordered_set<std::string> load_list(
 // pytorch-integration/python_packages/habana_frameworks/torch/hpex/hmp/
 static const std::unordered_set<std::string> default_lower_ops{
     "addmm",
+    "addbmm",
     "batch_norm",
+    "baddbmm",
     "bmm",
     "conv1d",
     "conv2d",
