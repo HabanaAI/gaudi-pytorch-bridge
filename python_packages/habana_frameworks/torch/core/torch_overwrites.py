@@ -13,8 +13,8 @@
 import datetime
 from collections import deque
 from functools import wraps
-from os import environ
-from typing import Union
+from os import environ, path
+from typing import Union, Optional
 
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
@@ -172,3 +172,47 @@ def overwrite_torch_functions():
         module_set_attr_orig(self, name, value)
 
     torch.nn.Module.__setattr__ = wrap_set_attr
+
+
+    # wrap torch.distributed.irecv
+
+    dummy_mode = int(environ.get('P2P_DUMMY_MODE_PHASE', "0"))
+    if dummy_mode == 1 or dummy_mode == 2:
+        irecv_orig = torch.distributed.irecv
+        distributed_c10d = torch.distributed.distributed_c10d
+
+        def irecv_aux(tensor):
+            dummy_mode = int(environ.get('P2P_DUMMY_MODE_PHASE', "0"))
+            if not hasattr(irecv_aux, "dummy_mode_seq"):
+                irecv_aux.dummy_mode_seq = 0  # it doesn't exist yet, so initialize it
+
+            dummy_folder_path = environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") != None else "./"
+            tensor_file = dummy_folder_path + str(distributed_c10d.get_rank()) + "_" + str(irecv_aux.dummy_mode_seq) + ".pt"
+
+            if dummy_mode == 1:
+                print("Dummy Mode: " + tensor_file + " saved.")
+                torch.save(tensor.to('cpu'), tensor_file)
+
+            if dummy_mode == 2:
+                if path.exists(tensor_file):
+                    tensor = torch.load(tensor_file).to('hpu')
+                    print("Dummy Mode: " + tensor_file + " loaded.")
+                else:
+                    irecv_aux.dummy_mode_seq = 0
+                    tensor_file = dummy_folder_path + str(distributed_c10d.get_rank()) + "_" + str(irecv_aux.dummy_mode_seq) + ".pt"
+                    if path.exists(tensor_file):
+                        print("Dummy Mode: " + tensor_file + " loaded.")
+                        tensor = torch.load(tensor_file).to('hpu')
+                    else:
+                        raise Exception("Attempting to run HPU Dummy Mode but needed file " + tensor_file + " does not exist!")
+
+            irecv_aux.dummy_mode_seq += 1
+            return tensor
+
+        @wraps(torch.distributed.irecv)
+        def wrap_irecv(tensor: torch.Tensor, src: Optional[int] = None, group: Optional[distributed_c10d.ProcessGroup] = None, tag: int = 0) -> distributed_c10d.Work:
+            res = irecv_orig(tensor, src, group, tag)
+            tensor.copy_(irecv_aux(tensor))
+            return res
+
+        torch.distributed.irecv = wrap_irecv
