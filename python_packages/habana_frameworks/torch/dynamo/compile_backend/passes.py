@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from .shared_layer import is_cpu_fallback_required
 from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
+from .config import configuration_flags
 
 logger = logging.getLogger("aot_hpu_backend")
 
@@ -624,7 +625,11 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
                     graph_changed = True
 
     # Clean up the graph.
-    ctx.graph_module.graph.eliminate_dead_code()
+    # The circular copy back to the input is being considered as dead code.
+    # The whole graph is incorrectly eliminated
+    # skip this optimization when keep_input_mutation is enabled
+    if (configuration_flags["keep_input_mutations"] is False):
+        ctx.graph_module.graph.eliminate_dead_code()
     ctx.graph_module.recompile()
 
     return graph_changed

@@ -32,6 +32,11 @@ if os.getenv("PT_HPU_DTYPE_PROP_IN_BACKEND", "").upper() in ["ON", "1", "YES", "
 elif os.getenv("PT_HPU_DTYPE_PROP_IN_BACKEND", "").upper() in ["OFF", "0", "NO", "FALSE", "N"]:
     configuration_flags["dtype_propagation_in_backend"] = False
 
+if os.getenv("PT_HPU_KEEP_INPUT_MUTATIONS", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+    configuration_flags["keep_input_mutations"] = True
+else:
+    configuration_flags["keep_input_mutations"] = False
+
 if configuration_flags["verbose"]:
     logger = logging.getLogger("aot_hpu_backend")
     logger.setLevel(logging.DEBUG)

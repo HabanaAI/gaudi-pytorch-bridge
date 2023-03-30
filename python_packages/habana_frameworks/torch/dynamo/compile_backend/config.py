@@ -14,4 +14,5 @@
 configuration_flags = {
     "use_compiled_recipes": True,
     "verbose": False,
-    "dtype_propagation_in_backend": True}
+    "dtype_propagation_in_backend": True,
+    "keep_input_mutations": False}

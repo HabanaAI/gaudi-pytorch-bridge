@@ -16,6 +16,8 @@ from typing import List
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
+from .config import configuration_flags
+
 from .compilers import (
     hpu_training_compiler_fw,
     hpu_training_compiler_bw,
@@ -31,9 +33,13 @@ def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs:
     """
 
     # Create AOT Autograd instance and feed it with Habana compile function.
+    keep_input_mutations = False
+    if configuration_flags["keep_input_mutations"]:
+        keep_input_mutations = True
+
     return aot_autograd(
         fw_compiler=hpu_training_compiler_fw,
-        bw_compiler=hpu_training_compiler_bw,
+        bw_compiler=hpu_training_compiler_bw, keep_inference_input_mutations = keep_input_mutations
     )(graph_module, example_inputs)
 
 
@@ -44,7 +50,11 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
     """
 
     # Create AOT Autograd instance and feed it with Habana compile function.
+    keep_input_mutations = False
+    if configuration_flags["keep_input_mutations"]:
+        keep_input_mutations = True
+
     return aot_autograd(
         fw_compiler=hpu_inference_compiler,
-        bw_compiler=hpu_inference_compiler_raise,
+        bw_compiler=hpu_inference_compiler_raise, keep_inference_input_mutations = keep_input_mutations
     )(graph_module, example_inputs)

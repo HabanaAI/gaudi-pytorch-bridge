@@ -307,6 +307,11 @@ void dumpEnvSettings() {
           "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "
           "in stochastic rounding mode.");
     }
+    auto keep_input_mutations = std::getenv("PT_HPU_KEEP_INPUT_MUTATIONS");
+    if (keep_input_mutations) {
+      std::clog << " PT_HPU_KEEP_INPUT_MUTATIONS = " << keep_input_mutations
+                << "\n";
+    }
 
     std::clog
         << "=============================SYSTEM CONFIGURATION ========================================= "
