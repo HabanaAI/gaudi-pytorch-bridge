@@ -1,5 +1,6 @@
 import functools
 import torch
+import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 
@@ -60,3 +61,21 @@ def test_alias(mode):
     else:
         result_hpu = raw_function(hx).to("cpu")
         assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+
+@pytest.mark.parametrize("memory_format", [None, torch.contiguous_format])
+def test_clone(mode, memory_format):
+    def raw_function(x):
+        return torch.clone(x, memory_format=memory_format)
+
+    cpu_tensor = torch.randn(4, 4)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    if mode == "graph":
+        result_nocompile = raw_function(hpu_tensor).to("cpu")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        result_compile = compiled_function_training(hpu_tensor).to("cpu")
+        assert torch.equal(result_nocompile, result_compile)
+    else:
+        result_cpu = raw_function(cpu_tensor)
+        result_hpu = raw_function(hpu_tensor).to("cpu")
+        assert torch.equal(result_cpu, result_hpu)

@@ -5143,26 +5143,6 @@ Tensor empty_strided_hpu_lazy(
   return empty_tensor;
 }
 
-Tensor clone_hpu_lazy(
-    const Tensor& self,
-    c10::optional<MemoryFormat> /* memory_format */) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k{"hpu::identity", {self}};
-  auto result = k.get_result();
-  auto func = [k = std::move(k), result]() mutable {
-    k.set_shape_changed();
-    k.call(result);
-  };
-
-  auto result_func = [](at::Tensor& result) {
-    result.unsafeGetTensorImpl()->set_sizes_contiguous(
-        IntArrayRef(result.sizes()));
-  };
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD_MODIFY_RESULT(
-      clone, func, result, result_func);
-}
-
 namespace {
 bool is_nonempty_tensor(const at::Tensor& tensor) {
   return tensor.dim() != 1 || tensor.size(0) != 0;

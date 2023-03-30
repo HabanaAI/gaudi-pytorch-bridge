@@ -1909,13 +1909,13 @@ clamp_min.Tensor_out:
   guid: max_fwd
 
 clone:
-  force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
-  override_fn: clone_hpu_lazy
-  acc_thread: true
+  guid: identity
+  output_meta: CloneMeta
+  out_ids: [0]
 
 constant_pad_nd:
   dtypes:

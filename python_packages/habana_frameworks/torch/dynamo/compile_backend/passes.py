@@ -383,7 +383,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "empty_like",
             "zeros",
             "ones",
-            "clone",  # SW-136398
             # Random OPs.
             "seed",
             "manual_seed",
