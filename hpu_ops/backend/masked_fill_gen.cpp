@@ -20,16 +20,22 @@ void MaskedFill::AddNode(
   auto self = stack_tensor(stack, 0);
   auto value = stack.at(2);
 
-  if (value.isScalar()) {
-    p_context_->syn_inputs_.emplace_back(
-        ConstantHelper(graph, value.toScalar(), self.scalar_type()));
+  auto value_dtype = value.isScalar() ? value.toScalar().type()
+                                      : value.toTensor().scalar_type();
+  value_dtype = habana_helpers::getInternalDtype(value_dtype);
+  auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
+
+  std::vector<synTensor> inputs = {syn_in(1), syn_in(2), syn_in(0)};
+  std::unique_ptr<synapse_helpers::tensor> cast;
+
+  if (value_dtype != self_dtype) {
+    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+        this, graph, syn_in(2), {1}, value_dtype, self_dtype));
+    inputs[1] = cast->get();
   }
 
-  auto result = BuildOp(
-      graph,
-      guid_,
-      {syn_in(1), syn_in(2), syn_in(0)},
-      {{self.sizes(), ScalarType(), 0}});
+  auto result =
+      BuildOp(graph, guid_, inputs, {{self.sizes(), ScalarType(), 0}});
 
   syn_out(0) = std::move(result[0]);
 }
