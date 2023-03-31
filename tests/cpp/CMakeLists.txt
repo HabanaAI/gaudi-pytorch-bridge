@@ -219,7 +219,6 @@ add_executable(
   lazy_upsample_kernel_tests.cpp
   lazy_where_kernel_tests.cpp
   linear_test.cpp
-  linear_2d_bwd.cpp
   main.cpp
   misc_utils_tests.cpp
   nms_tests.cpp
