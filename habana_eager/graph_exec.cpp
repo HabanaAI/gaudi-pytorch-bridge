@@ -54,10 +54,10 @@ GraphExec::GraphExec(
       m_dynamic(dynamic),
       m_inference(inference) {
   PT_EAGER_TRACE;
-  PT_EAGER_DEBUG("Compling graph (recipe_id: ", recipe_id, ")\n", *m_graph);
+
   m_graph_name = "habana_graph_" + std::to_string(m_graph_index);
-  pass::SanitizeGraphInput(m_graph);
-  pass::HandleTupleOnOutput(m_graph);
+
+  RunGraphPasses();
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(example_inputs, m_graph->inputs().size());
@@ -71,6 +71,13 @@ GraphExec::GraphExec(
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetOpName(m_graph_name);
 };
+
+void GraphExec::RunGraphPasses() {
+  PT_EAGER_DEBUG("Compiling graph: ", m_graph_name, "\n", *m_graph);
+  pass::SanitizeGraphInput(m_graph);
+  pass::HandleTupleOnOutput(m_graph);
+  pass::AddAttributeAlpha(m_graph);
+}
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
