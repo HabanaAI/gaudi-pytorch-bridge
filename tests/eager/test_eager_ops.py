@@ -38,6 +38,15 @@ def test_resize_inplace(shape_in, shape_out):
 
     assert np.array_equal(result_hpu, result_cpu)
 
+def test_clone():
+    cpu_tensor = torch.rand([2])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_cpu = copy.deepcopy(cpu_tensor)
+    result_hpu = copy.deepcopy(hpu_tensor).to("cpu")
+
+    assert torch.equal(result_hpu, result_cpu)
+
 def test_relu():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")

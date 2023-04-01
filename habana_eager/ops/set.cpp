@@ -29,10 +29,13 @@ at::Tensor& set_source_Storage_storage_offset(
   at::native::checkSetStorage(self, source, storage_offset, size, stride);
 
   auto int_storage_offset = storage_offset.as_int_unchecked();
-  auto int_stride = C10_AS_INTARRAYREF_SLOW(stride);
+  c10::optional<at::IntArrayRef> stride_opt = stride.data() != nullptr
+      ? c10::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
+      : c10::nullopt;
+
   self.unsafeGetTensorImpl()->set_storage_offset(int_storage_offset);
   at::native::resize_impl_hpu_(
-      self.unsafeGetTensorImpl(), C10_AS_INTARRAYREF_SLOW(size), int_stride);
+      self.unsafeGetTensorImpl(), C10_AS_INTARRAYREF_SLOW(size), stride_opt);
   return self;
 }
 
