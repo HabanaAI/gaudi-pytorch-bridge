@@ -12,13 +12,6 @@ from gson_parsing import gson_iterator, syn_types, zip_launch_info, descriptor_b
 log = logging.getLogger(__name__)
 
 
-class synMemoryAttribute:
-    MEMORY_ATTRIBUTE_DEVICE = 1  # // hbm or dram
-    MEMORY_ATTRIBUTE_HOST = 2  # // currently not supported in Gaudi
-    MEMORY_ATTRIBUTE_SRAM = 4  # // currently not supported
-    MEMORY_ATTRIBUTE_PERSISTENT = 8  # // tensor will stay in memory beyond the lifetime of the graph
-
-
 def human_readable_size(size, decimal_places=1):
     for unit in ["B", "KiB", "MiB", "GiB", "TiB"]:
         if size < 1024.0:
@@ -94,7 +87,6 @@ class Tensor:
     ):
         self.events = [creation_event] if creation_event is not None else []
         self.is_persistent = is_persistent
-        self.update_from_section(memory_section)
         self.update_from_descriptor(descriptor)
         if memory_section:
             self.events.append(memory_section)
@@ -133,7 +125,6 @@ class Tensor:
 
     def update_memory_section(self, entry, memory_section):
         self.events.append(memory_section)
-        self.update_from_section(memory_section)
         self.events.append(entry)
 
     @property
@@ -149,11 +140,6 @@ class Tensor:
         self.shape = tuple(desc["args"]["fields"]["m_sizes"][: self.dims]) if desc else tuple()
         self.byte_size = descriptor_byte_size(desc["args"]) if desc else 0
         self.syn_type = syn_types[desc["args"]["fields"]["m_dataType"] if desc else 0]
-
-    def update_from_section(self, section):
-        self.is_persistent = bool(
-            section and (int(section["args"]["memoryAttributes"]) & synMemoryAttribute.MEMORY_ATTRIBUTE_PERSISTENT)
-        )
 
     def __repr__(self):
         if self.is_null:

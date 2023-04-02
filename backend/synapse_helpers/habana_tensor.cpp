@@ -267,13 +267,9 @@ synapse_error_o tensor::create_old_synapi() {
       HABANA_ASSERT(data_type_ == syn_type_uint32);
       status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
     } else if (!memory_section_ && is_persistent_) {
-      auto memory_attributes{
-          synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
-          (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT
-                          : 0)};
       synSectionHandle section;
       HABANA_ASSERT(graph_ != nullptr);
-      status = synSectionCreate(&section, memory_attributes, graph_);
+      status = synSectionCreate(&section, 0, graph_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
@@ -464,13 +460,9 @@ synapse_error_o tensor::create() {
         tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
       HABANA_ASSERT(data_type_ == syn_type_uint32);
     } else if (!memory_section_ && is_persistent_) {
-      auto memory_attributes{
-          synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
-          (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT
-                          : 0)};
       synSectionHandle section;
       HABANA_ASSERT(graph_ != nullptr);
-      status = synSectionCreate(&section, memory_attributes, graph_);
+      status = synSectionCreate(&section, 0, graph_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
