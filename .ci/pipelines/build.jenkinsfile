@@ -27,6 +27,12 @@ def pytorchLightningFork = [
         util.runBuildShell('build_pytorch_lightning_fork')
     }
 ]
+def lightningHabanaFork = [
+    'Build Lightning Habana fork': { util ->
+        util.runShellCommandWrapper('rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl')
+        util.runBuildShell('build_lightning_habana_fork')
+    }
+]
 def habanaLightningPlugins = [
     'Build Habana lightning Plugins': { util ->
         util.runShellCommandWrapper('rm -rf ${HABANA_LIGHTNING_PLUGINS_BUILD}/dist/*.whl')
@@ -51,6 +57,7 @@ def preBuildStages = [
         util.runShellCommandWrapper('rm -rf ${PYTORCH_VISION_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${PYTORCH_MODULES_ROOT_PATH}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
+        util.runShellCommandWrapper('rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${HABANA_LIGHTNING_PLUGINS_BUILD}/dist/*.whl')
     },
     'Build Pytorchfork modules': { util ->
@@ -68,7 +75,10 @@ if(env.GERRIT_PROJECT == 'pytorch-integration' && env.IS_PROMOTE == "false") {
 if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Habana-Lightning-Plugins' ) && env.IS_PROMOTE == "false") {
     preBuildStages =  preBuildStages + pytorchLightningFork
 }
-preBuildStages =  preBuildStages + habanaLightningPlugins
+if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && env.IS_PROMOTE == "false") {
+    preBuildStages =  preBuildStages + lightningHabanaFork
+}
+preBuildStages =  preBuildStages + habanaLightningPlugins + lightningHabanaFork
 // TODO: SW-127368: compile PT 2.0 only in CI and for promote only for U20. This is temporary hack, untill issues fixed by dev.
 if(env.OS == 'ubuntu20.04'){
     preBuildStages =  preBuildStages + buildPytorchModulesNext

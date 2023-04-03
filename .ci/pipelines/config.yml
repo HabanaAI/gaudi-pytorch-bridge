@@ -7,6 +7,7 @@ config:
     - repository: Habana-Lightning-Plugins
     - repository: pytorch-vision-fork
     - repository: pytorch-integration
+    - repository: lightning-habana-fork
   osBuild:
     debian10.10: "on"
     ubuntu18.04: "off"
