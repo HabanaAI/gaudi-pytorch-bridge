@@ -7479,4 +7479,18 @@ at::Tensor _ragged_softmax(
   RUN_MAYBE_WITH_ACC_THREAD(_ragged_softmax, hpu_op);
 }
 
+at::Tensor scaled_masked_softmax_lazy(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    double scale) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::scaled_masked_softmax",
+      {input, mask, scale},
+      {{input.sizes().vec()}}};
+  RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_softmax, op)
+}
+
 } // namespace habana_lazy

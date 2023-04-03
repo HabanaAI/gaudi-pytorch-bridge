@@ -394,6 +394,10 @@ at::Tensor _ragged_softmax_wrap(
     int64_t dim,
     bool half_to_float,
     const at::Tensor& valid_count);
+at::Tensor scaled_masked_softmax_wrap(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    double scale);
 
 namespace vision {
 namespace ops {

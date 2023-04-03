@@ -165,6 +165,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/roll_gen.cpp
           backend/round_gen.cpp
           backend/rrelu_with_noise_gen.cpp
+          backend/scaled_masked_softmax.cpp
           backend/scatter_gen.cpp
           backend/shrink_gen.cpp
           backend/smooth_l1_loss_gen.cpp

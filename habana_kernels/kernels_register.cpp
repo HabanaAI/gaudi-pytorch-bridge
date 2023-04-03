@@ -1976,6 +1976,24 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
       permute, input_offsets, output_offsets, output_size);
 }
 
+at::Tensor scaled_masked_softmax_wrap(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    double scale) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " scaled_masked_softmax:",
+      " input=",
+      to_string(input),
+      " mask=",
+      to_string(mask),
+      " scale=",
+      to_string(scale));
+
+  return scaled_masked_softmax_lazy(input, mask, scale);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2451,6 +2469,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
   m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
+  m.def(
+      "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2466,6 +2486,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
+  m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
