@@ -59,4 +59,15 @@ sizes_vec ReductionOutputShape(
   return ReductionOutputShape(self, optional_to_arrayref(dims), keepdim);
 }
 
+template <>
+at::Tensor CommonReductionFrontendTemplate<at::Tensor>::CreateResult(
+    const at::Stack& stack,
+    at::ScalarType dtype) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  return at::native::create_reduction_result(
+      self,
+      get_dims(stack, m_dim_index),
+      get_keepdim(stack, m_keepdim_index),
+      dtype);
+}
 } // namespace habana
