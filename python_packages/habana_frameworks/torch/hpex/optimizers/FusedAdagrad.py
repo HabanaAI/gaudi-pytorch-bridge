@@ -3,6 +3,8 @@ from typing import Callable, Iterable
 import torch
 from torch.optim import Optimizer
 
+from habana_frameworks.torch import core as htcore
+
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
@@ -53,6 +55,7 @@ class FusedAdagrad(Optimizer):
             group["step_t"] = torch.tensor(
                 [0], dtype=torch.int32, requires_grad=False
             ).to(hpu, non_blocking=True)
+        htcore.step_closure._mark_step_if_lazy()
 
     def step(self, closure: Callable = None):
         """
@@ -68,6 +71,7 @@ class FusedAdagrad(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
+            htcore.step_closure._mark_step_if_lazy()
             grad_list, wt_list, var_list = [], [], []
             for p in group["params"]:
                 if p.grad is None:

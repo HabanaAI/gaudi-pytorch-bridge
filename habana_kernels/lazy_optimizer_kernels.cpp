@@ -426,6 +426,9 @@ void optimizer_adagrad_hpu_lazy(
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
+  // Refer comment on SW-69618 in this file
+  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
+
   LazyOptimizationOp<void> loo(
       "hpu::habanaOptimizerFusedAdagrad",
       {gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon});
