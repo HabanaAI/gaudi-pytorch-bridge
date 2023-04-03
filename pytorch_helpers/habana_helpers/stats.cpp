@@ -119,9 +119,9 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
       continue;
 
     if (m_pointAttributes[i].size() > 0 && !dumpAll) { // Print point attributes
-      PT_PROFILE_DUMP("{} Attributes ", m_pointMsg[i]);
+      PT_PROFILE_DUMP(m_pointMsg[i] + " Attributes");
       for (const auto& attr : m_pointAttributes[i]) {
-        PT_PROFILE_DUMP("{} : {}", attr.first, attr.second);
+        PT_PROFILE_DUMP(attr.first + " : " + attr.second);
       }
     }
 
@@ -133,12 +133,16 @@ void StatsBase::printToLog(std::string msg, bool dumpAll, bool clear) {
       out << sum << "," << count << "," << averg << ",";
     } else {
       PT_PROFILE_DUMP(
-          "{:50} |last {:15} [ns] |sum {:15} [ns] |count {:8}|average {:15} [ns]{}",
           m_pointMsg[i],
+          " |last ",
           last_meas,
+          " [ns] |sum ",
           sum,
+          " [ns] |count ",
           count,
+          "|average ",
           averg,
+          " [ns]",
           msgOut);
     }
     if (first && !m_isTbl) {
@@ -187,7 +191,7 @@ void StatsBase::updateEnableGlbl() {
 
   if (m_enabled) {
     hl_logger::setLoggingLevel(
-        HlLogger::LoggerType::PT_STATS, HLLOG_LEVEL_DEBUG);
+        HlLogger::LoggerType::PT_RECIPE_STATS, HLLOG_LEVEL_DEBUG);
   }
 }
 

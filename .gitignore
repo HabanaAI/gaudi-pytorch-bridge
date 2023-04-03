@@ -15,4 +15,5 @@ __pycache__/
 *.swp
 *.swo
 .cache/
+*.egg-info
 test_pt_integration

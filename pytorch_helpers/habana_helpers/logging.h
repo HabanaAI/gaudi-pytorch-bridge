@@ -60,6 +60,7 @@ enum class LoggerType {
   PT_EXEC_THREAD,
   PT_EAGER,
   PT_CUSTOM, // Don't use it in checkin code.
+  PT_RECIPE_STATS,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -96,6 +97,7 @@ inline bool isTracingForced(
       {HlLogger::LoggerType::PT_MEMLOG, 0x100000},
       {HlLogger::LoggerType::PT_EXEC_THREAD, 0x200000},
       {HlLogger::LoggerType::PT_EAGER, 0x400000},
+      {HlLogger::LoggerType::PT_RECIPE_STATS, 0x800000},
       {HlLogger::LoggerType::PT_CUSTOM,
        0x800000}, // Don't use it in checkin code.
       {HlLogger::LoggerType::LOG_MAX, 0x1000000} // Don't use it
@@ -134,6 +136,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_MEMLOG, "PT_MEMLOG"},
       {HlLogger::LoggerType::PT_EXEC_THREAD, "PT_EXEC_THREAD"},
       {HlLogger::LoggerType::PT_EAGER, "PT_EAGER"},
+      {HlLogger::LoggerType::PT_RECIPE_STATS, "PT_RECIPE_STATS"},
       {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
@@ -456,7 +459,8 @@ class PTFuncLog {
 
 #define PT_MOD_DEBUG(MOD, ...) HLLOG_DEBUG(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 
-#define PT_PROFILE_DUMP(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__))
+#define PT_PROFILE_DUMP(...) \
+  HLLOG_INFO(PT_RECIPE_STATS, FORMAT_AND_MSG(__VA_ARGS__))
 
 #define PT_BRIDGE_DEBUG(...) PT_MOD_DEBUG(PT_BRIDGE, __VA_ARGS__)
 #define PT_CUSTOM_DEBUG(...) PT_MOD_DEBUG(PT_CUSTOM, __VA_ARGS__)
