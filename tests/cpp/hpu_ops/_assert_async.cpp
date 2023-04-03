@@ -19,7 +19,7 @@ using namespace at;
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, DISABLED_AsyncAssert) {
+TEST_F(HpuOpTest, AsyncAssert) {
   auto y = torch::zeros(1).to(torch::kHPU);
   auto z = torch::zeros(1).to(torch::kHPU);
   auto x = torch::eq(y, z);
