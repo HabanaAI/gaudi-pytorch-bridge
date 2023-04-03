@@ -837,7 +837,6 @@ def main():
 
     if args.use_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
-        os.environ["PT_HPU_LOWER_AS_STRIDED"] = "1"
 
     if (
         os.path.exists(args.output_dir)

@@ -174,7 +174,6 @@ add_executable(
   hpu_ops/xlogy.cpp
   hpu_ops/zero.cpp
   inference_pass_tests.cpp
-  jit_test.cpp
   lazy_add_composite_tests.cpp
   lazy_basic_kernel_tests.cpp
   lazy_binary_composite_kernel_tests.cpp
