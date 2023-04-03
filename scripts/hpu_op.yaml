@@ -6834,7 +6834,7 @@ trace:
   custom_output_shape: TraceOutputShape
   dtypes: [BFloat16, Float, Int]
   op_frontend: LazyTrace
-  op_backend: Trace
+  guid: trace_fwd
   out_ids: [0]
 
 transpose.int:
