@@ -287,7 +287,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/cumsum_gen.cpp
     hpu_ops/lazy/div_round_gen.cpp
     hpu_ops/lazy/embedding_gen.cpp
-    hpu_ops/lazy/foreach_gen.cpp
     hpu_ops/lazy/frexp_gen.cpp
     hpu_ops/lazy/index_gen.cpp
     hpu_ops/lazy/index_select_gen.cpp

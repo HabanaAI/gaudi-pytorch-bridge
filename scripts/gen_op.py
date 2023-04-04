@@ -1320,6 +1320,8 @@ eager_custom_frontends_whitelist = [
     "GeneratorToSeedOut",
     "ReductionFrontendTemplate",
     "TopKFE",
+    "ForeachFE",
+    "ForeachBinaryFE"
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):

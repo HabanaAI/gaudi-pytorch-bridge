@@ -421,6 +421,27 @@ class EagerOp : public EagerOpBase {
     return outputs;
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
+      type
+      call() {
+    PT_EAGER_DEBUG(
+        "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
+    const auto& tensors = get_result_overrideable();
+
+    std::vector<OutputSpec> out_spec;
+    for (auto& el : tensors) {
+      out_spec.emplace_back(
+          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    };
+    auto stack = run(std::move(out_spec));
+    ReturnType outputs;
+    for (auto& el : stack) {
+      outputs.push_back(el.toTensor());
+    }
+    return outputs;
+  }
+
  private:
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
