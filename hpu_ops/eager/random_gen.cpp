@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "generated/eager/_fused_dropout.h"
 #include "generated/eager/bernoulli.h"
 #include "generated/eager/poisson.h"
 #include "generated/eager/random.h"
@@ -31,6 +32,13 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor) {
+  ConvertGeneratorToSeedTensor(get_inputs().back());
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    eager::EagerOp,
+    GeneratorToSeed,
+    std::tuple<at::Tensor, at::Tensor>) {
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 

@@ -5023,37 +5023,6 @@ Tensor& randperm_hpu_lazy(
   }
 }
 
-std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
-    const Tensor& self,
-    double p,
-    c10::optional<Generator> gen) {
-  PT_LAZY_TRACE;
-  struct FusedDropout : LazyOp<std::tuple<Tensor, Tensor>> {
-    FusedDropout(const Tensor& self, double p, const Tensor& seed)
-        : LazyOp<std::tuple<Tensor, Tensor>>(
-              "hpu::_fused_dropout",
-              {self, p, seed},
-              nullptr,
-              -1) {}
-
-    std::tuple<Tensor, Tensor> get_result_overrideable() override {
-      auto t = get_inputs().at(0).toTensor();
-      at::Tensor result0 = empty_hpu_lazy(
-          t.sizes(), t.options(), t.suggest_memory_format(), false);
-      at::Tensor result1 = empty_hpu_lazy(
-          t.sizes(),
-          t.options().dtype(c10::ScalarType::Char),
-          t.suggest_memory_format(),
-          false);
-      return {result0, result1};
-    }
-  };
-  // use gen to create a seed and forward it to the op
-  auto seed = habana::get_seed_tensor_hpu(gen);
-  FusedDropout op(self, p, seed);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_fused_dropout, op)
-}
-
 at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;

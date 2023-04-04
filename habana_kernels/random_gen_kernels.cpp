@@ -478,7 +478,6 @@ static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
         .add("hpu::randperm_out_ds", KERNEL_FN(RandpermOperator))
-        .add("hpu::_fused_dropout", KERNEL_FN(DropoutOperator))
         .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator))
         .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT))
         .add("hpu::habana_random_seed", KERNEL_FN(HabanaRandomSeedOperator));

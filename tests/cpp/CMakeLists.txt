@@ -75,6 +75,7 @@ add_executable(
   hpu_ops/foreach.cpp
   hpu_ops/frac.cpp
   hpu_ops/frexp.cpp
+  hpu_ops/fused_dropout.cpp
   hpu_ops/gather.cpp
   hpu_ops/ge.cpp
   hpu_ops/gelu.cpp

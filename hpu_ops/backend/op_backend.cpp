@@ -936,7 +936,6 @@ synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
   const auto& inputTensor = inTensors[0];
   const auto& indexTensor = inTensors[1];
   const auto& updatesTensor = inTensors[2];
-  const auto& validCountTensor = inTensors[3];
 
   constexpr auto allowedNrOfInTensors = 3; // +1 optional
   constexpr auto allowedValidCountTensorRank = 1;
@@ -954,9 +953,11 @@ synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
       " here ",
       nrOfInTensors,
       " tensors was given");
-  HABANA_ASSERT(
-      validCountTensorRank == allowedValidCountTensorRank,
-      "ScatterND ValidCount tensor must have rank 1");
+  if (nrOfInTensors == allowedNrOfInTensors + 1) {
+    HABANA_ASSERT(
+        validCountTensorRank == allowedValidCountTensorRank,
+        "ScatterND ValidCount tensor must have rank 1");
+  }
 
   const std::string guid = "scatter_nd_onnx_fwd_" +
       habana_helpers::name_suffix_from_type(inScalarType);
@@ -965,6 +966,7 @@ synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
                          graph,
                          guid,
                          [&]() {
+                           const auto& validCountTensor = inTensors[3];
                            std::vector<synTensor> res;
                            res.reserve(4);
                            res.insert(

@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "generated/lazy/_fused_dropout.h"
 #include "generated/lazy/bernoulli.h"
 #include "generated/lazy/poisson.h"
 #include "generated/lazy/random.h"
@@ -35,6 +36,13 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     habana_lazy::LazyOp,
     GeneratorToSeed,
     at::Tensor) {
+  ConvertGeneratorToSeedTensor(get_inputs().back());
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    habana_lazy::LazyOp,
+    GeneratorToSeed,
+    std::tuple<at::Tensor, at::Tensor>) {
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 

@@ -2455,8 +2455,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");
   m.def(
-      "hpu::_fused_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
-  m.def(
       "hpu::linear_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::linear_ex_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False, Tensor? bias_grad_out=None) -> (Tensor, Tensor, Tensor)");

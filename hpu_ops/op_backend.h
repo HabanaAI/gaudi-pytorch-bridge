@@ -14,6 +14,7 @@
 #include "backend/habana_operator.h"
 
 #pragma once
+
 namespace habana {
 
 using sizes_vec = std::vector<std::vector<int64_t>>;

@@ -573,13 +573,16 @@ _foreach_zero_:
   op_backend: ForeachZero
 
 _fused_dropout:
+  custom_output_shape: FusedDropoutOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float]
-  override_fn: fused_dropout_hpu_lazy
-  acc_thread: true
+  op_frontend: GeneratorToSeed
+  op_backend: FusedDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
 
 _index_put_impl_:
   dtypes:

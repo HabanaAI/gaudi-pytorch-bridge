@@ -372,10 +372,6 @@ at::Tensor& bernoulli_scalar_hpu_lazy(
     at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu_lazy(
-    const at::Tensor& self,
-    double p,
-    c10::optional<at::Generator> gen = c10::nullopt);
 #if IS_PYTORCH_OLDER_THAN(1, 13)
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::IntArrayRef repeats);
 #else

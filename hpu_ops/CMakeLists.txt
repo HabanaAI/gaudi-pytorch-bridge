@@ -92,6 +92,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/div_mod_util.cpp
           backend/div_round_gen.cpp
           backend/dot_gen.cpp
+          backend/dropout_gen.cpp
           backend/embedding_gen.cpp
           backend/elu_backward_gen.cpp
           backend/equal_gen.cpp
@@ -105,6 +106,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/foreach_gen.cpp
           backend/frac_gen.cpp
           backend/frexp_gen.cpp
+          backend/fused_dropout_gen.cpp
           backend/gather_gen.cpp
           backend/gelu_gen.cpp
           backend/geometric_gen.cpp
