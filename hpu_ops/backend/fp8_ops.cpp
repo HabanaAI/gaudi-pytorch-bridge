@@ -389,8 +389,7 @@ Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
 void Fp8Transpose::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto A = stack_tensor(stack, 0);
-  std::vector<int64_t> out_shape = {A.sizes().vec()[1], A.sizes().vec()[0]};
+  auto out = stack_tensor(stack, 1);
 
   synTransposeParams params{};
   params.tensorDim = 2;
@@ -402,11 +401,67 @@ void Fp8Transpose::AddNode(
       graph,
       {"transpose",
        {syn_in(0)},
-       {{out_shape, at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}},
+       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}},
        &params,
        sizeof(params)});
 
   syn_out(0) = std::move(transpose[0]);
+}
+
+Fp8Permute::Fp8Permute(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_permute_", scalar_type, {}, {}, {}, true) {}
+
+void Fp8Permute::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto dims = stack[1].toIntList().vec();
+  auto out = stack_tensor(stack, 2);
+  auto dims_size = dims.size();
+
+  synTransposeParams params{};
+  params.tensorDim = dims_size;
+  for (int i = 0; i < dims_size; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(
+        dims_size - dims[dims_size - i - 1] - 1);
+  }
+
+  auto transpose = OpBackend::BuildNode(
+      this,
+      graph,
+      {"transpose",
+       {syn_in(0)},
+       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(transpose[0]);
+}
+
+sizes_vec Fp8ReshapeOutputShape(const at::Stack& stack) {
+  return {stack[1].toIntList().vec()};
+}
+
+Fp8Reshape::Fp8Reshape(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_reshape_", scalar_type, {0}, {}, {}, false) {
+  SetComputeOutputShapes(Fp8ReshapeOutputShape);
+}
+
+void Fp8Reshape::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto shape = stack[1].toIntList().vec();
+
+  std::vector<synTensor> inputs = {syn_in(0)};
+  CreateShapeTensorInput(graph, at::ScalarType::Char, shape, inputs);
+
+  auto reshape = BuildNode(
+      this,
+      graph,
+      {"reshape",
+       inputs,
+       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}}});
+
+  syn_out(0) = std::move(reshape[0]);
 }
 
 } // namespace habana
@@ -427,4 +482,6 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
-        .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose));
+        .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose))
+        .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
+        .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape));

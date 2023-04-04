@@ -352,6 +352,11 @@ at::Tensor& fp8_gemm_wrap(
     bool accumulate,
     at::Tensor& out);
 at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out);
+at::Tensor& fp8_permute_wrap(
+    const at::Tensor& input,
+    at::IntArrayRef dims,
+    at::Tensor& out);
+at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape);
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,

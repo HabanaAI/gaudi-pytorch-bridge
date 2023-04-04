@@ -158,7 +158,8 @@ bool is_inplace(at::Symbol symbol) {
 
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
-  if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose")) {
+  if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose") ||
+      !strcmp(node_name, "hpu::fp8_permute")) {
     return true;
   }
   return false;
@@ -7193,6 +7194,24 @@ at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
   LazyOp<at::Tensor&> k_{
       "hpu::fp8_transpose", {input, out}, {out.sizes().vec()}};
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_transpose, k_, out)
+}
+
+at::Tensor& fp8_permute_lazy(
+    const at::Tensor& input,
+    at::IntArrayRef dims,
+    at::Tensor& out) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k_{
+      "hpu::fp8_permute", {input, dims, out}, {out.sizes().vec()}};
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_permute, k_, out)
+}
+
+at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k_{"hpu::fp8_reshape", {input, shape}, {shape.vec()}};
+  RUN_MAYBE_WITH_ACC_THREAD(fp8_reshape, k_)
 }
 
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(

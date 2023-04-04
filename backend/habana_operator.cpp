@@ -111,7 +111,9 @@ bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
       "fp8_gemm_i8",
       "fp8_layernorm_f32",
       "fp8_layernorm_bf16",
-      "fp8_transpose_i8"};
+      "fp8_reshape_i8",
+      "fp8_transpose_i8",
+      "fp8_permute_i8"};
 
   return std::any_of(fp8_ops.begin(), fp8_ops.end(), [&guid](const auto& op) {
     return op == guid;

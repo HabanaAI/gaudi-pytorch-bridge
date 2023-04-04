@@ -751,6 +751,11 @@ at::Tensor& fp8_gemm_lazy(
     bool accumulate,
     at::Tensor& out);
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
+at::Tensor& fp8_permute_lazy(
+    const at::Tensor& input,
+    at::IntArrayRef dims,
+    at::Tensor& out);
+at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape);
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& grad_output,

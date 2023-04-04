@@ -1867,6 +1867,32 @@ at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out) {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
+at::Tensor& fp8_permute_wrap(
+    const at::Tensor& input,
+    at::IntArrayRef dims,
+    at::Tensor& out) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_permute:", " input=", to_string(input), " dims=", to_string(dims));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_permute_lazy(input, dims, out);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(" fp8_reshape:", " input=", to_string(input));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_reshape_lazy(input, shape);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
@@ -2455,6 +2481,9 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
+      "hpu::fp8_permute(Tensor input, int[] dims, Tensor(a!) out) -> Tensor(a!)");
+  m.def("hpu::fp8_reshape(Tensor input, int[] shape) -> Tensor");
+  m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
   m.def(
@@ -2487,6 +2516,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
+  m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
+  m.impl("hpu::fp8_permute", fp8_permute_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

@@ -33,5 +33,9 @@ DEFINE_OP(Fp8Gelu)
 DEFINE_OP(Fp8Layernorm)
 DEFINE_OP(Fp8Gemm)
 DEFINE_OP(Fp8Transpose)
+DEFINE_OP(Fp8Permute)
+DEFINE_OP(Fp8Reshape)
+
+OUTSHAPE_DECL(Fp8ReshapeOutputShape)
 
 } // namespace habana
