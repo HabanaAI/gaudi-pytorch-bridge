@@ -290,3 +290,37 @@ def test_eq():
     result_cpu = torch.eq(cpu_tensor, 1)
 
     assert torch.equal(result_hpu, result_cpu)
+
+def test_sub():
+    cpu_tensor = torch.randn(2,3)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_cpu = torch.randn(2,3)
+    result_hpu = result_cpu.to("hpu")
+
+    torch.sub(1.0, cpu_tensor, alpha=2, out=result_cpu)
+    torch.sub(1.0, hpu_tensor, alpha=2, out=result_hpu)
+
+    result_hpu = result_hpu.to("cpu")
+
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+def test_wrapped_number_tensors():
+    cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = torch.mul(hpu_tensor, 1.0)
+    result_hpu = result_hpu.to("cpu")
+    result_cpu = torch.mul(cpu_tensor, 1.0)
+
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+    result_hpu = torch.mul(hpu_tensor, 2.0).to("cpu")
+    result_cpu = torch.mul(cpu_tensor, 2.0)
+
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+    result_hpu = torch.mul(hpu_tensor, 1.0).to("cpu")
+    result_cpu = torch.mul(cpu_tensor, 1.0)
+
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)

@@ -68,68 +68,72 @@ static JitNode* insert_strided_view_node(
 
 static bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
   return (
-      (eager_op_meta_data.op_kind == habana::eager::eagerOpKind::Inplace) ||
-      (eager_op_meta_data.op_kind == habana::eager::eagerOpKind::InplaceOut));
+      (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::Inplace) ||
+      (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut));
 }
 
-static size_t get_number_of_input_tensors(
+static std::unordered_set<size_t> get_input_tensors_positions(
     JitNode* node,
-    const std::vector<at::Tensor>& inputs,
+    const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_DEBUG("JIT node inputs count : ", node->inputs().size());
   PT_EAGER_DEBUG("JIT node outputs count : ", node->outputs().size());
-  PT_EAGER_DEBUG("Total input tensors : ", inputs.size());
+  PT_EAGER_DEBUG("Total inputs : ", inputs.size());
 
-  switch (eager_op_meta_data.op_kind) {
-    case InplaceOut:
-      HABANA_ASSERT(!eager_op_meta_data.out_indices.empty());
-      PT_EAGER_DEBUG(
-          "Total output tensors : ", eager_op_meta_data.out_indices.size());
-      HABANA_ASSERT(inputs.size() >= eager_op_meta_data.out_indices.size());
-      return (inputs.size() - eager_op_meta_data.out_indices.size());
-    case Inplace:
-    case OutOfPlace:
-    default:
-      return (inputs.size());
+  auto& out_indices = eager_op_meta_data.out_indices_;
+  if (eager_op_meta_data.op_kind_ == InplaceOut) {
+    HABANA_ASSERT(!out_indices.empty());
+    PT_EAGER_DEBUG("Total output tensors : ", out_indices.size());
+    HABANA_ASSERT(inputs.size() >= out_indices.size());
   }
-}
 
-static at::Tensor get_output_tensor(
-    const std::vector<at::Tensor>& inputs,
-    const EagerOpMetaData& eager_op_meta_data,
-    size_t index) {
-  auto output_idx = eager_op_meta_data.out_indices[index];
-  at::Tensor output_tensor = inputs.at(output_idx);
-  return output_tensor;
-}
+  std::unordered_set<size_t> in_indices;
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    auto val = inputs[i];
+    if (!val.isTensor()) {
+      continue;
+    }
 
-static JitValue* get_output_jitval(
-    JitNode* node,
-    const EagerOpMetaData& eager_op_meta_data,
-    size_t index) {
-  auto output_idx = eager_op_meta_data.out_indices[index];
-  return node->input(output_idx);
+    switch (eager_op_meta_data.op_kind_) {
+      case InplaceOut:
+        if (!out_indices.count(i))
+          in_indices.insert(i);
+        break;
+      case Inplace:
+      case OutOfPlace:
+      default:
+        in_indices.insert(i);
+        break;
+    }
+  }
+
+  return in_indices;
 }
 
 static void collect_output_view_param(
     JitNode* node,
-    const std::vector<at::Tensor>& inputs,
+    const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data,
     std::vector<StridedOutInfo>& strided_out_info) {
-  if (!eager_op_meta_data.out_indices.empty()) {
-    auto n_output_ts = eager_op_meta_data.out_indices.size();
-    for (size_t idx = 0; idx < n_output_ts; idx++) {
-      at::Tensor output_tensor =
-          get_output_tensor(inputs, eager_op_meta_data, idx);
-      if (!output_tensor.is_contiguous()) {
-        StridedOutInfo s;
-        s.index = idx;
-        s.tensor = output_tensor;
-        s.value = get_output_jitval(node, eager_op_meta_data, idx);
-        s.param = std::make_unique<ViewParam>();
-        s.param->setParam(output_tensor);
-        strided_out_info.emplace_back(std::move(s));
-      }
+  if (eager_op_meta_data.out_indices_.empty()) {
+    return;
+  }
+
+  for (auto& idx : eager_op_meta_data.out_indices_) {
+    if (inputs[idx].isScalar()) {
+      continue;
+    }
+
+    HABANA_ASSERT(inputs[idx].isTensor(), "Expected tensor input");
+    auto output_tensor = inputs.at(idx).toTensor();
+    if (!output_tensor.is_contiguous()) {
+      StridedOutInfo s;
+      s.index = idx;
+      s.tensor = output_tensor;
+      s.value = node->input(idx);
+      s.param = std::make_unique<ViewParam>();
+      s.param->setParam(output_tensor);
+      strided_out_info.emplace_back(std::move(s));
     }
   }
 }
@@ -139,7 +143,7 @@ static JitNode* replace_with_out_of_place_op(
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
   torch::jit::WithInsertPoint insert_point(node);
-  std::string new_kind = eager_op_meta_data.op_name;
+  std::string new_kind = eager_op_meta_data.op_name_;
 
   auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
   new_node->addInput(node->input(0));
@@ -195,7 +199,7 @@ static JitNode* insert_strided_insert_node(
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
-    const std::vector<at::Tensor>& inputs,
+    const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_TRACE;
 
@@ -240,10 +244,12 @@ void HandleInputOutputViews(
       "JIT_IR_Graph_END\n");
 
   auto strided_view_node = 0;
-  auto n_input_ts =
-      get_number_of_input_tensors(node, inputs, eager_op_meta_data);
-  for (size_t idx = 0; idx < n_input_ts; idx++) {
-    at::Tensor input_tensor = inputs.at(idx);
+  auto input_tensor_pos =
+      get_input_tensors_positions(node, inputs, eager_op_meta_data);
+  for (auto& idx : input_tensor_pos) {
+    auto val = inputs.at(idx);
+    HABANA_ASSERT(val.isTensor(), "Non-tensor value");
+    auto input_tensor = val.toTensor();
     if (!input_tensor.is_contiguous()) {
       std::unique_ptr<ViewParam> p_in = std::make_unique<ViewParam>();
       p_in->setParam(input_tensor);

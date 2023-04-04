@@ -28,24 +28,17 @@ struct OutputSpec {
 enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknowType };
 
 struct EagerOpMetaData {
-  EagerOpMetaData() {
-    op_kind = UnknowType;
-    op_name = "";
-    out_indices = {};
-  }
+  EagerOpMetaData() : op_kind_(UnknowType) {}
 
   EagerOpMetaData(
       eagerOpKind kind,
       std::string name,
-      std::vector<int> indices) {
-    op_kind = kind;
-    op_name = name;
-    out_indices = indices;
-  }
+      std::unordered_set<size_t> out_indices)
+      : op_kind_(kind), op_name_(name), out_indices_(out_indices) {}
 
   std::string to_string() const {
     std::string s = "{ ";
-    switch (op_kind) {
+    switch (op_kind_) {
       default:
         s.append("UnknowType }");
         return s;
@@ -59,13 +52,13 @@ struct EagerOpMetaData {
         s.append("Inplace, ");
         break;
     }
-    s.append(op_name);
+    s.append(op_name_);
     s.append(", {");
-    if (!out_indices.empty()) {
+    if (!out_indices_.empty()) {
       std::stringstream ss;
       std::copy(
-          out_indices.begin(),
-          out_indices.end(),
+          out_indices_.begin(),
+          out_indices_.end(),
           std::ostream_iterator<int>(ss, " "));
       s.append(ss.str());
     }
@@ -73,9 +66,9 @@ struct EagerOpMetaData {
     return s;
   }
 
-  eagerOpKind op_kind;
-  std::string op_name;
-  std::vector<int> out_indices;
+  eagerOpKind op_kind_;
+  std::string op_name_;
+  std::unordered_set<size_t> out_indices_;
 };
 
 /**
@@ -108,29 +101,29 @@ class EagerExec {
  public:
   EagerExec(
       at::Symbol symbol,
-      std::vector<at::Tensor>&& tensor_inputs,
       std::vector<at::IValue>&& inputs,
       std::vector<OutputSpec>&& outputs)
       : m_symbol{symbol},
-        m_tensor_inputs(std::move(tensor_inputs)),
         m_inputs(std::move(inputs)),
         m_outputs(std::move(outputs)) {}
 
   torch::jit::Stack launch();
 
-  void set_eager_op_info(const EagerOpMetaData& eager_op_meta_data);
+  void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data);
 
  private:
   size_t m_key;
   const at::Symbol m_symbol;
-  const std::vector<at::Tensor> m_tensor_inputs;
-  const std::vector<at::IValue> m_inputs;
+  std::vector<at::IValue> m_inputs;
   const std::vector<OutputSpec> m_outputs;
   MetaDataMap m_metadata;
   EagerOpMetaData m_eager_op_meta_data;
 
-  std::shared_ptr<torch::jit::Graph> create_eager_graph();
-  size_t calculate_operator_key(const UniqueIdxVec& parent_vec);
+  std::shared_ptr<torch::jit::Graph> create_eager_graph(
+      torch::jit::Stack& stack);
+  size_t calculate_operator_key(
+      const UniqueIdxVec& parent_vec,
+      torch::jit::Stack& stack);
   static void update_key_for_tensor(const at::Tensor& t, size_t& optimized_key);
   UniqueIdxVec find_duplicate_in_stack(torch::jit::Stack& stack);
   void prune_duplicate_stack_inputs(
@@ -139,9 +132,11 @@ class EagerExec {
   void prune_duplicate_graph_inputs(
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
+  torch::jit::Stack prepare_input_stack(const torch::jit::Stack& stack);
   void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
 };
-std::vector<at::Tensor> convert_inputs_to_backend_tensors(
+
+std::vector<at::IValue> convert_inputs_to_backend_tensors(
     std::vector<at::IValue>& inputs);
 } // namespace eager
 } // namespace habana

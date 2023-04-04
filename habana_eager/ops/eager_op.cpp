@@ -27,18 +27,14 @@ auto eager_frontend_enabled = []() {
 namespace habana {
 namespace eager {
 void EagerLoweringTask(
-    const at::Symbol m_symbol,
-    std::vector<at::Tensor> input_tensors,
-    std::vector<at::IValue> m_inputs,
+    at::Symbol symbol,
+    std::vector<at::IValue> inputs,
     std::vector<OutputSpec> out_spec,
-    EagerOpMetaData m_eager_op_meta_data) {
+    EagerOpMetaData eager_op_meta_data) {
   habana::eager::EagerExec hlexec{
-      m_symbol,
-      std::move(input_tensors),
-      std::move(m_inputs),
-      std::move(out_spec)};
+      std::move(symbol), std::move(inputs), std::move(out_spec)};
 
-  hlexec.set_eager_op_info(m_eager_op_meta_data);
+  hlexec.set_eager_op_info(std::move(eager_op_meta_data));
 
   // Launch the execution
   try {
@@ -59,15 +55,15 @@ void EagerLoweringTask(
 }
 
 torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
-  auto input_tensors = convert_inputs_to_backend_tensors(m_inputs);
+  auto stack = convert_inputs_to_backend_tensors(m_inputs);
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && is_pipeline_supported) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      m_is_pipeline_supported) {
     SingleTonEagerContext::getInstance().m_lowering_thread_handle =
         habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
             EagerLoweringTask,
-            std::move(m_symbol),
-            std::move(input_tensors),
-            std::move(m_inputs),
+            m_symbol,
+            std::move(stack),
             std::move(out_spec),
             std::move(m_eager_op_meta_data));
 
@@ -79,12 +75,9 @@ torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
     SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
 
     habana::eager::EagerExec hlexec{
-        m_symbol,
-        std::move(input_tensors),
-        std::move(m_inputs),
-        std::move(out_spec)};
+        m_symbol, std::move(stack), std::move(out_spec)};
 
-    hlexec.set_eager_op_info(m_eager_op_meta_data);
+    hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
 
     return hlexec.launch();
   }

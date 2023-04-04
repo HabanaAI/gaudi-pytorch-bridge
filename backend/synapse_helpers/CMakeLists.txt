@@ -67,6 +67,7 @@ target_link_libraries(
          absl::raw_hash_set
          npu::hllogger
          npu::fmt
+  PRIVATE torch
 )
 target_compile_features(pytorch_synapse_helpers PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(

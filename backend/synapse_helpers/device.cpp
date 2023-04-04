@@ -554,6 +554,8 @@ void device::cleanup() {
   }
   cleanup_done_ = true;
 
+  global_context_.Clear();
+
   // Refinement thread cleanup is the first call since
   // it might be in the process of compiling a new recipe.
   // The compilation is allowed to complete for graceful termination.
@@ -1408,6 +1410,10 @@ std::string device::get_device_properties(int id) {
       ", device_type=" + std::to_string(device_info.deviceType) + ")";
 
   return properties;
+}
+
+habana::backend::GlobalContext& device::get_global_context() {
+  return global_context_;
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {

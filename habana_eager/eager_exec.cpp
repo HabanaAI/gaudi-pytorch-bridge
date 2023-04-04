@@ -49,12 +49,13 @@ template <ProcessList process_list = ProcessList::asList, class T>
 void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
   for (size_t i = 0; i < inputs.size(); ++i) {
     const at::IValue& input = inputs[i];
-    if (input.isScalar() || is_metadata_candidate(input)) {
+    if (is_metadata_candidate(input)) {
       visitor(input);
+    } else if (input.isScalar()) {
+      visitor(input.toScalar());
     } else if (input.isTensor()) {
       const at::Tensor& t = input.toTensor();
       if (t.defined()) {
-        HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
         visitor(t);
       } else {
         visitor(torch::jit::IValue());
@@ -82,19 +83,80 @@ void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
 }
 } // namespace
 
-std::vector<at::Tensor> convert_inputs_to_backend_tensors(
+std::vector<at::IValue> convert_inputs_to_backend_tensors(
     std::vector<at::IValue>& inputs) {
-  std::vector<at::Tensor> tensor_inputs;
-  traversing_inputs<ProcessList::asTensor>(
+  std::vector<at::IValue> stack;
+  stack.reserve(inputs.size());
+
+  traversing_inputs<ProcessList::asList>(
       inputs,
-      overloaded{// metadata
-                 [](const torch::jit::IValue&) {},
-                 // tensors
-                 [&tensor_inputs](const at::Tensor& t) {
-                   tensor_inputs.push_back(
-                       HbEagerTensorPool::getInstance().get_backend_tensor(t));
-                 }});
-  return tensor_inputs;
+      overloaded{
+          // metadata
+          [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
+          // scalars
+          [&stack](const at::Scalar& s) { stack.push_back(s); },
+          // tensors
+          [&stack](const at::Tensor& t) {
+            if (t.device().type() == c10::DeviceType::HPU) {
+              stack.push_back(
+                  HbEagerTensorPool::getInstance().get_backend_tensor(t));
+              return;
+            }
+
+            if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
+              stack.push_back(t);
+              return;
+            }
+
+            HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+          },
+          [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
+            c10::List<at::Tensor> l;
+            l.reserve(list.size());
+            for (auto& v : list) {
+              HABANA_ASSERT(v.isTensor())
+              auto& t = v.toTensor();
+              HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+              l.push_back(
+                  HbEagerTensorPool::getInstance().get_backend_tensor(t));
+            }
+
+            stack.push_back(l);
+          }});
+  return stack;
+}
+
+std::vector<at::IValue> convert_cpu_wrapped_numbers(
+    const std::vector<at::IValue>& inputs) {
+  auto& global_context =
+      synapse_helpers::HPURegistrar::get_device().get_global_context();
+  auto& scalar_cache = global_context.GetScalarCache();
+  auto stack = inputs;
+  for (size_t i = 0; i < stack.size(); i++) {
+    auto& value = stack[i];
+    if (!value.isTensor()) {
+      continue;
+    }
+
+    auto t = value.toTensor();
+    if (!t.defined()) {
+      continue;
+    }
+
+    if (t.device().type() == c10::DeviceType::HPU) {
+      continue;
+    }
+
+    HABANA_ASSERT(
+        (t.unsafeGetTensorImpl()->is_wrapped_number()),
+        "Unexpected CPU tensor");
+
+    stack[i] = scalar_cache.GetTensor(t.item());
+  }
+
+  // Copy wrapped number tensors to HPU
+  scalar_cache.CopyScalarsToDevice();
+  return stack;
 }
 
 torch::jit::Stack EagerExec::launch() {
@@ -104,16 +166,13 @@ torch::jit::Stack EagerExec::launch() {
   synapse_helpers::hpuStream_t event_stream{0};
   bool event_flag{0};
   // auto& device = synapse_helpers::HPURegistrar::get_device();
-  torch::jit::Stack stack;
+
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size - out is 1, so size(inputs)
-
-  stack.reserve(m_tensor_inputs.size());
-
-  for (const auto& in : m_tensor_inputs) {
-    stack.emplace_back(in);
-  }
+  auto stack = convert_cpu_wrapped_numbers(m_inputs);
+  auto orig_inputs = stack;
+  stack = prepare_input_stack(stack);
 
   UniqueIdxVec parent_vec{find_duplicate_in_stack(stack)};
   PT_EAGER_DEBUG("Eager Op unique input vector ", parent_vec.to_string());
@@ -121,18 +180,23 @@ torch::jit::Stack EagerExec::launch() {
   prune_duplicate_stack_inputs(stack, parent_vec);
 
   auto& cache{OptimizedJitGraphCache::GetOptimizedJitCache()};
-  size_t key{calculate_operator_key(parent_vec)};
+  size_t key{calculate_operator_key(parent_vec, orig_inputs)};
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
   if (graph_and_meta) {
     PT_EAGER_DEBUG("Eager Op JIT graph cache HIT for key ", key);
-    for (const auto& in : m_tensor_inputs) {
+    for (const auto& val : stack) {
+      if (!val.isTensor()) {
+        continue;
+      }
+
+      auto in = val.toTensor();
       if (in.is_contiguous()) {
         continue;
       }
 
-      // If an input tensor is not contiguous view handling JIT IR pass would
-      // have modified the input tensor to 1D base tensor. Need to perform this
-      // operation for the cache hit case as well
+      // If an input tensor is not contiguous view handling JIT IR pass
+      // would have modified the input tensor to 1D base tensor. Need to
+      // perform this operation for the cache hit case as well
       int64_t elem_size =
           c10::elementSize(habana_helpers::getInternalDtype(in.scalar_type()));
       auto impl = in.unsafeGetTensorImpl();
@@ -146,8 +210,9 @@ torch::jit::Stack EagerExec::launch() {
     }
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
-    auto graph{create_eager_graph()};
+    auto graph{create_eager_graph(orig_inputs)};
     prune_duplicate_graph_inputs(parent_vec, graph);
+
     at::ArrayRef<torch::jit::IValue> input_refs =
         torch::jit::last(stack, graph->inputs().size());
     graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
@@ -181,38 +246,53 @@ torch::jit::Stack EagerExec::launch() {
   }
 }
 
-std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph() {
+std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
+    torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
   using JitValue = torch::jit::Value;
   auto graph = std::make_shared<torch::jit::Graph>();
   std::vector<JitValue*> node_inputs;
 
-  auto inp_it = m_tensor_inputs.begin();
+  size_t idx = 0;
   traversing_inputs(
-      m_inputs,
+      stack,
       overloaded{
-          //  const
-          [&node_inputs, &graph](const torch::jit::IValue& c) {
+          // metadata
+          [&node_inputs, &graph, &idx](const torch::jit::IValue& c) {
             node_inputs.push_back(graph->insertConstant(c));
           },
+          // scalar inputs
+          [&node_inputs, &graph, &idx](const at::Scalar& c) {
+            auto s = graph->addInput("s" + std::to_string(++idx));
+            auto scalarType = c.type();
+            if (isFloatingType(scalarType)) {
+              s->setType(c10::FloatType::get());
+            } else if (isIntegralType(scalarType, false)) {
+              s->setType(c10::IntType::get());
+            } else if (isIntegralType(scalarType, true)) {
+              s->setType(c10::BoolType::get());
+            } else {
+              HABANA_ASSERT(0, "Unknown scalar type");
+            }
+            node_inputs.push_back(s);
+          },
           // tensor inputs
-          [&node_inputs, &graph, &inp_it](const at::Tensor&) {
-            auto t = graph->addInput(inp_it->toString());
+          [&node_inputs, &graph](const at::Tensor& tensor) {
+            auto t = graph->addInput(tensor.toString());
             t->setType(c10::TensorType::createContiguous(
-                inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
+                tensor.scalar_type(), tensor.device(), tensor.sizes()));
             node_inputs.push_back(t);
-            ++inp_it;
           },
           // list tensors input
-          [&node_inputs, &graph, &inp_it](
-              const c10::ArrayRef<torch::jit::IValue>& list) {
+          [&node_inputs,
+           &graph](const c10::ArrayRef<torch::jit::IValue>& list) {
             std::vector<JitValue*> list_inp_args;
             for (int i = 0; i < list.size(); ++i) {
-              auto t = graph->addInput(inp_it->toString());
+              auto tensor = list[i].toTensor();
+              auto t = graph->addInput(tensor.toString());
               t->setType(c10::TensorType::createContiguous(
-                  inp_it->scalar_type(), inp_it->device(), inp_it->sizes()));
+                  tensor.scalar_type(), tensor.device(), tensor.sizes()));
               list_inp_args.push_back(t);
-              ++inp_it;
             }
             auto jit_node = graph->create(
                 c10::Symbol::fromQualString("prim::ListConstruct"),
@@ -254,7 +334,9 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph() {
   return graph;
 }
 
-size_t EagerExec::calculate_operator_key(const UniqueIdxVec& parent_vec) {
+size_t EagerExec::calculate_operator_key(
+    const UniqueIdxVec& parent_vec,
+    torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
   size_t optimized_key = static_cast<uint32_t>(m_symbol);
   optimized_key = at::hash_combine(optimized_key, m_outputs.size());
@@ -267,16 +349,12 @@ size_t EagerExec::calculate_operator_key(const UniqueIdxVec& parent_vec) {
 
   std::unordered_set<size_t> input_hash_values;
   int inp_index = 0;
-  auto inp_it = m_tensor_inputs.begin();
   traversing_inputs<ProcessList::asTensor>(
-      m_inputs,
+      stack,
       overloaded{
           [this, &optimized_key, &inp_index](const torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
-            if (input.isScalar()) {
-              optimized_key = at::hash_combine(
-                  optimized_key, at::IValue::hash(input.toScalar()));
-            } else if (input.isList()) {
+            if (input.isList()) {
               for (auto& v : input.toListRef()) {
                 optimized_key =
                     at::hash_combine(optimized_key, at::IValue::hash(v));
@@ -290,16 +368,21 @@ size_t EagerExec::calculate_operator_key(const UniqueIdxVec& parent_vec) {
               }
             }
           },
-          [this, &optimized_key, &input_hash_values, &inp_index, &inp_it](
-              const at::Tensor&) {
+          [this, &optimized_key, &inp_index](const at::Scalar& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
-            size_t input_hash_val =
-                c10::get_hash(inp_it->unsafeGetTensorImpl());
+
+            // TODO: remove from hash
+            optimized_key =
+                at::hash_combine(optimized_key, at::IValue::hash(input));
+          },
+          [this, &optimized_key, &input_hash_values, &inp_index](
+              const at::Tensor& tensor) {
+            optimized_key = at::hash_combine(optimized_key, inp_index++);
+            size_t input_hash_val = c10::get_hash(tensor.unsafeGetTensorImpl());
             if (input_hash_values.count(input_hash_val) == 0) {
               input_hash_values.emplace(input_hash_val);
-              update_key_for_tensor(*inp_it, optimized_key);
+              update_key_for_tensor(tensor, optimized_key);
             }
-            ++inp_it;
           }});
   return optimized_key;
 }
@@ -326,24 +409,19 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
 }
 
 UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
-  size_t num_inputs = m_tensor_inputs.size();
-  UniqueIdxVec parent_vec{num_inputs};
-
-  // Assumption : stack[i] is the corresponding input of po_data.inputs[i]
-  TORCH_CHECK(
-      stack.size() == num_inputs,
-      " stack_size ",
-      stack.size(),
-      " != num_inputs ",
-      num_inputs);
-
   size_t stack_size = stack.size();
+  UniqueIdxVec parent_vec{stack_size};
+
   std::unordered_map<uint64_t, size_t> input_addr_map;
   input_addr_map.reserve(stack_size);
   size_t num_duplicate_inputs = 0;
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
+    if (!input.isTensor()) {
+      continue;
+    }
+
     TORCH_CHECK(input.isTensor());
     if (!input.toTensor().has_storage()) {
       return parent_vec;
@@ -352,14 +430,18 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
 
   for (size_t i = 0; i < stack_size; i++) {
     auto& input = stack[i];
+    if (!input.isTensor()) {
+      continue;
+    }
+
     TORCH_CHECK(input.isTensor());
     auto input_addr = (uint64_t)(input.toTensor().data_ptr());
 
     if (input_addr == 0) {
-      // input_addr == 0 not considered for duplicate removal since this address
-      // is used for ZST tensors. 2 different ZST tensors can both have addr = 0
-      // and removing one of them results in cycles in synapse graph in some
-      // cases
+      // input_addr == 0 not considered for duplicate removal since this
+      // address is used for ZST tensors. 2 different ZST tensors can both
+      // have addr = 0 and removing one of them results in cycles in synapse
+      // graph in some cases
       input_addr_map[input_addr] = i;
       continue;
     }
@@ -381,7 +463,7 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
           "Duplicate input address ",
           input_addr,
           " found for value %",
-          m_tensor_inputs[i].toString(),
+          input_tensor.toString(),
           " current duplicate count ",
           num_duplicate_inputs);
     } else {
@@ -389,9 +471,9 @@ UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {
           "Same input address ",
           input_addr,
           " with different shape/stride found for value %",
-          m_tensor_inputs[i].toString(),
+          input_tensor.toString(),
           " and value%",
-          m_tensor_inputs[pidx].toString());
+          stack[pidx].toTensor().toString());
     }
   }
   return parent_vec;
@@ -458,6 +540,22 @@ void EagerExec::prune_duplicate_graph_inputs(
   }
 }
 
+torch::jit::Stack EagerExec::prepare_input_stack(
+    const torch::jit::Stack& inputs) {
+  torch::jit::Stack stack;
+  stack.reserve(stack.size());
+  traversing_inputs<ProcessList::asTensor>(
+      inputs,
+      overloaded{// metadata
+                 [&stack](const torch::jit::IValue& v) {},
+                 // scalars
+                 [&stack](const at::Scalar& s) { stack.push_back(s); },
+                 // tensors
+                 [&stack](const at::Tensor& t) { stack.push_back(t); }});
+
+  return stack;
+}
+
 std::string UniqueIdxVec::to_string() const {
   struct Formatter {
     void operator()(std::string* out, size_t i) const {
@@ -467,41 +565,10 @@ std::string UniqueIdxVec::to_string() const {
   return absl::StrCat("{", absl::StrJoin(idx_, ",", Formatter()), "}");
 }
 
-void EagerExec::set_eager_op_info(const EagerOpMetaData& eager_op_meta_data) {
+void EagerExec::set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
   PT_EAGER_TRACE;
 
   m_eager_op_meta_data = eager_op_meta_data;
-
-  std::vector<int>& out_indices = m_eager_op_meta_data.out_indices;
-  if (!out_indices.empty()) {
-    PT_EAGER_DEBUG(
-        "[EagerExec::set_eager_op_info] Before remap => ",
-        m_eager_op_meta_data.to_string());
-
-    size_t tensor_idx = 0;
-    size_t out_indices_idx = 0;
-    for (size_t i = 0; i < m_inputs.size(); ++i) {
-      const at::IValue& input = m_inputs[i];
-      if (input.isTensor()) {
-        const at::Tensor& t = input.toTensor();
-        if (t.defined()) {
-          HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-          if (out_indices.at(out_indices_idx) == (int)i) {
-            out_indices.at(out_indices_idx) = tensor_idx;
-            out_indices_idx++;
-            if (out_indices_idx >= out_indices.size()) {
-              break;
-            }
-          }
-          tensor_idx++;
-        }
-      }
-    }
-
-    PT_EAGER_DEBUG(
-        "[EagerExec::set_eager_op_info] After remap => ",
-        m_eager_op_meta_data.to_string());
-  }
 }
 
 void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
@@ -509,7 +576,7 @@ void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
     PT_EAGER_DEBUG("[Eager] Apply I/O View Handling pass.");
-    HandleInputOutputViews(graph, m_tensor_inputs, m_eager_op_meta_data);
+    HandleInputOutputViews(graph, m_inputs, m_eager_op_meta_data);
   }
 }
 

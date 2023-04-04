@@ -71,8 +71,8 @@ class EagerOpBase {
     m_output_meta = std::move(output_meta);
   }
 
-  void set_eager_op_info(EagerOpMetaData eager_op_meta_data) {
-    m_eager_op_meta_data = eager_op_meta_data;
+  void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
+    m_eager_op_meta_data = std::move(eager_op_meta_data);
   }
 
   explicit EagerOpBase(
@@ -82,8 +82,9 @@ class EagerOpBase {
       int out_index = 0)
       : m_symbol{symbol},
         m_out_shapes{std::move(out_shapes)},
-        m_out_index{out_index} {
-    set_inputs(inputs);
+        m_out_index{out_index},
+        m_inputs(inputs) {
+    validate_inputs(m_inputs);
   }
 
  protected:
@@ -93,36 +94,40 @@ class EagerOpBase {
   const std::set<size_t> m_metadata_indices;
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
-  std::vector<at::IValue> m_inputs = {};
+  std::vector<at::IValue> m_inputs;
   std::vector<c10::ScalarType> m_scalar_types;
   std::function<habana::OutputMetaDataVector(const at::Stack&)> m_output_meta;
   EagerOpMetaData m_eager_op_meta_data;
-  bool is_pipeline_supported = false;
+  bool m_is_pipeline_supported = false;
 
  private:
-  void set_inputs(const std::vector<at::IValue>& inputs) {
-    auto inputsHpu = inputs;
-    size_t idx = 0;
-    for (auto& t : inputsHpu) {
-      if (t.isTensor() && t.toTensor().defined() &&
-          t.toTensor().device().type() != c10::DeviceType::HPU) {
-        const at::Tensor& tensor = t.toTensor();
-        if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-          // If the CPU tensor is a 0D wrapped number
-          // Use its Ivalue as scalar input
-          t = c10::IValue(tensor.item());
-        } else {
-          HABANA_ASSERT(
-              0,
-              "Got unexpected tensor as input at index ",
-              idx,
-              " to HPU Op. Tensor: ",
-              tensor.toString());
-        }
+  void validate_inputs(const std::vector<at::IValue>& inputs) {
+    for (size_t idx = 0; idx < inputs.size(); ++idx) {
+      auto& t = inputs[idx];
+      if (!t.isTensor()) {
+        continue;
       }
-      ++idx;
+
+      auto tensor = t.toTensor();
+      if (!tensor.defined()) {
+        continue;
+      }
+
+      if (tensor.device().type() == c10::DeviceType::HPU) {
+        continue;
+      }
+
+      if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+        continue;
+      }
+
+      HABANA_ASSERT(
+          0,
+          "Got unexpected tensor as input at index ",
+          idx,
+          " to HPU Op. Tensor: ",
+          tensor.toString());
     }
-    m_inputs = inputsHpu;
   }
 };
 
@@ -180,7 +185,7 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
-    is_pipeline_supported = true;
+    m_is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -218,7 +223,7 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call(const at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
-    is_pipeline_supported = true;
+    m_is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -250,7 +255,7 @@ class EagerOp : public EagerOpBase {
       T self) {
     PT_EAGER_DEBUG(
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
-    is_pipeline_supported = true;
+    m_is_pipeline_supported = true;
 
     std::vector<std::vector<int64_t>> out_shapes;
     if (m_output_meta) {

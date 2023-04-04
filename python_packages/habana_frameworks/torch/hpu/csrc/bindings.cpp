@@ -111,9 +111,18 @@ void sync_threads() {
   habana_lazy::AccThread::Get().ExecuteAllCleanupTasks();
 }
 
+void clear_global_context() {
+  auto& d = synapse_helpers::HPURegistrar::get_device();
+  auto& global_context = d.get_global_context();
+  global_context.Clear();
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("init", []() { hpu_init(); });
-  m.def("cleanup", []() { sync_threads(); });
+  m.def("cleanup", []() {
+    sync_threads();
+    clear_global_context();
+  });
   m.def("current_device", []() {
     auto& d = synapse_helpers::HPURegistrar::get_device();
     return d.id();
