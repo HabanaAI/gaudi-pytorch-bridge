@@ -37,7 +37,8 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
       graph,
       {"topk",
        std::move(input),
-       {{topk_outshape, op->ScalarType()}, {topk_outshape, op->ScalarType()}},
+       {{topk_outshape, op->ScalarType()},
+        {topk_outshape, c10::ScalarType::Int}},
        &Topk_params,
        sizeof(Topk_params)});
 }

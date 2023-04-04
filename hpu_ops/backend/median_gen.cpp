@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/median.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -81,6 +84,7 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[0].get()},
       slice_outshape[0],
+      ScalarType(),
       self.numel(),
       self.ndimension(),
       reduction_axis,
@@ -127,6 +131,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[0].get()},
       slice_outshape,
+      ScalarType(),
       self_size[reduction_axis],
       self.ndimension(),
       reduction_axis,
@@ -139,6 +144,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[1].get()},
       slice_outshape,
+      c10::ScalarType::Int,
       self_size[reduction_axis],
       self.ndimension(),
       reduction_axis,
@@ -155,7 +161,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph, median_value[0].get(), output_shape, ScalarType(), 0);
 
     auto reshaped_median_index = ReshapeHelper(
-        graph, median_index[0].get(), output_shape, ScalarType(), 1);
+        graph, median_index[0].get(), output_shape, c10::ScalarType::Int, 1);
 
     syn_out(0) = std::move(reshaped_median_value);
     syn_out(1) = std::move(reshaped_median_index);

@@ -1,13 +1,15 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-
 #include "hpu_ops/median_slice_util.h"
 
 namespace habana {
@@ -17,6 +19,7 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
+    const at::ScalarType dtype,
     int nelements,
     int ndimension,
     int reduction_axis,
@@ -51,7 +54,7 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
       graph,
       {"slice",
        std::move(input),
-       {{outshape, op->ScalarType(), node_index}},
+       {{outshape, dtype, node_index}},
        &slice_params,
        sizeof(slice_params)});
 }
