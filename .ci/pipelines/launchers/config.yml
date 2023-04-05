@@ -91,3 +91,11 @@ launchers:
   silentMode: true
   gerritTriggerMap:
   - repository: Habana-Lightning-Plugins
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_8cards_lightning_habana_uts
+  silentMode: true
+  gerritTriggerMap:
+  - repository: lightning-habana-fork
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_8cards_lightning_habana_uts
+  silentMode: true
+  gerritTriggerMap:
+  - repository: lightning-habana-fork
