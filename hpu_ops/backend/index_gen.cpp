@@ -155,18 +155,15 @@ void IndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   std::vector<int64_t> implicit_indices_pos_vec = stack[3].toIntList().vec();
-  bool adv_indexing_present = false;
+  const bool adv_indexing_present = std::any_of(
+      implicit_indices_pos_vec.cbegin(),
+      implicit_indices_pos_vec.cend(),
+      [](const auto& i) { return i == -1; });
 
-  for (auto i : implicit_indices_pos_vec) {
-    if (i == -1) { // advanced indexing is present
-      adv_indexing_present = true;
-      break;
-    }
-  }
   const at::Tensor self = stack_tensor(stack, 0);
-  c10::List<at::Tensor> indices = stack.at(1).toTensorList();
-  auto adv_index_dims = stack[2].toIntList();
-  std::vector<int64_t> self_permute_dims = stack[4].toIntList().vec();
+  const c10::List<at::Tensor> indices = stack.at(1).toTensorList();
+  const auto adv_index_dims = stack[2].toIntList();
+  const std::vector<int64_t> self_permute_dims = stack[4].toIntList().vec();
 
   if (!adv_indexing_present) {
     // for this particular indices configuration gather_mxnet throws GC
@@ -174,9 +171,9 @@ void IndexHabanaOperator::AddNode(
     if (indices.size() == 1 && indices.get(0).dim() == 1) {
       auto outshape = ComputeGatherOperatorOutputShape(self, 0, indices[0]);
 
-      int dim = 0;
-      bool sparse_grad = false;
-      at::Stack stack_ = {
+      const int dim = 0;
+      const bool sparse_grad = false;
+      const at::Stack stack_ = {
           c10::IValue(self),
           c10::IValue(dim),
           c10::IValue(indices[0]),
@@ -367,12 +364,7 @@ void IndexHabanaOperator::AddNode(
         at::Stack arange_stack = {};
         num_elems = self_permuted_sizes[dim];
         auto params = FillArangeParamsInternal(
-            0,
-            self_permuted_sizes[dim],
-            1,
-            (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                       : c10::ScalarType::Int),
-            size);
+            0, self_permuted_sizes[dim], 1, index_dtype, size);
 
         index_tensor_to_use.emplace_back(ArangeCommon(
             this,
@@ -442,7 +434,7 @@ void IndexHabanaOperator::AddNode(
             num_elems * repeat_interleaves_needed[dim]};
         std::vector<int64_t> reshape_outshape = {reshape_size};
         auto reshaped_index =
-            ReshapeHelper(graph, t_op[0].get(), reshape_outshape, ScalarType());
+            ReshapeHelper(graph, t_op[0].get(), reshape_outshape, index_dtype);
 
         std::vector<int64_t> rpt_outshape = {
             num_elems * repeat_interleaves_needed[dim] * repeats_needed[dim]};
