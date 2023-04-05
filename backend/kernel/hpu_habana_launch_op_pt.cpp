@@ -1255,6 +1255,19 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
     return;
   }
 
+  //  Handle construction of list consisting bools only
+  if (ivptrsh->isBool()) {
+    c10::List<bool> boolList;
+    for (const auto& value_in : node_ins) {
+      ivptrsh = value_to_ivalue[value_in];
+      // Constructed list should be homogenous
+      HABANA_ASSERT(ivptrsh->isBool());
+      boolList.emplace_back(ivptrsh->toBool());
+    }
+    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(boolList);
+    return;
+  }
+
   HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
 }
 

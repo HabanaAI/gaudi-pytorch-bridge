@@ -15,6 +15,7 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUStream.h"
+#include "habana_eager/eager_context.h"
 #include "habana_helpers/logging.h"
 
 namespace habana {
@@ -77,10 +78,13 @@ void GraphExec::RunGraphPasses() {
   pass::SanitizeGraphInput(m_graph);
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
+  pass::ConvertConvolutions(m_graph);
 }
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
   synEventHandle event_handle{};

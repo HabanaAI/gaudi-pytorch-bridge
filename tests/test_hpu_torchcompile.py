@@ -186,6 +186,7 @@ def test_leaf_views_1():
         assert torch.allclose(result1.cpu(), result1_compiled.cpu())
         assert torch.allclose(result2.cpu(), result2_compiled.cpu())
 
+
 def test_leaf_views_1_dynamic():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
@@ -216,6 +217,7 @@ def test_leaf_views_1_dynamic():
 
         assert torch.allclose(result1.cpu(), result1_compiled.cpu())
         assert torch.allclose(result2.cpu(), result2_compiled.cpu())
+
 
 def test_leaf_views_1_really_dynamic():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
@@ -257,6 +259,7 @@ def test_leaf_views_1_really_dynamic():
 
         assert torch.allclose(result1.cpu(), result1_compiled.cpu())
         assert torch.allclose(result2.cpu(), result2_compiled.cpu())
+
 
 def test_leaf_views_2():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
@@ -349,6 +352,39 @@ def test_use_random():
         result_compile = compiled_function()
 
         assert torch.allclose(result_nocompile.cpu(), result_compile.cpu())
+
+
+def test_simple_convolution():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(6),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+
+            def forward(self, x):
+                out = self.layer(x)
+                return out
+
+        model = Net().to("hpu")
+
+        def raw_function(x):
+            return model(x)
+
+        tensor = torch.rand(8, 1, 32, 32).to("hpu")
+
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        res_eager = raw_function(tensor)
+        res_graph = compiled_function(tensor)
+
+        assert torch.allclose(res_eager, res_graph, rtol=1e-03)
 
 
 def test_simple_sgd_convnet():
@@ -518,7 +554,8 @@ def test_simple_sgd_convnet_with_device_pingpong():
         assert loss_compile3 < loss_compile2
         assert loss_compile2 < loss_compile1
 
-@pytest.mark.xfail # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
+
+@pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
@@ -599,7 +636,8 @@ def test_simple_adam_convnet():
         assert loss_compile3 < loss_compile2
         assert loss_compile2 < loss_compile1
 
-@pytest.mark.xfail # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
+
+@pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet_with_device_pingpong():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
