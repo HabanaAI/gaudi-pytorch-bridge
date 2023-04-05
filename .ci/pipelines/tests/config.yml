@@ -68,3 +68,13 @@ testJobConfig:
       gaudi:
         hwType:
           asic:
+  lightning_habana_uts:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
+            cards: 8
+      gaudi:
+        hwType:
+          asic:
+            cards: 8
