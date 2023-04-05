@@ -625,13 +625,13 @@ acos:
   dtypes: [Float]
   guid: acos_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 acos.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: acos_fwd
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 acos_:
   force_default: false
@@ -639,7 +639,7 @@ acos_:
   dtypes: [Float]
   guid: acos_fwd
   inplace_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 acosh:
   force_default: false
@@ -647,13 +647,13 @@ acosh:
   dtypes: [Float]
   guid: acosh_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 acosh.out:
   dtypes: [Float]
   promote_int_to_float: [self]
   guid: acosh_fwd
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 acosh_:
   force_default: false
@@ -661,7 +661,7 @@ acosh_:
   dtypes: [Float]
   guid: acosh_fwd
   inplace_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 add.Tensor:
   force_default: false
@@ -1078,13 +1078,13 @@ asin:
   dtypes: [Float]
   guid: asin_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 asin.out:
   dtypes: [Float]
   promote_int_to_float: [self]
   guid: asin_fwd
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 asin_:
   force_default: false
@@ -1092,7 +1092,7 @@ asin_:
   dtypes: [Float]
   guid: asin_fwd
   inplace_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 asinh:
   force_default: false
@@ -1100,13 +1100,13 @@ asinh:
   dtypes: [Float]
   guid: asinh_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 asinh.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: asinh_fwd
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 asinh_:
   force_default: false
@@ -1114,7 +1114,7 @@ asinh_:
   dtypes: [Float]
   guid: asinh_fwd
   inplace_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 atan:
   force_default: false
@@ -1122,13 +1122,13 @@ atan:
   dtypes: [Float]
   guid: atan_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 atan.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: atan_fwd
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 atan_:
   force_default: false
@@ -1136,7 +1136,7 @@ atan_:
   dtypes: [Float]
   guid: atan_fwd
   inplace_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 atan2:
   force_default: false
@@ -5487,7 +5487,7 @@ relu:
     Greco: [BFloat16, Float, Half]
   guid: relu_fwd
   out_ids: [0]
-  #op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 relu_:
   dtypes:
