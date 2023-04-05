@@ -25,6 +25,7 @@ function pytorch_functions_help()
     echo -e "run_pytorch_qa_tests           -   Run pytorch QA tests"
     echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
     echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
+    echo -e "run_lightning_habana_fw_tests  -   Run Lightning Habana tests"
 }
 
 function pytorch_usage()
@@ -203,6 +204,22 @@ function pytorch_usage()
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
+
+    if [ $1 == "run_lightning_habana_fw_tests" ]; then
+        echo -e "\nusage: $1 [options]\n"
+        echo -e "options:\n"
+        echo -e "  -l,  --list-tests                   List the available tests"
+        echo -e "  -s,  --specific-test TEST           Run TEST"
+        echo -e "  -m,  --maxfail NUM                  Stop after NUM failures"
+        echo -e "  -p,  --pdb                          Run the app under pdb (python GDB)"
+        echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
+        echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
+        echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
+        echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
+        echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
+        echo -e "  -h,  --help                         Prints this help"
+    fi
+
 }
 
 build_pytorch_modules()
@@ -1694,6 +1711,108 @@ run_pytorch_lightning_qa_tests()
                 'tests_pytorch/plugins/precision/hpu/ops_bf16.txt' --hmp-fp32 \
                 'tests_pytorch/plugins/precision/hpu/ops_fp32.txt' --forked \
                 "${__xml}ptl_fw_uts_precision.xml" ${__marker})
+        ((__test_status=__test_status || $?))
+
+        popd
+    fi
+
+    # return error code of the tests
+    return ${__test_status}
+}
+
+run_lightning_habana_fw_tests()
+{
+    local __pytorch_lightning_qa_tests_exe="python -m pytest"
+    local __scriptname=$(__get_func_name)
+    local __xml=""
+    local __ld_lib="$BUILD_ROOT_RELEASE"
+    local __print_tests=""
+    local __py_filter=""
+    local __failures=""
+    local __marker=""
+    local __verbose=""
+    local __test_status=0
+    local __suite_type="all"
+    local __dut="gaudi"
+    local __hllog=3
+
+    # parameter while-loop
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -l  | --list-tests )
+            __print_tests="yes"
+            ;;
+        -s  | --specific-test )
+            shift
+            __py_filter="-k $1"
+            ;;
+        -m  | --maxfail )
+            shift
+            __failures="--maxfail=$1"
+            ;;
+        -p  | --pdb )
+            shift
+            __pdb="--pdb"
+            ;;
+        -t | --suite-type )
+            shift
+            __suite_type="$1"
+            ;;
+	     --dut )
+            shift
+            __dut="$1"
+            ;;
+        -hllog )
+            shift
+            __hllog=$1
+            ;;
+        -x  | --xml )
+            shift
+            __xml="$1"
+            ;;
+        -a | --marker )
+            shift
+            __marker="-m \"$1\""
+            ;;
+        -h  | --help )
+            usage $__scriptname
+            return 0
+            ;;
+        *)
+            echo "The parameter $1 is not allowed"
+            usage $__scriptname
+            return 1 # error
+            ;;
+        esac
+        shift
+    done
+
+    if [ -n "$__print_tests" ]; then
+        pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
+        echo "Fabric tests:"
+        ${__pytorch_lightning_qa_tests_exe} --collectonly tests_fabric/
+        __test_status=$?
+
+        echo "Lightning HPU tests:"
+        ${__pytorch_lightning_qa_tests_exe} --collectonly tests_pytorch/
+        __test_status=$?
+
+        popd
+        return $__test_status
+    fi
+
+    if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
+        pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
+
+        echo "Executing Lightning fabric tests on HPU"
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_fabric/ --forked --junit-xml="${__xml}fabric_fw_uts.xml" ${__marker})
+        ((__test_status=__test_status || $?))
+
+        echo "Executing Lightning Habana tests"
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch \
+         --hmp-bf16 'tests_pytorch/plugins/precision/hpu/ops_bf16.txt'\
+         --hmp-fp32 'tests_pytorch/plugins/precision/hpu/ops_fp32.txt' --forked --hpus 8 --junit-xml="${__xml}lightning_fw_uts_8.xml" ${__marker})
         ((__test_status=__test_status || $?))
 
         popd
