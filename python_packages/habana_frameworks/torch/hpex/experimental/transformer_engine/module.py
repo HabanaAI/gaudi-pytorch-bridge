@@ -400,8 +400,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         Returns tuple in order (all optional/None based on training precion/recipe):
             R1: gathered `grad_output` in higher precision.
             R2: gathered `grad_output` in FP8.
-            R3: R2 transposed.
-            R4: bias gradient on R1.
+            R3: bias gradient on R1.
 
         """
         grad_output = grad_output.contiguous()
@@ -414,7 +413,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 grad_output_mat, _ = gather_along_first_dim(
                     grad_output_mat, ctx.tp_group
                 )
-            return grad_output_mat, None, None, None
+            return grad_output_mat, None, None
 
         fp8_dtype_backward = get_fp8_te_dtype(
             ctx.fp8_meta["recipe"], fprop_tensor=False
@@ -440,40 +439,23 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
             )
             grad_output_c, _ = gather_along_first_dim(grad_output_c, ctx.tp_group)
-            grad_output_t = tex.fp8_transpose(grad_output_c, fp8_dtype_backward)
 
-            return grad_output_mat, grad_output_c, grad_output_t, grad_bias
+            return grad_output_mat, grad_output_c, grad_bias
 
-        # FP8 case without gather: cast, transpose, bgrad fused
+        # FP8 case without gather: unfused cast, transpose, bgrad
         if ctx.use_bias:
-            grad_bias, grad_output_c, grad_output_t = fp8_cast_transpose_bgrad_fused(
-                grad_output_mat,
-                ctx.fp8_meta["scaling_bwd"],
-                tex.FP8BwdTensors.GRAD_OUTPUT1,
-                fp8_dtype_backward,
-                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
-            )
+            grad_bias = grad_output_mat.sum(dim=0)
         else:
-            if not ctx.fp8_meta["recipe"].override_linear_precision.wgrad:
-                grad_output_c, grad_output_t = fp8_cast_transpose_fused(
-                    grad_output_mat,
-                    ctx.fp8_meta["scaling_bwd"],
-                    tex.FP8BwdTensors.GRAD_OUTPUT1,
-                    fp8_dtype_backward,
-                    stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
-                )
-            else:
-                grad_output_c = cast_to_fp8(
-                    grad_output_mat,
-                    ctx.fp8_meta["scaling_bwd"],
-                    tex.FP8BwdTensors.GRAD_OUTPUT1,
-                    fp8_dtype_backward,
-                    stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
-                )
-                grad_output_t = None
             grad_bias = None
+        grad_output_c = cast_to_fp8(
+            grad_output_mat,
+            ctx.fp8_meta["scaling_bwd"],
+            tex.FP8BwdTensors.GRAD_OUTPUT1,
+            fp8_dtype_backward,
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+        )
 
-        return grad_output_mat, grad_output_c, grad_output_t, grad_bias
+        return grad_output_mat, grad_output_c, grad_bias
 
     @abstractmethod
     def forward(self):
@@ -647,7 +629,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 #         (
 #             grad_output,
 #             grad_output_c,
-#             grad_output_t,
 #             grad_bias,
 #         ) = TransformerEngineBaseModule.grad_output_preprocess(
 #             ctx, grad_outputs[0], ctx.parallel_mode == "row"
@@ -1144,7 +1125,6 @@ class _Linear(torch.autograd.Function):
         (
             grad_output,
             grad_output_c,
-            grad_output_t,
             grad_bias,
         ) = TransformerEngineBaseModule.grad_output_preprocess(
             ctx, grad_output, ctx.parallel_mode == "row"
@@ -1208,7 +1188,7 @@ class _Linear(torch.autograd.Function):
                 inputmat_fp8_total,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
                 fp8_dtype_forward,
-                grad_output_t,
+                grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[
                     tex.FP8BwdTensors.GRAD_OUTPUT1
                 ],
@@ -1218,7 +1198,7 @@ class _Linear(torch.autograd.Function):
                 fp32_output=ctx.fuse_wgrad_accumulation,
                 out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
                 transa=False,
-                transb=False
+                transb=True
             )
 
         # Column Parallel Linear
@@ -1676,7 +1656,6 @@ class Linear(TransformerEngineBaseModule):
 #         (
 #             grad_output,
 #             grad_output_c,
-#             grad_output_t,
 #             fc2_bias_grad,
 #         ) = TransformerEngineBaseModule.grad_output_preprocess(
 #             ctx, grad_outputs[0], True
