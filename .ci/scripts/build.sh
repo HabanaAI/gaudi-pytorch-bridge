@@ -1462,45 +1462,9 @@ run_pytorch_qa_tests()
 
        # Seperate common pytest command into forked and non-forked versions
        opts_forked="$opts --forked"
-       opts_noforked=""
 
-       # Run all aurora tests without --forked.
-       # Tfevents anyway mandatorily needs to run without --forked
-       # and rest of the aurora tests need to be ported to tfevents anyway.
-       # pytest junit-xml is broken due to mixing of test file path and
-       # test dirs on pytest cmd line, so again reverting back top use
-       # only tests dirs to pytest cmd line
-       if [ "$__suite_type" != "ops" ]; then
-           opts_noforked="$opts $__aurora_path"
-       fi
-
-       __python_path=`pip show pytest | grep "Location:" | { read pkg_loc; IFS=" " read -ra arr  <<< $pkg_loc;  echo ${arr[-1]};}`
-       __python_path+=":/usr/local/lib/python3.8/dist-packages:/usr/lib/python3/dist-packages"
-       __python_path+=":/usr/local/lib/python3.10/dist-packages:/usr/lib/python3/dist-packages"
-
-       # Add old framework paths to pytest cmd line
-       opts_forked="$opts_forked ${__pytorch_qa_test_path}${test_path}"
-
-       # Function to run tox commands
-       run_tox_command(){
-           cmd_opts="$1"
-           junit_xml_tox="$2"
-           __tox_cmdline="PT_HPU_PLACE_ON_CPU=none LOG_LEVEL_ALL=${__hllog} PYTHONPATH=\"$EVENT_TESTS_PLUGIN_ROOT:$PYTORCH_TESTS_ROOT\" LOCK_GAUDI_SYNAPSE_API=1 PT_JUNIT_XML_TOX=${junit_xml_tox} PYTHON_PATH_TOX=${__python_path} TOX_TEST_NAME=${__filter} tox -c $HABANA_PYTORCH_QA_ROOT/utils/tox_scripts/tox_ini/tox_ci.ini -r -e ALL -- $cmd_opts"
-       (set -x;export __tox_cmdline; eval $__tox_cmdline)
-       }
-
-       # Run usual tests (with --forked option)
-       run_tox_command "$opts_forked" "${__xml}_${test_path}"
-       __test_status_forked=$?
-
-       # Run tfevent tests (without --forked option,
-       # since the event framework doesnot support it.
-       __test_status_noforked=0
-       if [ -n "$opts_noforked" ]; then
-           run_tox_command "$opts_noforked" "${__xml}_aurora"
-           __test_status_noforked=$?
-       fi
-       __test_status=$((__test_status_forked | __test_status_noforked))
+       $__python_cmd  $PYTORCH_TESTS_ROOT/tests/torch_training_tests/utils/tox_env_collector.py --marker "'${__pytest_marks}'" --opts "'${opts_forked}'" --log-level $__hllog --test-path ${__pytorch_qa_test_path}${test_path} --test-suite $__suite_type
+       __test_status=$?
     fi
     popd
 
