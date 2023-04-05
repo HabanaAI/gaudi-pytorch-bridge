@@ -1990,7 +1990,9 @@ void SliceOperator::AllocateAndAddSynapseNode(
             // If the newly calculated value is less than current value keep the
             // current value Since the current value is not available in
             // AllocateAndAdd, used a hack to find it from the max value
-            if ((habana::ShapeInference::GetMaxPolicyInUse() ==
+            HABANA_ASSERT(min.size() == max.size());
+            if (min.size() &&
+                (habana::ShapeInference::GetMaxPolicyInUse() ==
                  habana_helpers::DynamicDimsPolicy::CALCULATED) &&
                 (min[i] != max[i])) {
               auto curr_val = max[i] /
