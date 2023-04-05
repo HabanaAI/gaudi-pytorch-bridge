@@ -318,6 +318,14 @@ synStatus SYN_API_CALL synGraphCompile(
       pRecipeHandle, graphHandle, pRecipeName, pBuildLog);
 }
 
+synStatus SYN_API_CALL synGraphSetAttribute(
+    synGraphHandle GraphHandle,
+    const synGraphAttribute* attributes,
+    const uint64_t* values,
+    const uint32_t size) {
+  return syn_api->synGraphSetAttribute(GraphHandle, attributes, values, size);
+}
+
 synStatus SYN_API_CALL
 synGraphCreate(synGraphHandle* pGraphHandle, const synDeviceType deviceType) {
   return syn_api->synGraphCreate(pGraphHandle, deviceType);

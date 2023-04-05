@@ -126,6 +126,16 @@ synapse_error_v<graph> graph::create(
     }
     SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
   }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    synStatus status = synSuccess;
+    uint64_t values[] = {true};
+    synGraphAttribute att[] = {GRAPH_ATTRIBUTE_INFERENCE};
+    const uint32_t size = 1;
+    status = synGraphSetAttribute(syn_graph.graph_handle_, att, values, size);
+    SYNAPSE_SUCCESS_CHECK("Failed to set graph attributes.", status)
+  }
+
   syn_graph.is_valid_ = true;
   PT_SYNHELPER_END;
   return {std::move(syn_graph)};
