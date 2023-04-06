@@ -36,7 +36,7 @@ Demo usage is available at `pytorch-integration/tests/test_memstats_checker.py`
 ###This APIs can be used to dump the memory statistics reporter.
 
 ##### _dump_memory_reporter()
-  This APIs create memory reporter event and user request event captured under memory.reporter.json file when Environment variable PT_HPU_POOL_LOG_FRAGMENTATION_INFO=7.
+  This APIs create memory reporter event and user request event captured under memory.reporter.json file when Environment variable PT_HABANA_MEM_LOG_LEVEL=7.
 
 Demo usage is available at `pytorch-integration/tests/test_memreporter_checker.py`
 
@@ -47,8 +47,8 @@ Use Environment variable: PT_HABANA_MEM_LOG_LEVEL to get different level memory 
   2 - logs only allocation with backtrace
   3 - logs only free with backtrace
   4 - logs allocation and free, without backtrace
-  5 - logs memory stats after every allocation/free of memory and record the memory allocation/dealloaction(ptr, size)
-  6 - logs memory allocations and deallocation of workspace, tensors(virtual allocation/free, actaul device memory allocation/free and graph name with total memory allocated)
+  5 - logs memory allocations and deallocation of workspace, tensors(virtual allocation/free, actaul device memory allocation/free and graph name with total memory allocated)
+  6 - logs memory stats after every allocation/free of memory and record the memory allocation/dealloaction(ptr, size)
   7 - enable memory reporter to capture memory consumption, allocator stats, fragmentation stats, graph and tensors information under memory.reporter.json file at graph before launch, graph after launch, when oom appear, memory allocation fail event instance.
 
 To get the Fragementation inforamtion with the Memory stats, Use Environment variable PT_HPU_POOL_LOG_FRAGMENTATION_INFO=1
