@@ -2,10 +2,14 @@ import os
 import pytest
 import torch
 assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
-import habana_frameworks.torch.core as htcore
 import numpy as np
 
+os.environ["PT_HPU_LAZY_MODE"] = "0"
+import habana_frameworks.torch.core as htcore
+
 torch.manual_seed(0)
+
+from contextlib import contextmanager
 
 def test_relu_contiguous_view():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).view(-1)
@@ -261,3 +265,19 @@ def test_topk_transpose():
     hb = torch.topk(ha, k = 2)
     hc = hb[0].t()
     assert torch.allclose(hc.cpu(), c, atol = 0.001, rtol = 0.001)
+
+def test_view_copy_cache():
+    def fn (x):
+        x = x.to(torch.float)
+        x1 = x.unsqueeze(-1)
+        x2 = x1.transpose(1,2)
+        x1 = x1.to(torch.bfloat16)
+        x2 = x2.to(torch.bfloat16)
+        y = torch.matmul(x1, x2)
+        return y
+    a = torch.randn([2, 4]).to(torch.bool)
+    ha = a.to('hpu')
+    res = fn(a)
+    hres = fn(ha)
+
+    assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

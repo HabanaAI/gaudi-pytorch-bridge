@@ -114,7 +114,7 @@ torch::jit::Stack EagerExec::launch() {
   for (const auto& in : m_tensor_inputs) {
     stack.emplace_back(in);
   }
-  auto orig_stack = stack;
+
   UniqueIdxVec parent_vec{find_duplicate_in_stack(stack)};
   PT_EAGER_DEBUG("Eager Op unique input vector ", parent_vec.to_string());
 
@@ -307,6 +307,10 @@ size_t EagerExec::calculate_operator_key(const UniqueIdxVec& parent_vec) {
 void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
   for (auto s : t.strides())
+    key = at::hash_combine(key, s);
+  // two different sized tensors can have same strides. ex: [2, 4, 1], and [2,
+  // 1, 4]
+  for (auto s : t.sizes())
     key = at::hash_combine(key, s);
   key = at::hash_combine(key, static_cast<size_t>(t.storage_offset()));
   key = at::hash_combine(key, static_cast<size_t>(t.suggest_memory_format()));
