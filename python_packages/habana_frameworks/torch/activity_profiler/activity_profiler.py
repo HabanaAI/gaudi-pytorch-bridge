@@ -68,7 +68,8 @@ def register_habana_activity_profiler():
                 "synEventRecord",
                 "synEventSynchronize",
                 "synLaunchWithExternalEventsExt",
-                "hpu_lazy"
+                "hpu_lazy",
+                "synMemCopyAsync"
             ]
 
         def start_trace(self):
