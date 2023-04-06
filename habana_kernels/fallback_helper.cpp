@@ -26,6 +26,8 @@ void HpuFallbackHelper::enumerate_fallback() {
       }
       m_ops_placed_on_cpu.insert(substr);
     }
+  } else {
+    enable_fallback = true;
   }
 }
 
