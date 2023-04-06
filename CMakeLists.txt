@@ -294,7 +294,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/logical_gen.cpp
     hpu_ops/lazy/max_min_gen.cpp
     hpu_ops/lazy/maxpool_gen.cpp
-    hpu_ops/lazy/nansum_gen.cpp
     hpu_ops/lazy/norm_gen.cpp
     hpu_ops/lazy/pow_gen.cpp
     hpu_ops/lazy/remainder_gen.cpp

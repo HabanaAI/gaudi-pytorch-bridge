@@ -4785,7 +4785,6 @@ nansum:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   op_template: reduction
-  op_frontend: LazyNansum
   op_backend: NansumList
   out_ids: [0]
 

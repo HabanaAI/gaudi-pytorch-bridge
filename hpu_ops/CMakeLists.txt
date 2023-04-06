@@ -241,7 +241,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp
-          lazy/nansum_gen.cpp
           lazy/norm_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
