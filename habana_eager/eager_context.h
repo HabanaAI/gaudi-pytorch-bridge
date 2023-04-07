@@ -31,6 +31,9 @@ class SingleTonEagerContext {
   }
 
   void JoinPendingLoweringThread();
+  void StoreLoweringThreadException(std::exception_ptr exception) {
+    m_lowering_thread_exception = std::move(exception);
+  }
   void HandleException();
   std::future<void> m_lowering_thread_handle;
 
@@ -38,7 +41,7 @@ class SingleTonEagerContext {
   SingleTonEagerContext() = default;
   SingleTonEagerContext(const SingleTonEagerContext&) = delete;
   SingleTonEagerContext& operator=(const SingleTonEagerContext&) = delete;
-  std::exception_ptr m_lowering_thread_exception_handler = nullptr;
+  std::exception_ptr m_lowering_thread_exception = nullptr;
 };
 
 } // namespace eager

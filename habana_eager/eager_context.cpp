@@ -36,14 +36,14 @@ void SingleTonEagerContext::JoinPendingLoweringThread() {
 
 void SingleTonEagerContext::HandleException() {
   PT_EAGER_TRACE;
-  if (C10_UNLIKELY(m_lowering_thread_exception_handler)) {
+  if (C10_UNLIKELY(m_lowering_thread_exception)) {
     try {
-      std::rethrow_exception(m_lowering_thread_exception_handler);
+      std::rethrow_exception(m_lowering_thread_exception);
     } catch (const std::exception& e) {
-      m_lowering_thread_exception_handler = nullptr;
+      m_lowering_thread_exception = nullptr;
       PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
     } catch (...) {
-      m_lowering_thread_exception_handler = nullptr;
+      m_lowering_thread_exception = nullptr;
       PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
     }
   }

@@ -44,9 +44,17 @@ void EagerLoweringTask(
   try {
     hlexec.launch();
   } catch (const std::exception& e) {
-    PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n",
+        e.what());
+    SingleTonEagerContext::getInstance().StoreLoweringThreadException(
+        std::current_exception());
+
   } catch (...) {
-    PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n");
+    SingleTonEagerContext::getInstance().StoreLoweringThreadException(
+        std::current_exception());
   }
 }
 
