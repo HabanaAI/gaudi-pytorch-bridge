@@ -29,6 +29,7 @@ class _FormatHelper(NamedTuple):
 
     max_fwd: float
     max_bwd: float
+    sr_bwd: bool = False
 
 
 class Format(Enum):
@@ -49,10 +50,10 @@ class Format(Enum):
             FP8 gradient tensors in the backward pass are in e5m2 format with stochastic rounding applied
     """
 
-    E4M3 = _FormatHelper(max_fwd=448.0, max_bwd=448.0)
-    E5M2 = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0)
-    HYBRID = _FormatHelper(max_fwd=E4M3.max_fwd, max_bwd=E5M2.max_bwd)
-    E5M2_HYBRID = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0)
+    E4M3 = _FormatHelper(max_fwd=448.0, max_bwd=448.0, sr_bwd=False)
+    E5M2 = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0, sr_bwd=False)
+    HYBRID = _FormatHelper(max_fwd=E4M3.max_fwd, max_bwd=E5M2.max_bwd, sr_bwd=False)
+    E5M2_HYBRID = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0, sr_bwd=True)
 
 
 class _OverrideLinearPrecision(NamedTuple):
@@ -149,7 +150,9 @@ class DelayedScaling:
     reduce_amax: bool = True
 
     def __post_init__(self) -> None:
-        assert self.fp8_format == Format.E5M2_HYBRID, "Only E5M2_HYBRID training is supported."
+        assert self.fp8_format in (
+            Format.E5M2_HYBRID, Format.E5M2
+        ), "Only E5M2_HYBRID and E5M2 training are currently supported."
         assert self.override_linear_precision in (
             (False, False, False),
         ), "No override is currently supported."
