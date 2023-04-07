@@ -77,6 +77,27 @@ def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
     return result
 
 
+class DevicePlacementChanger:
+    def __init__(self, module, name, param) -> None:
+        self.module = module
+        self.name = name
+        self.param = param
+
+    def __call__(self, new_device):
+        # changing parameters data tensors in HPU is impossible
+        # to W/A this we create copy of original parameter
+        copied = self.module._parameters[self.name].clone().to(new_device)
+        # assigning data tensor to empty tensor - allows to free memory on device
+        self.module._parameters[self.name].data = torch.empty([], device=self.param.device)
+        # reassign previously copied parameter
+        del self.module._parameters[self.name]
+        self.module._parameters[self.name] = copied
+        # convert to habana parameter
+        self.module._parameters[self.name].__class__ = HabanaParameterWrapper
+        self.module._parameters[self.name].change_device_placement = self
+        HabanaParameterWrapper.db[id(self.param)] = copied
+
+
 def wrapped_to(self, *args, **kwargs):
     def for_all_parameters_in_submodules(fn):
         cnt = 0
@@ -114,23 +135,11 @@ def wrapped_to(self, *args, **kwargs):
             HabanaParameterWrapper.db[id(param)] = param
 
     def add_device_placement_workaround(module, name, param, cnt):
-        if param is not None:
-            nonlocal self
+        if param is None:
+            return
 
-            def change_device_placement(new_device):
-                # changing parameters data tensors in HPU is impossible
-                # to W/A this we create copy of original parameter
-                copied = module._parameters[name].clone().to(new_device)
-                # assigning data tensor to empty tensor - allows to free memory on device
-                module._parameters[name].data = torch.empty([], device=param.device)
-                # reassign previously copied parameter
-                del module._parameters[name]
-                module._parameters[name] = copied
-                # convert to habana parameter
-                module._parameters[name].__class__ = HabanaParameterWrapper
-                module._parameters[name].change_device_placement = change_device_placement
-                HabanaParameterWrapper.db[id(param)] = copied
-            param.change_device_placement = change_device_placement
+        nonlocal self
+        param.change_device_placement = DevicePlacementChanger(module, name, param)
 
     def share_parameters(module, name, param, cnt):
         nonlocal shared_parameters
