@@ -374,12 +374,6 @@ void optimizer_lamb_phase2_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
-Tensor optimizer_lamb_fused_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grad,
-    float max_grad_norm) {
-  EAGER_NOT_SUPPORTED;
-}
-
 void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,

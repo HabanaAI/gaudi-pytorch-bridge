@@ -142,53 +142,6 @@ class OptimizerFusedEMA : public Node {
   }
 };
 
-class LambFusedNorm : public ir::Node {
- public:
-  enum class LambFusedNormMeta {
-    MAX_GRAD_NORM_INDEX = 1,
-  };
-  LambFusedNorm() = delete;
-  LambFusedNorm(
-      const std::vector<at::Tensor>& grad,
-      float max_grad_norm,
-      at::Tensor& clip_norm)
-      : Node(c10::Symbol::fromQualString("hpu::habanaOptimizerLambFusedNorm")) {
-    AddInputVec(grad);
-
-    auto hl_clip_norm = GetOrCreateHbLazyTensor(clip_norm, c10::kHPU);
-    auto clip_ir = hl_clip_norm.GetIrValue();
-    AddInput(clip_ir);
-
-    m_meta_data.set(
-        max_grad_norm,
-        static_cast<size_t>(LambFusedNormMeta::MAX_GRAD_NORM_INDEX));
-  }
-
-  std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString() << ", max_grad_norm = "
-       << m_meta_data.get(
-              static_cast<size_t>(LambFusedNormMeta::MAX_GRAD_NORM_INDEX));
-    return ss.str();
-  }
-
- private:
-  void AddInputVec(const std::vector<at::Tensor>& tensor_list) {
-    ValueList hl_tensors;
-    std::vector<at::Tensor> input_pt_vec;
-    for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
-      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
-      hl_tensors.push_back(hl_tensor.GetIrValue());
-      input_pt_vec.emplace_back(t);
-    }
-
-    auto input = GetIrValueForListConstruct(hl_tensors);
-    input.mp_node->AddInputPtTensors(input_pt_vec);
-    AddInput(input);
-  }
-};
-
 class OptimizerFusedLambPhase1 : public Node {
  public:
   enum class OptimizerFusedLambPhase1Meta {

@@ -57,6 +57,7 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/optimizer_lamb_gen.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
@@ -7371,4 +7372,22 @@ habana_bounds_check_indices_lazy(
 
   RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(bounds_check_indices, op, result)
 }
+
+at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
+    const std::vector<at::Tensor>& grad,
+    double max_grad_norm) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " optimizer_lamb_fused_norm:",
+      " grad=",
+      to_string(grad),
+      "max_grad_norm=",
+      to_string(max_grad_norm));
+
+  LazyOptimizerLambFusedNorm<at::Tensor> op{
+      "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
+  RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, op)
+}
+
 } // namespace habana_lazy

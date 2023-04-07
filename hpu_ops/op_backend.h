@@ -363,6 +363,24 @@ class OpBackend : public HabanaOperator {
         : c10::optional<TensorsPair>{};
   }
 
+  std::vector<TensorsPair> getNextInputInternal(
+      StackGetter& sg,
+      std::vector<TensorsPair>*) {
+    auto pos = sg.CheckGetAndIncrStackPos();
+    TORCH_CHECK(
+        sg.stack[pos].isTensorList(),
+        "Input ",
+        pos,
+        " type expected to be ",
+        "tensor list");
+    auto list = sg.stack[pos].toTensorList();
+    std::vector<TensorsPair> result;
+    for (auto&& v : list) {
+      result.push_back({v, syn_in(sg.GetAndIncrSynPos())});
+    }
+    return result;
+  }
+
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)                         \
   T getNextInputInternal(StackGetter& sg, T*) {                              \
     auto pos = sg.CheckGetAndIncrStackPos();                                 \

@@ -485,7 +485,7 @@ at::Tensor fused_norm_hpu_lazy(
     float norm_type = 2.0);
 at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
-    float max_grad_norm);
+    double max_grad_norm);
 std::tuple<
     std::vector<at::Tensor>,
     std::vector<at::Tensor>,

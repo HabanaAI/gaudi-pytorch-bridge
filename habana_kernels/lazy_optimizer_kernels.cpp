@@ -218,41 +218,6 @@ void optimizer_adamw_hpu_lazy(
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
 
-Tensor optimizer_lamb_fused_norm_hpu_lazy(
-    const std::vector<at::Tensor>& grad,
-    float max_grad_norm) {
-  PT_LAZY_TRACE;
-  habana_lazy::NoAccThread no_acc_thread;
-
-  auto clip_norm = get_tensor_for_scalar(1.0);
-  ir::NodePtr node =
-      std::make_shared<ir::LambFusedNorm>(grad, max_grad_norm, clip_norm);
-
-  using T = at::Tensor;
-  using U = ir::LambFusedNorm;
-  class Kernel : public LazyOp<T, U> {
-   public:
-    Kernel(
-        ir::NodePtr node,
-        const std::vector<at::Tensor>& grad,
-        float max_grad_norm,
-        const at::Tensor& clip_norm)
-        : LazyOp<T, U>(node, {grad, max_grad_norm, clip_norm}, {}, -1),
-          out{grad[0]} {}
-
-   private:
-    const at::Tensor out;
-    T get_result_overrideable() override {
-      std::vector<int64_t> sizes{1};
-      return empty_hpu_lazy(
-          sizes, out.options(), out.suggest_memory_format(), false);
-    }
-  };
-
-  Kernel k(node, grad, max_grad_norm, clip_norm);
-  RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, k)
-}
-
 std::tuple<
     std::vector<at::Tensor>,
     std::vector<at::Tensor>,

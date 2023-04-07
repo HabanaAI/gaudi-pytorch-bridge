@@ -1337,20 +1337,6 @@ void optimizer_sgd_momentum_hpu_wrap(
       gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
 }
 
-Tensor optimizer_lamb_fused_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grad,
-    float max_grad_norm) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_lamb_fused_norm:",
-      " grad=",
-      to_string(grad),
-      "max_grad_norm=",
-      to_string(max_grad_norm));
-  return optimizer_lamb_fused_norm_hpu_lazy(grad, max_grad_norm);
-}
-
 std::tuple<
     std::vector<at::Tensor>,
     std::vector<at::Tensor>,
@@ -2375,7 +2361,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(
-      "habanaOptimizerLambFusedNorm(Tensor[] grad, float max_norm, Tensor clip_norm) -> Tensor");
+      "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
       "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
@@ -2554,6 +2540,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
   m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
   m.impl("hpu::fp8_permute", fp8_permute_wrap);
+  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm_hpu_lazy);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

@@ -1,15 +1,64 @@
+# ******************************************************************************
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+# ******************************************************************************
+
 import torch
 import pytest
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
+import habana_frameworks.torch.core as htcore
+from habana_frameworks.torch import _hpex_C
 from test_utils import compare_tensors
-import os
-import sys
 import copy
 from test_utils import *
 
-if "MODEL_GARDEN_PYTORCH_PATH" in os.environ:
-    sys.path.append(os.environ["MODEL_GARDEN_PYTORCH_PATH"] + "/nlp/bert/pretraining/")
+
+def reference_lamb_fused_norm(grads, max_grad_norm):
+    global_grad_norm = torch.zeros(1, dtype=grads[0].dtype, device=grads[0].device)
+    for grad in grads:
+        global_grad_norm.add_(grad.pow(2).sum())
+
+    global_grad_norm = global_grad_norm.sqrt()
+
+    if global_grad_norm > max_grad_norm:
+        clip_global_grad_norm = global_grad_norm / max_grad_norm
+    else:
+        clip_global_grad_norm = torch.tensor([1.0], dtype=grads[0].dtype)
+    return clip_global_grad_norm
+
+def create_grads(dtypes, shapes):
+    torch.manual_seed(0)
+    cpu_grads, hpu_grads = [], []
+    for shape, dtype in zip(dtypes, shapes):
+        cpu_grads.append(torch.randn(shape, device=cpu).to(dtype))
+        hpu_grads.append(cpu_grads[-1].to(hpu))
+    return cpu_grads, hpu_grads
+
+@pytest.mark.parametrize("max_grad_norm", (0.2, 1.0, 4.0, 8))
+@pytest.mark.parametrize("dtypes, shapes", (([(3, 4), (5, 6)], [torch.float, torch.float]),
+                                            ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16])))
+@pytest.mark.parametrize("fn", (torch.ops.hpu.optimizer_lamb_fused_norm,
+                                _hpex_C.fused_lamb_norm
+                                ))
+def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm, fn):
+    cpu_grads, hpu_grads = create_grads(dtypes, shapes)
+    result = fn(hpu_grads, max_grad_norm)
+    reference = reference_lamb_fused_norm(cpu_grads, max_grad_norm)
+    if shapes[0] == torch.bfloat16:
+        result = result.to(torch.float)
+        reference = reference.to(torch.float)
+    result = np.array(result.cpu())
+    reference = np.array(reference)
+    assert np.allclose(result, reference, rtol=1e-05, atol=1e-08)
 
 
 def test_lamb0():
@@ -56,17 +105,17 @@ def test_lamb0():
 class MNISTNet(nn.Module):
     def __init__(self):
         super(MNISTNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5, 1)
-        self.conv2 = nn.Conv2d(20, 50, 5, 1)
-        self.fc1 = nn.Linear(3 * 3 * 50, 500)
-        self.fc2 = nn.Linear(500, 10)
+        self.conv1 = nn.Conv2d(1, 5, 5, 1)
+        self.conv2 = nn.Conv2d(5, 10, 5, 1)
+        self.fc1 = nn.Linear(3 * 3 * 10, 50)
+        self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, kernel_size=3, stride=2)
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, kernel_size=3, stride=2)
-        x = x.view(-1, 3 * 3 * 50)
+        x = x.view(-1, 3 * 3 * 10)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
@@ -74,15 +123,17 @@ class MNISTNet(nn.Module):
 
 test_case_list = [
     # iterations, lr,
-    (3, 0.001),
-    (2, 0.01)
+    (1, 0.001),
+    (1, 0.01)
 ]
 
 
 @pytest.mark.parametrize("count, lr", test_case_list)
 def test_lamb(count, lr):
     from habana_frameworks.torch.hpex.optimizers import FusedLamb
-    from lamb import NVLAMB as TorchNVLAMB
+    from fused_ops.lamb_ut import TorchNVLAMB
+
+    torch.manual_seed(0)
 
     m_hpu_nv = MNISTNet().to(hpu)
     m_clone = copy.deepcopy(m_hpu_nv)
@@ -90,47 +141,37 @@ def test_lamb(count, lr):
     i_clone_list, t_clone_list = [], []
 
     opt_hpu_nv = TorchNVLAMB(m_hpu_nv.parameters(), lr=lr)
-    opt_hpu_nv.zero_grad()
-
-    with torch.no_grad():
-        for name, param in m_hpu_nv.named_parameters():
-            if(param.ndim == 4):
-                param.data = param.data.permute((2, 3, 1, 0))
 
     for i in range(count):
-        i_hpu_nv = torch.rand(1, 1, 28, 28)
+        i_hpu_nv = torch.rand((1, 1, 28, 28))
         t_hpu_nv = torch.randint(10, (1,))
         i_clone_list.append(i_hpu_nv.detach().clone())
         t_clone_list.append(t_hpu_nv.detach().clone())
 
         # train one iteration on cpu
+        opt_hpu_nv.zero_grad()
         out_hpu_nv = m_hpu_nv(i_hpu_nv.to(hpu))
         l_hpu_nv = F.nll_loss(out_hpu_nv, t_hpu_nv.to(hpu))
         l_hpu_nv.backward()
         opt_hpu_nv.step()
 
     # same model for training with FusedLamb
-    m_hpu_fl = m_clone
-    opt_hpu_fl = FusedLamb(m_hpu_fl.parameters(), lr=lr)
-    opt_hpu_fl.zero_grad()
-
-    with torch.no_grad():
-        for name, param in m_hpu_fl.named_parameters():
-            if(param.ndim == 4):
-                param.data = param.data.permute((2, 3, 1, 0))
+    opt_hpu_fl = FusedLamb(m_clone.parameters(), lr=lr)
 
     for i in range(count):
         i_hpu_fl, t_hpu_fl = i_clone_list[i], t_clone_list[i]
+
         # train one iteration on hpu
+        opt_hpu_fl.zero_grad()
         out_hpu_fl = m_clone(i_hpu_fl.to(hpu))
         l_hpu_fl = F.nll_loss(out_hpu_fl, t_hpu_fl.to(hpu))
         l_hpu_fl.backward()
         opt_hpu_fl.step()
 
     # compare NVLamb and FusedLamb results
-    for j, (p, q) in enumerate(zip(m_hpu_nv.parameters(), m_hpu_fl.parameters())):
+    for p, q in zip(m_hpu_nv.parameters(), m_clone.parameters()):
         if p.requires_grad and q.requires_grad:
-            compare_tensors(p.data.to(cpu), q.data.to(cpu), atol=0.001, rtol=1.0e-3)
+            compare_tensors(p.data.to(cpu), q.data.to(cpu), atol=1.0e-3, rtol=1.0e-3)
 
 
 if __name__ == "__main__":

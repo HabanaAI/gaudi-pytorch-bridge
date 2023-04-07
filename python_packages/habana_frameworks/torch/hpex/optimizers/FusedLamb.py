@@ -126,7 +126,7 @@ class FusedLamb(Optimizer):
                         )
                     grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
 
-            clip_global_grad_norm = _hpex_C.fused_lamb_norm(grad_list_norm, max_grad_norm)
+            clip_global_grad_norm = torch.ops.hpu.optimizer_lamb_fused_norm(grad_list_norm, max_grad_norm)
         else:
             clip_global_grad_norm = torch.tensor([1.0], dtype=torch.float32, device='hpu:0')
 

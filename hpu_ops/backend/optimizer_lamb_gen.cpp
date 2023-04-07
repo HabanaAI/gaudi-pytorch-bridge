@@ -1,0 +1,187 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#include "hpu_ops/optimizer_lamb_gen.h"
+#include "backend/create_pt_tensor.h"
+namespace habana {
+
+OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
+  OutputMetaData meta;
+  auto tensors = stack[0].toTensorList();
+  const at::Tensor& tensor = tensors[0];
+  meta.shape = {1};
+  meta.dtype = tensor.scalar_type();
+  return {meta};
+}
+
+OptimizerFusedLambNorm::OptimizerFusedLambNorm(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "optimizer_lamb_fused_norm_fwd_",
+          scalar_type,
+          {},
+          {},
+          {},
+          false) {
+  SetOutputMeta(ComputeLambOutputMetadata);
+}
+
+void OptimizerFusedLambNorm::CustomHandler(
+    synapse_helpers::graph& graph,
+    at::Stack& stack) {
+  auto metadata = GetOutputMetaData(0);
+  const auto& t = at::detail::make_tensor<c10::TensorImpl>(
+      c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
+      c10::scalarTypeToTypeMeta(metadata.dtype),
+      c10::Device(c10::kHPU, 0));
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(metadata.shape);
+
+  const auto& output = habana::createPTTensor(
+      t,
+      metadata.shape,
+      t.options().dtype(metadata.dtype),
+      metadata.persistent);
+  AllocateSynapseOutput(graph, output, metadata);
+}
+
+void OptimizerFusedLambNorm::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 2, "OptimizerFusedLambNorm must have 2 input arguments");
+
+  StackGetter stackGetter(stack, "OptimizerFusedLambNorm::AddNode");
+  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  float max_grad_norm = static_cast<float>(getNextInput<double>(stackGetter));
+
+  TORCH_CHECK(
+      gradients.size() > 0,
+      "Gradiens list in OptimizerFusedLambNorm cannot be empty");
+
+  auto dtype = gradients[0].pt_t.scalar_type();
+  const std::string dtype_suffix = habana_helpers::name_suffix_from_type(dtype);
+
+  auto syn_max_grad_norm = ConstantHelper(graph, max_grad_norm, dtype, {1});
+
+  auto num_params = static_cast<int>(gradients.size());
+  std::vector<synapse_helpers::tensor> first_reshape;
+  std::vector<synapse_helpers::tensor> intermediate_reduce;
+  std::vector<synTensor> concat_inputs;
+  for (size_t i = 0; i < num_params; ++i) {
+    auto rank = gradients[i].pt_t.dim();
+    auto shape = gradients[i].pt_t.sizes().vec();
+
+    int reshape_shape = 1;
+    for (size_t i = 0; i < shape.size(); ++i) {
+      reshape_shape *= shape[i];
+    }
+    first_reshape.push_back((OpBackend::BuildReshape(
+        this, graph, gradients[i].syn_t, {reshape_shape}, dtype)));
+
+    ns_Reduction::Params params{};
+    params.reductionDimension = 0;
+    intermediate_reduce.emplace_back(std::move(OpBackend::BuildNode(
+        this,
+        graph,
+        {"reduce_sum_square_fwd_" + dtype_suffix,
+         {first_reshape.back().get()},
+         {{{1}, dtype}},
+         &params,
+         sizeof(params)})[0]));
+
+    concat_inputs.emplace_back(intermediate_reduce.back().get());
+  }
+
+  synConcatenateParams concat_params{};
+  concat_params.axis = 0;
+
+  auto concated = OpBackend::BuildOp(
+      graph,
+      "concat",
+      std::move(concat_inputs),
+      {{{num_params}, dtype}},
+      &concat_params,
+      sizeof(concat_params));
+
+  ns_Reduction::Params reduce_params{};
+  reduce_params.reductionDimension = 0;
+
+  auto sum_final = OpBackend::BuildNode(
+      this,
+      graph,
+      {"reduce_sum_fwd_" + dtype_suffix,
+       {concated[0].get()},
+       {{{1}, dtype}},
+       &reduce_params,
+       sizeof(reduce_params)});
+
+  auto sqrt = OpBackend::BuildNode(
+      this,
+      graph,
+      {"sqrt_fwd_" + dtype_suffix, {sum_final[0].get()}, {{{1}, dtype}}});
+
+  auto div = OpBackend::BuildNode(
+      this,
+      graph,
+      {"div_fwd_" + dtype_suffix,
+       {sqrt[0].get(), syn_max_grad_norm.get()},
+       {{{1}, dtype}}});
+
+  auto less = OpBackend::BuildNode(
+      this,
+      graph,
+      {"less_equal_fwd_" + dtype_suffix,
+       {sqrt[0].get(), syn_max_grad_norm.get()},
+       {{{1}, at::kBool}}});
+
+  auto less_cast =
+      OpBackend::BuildCast(this, graph, less[0].get(), {1}, at::kBool, dtype);
+
+  auto syn_clip_norm = ConstantHelper(graph, 1.0, dtype, {1});
+  auto mul1 = OpBackend::BuildNode(
+      this,
+      graph,
+      {"mult_fwd_" + dtype_suffix,
+       {less_cast.get(), syn_clip_norm.get()},
+       {{{1}, dtype}}});
+
+  auto eq_final = OpBackend::BuildNode(
+      this, graph, {"not_fwd_i8", {less[0].get()}, {{{1}, at::kBool}}});
+
+  auto eq_casted = OpBackend::BuildCast(
+      this, graph, eq_final[0].get(), {1}, at::kBool, dtype);
+
+  auto mul2 = OpBackend::BuildNode(
+      this,
+      graph,
+      {"mult_fwd_" + dtype_suffix,
+       {eq_casted.get(), div[0].get()},
+       {{{1}, dtype}}});
+
+  auto add = OpBackend::BuildNode(
+      this,
+      graph,
+      {"add_fwd_" + dtype_suffix,
+       {mul1[0].get(), mul2[0].get()},
+       {{{1}, dtype, 0}}});
+
+  syn_out(0) = std::move(add[0]);
+}
+
+} // namespace habana
+
+static const auto& LambKernelRegistry = habana::KernelRegistry().add(
+    "hpu::optimizer_lamb_fused_norm",
+    KERNEL_FN_GLOBAL(habana::OptimizerFusedLambNorm));

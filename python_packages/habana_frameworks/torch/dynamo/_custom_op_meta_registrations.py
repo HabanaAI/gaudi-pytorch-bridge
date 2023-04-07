@@ -55,6 +55,10 @@ def meta_fp8_gemm(A, A_scale_inv, trans_A, B, B_scale_inv, trans_B, D, out_dtype
 def meta_fp8_transpose(input, out):
     return out
 
+@register_meta([torch.ops.hpu.optimizer_lamb_fused_norm.default])
+def meta_optimizer_lamb_fused_norm(grads, scale):
+    return grads[0].new_empty((1,))
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

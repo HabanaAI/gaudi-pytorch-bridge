@@ -14,6 +14,7 @@
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <torch/library.h>
+#include "hpu_ops/optimizer_lamb_gen.h"
 
 namespace habana {
 namespace eager {
@@ -112,6 +113,17 @@ at::Tensor& fp8_transpose(const at::Tensor&, at::Tensor&) {
   TORCH_CHECK(false, "hpu::fp8_transpose is not available in Eager mode.");
 }
 
+at::Tensor optimizer_lamb_fused_norm(
+    const std::vector<at::Tensor>& grad,
+    double max_grad_norm) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+
+  EagerOptimizerLambFusedNorm<at::Tensor> hpu_op{
+      "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
+  return hpu_op.call();
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -130,6 +142,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
+  m.def(
+      "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -142,6 +156,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_layernorm", fp8_layernorm);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::fp8_transpose", fp8_transpose);
+  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm);
 }
 
 } // namespace eager

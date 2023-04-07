@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include <torch/script.h>
@@ -32,21 +35,6 @@ class OptimizerLambPhase2Operator : public HabanaOperator {
   OptimizerLambPhase2Operator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
             "optimizer_lamb_ph2_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class OptNormFusedNormOperator : public HabanaOperator {
- public:
-  OptNormFusedNormOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "opt_lamb_fused_norm_" +
             habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
   }

@@ -154,6 +154,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/normal_gen.cpp
           backend/one_hot_gen.cpp
           backend/op_backend.cpp
+          backend/optimizer_lamb_gen.cpp
           backend/poission_gen.cpp
           backend/pow_gen.cpp
           backend/prelu_gen.cpp
@@ -247,6 +248,7 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp
           lazy/norm_gen.cpp
+          lazy/optimizer_lamb_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
           lazy/reduction_template.cpp

@@ -215,9 +215,6 @@ at::Tensor gather2d_hpu_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
     int64_t validCount);
-at::Tensor optimizer_lamb_fused_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grad,
-    float max_grad_norm);
 std::tuple<
     std::vector<at::Tensor>,
     std::vector<at::Tensor>,

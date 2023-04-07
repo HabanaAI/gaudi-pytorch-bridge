@@ -17,5 +17,5 @@ add_library(${TARGET_NAME} SHARED
 target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${TARGET_NAME} PUBLIC bindings torch ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
 install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin)
