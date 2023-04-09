@@ -39,6 +39,11 @@ synEventHandle event_handle_cache::get_free_handle() {
   // special case, if max number of events was reached,
   // we need to wait until an event is returned to the cache
   if (events_count_ >= NUM_EVENTS_MAX) {
+    if (event_flag_) {
+      PT_SYNHELPER_FATAL(
+          "Reached Max No of Timer Events allowed, total events::",
+          events_count_);
+    }
     // NUM_EVENTS_MAX limited to 1000000, inline to hard limit in synapse.
     // Assert if no recipe is being executed.
     auto& recipe_counter = device_.get_active_recipe_counter();

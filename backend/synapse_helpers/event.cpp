@@ -80,9 +80,10 @@ void event::complete() {
     if (done_cb_)
       done_cb_();
     if (handle_) {
-      if (handle_owner)
+      if (handle_owner) {
         event_handle_cache_.release_handle(handle_);
-      handle_ = nullptr;
+        handle_ = nullptr;
+      }
     }
     done_cb_ = nullptr; // explicit destruction of cb to release any internally
                         // held objects
@@ -123,7 +124,7 @@ event::~event() {
           "Destroying event ", this, " that is not synchronized yet");
     }
   }
-  if (handle_ && handle_owner) {
+  if (handle_ && !handle_owner) {
     event_handle_cache_.release_handle(handle_);
   }
 }
