@@ -142,9 +142,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   op_strs = optimized_jit_graph_and_meta_data->get_cached_opstrs();
   graph_key = optimized_jit_graph_and_meta_data->get_cached_graph_key();
   hpu_stream = optimized_jit_graph_and_meta_data->GetHPUStream();
-  event_handle = optimized_jit_graph_and_meta_data->GetEventHandle();
-  event_stream = optimized_jit_graph_and_meta_data->GetEventRecordStream();
-  event_flag = optimized_jit_graph_and_meta_data->GetEventFlag();
   bool is_optimized_lazy_eager =
       optimized_jit_graph_and_meta_data->GetOptimizedLazyEagerFlag();
   jit_graph_and_meta_data = optimized_jit_graph_and_meta_data;
@@ -3036,13 +3033,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       }
 
       rv.launch(
-          hpu_stream,
-          event_handle,
-          event_stream,
-          event_flag,
-          input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr);
+          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
       if (enable_tensor_dump_) {
         DumpTensors(rv);
       }
@@ -3341,9 +3332,6 @@ void habana::HabanaLaunchOpPT::CompileSynapse(
 
 void habana::HabanaLaunchOpPT::ExecuteSynapse(
     synapse_helpers::hpuStream_t hpu_stream,
-    synEventHandle event_handle,
-    synapse_helpers::hpuStream_t event_stream,
-    bool event_flag,
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         jit_graph_and_meta_data,
     at::ArrayRef<torch::jit::IValue> input_refs,
@@ -3353,33 +3341,23 @@ void habana::HabanaLaunchOpPT::ExecuteSynapse(
     std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
     bool is_shape_agnostic_cache_miss) {
   PT_BRIDGE_BEGIN;
-  PT_LAZY_EAGER_DEBUG(
-      "[LAZY EAGER MT] event handle for launch thread", event_handle);
   if (hbLaunchOp->enable_shape_agnostic_caching_ &&
       hbLaunchOp->jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
     if (is_shape_agnostic_cache_miss) {
       jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
-      hbLaunchOp->ExecuteSynapseGraph(
-          hpu_stream, event_handle, event_stream, event_flag);
+      hbLaunchOp->ExecuteSynapseGraph(hpu_stream);
     } else {
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_output_permutation();
       rv.launch(
-          hpu_stream,
-          event_handle,
-          event_stream,
-          event_flag,
-          input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr);
+          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
 
       if (hbLaunchOp->enable_tensor_dump_) {
         hbLaunchOp->DumpTensors(rv);
       }
     }
   } else {
-    hbLaunchOp->ExecuteSynapseGraph(
-        hpu_stream, event_handle, event_stream, event_flag);
+    hbLaunchOp->ExecuteSynapseGraph(hpu_stream);
 
     auto is_jit_cached_graph_info_available =
         jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
@@ -3523,13 +3501,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         DumpTensors_pre(rv);
       }
       rv.launch(
-          hpu_stream,
-          event_handle,
-          event_stream,
-          event_flag,
-          input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr);
+          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
 
       if (enable_tensor_dump_) {
         DumpTensors(rv);
@@ -3630,9 +3602,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             Singleton_ExecThreadPool::getInstance().enqueue(
                 ExecuteSynapse,
                 hpu_stream,
-                event_handle,
-                event_stream,
-                event_flag,
                 jit_graph_and_meta_data,
                 input_refs,
                 nullptr,
@@ -3647,7 +3616,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         ConstructPatchingTable();
         UpdateSynapsePermutations();
         jit_graph_and_meta_data->set_shape_agnostic_recipe(cur_rvalpsh);
-        ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+        ExecuteSynapseGraph(hpu_stream);
       }
 
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
@@ -3736,9 +3705,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             Singleton_ExecThreadPool::getInstance().enqueue(
                 ExecuteSynapse,
                 hpu_stream,
-                event_handle,
-                event_stream,
-                event_flag,
                 jit_graph_and_meta_data,
                 input_refs,
                 intermediate_tensors_ptr,
@@ -3757,13 +3723,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         rv.update_output_permutation();
 
         rv.launch(
-            hpu_stream,
-            event_handle,
-            event_stream,
-            event_flag,
-            input_refs,
-            intermediate_tensors_ptr,
-            dma_inputs_ptr);
+            hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
 
         if (enable_tensor_dump_) {
           DumpTensors(rv);
@@ -3858,9 +3818,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
         Singleton_ExecThreadPool::getInstance().enqueue(
             ExecuteSynapse,
             hpu_stream,
-            event_handle,
-            event_stream,
-            event_flag,
             jit_graph_and_meta_data,
             input_refs,
             nullptr,
@@ -3873,7 +3830,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     CompileSynapseGraph();
     ConstructPatchingTable();
     UpdateSynapsePermutations();
-    ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+    ExecuteSynapseGraph(hpu_stream);
 
     is_jit_cached_graph_info_available =
         jit_graph_and_meta_data->get_jit_cached_graph_info_available_flag();
@@ -4436,7 +4393,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       CompileSynapseGraph();
       ConstructPatchingTable();
       UpdateSynapsePermutations();
-      ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+      ExecuteSynapseGraph(hpu_stream);
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
       PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
@@ -4474,7 +4431,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     CompileSynapseGraph();
     ConstructPatchingTable();
     UpdateSynapsePermutations();
-    ExecuteSynapseGraph(hpu_stream, event_handle, event_stream, event_flag);
+    ExecuteSynapseGraph(hpu_stream);
   }
   if (!try_catch_fail) {
     current_dbipsh_->get_statistics()->LogCompilation(

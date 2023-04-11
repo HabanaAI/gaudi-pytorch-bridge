@@ -251,25 +251,15 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     }
 
     *event = handle;
-    if (stream == c10::hpu::getCurrentHPUStream()) {
-      bool async =
-          (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
-           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
-      habana_lazy::HbLazyTensor::StepMarker(
-          {},
-          nullptr,
-          {},
-          async,
-          handle,
-          hpu_stream.stream(),
-          get_hpu_flag(flag));
-    } else {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
-      auto status =
-          synEventRecord(handle, device.get_stream(hpu_stream.stream()));
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventRecord failed ", status);
-      }
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1 &&
+        stream == c10::hpu::getCurrentHPUStream()) {
+      habana_lazy::HbLazyTensor::StepMarker({});
+    }
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto status =
+        synEventRecord(handle, device.get_stream(hpu_stream.stream()));
+    if (synStatus::synSuccess != status) {
+      PT_DEVICE_FATAL("synEventRecord failed ", status);
     }
   }
 
@@ -277,7 +267,6 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return;
     synEventHandle handle = static_cast<synEventHandle>(event);
-    habana_lazy::HbLazyTensor::StepMarkerFinish();
     HPUStream hpu_stream{stream};
     auto& device = synapse_helpers::HPURegistrar::get_device();
     auto status =

@@ -139,18 +139,17 @@ struct HPUEvent {
         (c10::hpu::getCurrentHPUStream()).stream(),
         " record stream::",
         stream.stream());
-    if (stream.stream() == (c10::hpu::getCurrentHPUStream()).stream()) {
-      PT_DEVICE_DEBUG("Reocrd Stream current and record stream are same");
-      bool async =
-          (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
-           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
-      habana_lazy::HbLazyTensor::StepMarker(
-          {}, nullptr, {}, async, handle_, stream.stream(), flags_);
-    } else {
-      auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventRecord failed ", status);
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+      if (stream.stream() == (c10::hpu::getCurrentHPUStream()).stream()) {
+        PT_DEVICE_DEBUG("Reocrd Stream current and record stream are same");
+        habana_lazy::HbLazyTensor::StepMarker({});
       }
+    }
+
+    // FIXME TBD check how to handle in case of default stream
+    auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
+    if (synStatus::synSuccess != status) {
+      PT_DEVICE_FATAL("synEventRecord failed ", status);
     }
     recorded_stream_ = stream.stream();
     was_recorded_ = true;
@@ -163,8 +162,8 @@ struct HPUEvent {
       if (stream.stream() == recorded_stream_) {
         return;
       }
-      habana_lazy::HbLazyTensor::StepMarkerFinish();
       auto& device = synapse_helpers::HPURegistrar::get_device();
+      // FIXME TBD check how to handle in case of default stream
       auto status =
           synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
       if (synStatus::synSuccess != status) {
@@ -179,6 +178,7 @@ struct HPUEvent {
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
     uint64_t time_ms = 0;
+    // FIXME TBD check how to handle in case of default stream
     auto status = synEventElapsedTime(&time_ms, handle_, other.handle_);
     if (synStatus::synSuccess != status) {
       PT_DEVICE_DEBUG("synEventElapsedTime failed: ", status);
@@ -189,7 +189,7 @@ struct HPUEvent {
   // Note: hpuEventSynchronize can be safely called from any device
   void synchronize() const {
     if (is_created_) {
-      habana_lazy::HbLazyTensor::StepMarkerFinish();
+      // FIXME TBD check how to handle in case of default stream
       auto status = synEventSynchronize(handle_);
       if (synStatus::synSuccess != status) {
         PT_DEVICE_FATAL("synEventSynchronize failed: ", status);
@@ -205,7 +205,7 @@ struct HPUEvent {
   bool is_created_ = false;
   bool was_recorded_ = false;
   DeviceIndex device_index_ = -1;
-  synEventHandle handle_{nullptr};
+  synEventHandle handle_ = {nullptr};
   synapse_helpers::hpuStream_t recorded_stream_;
 
   void createEvent([[maybe_unused]] DeviceIndex device_index) {
@@ -228,7 +228,7 @@ struct HPUEvent {
     std::swap(handle_, other.handle_);
     std::swap(recorded_stream_, other.recorded_stream_);
   }
-};
+}; // namespace hpu
 
 } // namespace hpu
 } // namespace at

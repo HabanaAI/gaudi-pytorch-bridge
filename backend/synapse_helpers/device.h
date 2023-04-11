@@ -387,6 +387,10 @@ class device {
 
   void create_stream(hpuStream_t& hpu_stream, bool high_priority = false);
 
+  void synchronize_default_stream();
+
+  bool query_default_stream();
+
   void create_default_stream();
 
   stream& get_stream(hpuStream_t id, default_stream_type stream_type = COMPUTE);

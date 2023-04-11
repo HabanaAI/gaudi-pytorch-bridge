@@ -1313,9 +1313,6 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
       nullptr,
       {},
       false /*async*/,
-      nullptr /*event_handle*/,
-      0 /* event_stream*/,
-      false /* event_flag*/,
       is_allreduce_bwd,
       bucket_id,
       bucket_recent_id);

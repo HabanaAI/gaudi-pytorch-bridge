@@ -130,10 +130,7 @@ HlExec::HlExec(ScopePtr scope) {
 
 void HlExec::Launch(
     torch::jit::Stack& stack,
-    const c10::hpu::HPUStream& stream,
-    synEventHandle event_handle,
-    synapse_helpers::hpuStream_t event_stream,
-    bool event_flag) {
+    const c10::hpu::HPUStream& stream) {
   PT_LAZY_TRACE;
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -168,9 +165,6 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
-  mp_g_and_meta_data_->SetEventHandle(event_handle);
-  mp_g_and_meta_data_->SetEventRecordStream(event_stream);
-  mp_g_and_meta_data_->SetEventFlag(event_flag);
   auto launcher =
       CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
   try {

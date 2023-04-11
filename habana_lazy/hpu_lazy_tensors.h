@@ -296,19 +296,13 @@ class HbLazyTensor {
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false,
-      bool collect_sync_tensors = true,
-      synEventHandle event_handle = nullptr,
-      synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false);
+      bool collect_sync_tensors = true);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazy_front_end_info,
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false,
-      synEventHandle event_handle = nullptr,
-      synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false,
       bool is_allreduce = false,
       std::set<int64_t> bucket_id = {},
       std::set<int64_t> bucket_recent_id = {});
@@ -321,9 +315,6 @@ class HbLazyTensor {
           nullptr,
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false /* Wait for launch thread to finish for internal MS */,
-      synEventHandle event_handle = nullptr,
-      synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false,
       bool is_allreduce = false,
       std::set<int64_t> bucket_id = {},
       std::set<int64_t> bucket_recent_id = {});
@@ -420,10 +411,7 @@ class HbLazyTensor {
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,
       bool async = false,
-      bool collect_sync_tensors = true,
-      synEventHandle event_handle = nullptr,
-      synapse_helpers::hpuStream_t event_stream = 0,
-      bool event_flag = false);
+      bool collect_sync_tensors = true);
 
   static bool switch_dynamic_mode;
   bool is_strided = false;

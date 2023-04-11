@@ -687,10 +687,7 @@ void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
 }
 
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
-    synapse_helpers::hpuStream_t hpu_stream,
-    synEventHandle event_handle,
-    synapse_helpers::hpuStream_t event_stream,
-    bool event_flag) {
+    synapse_helpers::hpuStream_t hpu_stream) {
   TORCH_CHECK(syn_graph_ptr, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
@@ -764,13 +761,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
 
-  rv.launch(
-      hpu_stream,
-      event_handle,
-      event_stream,
-      event_flag,
-      input_refs,
-      intermediate_tensors_ptr);
+  rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr);
   rv.update_hit_count();
 
   if (enable_tensor_dump_) {

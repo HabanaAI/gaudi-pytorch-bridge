@@ -91,24 +91,31 @@ bool HPUStream::query() const {
       " Hpu stream Index::",
       hpu_stream_id);
   auto& stream = device.get_stream(hpu_stream_id);
-  /*TDB check if StepMarker is required for query */
-  if (id() != getCurrentHPUStream(device_index).id()) {
-    habana_lazy::HbLazyTensor::StepMarker({});
-  } else {
-    // If there are current jobs in stream. return false
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        device_index);
-    if (context->HaveJobsInStream(hpu_stream_id)) {
-      return false;
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) { /* only for lazy mode */
+    /*TDB check if StepMarker is required for query */
+    if (id() != getCurrentHPUStream(device_index).id()) {
+      habana_lazy::HbLazyTensor::StepMarker({});
+    } else {
+      // If there are current jobs in stream. return false
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+              device_index);
+      if (context->HaveJobsInStream(hpu_stream_id)) {
+        return false;
+      }
     }
   }
-  auto status = stream.query();
-  if (status == synSuccess)
-    return true;
-  else
-    PT_DEVICE_DEBUG("STREAM:: synStreamQuery failed with status", status);
+  if (hpu_stream_id == 0) {
+    return device.query_default_stream();
+  } else {
+    auto status = stream.query();
+    if (status == synSuccess)
+      return true;
+    else
+      PT_DEVICE_DEBUG("STREAM:: synStreamQuery failed with status", status);
 
-  return false;
+    return false;
+  }
 }
 
 void HPUStream::synchronize() const {
@@ -122,16 +129,22 @@ void HPUStream::synchronize() const {
       " Hpu stream Index::",
       hpu_stream_id);
   auto& stream = device.get_stream(hpu_stream_id);
-  if (id() != getCurrentHPUStream(device_index).id()) {
-    habana_lazy::HbLazyTensor::StepMarker({});
-  } else {
-    bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
-        std::this_thread::get_id();
-    // If synchronize is called from userthread, just do wait till the execution
-    // is over
-    habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    if (id() != getCurrentHPUStream(device_index).id()) {
+      habana_lazy::HbLazyTensor::StepMarker({});
+    } else {
+      bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
+          std::this_thread::get_id();
+      // If synchronize is called from userthread, just do wait till the
+      // execution is over
+      habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
+    }
   }
-  stream.synchronize();
+  if (hpu_stream_id == 0) {
+    device.synchronize_default_stream();
+  } else {
+    stream.synchronize();
+  }
 }
 // See Note [StreamId assignment]
 synapse_helpers::hpuStream_t HPUStream::stream() const {
@@ -188,7 +201,10 @@ void setCurrentHPUStream(HPUStream stream) {
   PT_DEVICE_DEBUG(
       "STREAM:: setCurrentHPUStream current stream::", *current_streams);
   if (*current_streams != stream.id()) {
-    habana_lazy::HbLazyTensor::StepMarkerBind();
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+      habana_lazy::HbLazyTensor::StepMarkerBind();
+    }
+
     *current_streams = stream.id();
   }
 }

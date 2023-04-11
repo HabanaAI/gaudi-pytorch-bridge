@@ -88,17 +88,11 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
       .JoinPendingLoweringThread();
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
-  synEventHandle event_handle{};
-  synapse_helpers::hpuStream_t event_stream{0};
-  bool event_flag{0};
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(stack, m_graph->inputs().size());
 
   m_graph_and_meta->SetHPUStream(stream);
-  m_graph_and_meta->SetEventHandle(event_handle);
-  m_graph_and_meta->SetEventRecordStream(event_stream);
-  m_graph_and_meta->SetEventFlag(event_flag);
 
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{m_graph_and_meta};

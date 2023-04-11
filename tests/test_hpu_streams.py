@@ -588,6 +588,42 @@ def testStreamUseDifferentStreamForEachOPNonBlocking():
         count = count + 1
     print('Finshed testStreamUseDifferentStreamForEachOP TEST')
 
+def testCopyNonBlocking():
+    print('Start testCopyNonBlocking TEST')
+    def _test_copy_non_blocking(a, b, dir1):
+        event = ht.hpu.Event()
+        a.copy_(b, non_blocking=True)
+        event.record()
+        event.synchronize()
+        if dir1:
+            b = b.to('cpu')
+        else:
+            a = a.to('cpu')
+        np.testing.assert_allclose(a.detach().numpy(),
+                b.detach().numpy(), atol=0, rtol=0)
+        print("copy done")
+
+    # 10MB copies
+    x = torch.ones(10000000, dtype=torch.uint8, device='hpu')
+    y = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device='hpu')
+    _test_copy_non_blocking(x, y, 0)
+
+    x = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device='hpu')
+    y = torch.ones(10000000, dtype=torch.uint8, device='hpu')
+    _test_copy_non_blocking(x, y, 1)
+
+    # Test the case where the pinned data_ptr is not equal to the storage data_ptr.
+    x_base = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device='hpu')
+    x = x_base[1:]
+    assert (x.is_pinned() != True)
+    assert (x_base.is_pinned() != True)
+    assert (x_base.data_ptr() != x.data_ptr())
+    assert x_base.storage().data_ptr() ==  x.storage().data_ptr()
+    print("End copy")
+    y = torch.ones(10000000 - 1, dtype=torch.uint8, device='hpu')
+    _test_copy_non_blocking(x, y, 1)
+    print('Finish testCopyNonBlocking TEST')
+
 if __name__ == "__main__":
     test_stream_none()
     test_stream_event_uninit()

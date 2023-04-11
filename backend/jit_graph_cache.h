@@ -183,30 +183,6 @@ struct OptimizedJITGraphAndMetaData {
     return hpu_stream;
   }
 
-  void SetEventHandle(synEventHandle handle) {
-    event_handle = handle;
-  }
-
-  synEventHandle GetEventHandle() {
-    return event_handle;
-  }
-
-  void SetEventRecordStream(synapse_helpers::hpuStream_t stream) {
-    event_stream = stream;
-  }
-
-  synapse_helpers::hpuStream_t GetEventRecordStream() {
-    return event_stream;
-  }
-
-  void SetEventFlag(bool flag) {
-    event_flag = flag;
-  }
-
-  bool GetEventFlag() {
-    return event_flag;
-  }
-
   std::vector<std::vector<int64_t>> get_output_shapes() {
     return output_shapes;
   }

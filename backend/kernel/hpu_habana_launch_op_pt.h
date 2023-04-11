@@ -166,16 +166,9 @@ class HabanaLaunchOpPT {
       bool is_shape_agnostic_cache_miss);
   void ConstructPatchingTable();
   void UpdateSynapsePermutations();
-  void ExecuteSynapseGraph(
-      synapse_helpers::hpuStream_t hpu_stream,
-      synEventHandle event_handle,
-      synapse_helpers::hpuStream_t event_stream,
-      bool event_flag);
+  void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
   static void ExecuteSynapse(
       synapse_helpers::hpuStream_t hpu_stream,
-      synEventHandle event_handle,
-      synapse_helpers::hpuStream_t event_stream,
-      bool event_flag,
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
           jit_graph_and_meta_data,
       at::ArrayRef<torch::jit::IValue> input_refs,
@@ -294,11 +287,6 @@ class HabanaLaunchOpPT {
 
   // user stream info
   synapse_helpers::hpuStream_t hpu_stream;
-
-  // user event handle
-  synEventHandle event_handle;
-  synapse_helpers::hpuStream_t event_stream;
-  bool event_flag = false;
 
   // Making the cache eviction policy as lru as default
 

@@ -628,57 +628,97 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
     if (high_priority &&
         default_streams_.find(NETWORK) == default_streams_.end()) {
       default_streams_[NETWORK] = absl::make_unique<stream>(*this);
+      PT_SYNHELPER_DEBUG(
+          "STREAM:: network stream handle", *default_streams_[NETWORK]);
+    } else {
+      auto compute_stream_count = get_compute_stream_count();
+      hpu_stream = ++stream_index_;
+      if (stream_index_ < compute_stream_count) {
+        streams_[hpu_stream] = absl::make_unique<stream>(*this);
+      }
+      PT_SYNHELPER_DEBUG(
+          "STREAM:: New device stream created with index", stream_index_);
     }
-    auto compute_stream_count = get_compute_stream_count();
-    hpu_stream = ++stream_index_;
-    if (stream_index_ < compute_stream_count) {
-      streams_[hpu_stream] = absl::make_unique<stream>(*this);
+  }
+}
+
+// Default stream ==> 4 synapse stream, so if the query or
+// synchronize is done on default stream, Need to do it on
+// all 4 streams.
+bool device::query_default_stream() {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    for (auto& s : default_streams_) {
+      auto& stream = *s.second;
+      auto status = stream.query();
+      if (status != synSuccess) {
+        PT_SYNHELPER_DEBUG(
+            "STREAM:: synStreamQuery failed with status", status);
+        return false;
+      }
     }
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: New device stream created with index", stream_index_);
+    return true;
+  } else {
+    auto& stream = *default_streams_[COMPUTE];
+    auto status = stream.query();
+    if (status != synSuccess) {
+      PT_SYNHELPER_DEBUG("STREAM:: synStreamQuery failed with status", status);
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+void device::synchronize_default_stream() {
+  std::unique_lock<std::mutex> lock(stream_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    for (auto& s : default_streams_) {
+      auto& stream = *s.second;
+      stream.synchronize();
+    }
+  } else {
+    auto& stream = *default_streams_[COMPUTE];
+    stream.synchronize();
   }
 }
 
 void device::create_default_stream() {
   std::unique_lock<std::mutex> lock(stream_mutex_);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    auto it = streams_.find(0);
-    HABANA_ASSERT(it == streams_.end());
-    streams_[0] = absl::make_unique<stream>(*this);
-  } else {
-    default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
+  default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
 
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
-    default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
-    default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
-    default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
-    PT_SYNHELPER_DEBUG(
-        "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
-  }
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
+  default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
+  default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
+  default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
+  PT_SYNHELPER_DEBUG(
+      "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
 }
 
 stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   if (GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM)) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-      return *streams_[0];
-    } else {
-      auto& stream = *default_streams_[stream_type];
-      return stream;
-    }
+    auto& stream = *default_streams_[stream_type];
+    return stream;
   }
 
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    auto it = streams_.find(id);
-    HABANA_ASSERT(it != streams_.end());
+    if (id == 0) { // default stream any type stream
+      auto& stream = *default_streams_[stream_type];
+      PT_SYNHELPER_DEBUG("STREAM:: get stream handle", stream, " for id::", id);
+      return stream;
+    } else {
+      auto it = streams_.find(id);
+      HABANA_ASSERT(it != streams_.end());
 
-    auto& stream = *it->second;
-    return stream;
+      auto& stream = *it->second;
+      return stream;
+    }
   } else {
     if (id == 0 || stream_type != COMPUTE) { // any type stream
       auto& stream = *default_streams_[stream_type];
@@ -726,17 +766,17 @@ void device::delete_stream(hpuStream_t id) {
 }
 
 void device::flush_stream_events() {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+  {
+    std::unique_lock<std::mutex> lock(stream_mutex_);
     for (auto& s : default_streams_) {
-      std::unique_lock<std::mutex> lock(stream_mutex_);
       auto& stream = *s.second;
       stream.flush();
     }
-  }
-  for (auto& s : streams_) {
-    std::unique_lock<std::mutex> lock(stream_mutex_);
-    auto& stream = *s.second;
-    stream.flush();
+
+    for (auto& s : streams_) {
+      auto& stream = *s.second;
+      stream.flush();
+    }
   }
   auto start = std::chrono::steady_clock::now();
   while (true) {
