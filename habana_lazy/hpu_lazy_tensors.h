@@ -258,6 +258,7 @@ class HbLazyTensor {
   void* CurrentHabanaData() const;
   bool IsExecutionInProgress() const;
   void SetExecutionInProgress() const;
+  void ResetExecutionInProgress() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
   /* Produces underlying data Tensor.

@@ -204,6 +204,17 @@ void SingleHPUGraph::replayGraph(
   context->AddToJobidStreamidMap(
       launch_jobid, c10::hpu::getCurrentHPUStream().stream());
 
+  // set exec for input/output tensors
+  for (const auto& in : input_vals_) {
+    std::shared_ptr<habana_lazy::Data> d = in.m_data_ptr.lock();
+    d->is_executing = true;
+  }
+
+  for (const auto& idx : output_vals_) {
+    auto& out_tensor = hblazy_tensors_[idx];
+    out_tensor.SetExecutionInProgress();
+  }
+
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
       GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)) {

@@ -315,6 +315,10 @@ void HbLazyTensor::SetExecutionInProgress() const {
   data()->is_executing = true;
 }
 
+void HbLazyTensor::ResetExecutionInProgress() const {
+  data()->is_executing = false;
+}
+
 const ir::Value& HbLazyTensor::GetIrValue() const {
   ir::Value& ir_value = CurrentIrValue();
   if (ir_value) {
@@ -1626,6 +1630,11 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   HABANA_ASSERT(stack.size() == hblazy_tensors.size());
 
+  for (const auto& in : input_vals) {
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    d->is_executing = false;
+  }
+
   size_t i = 0;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto& view_context = context->viewContext;
@@ -1637,6 +1646,7 @@ void HbLazyTensor::ExecuteCachedGraph(
     view_context.DelOrigTensorMapEntry(out_tensor.getTensorUniqueId());
 
     out_tensor.SetTensorData(st);
+    out_tensor.ResetExecutionInProgress();
   }
 
   habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
