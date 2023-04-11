@@ -442,14 +442,6 @@ synapse_error_o tensor::create() {
     std::copy_n(
         shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
 
-    if (is_const_section_) {
-      host_ptr_size_ = total_size_bytes_;
-      status = synTensorSetHostPtr(
-          tensor_, host_ptr_, total_size_bytes_, data_type_, false);
-      SYNAPSE_SUCCESS_CHECK_WITH_OP(
-          "synTensorSetHostPtr min sizes failed.", status, cleanup());
-    }
-
     minGeometry.dims = shape_.min().rank().value;
     memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
     status =
@@ -487,6 +479,15 @@ synapse_error_o tensor::create() {
       status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "synTensorAssignToSection failed.", status, cleanup());
+
+      if (is_const_section_) {
+        host_ptr_size_ = total_size_bytes_;
+        status = synTensorSetHostPtr(
+            tensor_, host_ptr_, total_size_bytes_, data_type_, false);
+        SYNAPSE_SUCCESS_CHECK_WITH_OP(
+            "synTensorSetHostPtr min sizes failed.", status, cleanup());
+      }
+
     } else if (memory_section_ && is_persistent_) {
       // the only valid use case for today with user-defined memory section is
       // to do in-place update, therefore offset parameter is 0
