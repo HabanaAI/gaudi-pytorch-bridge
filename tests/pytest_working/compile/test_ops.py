@@ -76,3 +76,43 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
 
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        torch.bfloat16,
+        torch.float,
+        torch.half,
+        torch.int,
+    ],
+)
+def test_expand(dtype):
+    if (
+        dtype == torch.half
+    ):
+        pytest.skip("Half is not supported for expand.")
+    '''
+    expand is a view op. 
+    For instance, if we perform inplace update on expand o/p, 
+    the expand input should also reflect the change. 
+    In our design, view output are eagerized.
+    To test graph flow, we need to keep expand as a graph intermediate.
+    '''
+    def fn(tensor, sizes):
+        exp_t = tensor.expand(
+            sizes
+        )
+        return exp_t.mul(2.0)
+
+    tensor = torch.randn(3,1)
+
+    compiled_cpu = torch.compile(fn)
+    cpu_res = compiled_cpu(tensor, (3,4))
+
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(
+        tensor.to("hpu"), (3, 4)
+    )
+
+    assert cpu_res.size() == hpu_res.size()
+    assert cpu_res.dtype == hpu_res.dtype
