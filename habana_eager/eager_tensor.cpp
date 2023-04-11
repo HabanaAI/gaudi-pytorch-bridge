@@ -12,6 +12,7 @@
  */
 
 #include "eager_tensor.h"
+#include "backend/backend_meta.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
@@ -44,6 +45,9 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
     t_start = std::chrono::steady_clock::now();
   }
   auto backend_tensor = get_tensor();
+  // get extra meta to force allocation of BackendMetadata
+  // to ensure it is shared between FE and BE tensor
+  get_tensor_extra_meta(frontend_tensor);
   HABANA_ASSERT(
       backend_tensor.defined(), "Undefined eager pool backend tensor");
   // Shallow copy from frontend_tensor. Updates the TensorImpl metadata

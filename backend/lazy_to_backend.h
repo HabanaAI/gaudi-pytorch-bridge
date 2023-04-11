@@ -14,7 +14,6 @@
 #pragma once
 #include <ATen/Tensor.h>
 #include <absl/strings/str_format.h>
-#include "backend/backend_meta.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/layout_utils.h"
