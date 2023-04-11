@@ -304,11 +304,21 @@ class LazyOp {
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
-    const auto& out_shapes = m_out_shapes;
     auto context = habana_lazy_executor.getDeviceExecutionContext();
 
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
+    std::vector<std::vector<int64_t>> out_shapes;
+    if (m_output_meta) {
+      const auto& meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          meta.size() == std::tuple_size<T>::value);
+      for (const auto& output_meta : meta) {
+        out_shapes.emplace_back(output_meta.shape);
+      }
+    } else {
+      out_shapes = m_out_shapes;
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
+    }
 
     habana::for_each_in_tuple(
         results,
@@ -839,9 +849,14 @@ class LazyOp {
     // numel == 0 is the correct check, need the size check until pytorch
     // fixes it properly
     // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
+    std::vector<int64_t> out_shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
+    } else if (m_out_shapes.empty())
+      out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    else {
+      out_shape = m_out_shapes[0];
+    }
     if (self.sizes() != out_shape || m_shape_was_changed) {
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
@@ -931,9 +946,15 @@ class LazyOp {
     const auto& node = create_node();
     hl_self.IrSetNode(node);
 
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
+    std::vector<int64_t> out_shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
+    } else if (m_out_shapes.empty())
+      out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    else {
+      out_shape = m_out_shapes[0];
+    }
+
     if (self.sizes() != out_shape || m_shape_was_changed) {
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
@@ -989,9 +1010,14 @@ class LazyOp {
     // empty shape. There is mechanism to handle it at HandleLazy level, but we
     // need to set the correct shape on at::Tensor so it's propagated to Python
     // in main thread.
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
+    std::vector<int64_t> out_shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
+    } else if (m_out_shapes.empty()) {
+      out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    } else {
+      out_shape = m_out_shapes[0];
+    }
     if (tensor.sizes() != out_shape) {
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       set_shape_changed();
@@ -1014,8 +1040,15 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type get_result(
       T tensors) {
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        std::tuple_size<T>::value == m_out_shapes.size());
+    habana::OutputMetaDataVector meta;
+    if (m_output_meta) {
+      meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          std::tuple_size<T>::value == meta.size());
+    } else {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          std::tuple_size<T>::value == m_out_shapes.size());
+    }
 
     int i = 0;
     habana::for_each_in_tuple(tensors, [&, this](auto& tensor) {
@@ -1028,8 +1061,14 @@ class LazyOp {
       // shape. There is mechanism to handle it at HandleLazy level, but we
       // need to set the correct shape on at::Tensor so it's propagated to
       // Python in main thread.
-      auto out_shape =
-          m_out_shapes.empty() ? tensor.sizes() : m_out_shapes[i++];
+      std::vector<int64_t> out_shape;
+      if (meta.size()) {
+        out_shape = meta[i].shape;
+      } else if (m_out_shapes.empty()) {
+        out_shape = tensor.sizes().vec();
+      } else {
+        out_shape = m_out_shapes[i];
+      }
 
       if (tensor.sizes() != out_shape) {
         tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
@@ -1037,6 +1076,7 @@ class LazyOp {
       } else {
         m_shape_was_changed_in_tuple.push_back(false);
       }
+      i++;
     });
 
     return tensors;
@@ -1046,6 +1086,15 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
     PT_LAZY_TRACE;
+    if (m_output_meta) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
+      auto meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
+      auto output_meta = meta[0];
+      return empty_hpu_lazy(
+          output_meta.shape, output_meta.dtype, output_meta.mem_format, false);
+    }
+
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();
@@ -1073,6 +1122,25 @@ class LazyOp {
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
   get_result() {
     PT_LAZY_TRACE;
+    if (m_output_meta) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
+      const auto& meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          std::tuple_size<T>::value == meta.size());
+      unsigned i = 0;
+      ReturnType results;
+      auto output_meta = meta[i++];
+
+      habana::for_each_in_tuple(results, [&](auto& result) {
+        result = empty_hpu_lazy(
+            output_meta.shape,
+            output_meta.dtype,
+            output_meta.mem_format,
+            false);
+      });
+      return results;
+    }
+
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();
@@ -1101,6 +1169,20 @@ class LazyOp {
       type
       get_result() {
     PT_LAZY_TRACE;
+    if (m_output_meta) {
+      const auto& meta = m_output_meta(get_inputs());
+      std::vector<at::Tensor> results;
+      results.reserve(meta.size());
+
+      for (auto output_meta : meta) {
+        results.emplace_back(empty_hpu_lazy(
+            output_meta.shape,
+            output_meta.dtype,
+            output_meta.mem_format,
+            false));
+      }
+      return results;
+    }
     // Get results from derived class always for std::vector LazyOps
     return get_result_overrideable();
   }
@@ -1129,6 +1211,12 @@ class LazyOp {
 
   [[nodiscard]] const std::vector<c10::ScalarType>& get_scalar_types() const {
     return m_scalar_types;
+  }
+
+  void SetOutputMeta(
+      std::function<habana::OutputMetaDataVector(const at::Stack&)>
+          output_meta) {
+    m_output_meta = std::move(output_meta);
   }
 
  private:
@@ -1565,6 +1653,7 @@ class LazyOp {
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;
+  std::function<habana::OutputMetaDataVector(const at::Stack&)> m_output_meta;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
   std::string module_name = std::string();
   bool m_shape_was_changed =

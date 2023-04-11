@@ -65,6 +65,12 @@ class EagerOpBase {
     m_scalar_types = scalar_types;
   }
 
+  void SetOutputMeta(
+      std::function<habana::OutputMetaDataVector(const at::Stack&)>
+          output_meta) {
+    m_output_meta = std::move(output_meta);
+  }
+
   void set_eager_op_info(EagerOpMetaData eager_op_meta_data) {
     m_eager_op_meta_data = eager_op_meta_data;
   }
@@ -89,6 +95,7 @@ class EagerOpBase {
   const int m_out_index;
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;
+  std::function<habana::OutputMetaDataVector(const at::Stack&)> m_output_meta;
   EagerOpMetaData m_eager_op_meta_data;
   bool is_pipeline_supported = false;
 
@@ -179,9 +186,15 @@ class EagerOp : public EagerOpBase {
         self.device().type() == at::kHPU,
         "Got a non-HPU tensor, expecting an HPU tensor");
 
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
+    std::vector<int64_t> out_shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
+    } else if (m_out_shapes.empty())
+      out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    else {
+      out_shape = m_out_shapes[0];
+    }
+
     if (self.sizes() != out_shape) {
       HABANA_ASSERT(
           self.numel() == 0 || (self.numel() == 1 && self.sizes().empty()),
@@ -211,9 +224,14 @@ class EagerOp : public EagerOpBase {
         self.device().type() == at::kHPU,
         "Got a non-HPU tensor, expecting an HPU tensor");
 
-    auto out_shape = m_out_shapes.empty()
-        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
-        : m_out_shapes[0];
+    std::vector<int64_t> out_shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
+    } else if (m_out_shapes.empty())
+      out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    else {
+      out_shape = m_out_shapes[0];
+    }
     if (self.sizes() != out_shape) {
       THHTensor_resizeNd(
           self.unsafeGetTensorImpl(),
@@ -234,21 +252,31 @@ class EagerOp : public EagerOpBase {
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
     is_pipeline_supported = true;
 
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        m_out_shapes.empty() ||
-        m_out_shapes.size() == std::tuple_size<T>::value);
+    std::vector<std::vector<int64_t>> out_shapes;
+    if (m_output_meta) {
+      const auto& meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          meta.size() == std::tuple_size<T>::value);
+      for (const auto& output_meta : meta) {
+        out_shapes.emplace_back(output_meta.shape);
+      }
+    } else {
+      out_shapes = m_out_shapes;
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
+    }
 
-    auto it_shape = m_out_shapes.begin();
+    auto it_shape = out_shapes.begin();
     habana::for_each_in_tuple(self, [this, &it_shape](const auto& el) {
       HABANA_ASSERT(
           el.device().type() == at::kHPU,
           "Got a non-HPU tensor, expecting an HPU tensor");
     });
 
-    if (!m_out_shapes.empty()) {
+    if (!out_shapes.empty()) {
       habana::for_each_in_tuple_with_index(
-          self, [this](const auto& el, size_t index) {
-            const auto& out_shape = m_out_shapes[index];
+          self, [this, &out_shapes](const auto& el, size_t index) {
+            const auto& out_shape = out_shapes[index];
             if (el.sizes() != out_shape) {
               HABANA_ASSERT(
                   el.numel() == 0 || (el.numel() == 1 && el.sizes().empty()),
@@ -325,7 +353,6 @@ class EagerOp : public EagerOpBase {
     PT_EAGER_DEBUG(
         "Eager call void ( 1x TensorList ) :: ", m_symbol.toQualString());
 
-    // size_t i;
     for (const auto& tensor : tensors) {
       HABANA_ASSERT(
           tensor.device().type() == at::kHPU,
@@ -447,6 +474,14 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
     PT_EAGER_TRACE;
+    if (m_output_meta) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
+      auto meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
+      auto output_meta = meta[0];
+      return at::empty(
+          output_meta.shape, output_meta.dtype, output_meta.mem_format);
+    }
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();
@@ -465,6 +500,21 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type get_result() {
     PT_EAGER_TRACE;
+    if (m_output_meta) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
+      const auto& meta = m_output_meta(get_inputs());
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          std::tuple_size<T>::value == meta.size());
+      ReturnType results;
+      habana::for_each_in_tuple_with_index(
+          results, [&](auto& result, size_t index) {
+            auto output_meta = meta[index];
+            result = at::empty(
+                output_meta.shape, output_meta.dtype, output_meta.mem_format);
+          });
+      return results;
+    }
+
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();

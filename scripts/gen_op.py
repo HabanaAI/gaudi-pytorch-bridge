@@ -1006,6 +1006,10 @@ def frontend(
         if use_compute_type:
             code += "  hpu_op.set_scalar_types({compute_type});\n"
 
+        output_meta = ctxop.get_output_meta()
+        if output_meta:
+            code += f"  hpu_op.SetOutputMeta({output_meta});\n"
+
         out_dtypes = ctxop.get_out_dtypes()
         if out_dtypes:
             assert (
@@ -1326,8 +1330,6 @@ eager_custom_frontends_whitelist = [
     "GeneratorToSeedOut",
     "ReductionFrontendTemplate",
     "TopKFE",
-    "ForeachFE",
-    "ForeachBinaryFE",
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):

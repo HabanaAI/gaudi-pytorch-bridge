@@ -332,7 +332,8 @@ void CastOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   auto type = inputs[1].toScalarType();
-  auto castOp = make_operator<habana::LazyCast>(p_context_->device_id_, type);
+  std::shared_ptr<HabanaOperator> castOp =
+      make_operator<habana::LazyCast>(p_context_->device_id_, type);
   castOp->SetSynapseInput(p_context_->syn_inputs_[0]);
   castOp->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   p_context_->syn_outputs_.emplace_back(std::move(castOp->GetSynOutputs()[0]));

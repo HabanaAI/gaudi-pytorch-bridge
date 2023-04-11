@@ -55,7 +55,7 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       syn_in(0),
       dim,
       keepdim,
-      ComputeOutputShapes(stack)[0]);
+      AllAnyDimMeta(stack)[0].shape);
   syn_out(0) = std::move(out);
 }
 

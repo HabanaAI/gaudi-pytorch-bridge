@@ -22,17 +22,21 @@ sizes_vec AllAnyOutputShape(const at::Stack&) {
   return {{}};
 }
 
-sizes_vec AllAnyDimOutputShape(const at::Stack& stack) {
+OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   const bool keepdim = stack.at(2).toBool();
 
-  return ReductionOutputShape(self, dim, keepdim);
+  OutputMetaData meta;
+  meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
+  meta.dtype = at::kBool;
+  return {meta};
 }
 
-synapse_helpers::tensor AnyCommonFunc(
+static synapse_helpers::tensor AnyCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
+    synTensor input,
     const at::Tensor& self,
     const at::IntArrayRef dim,
     const bool keepdim,
@@ -40,11 +44,6 @@ synapse_helpers::tensor AnyCommonFunc(
   // TODO: for integral types, use reduce_sum_fwd_i32 instead
   const auto& dtype = at::kFloat;
   std::unique_ptr<synapse_helpers::tensor> cast;
-  synTensor input = nullptr;
-  if (!op->isMetaMode()) {
-    synapse_helpers::tensor& synInput = op->GetSynInputs()[0];
-    input = synInput.get();
-  }
   if (dtype != self.scalar_type()) {
     cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
         op, graph, input, self.sizes(), self.scalar_type(), dtype));
@@ -74,19 +73,25 @@ synapse_helpers::tensor AnyCommonFunc(
 
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto outshape = ComputeOutputShapes(stack)[0];
   auto dim = stack.at(1).toInt();
   bool keepdim = stack.at(2).toBool();
 
-  auto any_out = AnyCommonFunc(this, graph, self, dim, keepdim, outshape);
+  auto any_out = AnyCommonFunc(
+      this,
+      graph,
+      syn_in(0),
+      self,
+      dim,
+      keepdim,
+      AllAnyDimMeta(stack)[0].shape);
   syn_out(0) = std::move(any_out);
 }
 
 void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto outshape = ComputeOutputShapes(stack)[0];
 
-  auto any_out = AnyCommonFunc(this, graph, self, {}, false, outshape);
+  auto any_out = AnyCommonFunc(
+      this, graph, syn_in(0), self, {}, false, ComputeOutputShapes(stack)[0]);
   syn_out(0) = std::move(any_out);
 }
 } // namespace habana

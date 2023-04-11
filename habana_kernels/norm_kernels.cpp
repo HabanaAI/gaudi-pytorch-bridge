@@ -703,7 +703,8 @@ void NormOperator::AddL0NormNode(
   auto device_id = self.device().index();
   auto scalar_type = self.scalar_type();
   torch::jit::Stack stack;
-  auto ne_op = make_operator<NotEqualScalar>(device_id, scalar_type);
+  std::shared_ptr<HabanaOperator> ne_op =
+      make_operator<NotEqualScalar>(device_id, scalar_type);
   ne_op->SetSynapseInput(p_context_->syn_inputs_[0]);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(0.0));

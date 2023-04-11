@@ -14,12 +14,6 @@
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
-
-sizes_vec AminmaxOutputShape(const at::Stack& stack) {
-  auto meta = AminmaxMeta(stack);
-  return {meta[0].shape, meta[1].shape};
-}
-
 OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1);
@@ -64,17 +58,13 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
   const auto& dtype_suffix =
       habana_helpers::name_suffix_from_type(op->ScalarType());
 
-  const bool greco_device = is_Greco_device();
+  std::vector<NodeAttr::NodeOutputAttr> amin_output_attrs = {
+      {output_shape, self.scalar_type(), final_idx1},
+      {output_shape, self.scalar_type()}};
+  std::vector<NodeAttr::NodeOutputAttr> amax_output_attrs = {
+      {output_shape, self.scalar_type(), final_idx2},
+      {output_shape, self.scalar_type()}};
 
-  std::vector<NodeAttr::NodeOutputAttr> amin_output_attrs;
-  std::vector<NodeAttr::NodeOutputAttr> amax_output_attrs;
-  amin_output_attrs.push_back({output_shape, self.scalar_type(), final_idx1});
-  amax_output_attrs.push_back({output_shape, self.scalar_type(), final_idx2});
-
-  if (!greco_device) {
-    amin_output_attrs.push_back({output_shape, self.scalar_type()});
-    amax_output_attrs.push_back({output_shape, self.scalar_type()});
-  }
   auto amin = HandleReductionDimAndKeepdim(
       op,
       graph,
@@ -110,7 +100,7 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim_vec =
       is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
 
-  const auto output_shape = AminmaxOutputShape(stack)[0];
+  auto output_shape = GetOutputMetaData(0).shape;
 
   auto input = syn_in(0);
 

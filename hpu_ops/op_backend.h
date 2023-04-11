@@ -64,13 +64,6 @@ class OpBackend : public HabanaOperator {
     m_scalar_type = dtype;
   }
 
-  // keeping AllocateAndAddSynapseNode public to help with calling autogen ops
-  // from manually written ops
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      at::Stack& stack,
-      const OutputMetaDataVector& output_metadata) override;
-
   const auto& GetShapeTensors() const {
     return m_shape_tensors;
   }
@@ -174,6 +167,11 @@ class OpBackend : public HabanaOperator {
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
  private:
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      at::Stack& stack,
+      const OutputMetaDataVector& output_metadata) override;
+
   void PopulateMetadata(const at::Stack&, const OutputMetaDataVector&);
   void HandleScalarToTensor(
       synapse_helpers::graph& graph,

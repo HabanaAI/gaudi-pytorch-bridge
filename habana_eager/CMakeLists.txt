@@ -18,7 +18,6 @@ add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_validator.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/bernoulli_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/clamp_gen.cpp
-          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/foreach_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/random_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/reduction_template.cpp
