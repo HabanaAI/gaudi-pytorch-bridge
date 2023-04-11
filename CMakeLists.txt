@@ -288,7 +288,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/unique_gen.cpp
     hpu_ops/lazy/unique2_gen.cpp
     hpu_ops/lazy/upsample_gen.cpp
-    hpu_ops/lazy/where_gen.cpp
     hpu_ops/lazy/xlogy_gen.cpp
     ${habana_pytorch2_plugin_glob_files}
   )

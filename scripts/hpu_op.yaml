@@ -7103,17 +7103,15 @@ view.dtype:
 #  acc_thread: true
 
 where.self:
-  custom_output_shape: WhereOutputShape
   guid: where_fwd
   out_ids: [1]
-  op_frontend: WhereFrontend
+  output_meta: WhereMeta
   op_backend: WhereBackend
   fallback_check: [WhereFallbackCheck, condition, self, other]
 
 where.self_out:
-  custom_output_shape: WhereOutputShape
   guid: where_fwd
-  op_frontend: WhereFrontend
+  output_meta: WhereMeta
   op_backend: WhereBackend
   fallback_check: [WhereFallbackCheck, condition, self, other]
 

@@ -324,3 +324,18 @@ def test_wrapped_number_tensors():
     result_cpu = torch.mul(cpu_tensor, 1.0)
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
+def test_where_variants():
+    self = torch.randn(3, 5, 7, dtype=torch.float32)
+    other = torch.randn(7, dtype=torch.float32)
+    condition = torch.randn(1, 7) > 0
+
+    where_cpu = torch.where(condition, self, other)
+    where_hpu = torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu")).to("cpu")
+    assert torch.equal(where_hpu, where_cpu)
+
+    where_out_cpu = torch.zeros(self.shape)
+    where_out_hpu = torch.zeros(self.shape).to("hpu")
+    torch.where(condition, self, other, out=where_out_cpu)
+    torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu)
+    assert torch.equal(where_out_hpu.to("cpu"), where_out_cpu)

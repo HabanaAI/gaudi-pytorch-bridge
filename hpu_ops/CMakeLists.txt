@@ -265,7 +265,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/unique2_gen.cpp
           lazy/unique_gen.cpp
           lazy/upsample_gen.cpp
-          lazy/where_gen.cpp
           lazy/xlogy_gen.cpp
           op_logger.cpp
           op_validator.cpp

@@ -8,15 +8,33 @@
  ******************************************************************************
  */
 
+#include "backend/synapse_helpers/device_helpers.h"
 #include "generated/backend/where.h"
 #include "habana_helpers/dtype_helpers.h"
 
 namespace habana {
 
+OutputMetaDataVector WhereMeta(const at::Stack& stack) {
+  auto cond = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto other = stack_tensor(stack, 2);
+
+  const auto& condSizes = cond.sizes();
+  const auto& selfSizes = self.sizes();
+  const auto& otherSizes = other.sizes();
+
+  OutputMetaData meta{};
+
+  meta.dtype = at::result_type(self, other);
+  meta.shape = at::infer_size(at::infer_size(condSizes, selfSizes), otherSizes);
+
+  return {meta};
+}
+
 void WhereBackend::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto shape = ComputeOutputShapes(stack)[0];
+  auto shape = WhereMeta(stack)[0].shape;
   const auto& self = stack_tensor(stack, 1);
   const auto& other = stack_tensor(stack, 2);
 
@@ -50,11 +68,37 @@ void WhereBackend::AddNode(
   auto result = BuildOp(graph, guid_, inputs, {{shape, result_type, 0}});
   syn_out(0) = std::move(result[0]);
 }
-sizes_vec WhereOutputShape(const at::Stack& stack) {
-  at::IntArrayRef cond = stack_tensor(stack, 0).sizes();
-  at::IntArrayRef self = stack_tensor(stack, 1).sizes();
-  at::IntArrayRef other = stack_tensor(stack, 2).sizes();
-  return {at::infer_size(at::infer_size(cond, self), other)};
+
+FALLBACK_CHECK(
+    WhereFallbackCheck,
+    const at::Tensor& condition,
+    const at::Tensor& self,
+    const at::Tensor& other) {
+  if (condition.scalar_type() != torch::kBool) {
+    return false;
+  }
+
+  // After type promotion, it should pick one of these guids
+  //  where_fwd_i8
+  //  where_fwd_i32
+  //  where_fwd_bf16
+  //  where_fwd_f32
+  //  where_fwd_f16 only for Gaudi2/Gaudi3/Greco
+  auto result_type = at::result_type(self, other);
+  switch (result_type) {
+    case torch::kBool:
+    case torch::kInt32:
+    case torch::kInt64:
+    case torch::kBFloat16:
+    case torch::kFloat32:
+      return true;
+    case torch::kHalf: {
+      return synapse_helpers::device_supports_fp16(
+          synapse_helpers::HPURegistrar::get_device().type());
+    }
+    default:
+      return false;
+  }
 }
 
 } // namespace habana
