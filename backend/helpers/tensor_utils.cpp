@@ -734,3 +734,25 @@ std::vector<int64_t> habana_helpers::calculate_strides(
   }
   return strides;
 }
+
+std::string habana_helpers::detail::
+    InternalFormatter<habana_helpers::FormatTokens>::format(
+        const at::Tensor& tensor,
+        habana_helpers::FormatTokens token) {
+  auto tmeta{habana::get_tensor_extra_meta(tensor, true)};
+  if (!tmeta) {
+    return "<NO_TMETA>";
+  }
+  switch (token) {
+    case habana_helpers::FormatTokens::Permutations:
+      return VecToString(tmeta->get_memory_permutation());
+    case habana_helpers::FormatTokens::Layout:
+      return habana::DebugString(tmeta->get_tensor_layout());
+    case habana_helpers::FormatTokens::ImplPtr:
+      return absl::StrCat(
+          absl::Hex(tensor.unsafeGetTensorImpl(), absl::kZeroPad8));
+    case habana_helpers::FormatTokens::DataPtr:
+      return absl::StrCat(absl::Hex(tensor.data_ptr(), absl::kZeroPad8));
+  }
+  return "";
+}

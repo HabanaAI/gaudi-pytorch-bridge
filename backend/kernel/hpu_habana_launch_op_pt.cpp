@@ -31,7 +31,6 @@
 #include <absl/types/optional.h>
 
 #include "backend/backend_meta.h"
-#include "backend/lazy_to_backend.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/tensor_builder.h"
@@ -43,6 +42,7 @@
 
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
+#include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_helpers/misc_utils.h"
 
@@ -3182,15 +3182,15 @@ void RecipeValueSpec::create_outdup(
         " old permutation was: %s",
         ti.get_tensor_id(),
         VecToString(ti.getHbInternalPermute()),
-        lazy_to_backend::FormatTokens::Permutations);
+        habana_helpers::FormatTokens::Permutations);
     habana_helpers::set_tensor_memory_permutations(
         pt_outdup, ti.getHbInternalPermute());
   }
   PT_BACKEND_DEBUG_TENSOR(
       pt_outdup,
       " duplicate output HbInternal address : %s  storage address : %s",
-      lazy_to_backend::FormatTokens::ImplPtr,
-      lazy_to_backend::FormatTokens::DataPtr);
+      habana_helpers::FormatTokens::ImplPtr,
+      habana_helpers::FormatTokens::DataPtr);
   ti.patch(pt_outdup);
 
   IValPtrShared ivpsh = std::make_shared<IVal>(pt_outdup);

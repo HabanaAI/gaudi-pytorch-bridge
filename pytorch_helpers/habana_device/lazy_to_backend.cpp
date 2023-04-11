@@ -39,31 +39,6 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
 }
 
 
-std::string lazy_to_backend::detail::
-    InternalFormatter<lazy_to_backend::FormatTokens>::format(
-        const at::Tensor& tensor,
-        lazy_to_backend::FormatTokens token) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_EAGER_DEBUG("Skipping permutations for EagerOp...");
-    return "<EAGER>";
-  }
-  auto impl = habana_lazy::GetHbInternalTensorImpl(tensor);
-  if (!impl) {
-    return "<NOT_A_LAZY_TENSOR>";
-  }
-  switch (token) {
-    case lazy_to_backend::FormatTokens::Permutations:
-      return VecToString(impl->GetMemoryPermutation());
-    case lazy_to_backend::FormatTokens::Layout:
-      return habana::DebugString(impl->GetTensorLayout());
-    case lazy_to_backend::FormatTokens::ImplPtr:
-      return absl::StrCat(absl::Hex(impl, absl::kZeroPad8));
-    case lazy_to_backend::FormatTokens::DataPtr:
-      return absl::StrCat(absl::Hex(impl->data(), absl::kZeroPad8));
-  }
-  return "";
-}
-
 at::Tensor habana_lazy::empty_hpu_lazy(
     c10::IntArrayRef size,
     const at::TensorOptions& options,

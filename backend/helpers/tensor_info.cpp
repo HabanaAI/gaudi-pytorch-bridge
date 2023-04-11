@@ -17,6 +17,7 @@
 
 #include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
+#include "backend/helpers/tensor_utils.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -85,7 +86,7 @@ void PtTensorInfo::populate_tinfo(
       "Saving the layout and permutation to the cache for tensor: %d",
       " permutation: %s",
       tensor_id,
-      lazy_to_backend::FormatTokens::Permutations);
+      habana_helpers::FormatTokens::Permutations);
 
   if (get_buffer_syn() != 0) {
     // set valid offset

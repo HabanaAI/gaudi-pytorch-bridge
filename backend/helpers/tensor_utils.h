@@ -129,4 +129,51 @@ bool is_supported_type(c10::ScalarType type);
 bool is_shape_tensor(synTensorType shape_tensor);
 std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
 
+/**
+ * Tokens that can be passed to PT_BACKEND_DEBUG_TENSOR to insert
+ * stringified value of some internal tensor field without exposing
+ * underlying class of the tensor.
+ */
+enum FormatTokens { Permutations = 1, Layout = 2, ImplPtr = 3, DataPtr = 4 };
+
+namespace detail {
+template <typename T, class Enable = void>
+struct InternalFormatter final {};
+
+template <typename T>
+struct InternalFormatter<T> {
+  static const T& format(const at::Tensor&, const T& t) {
+    return t;
+  }
+};
+
+template <>
+struct InternalFormatter<FormatTokens> {
+  static std::string format(const at::Tensor&, FormatTokens t);
+};
+
+} // namespace detail
+
+template <typename... Args>
+void debug_log_internal_tensor(
+    const at::Tensor& tensor,
+    std::string_view format_string,
+    Args... args) {
+  PT_BRIDGE_DEBUG(absl::StrFormat(
+      format_string,
+      habana_helpers::detail::InternalFormatter<Args>::format(
+          tensor, args)...));
+}
 } // namespace habana_helpers
+
+/**
+ * Macro to eliminate explicit dependency of the debug logs in backend on
+ * the GetHbInternalTensorImpl. This macro has printf semantics and all the
+ * formatted args are passed as is to absl::StrFormat, except for the
+ * FormatTokens that are converted into a string representation of the
+ * requested tensor field.
+ */
+#define PT_BACKEND_DEBUG_TENSOR(tensor, format_string, args...)             \
+  if (IS_MOD_DEBUG_ENABLED(PT_BRIDGE)) {                                    \
+    habana_helpers::debug_log_internal_tensor(tensor, format_string, args); \
+  }

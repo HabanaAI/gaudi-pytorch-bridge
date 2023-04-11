@@ -822,8 +822,8 @@ void RecipeValueSpec::update_output_permutation() {
           " HbInternal storage address: %s"
           "; info.tensorPermutation = {%s}",
           info.tensorId,
-          lazy_to_backend::FormatTokens::ImplPtr,
-          lazy_to_backend::FormatTokens::DataPtr,
+          habana_helpers::FormatTokens::ImplPtr,
+          habana_helpers::FormatTokens::DataPtr,
           VecToString(permute_vec));
       habana_helpers::set_tensor_memory_permutations(tensor, permute_or_empty);
       count++;
@@ -1172,9 +1172,9 @@ void RecipeValueSpec::update_patching_table(
           "output HbInternal address: %s"
           " storage address : %s"
           " permute: %s",
-          lazy_to_backend::FormatTokens::ImplPtr,
-          lazy_to_backend::FormatTokens::DataPtr,
-          lazy_to_backend::FormatTokens::Permutations);
+          habana_helpers::FormatTokens::ImplPtr,
+          habana_helpers::FormatTokens::DataPtr,
+          habana_helpers::FormatTokens::Permutations);
     }
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache hit :: Creating new output with shape : ",
