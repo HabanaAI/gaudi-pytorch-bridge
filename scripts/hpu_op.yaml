@@ -111,6 +111,7 @@ _foreach_abs:
   guid: abs_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_abs_:
@@ -124,6 +125,7 @@ _foreach_add.Scalar:
   guid: add_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_add.ScalarList:
@@ -131,6 +133,7 @@ _foreach_add.ScalarList:
   guid: add_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_add.List:
@@ -138,6 +141,7 @@ _foreach_add.List:
   guid: add_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_acos:
@@ -145,6 +149,7 @@ _foreach_acos:
   guid: acos_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_acos_:
@@ -158,6 +163,7 @@ _foreach_asin:
   guid: asin_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_asin_:
@@ -171,6 +177,7 @@ _foreach_atan:
   guid: atan_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_atan_:
@@ -184,6 +191,7 @@ _foreach_ceil:
   guid: ceil_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_ceil_:
@@ -196,6 +204,7 @@ _foreach_cos:
   guid: cos_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_cos_:
@@ -209,6 +218,7 @@ _foreach_cosh:
   guid: cosh_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_cosh_:
@@ -222,6 +232,7 @@ _foreach_erf:
   guid: erf_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_erf_:
@@ -234,6 +245,7 @@ _foreach_erfc:
   dtypes: [BFloat16, Float]
   op_backend: ForeachErfc
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_erfc_:
@@ -246,6 +258,7 @@ _foreach_exp:
   guid: exp_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_exp_:
@@ -259,6 +272,7 @@ _foreach_expm1:
   guid: expm1_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_expm1_:
@@ -272,6 +286,7 @@ _foreach_floor:
   guid: floor_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_floor_:
@@ -284,6 +299,7 @@ _foreach_frac:
   dtypes: [BFloat16, Float]
   op_backend: ForeachFrac
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_frac_:
@@ -296,6 +312,7 @@ _foreach_log:
   guid: log_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_log_:
@@ -308,6 +325,7 @@ _foreach_log10:
   dtypes: [BFloat16, Float]
   op_backend: ForeachLog10
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_log10_:
@@ -320,6 +338,7 @@ _foreach_log1p:
   guid: log1p_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_log1p_:
@@ -333,6 +352,7 @@ _foreach_log2:
   guid: log2_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_log2_:
@@ -350,6 +370,7 @@ _foreach_mul.Scalar:
   guid: mult_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_mul.ScalarList:
@@ -361,6 +382,7 @@ _foreach_mul.ScalarList:
   guid: mult_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_mul.List:
@@ -372,6 +394,7 @@ _foreach_mul.List:
   guid: mult_fwd
   op_backend: ForeachBinary
   op_frontend: ForeachBinaryFE
+  output_meta: ForeachBinaryMeta
   out_ids: [0]
 
 _foreach_mul_.Scalar:
@@ -409,6 +432,7 @@ _foreach_neg:
   guid: neg_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_neg_:
@@ -422,6 +446,7 @@ _foreach_reciprocal:
   guid: reciprocal_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_reciprocal_:
@@ -435,6 +460,7 @@ _foreach_round:
   guid: round_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_round_:
@@ -448,6 +474,7 @@ _foreach_sigmoid:
   guid: sigmoid_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_sigmoid_:
@@ -461,6 +488,7 @@ _foreach_sin:
   guid: sin_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_sin_:
@@ -474,6 +502,7 @@ _foreach_sinh:
   guid: sinh_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_sinh_:
@@ -487,6 +516,7 @@ _foreach_sqrt:
   guid: sqrt_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_sqrt_:
@@ -500,6 +530,7 @@ _foreach_tan:
   guid: tan_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_tan_:
@@ -513,6 +544,7 @@ _foreach_tanh:
   guid: tanh_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_tanh_:
@@ -526,6 +558,7 @@ _foreach_trunc:
   guid: trunc_fwd
   op_backend: Foreach
   op_frontend: ForeachFE
+  output_meta: ForeachMeta
   out_ids: [0]
 
 _foreach_trunc_:
@@ -987,12 +1020,14 @@ amin.out:
 aminmax:
   force_default: false
   custom_output_shape: AminmaxOutputShape
+  output_meta: AminmaxMeta
   dtypes: [Float, BFloat16, Int, Char]
   op_backend: Aminmax
   out_ids: [0, 0]
 
 aminmax.out:
   custom_output_shape: AminmaxOutputShape
+  output_meta: AminmaxMeta
   dtypes: [Float, BFloat16, Int, Char]
   op_backend: Aminmax
 

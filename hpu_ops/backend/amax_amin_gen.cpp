@@ -16,6 +16,11 @@
 namespace habana {
 
 sizes_vec AminmaxOutputShape(const at::Stack& stack) {
+  auto meta = AminmaxMeta(stack);
+  return {meta[0].shape, meta[1].shape};
+}
+
+OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();
@@ -26,7 +31,10 @@ sizes_vec AminmaxOutputShape(const at::Stack& stack) {
 
   auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
 
-  return {shapes[0], shapes[0]};
+  OutputMetaData meta;
+  meta.shape = shapes[0];
+  meta.dtype = self.scalar_type();
+  return {meta, meta};
 }
 
 sizes_vec AminAmaxOutputShape(const at::Stack& stack) {

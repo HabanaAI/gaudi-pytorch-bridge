@@ -105,6 +105,13 @@ synapse_helpers::tensor_or_ref& OpBackend::SynInput(int index) {
   return p_context_->syn_inputs_.at(index);
 }
 
+OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
+  if (m_output_meta) {
+    return m_output_meta(stack);
+  }
+  return {};
+}
+
 at::ScalarType OpBackend::HandleDtypePropagation(
     const at::Stack& stack,
     const at::Tensor& t,
@@ -170,8 +177,6 @@ void OpBackend::HandleFn(
   std::vector<at::Tensor> tensors;
   tensors.reserve(m_output_metadata.size());
 
-  const auto& outshapes = ComputeOutputShapes(stack);
-
   for (int res_id : m_res_ids) {
     at::IValue ival = stack.at(res_id);
     if (ival.isTensor()) {
@@ -188,13 +193,6 @@ void OpBackend::HandleFn(
   }
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      outshapes.empty() || outshapes.size() == m_output_metadata.size(),
-      "Num outputs and num outshapes does not match ",
-      m_output_metadata.size(),
-      " != ",
-      outshapes.size());
-
-  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       tensors.size() == m_output_metadata.size(),
       "Num outputs defined (",
       m_res_ids.size(),
@@ -204,13 +202,10 @@ void OpBackend::HandleFn(
   int i = 0;
   for (const at::Tensor& t : tensors) {
     const auto& metadata = m_output_metadata.at(i);
-
     const auto& dtype = HandleDtypePropagation(stack, t, metadata.dtype);
 
-    const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
-
     const auto& output = habana::createPTTensor(
-        t, outshape, t.options().dtype(dtype), metadata.persistent);
+        t, metadata.shape, t.options().dtype(dtype), metadata.persistent);
     AllocateSynapseOutput(graph, output, metadata);
     i++;
   }
@@ -479,11 +474,38 @@ OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   return m_meta;
 }
 
+void OpBackend::PopulateMetadata(
+    const at::Stack& stack,
+    const OutputMetaDataVector& output_metadata) {
+  m_output_metadata = output_metadata;
+
+  if (UsesOutputMeta()) {
+    const auto& meta = OutputMeta(stack);
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == m_output_metadata.size());
+    for (int i = 0; i < m_output_metadata.size(); ++i) {
+      m_output_metadata[i].shape = meta[i].shape;
+      m_output_metadata[i].dtype = meta[i].dtype;
+    }
+  } else if (m_res_ids.size()) {
+    auto outshapes = ComputeOutputShapes(stack);
+    if (outshapes.empty()) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+          m_res_ids.size() == m_output_metadata.size());
+      for (int res_id : m_res_ids) {
+        outshapes.emplace_back(stack_tensor(stack, res_id).sizes().vec());
+      }
+    }
+    for (int i = 0; i < m_output_metadata.size(); ++i) {
+      m_output_metadata[i].shape = outshapes[i];
+    }
+  }
+}
+
 void OpBackend::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const OutputMetaDataVector& output_metadata) {
-  m_output_metadata = output_metadata;
+  PopulateMetadata(stack, output_metadata);
 
   CustomHandler(graph, stack);
 
@@ -598,8 +620,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       bool is_external = false;
 
       if (is_final_result) {
-        const auto& metadata =
-            op->m_output_metadata.at(*attr.final_result_index);
+        const auto& metadata = op->GetOutputMetaData(*attr.final_result_index);
         is_persistent = metadata.persistent;
         is_external = metadata.external;
       }

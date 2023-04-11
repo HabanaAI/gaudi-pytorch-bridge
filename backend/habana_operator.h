@@ -231,6 +231,7 @@ class OutputMetaData {
   bool persistent{false};
   bool external{false};
   at::ScalarType dtype{at::ScalarType::Undefined};
+  std::vector<int64_t> shape;
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData() = default;
 };

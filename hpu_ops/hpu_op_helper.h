@@ -222,6 +222,7 @@ std::vector<int64_t> indices_size(at::TensorList indices);
   std::shared_ptr<void> fn(const at::Stack&, size_t&);
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
+#define OUTMETA_DECL(fn) OutputMetaDataVector fn(const at::Stack&);
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;

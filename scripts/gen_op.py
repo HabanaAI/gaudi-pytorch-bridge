@@ -484,6 +484,9 @@ class Op(object):
 
         return self.op.get("custom_output_shape", None)
 
+    def get_output_meta(self):
+        return self.op.get("output_meta", None)
+
     def get_inplace_ids(self):
         return self.op.get("inplace_ids", [])
 
@@ -1116,6 +1119,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     tpc_param = ctxop.get_tpc_param()
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
+    output_meta_fn = ctxop.get_output_meta()
     promote_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
 
@@ -1177,7 +1181,9 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     if is_out_fn(fname) and num_out_tensors > 1:
         ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
 
-    if output_shape_fn:
+    if output_meta_fn:
+        ctor_extra_calls.append("SetOutputMeta({});".format(output_meta_fn))
+    elif output_shape_fn:
         ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
 
     if custom_fill_params:
@@ -1321,7 +1327,7 @@ eager_custom_frontends_whitelist = [
     "ReductionFrontendTemplate",
     "TopKFE",
     "ForeachFE",
-    "ForeachBinaryFE"
+    "ForeachBinaryFE",
 ]
 # helper function to determine if op supports eager::EagerOp
 def is_eager_op(fname, rtype, sig, ctxop):
@@ -1804,6 +1810,7 @@ def generate_op_frontend_hclasses(fgens, classes, header_file, service_class):
 def generate_header_decls(fgens):
     fill_params = set()
     outshape_fns = set()
+    outmeta_fns = set()
     fc_fns = set()
 
     def build(fn, fns_set, macro, args=[]):
@@ -1814,12 +1821,16 @@ def generate_header_decls(fgens):
 
     reg_decls = ""
     outshape_decls = ""
+    outmeta_decls = ""
     fill_params_decls = ""
     fallback_check_decls = ""
     for fgen in fgens:
         reg_decls += "{};\n".format(fgen.rwsig)
         outshape_decls += build(
             fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL"
+        )
+        outmeta_decls += build(
+            fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL"
         )
         fill_params_decls += build(
             fgen.ctxop.get_custom_fill_params(), fill_params, "FILL_PARAMS_DECL"
@@ -1831,7 +1842,13 @@ def generate_header_decls(fgens):
                 fc[0], fc_fns, "FALLBACK_CHECK", fgen.fc_params
             )
 
-    return reg_decls + outshape_decls + fill_params_decls + fallback_check_decls
+    return (
+        reg_decls
+        + outshape_decls
+        + outmeta_decls
+        + fill_params_decls
+        + fallback_check_decls
+    )
 
 
 def gen_output_file(args, name):
