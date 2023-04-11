@@ -6798,7 +6798,9 @@ at::Tensor& allgather_hpu_lazy_out(
   habana_lazy::NoAccThread no_acc_thread;
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
   LazyOp<at::Tensor&> k(
-      "hccl::allgather_out", {inputTensor, comm_id, outputTensor});
+      "hccl::allgather_out",
+      {inputTensor, comm_id, outputTensor},
+      {outputTensor.sizes().vec()});
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(allgather_out, k, outputTensor)
 }
 
