@@ -310,6 +310,11 @@ at::Tensor cast_from_fp8_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_wrap(
+    const at::Tensor& input,
+    double p,
+    const at::Tensor& scale,
+    bool stochastic_rounding);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_wrap(
     const at::Tensor& input,
     const at::Tensor& scale,

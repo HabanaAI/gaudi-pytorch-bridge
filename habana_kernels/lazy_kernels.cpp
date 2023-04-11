@@ -7008,6 +7008,23 @@ at::Tensor cast_from_fp8_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, k_)
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
+    const at::Tensor& input,
+    double p,
+    const at::Tensor& scale,
+    bool stochastic_rounding) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> k_{
+      "hpu::fp8_dropout",
+      {input, p, scale, stochastic_rounding},
+      {input.sizes().vec(), input.sizes().vec(), {1}}};
+  k_.set_scalar_types(
+      {c10::ScalarType::Char, c10::ScalarType::Char, c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_dropout, k_)
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,

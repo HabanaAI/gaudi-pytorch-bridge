@@ -704,6 +704,11 @@ at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
     at::ScalarType out_dtype);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
+    const at::Tensor& input,
+    double p,
+    const at::Tensor& scale,
+    bool stochastic_rounding);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,

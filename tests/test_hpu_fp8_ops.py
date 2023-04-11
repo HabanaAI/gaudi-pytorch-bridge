@@ -196,6 +196,37 @@ def test_fp8_gelu(shape, scale, dtype, stochastic):
     assert amax.cpu()[1][2] == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
 
+# TODO analyze why single elements of outputs differ for torch.bfloat16
+@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("scale", [0.75, 1.6])
+@pytest.mark.parametrize("dtype", [torch.float])
+def test_fp8_dropout(shape, scale, dtype):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype)*10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+    ratio = 0.3
+    dropout_scale = torch.tensor(1.0/(1.0 - ratio), dtype=dtype)
+
+    scale = torch.tensor(scale, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+
+    dropout_scaled, mask, amax = torch.ops.hpu.fp8_dropout(input.to(hpu), ratio, scale.to(hpu), False)
+    dropout_unscaled = cast_from_fp8(dropout_scaled, scale_inv.to(hpu), dtype).cpu()
+
+    scaled_input_low_precision = simulateFp8Precision(input*scale.to(dtype)*dropout_scale)*scale_inv.to(dtype)
+    result_ref = torch.where(mask.cpu().to(torch.bool), scaled_input_low_precision, 0.0)
+
+    scaled_input_high_prec = input * dropout_scale
+    dropout_high_prec = torch.where(mask.cpu().to(torch.bool), scaled_input_high_prec, 0.0)
+
+    ones = torch.count_nonzero(mask.cpu())
+    ratio_res = 1.0 - ones / mask.numel()
+
+    assert torch.allclose(result_ref, dropout_unscaled)
+    assert amax.cpu() == torch.max(dropout_high_prec.abs())
+    assert torch.isclose(ratio_res, torch.tensor(ratio), rtol=0.1, atol=0.1)
+
 @pytest.mark.parametrize("shape", [(64, 48), (2, 7)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])

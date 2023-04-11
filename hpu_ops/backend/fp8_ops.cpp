@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/fp8_ops.h"
+#include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
 
@@ -244,6 +245,52 @@ void CastFromFp8::AddNode(
       this, graph, {guid, {syn_in(0), syn_in(1)}, {{sizes, dst_type, 0}}});
 
   syn_out(0) = std::move(casted[0]);
+}
+
+Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_dropout_",
+          scalar_type,
+          {0, 0, 2},
+          {},
+          {},
+          false) {}
+
+void Fp8Dropout::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "Fp8Dropout must have 4 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  float p = static_cast<float>(stack[1].toDouble());
+  bool stochastic_rounding = stack[3].toBool();
+  auto src_type = self.scalar_type();
+  auto dst_type = at::ScalarType::Char;
+  auto sizes = self.sizes();
+
+  std::string guid = "dropout_fp8_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+
+  ns_DropoutFp8::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  params.ratio = p;
+  params.seed = habana::get_seed_hpu(c10::nullopt);
+
+  auto dropout = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {syn_in(0), syn_in(1)},
+       {{sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+        {sizes, dst_type, 1},
+        {{1}, at::ScalarType::Float, 2}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(dropout[0]);
+  syn_out(1) = std::move(dropout[1]);
+  syn_out(2) = std::move(dropout[2]);
 }
 
 Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
@@ -479,6 +526,7 @@ static const auto& CastKernelRegistry =
             "hpu::fp8_cast_transpose_bgrad_dgelu",
             KERNEL_FN_GLOBAL(habana::Fp8CastTransposeBgradDgelu))
         .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
+        .add("hpu::fp8_dropout", KERNEL_FN_GLOBAL(habana::Fp8Dropout))
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
