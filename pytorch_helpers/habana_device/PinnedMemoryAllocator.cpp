@@ -19,7 +19,7 @@ at::Allocator* getPinnedMemoryAllocator() {
   return &pin_memory_allocator;
 }
 
-bool PinnedMemoryAllocator_is_pinned(void* ptr) {
+bool PinnedMemoryAllocator_is_pinned(const void* ptr) {
   auto& device = synapse_helpers::HPURegistrar::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
   return device.get_host_memory().is_host_memory(ptr);
