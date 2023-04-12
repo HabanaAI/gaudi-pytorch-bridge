@@ -24,3 +24,22 @@ def test_argmax(mode):
     test(lambda x: torch.argmax(x, dim=0), torch.randn(B0, 2, 3))
     test(lambda x: torch.argmax(x, dim=-1), torch.randn(B0, 2, 3))
     test(lambda x: torch.argmax(x, dim=2, keepdim=True), torch.randn(B0, 2, 3))
+
+def test_alias(mode):
+    def raw_function(x):
+        y = x[...]
+        y = y + 2
+        return y
+
+    x = torch.randn(3, 4)
+    hx = x.to("hpu")
+
+    result_cpu = raw_function(x)
+
+    if mode == "graph":
+        compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        result_compile = compiled_function(hx).to("cpu")
+        assert torch.allclose(result_cpu, result_compile, rtol=1e-3, atol=1e-3)
+    else:
+        result_hpu = raw_function(hx).to("cpu")
+        assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
