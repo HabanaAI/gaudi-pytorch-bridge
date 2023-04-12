@@ -6003,6 +6003,7 @@ Tensor fused_norm_hpu_lazy(
     const Tensor& max_norm,
     float norm_type) {
   PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
 
   auto result = empty_hpu_lazy(
       {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
