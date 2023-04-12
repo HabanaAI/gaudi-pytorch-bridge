@@ -1,6 +1,8 @@
---extra-index-url=https://download.pytorch.org/whl/test/cpu-cxx11-abi/
+--extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/staging_habana_pypi/simple
 
-torch==2.0.0+cpu.cxx11.abi
+torch==2.0.0a0+git5f1cdeb
+torchaudio==2.0.1+3b40834
+torchvision==0.15.1a0+c94b648
 
 wheel>=0.38.4
 setuptools>=67.6
