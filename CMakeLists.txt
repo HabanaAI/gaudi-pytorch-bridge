@@ -291,7 +291,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     hpu_ops/lazy/sort_gen.cpp
     hpu_ops/lazy/threshold_gen.cpp
     hpu_ops/lazy/topk_util.cpp
-    hpu_ops/lazy/trace_gen.cpp
     hpu_ops/lazy/unique_gen.cpp
     hpu_ops/lazy/unique2_gen.cpp
     hpu_ops/lazy/upsample_gen.cpp

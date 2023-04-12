@@ -178,9 +178,9 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/sort_gen.cpp
           backend/take_gen.cpp
           backend/threshold_gen.cpp
+          backend/trace_gen.cpp
           backend/topk_gen.cpp
           backend/topk_util.cpp
-          backend/trace_gen.cpp
           backend/triangular_gen.cpp
           backend/upsample_ops.cpp
           backend/upsample_gen.cpp
@@ -255,7 +255,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp
-          lazy/trace_gen.cpp
           lazy/unique2_gen.cpp
           lazy/unique_gen.cpp
           lazy/upsample_gen.cpp

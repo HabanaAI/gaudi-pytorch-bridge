@@ -15,7 +15,17 @@
 
 namespace habana {
 
-sizes_vec TraceOutputShape(const at::Stack&) {
-  return {{}};
+OutputMetaDataVector TraceMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+
+  OutputMetaData meta;
+  meta.shape = {};
+  if (self.scalar_type() == c10::ScalarType::Int) {
+    meta.dtype = c10::ScalarType::Long;
+  } else {
+    meta.dtype = self.scalar_type();
+  }
+  return {meta};
 }
+
 } // namespace habana
