@@ -5938,12 +5938,16 @@ scatter_add:
 
 select.int:
   force_default: false
+  custom_output_shape: SelectHpuOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   override_fn: select_hpu_lazy
   acc_thread: true
+  guid: select
+  out_ids: [0]
+
 
 sgn.out:
   dtypes:

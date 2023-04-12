@@ -222,33 +222,6 @@ class IndexSelectOperator : public GatherOperator {
       int64_t& index);
 };
 
-//
-// Select Operator
-class SelectOperator : public HabanaOperator {
- public:
-  SelectOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("select") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  void SetPTOutputs(torch::jit::Stack& inputs) override;
-
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& self,
-      int64_t& dim);
-
-  virtual OutputShapeInfRetType ComputeOutputShape(
-      torch::jit::Stack& inputs) override;
-};
-
 // ScatterNdONNX operator
 class ScatterNdONNXOperator : public HabanaOperator {
  public:
