@@ -4692,8 +4692,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
     const at::Tensor& input_,
-    const at::Tensor& mean,
-    const at::Tensor& rstd,
+    const at::Tensor& mean_,
+    const at::Tensor& rstd_,
     const c10::optional<at::Tensor>& weight_opt,
     [[maybe_unused]] c10::SymInt N,
     [[maybe_unused]] c10::SymInt C,
@@ -4705,6 +4705,15 @@ native_group_norm_backward_hpu_lazy(
   // ================== This can be avoided only if autograd override is done
   // and BN FWD o/p is stored for use in BWD
   bool use_bn_fwd_in_gn_bwd = GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
+  at::Tensor mean;
+  at::Tensor rstd;
+  if (weight_opt.has_value()) {
+    mean = mean_.to(weight_opt.value().scalar_type());
+    rstd = rstd_.to(weight_opt.value().scalar_type());
+  } else {
+    mean = mean_;
+    rstd = rstd_;
+  }
   Tensor bn_fwd_out;
   auto input_shape = input_.sizes().vec();
   int64_t rszarr_bn_in[input_.dim()];
