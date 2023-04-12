@@ -113,25 +113,6 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
 namespace habana_lazy {
 const std::vector<int64_t> device_shape_tensor_size = {SYN_MAX_TENSOR_DIM};
 
-void print_tensor_debug(const torch::Tensor& src) {
-  static const std::string marker = "********************\n";
-  PT_LAYOUTS_DEBUG(
-      marker,
-      " Tensor Data info:\n",
-      "src device: ",
-      src.device(),
-      ",src format: ",
-      src.suggest_memory_format(),
-      ", contig?:",
-      src.is_contiguous(),
-      ", src.strides(): ",
-      src.strides(),
-      ", src.sizes(): ",
-      src.sizes(),
-      "\n",
-      marker);
-}
-
 bool is_inplace(at::Symbol symbol) {
   auto node_name = symbol.toQualString();
   /*
@@ -756,7 +737,7 @@ Tensor as_strided_layout_hpu_lazy(
 
 at::Tensor handleWeightTensorLayout(const Tensor& src) {
   PT_LAZY_TRACE;
-  print_tensor_debug(src);
+  habana_helpers::print_tensor_debug(src);
   /*  Synapse Layout nomenclature:
         rsck = {3, 2, 0, 1};
         qrsck = {4, 3, 0, 1, 2};
@@ -2118,13 +2099,13 @@ Tensor convolution_hpu_lazy(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE) ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_HPU_PERMUTE)) {
     habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
-    print_tensor_debug(weight_hpu);
+    habana_helpers::print_tensor_debug(weight_hpu);
   }
 
   auto& weight_hwck = weight_hpu;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    print_tensor_debug(weight_hwck);
+    habana_helpers::print_tensor_debug(weight_hwck);
     if (!bias.defined()) {
       IntArrayRef rm_size;
       if (weight_hwck.suggest_memory_format() ==

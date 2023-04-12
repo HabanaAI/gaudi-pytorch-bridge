@@ -124,6 +124,25 @@ void habana_helpers::PrintTensor(
   PT_TEST_DEBUG("PTI_DBG :: tensor ", tname, " : ", DebugString(t, print_data));
 }
 
+void habana_helpers::print_tensor_debug(const torch::Tensor& tensor) {
+  static constexpr std::string_view marker{"********************\n"};
+  PT_BRIDGE_DEBUG(
+      marker,
+      " Tensor Data info:\n",
+      "tensor device: ",
+      tensor.device(),
+      ",tensor format: ",
+      tensor.suggest_memory_format(),
+      ", contig?:",
+      tensor.is_contiguous(),
+      ", tensor.strides(): ",
+      tensor.strides(),
+      ", tensor.sizes(): ",
+      tensor.sizes(),
+      "\n",
+      marker);
+}
+
 /*************************************************************************
  * @brief Infers the size of a dim with size -1, if it exists.
  ************************************************************************/

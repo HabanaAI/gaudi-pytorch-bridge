@@ -48,8 +48,6 @@ at::Tensor empty_as_strided_lazy(
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
 
-void print_tensor_debug(const torch::Tensor& src);
-
 at::Tensor handleWeightTensorLayout(const at::Tensor& src);
 
 ir::NodePtr create_as_strided_node(

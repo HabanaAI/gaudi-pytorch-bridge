@@ -55,8 +55,8 @@ void handlePermutedTensor(
     const torch::Tensor& cpuTensor,
     bool non_blocking) {
   PT_EAGER_TRACE;
-  // print_tensor_debug(permutedTensor);
-  // print_tensor_debug(cpuTensor);
+  habana_helpers::print_tensor_debug(permutedTensor);
+  habana_helpers::print_tensor_debug(cpuTensor);
   TORCH_CHECK(
       permutedTensor.device().type() == c10::DeviceType::HPU,
       "handlePermutedTensor permutedTensor should be HPU");

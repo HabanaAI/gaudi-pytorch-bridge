@@ -51,6 +51,9 @@ void PrintTensor(
   habana_helpers::PrintTensor(T, std::string(#T), true)
 
 namespace habana_helpers {
+
+void print_tensor_debug(const torch::Tensor& src);
+
 inline bool IsCollective(const c10::Symbol& symbol) {
   static c10::Symbol hccl_namepsace =
       c10::Symbol::fromQualString("namespaces::hccl");

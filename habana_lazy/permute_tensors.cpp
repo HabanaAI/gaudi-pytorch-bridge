@@ -44,7 +44,7 @@ void PermuteTensors::permuteWeight(torch::Tensor& weight) {
       weight.device().type() == c10::DeviceType::HPU,
       "permuteWeight only for HPU tensors");
 
-  print_tensor_debug(weight);
+  habana_helpers::print_tensor_debug(weight);
 
   if (shouldPermuteWeight(weight)) {
     permuteWeightByDim(weight);
@@ -52,7 +52,7 @@ void PermuteTensors::permuteWeight(torch::Tensor& weight) {
     auto pre_caster_weight = getPreCastedWeight(weight);
     permuteWeightByDim(pre_caster_weight);
   }
-  print_tensor_debug(weight);
+  habana_helpers::print_tensor_debug(weight);
 }
 
 void PermuteTensors::permuteWeightByDim(torch::Tensor& weight) {
@@ -124,8 +124,8 @@ void PermuteTensors::handlePermutedTensor(
     torch::Tensor& cpuTensor,
     bool non_blocking) {
   PT_LAZY_TRACE;
-  print_tensor_debug(permutedTensor);
-  print_tensor_debug(cpuTensor);
+  habana_helpers::print_tensor_debug(permutedTensor);
+  habana_helpers::print_tensor_debug(cpuTensor);
   TORCH_CHECK(
       permutedTensor.device().type() == c10::DeviceType::HPU,
       "handlePermutedTensor permutedTensor should be HPU");
@@ -203,7 +203,7 @@ void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
-  print_tensor_debug(weight);
+  habana_helpers::print_tensor_debug(weight);
   // Update Permutation
   increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_rsck_in_memory);
@@ -220,7 +220,7 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
-  print_tensor_debug(weight);
+  habana_helpers::print_tensor_debug(weight);
   // Update lazy & impl status
   increasePermuteCount(weight);
   setMemoryPermutation(weight, weight_qrsck_in_memory);
