@@ -1686,7 +1686,9 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     if (dest->getDataPtr()->tensor_data) {
       cleanup_tensors.push_back(dest->getDataPtr()->tensor_data.value());
     }
-    dest->SetTensorData(*data_tensor);
+    if (!dest->IsExecutionInProgress()) {
+      dest->SetTensorData(*data_tensor);
+    }
   }
   if (habana_lazy::AccThread::IsAccThreadEnabled() &&
       habana_lazy::AccThread::Get().inAccThreadContext()) {

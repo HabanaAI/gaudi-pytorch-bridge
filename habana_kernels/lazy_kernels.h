@@ -1276,30 +1276,34 @@ class LazyOp {
   void set_inputs(const std::vector<at::IValue>& inputs) {
     auto inputsHpu = inputs;
     for (auto& t : inputsHpu) { // Any tensor on CPU needs to be moved to HPU
-      if (t.isTensor() && t.toTensor().defined() &&
-          t.toTensor().device().type() != c10::DeviceType::HPU) {
+      if (t.isTensor() && t.toTensor().defined()) {
         const at::Tensor& tensor = t.toTensor();
-        at::Tensor tinput;
-        if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-          // is_wrapped_number: True if a tensor was auto-wrapped from a
-          // C++ or Python number.
-          if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-            // For lazy eager Skip scalar handling at FE, Use scalar Ivalue as
-            // input
-            t = c10::IValue(tensor.item());
+        if (t.toTensor().device().type() != c10::DeviceType::HPU) {
+          at::Tensor tinput;
+          if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+            // is_wrapped_number: True if a tensor was auto-wrapped from a
+            // C++ or Python number.
+            if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+              // For lazy eager Skip scalar handling at FE, Use scalar Ivalue as
+              // input
+              t = c10::IValue(tensor.item());
+            } else {
+              // If the CPU tensor is a wrapped number, then use
+              // get_tensor_for_scalar method to retrieve cached HPU tensors for
+              // the scalar value
+              auto dtype = tensor.scalar_type();
+              tinput = get_tensor_for_scalar(
+                  tensor.item().toDouble(), at::TensorOptions().dtype(dtype));
+              t = c10::IValue(tinput);
+            }
           } else {
-            // If the CPU tensor is a wrapped number, then use
-            // get_tensor_for_scalar method to retrieve cached HPU tensors for
-            // the scalar value
-            auto dtype = tensor.scalar_type();
-            tinput = get_tensor_for_scalar(
-                tensor.item().toDouble(), at::TensorOptions().dtype(dtype));
+            // Use non_blocking .to()
+            tinput = tensor.to(c10::kHPU, true);
             t = c10::IValue(tinput);
           }
         } else {
-          // Use non_blocking .to()
-          tinput = tensor.to(c10::kHPU, true);
-          t = c10::IValue(tinput);
+          // hpu input tensors
+          GetHbLazyTensor(tensor).SetExecutionInProgress();
         }
       }
 
