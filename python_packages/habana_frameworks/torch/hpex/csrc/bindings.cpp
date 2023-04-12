@@ -18,35 +18,6 @@
 #include "transformer_engine/common.h"
 
 // Wrappers to match signatures
-static void optimizer_fused_adamw(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
-    at::Tensor& neg_step,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const float weight_decay) {
-  at::TensorList gradients(gradient_vec);
-  at::TensorList weights(weight_vec);
-  at::TensorList exp_avg(exp_avg_vec);
-  at::TensorList exp_avg_sq(exp_avg_sq_vec);
-
-  optimizer_adamw_hpu_wrap(
-      gradients,
-      weights,
-      exp_avg,
-      exp_avg_sq,
-      lr,
-      neg_step,
-      beta1,
-      beta2,
-      epsilon,
-      weight_decay);
-}
-
 static void optimizer_fused_adagrad(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
@@ -167,10 +138,6 @@ at::Tensor habana_random_seed(const at::Tensor& input) {
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   //////////////////////////// Optimizers /////////////////////////////////////
-  m.def(
-      "fused_adamw",
-      &optimizer_fused_adamw,
-      "Compute and apply gradient update to parameters for Adam optimizer");
   m.def(
       "fused_adagrad",
       &optimizer_fused_adagrad,

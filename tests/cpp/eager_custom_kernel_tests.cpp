@@ -22,6 +22,7 @@ class EagerCustomKernelTest : public habana_lazy_test::LazyTest {
   }
 };
 
+ADAMW_OPT_TEST(EagerCustomKernelTest, false)
 EMA_OPT_TEST(EagerCustomKernelTest, false)
 LAMB_PHASE1_OPT_TEST(EagerCustomKernelTest, false)
 LAMB_PHASE2_OPT_TEST(EagerCustomKernelTest)

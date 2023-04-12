@@ -68,8 +68,6 @@ class FusedAdamW(Optimizer):
         Arguments:
             closure (:obj:`Callable`, `optional`): A closure that reevaluates the model and returns the loss.
         """
-        from habana_frameworks.torch import _hpex_C
-
         loss = None
         if closure is not None:
             loss = closure()
@@ -141,17 +139,17 @@ class FusedAdamW(Optimizer):
                 # perform weight decay unconditonally.
                 modified_wd = 1.0 -group["weight_decay"]*group["lr"]
 
-                _hpex_C.fused_adamw(
+                torch.ops.hpu.optimizer_adamw(
                     grad_list,
                     wt_list,
                     exp_avg_list,
                     exp_avg_sq_list,
-                    group["lr"],
                     neg_step_t,
                     beta1,
                     beta2,
                     group["eps"],
-                    modified_wd,
+                    torch.tensor(modified_wd, device=wt_list[0].device),
+                    modified_wd != 1.0,
                 )
 
         return loss

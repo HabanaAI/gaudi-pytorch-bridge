@@ -343,6 +343,57 @@ void optimizer_ema(
   hpu_op.call(updated_ema);
 }
 
+void optimizer_adamw(
+    const at::TensorList gradient_vec,
+    at::TensorList weight_vec,
+    at::TensorList exp_avg_vec,
+    at::TensorList exp_avg_sq_vec,
+    const at::Tensor& neg_step_t,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const at::Tensor& weight_decay,
+    const bool has_weight_decay) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "optimizer_adamw :",
+      DUMP_10ARGS(
+          gradient_vec,
+          weight_vec,
+          exp_avg_vec,
+          exp_avg_sq_vec,
+          neg_step_t,
+          beta1,
+          beta2,
+          epsilon,
+          weight_decay,
+          has_weight_decay));
+
+  TORCH_CHECK(
+      (weight_vec.size() > 0),
+      "optimizer_adamw : can not process empty weight vector");
+
+  eager::EagerOp<void> hpu_op{
+      "hpu::optimizer_adamw",
+      {gradient_vec,
+       weight_vec,
+       exp_avg_vec,
+       exp_avg_sq_vec,
+       neg_step_t,
+       beta1,
+       beta2,
+       epsilon,
+       weight_decay,
+       has_weight_decay}};
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut,
+       "hpu::optimizer_adamw",
+       {1, 2, 3}});
+
+  hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
+}
+
 at::Tensor rotary_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
@@ -425,6 +476,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(
+      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
+  m.def(
       "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
       "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
@@ -456,6 +509,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema);
+  m.impl("hpu::optimizer_adamw", optimizer_adamw);
   m.impl("hpu::rotary_embedding", rotary_embedding);
   m.impl("hpu::rms_norm", rms_norm);
 }

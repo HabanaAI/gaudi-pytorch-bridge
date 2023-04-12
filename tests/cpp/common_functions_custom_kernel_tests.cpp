@@ -471,3 +471,107 @@ void runEmaOptTest(
   }
   EXPECT_TRUE(equal);
 }
+
+void runAdamwOptTest(
+    int num_params,
+    int M,
+    int N,
+    double weight_decay,
+    bool enable_views) {
+  const bool verbose = false;
+
+  torch::manual_seed(0);
+
+  struct Data {
+    std::vector<TensorAndView> grad_vec;
+    std::vector<TensorAndView> wt_vec;
+    std::vector<TensorAndView> exp_avg_vec;
+    std::vector<TensorAndView> exp_avg_sq_vec;
+  } cpu, hpu;
+
+  for (auto i = 0; i < num_params; ++i) {
+    bool use_views = enable_views && (i == num_params / 2);
+
+    auto t_in = torch::randn({M, N});
+    dump_tensor<float>("wt_in[" + std::to_string(i) + "]", t_in, verbose);
+    PushBackHpuAndCpuTensors(t_in, hpu, cpu, &Data::grad_vec, use_views);
+
+    auto ones = torch::ones_like(t_in);
+    PushBackHpuAndCpuTensors(ones, hpu, cpu, &Data::wt_vec, use_views);
+
+    auto zeros1 = torch::zeros_like(t_in);
+    PushBackHpuAndCpuTensors(zeros1, hpu, cpu, &Data::exp_avg_vec, use_views);
+
+    auto zeros2 = torch::zeros_like(t_in);
+    PushBackHpuAndCpuTensors(
+        zeros2, hpu, cpu, &Data::exp_avg_sq_vec, use_views);
+  }
+
+  auto gradients = TensorAndViewVecToViewVec(hpu.grad_vec);
+  auto weights = TensorAndViewVecToViewVec(hpu.wt_vec);
+  auto exp_avg = TensorAndViewVecToViewVec(hpu.exp_avg_vec);
+  auto exp_avg_sq = TensorAndViewVecToViewVec(hpu.exp_avg_sq_vec);
+
+  auto lr = 0.1;
+  auto neg_step_t = torch::tensor({-lr}).to(torch::kHPU);
+  auto beta1 = 0.5;
+  auto beta2 = 0.5;
+  auto epsilon = 1e-3;
+  auto step = 0;
+
+  auto weight_decay_t = torch::full({1}, weight_decay).to("hpu");
+
+  optimizer_adamw_hpu_wrap(
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      neg_step_t,
+      beta1,
+      beta2,
+      epsilon,
+      weight_decay_t,
+      weight_decay != 1.0);
+
+  // CPU calculations
+  auto step_size = lr;
+  for (auto i = 0; i < num_params; i++) {
+    cpu.exp_avg_vec[i].t.mul_(beta1);
+    cpu.exp_avg_vec[i].t.add_(cpu.grad_vec[i].t, (1.0 - beta1));
+
+    cpu.exp_avg_sq_vec[i].t.mul_(beta2);
+    cpu.exp_avg_sq_vec[i].t.addcmul_(
+        cpu.grad_vec[i].t, cpu.grad_vec[i].t, (1.0 - beta2));
+
+    auto denom = cpu.exp_avg_sq_vec[i].t.sqrt().add_(epsilon);
+    auto ratio = torch::div(cpu.exp_avg_vec[i].t, denom);
+    auto scaled_ratio = torch::mul(ratio, step_size);
+
+    cpu.wt_vec[i].t.mul_(weight_decay);
+    cpu.wt_vec[i].t.sub_(scaled_ratio);
+  }
+
+  bool equal = true;
+  for (auto i = 0; i < num_params; i++) {
+    bool equal1 = CompareFewTensors<float>(
+        i,
+        hpu,
+        cpu,
+        verbose,
+        0.001,
+        0.001,
+        "grad_vec",
+        &Data::grad_vec,
+        "wt_vec",
+        &Data::wt_vec,
+        "exp_avg_vec",
+        &Data::exp_avg_vec,
+        "exp_avg_sq_vec",
+        &Data::exp_avg_sq_vec);
+    // Don't shorten to equal = equal && CompareFewTensors(...) as we want
+    // CompareFewTensors() is executed even if equal is false beforehand, for
+    // logging purpose.
+    equal = equal && equal1;
+  }
+  EXPECT_TRUE(equal);
+}

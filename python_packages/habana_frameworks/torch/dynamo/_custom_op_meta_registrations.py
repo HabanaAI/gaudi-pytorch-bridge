@@ -133,6 +133,10 @@ def meta_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, st
 def meta_optimizer_optimizer_ema(model_inputs, updated_ema, decay):
     return
 
+@register_meta([torch.ops.hpu.optimizer_adamw.default])
+def meta_optimizer_adamw(gradient_vec, weight_vec, exp_avg_vec, exp_avg_sq_vec, lr, neg_step_t, beta1, beta2, epsilon, weight_decay, has_weight_decay):
+    return
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 
