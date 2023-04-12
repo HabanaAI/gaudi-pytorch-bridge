@@ -791,7 +791,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
  * of the collective. This is to ensure that the strided insert op invoked
  * subsequent to the collective will pick up the updated tensor.
  * TODO this can be optimized when the tensor is a contiguous view on a base.*/
-void HbLazyTensorViews::HandleViewsLazyCollective(at::Tensor& tensor) {
+void HbLazyTensorViews::HandleViewsLazyCollective(const at::Tensor& tensor) {
   PT_LAZY_TRACE;
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);

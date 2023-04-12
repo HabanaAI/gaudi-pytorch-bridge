@@ -211,7 +211,7 @@ class HbLazyTensorViews {
   static at::Tensor HandleViewsD2H(const at::Tensor& t);
   static std::vector<at::Tensor> UpdateViewDistributed(
       std::vector<at::Tensor>&);
-  static void HandleViewsLazyCollective(at::Tensor& t);
+  static void HandleViewsLazyCollective(const at::Tensor& t);
   static bool HandleViewsD2D(const at::Tensor& src, const at::Tensor& dst);
   static std::vector<at::Tensor> HandleViewsTensorList(const at::TensorList&);
   static void add_strided_view_node_parallel_impl(
