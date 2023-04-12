@@ -3837,6 +3837,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+  m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph);
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
