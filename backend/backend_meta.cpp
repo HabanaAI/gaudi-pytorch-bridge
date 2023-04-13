@@ -97,20 +97,6 @@ TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(
       "Attempt to extract tensor extra metadata from HbInternalTensorImpl ",
       &impl);
 #else
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-    // We seem to be using eager with torch that does not contain the
-    // BackendMetadata patch. Said patch is available in vanilla pytorch
-    // starting with PT2.1 and any Habana pytorch fork >=1.13.
-    //
-    // We have no way to store and propagate tensor data layout information so
-    // things will not work and we should assert. But for project-development
-    // reasons we want the following hack to make the eager UT pass.
-    PT_LAZY_WARN(
-        "Using stock PT2.0 W/A: accessing tensor extra meta in eager mode is supported in Habana pytorch fork only");
-    static TensorExtraMeta global_tmeta;
-    global_tmeta = TensorExtraMeta();
-    return &global_tmeta;
-  }
   auto hb_weight_impl = dynamic_cast<habana_lazy::HbInternalTensorImpl*>(&impl);
   if (hb_weight_impl)
     return &hb_weight_impl->get_tensor_extra_meta();
