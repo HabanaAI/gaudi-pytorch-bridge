@@ -81,11 +81,11 @@ c10::IntArrayRef get_rm_size(const at::Tensor& input) {
 OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
   using namespace BNFwd;
   const auto& input = stack[INPUT_IDX].toTensor();
-  auto saved_mean_sv = stack[RUNNING_MEAN_IDX].isTensor()
-      ? stack[RUNNING_MEAN_IDX].toTensor().sizes().vec()
+  auto saved_mean_sv = stack[WEIGHT_IDX].isTensor()
+      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
       : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  auto saved_istd_sv = stack[RUNNING_VAR_IDX].isTensor()
-      ? stack[RUNNING_VAR_IDX].toTensor().sizes().vec()
+  auto saved_istd_sv = stack[BIAS_IDX].isTensor()
+      ? stack[BIAS_IDX].toTensor().sizes().vec()
       : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
 
   OutputMetaData out_meta;

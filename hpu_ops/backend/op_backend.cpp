@@ -170,6 +170,13 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
     return;
   }
 
+  if (!m_output_metadata.empty() &&
+      m_output_metadata.at(0).allocated_tensor.has_value()) {
+    for (const auto& el : m_output_metadata)
+      AllocateSynapseOutput(graph, el.allocated_tensor.value(), el);
+    return;
+  }
+
   std::vector<at::Tensor> tensors;
   tensors.reserve(m_output_metadata.size());
 
@@ -612,7 +619,10 @@ std::vector<sh::tensor> OpBackend::BuildNode(
 
   for (const auto& attr : node_attr.output_attrs) {
     bool is_final_result = attr.final_result_index.has_value();
-    if (is_final_result and (op->IsOutputAvailable() or op->UsesOutputMeta())) {
+    if (is_final_result and
+        (op->IsOutputAvailable() or op->UsesOutputMeta() or
+         op->GetOutputMetaData(*attr.final_result_index)
+             .allocated_tensor.has_value())) {
       // - HandleOutFn/HandleInplaceFn placed the output(s) in syn_outputs_
       // - HandleFn placed the output(s) in in syn_outputs_ when the op uses
       // output_meta

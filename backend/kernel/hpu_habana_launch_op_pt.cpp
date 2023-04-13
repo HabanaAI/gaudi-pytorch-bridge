@@ -2137,6 +2137,17 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     OutputMetaDataVector& outputs_metadata =
         jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
+
+    if (node == *graph_nodes.rbegin() && allocated_outputs_.has_value()) {
+      HABANA_ASSERT(outputs_metadata.size() == allocated_outputs_->size());
+      for (auto [itm, ita] =
+               std::tuple{
+                   outputs_metadata.begin(), allocated_outputs_->begin()};
+           itm != outputs_metadata.end();
+           ++itm, ++ita)
+        itm->allocated_tensor = *ita;
+    }
+
     std::string module_name = node->scope()->name().toUnqualString();
     if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
         (strcmp(node->kind().toQualString(), "aten::view") == 0)) {
@@ -3083,7 +3094,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
           intermediate_tensors_ptr,
           dma_inputs_ptr,
           m_map_shape.m_actual_shapes,
-          tidx_to_tensor_map);
+          tidx_to_tensor_map,
+          allocated_outputs_);
 
       if (enable_tensor_dump_) {
         DumpTensors_pre(rv);
@@ -3403,7 +3415,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     at::ArrayRef<torch::jit::IValue> input_refs,
     HabanaLaunchOpPT* hbLaunchOp,
     std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-    std::shared_ptr<RecipeArgumentSpec> cur_rargpsh) {
+    std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
+    std::optional<std::vector<at::Tensor>> allocated_outputs_) {
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
   rv.update_hit_count();
@@ -3432,7 +3445,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
       input_refs,
       intermediate_tensors_ptr,
       dma_inputs_ptr,
-      hbLaunchOp->m_map_shape.m_actual_shapes);
+      hbLaunchOp->m_map_shape.m_actual_shapes,
+      std::nullopt,
+      allocated_outputs_);
 
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors_pre(rv);
@@ -3552,10 +3567,13 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
   current_dbipsh_->get_statistics()->DumpAndNextStep();
 }
 
-void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
+void HabanaLaunchOpPT::run(
+    torch::jit::Stack& input_st,
+    std::optional<std::vector<at::Tensor>> allocated_outputs) {
   PT_BRIDGE_BEGIN;
   static int idx{1};
   ProcessInputStack(input_st);
+  allocated_outputs_ = std::move(allocated_outputs);
 
   iteration_count_++;
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -3605,7 +3623,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           input_refs,
           this,
           cur_rvalpsh,
-          cur_rargpsh);
+          cur_rargpsh,
+          allocated_outputs_);
       PT_BRIDGE_END;
       return;
     } else {
@@ -3646,7 +3665,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
                 input_refs,
                 this,
                 cur_rvalpsh,
-                cur_rargpsh);
+                cur_rargpsh,
+                allocated_outputs_);
 
         Singleton_ExecThreadPool::JoinPendingExecuteThread();
       } else {
@@ -3656,7 +3676,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             input_refs,
             this,
             cur_rvalpsh,
-            cur_rargpsh);
+            cur_rargpsh,
+            allocated_outputs_);
       }
       PT_BRIDGE_END;
       return;
@@ -3817,6 +3838,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           dma_inputs_ptr,
           m_map_shape.m_actual_shapes,
           std::nullopt,
+          allocated_outputs_,
           out_shapes,
           syn_graph_ptr,
           synapse_orig_to_new_handle,

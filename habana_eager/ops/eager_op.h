@@ -76,6 +76,12 @@ class EagerOpBase {
     m_eager_op_meta_data = std::move(eager_op_meta_data);
   }
 
+  // This workaround, which has to be removed as soon as aten::as_strided and
+  // hpu::strided_insert start using OpBackend
+  void dont_preallocate_outputs() {
+    m_dont_preallocate_outputs = true;
+  }
+
   explicit EagerOpBase(
       const at::Symbol symbol,
       const std::vector<at::IValue>& inputs,
@@ -89,7 +95,7 @@ class EagerOpBase {
   }
 
  protected:
-  torch::jit::Stack run(std::vector<OutputSpec>&& out_spec);
+  torch::jit::Stack run(OutputSpecsOrTensors&& out_spec_or_tensors);
 
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
@@ -101,6 +107,7 @@ class EagerOpBase {
       m_output_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
   bool m_is_pipeline_supported = false;
+  bool m_dont_preallocate_outputs = false;
 
   void validate_inputs(const std::vector<at::IValue>& inputs) {
     for (size_t idx = 0; idx < inputs.size(); ++idx) {
@@ -419,39 +426,33 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
 
-    // TODO avoid calling get_result
     auto result = get_result();
-    auto out_spec =
-        OutputSpec{result.scalar_type(), result.device(), result.sizes()};
-    auto stack = run({out_spec});
-    HABANA_ASSERT(stack.size() == 1); // single output only
-    return stack.at(0).toTensor();
+    if (!m_dont_preallocate_outputs) {
+      run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
+      return result;
+    } else {
+      auto out_spec =
+          OutputSpec{result.scalar_type(), result.device(), result.sizes()};
+      auto stack = run({out_spec});
+      HABANA_ASSERT(stack.size() == 1); // single output only
+      return stack.at(0).toTensor();
+    }
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
     PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
-
     // TODO avoid calling get_result
     auto result = get_result();
 
-    std::vector<OutputSpec> out_spec;
-    habana::for_each_in_tuple(result, [&out_spec](const auto& el) {
-      out_spec.emplace_back(
-          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    std::vector<at::Tensor> out_tensors;
+    habana::for_each_in_tuple(result, [&out_tensors](const auto& el) {
+      out_tensors.emplace_back(
+          HbEagerTensorPool::getInstance().get_backend_tensor(el));
     });
 
-    auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == std::tuple_size<T>::value);
-
-    ReturnType outputs;
-    auto it_stack = stack.begin();
-    habana::for_each_in_tuple_with_index(
-        outputs, [&stack = stack](auto& el, size_t index) {
-          el = stack[index].toTensor();
-        });
-
-    return outputs;
+    run(std::move(out_tensors));
+    return result;
   }
 
   template <typename T = ReturnType>
@@ -460,20 +461,17 @@ class EagerOp : public EagerOpBase {
       call() {
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
-    // TODO avoid calling get_result
-    const auto& tensors = get_result();
 
-    std::vector<OutputSpec> out_spec;
-    for (auto& el : tensors) {
-      out_spec.emplace_back(
-          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+    auto result = get_result();
+
+    std::vector<at::Tensor> out_tensors;
+    for (auto& el : result) {
+      out_tensors.emplace_back(
+          HbEagerTensorPool::getInstance().get_backend_tensor(el));
     };
-    auto stack = run(std::move(out_spec));
-    ReturnType outputs;
-    for (auto& el : stack) {
-      outputs.push_back(el.toTensor());
-    }
-    return outputs;
+
+    run(std::move(out_tensors));
+    return result;
   }
 
  private:
@@ -502,17 +500,35 @@ class EagerOp : public EagerOpBase {
       options = options.dtype(m_scalar_types[0]);
     }
     auto mem_format{
-        out_shape.size() < 4 ? at::MemoryFormat::Contiguous
-                             : t.suggest_memory_format()};
+        out_shape.size() < 4 ||
+                habana::get_tensor_extra_meta(t)->is_view_lowering() ||
+                !t.is_contiguous()
+            ? at::MemoryFormat::Contiguous
+            : t.suggest_memory_format()};
+
     return at::empty(out_shape, options, mem_format);
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type get_result() {
     PT_EAGER_TRACE;
+
+    bool is_view_input = false;
+    for (auto& el : get_inputs()) {
+      if (el.isTensor()) {
+        const auto& t = el.toTensor();
+        if (habana::get_tensor_extra_meta(t)->is_view_lowering() ||
+            !t.is_contiguous()) {
+          is_view_input = true;
+          break;
+        }
+      }
+    }
+
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta_fn(get_inputs());
+
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           std::tuple_size<T>::value == meta.size());
       ReturnType results;
@@ -523,7 +539,8 @@ class EagerOp : public EagerOpBase {
             result = at::empty(
                 output_meta.shape,
                 options.dtype(output_meta.dtype),
-                output_meta.mem_format);
+                is_view_input ? at::MemoryFormat::Contiguous
+                              : output_meta.mem_format);
           });
       return results;
     }
@@ -541,7 +558,10 @@ class EagerOp : public EagerOpBase {
       habana::for_each_in_tuple_with_index(
           results, [&](auto& result, size_t index) {
             result = at::empty(
-                m_out_shapes[index], t.options(), t.suggest_memory_format());
+                m_out_shapes[index],
+                t.options(),
+                is_view_input ? at::MemoryFormat::Contiguous
+                              : t.suggest_memory_format());
           });
     } else {
       HABANA_ASSERT(m_scalar_types.size() == std::tuple_size<T>::value);
@@ -550,7 +570,8 @@ class EagerOp : public EagerOpBase {
             result = at::empty(
                 m_out_shapes[index],
                 t.options().dtype(m_scalar_types[index]),
-                t.suggest_memory_format());
+                is_view_input ? at::MemoryFormat::Contiguous
+                              : t.suggest_memory_format());
           });
     }
     return results;

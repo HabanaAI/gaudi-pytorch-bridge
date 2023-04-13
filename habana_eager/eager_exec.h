@@ -19,10 +19,27 @@ namespace habana {
 namespace eager {
 using MetaDataMap = std::unordered_map<size_t, torch::jit::IValue>;
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
+
 struct OutputSpec {
   c10::ScalarType scalar_type;
   c10::Device device;
   c10::IntArrayRef sizes;
+};
+
+class OutputSpecsOrTensors {
+ public:
+  OutputSpecsOrTensors(std::initializer_list<OutputSpec>&& list)
+      : m_outputs(std::vector<OutputSpec>(list.begin(), list.end())) {}
+  OutputSpecsOrTensors(std::vector<OutputSpec> specs) : m_outputs(specs){};
+  OutputSpecsOrTensors(std::initializer_list<at::Tensor>&& list)
+      : m_outputs(std::vector<at::Tensor>(list.begin(), list.end())) {}
+  OutputSpecsOrTensors(std::vector<at::Tensor> tensors) : m_outputs(tensors){};
+  size_t size();
+  c10::TensorTypePtr get_tensor_type(size_t indx);
+  std::optional<std::vector<at::Tensor>> get_tensors();
+
+ private:
+  std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>> m_outputs;
 };
 
 enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknowType };
@@ -102,7 +119,7 @@ class EagerExec {
   EagerExec(
       at::Symbol symbol,
       std::vector<at::IValue>&& inputs,
-      std::vector<OutputSpec>&& outputs)
+      OutputSpecsOrTensors&& outputs)
       : m_symbol{symbol},
         m_inputs(std::move(inputs)),
         m_outputs(std::move(outputs)) {}
@@ -115,7 +132,7 @@ class EagerExec {
   size_t m_key;
   const at::Symbol m_symbol;
   std::vector<at::IValue> m_inputs;
-  const std::vector<OutputSpec> m_outputs;
+  OutputSpecsOrTensors m_outputs;
   MetaDataMap m_metadata;
   EagerOpMetaData m_eager_op_meta_data;
 

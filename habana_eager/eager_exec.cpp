@@ -83,6 +83,37 @@ void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
 }
 } // namespace
 
+size_t OutputSpecsOrTensors::size() {
+  return std::visit(
+      overloaded{
+          [](std::vector<OutputSpec>& specs) { return specs.size(); },
+          [](std::vector<at::Tensor>& tensors) { return tensors.size(); }},
+      m_outputs);
+}
+
+c10::TensorTypePtr OutputSpecsOrTensors::get_tensor_type(size_t indx) {
+  return std::visit(
+      overloaded{
+          [indx](std::vector<OutputSpec>& specs) {
+            const auto& out_val = specs.at(indx);
+            return c10::TensorType::createContiguous(
+                out_val.scalar_type, out_val.device, out_val.sizes);
+          },
+          [indx](std::vector<at::Tensor>& tensors) {
+            const auto& out_val = tensors.at(indx);
+            return c10::TensorType::createContiguous(
+                out_val.scalar_type(), out_val.device(), out_val.sizes());
+          }},
+      m_outputs);
+}
+
+std::optional<std::vector<at::Tensor>> OutputSpecsOrTensors::get_tensors() {
+  return std::holds_alternative<std::vector<at::Tensor>>(m_outputs)
+      ? std::optional<std::vector<at::Tensor>>{std::get<
+            std::vector<at::Tensor>>(m_outputs)}
+      : std::nullopt;
+}
+
 std::vector<at::IValue> convert_inputs_to_backend_tensors(
     std::vector<at::IValue>& inputs) {
   std::vector<at::IValue> stack;
@@ -243,7 +274,7 @@ torch::jit::Stack EagerExec::launch() {
 
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{graph_and_meta};
-    habana_launch_op_.run(stack);
+    habana_launch_op_.run(stack, m_outputs.get_tensors());
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
@@ -324,10 +355,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   for (size_t idx = 0; idx < jit_node->outputs().size(); idx++) {
     auto jit_value_out = jit_node->output(idx);
     if (jit_node->output(idx)->type()->kind() == c10::TypeKind::TensorType) {
-      const auto& out_val = m_outputs.at(idx);
-
-      jit_value_out->setType(c10::TensorType::createContiguous(
-          out_val.scalar_type, out_val.device, out_val.sizes));
+      jit_value_out->setType(m_outputs.get_tensor_type(idx));
       // TODO do we need debug names?
       // jit_value_out->setDebugName(irout_val.ToString());
     }

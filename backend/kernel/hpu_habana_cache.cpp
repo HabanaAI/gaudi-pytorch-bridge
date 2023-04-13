@@ -841,6 +841,7 @@ void RecipeValueSpec::update_patching_table(
     std::optional<
         std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
         tidx_to_tensor_map_opt,
+    const std::optional<std::vector<at::Tensor>>& allocated_outputs,
     std::vector<std::vector<int64_t>> output_shapes,
     synapse_helpers::graph* synapse_graph_ptr,
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
@@ -1145,6 +1146,20 @@ void RecipeValueSpec::update_patching_table(
       ridx,
       " num_outputs : ",
       num_outputs);
+
+  auto create_or_use_output_tensor = !allocated_outputs.has_value()
+      ? std::function<at::Tensor(const PtTensorInfo&)>(
+            [this](const PtTensorInfo& ti) {
+              return habana_helpers::create_empty_tensor(ti);
+            })
+      : std::function<at::Tensor(const PtTensorInfo&)>(
+            [this, it = allocated_outputs->begin()](
+                const PtTensorInfo&) mutable { return *it++; });
+
+  HABANA_ASSERT(
+      !allocated_outputs.has_value() ||
+      (outputs_end - ridx == allocated_outputs->size()));
+
   for (; ridx < outputs_end; ridx++) {
     auto output_idx = dtensorinfos->at(ridx)->get_output_index();
     TORCH_CHECK(
@@ -1162,8 +1177,7 @@ void RecipeValueSpec::update_patching_table(
       dtinfos_patched_count++;
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
-    auto tshape{ti.get_shape()};
-    auto pt_output = habana_helpers::create_empty_tensor(ti);
+    auto pt_output = create_or_use_output_tensor(ti);
     if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,

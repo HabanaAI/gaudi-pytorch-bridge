@@ -128,6 +128,7 @@ at::Tensor _copy_from_d2h(
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "aten::as_strided",
         {base, self.sizes(), self.strides(), self.storage_offset()}};
+    hpu_op.dont_preallocate_outputs();
     self_ = hpu_op.call();
     // restride cpu tensor since synapse will always return contiguous tensor
     dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
@@ -155,6 +156,7 @@ at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
 
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::strided_insert", {base, insert, strides, offset}};
+  hpu_op.dont_preallocate_outputs();
   return hpu_op.call();
 }
 

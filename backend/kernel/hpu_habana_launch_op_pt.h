@@ -138,7 +138,9 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
-  void run(torch::jit::Stack& stack);
+  void run(
+      torch::jit::Stack& stack,
+      std::optional<std::vector<at::Tensor>> allocated_outputs = {});
 
   HabanaLaunchOpPT& getInstance() {
     return *this;
@@ -183,7 +185,8 @@ class HabanaLaunchOpPT {
       at::ArrayRef<torch::jit::IValue> input_refs,
       HabanaLaunchOpPT* hbLaunchOp,
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-      std::shared_ptr<RecipeArgumentSpec> cur_rargpsh);
+      std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
+      std::optional<std::vector<at::Tensor>> allocated_outputs_);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
@@ -353,6 +356,8 @@ class HabanaLaunchOpPT {
   // Execution mode based on frontend type
   habana_helpers::HabanaFrontendTypes execution_mode_{
       habana_helpers::HabanaFrontendTypes::INVALID};
+
+  std::optional<std::vector<at::Tensor>> allocated_outputs_;
 
   void ProcessNodesForConstantTensors();
   // Main function responsible for constructing a synapse graph from

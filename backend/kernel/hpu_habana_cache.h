@@ -295,6 +295,8 @@ struct RecipeValueSpec {
       std::optional<
           std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
           tidx_to_tensor_map_opt = std::nullopt,
+      const std::optional<std::vector<at::Tensor>>& allocated_outputs =
+          std::nullopt,
       std::vector<std::vector<int64_t>> output_shapes = {},
       synapse_helpers::graph* synapse_graph_ptr = nullptr,
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {},

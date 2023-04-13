@@ -29,10 +29,10 @@ namespace eager {
 void EagerLoweringTask(
     at::Symbol symbol,
     std::vector<at::IValue> inputs,
-    std::vector<OutputSpec> out_spec,
+    OutputSpecsOrTensors out_spec_or_tensors,
     EagerOpMetaData eager_op_meta_data) {
   habana::eager::EagerExec hlexec{
-      std::move(symbol), std::move(inputs), std::move(out_spec)};
+      std::move(symbol), std::move(inputs), std::move(out_spec_or_tensors)};
 
   hlexec.set_eager_op_info(std::move(eager_op_meta_data));
 
@@ -54,7 +54,7 @@ void EagerLoweringTask(
   }
 }
 
-torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
+torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   auto stack = convert_inputs_to_backend_tensors(m_inputs);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
@@ -64,7 +64,7 @@ torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
             EagerLoweringTask,
             m_symbol,
             std::move(stack),
-            std::move(out_spec),
+            std::move(out_spec_or_tensors),
             std::move(m_eager_op_meta_data));
 
     return {torch::jit::IValue()};
@@ -75,7 +75,7 @@ torch::jit::Stack EagerOpBase::run(std::vector<OutputSpec>&& out_spec) {
     SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
 
     habana::eager::EagerExec hlexec{
-        m_symbol, std::move(stack), std::move(out_spec)};
+        m_symbol, std::move(stack), std::move(out_spec_or_tensors)};
 
     hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
 
