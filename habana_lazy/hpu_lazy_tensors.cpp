@@ -1133,7 +1133,6 @@ void LaunchSyncTensorsGraph(
       launch_except = std::current_exception();
       exception = true;
     }
-    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   } else {
     try {
       if (launch_info.has_queued) {
@@ -1200,8 +1199,8 @@ void LaunchSyncTensorsGraph(
     std::rethrow_exception(launch_except);
   }
   context->m_launch_thread_context = false;
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   habana_helpers::SetRefineDynamicShape(dynamic_env_);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   launch_info.input_list.clear();
   PT_LAZY_EXEC_THREAD(
       "Launch completed async:",
@@ -1649,8 +1648,8 @@ void HbLazyTensor::ExecuteCachedGraph(
     out_tensor.ResetExecutionInProgress();
   }
 
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   habana_helpers::SetRefineDynamicShape(dynamic_env_);
+  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
   context->DelFromJobidStreamidMap(launch_jobid);
 }
 

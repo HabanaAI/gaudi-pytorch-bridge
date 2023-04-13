@@ -143,7 +143,6 @@ void HlExec::Launch(
   // not do env variable based check anymore
   // We have short-circuited certain utilities in synapse helpers, we need to
   // remove that code
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
 
   if (context->getCapturing()) {
     // save the graph for perf mode
@@ -178,11 +177,8 @@ void HlExec::Launch(
     launcher->Run(stack);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
-    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
-
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
 }
 
 /*
