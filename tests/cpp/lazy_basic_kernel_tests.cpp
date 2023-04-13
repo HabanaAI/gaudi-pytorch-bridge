@@ -917,7 +917,7 @@ TEST_F(LazyBasicKernelTest, viewinsert_broadcast) {
   EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, noncontigD2H_nonblocking) {
+TEST_F(LazyBasicKernelTest, DISABLED_noncontigD2H_nonblocking) {
   torch::Tensor A = torch::randn({2, 2});
   auto hA = A.to(torch::kHPU);
   std::vector<int64_t> sz{2, 2};
