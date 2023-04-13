@@ -243,6 +243,7 @@ void OpBackend::HandleInplaceFn(
     return;
   }
 
+  int syn_counter = 0;
   for (int inplace_id : m_inplace_ids) {
     // Index can vary in syn_inputs_ and in stack
     const auto& ival = stack[inplace_id];
@@ -252,7 +253,7 @@ void OpBackend::HandleInplaceFn(
     for (auto i = 0u; i < tensors.size(); ++i) {
       p_context_->syn_outputs_.emplace_back(
           habana_helpers::duplicate_tensor_in_memory_section(
-              p_context_->syn_inputs_[i],
+              p_context_->syn_inputs_[syn_counter++],
               graph,
               m_output_metadata.at(inplace_id).external));
       p_context_->pt_outputs_.emplace_back(tensors[i]);
