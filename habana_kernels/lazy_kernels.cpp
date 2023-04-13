@@ -1215,6 +1215,21 @@ std::vector<uint64_t> get_strided_view_stride_data(
   return stride_data_vec;
 }
 
+bool IsStridedViewRatioUndefined(
+    std::vector<int64_t>& self_strides,
+    std::vector<int64_t>& stride_sizes) {
+  if (self_strides.size() != stride_sizes.size()) {
+    return true;
+  }
+  auto len = self_strides.size();
+  for (uint64_t i = 0; i < len; i++) {
+    if (stride_sizes[i] < self_strides[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 ir::NodePtr strided_view_h2d(
     const Tensor& self,
     Tensor& out_size_st,
@@ -1226,6 +1241,8 @@ ir::NodePtr strided_view_h2d(
   ir::NodePtr node = nullptr;
   std::vector<uint64_t> stride_data_vec =
       get_strided_view_stride_data(stride, offset);
+  auto self_strides = orig_stride.vec();
+  auto stride_sizes = stride.vec();
 
   auto stride_st = empty_hpu_lazy(
       stride_data_vec.size() * 2,
@@ -1244,7 +1261,7 @@ ir::NodePtr strided_view_h2d(
       sizeof(uint64_t),
       HostDataType::UINT64_T);
 
-  if (orig_stride.size() != stride.size()) {
+  if (IsStridedViewRatioUndefined(self_strides, stride_sizes)) {
     if (node_str == "hpu::strided_view_out_ds") {
       node_str = "hpu::strided_view_out_orig_ds_h2d";
     } else {
@@ -1338,7 +1355,8 @@ ir::NodePtr create_as_strided_node(
     c10::optional<int64_t> storage_offset,
     bool is_out) {
   ir::NodePtr node = nullptr;
-
+  auto self_strides = orig_stride.vec();
+  auto stride_sizes = stride.vec();
   auto offset = storage_offset.value_or(self.storage_offset());
   if (habana_helpers::GetRefineDynamicShapeStatus()) {
     std::string node_str =
@@ -1373,7 +1391,7 @@ ir::NodePtr create_as_strided_node(
           self, out_size_st, offset_st, orig_stride, stride, offset, node_str);
     }
 
-    if (orig_size.size() != stride.size()) {
+    if (IsStridedViewRatioUndefined(self_strides, stride_sizes)) {
       if (node_str == "hpu::strided_view_out_ds") {
         node_str = "hpu::strided_view_out_orig_ds";
       } else {
