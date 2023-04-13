@@ -2117,8 +2117,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       bool needUpdateMinMax =
           ((habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
-           (habana::ShapeInference::GetMaxPolicyInUse() !=
-            habana_helpers::DynamicDimsPolicy::CURRENT) &&
+           (habana::ShapeInference::GetMaxPolicyInUse() ==
+            habana_helpers::DynamicDimsPolicy::CALCULATED) &&
            strcmp(node->kind().toQualString(), "hpu::slice") == 0);
       if (needUpdateMinMax) {
         minmax_list.resize(
