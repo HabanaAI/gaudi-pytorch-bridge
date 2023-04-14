@@ -1232,9 +1232,6 @@ avg_pool2d:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: avg_pool_2d_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -1250,9 +1247,6 @@ avg_pool2d.out:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   guid: avg_pool_2d_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -1266,9 +1260,6 @@ avg_pool2d_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -1281,9 +1272,6 @@ avg_pool2d_backward:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -3121,9 +3109,6 @@ grid_sampler_2d:
   custom_output_shape: GridSampler2dOutputShape
   dtypes: [BFloat16, Float]
   guid: grid_sampler_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, AWHN]
   - [WHCN]
@@ -4350,9 +4335,6 @@ max_pool2d_with_indices:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half, Short, Char, Byte]
   op_backend: MaxPool2DWithIndices
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN]
   - [WHCN, WHCN]
@@ -4389,9 +4371,6 @@ max_pool2d_with_indices_backward:
       grad_output: [BFloat16, Float, Half]
       indices: [Int]
   op_backend: MaxPool2DWithIndicesBwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
   - [WHCN]
@@ -4415,9 +4394,6 @@ max_pool2d_with_indices_backward.grad_input:
       grad_output: [BFloat16, Float, Half]
       indices: [Int]
   op_backend: MaxPool2DWithIndicesBwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
   - [WHCN]
@@ -6972,9 +6948,6 @@ upsample_bicubic2d:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -6989,9 +6962,6 @@ upsample_bicubic2d.out:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7006,9 +6976,6 @@ upsample_bicubic2d.vec:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7024,9 +6991,6 @@ upsample_bicubic2d_backward:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7041,9 +7005,6 @@ upsample_bicubic2d_backward.grad_input:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7058,9 +7019,6 @@ upsample_bicubic2d_backward.vec:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7076,9 +7034,6 @@ upsample_bilinear2d:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7093,9 +7048,6 @@ upsample_bilinear2d.out:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7110,9 +7062,6 @@ upsample_bilinear2d.vec:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7128,9 +7077,6 @@ upsample_bilinear2d_backward:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7145,9 +7091,6 @@ upsample_bilinear2d_backward.grad_input:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7162,9 +7105,6 @@ upsample_bilinear2d_backward.vec:
     Gaudi3: [BFloat16, Float, Half]
     Greco: [BFloat16, Float, Half]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7353,9 +7293,6 @@ upsample_nearest2d:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7371,9 +7308,6 @@ upsample_nearest2d.out:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7390,9 +7324,6 @@ upsample_nearest2d_backward:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7409,9 +7340,6 @@ upsample_nearest2d_backward.grad_input:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7484,9 +7412,6 @@ upsample_nearest2d_backward.vec:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_bwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7504,9 +7429,6 @@ upsample_nearest2d.vec:
     Gaudi3: [BFloat16, Float, Half, Byte]
     Greco: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
-  layouts:
-  - [NHWC, NCHW]
-  - [NHWC]
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
@@ -7693,5 +7615,4 @@ zero_:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Greco: [BFloat16, Float, Char, Byte, Short, Half]
   op_backend: ZeroHpuLazyOperator
-  acc_thread: true
   inplace_ids: [0]

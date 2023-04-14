@@ -442,9 +442,6 @@ class Op(object):
     def get_tpc_param(self):
         return self.op.get("tpc_param", None)
 
-    def get_layouts(self):
-        return self.op.get("layouts", [])
-
     def get_synapse_layouts(self):
         return self.op.get("synapse_layouts", [])
 
@@ -1151,16 +1148,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         custom_handler = ""
 
     ctor_extra_calls = []
-    layouts = ctxop.get_layouts()
-    if len(layouts):
-        assert len(layouts) == 2, "Define both input and output layouts."
-        assert len(layouts[0]), "Input layouts size should be atleast 1."
-        assert len(layouts[1]), "Output layouts size should be atleast 1."
-        in_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[0]])
-        out_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[1]])
-        ctor_extra_calls.append(
-            "SetLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts)
-        )
     synapse_layouts = ctxop.get_synapse_layouts()
     if len(synapse_layouts):
         assert len(synapse_layouts) == 2, "Define both input and output layouts."

@@ -75,8 +75,6 @@ OpBackend::OpBackend(
       m_is_outfn{is_outfn},
       m_scalar_type{scalar_type} {
   CreateSynContext(device_id);
-  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
 synTensor OpBackend::syn_in(int index) {

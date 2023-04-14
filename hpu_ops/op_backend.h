@@ -105,13 +105,6 @@ class OpBackend : public HabanaOperator {
     return m_inplace_ids.size();
   }
 
-  void SetLayouts(
-      std::vector<LayoutFormat> in_layouts,
-      std::vector<LayoutFormat> out_layouts) {
-    kernel_meta_data_.input_layout = std::move(in_layouts);
-    kernel_meta_data_.output_layout = std::move(out_layouts);
-  }
-
   void SetSynapseLayouts(
       std::vector<synapse_helpers::layouts::SynapseLayoutFormat> in_layouts,
       std::vector<synapse_helpers::layouts::SynapseLayoutFormat> out_layouts) {
