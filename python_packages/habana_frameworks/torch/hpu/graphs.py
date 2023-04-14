@@ -550,7 +550,8 @@ class ModuleCacher(torch.nn.Module):
         self.hpugraph_tracing = False
         # Variables for statistics collection
         self.cached_hits_dict = {}
-        self.uncached_hits = 0
+        self.uncached_train_hits = 0
+        self.uncached_eval_hits = 0
         self.forward_cnt = 0
         self.set_iterations_call_cnt = 0
 
@@ -594,7 +595,10 @@ class ModuleCacher(torch.nn.Module):
             if len(self.model_dict) < self.max_graphs:
                 return self.cache_insert(input_id, *args, **kwargs)
 
-        self.uncached_hits += 1
+        if self.model.training:
+            self.uncached_train_hits += 1
+        else:
+            self.uncached_eval_hits +=1
         return self.orig_model(*args, **kwargs)
 
     def capture_start(self):
@@ -632,7 +636,10 @@ class ModuleCacher(torch.nn.Module):
             if input_id in self.priority_keys:
                 return self.cache_insert(input_id, *args, **kwargs)
 
-        self.uncached_hits += 1
+        if self.model.training:
+            self.uncached_train_hits += 1
+        else:
+            self.uncached_eval_hits +=1
         return self.orig_model(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False):
@@ -670,8 +677,10 @@ class ModuleCacher(torch.nn.Module):
         print("    Priority keys             :-", self.priority_keys)
         print("    Input hash v. cached hits :-", self.cached_hits_dict)
         print("    Total cached hits         :-", sum(self.cached_hits_dict.values()))
-        print("    Uncached hits             :-", self.uncached_hits)
-        print("    Total forwards executed   :-", sum(self.cached_hits_dict.values()) + self.uncached_hits)
+        print("    Uncached train hits       :-", self.uncached_train_hits)
+        print("    Uncached eval hits        :-", self.uncached_eval_hits)
+        print("    Total forwards executed   :-", sum(self.cached_hits_dict.values()) +
+              self.uncached_train_hits + self.uncached_eval_hits)
         if self.use_lfu and self.input_count_dict:
             print("    Input hash v. count         :", self.input_count_dict)
 
