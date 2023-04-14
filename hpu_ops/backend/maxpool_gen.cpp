@@ -168,43 +168,6 @@ sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
   return {input_shape};
 }
 
-// This method is used to apply transpose in the given input shape.
-// which is expected by TPC.
-static std::vector<int64_t> TransposeShape(
-    std::vector<int64_t> input_shape,
-    MaxpoolVariant variant) {
-  // variant = 3 for maxpool3d and variant = 2 for maxpool2d
-  if (variant == MaxpoolVariant::MAXPOOL3D) {
-    if (input_shape.size() == 5) {
-      // Converting N C D H W to N D H W C
-      std::vector<int64_t> output_shape = {
-          input_shape[0],
-          input_shape[2],
-          input_shape[3],
-          input_shape[4],
-          input_shape[1]};
-      return {output_shape};
-    } else {
-      // Converting C D H W to D H W C
-      std::vector<int64_t> output_shape = {
-          input_shape[1], input_shape[2], input_shape[3], input_shape[0]};
-      return {output_shape};
-    }
-  } else {
-    if (input_shape.size() == 4) {
-      // Converting N C H W to N H W C
-      std::vector<int64_t> output_shape = {
-          input_shape[0], input_shape[2], input_shape[3], input_shape[1]};
-      return {output_shape};
-    } else {
-      // Converting C H W to H W C
-      std::vector<int64_t> output_shape = {
-          input_shape[1], input_shape[2], input_shape[0]};
-      return {output_shape};
-    }
-  }
-}
-
 static std::shared_ptr<void> FillSpatialReduction3DParams(
     std::vector<int64_t>& kernel,
     std::vector<int64_t>& stride,
@@ -338,83 +301,10 @@ std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
       kernel, stride, padding, dilation, ceil_mode, size);
 }
 
-static std::vector<synapse_helpers::tensor> ShapeTranspose(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input,
-    std::vector<int64_t> output_shape,
-    at::ScalarType scalar_type,
-    synTransposeParams trans_params,
-
-    c10::optional<int> is_final_node = c10::nullopt,
-    std::string name = std::string()) {
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {"transpose",
-       {input.at(0)},
-       {{output_shape, scalar_type, is_final_node}},
-       &trans_params,
-       sizeof(trans_params),
-       name});
-}
-
-static synTransposeParams GenerateTransposePermutation(int dim) {
-  synTransposeParams trans_params{};
-  trans_params.tensorDim = dim;
-  for (int i = 0; i < dim; ++i) {
-    trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
-  }
-  return trans_params;
-}
-
-static synTransposeParams ChangeTransposePermutation(
-    synTransposeParams trans_params,
-    std::vector<int>& permutation_order_list,
-    int dim) {
-  for (int i = 0; i < dim; ++i) {
-    trans_params.permutation[i] =
-        static_cast<TransposePermutationDim>(permutation_order_list[i]);
-  }
-  return trans_params;
-}
-
 static c10::ScalarType FindRetainTensorType(c10::ScalarType input_tensor_type) {
   if (input_tensor_type == c10::ScalarType::BFloat16)
     return c10::ScalarType::Short;
   return c10::ScalarType::Byte;
-}
-
-static std::vector<std::vector<int>> GetTransposePermutationOrder(
-    MaxpoolVariant variant,
-    int dim) {
-  std::vector<std::vector<int>> permutation_order = {{}, {}};
-  if (variant == MaxpoolVariant::MAXPOOL3D) {
-    if (dim == 5) {
-      // N C D H W to N D H W C permutation order = 3, 0, 1, 2, 4
-      permutation_order[0] = {3, 0, 1, 2, 4};
-      // N D H W C to N C D H W permutation order = 1, 2, 3, 0, 4
-      permutation_order[1] = {1, 2, 3, 0, 4};
-    } else {
-      // C D H W to D H W C permutation order = 3, 0, 1, 2
-      permutation_order[0] = {3, 0, 1, 2};
-      // N D H W C to N C D H W permutation order = 1, 2, 3, 0,
-      permutation_order[1] = {1, 2, 3, 0};
-    }
-  } else {
-    if (dim == 4) {
-      // N C H W to N H W C permutation order = 2, 0, 1, 3
-      permutation_order[0] = {2, 0, 1, 3};
-      // C H W to H W C permutation order = 2, 0, 1
-      permutation_order[1] = {1, 2, 0, 3};
-    } else {
-      // N H W C to N C H W premutation order = 1, 2, 0, 3
-      permutation_order[0] = {2, 0, 1};
-      // H W C to C H W premutation order = 1, 2, 0
-      permutation_order[1] = {1, 2, 0};
-    }
-  }
-  return permutation_order;
 }
 
 static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
