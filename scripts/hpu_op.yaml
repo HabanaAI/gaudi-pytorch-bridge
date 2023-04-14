@@ -2351,6 +2351,7 @@ embedding:
   out_ids: [0]
 
 embedding_dense_backward:
+  custom_fill_params: FillEmbeddingDenseBackwardParams
   dtypes:
     Gaudi:
       grad_output: [BFloat16, Float]
@@ -2362,8 +2363,10 @@ embedding_dense_backward:
       grad_output: [BFloat16, Float]
       indices: [Int]
   fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
-  override_fn: embedding_dense_backward_hpu_lazy
-  acc_thread: true
+  custom_output_shape: EmbeddingDenseBwdOutputShape
+  guid: embedding_dense_pt_bwd
+  op_backend: EmbeddingDenseBwd
+  out_ids: [0]
 
 equal:
   dtypes: [BFloat16, Float, Int, Char, Byte]

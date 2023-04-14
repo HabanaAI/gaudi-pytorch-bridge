@@ -171,29 +171,6 @@ class PadOperatorHT : public PadOperator {
 };
 
 //
-// Embedding Operator
-class EmbeddingDenseBackwardOperator : public HabanaOperator {
- public:
-  EmbeddingDenseBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "embedding_dense_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
- protected:
-  std::string memcopy_guid;
-};
-
-//
 // EmbeddingBagSum Backward out with kernel mode Operator
 class EmbeddingBagSumBwdKernelModeOperator : public HabanaOperator {
  public:
