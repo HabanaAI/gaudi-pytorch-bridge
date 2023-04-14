@@ -13,6 +13,7 @@
 
 #include "backend/lazy_to_backend.h"
 #include "backend/backend_meta.h"
+#include "backend/helpers/create_tensor.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
@@ -37,39 +38,6 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
   return false;
 }
 
-at::Tensor lazy_to_backend::create_empty_tensor(const PtTensorInfo& ti) {
-  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    return pt_tensor;
-  }
-  auto hb_internal_tensor = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-  PT_BRIDGE_DEBUG(
-      "Cache created a BE tensor, HbInternal address: ", hb_internal_tensor);
-  TORCH_CHECK(
-      hb_internal_tensor != nullptr,
-      "Tensor for ",
-      ti.get_ir_name(),
-      " does not have HbInternalTensor");
-  auto internal_lf = hb_internal_tensor->GetTensorLayout();
-  auto internal_lf_new = ti.getHbInternalLayoutFormat();
-  if (internal_lf != internal_lf_new) {
-    PT_BRIDGE_DEBUG(
-        "For ",
-        ti.get_ir_name(),
-        " updating HbInternalTensorImpl layout from ",
-        internal_lf,
-        " to ",
-        internal_lf_new);
-    hb_internal_tensor->SetTensorLayout(internal_lf_new);
-  }
-  PT_BRIDGE_DEBUG(
-      "Setting synapse permutation as saved in the cache to the output tensor id: ",
-      ti.get_tensor_id(),
-      " permutation: ",
-      VecToString(ti.getHbInternalPermute()));
-  hb_internal_tensor->SetMemoryPermutation(ti.getHbInternalPermute());
-  return pt_tensor;
-}
 
 std::string lazy_to_backend::detail::
     InternalFormatter<lazy_to_backend::FormatTokens>::format(

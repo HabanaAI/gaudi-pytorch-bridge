@@ -953,4 +953,29 @@ void set_tensor_memory_permutations(
   }
   tmeta->set_memory_permutation(permutation);
 }
+
+at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
+  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+
+  auto internal_lf = tmeta->get_tensor_layout();
+  auto internal_lf_new = ti.getHbInternalLayoutFormat();
+  if (internal_lf != internal_lf_new) {
+    PT_BRIDGE_DEBUG(
+        "For ",
+        ti.get_ir_name(),
+        " updating HbInternalTensorImpl layout from ",
+        internal_lf,
+        " to ",
+        internal_lf_new);
+    tmeta->set_tensor_layout(internal_lf_new);
+  }
+  PT_BRIDGE_DEBUG(
+      "Setting synapse permutation as saved in the cache to the output tensor id: ",
+      ti.get_tensor_id(),
+      " permutation: ",
+      VecToString(ti.getHbInternalPermute()));
+  tmeta->set_memory_permutation(ti.getHbInternalPermute());
+  return pt_tensor;
+}
 } // namespace habana_helpers

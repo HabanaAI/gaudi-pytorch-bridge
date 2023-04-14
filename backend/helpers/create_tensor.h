@@ -20,6 +20,7 @@
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "habana_helpers/pt_version_check.h"
 
+class PtTensorInfo;
 namespace habana_helpers {
 
 synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
@@ -140,4 +141,5 @@ void set_tensor_memory_permutations(
     at::Tensor& tensor,
     synapse_helpers::layouts::MemoryPermutation permutation,
     const synRetrievedLaunchTensorInfoExt* info = nullptr);
+at::Tensor create_empty_tensor(const PtTensorInfo& ti);
 } // namespace habana_helpers

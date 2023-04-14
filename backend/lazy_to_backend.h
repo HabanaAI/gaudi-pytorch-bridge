@@ -25,7 +25,6 @@ bool is_const_tensor(const at::Tensor& tensor);
 void* host_ptr_for_const_tensor(const at::Tensor& tensor);
 
 bool is_lazy_inference_call_context();
-at::Tensor create_empty_tensor(const PtTensorInfo& ti);
 
 /**
  * Tokens that can be passed to PT_BACKEND_DEBUG_TENSOR to insert

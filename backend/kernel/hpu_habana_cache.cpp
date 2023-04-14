@@ -1092,7 +1092,7 @@ void RecipeValueSpec::update_patching_table(
 
       intermediate_tensors.push_back(pt_intermediate);
     } else {
-      auto pt_intermediate = lazy_to_backend::create_empty_tensor(ti);
+      auto pt_intermediate = habana_helpers::create_empty_tensor(ti);
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
           tshape);
@@ -1165,7 +1165,7 @@ void RecipeValueSpec::update_patching_table(
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto tshape{ti.get_shape()};
-    auto pt_output = lazy_to_backend::create_empty_tensor(ti);
+    auto pt_output = habana_helpers::create_empty_tensor(ti);
     if (enable_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,
