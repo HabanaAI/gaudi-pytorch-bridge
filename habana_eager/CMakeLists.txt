@@ -34,13 +34,17 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/view.cpp
           ops/pin_memory.cpp
           ops/eager_op.cpp
+          passes/add_attribute_alpha.cpp
+          passes/convert_convolution.cpp
+          passes/handle_tupple_on_output.cpp
+          passes/replace_getitem_with_list_unpack.cpp
+          passes/sanitize_graph_input.cpp
           eager_custom_op_register.cpp
           eager_tensor.cpp
           eager_exec.cpp
           eager_view.cpp
           eager_context.cpp
           graph_exec.cpp
-          graph_exec_passes.cpp
           kernels_impl.cpp
           unused_link_symbols.cpp
           ../hpu_ops/op_validator.cpp

@@ -312,7 +312,7 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
   OutputMetaDataVector output_metadata{};
   // If node output is tensor list
   // tensorList and Unpack pair is supported
-  if (node->output(0)->type() == torch::ListType::ofTensors() &&
+  if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(
@@ -339,6 +339,7 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
         md.external = IsValueExternal(value_out);
       }
       auto out_ptr = value_out->type()->cast<c10::TensorType>();
+
       if (out_ptr->scalarType().has_value()) {
         md.dtype = *out_ptr->scalarType();
       }
@@ -699,7 +700,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         op_output_shape.GetOutputTensor().size());
   }
 
-  if (node->output(0)->type() == torch::ListType::ofTensors() &&
+  if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     HABANA_ASSERT(

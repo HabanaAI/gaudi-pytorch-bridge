@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,87 +18,6 @@
 namespace habana {
 namespace graph {
 namespace pass {
-
-struct HandleTupleOnOutputPass {
-  explicit HandleTupleOnOutputPass(std::shared_ptr<torch::jit::Graph> graph)
-      : m_graph(std::move(graph)) {}
-
-  bool run() {
-    return processBlocks(m_graph->block());
-  }
-
- private:
-  bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
-    bool changed{false};
-    // We are only interested in last block
-    auto last_block_iter{blocks.rbegin()};
-    if (last_block_iter != blocks.rend()) {
-      changed |= processBlock(*last_block_iter);
-    }
-    return changed;
-  }
-
-  bool processBlock(torch::jit::Block* block) {
-    bool changed{false};
-
-    auto last_node_iter{block->nodes().rbegin()};
-
-    if (last_node_iter != block->nodes().rend()) {
-      torch::jit::Node* node{*last_node_iter};
-      if (node->kind() != torch::jit::prim::TupleConstruct) {
-        return changed;
-      }
-
-      block->removeAllOutputs();
-
-      for (size_t input_idx = 0; input_idx < node->inputs().size();
-           input_idx++) {
-        block->insertOutput(input_idx, node->inputs()[input_idx]);
-      }
-      last_node_iter.destroyCurrent();
-      changed |= true;
-    }
-
-    return changed;
-  }
-
-  std::shared_ptr<torch::jit::Graph> m_graph;
-};
-
-struct AddAttributeAlphaPass {
-  explicit AddAttributeAlphaPass(std::shared_ptr<torch::jit::Graph> graph)
-      : m_graph(std::move(graph)) {}
-
-  bool run() {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      return false;
-    }
-    return processBlocks(m_graph->block());
-  }
-
- private:
-  bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
-    bool changed{false};
-    synapse_helpers::device& device{
-        synapse_helpers::HPURegistrar::get_device()};
-
-    for (auto block : blocks) {
-      for (auto node : block->nodes()) {
-        changed |= processNode(node, device);
-      }
-    }
-    return changed;
-  }
-
-  bool processNode(torch::jit::Node* node, synapse_helpers::device& device) {
-    auto one = torch::jit::attr::alpha;
-    node->i_(one, device.getDeterministic());
-    return true;
-  }
-
-  std::shared_ptr<torch::jit::Graph> m_graph;
-};
-
 struct ConvertConvolutionPass {
   explicit ConvertConvolutionPass(std::shared_ptr<torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
@@ -180,38 +99,6 @@ struct ConvertConvolutionPass {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::shared_ptr<std::vector<int>> m_inputs_to_permute;
 };
-
-void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph) {
-  PT_EAGER_TRACE;
-  if (0 == graph->inputs().size()) {
-    // No input to sanitize...
-    return;
-  }
-
-  torch::jit::Value* first_graph_input{*graph->inputs().begin()};
-  if (!first_graph_input->hasUses() &&
-      "self" == first_graph_input->debugName()) {
-    graph->eraseInput(0);
-  }
-}
-
-void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph) {
-  PT_EAGER_TRACE;
-  HandleTupleOnOutputPass pass{graph};
-  bool changed{pass.run()};
-  if (changed) {
-    PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
-  }
-}
-
-void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph) {
-  PT_EAGER_TRACE;
-  AddAttributeAlphaPass pass{graph};
-  bool changed{pass.run()};
-  if (changed) {
-    PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
-  }
-}
 
 void ConvertConvolutions(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;

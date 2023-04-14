@@ -28,6 +28,7 @@ void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
 void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
 void ConvertConvolutions(std::shared_ptr<torch::jit::Graph> graph);
+void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 } // namespace pass
 
 class GraphExec {

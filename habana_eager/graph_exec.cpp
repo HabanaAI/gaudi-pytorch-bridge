@@ -76,9 +76,10 @@ GraphExec::GraphExec(
 void GraphExec::RunGraphPasses() {
   PT_EAGER_DEBUG("Compiling graph: ", m_graph_name, "\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
+  pass::ConvertConvolutions(m_graph);
+  pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
-  pass::ConvertConvolutions(m_graph);
 }
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
