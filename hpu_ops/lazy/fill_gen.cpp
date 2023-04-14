@@ -18,4 +18,17 @@ namespace habana {
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, FillFE, at::Tensor&) {
   CastBoolToInt(get_inputs());
 }
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, FillFE, at::Tensor) {
+  CastBoolToInt(get_inputs());
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, FillFE, at::Scalar&) {
+  CastBoolToInt(get_inputs());
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, FillFE, at::Scalar) {
+  CastBoolToInt(get_inputs());
+}
+
 } // namespace habana

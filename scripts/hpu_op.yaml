@@ -2624,6 +2624,17 @@ eye.m_out:
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
+fill.Scalar:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Greco: [BFloat16, Float, Char, Byte, Short, Half]
+  op_backend: FillScalar
+  op_frontend: FillFE
+  out_ids: [0]
+
 fill.Scalar_out:
   force_default: false
   dtypes:
