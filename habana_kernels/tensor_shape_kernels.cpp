@@ -872,6 +872,7 @@ static auto& TensorShapeKernelsKernelRegistry =
         .add("aten::flatten", KERNEL_FN_GLOBAL(FlattenOperator))
         .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
+        .add("aten::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))

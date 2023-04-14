@@ -281,3 +281,23 @@ def test_view_copy_cache():
     hres = fn(ha)
 
     assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+
+def test_view_cache2():
+    def fn (x, offset):
+        x = x[offset:offset+4:2]
+        m = torch.nn.ReLU()
+        x = m(x)
+        return x
+    a = torch.randn([10])
+    ha = a.to('hpu')
+    res = fn(a, 1)
+    hres = fn(ha, 1)
+
+    assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+
+    a = torch.randn([10])
+    ha = a.to('hpu')
+    res = fn(a, 2)
+    hres = fn(ha, 2)
+
+    assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
