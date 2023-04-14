@@ -16,6 +16,7 @@
 #include "CoalescedStringentPoolAllocator.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
 
@@ -268,12 +269,14 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
     realtime_logger_ =
         std::make_unique<realtime_logger::RealTimeMeoryLogger>(this);
   }
-
+  MEMORY_MONITORING_SET_DEVICE(this);
   return true;
 }
 
 void CoalescedStringentPooling::pool_destroy() const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  MEMORY_MONITORING_RESET_DEVICE;
+
   PT_DEVMEM_DEBUG("CS_POOL:: pool_destroy");
   simple_coalesced_pool_t* s_pool = prealloc_pool;
   {

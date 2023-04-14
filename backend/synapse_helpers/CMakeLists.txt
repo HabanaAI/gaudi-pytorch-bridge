@@ -26,6 +26,7 @@ add_library(
   hccl_communicator.cpp
   host_memory.cpp
   logger_stub.cpp
+  lightweight_memory_usage_logger.cpp
   mem_handle.cpp
   memory_defragmentation.cpp
   memory_mapping.cpp
