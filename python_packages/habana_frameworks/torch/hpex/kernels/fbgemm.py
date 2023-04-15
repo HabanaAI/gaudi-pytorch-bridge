@@ -153,3 +153,6 @@ def expand_into_jagged_permute(permute: torch.Tensor, input_offsets: torch.Tenso
 
 def bounds_check_indices(rows_per_table: torch.Tensor, indices: torch.Tensor, offsets: torch.Tensor, bounds_check_mode: int, warning: torch.Tensor, weights: Optional[torch.Tensor]):
     _hpex_C.bounds_check_indices(indices, offsets, warning, rows_per_table, bounds_check_mode, weights)
+
+def split_permute_cat(input: torch.Tensor, indices: torch.Tensor, batch_size: int, num_features: int, dims: int) -> torch.Tensor:
+    return _hpex_C.split_permute_cat(input, indices, batch_size, num_features, dims)

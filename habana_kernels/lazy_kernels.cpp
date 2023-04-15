@@ -7414,6 +7414,23 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(expand_into_jagged_permute, op)
 }
 
+at::Tensor habana_split_permute_cat_lazy(
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    int64_t batch_size,
+    int64_t num_features,
+    int64_t dims) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::habana_split_permute_cat",
+      {input, indices, batch_size, num_features, dims},
+      {{input.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(split_permute_cat, op)
+}
+
 at::Tensor _ragged_softmax(
     const at::Tensor& self,
     int64_t dim,

@@ -316,6 +316,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "bounds_check_indices",
       &habana_bounds_check_indices_wrap,
       "Out of bounds checks");
+  m.def(
+      "split_permute_cat",
+      &habana_split_permute_cat_wrap,
+      "Replaces the combination of split_with_sizes and cat operators");
 
   // TE Data structures
   py::class_<transformer_engine::FP8TensorMeta>(m, "FP8TensorMeta")

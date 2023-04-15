@@ -1967,6 +1967,31 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
       permute, input_offsets, output_offsets, output_size);
 }
 
+at::Tensor habana_split_permute_cat_wrap(
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    int64_t batch_size,
+    int64_t num_features,
+    int64_t dims) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " split_permute_cat:",
+      " input=",
+      to_string(input),
+      " indices=",
+      to_string(indices),
+      " batch_size=",
+      to_string(batch_size),
+      " num_features=",
+      to_string(num_features),
+      " dims=",
+      to_string(dims));
+
+  return habana_split_permute_cat_lazy(
+      input, indices, batch_size, num_features, dims);
+}
+
 at::Tensor scaled_masked_softmax_wrap(
     const at::Tensor& input,
     const at::Tensor& mask,
@@ -2486,6 +2511,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_permute_2D_sparse_data_without_weights(Tensor permute, Tensor lengths, Tensor indices) -> (Tensor, Tensor)");
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
+  m.def(
+      "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(

@@ -788,6 +788,12 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size);
+at::Tensor habana_split_permute_cat_lazy(
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    int64_t batch_size,
+    int64_t num_features,
+    int64_t dims);
 at::Tensor _ragged_softmax(
     const at::Tensor& self,
     int64_t dim,

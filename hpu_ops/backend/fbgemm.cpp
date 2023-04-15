@@ -134,6 +134,49 @@ void LazyBoundsCheckIndices::AddNode(
   }
 }
 
+LazySplitPermuteCat::LazySplitPermuteCat(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "split_permute_cat",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {}
+
+void LazySplitPermuteCat::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "LazySplitPermuteCat::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto indices = getNextInput<TensorsPair>(stackGetter);
+
+  auto batchSize = getNextInput<int>(stackGetter);
+  auto numFeatures = getNextInput<int>(stackGetter);
+  auto dims = getNextInput<int>(stackGetter);
+
+  std::string guid = "split_permute_cat_fwd_" +
+      habana_helpers::name_suffix_from_type(input.pt_t.scalar_type());
+
+  ns_SplitPermuteCat::Params params;
+  params.batchSize = batchSize;
+  params.numFeatures = numFeatures;
+  params.dims = dims;
+
+  auto output = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       {input.syn_t, indices.syn_t},
+       {{input.pt_t.sizes(), input.pt_t.scalar_type(), 0}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(output[0]);
+}
+
 } // namespace habana
 
 static const auto& FBGEMMKernelsKernelRegistry =
@@ -155,4 +198,7 @@ static const auto& FBGEMMKernelsKernelRegistry =
             KERNEL_FN_GLOBAL(habana::LazyExpandIntoJaggedPermute))
         .add(
             "hpu::habana_bounds_check_indices",
-            KERNEL_FN_GLOBAL(habana::LazyBoundsCheckIndices));
+            KERNEL_FN_GLOBAL(habana::LazyBoundsCheckIndices))
+        .add(
+            "hpu::habana_split_permute_cat",
+            KERNEL_FN_GLOBAL(habana::LazySplitPermuteCat));
