@@ -16,9 +16,12 @@ common:
           __clean_pytorch_dev_py_deps
           pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
           pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
-          pip install -U hpu-media-loader
           install_pillow_simd
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+          pip install -U habana-media-loader --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple
+          pip freeze list | grep habana
+          pip freeze list | grep hpu
+          python3 -c "from habana_frameworks.mediapipe import fn"
           pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
 testsMap:
   Test_pytorch_modules_gaudi2_asic_8cards_lightning_habana_uts:
