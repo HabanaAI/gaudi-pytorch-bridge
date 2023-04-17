@@ -585,6 +585,7 @@ abs:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: abs_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 abs_:
   force_default: false
@@ -594,6 +595,7 @@ abs_:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: abs_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 abs.out:
   dtypes:
@@ -601,6 +603,7 @@ abs.out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: abs_fwd
+  op_validator: check-node-with-shared-layer
 
 acos:
   force_default: false
@@ -1166,6 +1169,7 @@ atan2:
     Gaudi3: [BFloat16, Float, Half]
   guid: atan2_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 atan2_:
   force_default: false
@@ -1176,6 +1180,7 @@ atan2_:
     Gaudi3: [BFloat16, Float, Half]
   guid: atan2_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 atan2.out:
   broadcast: true
@@ -1185,6 +1190,7 @@ atan2.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: atan2_fwd
+  op_validator: check-node-with-shared-layer
 
 _adaptive_avg_pool2d:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
@@ -1198,6 +1204,7 @@ _adaptive_avg_pool2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 adaptive_avg_pool2d.out:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
@@ -1210,6 +1217,7 @@ adaptive_avg_pool2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 _adaptive_avg_pool2d_backward:
   custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
@@ -1237,6 +1245,7 @@ avg_pool2d:
   - [WHCN]
   out_ids: [0]
   force_default: false
+  op_validator: check-node-with-shared-layer
 
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -1249,6 +1258,7 @@ avg_pool2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 
 avg_pool2d_backward.grad_input:
@@ -1285,6 +1295,7 @@ atanh:
   force_default: false
   guid: atanh_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 atanh.out:
   dtypes:
@@ -1292,6 +1303,7 @@ atanh.out:
     Gaudi2: [Float]
     Gaudi3: [Float]
   guid: atanh_fwd
+  op_validator: check-node-with-shared-layer
 
 atanh_:
   force_default: false
@@ -1301,6 +1313,7 @@ atanh_:
     Gaudi3: [Float]
   guid: atanh_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 baddbmm:
   dtypes:
@@ -1552,16 +1565,19 @@ bitwise_not:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_not.out:
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
+  op_validator: check-node-with-shared-layer
 
 bitwise_not_:
   force_default: false
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_or.Scalar:
   force_default: false
@@ -1741,6 +1757,7 @@ bmm:
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 bmm.out:
   dtypes:
@@ -1749,6 +1766,7 @@ bmm.out:
     Gaudi3: [BFloat16, Float, Half, Fp8r152]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
+  # op_validator: check-node-with-shared-layer
 
 cat:
   force_default: false
@@ -1768,16 +1786,19 @@ ceil:
   dtypes: [BFloat16, Float]
   guid: ceil_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 ceil.out:
   dtypes: [BFloat16, Float]
   guid: ceil_fwd
+  op_validator: check-node-with-shared-layer
 
 ceil_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: ceil_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 channel_shuffle:
   dtypes: [BFloat16, Float, Int]
@@ -1838,6 +1859,7 @@ clamp.out:
     Gaudi3: [BFloat16, Float, Int, Half]
   promote_to_common_type: [self, min, max]
   guid: clamp_fwd
+  # op_validator: check-node-with-shared-layer
 
 clamp.Tensor_out:
   custom_output_shape: ClampOutputShape
@@ -1858,6 +1880,7 @@ clamp_max:
   guid: clamp_fwd
   out_ids: [0]
   promote_to_common_type: [self, max]
+  # op_validator: check-node-with-shared-layer
 
 clamp_max.Tensor:
   force_default: false
@@ -1869,6 +1892,7 @@ clamp_max.Tensor:
   promote_to_common_type: [self, max]
   guid: min_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_max_:
   force_default: false
@@ -1880,6 +1904,7 @@ clamp_max_:
   promote_to_common_type: [self, max]
   guid: clamp_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_max_.Tensor:
   force_default: false
@@ -1890,6 +1915,7 @@ clamp_max_.Tensor:
   promote_to_common_type: [self, max]
   guid: min_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_max.out:
   custom_fill_params: FillClampMaxParams
@@ -1899,6 +1925,7 @@ clamp_max.out:
     Gaudi3: [BFloat16, Float, Int, Half]
   promote_to_common_type: [self, max]
   guid: clamp_fwd
+  # op_validator: check-node-with-shared-layer
 
 clamp_max.Tensor_out:
   dtypes:
@@ -1907,6 +1934,7 @@ clamp_max.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Half]
   promote_to_common_type: [self, max]
   guid: min_fwd
+  # op_validator: check-node-with-shared-layer
 
 clamp_min:
   force_default: false
@@ -1918,6 +1946,7 @@ clamp_min:
   promote_to_common_type: [self, min]
   guid: clamp_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_min.Tensor:
   force_default: false
@@ -1929,6 +1958,7 @@ clamp_min.Tensor:
   promote_to_common_type: [self, min]
   guid: max_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_min_:
   force_default: false
@@ -1940,6 +1970,7 @@ clamp_min_:
   promote_to_common_type: [self, min]
   guid: clamp_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_min_.Tensor:
   force_default: false
@@ -1950,6 +1981,7 @@ clamp_min_.Tensor:
   promote_to_common_type: [self, min]
   guid: max_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 clamp_min.out:
   custom_fill_params: FillClampMinParams
@@ -1959,6 +1991,7 @@ clamp_min.out:
     Gaudi3: [BFloat16, Float, Int, Half]
   promote_to_common_type: [self, min]
   guid: clamp_fwd
+  # op_validator: check-node-with-shared-layer
 
 clamp_min.Tensor_out:
   dtypes:
@@ -1967,6 +2000,7 @@ clamp_min.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Half]
   promote_to_common_type: [self, min]
   guid: max_fwd
+  # op_validator: check-node-with-shared-layer
 
 clone:
   dtypes:
@@ -2039,6 +2073,7 @@ copysign.out:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 copysign.Scalar_out:
   force_default: false
@@ -2046,6 +2081,7 @@ copysign.Scalar_out:
   guid: copy_sign_fwd
   promote_int_to_float: [self, other]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer
 
 copysign_.Scalar:
   force_default: false
@@ -2054,6 +2090,7 @@ copysign_.Scalar:
   inplace_ids: [0]
   promote_int_to_float: [self, other]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer
 
 copysign_.Tensor:
   force_default: false
@@ -2061,6 +2098,7 @@ copysign_.Tensor:
   guid: copy_sign_fwd
   inplace_ids: [0]
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 copysign.Scalar:
   force_default: false
@@ -2069,6 +2107,7 @@ copysign.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 copysign.Tensor:
   force_default: false
@@ -2077,6 +2116,7 @@ copysign.Tensor:
   guid: copy_sign_fwd
   out_ids: [0]
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 cos:
   force_default: false
@@ -2087,6 +2127,7 @@ cos:
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 cos.out:
   promote_int_to_float: [self]
@@ -2095,6 +2136,7 @@ cos.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
+  # op_validator: check-node-with-shared-layer
 
 cos_:
   force_default: false
@@ -2105,6 +2147,7 @@ cos_:
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 cosh:
   force_default: false
@@ -2115,6 +2158,7 @@ cosh:
     Gaudi3: [Float, Half]
   guid: cosh_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 cosh.out:
   promote_int_to_float: [self]
@@ -2123,6 +2167,7 @@ cosh.out:
     Gaudi2: [Float, Half]
     Gaudi3: [Float, Half]
   guid: cosh_fwd
+  # op_validator: check-node-with-shared-layer
 
 cosh_:
   force_default: false
@@ -2133,6 +2178,7 @@ cosh_:
     Gaudi3: [Float, Half]
   guid: cosh_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 count_nonzero.dim_IntList:
   custom_fill_params: FillCountNonzeroParams
@@ -2144,6 +2190,7 @@ count_nonzero.dim_IntList:
   guid: count_non_zero_fwd
   out_dtypes: [Long]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 count_nonzero:
   force_default: false
@@ -2155,6 +2202,7 @@ count_nonzero:
     Gaudi3: [BFloat16, Float, Int, Short, Char, Half]
   guid: count_non_zero_fwd
   out_dtypes: [Long]
+  # op_validator: check-node-with-shared-layer
   out_ids: [0]
 
 cumprod:
@@ -2178,6 +2226,7 @@ cumprod_:
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 cumsum:
   force_default: false
@@ -2209,6 +2258,7 @@ cumsum_:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: cumsum_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 diag:
   pytorch2_mode: disable
@@ -2235,6 +2285,7 @@ div.out:
   custom_output_shape: BinaryOutputShape
   guid: div
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 div.out_mode:
   custom_output_shape: BinaryOutputShape
@@ -2317,6 +2368,7 @@ div_.Tensor:
   guid: div
   inplace_ids: [0]
   promote_int_to_float: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 div_.Tensor_mode:
   force_default: false
@@ -2377,6 +2429,7 @@ elu:
     params:
     - [1, float]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 elu_:
   force_default: false
@@ -2390,6 +2443,7 @@ elu_:
     params:
     - [1, float]
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 elu.out:
   dtypes:
@@ -2401,6 +2455,7 @@ elu.out:
     name: ns_EluKernel::Params
     params:
     - [1, float]
+  op_validator: check-node-with-shared-layer
 
 elu_backward:
   force_default: false
@@ -2411,6 +2466,7 @@ elu_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: elu_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 elu_backward.grad_input:
   custom_fill_params: FillEluBackwardParams
@@ -2419,6 +2475,7 @@ elu_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: elu_bwd
+  op_validator: check-node-with-shared-layer
 
 embedding:
   force_default: false
@@ -2524,6 +2581,7 @@ erf:
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erf_:
   force_default: false
@@ -2534,6 +2592,7 @@ erf_:
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erf.out:
   promote_int_to_float: [self]
@@ -2542,6 +2601,7 @@ erf.out:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
+  # op_validator: check-node-with-shared-layer
 
 erfc:
   force_default: false
@@ -2549,6 +2609,7 @@ erfc:
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erfc_:
   force_default: false
@@ -2556,17 +2617,20 @@ erfc_:
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erfc.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
+  # op_validator: check-node-with-shared-layer
 
 erfinv:
   dtypes: [Float]
   force_default: false
   guid: erfinv_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erfinv_:
   promote_int_to_float: [self]
@@ -2574,11 +2638,13 @@ erfinv_:
   force_default: false
   guid: erfinv_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 erfinv.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
+  # op_validator: check-node-with-shared-layer
 
 exp:
   promote_int_to_float: [self]
@@ -2589,6 +2655,7 @@ exp:
   guid: exp_fwd
   out_ids: [0]
   force_default: false
+  # op_validator: check-node-with-shared-layer
 
 exp_:
   promote_int_to_float: [self]
@@ -2599,6 +2666,7 @@ exp_:
   guid: exp_fwd
   inplace_ids: [0]
   force_default: false
+  # op_validator: check-node-with-shared-layer
 
 exp.out:
   promote_int_to_float: [self]
@@ -2607,6 +2675,7 @@ exp.out:
     Gaudi2: [BFloat16, Float, Short, Half]
     Gaudi3: [BFloat16, Float, Short, Half]
   guid: exp_fwd
+  # op_validator: check-node-with-shared-layer
 
 exp2:
   force_default: false
@@ -2614,11 +2683,13 @@ exp2:
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 exp2.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
+  # op_validator: check-node-with-shared-layer
 
 exp2_:
   force_default: false
@@ -2626,6 +2697,7 @@ exp2_:
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 expand:
   force_default: false
@@ -2638,11 +2710,13 @@ expm1:
   dtypes: [Float]
   guid: expm1_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 expm1.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
+  # op_validator: check-node-with-shared-layer
 
 expm1_:
   force_default: false
@@ -2650,6 +2724,7 @@ expm1_:
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 exponential:
   custom_fill_params: FillExponentialParams
@@ -2755,6 +2830,7 @@ floor:
     Gaudi3: [BFloat16, Float, Half]
   guid: floor_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 floor.out:
   dtypes:
@@ -2762,6 +2838,7 @@ floor.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: floor_fwd
+  op_validator: check-node-with-shared-layer
 
 floor_:
   force_default: false
@@ -2771,6 +2848,7 @@ floor_:
     Gaudi3: [BFloat16, Float, Half]
   guid: floor_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 floor_divide.out:
   custom_output_shape: BinaryOutputShape
@@ -2991,6 +3069,7 @@ gelu_backward:
   guid: cgelu_bwd
 
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 gelu_backward.grad_input:
   custom_fill_params: FillGeluBwdParams
@@ -2999,6 +3078,7 @@ gelu_backward.grad_input:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: cgelu_bwd
+  op_validator: check-node-with-shared-layer
 
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
@@ -3023,12 +3103,14 @@ glu:
   custom_fill_params: FillGluFwdParams
   custom_output_shape: GluOutputShape
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 glu.out:
   guid: glu_fwd
   custom_fill_params: FillGluFwdParams
   custom_output_shape: GluOutputShape
   dtypes: [Float]
+  # op_validator: check-node-with-shared-layer
 
 glu_backward:
   custom_output_shape: GluBwdOutputShape
@@ -3037,12 +3119,14 @@ glu_backward:
   guid: glu_bwd
   out_ids: [0]
   safe_cast_check: false
+  # op_validator: check-node-with-shared-layer
 
 glu_backward.grad_input:
   custom_output_shape: GluBwdOutputShape
   custom_fill_params: FillGluBwdParams
   dtypes: [Float]
   guid: glu_bwd
+  # op_validator: check-node-with-shared-layer
 
 grid_sampler_2d:
   custom_fill_params: FillGridSamplerParams
@@ -3053,6 +3137,7 @@ grid_sampler_2d:
   - [WHCN, AWHN]
   - [WHCN]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 native_group_norm_backward:
   dtypes:
@@ -3160,6 +3245,7 @@ hardsigmoid.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
+  op_validator: check-node-with-shared-layer
 
 hardsigmoid_backward.grad_input:
   custom_fill_params: FillHardSigmoidParams
@@ -3168,6 +3254,7 @@ hardsigmoid_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: hard_sigmoid_bwd
+  op_validator: check-node-with-shared-layer
 
 hardsigmoid:
   force_default: false
@@ -3178,6 +3265,7 @@ hardsigmoid:
     Gaudi3: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardsigmoid_:
   force_default: false
@@ -3188,6 +3276,7 @@ hardsigmoid_:
     Gaudi3: [BFloat16, Float, Half]
   guid: hard_sigmoid_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardsigmoid_backward:
   force_default: false
@@ -3198,53 +3287,63 @@ hardsigmoid_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: hard_sigmoid_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardswish:
   dtypes: [BFloat16, Float]
   guid: hard_swish_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardswish.out:
   dtypes: [BFloat16, Float]
   guid: hard_swish_fwd
+  op_validator: check-node-with-shared-layer
 
 hardswish_:
   dtypes: [BFloat16, Float]
   guid: hard_swish_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardswish_backward:
   dtypes: [BFloat16, Float]
   guid: hard_swish_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardtanh:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardtanh_:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardtanh.out:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+  op_validator: check-node-with-shared-layer
 
 hardtanh_backward:
   custom_fill_params: FillHardTanhBwdParams
   dtypes: [BFloat16, Float]
   guid: hardtanh_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hardtanh_backward.grad_input:
   custom_fill_params: FillHardTanhBwdParams
   dtypes: [BFloat16, Float]
   guid: hardtanh_bwd
+  op_validator: check-node-with-shared-layer
 
 huber_loss:
   custom_fill_params: FillHuberLossFwdParams
@@ -3252,12 +3351,14 @@ huber_loss:
   dtypes: [BFloat16, Float]
   guid: huber_loss_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 huber_loss.out:
   custom_fill_params: FillHuberLossFwdParams
   custom_output_shape: HuberLossOutputShape
   dtypes: [BFloat16, Float]
   guid: huber_loss_fwd
+  op_validator: check-node-with-shared-layer
 
 huber_loss_backward:
   force_default: false
@@ -3277,11 +3378,13 @@ heaviside:
   dtypes: [BFloat16, Float, Int]
   guid: heaviside_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 heaviside.out:
   custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Int]
   guid: heaviside_fwd
+  op_validator: check-node-with-shared-layer
 
 heaviside_:
   force_default: false
@@ -3289,6 +3392,7 @@ heaviside_:
   dtypes: [BFloat16, Float, Int]
   guid: heaviside_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 hypot:
   force_default: false
@@ -3296,17 +3400,20 @@ hypot:
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 hypot.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
+  # op_validator: check-node-with-shared-layer
 
 hypot_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 index.Tensor:
   force_default: false
@@ -3449,6 +3556,7 @@ kthvalue.values:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: kthvalue_fwd
+  # op_validator: check-node-with-shared-layer
 
 index_add_:
   force_default: false
@@ -3563,6 +3671,7 @@ leaky_relu_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: leakyrelu_bwd
+  op_validator: check-node-with-shared-layer
 
 leaky_relu_backward:
   force_default: false
@@ -3573,6 +3682,7 @@ leaky_relu_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: leakyrelu_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 leaky_relu:
   force_default: false
@@ -3689,6 +3799,7 @@ log.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
+  # op_validator: check-node-with-shared-layer
 
 log:
   force_default: false
@@ -3699,6 +3810,7 @@ log:
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log_:
   force_default: false
@@ -3709,6 +3821,7 @@ log_:
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log1p:
   force_default: false
@@ -3716,6 +3829,7 @@ log1p:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log1p_:
   force_default: false
@@ -3723,11 +3837,13 @@ log1p_:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log1p.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
+  # op_validator: check-node-with-shared-layer
 
 log10:
   force_default: false
@@ -3735,6 +3851,7 @@ log10:
   dtypes: [BFloat16, Float]
   guid: log10_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log10_:
   force_default: false
@@ -3742,11 +3859,13 @@ log10_:
   dtypes: [BFloat16, Float]
   guid: log10_fwd
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log10.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log10_fwd
+  # op_validator: check-node-with-shared-layer
 
 log2.out:
   dtypes:
@@ -3754,6 +3873,7 @@ log2.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: log2_fwd
+  op_validator: check-node-with-shared-layer
 
 log2:
   force_default: false
@@ -3764,6 +3884,7 @@ log2:
     Gaudi3: [BFloat16, Float, Half]
   guid: log2_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 log2_:
   force_default: false
@@ -3774,6 +3895,7 @@ log2_:
     Gaudi3: [BFloat16, Float, Half]
   guid: log2_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logaddexp:
   force_default: false
@@ -3796,12 +3918,14 @@ logaddexp2:
   guid: logaddexp2_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   guid: logaddexp2_fwd
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 logcumsumexp:
   force_default: false
@@ -3809,6 +3933,7 @@ logcumsumexp:
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 log_sigmoid_backward:
   dtypes: [Float]
@@ -3839,6 +3964,7 @@ _log_softmax:
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 _log_softmax.out:
   dtypes:
@@ -3847,6 +3973,7 @@ _log_softmax.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
+  # op_validator: check-node-with-shared-layer
 
 _log_softmax_backward_data:
   force_default: false
@@ -3857,6 +3984,7 @@ _log_softmax_backward_data:
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 _log_softmax_backward_data.out:
   dtypes:
@@ -3865,12 +3993,14 @@ _log_softmax_backward_data.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
+  # op_validator: check-node-with-shared-layer
 
 logcumsumexp.out:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
+  # op_validator: check-node-with-shared-layer
 
 logical_and:
   broadcast: true
@@ -3921,6 +4051,7 @@ logical_not_:
   force_default: false
   guid: not
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_not.out:
   dtypes:
@@ -3928,6 +4059,7 @@ logical_not.out:
     Gaudi2: [Half, Byte, Char]
     Gaudi3: [Half, Byte, Char]
   guid: not
+  # op_validator: check-node-with-shared-layer
 
 logical_or:
   broadcast: true
@@ -3994,17 +4126,20 @@ logit:
   dtypes: [BFloat16, Float]
   guid: logit_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logit_:
   custom_fill_params: FillLogitForwardParams
   dtypes: [BFloat16, Float]
   guid: logit_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logit.out:
   custom_fill_params: FillLogitForwardParams
   dtypes: [BFloat16, Float]
   guid: logit_fwd
+  op_validator: check-node-with-shared-layer
 
 logit_backward:
   custom_fill_params: FillLogitBackwardParams
@@ -4012,11 +4147,13 @@ logit_backward:
   force_default: false
   guid: logit_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logit_backward.grad_input:
   custom_fill_params: FillLogitBackwardParams
   dtypes: [BFloat16, Float]
   guid: logit_bwd
+  op_validator: check-node-with-shared-layer
 
 logspace.out:
   dtypes: [BFloat16, Float]
@@ -4184,6 +4321,7 @@ maximum:
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 maximum.out:
   broadcast: true
@@ -4193,6 +4331,7 @@ maximum.out:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: max_fwd
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
@@ -4415,6 +4554,7 @@ minimum:
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 minimum.out:
   broadcast: true
@@ -4424,22 +4564,26 @@ minimum.out:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: min_fwd
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 mish:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: mish_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 mish_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: mish_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 mish.out:
   dtypes: [BFloat16, Float]
   guid: mish_fwd
+  op_validator: check-node-with-shared-layer
 
 mish_backward:
   force_default: false
@@ -4456,6 +4600,7 @@ mm:
     Gaudi3: [BFloat16, Float, Half, Fp8r152]
   guid: gemm
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 
 mm.out:
@@ -4465,6 +4610,7 @@ mm.out:
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Gaudi3: [BFloat16, Float, Half, Fp8r152]
   guid: gemm
+  op_validator: check-node-with-shared-layer
 
 mse_loss:
   force_default: false
@@ -4476,6 +4622,7 @@ mse_loss:
     Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 mse_loss_backward:
   custom_fill_params: FillMseLossParams
@@ -4486,6 +4633,7 @@ mse_loss_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 mse_loss.out:
   custom_fill_params: FillMseLossParams
@@ -4495,6 +4643,7 @@ mse_loss.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_fwd
+  op_validator: check-node-with-shared-layer
 
 mse_loss_backward.grad_input:
   custom_fill_params: FillMseLossParams
@@ -4504,6 +4653,7 @@ mse_loss_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: mse_loss_bwd
+  op_validator: check-node-with-shared-layer
 
 mul.Tensor:
   force_default: false
@@ -4598,6 +4748,7 @@ mv:
     Gaudi3: [BFloat16, Float, Short, Int, Half]
   guid: mv_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 mv.out:
   force_default: false
@@ -4607,6 +4758,7 @@ mv.out:
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
   guid: mv_fwd
+  op_validator: check-node-with-shared-layer
 
 nan_to_num:
   force_default: false
@@ -4839,6 +4991,7 @@ neg.out:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: neg_fwd
+  op_validator: check-node-with-shared-layer
 
 neg_:
   force_default: false
@@ -4848,6 +5001,7 @@ neg_:
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: neg_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 neg:
   dtypes:
@@ -4857,6 +5011,7 @@ neg:
   guid: neg_fwd
   force_default: false
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 new_zeros:
   output_meta: NewZerosMeta
@@ -4876,6 +5031,7 @@ nextafter:
   guid: nextafter
   broadcast: true
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 nextafter_:
   force_default: false
@@ -4886,6 +5042,7 @@ nextafter_:
   guid: nextafter
   broadcast: true
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 nextafter.out:
   dtypes:
@@ -4894,6 +5051,7 @@ nextafter.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: nextafter
   broadcast: true
+  op_validator: check-node-with-shared-layer
 
 nll_loss_backward:
   force_default: false
@@ -5214,6 +5372,7 @@ pow_.Tensor:
   guid: pow_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, exponent]
+  # op_validator: check-node-with-shared-layer
 
 pow.Scalar:
   custom_output_shape: BinaryOutputShape
@@ -5237,6 +5396,7 @@ pow.Scalar_out:
   guid: pow_fwd
   scalar_ids: [0]
   promote_to_common_type: [self, exponent]
+  # op_validator: check-node-with-shared-layer
 
 pow.Tensor_Scalar:
   custom_output_shape: BinaryOutputShape
@@ -5272,6 +5432,7 @@ pow.Tensor_Tensor:
   guid: pow_fwd
   out_ids: [0]
   promote_to_common_type: [self, exponent]
+  # op_validator: check-node-with-shared-layer
 
 pow.Tensor_Tensor_out:
   custom_output_shape: BinaryOutputShape
@@ -5281,6 +5442,7 @@ pow.Tensor_Tensor_out:
     Gaudi3: [BFloat16, Float, Half]
   guid: pow_fwd
   promote_to_common_type: [self, exponent]
+  # op_validator: check-node-with-shared-layer
 
 prelu:
   pytorch2_mode: disable
@@ -5366,6 +5528,7 @@ reciprocal:
     Gaudi3: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 reciprocal_:
   force_default: false
@@ -5376,6 +5539,7 @@ reciprocal_:
     Gaudi3: [BFloat16, Float, Half]
   guid: reciprocal_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 reciprocal.out:
   promote_int_to_float: [self]
@@ -5384,6 +5548,7 @@ reciprocal.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reciprocal_fwd
+  op_validator: check-node-with-shared-layer
 
 relu:
   dtypes:
@@ -5401,6 +5566,7 @@ relu_:
     Gaudi3: [BFloat16, Float, Half]
   guid: relu_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 relu.out:
   force_default: false
@@ -5409,6 +5575,7 @@ relu.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: relu_fwd
+  op_validator: check-node-with-shared-layer
 
 reflection_pad1d:
   force_default: false
@@ -5417,12 +5584,14 @@ reflection_pad1d:
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 reflection_pad1d.out:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
+  op_validator: check-node-with-shared-layer
 
 reflection_pad1d_backward:
   force_default: false
@@ -5446,12 +5615,14 @@ reflection_pad2d:
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 reflection_pad2d.out:
   custom_output_shape: ReflectionPad2DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
+  op_validator: check-node-with-shared-layer
 
 reflection_pad2d_backward:
   custom_output_shape: ReflectionPadBackwardOutputShape
@@ -5475,12 +5646,14 @@ reflection_pad3d:
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 reflection_pad3d.out:
   custom_output_shape: ReflectionPad3DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_fwd
+  op_validator: check-node-with-shared-layer
 
 reflection_pad3d_backward:
   force_default: false
@@ -5508,6 +5681,7 @@ remainder.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
+  # op_validator: check-node-with-shared-layer
 
 remainder.Scalar:
   force_default: false
@@ -5519,6 +5693,7 @@ remainder.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 remainder_.Tensor:
   force_default: false
@@ -5530,6 +5705,7 @@ remainder_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
+  # op_validator: check-node-with-shared-layer
 
 remainder_.Scalar:
   force_default: false
@@ -5541,6 +5717,7 @@ remainder_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 remainder.Scalar_Tensor:
   dtypes:
@@ -5561,6 +5738,7 @@ remainder.Tensor_out:
   guid: rem_fwd
   promote_to_common_type: [self, other]
   broadcast: true
+  # op_validator: check-node-with-shared-layer
 
 remainder.Scalar_out:
   force_default: false
@@ -5571,6 +5749,7 @@ remainder.Scalar_out:
   guid: rem_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
 
 repeat:
   force_default: false
@@ -5588,12 +5767,14 @@ replication_pad1d:
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 replication_pad1d.out:
   custom_output_shape: ReplicationPad1dOutputShape
   custom_fill_params: FillReplicationPad1dParams
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
+  op_validator: check-node-with-shared-layer
 
 replication_pad2d:
   force_default: false
@@ -5602,12 +5783,14 @@ replication_pad2d:
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 replication_pad2d.out:
   custom_output_shape: ReplicationPad2dOutputShape
   custom_fill_params: FillReplicationPad2dParams
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
+  op_validator: check-node-with-shared-layer
 
 replication_pad3d:
   force_default: false
@@ -5616,12 +5799,14 @@ replication_pad3d:
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 replication_pad3d.out:
   custom_output_shape: ReplicationPad3dOutputShape
   custom_fill_params: FillReplicationPad3dParams
   guid: pad_fwd
   dtypes: [BFloat16, Float, Int]
+  op_validator: check-node-with-shared-layer
 
 replication_pad1d_backward:
   force_default: false
@@ -5683,6 +5868,7 @@ round:
     Gaudi3: [BFloat16, Float, Half]
   guid: round_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 round_:
   force_default: false
@@ -5693,6 +5879,7 @@ round_:
     Gaudi3: [BFloat16, Float, Half]
   guid: round_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 round.out:
   custom_fill_params: FillRoundParams
@@ -5701,6 +5888,7 @@ round.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: round_fwd
+  op_validator: check-node-with-shared-layer
 
 round.decimals:
   force_default: false
@@ -5711,6 +5899,7 @@ round.decimals:
   guid: round_fwd
   custom_fill_params: FillRoundDecimalParams
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 round_.decimals:
   force_default: false
@@ -5721,6 +5910,7 @@ round_.decimals:
   guid: round_fwd
   custom_fill_params: FillRoundDecimalParams
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 round.decimals_out:
   dtypes:
@@ -5729,6 +5919,7 @@ round.decimals_out:
     Gaudi3: [BFloat16, Float, Half]
   guid: round_fwd
   custom_fill_params: FillRoundDecimalParams
+  op_validator: check-node-with-shared-layer
 
 rrelu_with_noise:
   dtypes: [BFloat16, Float]
@@ -5765,6 +5956,7 @@ rsqrt:
     Gaudi3: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 rsqrt_:
   force_default: false
@@ -5775,6 +5967,7 @@ rsqrt_:
     Gaudi3: [BFloat16, Float, Half]
   guid: rsqrt_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 rsqrt.out:
   promote_int_to_float: [self]
@@ -5783,6 +5976,7 @@ rsqrt.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: rsqrt_fwd
+  op_validator: check-node-with-shared-layer
 
 rsub.Tensor:
   custom_output_shape: BinaryOutputShape
@@ -5938,6 +6132,7 @@ sgn.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sign_fwd
+  op_validator: check-node-with-shared-layer
 
 sgn:
   dtypes:
@@ -5947,6 +6142,7 @@ sgn:
   force_default: false
   guid: sign_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sgn_:
   dtypes:
@@ -5956,6 +6152,7 @@ sgn_:
   force_default: false
   guid: sign_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sigmoid.out:
   promote_int_to_float: [self]
@@ -5964,6 +6161,7 @@ sigmoid.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sigmoid_fwd
+  op_validator: check-node-with-shared-layer
 
 sigmoid:
   force_default: false
@@ -5974,6 +6172,7 @@ sigmoid:
     Gaudi3: [BFloat16, Float, Half]
   guid: sigmoid_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sigmoid_:
   force_default: false
@@ -5984,6 +6183,7 @@ sigmoid_:
     Gaudi3: [BFloat16, Float, Half]
   guid: sigmoid_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sigmoid_backward:
   dtypes:
@@ -5993,6 +6193,7 @@ sigmoid_backward:
   force_default: false
   guid: sigmoid_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sigmoid_backward.grad_input:
   dtypes:
@@ -6000,6 +6201,7 @@ sigmoid_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sigmoid_bwd
+  op_validator: check-node-with-shared-layer
 
 sign.out:
   dtypes:
@@ -6007,6 +6209,7 @@ sign.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sign_fwd
+  op_validator: check-node-with-shared-layer
 
 sign:
   force_default: false
@@ -6016,6 +6219,7 @@ sign:
     Gaudi3: [BFloat16, Float, Half]
   guid: sign_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sign_:
   force_default: false
@@ -6025,6 +6229,7 @@ sign_:
     Gaudi3: [BFloat16, Float, Half]
   guid: sign_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 signbit:
   force_default: false
@@ -6035,6 +6240,7 @@ signbit:
   guid: signbit_fwd
   out_dtypes: [Bool]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 signbit.out:
   dtypes:
@@ -6042,6 +6248,7 @@ signbit.out:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: signbit_fwd
+  # op_validator: check-node-with-shared-layer
 
 silu:
   force_default: false
@@ -6051,6 +6258,7 @@ silu:
     Gaudi3: [BFloat16, Float]
   guid: silu_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 silu_:
   force_default: false
@@ -6060,6 +6268,7 @@ silu_:
     Gaudi3: [BFloat16, Float]
   guid: silu_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 silu.out:
   dtypes:
@@ -6067,6 +6276,7 @@ silu.out:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: silu_fwd
+  op_validator: check-node-with-shared-layer
 
 silu_backward.grad_input:
   dtypes:
@@ -6074,6 +6284,7 @@ silu_backward.grad_input:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: silu_bwd
+  op_validator: check-node-with-shared-layer
 
 sin:
   force_default: false
@@ -6084,6 +6295,7 @@ sin:
     Gaudi3: [BFloat16, Float, Half]
   guid: sin_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 sin.out:
   promote_int_to_float: [self]
@@ -6092,6 +6304,7 @@ sin.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sin_fwd
+  op_validator: check-node-with-shared-layer
 
 sin_:
   force_default: false
@@ -6102,6 +6315,7 @@ sin_:
     Gaudi3: [BFloat16, Float, Half]
   guid: sin_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sinc:
   force_default: false
@@ -6109,11 +6323,13 @@ sinc:
   dtypes: [BFloat16, Float]
   guid: sinc_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sinc.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: sinc_fwd
+  op_validator: check-node-with-shared-layer
 
 sinc_:
   force_default: false
@@ -6121,11 +6337,13 @@ sinc_:
   dtypes: [BFloat16, Float]
   guid: sinc_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sinh.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: sinh_fwd
+  op_validator: check-node-with-shared-layer
 
 sinh:
   force_default: false
@@ -6133,12 +6351,14 @@ sinh:
   dtypes: [Float]
   guid: sinh_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 sinh_:
   force_default: false
   dtypes: [Float]
   guid: sinh_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 smooth_l1_loss:
   force_default: false
@@ -6147,12 +6367,14 @@ smooth_l1_loss:
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 smooth_l1_loss.out:
   custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
+  # op_validator: check-node-with-shared-layer
 
 smooth_l1_loss_backward:
   force_default: false
@@ -6175,6 +6397,7 @@ _softmax:
     Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
@@ -6183,6 +6406,7 @@ _softmax.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
+  op_validator: check-node-with-shared-layer
 
 _softmax_backward_data:
   force_default: false
@@ -6210,11 +6434,13 @@ softshrink:
   dtypes: [Float, BFloat16]
   guid: shrink_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 softshrink.out:
   custom_fill_params: FillsoftshrinkfwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_fwd
+  op_validator: check-node-with-shared-layer
 
 softshrink_backward:
   force_default: false
@@ -6222,11 +6448,13 @@ softshrink_backward:
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 softshrink_backward.grad_input:
   custom_fill_params: FillsoftshrinkbwdParams
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
+  op_validator: check-node-with-shared-layer
 
 softplus:
   custom_fill_params: FillSoftplusParamsFwd
@@ -6234,11 +6462,13 @@ softplus:
   force_default: false
   guid: softplus_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 softplus.out:
   custom_fill_params: FillSoftplusParamsFwd
   dtypes: [BFloat16, Float]
   guid: softplus_fwd
+  op_validator: check-node-with-shared-layer
 
 softplus_backward:
   custom_fill_params: FillSoftplusParamsBwd
@@ -6246,11 +6476,13 @@ softplus_backward:
   force_default: false
   guid: softplus_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 softplus_backward.grad_input:
   custom_fill_params: FillSoftplusParamsBwd
   dtypes: [BFloat16, Float]
   guid: softplus_bwd
+  op_validator: check-node-with-shared-layer
 
 special_xlog1py:
   force_default: false
@@ -6324,11 +6556,13 @@ special_entr:
   force_default: false
   guid: entr_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 special_entr.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: entr_fwd
+  op_validator: check-node-with-shared-layer
 
 sqrt:
   force_default: false
@@ -6339,6 +6573,7 @@ sqrt:
     Gaudi3: [BFloat16, Float, Half]
   guid: sqrt_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 sqrt.out:
   promote_int_to_float: [self]
@@ -6347,6 +6582,7 @@ sqrt.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sqrt_fwd
+  # op_validator: check-node-with-shared-layer
 
 sqrt_:
   force_default: false
@@ -6356,6 +6592,7 @@ sqrt_:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sqrt_fwd
+  op_validator: check-node-with-shared-layer
   inplace_ids: [0]
 
 squeeze:
@@ -6521,6 +6758,7 @@ tan.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: tan_fwd
+  op_validator: check-node-with-shared-layer
 
 tan:
   force_default: false
@@ -6528,6 +6766,7 @@ tan:
   dtypes: [Float]
   guid: tan_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 tan_:
   force_default: false
@@ -6535,6 +6774,7 @@ tan_:
   dtypes: [Float]
   guid: tan_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 tanh:
   force_default: false
@@ -6545,6 +6785,7 @@ tanh:
     Gaudi3: [BFloat16, Float, Half]
   guid: tanh_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 tanh.out:
   promote_int_to_float: [self]
@@ -6553,6 +6794,7 @@ tanh.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: tanh_fwd
+  op_validator: check-node-with-shared-layer
 
 tanh_:
   force_default: false
@@ -6563,6 +6805,7 @@ tanh_:
     Gaudi3: [BFloat16, Float, Half]
   guid: tanh_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 tanh_backward.grad_input:
   dtypes:
@@ -6570,6 +6813,7 @@ tanh_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: tanh_bwd
+  op_validator: check-node-with-shared-layer
 
 tanh_backward:
   dtypes:
@@ -6579,6 +6823,7 @@ tanh_backward:
   force_default: false
   guid: tanh_bwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 threshold:
   custom_fill_params: FillThresholdParams
@@ -6614,6 +6859,7 @@ threshold_backward.grad_input:
   dtypes: [BFloat16, Float]
   fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
+  op_validator: check-node-with-shared-layer
 
 topk:
   force_default: false
@@ -6702,16 +6948,19 @@ trunc:
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 trunc.out:
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
+  op_validator: check-node-with-shared-layer
 
 trunc_:
   force_default: false
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 unbind.int:
   force_default: false
@@ -6763,6 +7012,7 @@ upsample_bicubic2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d.out:
   custom_fill_params: FillBicubicFwdParams
@@ -6775,6 +7025,7 @@ upsample_bicubic2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d.vec:
   pytorch2_mode: disable
@@ -6790,6 +7041,7 @@ upsample_bicubic2d.vec:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward:
   force_default: false
@@ -6804,6 +7056,7 @@ upsample_bicubic2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward.grad_input:
   custom_fill_params: FillBicubicBwdParams
@@ -6816,6 +7069,7 @@ upsample_bicubic2d_backward.grad_input:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward.vec:
   force_default: false
@@ -6830,6 +7084,7 @@ upsample_bicubic2d_backward.vec:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d:
   force_default: false
@@ -6844,6 +7099,7 @@ upsample_bilinear2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d.out:
   custom_fill_params: FillBilinearFwdParams
@@ -6856,6 +7112,7 @@ upsample_bilinear2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d.vec:
   pytorch2_mode: disable
@@ -6885,6 +7142,7 @@ upsample_bilinear2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d_backward.grad_input:
   custom_fill_params: FillBilinearBwdParams
@@ -6897,6 +7155,7 @@ upsample_bilinear2d_backward.grad_input:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
+  # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d_backward.vec:
   force_default: false
@@ -7306,6 +7565,7 @@ xlogy.OutTensor:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
+  # op_validator: check-node-with-shared-layer
 
 xlogy.OutScalar_Self:
   force_default: false
@@ -7369,6 +7629,7 @@ xlogy.Tensor:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 xlogy_.Tensor:
   force_default: false
@@ -7379,6 +7640,7 @@ xlogy_.Tensor:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   inplace_ids: [0]
+  # op_validator: check-node-with-shared-layer
 
 zero_:
   dtypes:
