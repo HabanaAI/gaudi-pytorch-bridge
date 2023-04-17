@@ -2006,16 +2006,20 @@ TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNC) {
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNCH) {
-  runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4}, true);
-  runIndexPutDynamicTestBoolVect({4, 191155, 8}, {4, 191155}, {94, 8}, true);
-  runIndexPutDynamicTestBoolVect({8, 221165, 16}, {8, 221165}, {188, 16}, true);
-}
-
-TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNCH) {
-  runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4}, false);
-  runIndexPutDynamicTestBoolVect({4, 191155, 8}, {4, 191155}, {94, 8}, false);
-  runIndexPutDynamicTestBoolVect(
-      {8, 221165, 16}, {8, 221165}, {188, 16}, false);
+  /* These are MaskRCNN original configurations - Reducing the dimensionality
+ while testing to reduce CI time Keeping in comments to try out in future if
+ necessary. runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4},
+ true/false); runIndexPutDynamicTestBoolVect({4, 191155, 8}, {4, 191155}, {94,
+ 8}, true/false); runIndexPutDynamicTestBoolVect({8, 221165, 16}, {8, 221165},
+ {188, 16}, true/false);
+ */
+  auto indexPutTest = [](bool acc) {
+    runIndexPutDynamicTestBoolVect({2, 16, 4}, {2, 16}, {4, 4}, acc);
+    runIndexPutDynamicTestBoolVect({4, 19, 8}, {4, 19}, {9, 8}, acc);
+    runIndexPutDynamicTestBoolVect({8, 22, 16}, {8, 22}, {18, 16}, acc);
+  };
+  indexPutTest(true);
+  indexPutTest(false);
 }
 
 void runIndexPutDynamicTestIntVect(
