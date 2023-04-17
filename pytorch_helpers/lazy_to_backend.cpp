@@ -18,16 +18,6 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 
-bool lazy_to_backend::is_const_tensor(const at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  return tmeta->is_const_tensor();
-}
-
-void* lazy_to_backend::host_ptr_for_const_tensor(const at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  return tmeta->get_host_ptr();
-}
-
 bool lazy_to_backend::is_lazy_inference_call_context() {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
     if (!habana_lazy::isDeviceInLoweringMode()) {
@@ -37,7 +27,6 @@ bool lazy_to_backend::is_lazy_inference_call_context() {
   }
   return false;
 }
-
 
 at::Tensor habana_lazy::empty_hpu_lazy(
     c10::IntArrayRef size,

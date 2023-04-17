@@ -12,6 +12,7 @@
  */
 
 #include "backend/helpers/create_tensor.h"
+#include "backend/backend_meta.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
 
@@ -221,7 +222,8 @@ synapse_helpers::tensor create_tensor(
   bool const_section = false;
   void* host_ptr = nullptr;
   if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
-    const_section = lazy_to_backend::is_const_tensor(tensor);
+    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    const_section = tmeta->is_const_tensor();
     if (const_section) {
       host_ptr = habana::get_tensor_extra_meta(tensor)->get_host_ptr();
     }

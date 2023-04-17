@@ -21,9 +21,6 @@
 
 namespace lazy_to_backend {
 
-bool is_const_tensor(const at::Tensor& tensor);
-void* host_ptr_for_const_tensor(const at::Tensor& tensor);
-
 bool is_lazy_inference_call_context();
 
 } // namespace lazy_to_backend
