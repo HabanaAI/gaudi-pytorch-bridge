@@ -31,6 +31,14 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
   TORCH_CHECK(false, "hpu::cast_to_fp8 is not available in Eager mode.");
 }
 
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax) {
+  TORCH_CHECK(false, "hpu::cast_to_fp8_v2 is not available in Eager mode.");
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose(
     const at::Tensor&,
     const at::Tensor&,
@@ -122,6 +130,20 @@ at::Tensor& fp8_gemm(
   TORCH_CHECK(false, "hpu::fp8_gemm is not available in Eager mode.");
 }
 
+at::Tensor fp8_gemm_v2(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate) {
+  TORCH_CHECK(false, "hpu::fp8_gemm_v2 is not available in Eager mode.");
+}
+
 at::Tensor& fp8_transpose(const at::Tensor&, at::Tensor&) {
   TORCH_CHECK(false, "hpu::fp8_transpose is not available in Eager mode.");
 }
@@ -184,6 +206,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
+      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+  m.def(
       "hpu::fp8_cast_transpose(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) transposed) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
       "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) transposed, Tensor(d!) bgrad) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
@@ -199,6 +223,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax, Tensor(c!) mean, Tensor(d!) istd) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, Tensor A_scale_inv, bool trans_A, Tensor B, Tensor B_scale_inv, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
+  m.def(
+      "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
@@ -210,6 +236,7 @@ TORCH_LIBRARY(hpu, m) {
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
+  m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2);
   m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose);
   m.impl("hpu::fp8_cast_transpose_bgrad", fp8_cast_transpose_bgrad);
   m.impl("hpu::fp8_cast_transpose_bgrad_dgelu", fp8_cast_transpose_bgrad_dgelu);
@@ -218,6 +245,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gelu", fp8_gelu);
   m.impl("hpu::fp8_layernorm", fp8_layernorm);
   m.impl("hpu::fp8_gemm", fp8_gemm);
+  m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2);
   m.impl("hpu::fp8_transpose", fp8_transpose);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm);
   m.impl(

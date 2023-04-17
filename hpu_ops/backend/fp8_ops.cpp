@@ -63,6 +63,72 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 }
 
+sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
+  auto input_sv = stack[0].toTensor().sizes().vec();
+  bool is_amax = stack[3].toBool();
+  return {input_sv, std::vector<int64_t>{is_amax ? 1 : 0}};
+}
+
+std::shared_ptr<void> FillCastToFp8V2Params(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_CastKernel::Params);
+  bool stochastic_rounding = stack[2].toBool();
+  params->round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  return params;
+}
+
+CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "cast_to_fp8_v2_",
+          scalar_type,
+          {0, 0},
+          {},
+          {},
+          false) {
+  SetComputeOutputShapes(CastToFp8V2OutputShape);
+  SetFillParams(FillCastToFp8V2Params);
+}
+
+void CastToFp8V2::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "CastToFp8V2 must have 4 input arguments");
+
+  auto self = stack_tensor(stack, 0);
+  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
+  bool stochastic_rounding = stack[2].toBool();
+  bool is_amax = stack[3].toBool();
+  auto src_type = self.scalar_type();
+  auto dst_type = at::ScalarType::Char;
+
+  std::string guid = src_type == at::ScalarType::Float ? "convert_to_fp8_f32"
+                                                       : "convert_to_fp8_bf16";
+
+  auto out_shapes = CastToFp8V2OutputShape(stack);
+  std::vector<synTensor> syn_inputs{syn_in(0)};
+  if (scale.defined()) {
+    syn_inputs.push_back(syn_in(1));
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {out_shapes[0], dst_type, 0, DATA_TENSOR, syn_type_fp8_152}};
+  if (is_amax) {
+    output_attrs.push_back({out_shapes[1], at::ScalarType::Float, 1});
+  }
+
+  size_t size; // Will be initialized by below call
+  const auto& params = FillCastToFp8V2Params(stack, size);
+
+  auto casted = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, params.get(), size});
+
+  syn_out(0) = std::move(casted[0]);
+  if (is_amax) {
+    syn_out(1) = std::move(casted[1]);
+  }
+}
+
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -515,6 +581,86 @@ void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(gemm[0]);
 }
 
+sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
+  auto A = stack_tensor(stack, 0);
+  bool trans_A = stack[1].toBool();
+  auto B = stack_tensor(stack, 2);
+  bool trans_B = stack[3].toBool();
+
+  int64_t rank = A.dim();
+  std::vector<int64_t> A_shape = A.sizes().vec();
+  std::vector<int64_t> B_shape = B.sizes().vec();
+  std::vector<int64_t> out_shape{A_shape.begin(), A_shape.begin() + rank - 2};
+  int A_dim = rank - 2 + (trans_A ? 1 : 0);
+  int B_dim = rank - 2 + (trans_B ? 0 : 1);
+  out_shape.push_back(A_shape[A_dim]);
+  out_shape.push_back(B_shape[B_dim]);
+
+  return {out_shape};
+}
+
+Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_gemm_v2_", scalar_type, {0}, {}, {}, false) {
+  SetComputeOutputShapes(Fp8GemmV2OutputShape);
+}
+
+void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 10, "Fp8GemmV2 must have 10 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
+  auto A = getNextInput<TensorsPair>(stackGetter);
+  bool trans_A = getNextInput<bool>(stackGetter);
+  auto B = getNextInput<TensorsPair>(stackGetter);
+  bool trans_B = getNextInput<bool>(stackGetter);
+  auto DOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto out_type = getNextInput<c10::ScalarType>(stackGetter);
+  auto scaleAOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto scaleBOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  bool accumulate = getNextInput<bool>(stackGetter);
+
+  std::string guid =
+      "fp8_gemm_" + habana_helpers::name_suffix_from_type(out_type);
+
+  std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
+  if (scaleAOpt) {
+    syn_inputs.push_back(scaleAOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (scaleBOpt) {
+    syn_inputs.push_back(scaleBOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (biasOpt) {
+    syn_inputs.push_back(biasOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (accumulate) {
+    TORCH_CHECK(
+        DOpt,
+        "Accumulation tensor must be provided at index 4 for Fp8GemmV2, when accumulate is true");
+    syn_inputs.push_back(DOpt->syn_t);
+  }
+
+  synGEMMParams params{trans_A, trans_B};
+
+  auto out_shapes = Fp8GemmV2OutputShape(stack);
+
+  auto gemm = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid,
+       syn_inputs,
+       {{out_shapes[0], out_type, 0}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(gemm[0]);
+}
+
 Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_transpose_", scalar_type, {}, {}, {}, true) {}
 
@@ -601,6 +747,7 @@ void Fp8Reshape::AddNode(
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
+        .add("hpu::cast_to_fp8_v2", KERNEL_FN_GLOBAL(habana::CastToFp8V2))
         .add(
             "hpu::fp8_cast_transpose",
             KERNEL_FN_GLOBAL(habana::Fp8CastTranspose))
@@ -615,6 +762,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
+        .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
         .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose))
         .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
         .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape));

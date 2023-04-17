@@ -276,6 +276,11 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_wrap(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -344,6 +349,17 @@ at::Tensor& fp8_gemm_wrap(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out);
+at::Tensor fp8_gemm_v2_wrap(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate);
 at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out);
 at::Tensor& fp8_permute_wrap(
     const at::Tensor& input,

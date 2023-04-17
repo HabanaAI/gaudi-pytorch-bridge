@@ -55,6 +55,26 @@ def test_cast_to_fp8(dtype):
     verify_not_available(error, op_name)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_cast_to_fp8_v2(dtype):
+    op_name = "cast_to_fp8_v2"
+    input_shape = (64, 48)
+    input, scale, _, _ = create_inputs(input_shape, dtype)
+
+    def fn(input, scale):
+        return torch.ops.hpu.cast_to_fp8_v2(input, scale, False, False)
+
+    def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+        verify_jit(fx_module, op_name)
+        return fx_module
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+
+    with pytest.raises(RuntimeError) as error:
+        casted = compiled_fn(input, scale)
+    verify_not_available(error, op_name)
+
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_cast_transpose(dtype):
     op_name = "fp8_cast_transpose"
     input_shape = (64, 48)
@@ -245,4 +265,30 @@ def test_fp8_gemm(dtype):
     out = torch.empty(out_shape, dtype=dtype, device=A.device)
     with pytest.raises(RuntimeError) as error:
         casted = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True, out)
+    verify_not_available(error, op_name)
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_fp8_gemm_v2(dtype):
+    op_name = "fp8_gemm_v2"
+    hpu = torch.device("hpu")
+    input_shape_A = (64, 48)
+    input_shape_B = (64, 112)
+    A = (torch.rand(input_shape_A, dtype=dtype)*10 + 30.0).to(hpu)
+    B = (torch.rand(input_shape_B, dtype=dtype)*10 + 30.0).to(hpu)
+    scale_A = torch.tensor(0.75, dtype=torch.float).to(hpu)
+    scale_B = torch.tensor(1.44, dtype=torch.float).to(hpu)
+    out_shape = (input_shape_A[-1],) + (input_shape_B[-1],)
+    bias = (torch.rand(out_shape, dtype=dtype)*10 + 30.0).to(hpu)
+
+    def fn(A, scale_A, B, scale_B, out_dtype, bias, accumulate):
+        return torch.ops.hpu.fp8_gemm(A, scale_A, B, scale_B, None, out_dtype, True, False, bias, accumulate)
+
+    def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+        verify_jit(fx_module, op_name)
+        return fx_module
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+
+    with pytest.raises(RuntimeError) as error:
+        casted = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True)
     verify_not_available(error, op_name)

@@ -37,6 +37,20 @@ def cast_to_fp8(input: torch.Tensor,
 
     return out
 
+def cast_to_fp8_v2(input: torch.Tensor,
+                  scale: Optional[torch.Tensor] = None,
+                  stochastic = False,
+                  is_amax = False) -> torch.Tensor:
+    # Error checking
+    dtype = input.dtype
+    if dtype != torch.bfloat16 and dtype != torch.float32:
+        raise TypeError(f"Only float32 and bfloat16 can be casted to fp8, got: {dtype}")
+
+    out, amax = torch.ops.hpu.cast_to_fp8_v2(input, scale, stochastic, is_amax)
+
+    return out, amax
+
+
 def fp8_cast_transpose_fused(input: torch.Tensor,
     scale: Optional[torch.Tensor] = None,
     amax: Optional[torch.Tensor] = None,
@@ -251,6 +265,26 @@ def fp8_gemm(A: torch.Tensor,
 
     if return_output:
         return out
+
+def fp8_gemm_v2(A: torch.Tensor,
+                A_scale_inv: Optional[torch.Tensor],
+                B: torch.Tensor,
+                B_scale_inv: Optional[torch.Tensor],
+                out_dtype: torch.dtype,
+                accumulate: bool = False,
+                accumulate_to: Optional[torch.Tensor] = None,
+                bias: Optional[torch.Tensor] = None,
+                use_bias: bool = False) -> torch.Tensor:
+    A_dtype = A.dtype
+    B_dtype = B.dtype
+    if A_dtype != torch.int8 or B_dtype != torch.int8:
+        raise TypeError(f"Input tensors must have torch.uint8 dtype, got {A_dtype} and {B_dtype}")
+
+    if out_dtype not in (torch.float, torch.bfloat16):
+        raise TypeError(f"Output tensor must have torch.float or torch.bfloat16 dtype, got {out_dtype}")
+
+    return torch.ops.hpu.fp8_gemm_v2(A, True, B, False, accumulate_to, out_dtype, A_scale_inv, B_scale_inv, bias if use_bias else None, accumulate)
+
 
 def fp8_transpose(input: torch.Tensor, out: Optional[torch.Tensor] = None) -> torch.Tensor:
     # Error checking

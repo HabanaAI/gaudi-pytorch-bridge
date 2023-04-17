@@ -24,7 +24,14 @@
 
 namespace habana {
 
+// Originally all below ops are out-of-place with preallocated output.
+// Unfortunately, such ops' outputs are marked as persistent in graphs,
+// which leads to OOM.
+//
+// V2 ops are out-of-place ops that allocate outputs by themselves in
+// order to deal with that problem.
 DEFINE_OP(CastToFp8)
+DEFINE_OP(CastToFp8V2)
 DEFINE_OP(Fp8CastTranspose)
 DEFINE_OP(Fp8CastTransposeBgrad)
 DEFINE_OP(Fp8CastTransposeBgradDgelu)
@@ -33,11 +40,14 @@ DEFINE_OP(Fp8Dropout)
 DEFINE_OP(Fp8Gelu)
 DEFINE_OP(Fp8Layernorm)
 DEFINE_OP(Fp8Gemm)
+DEFINE_OP(Fp8GemmV2)
 DEFINE_OP(Fp8Transpose)
 DEFINE_OP(Fp8Permute)
 DEFINE_OP(Fp8Reshape)
 
 OUTSHAPE_DECL(Fp8DropoutOutputShape)
 OUTSHAPE_DECL(Fp8ReshapeOutputShape)
+OUTSHAPE_DECL(CastToFp8V2OutputShape)
+OUTSHAPE_DECL(Fp8GemmV2OutputShape)
 
 } // namespace habana
