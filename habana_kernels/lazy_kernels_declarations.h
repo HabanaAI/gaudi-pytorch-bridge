@@ -335,10 +335,17 @@ at::Tensor& normal_hpu_lazy(
     double mean = 0,
     double std = 1,
     c10::optional<at::Generator> gen = c10::nullopt);
+#if IS_PYTORCH_OLDER_THAN(2, 1)
 at::Tensor& randperm_hpu_lazy(
     int64_t n,
     c10::optional<at::Generator> gen,
     at::Tensor& output);
+#else
+at::Tensor& randperm_hpu_lazy(
+    c10::SymInt n,
+    c10::optional<at::Generator> gen,
+    at::Tensor& output);
+#endif
 at::Tensor bernoulli_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::Generator> gen = c10::nullopt);

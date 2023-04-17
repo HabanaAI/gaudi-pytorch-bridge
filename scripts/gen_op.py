@@ -1954,7 +1954,7 @@ namespace habana {{
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
 def generate_autocast_ops(fgens, args, out_dir):
-    op_registration = '  KERNEL({function_name}, "{op_name}", {signature})\n'
+    op_registration = '  Hpu_KERNEL({function_name}, "{op_name}", {signature})\n'
     replacements = (
         ("::std::tuple<at::Tensor,at::Tensor>", "tuple_2_tensors"),
         ("::std::tuple<at::Tensor,at::Tensor,at::Tensor>", "tuple_3_tensors"),

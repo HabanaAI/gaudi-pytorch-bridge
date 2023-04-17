@@ -207,27 +207,27 @@ inline T cast(at::ScalarType, T arg, DeviceType = DeviceType::HPU) {
 
 // Policies correspond to op categories that need code-divergent handling.
 // Wrapper templates below are specialized based on a policy template parameter.
-enum class CastPolicy : uint8_t {
+enum class Hpu_CastPolicy : uint8_t {
   lower_precision_fp = 0, // Cast all inputs to lower_precision_fp
   fp32, // Cast all inputs to at::kFloat
   promote, // Run in the widest dtype among several args.
   lower_first_arg, // Cast first input to lower_precision_fp
 };
 
-// Base template for WrapFunction_, which is specialized to contain a "call"
-// method each CastPolicy
+// Base template for Hpu_WrapFunction_, which is specialized to contain a "call"
+// method each Hpu_CastPolicy
 template <
-    CastPolicy policy,
+    Hpu_CastPolicy policy,
     class Signature,
     Signature* F,
     class Ret,
     class ArgList>
-struct WrapFunction_ {};
+struct Hpu_WrapFunction_ {};
 
-// CastPolicy::lower_precision_fp
+// Hpu_CastPolicy::lower_precision_fp
 template <class Signature, Signature* F, class Ret, class... Args>
-struct WrapFunction_<
-    CastPolicy::lower_precision_fp,
+struct Hpu_WrapFunction_<
+    Hpu_CastPolicy::lower_precision_fp,
     Signature,
     F,
     Ret,
@@ -238,10 +238,10 @@ struct WrapFunction_<
   }
 };
 
-// CastPolicy::fp32
+// Hpu_CastPolicy::fp32
 template <class Signature, Signature* F, class Ret, class... Args>
-struct WrapFunction_<
-    CastPolicy::fp32,
+struct Hpu_WrapFunction_<
+    Hpu_CastPolicy::fp32,
     Signature,
     F,
     Ret,
@@ -252,10 +252,10 @@ struct WrapFunction_<
   }
 };
 
-// CastPolicy::promote
+// Hpu_CastPolicy::promote
 template <class Signature, Signature* F, class Ret, class... Args>
-struct WrapFunction_<
-    CastPolicy::promote,
+struct Hpu_WrapFunction_<
+    Hpu_CastPolicy::promote,
     Signature,
     F,
     Ret,
@@ -273,10 +273,10 @@ inline Ret cast_firstarg(Signature* F, const T& first, Args... args) {
   return (*F)(cast(get_autocast_hpu_dtype(), first, DeviceType::HPU), args...);
 }
 
-// CastPolicy::lower_first_arg
+// Hpu_CastPolicy::lower_first_arg
 template <class Signature, Signature* F, class Ret, class... Args>
-struct WrapFunction_<
-    CastPolicy::lower_first_arg,
+struct Hpu_WrapFunction_<
+    Hpu_CastPolicy::lower_first_arg,
     Signature,
     F,
     Ret,
@@ -287,21 +287,21 @@ struct WrapFunction_<
   }
 };
 
-// Wrapper to infer return_type and parameter_types for WrapFunction_ (imitating
-// core/boxing/impl/WrapFunctionIntoFunctor.h)
+// Wrapper to infer return_type and parameter_types for Hpu_WrapFunction_
+// (imitating core/boxing/impl/WrapFunctionIntoFunctor.h)
 template <
-    CastPolicy policy,
+    Hpu_CastPolicy policy,
     class Signature, // The signature for which we're registering.  The
                      // dispatcher's calling code invokes our registered
                      // functions with arguments matching Signature, so we
-                     // register WrapFunction_::call methods with a matching
+                     // register Hpu_WrapFunction_::call methods with a matching
                      // signature to properly field those arguments.
                      // guts::function_traits below extracts return_type and
-                     // parameter_types from Signature, which WrapFunction_
+                     // parameter_types from Signature, which Hpu_WrapFunction_
                      // templates above use to declare their call methods.
     Signature* F> // The actual function we're redispatching to.
-struct WrapFunction final {
-  using type = WrapFunction_<
+struct Hpu_WrapFunction final {
+  using type = Hpu_WrapFunction_<
       policy,
       Signature,
       F,
@@ -309,35 +309,39 @@ struct WrapFunction final {
       typename guts::function_traits<Signature>::parameter_types>;
 };
 
-#define ADD_NS(RAW_OP) at::RAW_OP
+#define Hpu_ADD_NS(RAW_OP) at::RAW_OP
 
-#define KERNEL(FUNC, REGISTER_NAME, SIGNATURE)                               \
-  if (lower_list.count(#FUNC)) {                                             \
-    if (lower_first_ops.count(#FUNC)) {                                      \
-      m.impl(                                                                \
-          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                      \
-          &WrapFunction<                                                     \
-              CastPolicy::lower_first_arg,                                   \
-              SIGNATURE,                                                     \
-              &ADD_NS(FUNC)>::type::call);                                   \
-    } else {                                                                 \
-      m.impl(                                                                \
-          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                      \
-          &WrapFunction<                                                     \
-              CastPolicy::lower_precision_fp,                                \
-              SIGNATURE,                                                     \
-              &ADD_NS(FUNC)>::type::call);                                   \
-    }                                                                        \
-  } else if (fp32_list.count(#FUNC)) {                                       \
-    m.impl(                                                                  \
-        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
-        &WrapFunction<CastPolicy::fp32, SIGNATURE, &ADD_NS(FUNC)>::type::    \
-            call);                                                           \
-  } else if (promote_list.count(#FUNC)) {                                    \
-    m.impl(                                                                  \
-        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
-        &WrapFunction<CastPolicy::promote, SIGNATURE, &ADD_NS(FUNC)>::type:: \
-            call);                                                           \
+#define Hpu_KERNEL(FUNC, REGISTER_NAME, SIGNATURE)      \
+  if (lower_list.count(#FUNC)) {                        \
+    if (lower_first_ops.count(#FUNC)) {                 \
+      m.impl(                                           \
+          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
+          &Hpu_WrapFunction<                            \
+              Hpu_CastPolicy::lower_first_arg,          \
+              SIGNATURE,                                \
+              &Hpu_ADD_NS(FUNC)>::type::call);          \
+    } else {                                            \
+      m.impl(                                           \
+          TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
+          &Hpu_WrapFunction<                            \
+              Hpu_CastPolicy::lower_precision_fp,       \
+              SIGNATURE,                                \
+              &Hpu_ADD_NS(FUNC)>::type::call);          \
+    }                                                   \
+  } else if (fp32_list.count(#FUNC)) {                  \
+    m.impl(                                             \
+        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
+        &Hpu_WrapFunction<                              \
+            Hpu_CastPolicy::fp32,                       \
+            SIGNATURE,                                  \
+            &Hpu_ADD_NS(FUNC)>::type::call);            \
+  } else if (promote_list.count(#FUNC)) {               \
+    m.impl(                                             \
+        TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),   \
+        &Hpu_WrapFunction<                              \
+            Hpu_CastPolicy::promote,                    \
+            SIGNATURE,                                  \
+            &Hpu_ADD_NS(FUNC)>::type::call);            \
   }
 
 } // namespace autocast

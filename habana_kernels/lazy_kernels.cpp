@@ -4824,6 +4824,7 @@ void setTensorDim(at::Tensor& tensor, int64_t n) {
   THHTensor_resizeNd(reshaped, shape.size(), shape.data(), nullptr);
   tensor.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
 }
+#if IS_PYTORCH_OLDER_THAN(2, 1)
 Tensor& randperm_hpu_lazy(
     int64_t n,
     c10::optional<Generator> gen,
@@ -4859,7 +4860,44 @@ Tensor& randperm_hpu_lazy(
     RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
   }
 }
+#else
+Tensor& randperm_hpu_lazy(
+    c10::SymInt n_,
+    c10::optional<Generator> gen,
+    Tensor& output) {
+  PT_LAZY_TRACE;
+  auto n = n_.expect_int();
+  auto seed = habana::get_seed_tensor_hpu(gen);
+  // resizing the output as it is coming as empty from model
+  setTensorDim(output, n);
 
+  // Currently synapse support dynamic shape arange only for int datatypes.
+  // For any other output datatype, will fallback to normal flow.
+  if (habana_helpers::GetRefineDynamicShapeStatus() &&
+      (output.scalar_type() == c10::ScalarType::Int ||
+       output.scalar_type() == c10::ScalarType::Long)) {
+    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
+      return randperm_hpu_lazy_ht(output, n, seed);
+    } else {
+      std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
+      auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
+      auto params_shape = empty_hpu_lazy(
+          input_size,
+          output.options(),
+          output.suggest_memory_format(),
+          false,
+          INPUT_DESCRIBING_SHAPE_TENSOR);
+      LazyOp<Tensor&> op{
+          "hpu::randperm_out_ds", {params_shape, seed, output}, nullptr, 2};
+      RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
+    }
+  } else {
+    LazyOp<Tensor&> op{
+        "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
+    RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
+  }
+}
+#endif
 at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;
   std::vector<at::IValue> vector_of_inputs;
