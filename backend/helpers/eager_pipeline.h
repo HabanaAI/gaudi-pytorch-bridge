@@ -23,11 +23,12 @@ namespace habana_helpers {
 class SingleTonLoweringThreadPool {
  public:
   static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(1);
+    static habana_helpers::ThreadPool thread_pool_obj(num_threads, QT_LockFree);
     return thread_pool_obj;
   }
 
  private:
+  static constexpr size_t num_threads = 1;
   SingleTonLoweringThreadPool() = default;
   SingleTonLoweringThreadPool(const SingleTonLoweringThreadPool&) = delete;
   SingleTonLoweringThreadPool& operator=(const SingleTonLoweringThreadPool&) =

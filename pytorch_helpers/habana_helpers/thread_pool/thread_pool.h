@@ -34,7 +34,7 @@ namespace habana_helpers {
  */
 class ThreadPool {
  public:
-  ThreadPool(size_t);
+  ThreadPool(size_t, QueueType qType = QT_Standard);
   template <class F, class... Args>
   auto enqueue(F&& f, Args&&... args)
       -> std::future<typename std::result_of<F(Args...)>::type>;
@@ -43,7 +43,6 @@ class ThreadPool {
   std::thread::id get_id(size_t worker);
   ~ThreadPool();
   bool m_stop;
-  std::atomic<bool> has_work{false};
   std::atomic<bool> has_queued_items{false};
   std::string ToString();
 
@@ -76,26 +75,14 @@ auto ThreadPool::enqueue(F&& f, Args&&... args)
 
   std::future<return_type> res = task->get_future();
   {
-    if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-          (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
-      std::lock_guard<std::mutex> lock(m_queueMutex);
-      // don't allow enqueueing after stopping the pool
-      if (m_stop)
-        throw std::runtime_error("enqueue on stopped ThreadPool");
+    std::lock_guard<std::mutex> lock(m_queueMutex);
+    // don't allow enqueueing after stopping the pool
+    if (m_stop)
+      throw std::runtime_error("enqueue on stopped ThreadPool");
 
-      m_tasks->emplace([task]() { (*task)(); });
-    } else {
-      if (m_stop)
-        throw std::runtime_error("enqueue on stopped ThreadPool");
-
-      m_tasks->emplace([task]() { (*task)(); });
-      has_work.store(true);
-    }
+    m_tasks->emplace([task]() { (*task)(); });
   }
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2))) {
-    m_condition.notify_one();
-  }
+  m_condition.notify_one();
   return res;
 }
 

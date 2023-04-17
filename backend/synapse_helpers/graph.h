@@ -45,7 +45,8 @@ class graph {
   static synapse_error_v<graph> create(
       device& device,
       std::string name,
-      bool dry_run = false);
+      bool dry_run = false,
+      bool eager_mode = false);
 
   static synapse_error_v<graph> create_for_refinement(
       device& device,
@@ -318,6 +319,7 @@ class graph {
   uint32_t numConstTensors = 0;
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
+  bool eager_mode_{false};
 };
 
 } // namespace synapse_helpers

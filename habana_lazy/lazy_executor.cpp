@@ -89,26 +89,17 @@ void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
       // create an exception. Ignore the exception as the wait is already
       // over.
 
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-          SingleTonExecThreadPool::work();
-        } else if (
-            !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-          SingleTonExecThreadPool::queueStatus();
-          m_launch_thread_handle.get();
+      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+          (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
+        SingleTonExecThreadPool::queueStatus();
+        m_launch_thread_handle.get();
+      } else {
+        if (wait_only) {
+          m_launch_thread_handle.wait();
         } else {
-          if (wait_only) {
-            m_launch_thread_handle.wait();
-          } else {
-            // if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)
-            // &&
-            //     !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-            //   SingleTonExecThreadPool::queueStatus();
-            // }
-            m_launch_thread_handle.get();
-          }
+          m_launch_thread_handle.get();
         }
+      }
     }
   }
   HandleException();

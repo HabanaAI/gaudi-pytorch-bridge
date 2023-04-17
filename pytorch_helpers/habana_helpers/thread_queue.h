@@ -227,28 +227,11 @@ class StdQueue : public Queue<T> {
 
 template <typename T>
 Queue<T>* Queue<T>::Create(QueueType type, size_t size) {
-  QueueType ltype = type;
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    // the default behavior to pick queue in thread-pool
-    // of lazy-eager and lazy mode
-    // For lazy-eager:
-    //   PT_HPU_LAZY_EAGER_QUEUE_MODE = 0/2 Lock Free Queue (Preallocated)
-    //   PT_HPU_LAZY_EAGER_QUEUE_MODE = 1   Thread Safe Queue (Preallocated)
-    // For lazy:
-    //   PT_HPU_LAZY_EAGER_QUEUE_MODE = 0   Lock Free Queue (Preallocated)
-    //   PT_HPU_LAZY_EAGER_QUEUE_MODE = 1   Thread Safe Queue (Preallocated)
-    //   PT_HPU_LAZY_EAGER_QUEUE_MODE = 2   Standard Queue
-    if ((type == QT_LockFree) || (type == QT_Standard)) {
-      ltype = QT_LockFree;
-    } else if (type == QT_WithLock) {
-      ltype = QT_WithLock;
-    }
-  }
-  if (ltype == QT_LockFree) {
+  if (type == QT_LockFree) {
     return new ThreadQueueLockFree<T>{size};
-  } else if (ltype == QT_WithLock) {
+  } else if (type == QT_WithLock) {
     return new ThreadQueueWithLock<T>{size};
-  } else if (ltype == QT_Standard) {
+  } else if (type == QT_Standard) {
     return new StdQueue<T>;
   } else {
     return NULL;

@@ -18,27 +18,14 @@
 
 namespace habana_helpers {
 
-ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
+ThreadPool::ThreadPool(size_t threads, QueueType qType) : m_stop(false) {
   m_tasks = Queue<std::function<void()>>::Create(
-      QueueType(GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_QUEUE_MODE)),
-      GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY));
+      qType, GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY));
   for (size_t i = 0; i < threads; ++i)
     m_workers.emplace_back([this] {
       for (;;) {
         std::function<void()> task;
         {
-          if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-              (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-            while (!this->has_work.load()) {
-              if (this->m_stop && !this->has_work.load()) {
-                return;
-              }
-            }
-            if (this->m_stop && !this->has_work.load())
-              return;
-            task = std::move(this->m_tasks->front());
-            this->m_tasks->pop();
-          } else {
             std::unique_lock<std::mutex> lock(this->m_queueMutex);
             this->m_condition.wait(lock, [this] {
               return this->m_stop || !this->m_tasks->empty();
@@ -53,7 +40,6 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
             }
             task = std::move(this->m_tasks->front());
             this->m_tasks->pop();
-          }
         }
 
         // Run the task.
@@ -65,16 +51,11 @@ ThreadPool::ThreadPool(size_t threads) : m_stop(false) {
           PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
         }
 
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-          this->has_work.store(false);
-        } else {
           if (this->m_tasks->empty()) {
             this->has_queued_items.store(false);
           } else {
             this->has_queued_items.store(true);
           }
-        }
       }
     });
 }
@@ -97,8 +78,7 @@ bool ThreadPool::inThreadPool() const {
 
 std::string ThreadPool::ToString() {
   std::stringstream ss;
-  ss << "ThreadPool has_work:" << has_work;
-  ss << " has_queued_items:" << has_queued_items;
+  ss << "ThreadPool has_queued_items:" << has_queued_items;
   ss << " m_workers size:" << m_workers.size();
   ss << " m_tasks size:" << m_tasks->size();
   return ss.str();

@@ -180,7 +180,16 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_caching_ = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
 
-  enable_shape_agnostic_caching_ = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+  execution_mode_ = jit_graph_and_meta_data->GetFrontendType();
+
+  // To support old lazy eager mode
+  // This must be removed once lazy eager mode is deprecated
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    execution_mode_ = habana_helpers::HabanaFrontendTypes::EAGER;
+  }
+
+  enable_shape_agnostic_caching_ =
+      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
 
   HABANA_ASSERT(
@@ -2025,7 +2034,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     // Set kernel execution mode
-    HabanaKernel->SetExecutionMode(jit_graph_and_meta_data->GetFrontendType());
+    HabanaKernel->SetExecutionMode(execution_mode_);
 
     PT_BRIDGE_DEBUG("Going to add ", *node);
 
@@ -3113,7 +3122,8 @@ void HabanaLaunchOpPT::PrintRecipeInputs() {
 void RecipeValueSpec::create_outdup(
     size_t ti_idx,
     std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
-    std::string map_name) {
+    std::string map_name,
+    bool is_shape_agnostic_graph) {
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
@@ -3144,9 +3154,9 @@ void RecipeValueSpec::create_outdup(
 
   at::Tensor pt_outdup;
 
-  // To Do - to handle view along with new view implementation for eager mode
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+  // To Do - to handle view along with new view implementation
+  // for eager mode shape agnostic
+  if (is_shape_agnostic_graph) {
     pt_outdup = parent_tensor;
   } else {
     if ((parent_tensor.sizes() == pt_sizes) &&
@@ -3438,6 +3448,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
 
+  const auto eager_mode =
+      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
   PT_BRIDGE_DEBUG(
       "Lowering:\n",
       "JIT_IR_Graph_BEGIN\n",
@@ -3549,9 +3561,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     if (cur_rvalpsh == nullptr) {
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
-      auto syn_graph =
-          habana_helpers::create_graph(device.id(), GetSynapseGraphName());
-      syn_graph.set_shape_agnostic_graph(true);
+      HABANA_ASSERT(
+          eager_mode == true,
+          "eager_mode is expected true for supporting shape agnostic graph");
+      constexpr bool dry_run = false;
+      auto syn_graph = habana_helpers::create_graph(
+          device.id(), GetSynapseGraphName(), dry_run, eager_mode);
+      constexpr bool is_shape_agnostic_graph = true;
+      syn_graph.set_shape_agnostic_graph(is_shape_agnostic_graph);
       BuildSynapseGraph(syn_graph);
 
       if (syn_graph_ptr->is_empty()) {
@@ -3582,7 +3599,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             syn_graph_ptr->get_num_of_nodes());
       }
 
-      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      if (eager_mode &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
         PT_LAZY_EAGER_DEBUG(
@@ -3664,6 +3681,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
             {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
       }
 
+      constexpr bool is_shape_agnostic_graph = true;
       rv.update_patching_table(
           input_refs,
           intermediate_tensors_ptr,
@@ -3672,7 +3690,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
           std::nullopt,
           out_shapes,
           syn_graph_ptr,
-          synapse_orig_to_new_handle);
+          synapse_orig_to_new_handle,
+          is_shape_agnostic_graph);
 
       // To check if any other members just like ntensorbytes also need to be
       // updated
@@ -3685,7 +3704,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
 
       syn_graph_ptr->set_build_phase(true);
 
-      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      if (eager_mode &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
         PT_LAZY_EAGER_DEBUG(
@@ -3751,8 +3770,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     return;
   }
   // shape agnostic caching :: end
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      ref_input_shape_map.count(graph_key_with_perm) &&
+  if (!eager_mode && ref_input_shape_map.count(graph_key_with_perm) &&
       habana_helpers::GetRefineDynamicShapeStatus()) {
     PT_TEST_DEBUG(
         "JIT IR graph_hash_code : ",
@@ -3773,8 +3791,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
   // Note that this needs to be done before execution of graph, otherwise
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2 &&
-      habana_helpers::GetRefineDynamicShapeStatus() &&
+  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus() &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND) == 0) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);
@@ -3796,16 +3813,15 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& input_st) {
     }
   }
 
-  auto syn_graph =
-      habana_helpers::create_graph(device.id(), GetSynapseGraphName());
+  constexpr bool dry_run = false;
+  auto syn_graph = habana_helpers::create_graph(
+      device.id(), GetSynapseGraphName(), dry_run, eager_mode);
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph);
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+  if (enable_shape_agnostic_caching_) {
     syn_graph_ptr->copy_graph_handle_to_duplicate();
   }
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+  if (eager_mode && !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");

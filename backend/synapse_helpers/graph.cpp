@@ -44,10 +44,9 @@ namespace synapse_helpers {
 namespace {
 
 const std::string graph_prefix = ".graph_dumps/";
-std::string get_unique_recipe_name(const std::string& name) {
+std::string get_unique_recipe_name(const std::string& name, bool eager_mode) {
   static uint64_t suffix = -1;
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      !(IS_SYNHELPER_DEBUG_ENABLED)) {
+  if (eager_mode && !(IS_SYNHELPER_DEBUG_ENABLED)) {
     return std::to_string(++suffix);
   }
 
@@ -108,15 +107,17 @@ graph::graph(device& device, std::string name)
 synapse_error_v<graph> graph::create(
     device& device,
     std::string name,
-    bool dry_run) {
+    bool dry_run,
+    bool eager_mode) {
   PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
   PT_SYNHELPER_DEBUG("Graph Create.");
   syn_graph.dry_run_ = dry_run;
+  syn_graph.eager_mode_ = eager_mode;
   if (syn_graph.dry_run_ == false) {
     synStatus status = synSuccess;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
+    if (syn_graph.eager_mode_ &&
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
       status = synGraphCreateEager(
           &syn_graph.graph_handle_, syn_graph.device_.type());
@@ -164,7 +165,7 @@ synapse_error_o graph::duplicate(
 
   PT_SYNHELPER_DEBUG("Graph Duplicate.");
   synStatus status = synSuccess;
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+  if (eager_mode_) {
     status = synGraphDuplicate(
         graph_handle_,
         &duplicate_graph_handle_,
@@ -174,8 +175,7 @@ synapse_error_o graph::duplicate(
         &numNodes);
   } else {
     HABANA_ASSERT(
-        "Graph Duplicate API is not supposed to be used in lazy mode : ",
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE));
+        0 && "Graph Duplicate API is not supposed to be used in lazy mode");
   }
   SYNAPSE_SUCCESS_CHECK("Graph duplication failed.", status)
   graph_is_empty_ = false;
@@ -226,7 +226,9 @@ graph::graph(graph&& other) noexcept
       in_build_phase_(other.in_build_phase_),
       in_execution_phase_(other.in_execution_phase_),
       graph_handle_(other.graph_handle_),
-      dry_run_(other.dry_run_) {
+      dry_run_(other.dry_run_),
+      is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
+      eager_mode_(other.eager_mode_) {
   other.is_valid_ = false;
   other.graph_handle_ = {};
 }
@@ -387,10 +389,9 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   START_TIME_MEASURE;
   auto recipe_handle{absl::make_unique<graph::recipe_handle>()};
 
-  auto name = get_unique_recipe_name(name_);
+  auto name = get_unique_recipe_name(name_, eager_mode_);
 
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+  if (eager_mode_ && GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
     status = synGraphCompile(
         &recipe_handle->syn_recipe_handle_,
         duplicate_graph_handle_,

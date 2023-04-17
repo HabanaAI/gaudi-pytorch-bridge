@@ -72,9 +72,7 @@ class memory_section {
     if (memory_section_) {
       // To Do - make a provision to destroy at the end of use case for shape
       // agnostic as sections would not be destoryed by graph destroy
-      if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
-            is_sa_on_)) {
+      if (!is_sa_on_) {
         synSectionDestroy(memory_section_);
       }
     }

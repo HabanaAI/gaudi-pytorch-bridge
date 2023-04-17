@@ -193,7 +193,8 @@ tensor::tensor(tensor&& other) noexcept
       tensor_type_{other.tensor_type_},
       pt_shape_{other.pt_shape_},
       permutation_(other.permutation_),
-      dont_allow_permute_(other.dont_allow_permute_) {
+      dont_allow_permute_(other.dont_allow_permute_),
+      is_shape_agnostic_(other.is_shape_agnostic_) {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -225,6 +226,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   pt_shape_ = other.pt_shape_;
   permutation_ = other.permutation_;
   dont_allow_permute_ = other.dont_allow_permute_;
+  is_shape_agnostic_ = other.is_shape_agnostic_;
 
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
@@ -527,8 +529,7 @@ void tensor::cleanup() {
     memory_section_ = nullptr;
     // No need to destroy tensors explicitly as those would be destroyed
     // once the graph is destroyed.
-    if (!((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH))) {
+    if (!is_shape_agnostic_) {
       synTensorDestroy(tensor_);
     }
     tensor_ = nullptr;

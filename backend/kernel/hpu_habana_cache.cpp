@@ -843,7 +843,8 @@ void RecipeValueSpec::update_patching_table(
         tidx_to_tensor_map_opt,
     std::vector<std::vector<int64_t>> output_shapes,
     synapse_helpers::graph* synapse_graph_ptr,
-    std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle) {
+    std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
+    bool is_shape_agnostic_graph) {
   PT_BRIDGE_BEGIN;
   PT_LAZY_EAGER_DEBUG(
       "[LAZY EAGER SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos->size());
@@ -917,10 +918,7 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  bool enable_shape_agnostic_graph =
-      ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH));
-  // shape agnostic: ount to keep track of number of dtinfos patched for shape
+  // shape agnostic: count to keep track of number of dtinfos patched for shape
   size_t dtinfos_patched_count = 0;
 
   // Patch the input buffers
@@ -943,7 +941,7 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
-        if (enable_shape_agnostic_graph) {
+        if (is_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
@@ -964,7 +962,7 @@ void RecipeValueSpec::update_patching_table(
         auto tmeta{habana::get_tensor_extra_meta(t)};
         std::vector<uint8_t> permutation{tmeta->get_memory_permutation()};
         bool dont_allow_permutation{tmeta->get_dont_allow_permutation()};
-        if (enable_shape_agnostic_graph) {
+        if (is_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
@@ -1130,7 +1128,7 @@ void RecipeValueSpec::update_patching_table(
       std::vector<IValPtrShared>(aten_output_num));
 
   // Patch outputs
-  if (enable_shape_agnostic_graph) {
+  if (is_shape_agnostic_graph) {
     output_tensor_ids = std::vector<uint64_t>(aten_output_num);
     output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
     TORCH_CHECK(
@@ -1155,7 +1153,7 @@ void RecipeValueSpec::update_patching_table(
         output_idx,
         " is greater than #outputs ",
         aten_output_num);
-    if (enable_shape_agnostic_graph) {
+    if (is_shape_agnostic_graph) {
       update_new_tensor(
           synapse_graph_ptr,
           ridx,
@@ -1166,7 +1164,7 @@ void RecipeValueSpec::update_patching_table(
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto tshape{ti.get_shape()};
     auto pt_output = habana_helpers::create_empty_tensor(ti);
-    if (enable_shape_agnostic_graph) {
+    if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,
           "output HbInternal address: %s"
@@ -1228,7 +1226,7 @@ void RecipeValueSpec::update_patching_table(
       outduplicates_end + num_input_to_outduplicates;
   if (num_input_to_outduplicates) {
     for (; ridx < input_to_outduplicates_end; ridx++) {
-      if (enable_shape_agnostic_graph) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1243,7 +1241,8 @@ void RecipeValueSpec::update_patching_table(
             output_shapes.at(output_idx));
         dtinfos_patched_count++;
       }
-      create_outdup(ridx, inputIVpshMap, "inputIVpshMap");
+      create_outdup(
+          ridx, inputIVpshMap, "inputIVpshMap", is_shape_agnostic_graph);
     }
   }
 
@@ -1264,12 +1263,14 @@ void RecipeValueSpec::update_patching_table(
   size_t interim_to_outduplicates_end =
       input_to_outduplicates_end + num_intermediate_to_outduplicates;
   if (num_intermediate_to_outduplicates) {
+    constexpr bool shape_agnostic = false;
     for (; ridx < interim_to_outduplicates_end; ridx++) {
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
           ridx,
           " shape patching not done!");
-      create_outdup(ridx, intermediateIVpshMap, "intermediateIVpshMap");
+      create_outdup(
+          ridx, intermediateIVpshMap, "intermediateIVpshMap", shape_agnostic);
     }
   }
 
@@ -1290,7 +1291,7 @@ void RecipeValueSpec::update_patching_table(
       interim_to_outduplicates_end + num_output_to_outduplicates;
   if (num_output_to_outduplicates) {
     for (; ridx < output_to_outduplicates_end; ridx++) {
-      if (enable_shape_agnostic_graph) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1305,7 +1306,8 @@ void RecipeValueSpec::update_patching_table(
             output_shapes.at(output_idx));
         dtinfos_patched_count++;
       }
-      create_outdup(ridx, outputIVpshMap, "outputIVpshMap");
+      create_outdup(
+          ridx, outputIVpshMap, "outputIVpshMap", is_shape_agnostic_graph);
     }
   }
 
@@ -1323,7 +1325,7 @@ void RecipeValueSpec::update_patching_table(
       ", mismatch with num_tinfos",
       num_tinfos);
 
-  if (enable_shape_agnostic_graph) {
+  if (is_shape_agnostic_graph) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER SHAPE AGNOSTIC] number of dtinfos patched count : ",
         dtinfos_patched_count);

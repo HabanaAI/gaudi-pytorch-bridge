@@ -53,15 +53,6 @@ class SingleTonExecThreadPool {
     return thread_pool_obj;
   }
 
-  static void work() {
-    while (getInstance().has_work.load()) {
-      if (getInstance().m_stop || !getInstance().has_work.load()) {
-        break;
-      }
-    }
-    return;
-  }
-
   static void queueStatus() {
     while (getInstance().has_queued_items.load()) {
       if (getInstance().m_stop || !getInstance().has_queued_items.load()) {

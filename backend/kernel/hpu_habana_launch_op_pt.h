@@ -343,6 +343,10 @@ class HabanaLaunchOpPT {
       dfs_time_in_out_map;
   size_t dfs_cnt = 0;
 
+  // Execution mode based on frontend type
+  habana_helpers::HabanaFrontendTypes execution_mode_{
+      habana_helpers::HabanaFrontendTypes::INVALID};
+
   void ProcessNodesForConstantTensors();
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
@@ -648,17 +652,9 @@ class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
  public:
   static std::future<void> m_compile_thread_handle;
   static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(1);
+    static habana_helpers::ThreadPool thread_pool_obj(
+        num_threads, habana_helpers::QT_LockFree);
     return thread_pool_obj;
-  }
-
-  static void work() {
-    while (getInstance().has_work.load()) {
-      if (getInstance().m_stop || !getInstance().has_work.load()) {
-        break;
-      }
-    }
-    return;
   }
 
   static void queueStatus() {
@@ -677,19 +673,15 @@ class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
       // create an exception. Ignore the exception as the wait is already
       // over.
       try {
-        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
           queueStatus();
           m_compile_thread_handle.get();
-        } else {
-          m_compile_thread_handle.get();
-        }
       } catch (std::exception& e) {
       }
     }
   }
 
  private:
+  static constexpr size_t num_threads = 1;
   Singleton_CompileThreadPool() = default;
   Singleton_CompileThreadPool(const Singleton_CompileThreadPool&) = delete;
   Singleton_CompileThreadPool& operator=(const Singleton_CompileThreadPool&) =
@@ -700,17 +692,9 @@ class Singleton_ExecThreadPool : public HabanaLaunchOpPT {
  public:
   static std::future<void> m_exec_thread_handle;
   static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(1);
+    static habana_helpers::ThreadPool thread_pool_obj(
+        num_threads, habana_helpers::QT_LockFree);
     return thread_pool_obj;
-  }
-
-  static void work() {
-    while (getInstance().has_work.load()) {
-      if (getInstance().m_stop || !getInstance().has_work.load()) {
-        break;
-      }
-    }
-    return;
   }
 
   static void queueStatus() {
@@ -729,19 +713,15 @@ class Singleton_ExecThreadPool : public HabanaLaunchOpPT {
       // create an exception. Ignore the exception as the wait is already
       // over.
       try {
-        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
-            (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-          queueStatus();
-          m_exec_thread_handle.get();
-        } else {
-          m_exec_thread_handle.get();
-        }
+        queueStatus();
+        m_exec_thread_handle.get();
       } catch (std::exception& e) {
       }
     }
   }
 
  private:
+  static constexpr size_t num_threads = 1;
   Singleton_ExecThreadPool() = default;
   Singleton_ExecThreadPool(const Singleton_ExecThreadPool&) = delete;
   Singleton_ExecThreadPool& operator=(const Singleton_ExecThreadPool&) = delete;
