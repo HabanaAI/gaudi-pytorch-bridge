@@ -116,3 +116,24 @@ def test_hpu_multilevel_noncontiguous_views2():
         assert torch.allclose(result1, hresult1_cpu, atol = 0.001, rtol = 0.001)
         assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
 
+def test_hpu_multilevel_views_inplace():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True"}):
+        import habana_frameworks.torch.core as htcore
+        def fn(a):
+            b = a[::2]
+            b.mul_(2.0)
+            d = b.view(-1)
+            d.add_(2.0)
+            return d[:]
+
+        # CPU
+        x = torch.randn([10])
+        hx = x.to('hpu')
+
+        res = fn(x)
+
+        # HPU
+        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+        hres = compiled_fn(hx)
+        assert torch.allclose(res, hres.cpu(), atol = 0.001, rtol = 0.001)
