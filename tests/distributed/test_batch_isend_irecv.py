@@ -23,7 +23,7 @@ else:
 os.environ['ID'] = str(rank)
 
 try:
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.core.hccl
     global_comm = dist.init_process_group("hccl")
     a = torch.tensor([2.0], dtype=torch.float).to('hpu')
     torch.distributed.all_reduce(a)

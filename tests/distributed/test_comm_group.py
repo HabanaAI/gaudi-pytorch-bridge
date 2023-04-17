@@ -22,7 +22,7 @@ else:
 os.environ['ID'] = str(rank)
 
 try:
-    import habana_frameworks.torch.distributed.hccl
+    import habana_frameworks.torch.core.hccl
     global_comm = dist.init_process_group("hccl")
 except:
     print("Exception")

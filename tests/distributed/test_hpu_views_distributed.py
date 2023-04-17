@@ -16,7 +16,7 @@ class DistSetup:
         self.world_size = world_size
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12340'
-        import habana_frameworks.torch.distributed.hccl
+        import habana_frameworks.torch.core.hccl
         dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
         # Following Code is to ensure that HCL_Init is done
         _tensor = torch.ones(1).to(device)
