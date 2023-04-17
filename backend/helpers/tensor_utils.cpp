@@ -14,6 +14,7 @@
 #include <perf_lib_layer_params.h>
 #include <algorithm>
 #include <mutex>
+#include "backend/backend_meta.h"
 #include "backend/synapse_helpers/graph.h"
 
 #include "habana_device/HPUCheck.h"
