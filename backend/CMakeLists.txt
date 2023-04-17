@@ -37,6 +37,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   helpers/collective_kernel_info.cpp
   helpers/dynamic_bucket_info.cpp
   helpers/dynamic_bucket_info_utils.cpp
+  helpers/dynamic_shape_info.cpp
   helpers/compilation_statistics.cpp
   helpers/lowering_util.cpp
   helpers/tensor_shape.cpp

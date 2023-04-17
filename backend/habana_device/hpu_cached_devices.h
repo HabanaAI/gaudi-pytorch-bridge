@@ -14,8 +14,6 @@
 
 #include <c10/util/Exception.h>
 #include <synapse_api_types.h>
-#include "backend/synapse_helpers/device.h"
-#include "habana_helpers/dynamic_shape_info.h"
 
 #include <array>
 #include <memory>
@@ -23,6 +21,7 @@
 
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
+#include "backend/helpers/dynamic_shape_info.h"
 #include "backend/synapse_helpers/device.h"
 
 namespace synapse_helpers {

@@ -100,7 +100,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
-  pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
   pytorch_helpers/serialize/export.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
@@ -205,7 +204,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   add_library(habana_pytorch2_plugin SHARED
     pytorch_helpers/lazy_to_backend.cpp
     pytorch_helpers/habana_helpers/dtype_helpers.cpp
-    pytorch_helpers/habana_helpers/dynamic_shape_info.cpp
     pytorch_helpers/habana_helpers/frontend_utils.cpp
     pytorch_helpers/habana_helpers/kernels_accumulation.cpp
     pytorch_helpers/habana_helpers/logging.cpp

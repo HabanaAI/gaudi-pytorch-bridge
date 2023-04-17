@@ -27,11 +27,11 @@
 
 #include <synapse_api.h>
 
+#include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/kernel/refinement_engine.h"
 
 #include "habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/dynamic_shape_info.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
