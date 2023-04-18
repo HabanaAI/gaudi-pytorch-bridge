@@ -1246,6 +1246,46 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   if (inputs.size() == 4)
     skip_other_transpose = inputs[3].toBool();
 
+  if ((self.dim() == other.dim()) && self.dim() > 1) {
+    bool valid = true;
+
+    auto is_valid_case = [&]() {
+      for (int i = 0; i < self.dim() - 2; i++)
+        valid &= (self.sizes().vec()[i] == other.sizes().vec()[i]);
+      if (synapse_helpers::HPURegistrar::get_device().type() !=
+          synDeviceType::synDeviceGaudi) {
+        valid &=
+            ((self.scalar_type() == c10::ScalarType::BFloat16) ||
+             (self.scalar_type() == c10::ScalarType::Float) ||
+             (self.scalar_type() == c10::ScalarType::Half));
+      } else {
+        valid &=
+            ((self.scalar_type() == c10::ScalarType::BFloat16) ||
+             (self.scalar_type() == c10::ScalarType::Float));
+      }
+    };
+    is_valid_case();
+    if (valid) {
+      auto matmul_bwd_op = make_operator<habana::MatMulBwdOperator>(
+          self.device().index(), self.scalar_type());
+      matmul_bwd_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+      matmul_bwd_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+      matmul_bwd_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+      torch::jit::Stack stack = {
+          c10::IValue(grad_out), c10::IValue(self), c10::IValue(other)};
+      matmul_bwd_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(matmul_bwd_op->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(matmul_bwd_op->GetOutputs()[0]));
+      p_context_->syn_outputs_.emplace_back(
+          std::move(matmul_bwd_op->GetSynOutputs()[1]));
+      p_context_->pt_outputs_.emplace_back(
+          std::move(matmul_bwd_op->GetOutputs()[1]));
+      return;
+    }
+  }
+
   // grad_self = AD_matmul_bw_size(grad_output, AD_mat_transpose(other),
   // self_size)._grad_sum_to_size(self_size)
   auto transpose = make_operator<TransposeOperator>(
@@ -1631,6 +1671,47 @@ void habana::LinearBackwardOperator::AllocateAndAddSynapseNode(
         output_metadata.at(2).persistent);
     AllocateSynapseOutput(graph, {bias_output}, output_metadata.at(2));
   }
+}
+
+void habana::MatMulBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const habana::OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      ((inputs.size() == 3)),
+      "Incorrect size of inputs expected for linear backward operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input2 type expected to be tensor");
+
+  auto grad_out = inputs[0].toTensor();
+  auto input_a = inputs[1].toTensor();
+  auto input_b = inputs[2].toTensor();
+
+  std::vector<int64_t> shape_out = input_a.sizes().vec();
+  // output1
+  auto grad_a = habana::createPTTensor(
+      input_a,
+      shape_out,
+      input_a.options(),
+      input_a.suggest_memory_format(),
+      output_metadata.at(0).dtype,
+      output_metadata.at(0).persistent);
+  // output 2
+  std::vector<int64_t> shape_out2 = input_b.sizes().vec();
+  auto grad_b = habana::createPTTensor(
+      input_b,
+      shape_out2,
+      input_b.options(),
+      input_b.suggest_memory_format(),
+      output_metadata.at(1).dtype,
+      output_metadata.at(1).persistent);
+
+  AllocateSynapseOutput(graph, grad_a, output_metadata.at(0));
+  AllocateSynapseOutput(graph, grad_b, output_metadata.at(1));
+
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 static auto& LinearKernelsKernelRegistry =

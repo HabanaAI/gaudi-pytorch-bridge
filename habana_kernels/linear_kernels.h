@@ -227,4 +227,22 @@ class LinearBackwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+class MatMulBwdOperator : public HabanaOperator {
+ public:
+  MatMulBwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "matmul_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 } // namespace habana
