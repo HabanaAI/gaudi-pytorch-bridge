@@ -7,6 +7,9 @@
  *
  ******************************************************************************
  */
+#include <pytorch_helpers/habana_helpers/pt_version_check.h>
+
+#if IS_PYTORCH_OLDER_THAN(2, 0)
 #include "generated/backend/prelu.h"
 
 namespace habana {
@@ -31,3 +34,4 @@ void Prelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(prelu[0]);
 }
 } // namespace habana
+#endif

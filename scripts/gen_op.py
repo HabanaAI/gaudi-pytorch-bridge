@@ -522,6 +522,9 @@ class Op(object):
     def get_out_dtypes(self):
         return self.op.get("out_dtypes", None)
 
+    def get_pytorch2_disable(self):
+        return self.op.get("pytorch2_disable", False)
+
     def get_op_validator_generator(self) -> OpValidatorGenerator:
         op_validator = self.op.get("op_validator")
         if op_validator is None:
@@ -2067,13 +2070,14 @@ def generate(args):
     fgen_files = defaultdict(list)
     ctx = Context(args.functions, args.yaml)
     ctx_eager = Context(args.functions, args.yaml)
+    is_pytorch2 = Version(torch.__version__) >= Version("2.0a0")
 
     for ts in fndefs:
         try:
             # print("generating ", ts)
             fgen = get_hpu_wrapper(ts, ctx)
             # print("generated ", ts)
-            if fgen.ctxop:
+            if fgen.ctxop and not (fgen.ctxop.get_pytorch2_disable() and is_pytorch2):
                 fgens.append(fgen)
                 if fgen.dispatch and not fgen.default:
                     # print("generating eager ", ts)

@@ -182,6 +182,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/topk_util.cpp
           backend/trace_gen.cpp
           backend/triangular_gen.cpp
+          backend/upsample_ops.cpp
           backend/upsample_gen.cpp
           backend/vdot_gen.cpp
           backend/where_gen.cpp
