@@ -5,7 +5,6 @@ from habana_frameworks.torch import _hpex_C
 class ScaledMaskedSoftmax(torch.autograd.Function):
     @staticmethod
     def forward(ctx, inp, mask, scale):
-        mask = torch.broadcast_to(mask, inp.shape)
         softmax_result = torch.ops.hpu.scaled_masked_softmax(inp, mask, scale)
         ctx.save_for_backward(softmax_result)
         ctx.scale = scale
