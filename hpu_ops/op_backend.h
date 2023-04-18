@@ -147,8 +147,13 @@ class OpBackend : public HabanaOperator {
     m_compute_output_shapes = std::move(fn);
   }
 
-  void SetOutputMeta(std::function<OutputMetaDataVector(const at::Stack&)> fn) {
-    m_output_meta = std::move(fn);
+  void SetOutputMetaFn(
+      std::function<OutputMetaDataVector(const at::Stack&)> fn) {
+    m_output_meta_fn = std::move(fn);
+  }
+
+  void SetOutputMetadata(OutputMetaDataVector meta_vec) {
+    m_output_metadata = std::move(meta_vec);
   }
 
   const OutputMetaData& GetOutputMetaData(int i) const {
@@ -160,7 +165,7 @@ class OpBackend : public HabanaOperator {
   }
 
   bool UsesOutputMeta() const {
-    return m_output_meta != nullptr;
+    return m_output_meta_fn != nullptr;
   }
 
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
@@ -464,7 +469,7 @@ class OpBackend : public HabanaOperator {
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
-  std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta;
+  std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
   std::vector<synapse_helpers::tensor> m_shape_tensors;
 
   std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_cast_;

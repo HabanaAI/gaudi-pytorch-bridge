@@ -106,8 +106,8 @@ sh::tensor_or_ref& OpBackend::SynInput(int index) {
 }
 
 OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
-  if (m_output_meta) {
-    return m_output_meta(stack);
+  if (m_output_meta_fn) {
+    return m_output_meta_fn(stack);
   }
   return {};
 }

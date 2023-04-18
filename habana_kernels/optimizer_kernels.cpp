@@ -804,7 +804,7 @@ class OptimizerFusedLarsOperator : public OpBackend {
             {},
             false) {
     this->CreateSynContext(device_id);
-    SetOutputMeta(OptimizerFusedLarsMeta);
+    SetOutputMetaFn(OptimizerFusedLarsMeta);
   }
   static OutputMetaDataVector OptimizerFusedLarsMeta(const at::Stack&);
 
