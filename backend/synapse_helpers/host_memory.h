@@ -39,7 +39,7 @@ class host_memory {
   synStatus malloc(void** ptr, size_t size);
   synStatus free(void* ptr);
   void dropCache();
-  bool is_host_memory(const void* ptr);
+  bool is_host_memory(void* ptr);
 
  private:
   struct BlockSize {

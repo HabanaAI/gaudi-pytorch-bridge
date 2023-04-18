@@ -591,7 +591,7 @@ static inline Device ensure_has_index(c10::optional<at::Device> device) {
 
 bool is_pinned_hpu(const Tensor& self, c10::optional<at::Device> device) {
   ensure_has_index(device);
-  return habana::PinnedMemoryAllocator_is_pinned(self.storage().data());
+  return habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
 }
 
 Tensor pin_memory_hpu(

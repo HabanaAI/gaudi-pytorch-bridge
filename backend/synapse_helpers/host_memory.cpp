@@ -109,17 +109,17 @@ void host_memory::dropCache() {
     }
   }
 }
-bool host_memory::is_host_memory(const void* ptr) {
+bool host_memory::is_host_memory(void* ptr) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!ptr) {
     return false;
   }
 
-  const auto it = blocks.find(&ptr);
+  auto it = blocks.find(ptr);
   if (it == blocks.end()) {
     return false;
   } else {
-    const Block& block = it->second;
+    Block& block = it->second;
     if (block.allocated)
       return true;
     else

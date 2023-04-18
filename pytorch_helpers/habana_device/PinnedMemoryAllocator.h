@@ -19,7 +19,7 @@
 namespace habana {
 
 at::Allocator* getPinnedMemoryAllocator();
-bool PinnedMemoryAllocator_is_pinned(const void* ptr);
+bool PinnedMemoryAllocator_is_pinned(void* ptr);
 
 class PinnedMemoryAllocator final : public at::Allocator {
  public:
