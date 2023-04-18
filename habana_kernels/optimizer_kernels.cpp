@@ -804,7 +804,9 @@ class OptimizerFusedLarsOperator : public OpBackend {
             {},
             false) {
     this->CreateSynContext(device_id);
+    SetOutputMeta(OptimizerFusedLarsMeta);
   }
+  static OutputMetaDataVector OptimizerFusedLarsMeta(const at::Stack&);
 
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
 };
@@ -828,6 +830,23 @@ class OptimizerFusedResourceApplyMomentumOperator : public OpBackend {
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
 };
 
+OutputMetaDataVector OptimizerFusedLarsOperator::OptimizerFusedLarsMeta(
+    const at::Stack& stack) {
+  auto grads = stack.at(0).toTensorList();
+  auto tlSize = grads.size();
+
+  OutputMetaDataVector meta_vec;
+  meta_vec.reserve(tlSize);
+
+  for (const at::Tensor& grad : grads) {
+    OutputMetaData meta;
+    meta.shape = grad.sizes().vec();
+    meta.dtype = grad.scalar_type();
+    meta_vec.emplace_back(meta);
+  }
+  return meta_vec;
+}
+
 void OptimizerFusedLarsOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -848,7 +867,7 @@ void OptimizerFusedLarsOperator::AddNode(
   for (size_t i = 0; i < tlSize; ++i) {
     auto grad = grads.get(i);
     auto param = params.get(i);
-    auto outshape = grads.get(i).sizes();
+    auto outshape = grad.sizes();
     auto zero_constant = ConstantHelper(graph, 0.0f, dtype, outshape);
     auto one_constant = ConstantHelper(graph, 1.0f, dtype, outshape);
     auto eetaTensor = ConstantHelper(graph, eeta, dtype, outshape);
@@ -868,7 +887,7 @@ void OptimizerFusedLarsOperator::AddNode(
       continue;
     }
     auto syn_param = syn_in(i + tlSize);
-    auto n_dims = grads.get(i).dim();
+    auto n_dims = grad.dim();
 
     auto mul1 = BuildOp(
         graph,
