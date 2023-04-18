@@ -1370,128 +1370,75 @@ void habana::LinearForwardOperator::AllocateAndAddSynapseNode(
   auto weight = inputs[1].toTensor();
   auto bias = inputs[2].toOptional<Tensor>().value_or(Tensor());
   auto device_id = p_context_->device_id_;
-  // check for special case input shape that can use the full capability of
-  // batch_gemm
-  if (GET_ENV_FLAG_NEW(PT_DO_NOT_LOWER_LINEAR_OP)) {
-    bool bias_in_batch_gemm = (bias.defined() && (bias.dim() == 1));
-    auto matmul_op = make_operator<habana::MMOperator>(device_id);
-    matmul_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    matmul_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    torch::jit::Stack stack = {c10::IValue(input), c10::IValue(weight)};
+  HabanaOperatorPtr linear_op;
+  torch::jit::Stack stack = {c10::IValue(input), c10::IValue(weight)};
+
+  if (input.dim() == 1) {
+    linear_op = make_operator<habana::LinearForwardHelperOperator>(
+        device_id, input.scalar_type());
     stack.emplace_back(IValue(false)); // input need not be transposed
-    stack.emplace_back(IValue(true)); // transpose weight in bgemm
-    if (bias_in_batch_gemm) { // only 1-d bias taken as input for batch_gemm
-                              // guid
-      matmul_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+    stack.emplace_back(IValue(true)); // transpose weight
+    if (inputs[2].toOptional<Tensor>().has_value()) {
       stack.emplace_back(bias);
     }
-    OutputMetaDataVector mm_output_metadata(1);
-    mm_output_metadata.at(0).dtype = output_metadata.at(0).dtype;
-    matmul_op->AllocateAndAddSynapseNode(
-        graph,
-        stack,
-        ((bias.defined() && !bias_in_batch_gemm) ? mm_output_metadata
-                                                 : output_metadata));
-    if (bias.defined() &&
-        !bias_in_batch_gemm) { // bias tensor not handled by batch_gemm
-      auto add_op =
-          make_operator<habana::AddOperator>(device_id, bias.scalar_type());
-      add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-      add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
-      torch::jit::Stack stack = {
-          c10::IValue(bias),
-          c10::IValue(matmul_op->GetOutputs()[0]),
-          c10::IValue(c10::Scalar(1.0))};
-      add_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-      p_context_->syn_outputs_.emplace_back(
-          std::move(add_op->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
-    } else {
-      p_context_->syn_outputs_.emplace_back(
-          std::move(matmul_op->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(
-          std::move(matmul_op->GetOutputs()[0]));
-    }
-    return;
-  }
-  if (MatMulOperator::is_gmemm_with_transpose_possible(input, weight)) {
-    bool bias_in_batch_gemm = (bias.defined() && (bias.dim() == 1));
-    auto matmul_op = make_operator<habana::MatMulOperator>(device_id);
-    matmul_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    matmul_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-    torch::jit::Stack stack = {c10::IValue(input), c10::IValue(weight)};
-    if (bias_in_batch_gemm) { // only 1-d bias taken as input for batch_gemm
-                              // guid
-      matmul_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+  } else if (input.dim() == 2) {
+    linear_op = make_operator<habana::MMOperator>(device_id);
+    stack.emplace_back(IValue(false)); // input need not be transposed
+    stack.emplace_back(IValue(true)); // transpose weight
+    if (inputs[2].toOptional<Tensor>().has_value()) {
       stack.emplace_back(bias);
     }
-    stack.emplace_back(IValue(false)); // input need not be transposed
-    stack.emplace_back(IValue(true)); // transpose weight in bgemm
-    OutputMetaDataVector mm_output_metadata(1);
-    mm_output_metadata.at(0).dtype = output_metadata.at(0).dtype;
-    matmul_op->AllocateAndAddSynapseNode(
-        graph,
-        stack,
-        ((bias.defined() && !bias_in_batch_gemm) ? mm_output_metadata
-                                                 : output_metadata));
-    if (bias.defined() &&
-        !bias_in_batch_gemm) { // bias tensor not handled by batch_gemm
-      auto add_op =
-          make_operator<habana::AddOperator>(device_id, bias.scalar_type());
-      add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-      add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
-      torch::jit::Stack stack = {
-          c10::IValue(bias),
-          c10::IValue(matmul_op->GetOutputs()[0]),
-          c10::IValue(c10::Scalar(1.0))};
-      add_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-      p_context_->syn_outputs_.emplace_back(
-          std::move(add_op->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
-    } else {
-      p_context_->syn_outputs_.emplace_back(
-          std::move(matmul_op->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(
-          std::move(matmul_op->GetOutputs()[0]));
-    }
-    return;
-  }
-  auto t_op = make_operator<TransposeOperator>(
-      weight.device().index(), weight.scalar_type());
-  torch::jit::Stack stack = {IValue(weight), IValue(-1), IValue(-2)};
-  t_op->SetSynapseInput(p_context_->syn_inputs_[1]);
-  t_op->AllocateAndAddSynapseNode(
-      graph, stack, habana::OutputMetaDataVector(1));
-  stack.clear();
-  auto matmul_op = make_operator<habana::MatMulOperator>(device_id);
-  {
-    matmul_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    matmul_op->SetSynapseInput(t_op->GetSynOutputs()[0]);
-    torch::jit::Stack stack = {
-        c10::IValue(input), c10::IValue(t_op->GetOutputs()[0])};
-    OutputMetaDataVector mm_output_metadata(1);
-    mm_output_metadata.at(0).dtype = output_metadata.at(0).dtype;
-    matmul_op->AllocateAndAddSynapseNode(
-        graph, stack, (bias.defined() ? mm_output_metadata : output_metadata));
-  }
-  if (bias.defined()) { // bias tensor available
-    auto add_op =
-        make_operator<habana::AddOperator>(device_id, bias.scalar_type());
-    add_op->SetSynapseInput(p_context_->syn_inputs_[2]);
-    add_op->SetSynapseInput(matmul_op->GetSynOutputs()[0]);
-    torch::jit::Stack stack = {
-        c10::IValue(bias),
-        c10::IValue(matmul_op->GetOutputs()[0]),
-        c10::IValue(c10::Scalar(1.0))};
-    add_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    p_context_->syn_outputs_.emplace_back(
-        std::move(add_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(add_op->GetOutputs()[0]));
   } else {
-    p_context_->syn_outputs_.emplace_back(
-        std::move(matmul_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(matmul_op->GetOutputs()[0]));
+    linear_op = make_operator<BmmOperator>(device_id, input.scalar_type());
+    if (inputs[2].toOptional<Tensor>().has_value()) {
+      stack.emplace_back(bias);
+    }
+    stack.emplace_back(IValue(false)); // input need not be transposed
+    stack.emplace_back(IValue(true)); // transpose weight
   }
+
+  linear_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  linear_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+
+  if (inputs[2].toOptional<Tensor>().has_value()) {
+    linear_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+  }
+  linear_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(linear_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(linear_op->GetOutputs()[0]));
+}
+
+void habana::LinearForwardHelperOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const habana::OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      ((inputs.size() == 2) || (inputs.size() == 4) || (inputs.size() == 5)),
+      "Incorrect size of inputs expected for linear forward helper operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
+
+  auto input = inputs[0].toTensor();
+  auto weight = inputs[1].toTensor();
+  if (inputs.size() > 4)
+    auto bias = inputs[4].toOptional<Tensor>().value_or(Tensor());
+
+  std::vector<int64_t> shape_out = input.sizes().vec();
+  shape_out[shape_out.size() - 1] = weight.sizes().vec()[0];
+  // output1
+  auto output = habana::createPTTensor(
+      input,
+      shape_out,
+      input.options(),
+      input.suggest_memory_format(),
+      output_metadata.at(0).dtype,
+      output_metadata.at(0).persistent);
+
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 void habana::Linear2DBackwardOperator::AllocateAndAddSynapseNode(
