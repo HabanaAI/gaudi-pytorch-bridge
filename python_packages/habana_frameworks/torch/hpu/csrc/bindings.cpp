@@ -21,11 +21,11 @@
 #endif
 //clang-format on
 #include <tuple>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUEvent.h"
+#include "backend/habana_device/HPUGraph.h"
+#include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/synapse_helpers/stream.h"
-#include "pytorch_helpers/habana_device/HPUAllocator.h"
-#include "pytorch_helpers/habana_device/HPUEvent.h"
-#include "pytorch_helpers/habana_device/HPUGraph.h"
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 void hpu_init() {

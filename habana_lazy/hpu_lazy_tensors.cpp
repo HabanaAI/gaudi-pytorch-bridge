@@ -32,10 +32,10 @@
 #include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
+#include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 
 using namespace habana_lazy;
 

@@ -13,9 +13,9 @@
 #pragma once
 
 #include <memory>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 #include "program.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 
 namespace habana {
 namespace program {

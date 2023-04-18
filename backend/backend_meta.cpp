@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "backend/backend_meta.h"
-#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
 // c10::BackendMeta in the TensorImpl and we don't have to rely on

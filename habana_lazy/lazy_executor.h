@@ -13,6 +13,7 @@
 #pragma once
 #include <thread>
 
+#include "backend/habana_device/HPUGraph.h"
 #include "backend/synapse_helpers/util.h"
 #include "habana_helpers/dynamic_shape_info.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
@@ -20,7 +21,6 @@
 #include "habana_lazy/ir.h"
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
-#include "pytorch_helpers/habana_device/HPUGraph.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 enum LazyExecutionMode { kLAZY, kLOWERING };

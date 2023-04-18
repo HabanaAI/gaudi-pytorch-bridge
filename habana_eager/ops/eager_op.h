@@ -18,6 +18,7 @@
 #include <tuple>
 #include <utility>
 
+#include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/eager_tensor.h"
@@ -25,7 +26,6 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/template_helpers.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {

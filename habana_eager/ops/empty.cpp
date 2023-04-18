@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "habana_eager/ops/empty.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_device/HPUAllocator.h"
 
 namespace habana {
 namespace eager {

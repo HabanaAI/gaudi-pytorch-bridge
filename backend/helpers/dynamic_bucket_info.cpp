@@ -24,9 +24,9 @@
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_cache.h"
 
+#include "backend/habana_device/HPUCheck.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "pytorch_helpers/habana_device/HPUCheck.h"
 
 using namespace synapse_helpers;
 namespace habana_helpers {

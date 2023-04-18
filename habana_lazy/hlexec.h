@@ -15,11 +15,11 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
 #include "lazy_executor.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy {

@@ -13,10 +13,10 @@
 #include <ATen/CPUFunctions.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/util/Optional.h>
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "hpu_ops/op_logger.h"
-#include "pytorch_helpers/habana_device/PinnedMemoryAllocator.h"
 
 namespace habana {
 namespace eager {

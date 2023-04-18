@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <c10/util/Exception.h>
 #include <c10/util/irange.h>
@@ -16,10 +19,10 @@
 #include <vector>
 
 #include <iostream>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/HPUStream.h"
 #include "habana_lazy/lazy_executor.h"
-#include "pytorch_helpers/habana_device/HPUAllocator.h"
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 
 namespace c10 {
 namespace hpu {

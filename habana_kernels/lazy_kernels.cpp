@@ -19,6 +19,7 @@
 #include <ctime>
 #include <utility>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging_pt.h"
@@ -57,7 +58,6 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "lazy_kernels_declarations.h"
-#include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 

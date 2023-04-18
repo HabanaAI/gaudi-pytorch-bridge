@@ -17,11 +17,11 @@
 #include "backend/backend_meta.h"
 #include "backend/synapse_helpers/graph.h"
 
-#include "habana_device/HPUCheck.h"
-#include "habana_device/HPUStream.h"
-#include "habana_device/PinnedMemoryAllocator.h"
-#include "habana_device/hpu_cached_devices.h"
-#include "habana_device/tensor_builder.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/tensor_builder.h"
 
 #include "backend/helpers/graph.h"
 #include "habana_helpers/pt_version_check.h"

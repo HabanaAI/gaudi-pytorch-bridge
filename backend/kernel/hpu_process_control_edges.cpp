@@ -12,7 +12,7 @@
  */
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
-#include <habana_device/hpu_cached_devices.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jitgraph_utils.h"
 #include "backend/synapse_helpers/device.h"
 #include "hpu_ops/hpu_op_helper.h"

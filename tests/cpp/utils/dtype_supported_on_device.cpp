@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "dtype_supported_on_device.h"
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/HPUGuardImpl.h"
 
 bool IsDtypeSupportedOnCurrentDevice(torch::ScalarType dtype) {
   habana::HABANAGuardImpl device_guard;

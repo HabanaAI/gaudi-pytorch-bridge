@@ -13,11 +13,11 @@
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hlexec.h"
-#include "pytorch_helpers/habana_device/HPUAllocator.h"
 
 namespace {
 int GetCurrentThreadDevice() {

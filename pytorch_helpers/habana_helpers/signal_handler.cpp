@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "habana_helpers/signal_handler.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "habana_device/hpu_cached_devices.h"
 
 #include <c10/util/Backtrace.h>
 #include <c10/util/Exception.h>

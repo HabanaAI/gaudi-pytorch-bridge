@@ -30,6 +30,10 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   passes/habana_fuser.cpp
   passes/remove_inplace_ops.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
+  habana_device/HPUAllocator.cpp
+  habana_device/HPUGraph.cpp
+  habana_device/HPUStream.cpp
+  habana_device/PinnedMemoryAllocator.cpp
   helpers/collective_kernel_info.cpp
   helpers/dynamic_bucket_info.cpp
   helpers/dynamic_bucket_info_utils.cpp

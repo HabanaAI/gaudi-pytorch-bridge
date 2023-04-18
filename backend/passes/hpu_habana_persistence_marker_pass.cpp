@@ -22,10 +22,10 @@
 
 #include <torch/csrc/api/include/torch/version.h>
 
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUCheck.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/HPUCheck.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 
@@ -35,9 +35,9 @@
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
+#include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
-#include "habana_device/tensor_builder.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_kernels/kernel_utils.h"
 

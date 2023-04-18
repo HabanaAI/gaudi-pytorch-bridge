@@ -13,9 +13,9 @@
 #include <torch/script.h>
 
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/threshold_kernels.h"
 

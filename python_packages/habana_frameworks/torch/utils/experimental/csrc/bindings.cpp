@@ -13,14 +13,14 @@
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/stream.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "pytorch_helpers/habana_device/HPUAllocator.h"
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
-#include "pytorch_helpers/habana_device/HPUStream.h"
 
 int GetDeviceType() {
   auto& device = synapse_helpers::HPURegistrar::get_device();

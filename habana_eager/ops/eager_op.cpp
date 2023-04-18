@@ -11,10 +11,10 @@
  *******************************************************************************
  */
 #include "habana_eager/ops/eager_op.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
-#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 #include <torch/csrc/jit/ir/ir.h>
 

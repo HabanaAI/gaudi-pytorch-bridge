@@ -17,12 +17,12 @@
 #include <torch/torch.h>
 #include <algorithm>
 #include <memory>
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/synapse_error.h"
-#include "habana_device/hpu_cached_devices.h"
-#include "habana_device/tensor_builder.h"
 
 TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   using namespace synapse_helpers;

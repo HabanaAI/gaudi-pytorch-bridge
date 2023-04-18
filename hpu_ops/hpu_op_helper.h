@@ -12,8 +12,8 @@
  */
 #pragma once
 #include <perf_lib_layer_params.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/kernels_accumulation.h"
 #include "habana_helpers/logging.h"

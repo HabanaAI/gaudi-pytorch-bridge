@@ -26,9 +26,9 @@
 #include <thread>
 #include <unordered_set>
 
+#include "backend/habana_device/HPUEvent.h"
+#include "backend/habana_device/HPUGuardImpl.h"
 #include "habana_helpers/logging_pt.h"
-#include "pytorch_helpers/habana_device/HPUEvent.h"
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 
 using namespace habana_lazy;
 

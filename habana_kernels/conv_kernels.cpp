@@ -18,11 +18,11 @@
 
 #include "backend/backend_meta.h"
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "conv_pool_utils.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/reduction_kernels.h"

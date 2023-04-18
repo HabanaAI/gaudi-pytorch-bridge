@@ -12,7 +12,7 @@
  */
 #pragma once
 
-#include <habana_device/hpu_cached_devices.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/graph.h"
 

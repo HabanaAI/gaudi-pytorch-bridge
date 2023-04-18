@@ -15,10 +15,10 @@
 #include <memory>
 
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"

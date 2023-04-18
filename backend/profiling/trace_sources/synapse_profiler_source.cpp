@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -8,12 +8,12 @@
  * and is subject to the confidentiality and license agreements under which it
  * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "backend/profiling/trace_sources/synapse_profiler_source.h"
 #include <vector>
-#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
+#include "backend/habana_device/HPUGuardImpl.h"
 
 namespace habana {
 namespace profile {

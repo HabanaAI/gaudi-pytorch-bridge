@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -13,10 +13,10 @@
 #pragma once
 
 #include <torch/csrc/jit/ir/ir.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_kernels/kernel_utils.h"
-#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 

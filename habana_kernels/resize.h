@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020-2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 // NOTE: file based on Resize.cuh. It uses THC
@@ -14,9 +17,9 @@
 // TODO: In general we should remove this file.
 // Cuda includes THCTensor.hpp and we are including CPU header
 #include <ATen/native/Resize.h>
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))

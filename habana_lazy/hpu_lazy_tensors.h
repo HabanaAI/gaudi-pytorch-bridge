@@ -18,9 +18,9 @@
 #include <c10/core/Device.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/misc_utils.h"
 #include "ir.h"
 #include "ir_utils.h"

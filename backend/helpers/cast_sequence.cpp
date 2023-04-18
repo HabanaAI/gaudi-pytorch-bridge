@@ -14,8 +14,8 @@
 #include "backend/helpers/cast_sequence.h"
 #include <vector>
 
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/enum_mapping_table.h"
-#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana_helpers {

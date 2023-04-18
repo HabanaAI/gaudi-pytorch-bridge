@@ -1,18 +1,21 @@
-/******************************************************************************
- * Copyright (C) 2023 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "op_validator.h"
 #include <syn_sl_api.h>
 #include <unistd.h>
 #include <sstream>
 #include <string>
-#include "habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"

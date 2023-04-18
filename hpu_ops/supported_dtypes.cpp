@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,9 +12,9 @@
  */
 
 #include "supported_dtypes.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/fallback_helper.h"
-#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 
 namespace habana {
 SupportedDtypes::SupportedDtypes(

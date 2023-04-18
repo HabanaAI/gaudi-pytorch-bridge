@@ -31,9 +31,9 @@
 #include <absl/types/optional.h>
 
 #include "backend/backend_meta.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/tensor_builder.h"
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/tensor_builder.h"
 
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_shape_inference.h"

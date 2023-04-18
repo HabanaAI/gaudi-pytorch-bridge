@@ -15,10 +15,10 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
 
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/tensor_builder.h"
 #include "backend/lazy_to_backend.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
-#include "habana_device/tensor_builder.h"
 
 namespace habana_helpers {
 

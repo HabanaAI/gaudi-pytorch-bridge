@@ -19,9 +19,9 @@
 #include <sstream>
 
 #include "backend/backend_meta.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"

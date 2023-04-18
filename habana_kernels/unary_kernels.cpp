@@ -18,12 +18,12 @@
 #include <ATen/WrapDimUtils.h>
 
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/recipe.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"

@@ -12,9 +12,9 @@
  */
 
 #include "habana_eager/graph_exec.h"
+#include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_device/HPUStream.h"
 #include "habana_eager/eager_context.h"
 #include "habana_helpers/logging.h"
 

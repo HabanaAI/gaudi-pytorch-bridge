@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,12 +12,12 @@
  */
 
 #include <c10_ver/core/SymIntArrayRef.h>
+#include "backend/habana_device/HPUEvent.h"
 #include "generated/eager/index.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/indexing_ops_helper.h"
-#include "pytorch_helpers/habana_device/HPUEvent.h"
 
 namespace habana {
 

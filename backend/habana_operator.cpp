@@ -12,6 +12,8 @@
  */
 #include "backend/habana_operator.h"
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
@@ -22,10 +24,8 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"
-#include "habana_device/HPUStream.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "pytorch_helpers/habana_device/HPUCheck.h"
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 

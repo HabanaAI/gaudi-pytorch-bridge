@@ -21,9 +21,9 @@
 #include <memory>
 #include <thread>
 
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/synapse_helpers/device.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/PinnedMemoryAllocator.h"
 
 namespace synapse_helpers {
 class HPURegistrar {

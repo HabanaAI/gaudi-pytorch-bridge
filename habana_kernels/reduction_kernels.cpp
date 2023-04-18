@@ -18,12 +18,12 @@
 #include <torch/script.h>
 
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUCheck.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/lowering_util.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_utils.h"
