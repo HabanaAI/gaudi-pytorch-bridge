@@ -33,42 +33,7 @@ torch._register_device_module('hpu', hpu)
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
 
-# expose still used deprecated APIs
-
-
-def data_ptr(t) -> int:
-    warnings.warn("habana_frameworks.torch.core.data_ptr is deprecated. "
-                  "Please use habana_frameworks.torch.utils.experimental._data_ptr")
-    return htexp._data_ptr(t)
-
-
-def get_device_count() -> int:
-    warnings.warn("habana_frameworks.torch.core.get_device_count is deprecated. "
-                  "Please use habana_frameworks.torch.hpu.device_count")
-    import habana_frameworks.torch.hpu as hpu
-    return hpu.device_count()
-
-
-def memstat_livealloc(msg) -> None:
-    warnings.warn("habana_frameworks.torch.core.memstat_livealloc is deprecated. "
-                  "Please use habana_frameworks.torch.utils.debug._memstat_livealloc")
-    htdebug._memstat_livealloc(msg)
-
-
-def memstat_devmem_start_collect(msg, show_cs) -> None:
-    warnings.warn("habana_frameworks.torch.core.memstat_devmem_start_collect is deprecated. "
-                  "Please use habana_frameworks.torch.utils.debug._memstat_devmem_start_collect")
-    htdebug._memstat_devmem_start_collect(msg, show_cs)
-
-
-def memstat_devmem_stop_collect(msg) -> None:
-    warnings.warn("habana_frameworks.torch.core.memstat_devmem_stop_collect is deprecated. "
-                  "Please use habana_frameworks.torch.utils.debug._memstat_devmem_stop_collect")
-    htdebug._memstat_devmem_stop_collect(msg)
-
 # enable profiler and weight sharing if required
-
-
 def _enable_profiler_if_needed():
     import os
     if "HABANA_PROFILE" not in os.environ:

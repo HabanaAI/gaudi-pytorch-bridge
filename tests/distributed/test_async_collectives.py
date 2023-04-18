@@ -14,7 +14,7 @@ def setup(rank, world_size):
   print('Setup')
   os.environ['MASTER_ADDR'] = 'localhost'
   os.environ['MASTER_PORT'] = '12340'
-  import habana_frameworks.torch.core.hccl
+  import habana_frameworks.torch.distributed.hccl
   dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
 
 def cleanup():

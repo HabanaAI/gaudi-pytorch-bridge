@@ -16,7 +16,7 @@ world_size = int(os.getenv('WORLD_SIZE'))
 a = torch.tensor([1.0, 2.0]).to('hpu')
 
 try:
-    import habana_frameworks.torch.core.hccl
+    import habana_frameworks.torch.distributed.hccl
     global_comm = dist.init_process_group("hccl")
 except:
     print("Exception during load")

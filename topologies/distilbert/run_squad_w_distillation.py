@@ -901,7 +901,7 @@ def main():
 
         if args.local_rank != -1:
             try:
-                import habana_frameworks.torch.core.hccl
+                import habana_frameworks.torch.distributed.hccl
             except:
                 assert False, "Could not import habana_frameworks.torch.core"
             torch.distributed.init_process_group(backend="hccl", rank=args.local_rank, world_size=world_size)
