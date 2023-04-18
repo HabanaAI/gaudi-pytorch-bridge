@@ -4135,7 +4135,7 @@ max:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: reduce_max_fwd
-  op_backend: ReductionBackendTemplate
+  op_backend: ReduceMinMax
   out_ids: [0]
 
 max.dim:
@@ -4364,7 +4364,7 @@ min:
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
-  op_backend: ReductionBackendTemplate
+  op_backend: ReduceMinMax
   out_ids: [0]
 
 min.dim:

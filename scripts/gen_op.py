@@ -1013,7 +1013,10 @@ def frontend(
 
         output_meta = ctxop.get_output_meta()
         if output_meta:
-            code += f"  hpu_op.SetOutputMeta({output_meta});\n"
+            assert (
+                not output_shape_fn
+            ), "Remove custom_output_shape as output_meta already provides the shape."
+            code += f"  hpu_op.SetOutputMetaFn({output_meta});\n"
 
         out_dtypes = ctxop.get_out_dtypes()
         if out_dtypes:
@@ -1181,7 +1184,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
 
     if output_meta_fn:
-        ctor_extra_calls.append("SetOutputMeta({});".format(output_meta_fn))
+        ctor_extra_calls.append("SetOutputMetaFn({});".format(output_meta_fn))
     elif output_shape_fn:
         ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
 
@@ -1215,6 +1218,11 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         ctor_extra_calls.append(
             "SetReductionVarsIndices({});".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))
+            )
+        )
+        ctor_extra_calls.append(
+            "SetOutputMetaFn(ReductionMeta<{}>);".format(
+                ", ".join(extract_reduction_vars_indices(param_vars, True))
             )
         )
 
@@ -1276,8 +1284,11 @@ class TensorFetcher(object):
         return code
 
 
-def extract_reduction_vars_indices(param_vars):
-    reduction_vars_indices = ["c10::nullopt", "c10::nullopt", "c10::nullopt"]
+def extract_reduction_vars_indices(param_vars, use_int=False):
+    if use_int:
+        reduction_vars_indices = ["-1", "-1", "-1"]
+    else:
+        reduction_vars_indices = ["c10::nullopt", "c10::nullopt", "c10::nullopt"]
     for i, var in enumerate(param_vars):
         i = str(i)
         if var == "dim":

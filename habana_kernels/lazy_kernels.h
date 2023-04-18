@@ -307,8 +307,8 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
 
     std::vector<std::vector<int64_t>> out_shapes;
-    if (m_output_meta) {
-      const auto& meta = m_output_meta(get_inputs());
+    if (m_output_meta_fn) {
+      const auto& meta = m_output_meta_fn(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           meta.size() == std::tuple_size<T>::value);
       for (const auto& output_meta : meta) {
@@ -843,8 +843,8 @@ class LazyOp {
     // fixes it properly
     // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
     std::vector<int64_t> out_shape;
-    if (m_output_meta) {
-      out_shape = m_output_meta(get_inputs())[0].shape;
+    if (m_output_meta_fn) {
+      out_shape = m_output_meta_fn(get_inputs())[0].shape;
     } else if (m_out_shapes.empty())
       out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
     else {
@@ -936,8 +936,8 @@ class LazyOp {
     hl_self.IrSetNode(node);
 
     std::vector<int64_t> out_shape;
-    if (m_output_meta) {
-      out_shape = m_output_meta(get_inputs())[0].shape;
+    if (m_output_meta_fn) {
+      out_shape = m_output_meta_fn(get_inputs())[0].shape;
     } else if (m_out_shapes.empty())
       out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
     else {
@@ -1000,8 +1000,8 @@ class LazyOp {
     // need to set the correct shape on at::Tensor so it's propagated to Python
     // in main thread.
     std::vector<int64_t> out_shape;
-    if (m_output_meta) {
-      out_shape = m_output_meta(get_inputs())[0].shape;
+    if (m_output_meta_fn) {
+      out_shape = m_output_meta_fn(get_inputs())[0].shape;
     } else if (m_out_shapes.empty()) {
       out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
     } else {
@@ -1030,8 +1030,8 @@ class LazyOp {
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type get_result(
       T tensors) {
     habana::OutputMetaDataVector meta;
-    if (m_output_meta) {
-      meta = m_output_meta(get_inputs());
+    if (m_output_meta_fn) {
+      meta = m_output_meta_fn(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           std::tuple_size<T>::value == meta.size());
     } else {
@@ -1075,9 +1075,9 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
     PT_LAZY_TRACE;
-    if (m_output_meta) {
+    if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
-      auto meta = m_output_meta(get_inputs());
+      auto meta = m_output_meta_fn(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
       auto output_meta = meta[0];
       return empty_hpu_lazy(
@@ -1111,9 +1111,9 @@ class LazyOp {
   typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type
   get_result() {
     PT_LAZY_TRACE;
-    if (m_output_meta) {
+    if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
-      const auto& meta = m_output_meta(get_inputs());
+      const auto& meta = m_output_meta_fn(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           std::tuple_size<T>::value == meta.size());
       unsigned i = 0;
@@ -1158,8 +1158,8 @@ class LazyOp {
       type
       get_result() {
     PT_LAZY_TRACE;
-    if (m_output_meta) {
-      const auto& meta = m_output_meta(get_inputs());
+    if (m_output_meta_fn) {
+      const auto& meta = m_output_meta_fn(get_inputs());
       std::vector<at::Tensor> results;
       results.reserve(meta.size());
 
@@ -1202,10 +1202,10 @@ class LazyOp {
     return m_scalar_types;
   }
 
-  void SetOutputMeta(
+  void SetOutputMetaFn(
       std::function<habana::OutputMetaDataVector(const at::Stack&)>
           output_meta) {
-    m_output_meta = std::move(output_meta);
+    m_output_meta_fn = std::move(output_meta);
   }
 
  private:
@@ -1642,7 +1642,8 @@ class LazyOp {
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;
-  std::function<habana::OutputMetaDataVector(const at::Stack&)> m_output_meta;
+  std::function<habana::OutputMetaDataVector(const at::Stack&)>
+      m_output_meta_fn;
   const std::shared_ptr<SBSInterface> m_sbs_runner;
   std::string module_name = std::string();
   bool m_shape_was_changed =

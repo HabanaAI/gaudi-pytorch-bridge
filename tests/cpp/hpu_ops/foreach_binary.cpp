@@ -20,6 +20,8 @@ typedef const std::function<std::vector<at::Tensor>(at::TensorList)>
     FunctionOneList;
 typedef const std::function<void(at::TensorList)> FunctionOneListInplace;
 
+std::vector<at::Scalar> scalars = {7, 3.141, 2., -100, -0.001};
+
 class HpuOpTest : public HpuOpTestUtil {
  private:
   void compareResults(
@@ -32,8 +34,6 @@ class HpuOpTest : public HpuOpTestUtil {
   }
 
  public:
-  std::vector<at::Scalar> scalars = {7, 3.141, 2., -100, -0.001};
-
   void TestForeachBinary(
       std::vector<std::vector<long>> sizes,
       std::vector<at::ScalarType> dtypes,

@@ -41,7 +41,7 @@ OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
 
 EmptyStrided::EmptyStrided(int device_id, c10::ScalarType scalar_type)
     : Empty(device_id, scalar_type) {
-  SetOutputMeta(EmptyStridedMeta);
+  SetOutputMetaFn(EmptyStridedMeta);
 }
 
 OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
@@ -111,7 +111,7 @@ void Empty::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 Empty::Empty(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "None_", scalar_type, {}, {}, {}, false) {
-  SetOutputMeta(EmptyMeta);
+  SetOutputMetaFn(EmptyMeta);
 }
 } // namespace habana
 

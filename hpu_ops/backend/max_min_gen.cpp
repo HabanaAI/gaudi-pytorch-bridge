@@ -36,13 +36,18 @@ std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-static void DummyOutput(
+void ReduceMinMax::AddNode(
     synapse_helpers::graph& graph,
-    PytorchKernelContextPtr& p_context_,
-    bool persistent,
-    bool external) {
-  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      p_context_->pt_outputs_.at(1), graph, persistent, external));
+    const at::Stack& stack) {
+  StackGetter sg{stack, "ReduceMinMax::AddNode"};
+  auto self = getNextInput<TensorsPair>(sg);
+
+  std::vector<int64_t> shape = {};
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {shape, ScalarType(), 0}, {shape, c10::ScalarType::Int}};
+
+  syn_out(0) = std::move(HandleReductionDimAndKeepdim(
+      this, graph, self.pt_t, {self.syn_t}, {}, false, guid_, output_attrs)[0]);
 }
 
 void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -57,8 +62,8 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto reduce_max = HandleReductionDimAndKeepdim(
       this, graph, self, {syn_in(0)}, dim, keepdim, guid_, output_attrs);
 
-  syn_out(1) = std::move(reduce_max[1]);
   syn_out(0) = std::move(reduce_max[0]);
+  syn_out(1) = std::move(reduce_max[1]);
 }
 
 void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

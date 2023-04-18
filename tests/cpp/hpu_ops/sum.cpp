@@ -85,6 +85,15 @@ TEST_F(HpuOpTest, sum) {
   Compare(expected, result);
 }
 
+TEST_F(HpuOpTest, sum_bool) {
+  GenerateInputs(1, {{3, 3, 4, 6}}, {{at::kBool}});
+
+  auto expected = torch::sum(GetCpuInput(0));
+  auto result = torch::sum(GetHpuInput(0));
+
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, sum_UNET) {
   torch::ScalarType dtype = torch::kInt;
   GenerateInputs(1, {{5, 3, 6, 3}}, dtype);
