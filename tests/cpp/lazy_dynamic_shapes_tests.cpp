@@ -2436,3 +2436,47 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, enable_fast_sif, 1);
   SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, run_hybrid_sif, 1);
 }
+
+TEST_F(LazyDynamicShapesTest, MatMulOutTest) {
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
+  }
+  torch::Tensor B = torch::randn({2, 3, 2, 3, 7}, torch::dtype(torch::kFloat));
+  torch::Tensor C = torch::randn({2, 3, 2, 7, 1}, torch::dtype(torch::kFloat));
+  torch::Tensor out_cpu = torch::randn({0}, torch::dtype(torch::kFloat));
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor hC = C.to(torch::kHPU);
+  torch::Tensor hOut = out_cpu.to(torch::kHPU);
+  torch::matmul_out(hOut, hB, hC);
+  torch::matmul_out(out_cpu, B, C);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  // Dyanamic shapes 1
+  {
+    torch::Tensor B =
+        torch::randn({2, 12, 2, 3, 8}, torch::dtype(torch::kFloat));
+    torch::Tensor C =
+        torch::randn({2, 12, 2, 8, 1}, torch::dtype(torch::kFloat));
+    torch::Tensor out_cpu = torch::randn({0}, torch::dtype(torch::kFloat));
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor hOut = out_cpu.to(torch::kHPU);
+    torch::matmul_out(hOut, hB, hC);
+    torch::matmul_out(out_cpu, B, C);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  }
+  // Dyanamic shapes 2
+  {
+    torch::Tensor B =
+        torch::randn({2, 12, 2, 3, 7}, torch::dtype(torch::kFloat));
+    torch::Tensor C =
+        torch::randn({2, 12, 2, 7, 1}, torch::dtype(torch::kFloat));
+    torch::Tensor out_cpu = torch::randn({0}, torch::dtype(torch::kFloat));
+    torch::Tensor hB = B.to(torch::kHPU);
+    torch::Tensor hC = C.to(torch::kHPU);
+    torch::Tensor hOut = out_cpu.to(torch::kHPU);
+    torch::matmul_out(hOut, hB, hC);
+    torch::matmul_out(out_cpu, B, C);
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out_cpu, 0.001, 0.001), true);
+  }
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
+}
