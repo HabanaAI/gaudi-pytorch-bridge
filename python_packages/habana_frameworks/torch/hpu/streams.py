@@ -111,7 +111,8 @@ class Stream(object):
            kernels in :attr:`stream`: only future operations are affected.
         """
         assert isinstance(stream,Stream),"Provided stream is not of type Stream"
-        self.wait_event(stream.record_event())
+        if self != stream:
+            self.wait_event(stream.record_event())
 
 
 class StreamContext(object):
