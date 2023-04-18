@@ -210,9 +210,9 @@ void SingleHPUGraph::replayGraph(
     d->is_executing = true;
   }
 
-  for (const auto& idx : output_vals_) {
-    auto& out_tensor = hblazy_tensors_[idx];
-    out_tensor.SetExecutionInProgress();
+  for (const auto& out : output_vals_) {
+    std::shared_ptr<habana_lazy::Data> d = out.m_data_ptr.lock();
+    d->is_executing = true;
   }
 
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
