@@ -162,6 +162,7 @@ class LoggerSynapseApi {
     CHECK_NULL(synapse_logger_lib_handle_);
     LoggerSynapseApi& loader{*this};
     SYN_API_SYMBOL_VISIT(INIT_SYN_FUNC);
+    // TODO: SW-141655 - Currently there's no hccl logger available
     // HCCL_API_SYMBOL_VISIT(INIT_HCCL_FUNC);
     if (observer) {
       using register_synapse_logger_oberver_t =
@@ -185,7 +186,8 @@ class LoggerSynapseApi {
 
   void Install() {
     syn_api = &synapse_api_;
-    hccl_api = &hccl_api_;
+    // TODO: SW-141655 - Currently there's no hccl logger available
+    // hccl_api = &hccl_api_;
   }
 
  private:
