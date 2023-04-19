@@ -58,8 +58,31 @@ def test_shallow_copy_free():
     ha = a.to('hpu')
 
     res = fn(a, 'cpu')
-    print("cpu ", res)
     hres =  fn(ha, 'hpu')
-    print("hpu ", hres.cpu())
+
+    assert(torch.allclose(res, hres.cpu()))
+
+def test_shallow_copy_free2():
+    def fn(a, b, c, dev):
+        a.data = c
+        b.copy_(a.view(-1)[:])
+        c.data = torch.empty(0, device=dev)
+        if dev == 'hpu':
+            htcore.mark_step()
+        return b
+
+    a = torch.randn([2, 3])
+    ha = a.to('hpu')
+
+    b = torch.randn([6])
+    hb = b.to('hpu')
+
+    c = torch.randn([2, 3])
+    hc = c.to('hpu')
+
+    # CPU
+    res = fn(a, b, c, 'cpu')
+    # HPU
+    hres = fn(ha, hb, hc, 'hpu')
 
     assert(torch.allclose(res, hres.cpu()))

@@ -365,6 +365,8 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
         (params.optype == kStridedOpDefault) ? params.base : params.parent;
     auto recent_orig_t = get_recent_base_tensor(parent_or_base);
 
+    GetHbLazyTensor(recent_orig_t).SetExecutionInProgress();
+
     Tensor out;
     auto t_opt = c10::make_optional(t);
     bool add_asstrided_node = true;

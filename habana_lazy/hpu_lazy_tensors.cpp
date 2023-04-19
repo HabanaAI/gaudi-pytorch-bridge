@@ -1619,18 +1619,26 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     cleanup_tensors.push_back(dest->getDataPtr()->tensor_shallow_copy.value());
   }
 
-  dest->getDataPtr()->tensor_shallow_copy = aten_t;
-
   // copy the src memory to dst to avoid double allocation
   auto data_tensor = CurrentTensorData();
   if (data_tensor.has_value()) {
     if (dest->getDataPtr()->tensor_data) {
       cleanup_tensors.push_back(dest->getDataPtr()->tensor_data.value());
     }
-    if (!dest->IsExecutionInProgress()) {
+
+    auto hl_dest_updated = *dest;
+    if (dest->getDataPtr()->tensor_shallow_copy) {
+      hl_dest_updated =
+          GetHbLazyTensor(dest->getDataPtr()->tensor_shallow_copy.value());
+    }
+
+    if (!hl_dest_updated.IsExecutionInProgress()) {
       dest->SetTensorData(*data_tensor);
     }
   }
+
+  dest->getDataPtr()->tensor_shallow_copy = aten_t;
+
   if (habana_lazy::AccThread::IsAccThreadEnabled() &&
       habana_lazy::AccThread::Get().inAccThreadContext()) {
     habana_lazy::AccThread::Get().PushCleanupTask(
