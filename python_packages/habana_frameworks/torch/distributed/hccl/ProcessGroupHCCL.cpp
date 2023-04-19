@@ -692,40 +692,43 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
       deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
     }
 
+    auto input_shallow_copy = at::Tensor{
+        in_view_vec[i].unsafeGetTensorImpl()->shallow_copy_and_detach(
+            0, false)};
+    auto output_shallow_copy = at::Tensor{
+        out_view_vec[i].unsafeGetTensorImpl()->shallow_copy_and_detach(
+            0, false)};
+
     auto pr = std::make_shared<std::promise<bool>>();
     std::shared_future<bool> fut = pr->get_future();
-
-    struct ResourceHolder {
-      std::vector<at::Tensor> tensors_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-    };
-    auto resource_holder = std::make_shared<ResourceHolder>();
-    resource_holder->tensors_ = {in_view_vec[i], out_view_vec[i]};
-
-    deviceCtxt->lock_address(
-        {resource_holder->tensors_[0].data_ptr(),
-         resource_holder->tensors_[1].data_ptr()},
-        resource_holder->address_lock);
-    void* input_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(0));
-    HABANA_ASSERT(input_address != nullptr, "input_address is null");
-    void* output_address =
-        reinterpret_cast<void*>(resource_holder->address_lock->at(1));
-    HABANA_ASSERT(output_address != nullptr, "output_address is null");
-
     auto func = [fn = fn,
-                 input = in_view_vec[i],
-                 output = out_view_vec[i],
+                 input = std::move(input_shallow_copy),
+                 output = std::move(output_shallow_copy),
                  comm = comms[i],
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
                  output_storage_ptr = output_storage_ptr,
-                 input_address = input_address,
-                 output_address = output_address,
-                 resource_holder = resource_holder,
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
+
+      struct ResourceHolder {
+        std::vector<at::Tensor> tensors_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+      };
+      auto resource_holder = std::make_shared<ResourceHolder>();
+      resource_holder->tensors_ = {input, output};
+
+      void* input_address;
+      void* output_address;
+      deviceCtxt->lock_address(
+          {input.data_ptr(), output.data_ptr()}, resource_holder->address_lock);
+      input_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(0));
+      HABANA_ASSERT(input_address != nullptr, "input_address is null");
+      output_address =
+          reinterpret_cast<void*>(resource_holder->address_lock->at(1));
+      HABANA_ASSERT(output_address != nullptr, "output_address is null");
 
       hccl_result =
           fn(input,
