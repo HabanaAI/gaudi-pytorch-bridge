@@ -18,6 +18,7 @@ import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
     cast_to_fp8,
     cast_from_fp8,
+    fp8_gelu
 )
 from habana_frameworks.torch import _hpex_C as tex
 
@@ -50,6 +51,33 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         assert mean > 17.5
     else:
         assert mean == 20.0
+    assert meta.scale_inv.item() == 1./scale
+
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("stochastic_rounding", [True, False])
+@pytest.mark.parametrize("scale", [1., 16.])
+@pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
+def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, value, rounded_value):
+    input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
+
+    meta = tex.FP8TensorMeta()
+    meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
+    meta.scale_inv = torch.full((1,), 0., dtype=torch.float32, device=device)
+    meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
+    gelu_out = fp8_gelu(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
+
+    upcasted = cast_from_fp8(gelu_out, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, tex.DType.kFloat32)
+    mean = torch.mean(upcasted).cpu()
+    # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
+    # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
+    # dependent on the distance between original value to the closest fp8 numbers, so the mean result
+    # should be close to the input value.
+    if stochastic_rounding:
+        assert mean <= torch.nn.functional.gelu(torch.tensor(value + 1.0))
+        assert mean >= torch.nn.functional.gelu(torch.tensor(value - 1.0))
+    else:
+        assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
     assert meta.scale_inv.item() == 1./scale
 
 class MyLinear(torch.nn.Module):
