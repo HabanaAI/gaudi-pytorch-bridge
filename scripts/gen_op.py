@@ -522,8 +522,8 @@ class Op(object):
     def get_out_dtypes(self):
         return self.op.get("out_dtypes", None)
 
-    def get_pytorch2_disable(self):
-        return self.op.get("pytorch2_disable", False)
+    def get_pytorch2_mode(self):
+        return self.op.get("pytorch2_mode", "both")
 
     def get_op_validator_generator(self) -> OpValidatorGenerator:
         op_validator = self.op.get("op_validator")
@@ -2077,16 +2077,26 @@ def generate(args):
             # print("generating ", ts)
             fgen = get_hpu_wrapper(ts, ctx)
             # print("generated ", ts)
-            if fgen.ctxop and not (fgen.ctxop.get_pytorch2_disable() and is_pytorch2):
-                fgens.append(fgen)
-                if fgen.dispatch and not fgen.default:
-                    # print("generating eager ", ts)
-                    fgens_eager.append(
-                        get_hpu_wrapper(ts, ctx_eager, is_eager_frontend=True)
-                    )
-                    # print("generated eager ", ts)
-                fgen_files[fgen.opgroup].append(fgen)
+            append_to_manual = False
+            if fgen.ctxop:
+                pytorch2_mode = fgen.ctxop.get_pytorch2_mode()
+                skip_pytorch2 = pytorch2_mode == "disable" and is_pytorch2
+                skip_pytorch1 = pytorch2_mode == "only" and not is_pytorch2
+                if skip_pytorch1 or skip_pytorch2:
+                   append_to_manual = True
+                else:
+                    fgens.append(fgen)
+                    if fgen.dispatch and not fgen.default:
+                        # print("generating eager ", ts)
+                        fgens_eager.append(
+                            get_hpu_wrapper(ts, ctx_eager, is_eager_frontend=True)
+                        )
+                        # print("generated eager ", ts)
+                    fgen_files[fgen.opgroup].append(fgen)
             else:
+                append_to_manual = True
+
+            if append_to_manual:
                 if fgen.dispatch and not fgen.default:
                     fgens_manual_eager.append(
                         get_hpu_wrapper(ts, ctx_eager, is_eager_frontend=True)

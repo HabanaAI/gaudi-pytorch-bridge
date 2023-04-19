@@ -2234,7 +2234,7 @@ cumsum_:
   inplace_ids: [0]
 
 diag:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_output_shape: DiagOutShape
   dtypes:
@@ -5398,10 +5398,17 @@ pow.Tensor_Tensor_out:
   promote_to_common_type: [self, exponent]
 
 prelu:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   dtypes: [BFloat16, Float]
   out_ids: [0]
   op_backend: Prelu
+
+_prelu_kernel:
+  pytorch2_mode: only
+  dtypes: [BFloat16, Float]
+  out_ids: [0]
+  op_backend: Prelu
+
 
 prod:
   dtypes:
@@ -6984,7 +6991,7 @@ upsample_bicubic2d.out:
   - [WHCN]
 
 upsample_bicubic2d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_fill_params: FillBicubicFwdParams
   custom_output_shape: UpsampleBicubic2DFwdOutputShape
@@ -7071,7 +7078,7 @@ upsample_bilinear2d.out:
   - [WHCN]
 
 upsample_bilinear2d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_fill_params: FillBilinearFwdParams
   custom_output_shape: UpsampleBilinear2DFwdOutputShape
@@ -7158,7 +7165,7 @@ upsample_linear1d.out:
   - [WHCN]
 
 upsample_linear1d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_output_shape: UpsampleLinear1DFwdOutputShape
   dtypes:
@@ -7245,7 +7252,7 @@ upsample_nearest1d.out:
   - [WHCN]
 
 upsample_nearest1d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_output_shape: UpsampleNearest1DFwdOutputShape
   dtypes:
@@ -7440,7 +7447,7 @@ upsample_nearest2d_backward.vec:
   schema_args: "(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor"
 
 upsample_nearest2d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   force_default: false
   custom_fill_params: FillNearestFwdParams
   custom_output_shape: UpsampleNearest2DFwdOutputShape
@@ -7457,7 +7464,7 @@ upsample_nearest2d.vec:
   out_ids: [0]
 
 upsample_nearest3d.vec:
-  pytorch2_disable: true
+  pytorch2_mode: disable
   custom_output_shape: UpsampleNearest3DFwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
