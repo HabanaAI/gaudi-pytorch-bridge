@@ -78,5 +78,6 @@ INSTANTIATE_FOR_LIST(c10::ArrayRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::Tensor)
 INSTANTIATE_FOR_LIST(c10::IListRef, at::OptionalTensorRef)
 INSTANTIATE_FOR_LIST(c10::List, c10::optional<at::Tensor>)
+INSTANTIATE_FOR_LIST(std::vector, at::Tensor)
 #undef INSTANTIATE_FOR_LIST
 } // namespace habana

@@ -327,3 +327,280 @@ at::Tensor& recv_hpu_lazy_(
 }
 
 } // namespace habana_lazy
+
+void optimizer_adamw_hpu_wrap(
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& exp_avg_vec,
+    TensorList& exp_avg_sq_vec,
+    const float lr,
+    at::Tensor& neg_step_t,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const float weight_decay) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_wrap(
+    const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& weights,
+    std::vector<at::Tensor>& exp_avg,
+    std::vector<at::Tensor>& exp_avg_sq,
+    const at::Tensor& clip_global_grad_norm,
+    const int grad_averaging,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_lamb_phase2_hpu_wrap(
+    std::vector<at::Tensor>& weight_vec,
+    const std::vector<at::Tensor>& adam_norm_vec,
+    const std::vector<at::Tensor>& weight_norm_vec,
+    const std::vector<at::Tensor>& adam_step_vec,
+    const float step,
+    const float weight_decay,
+    const int use_lamb) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor optimizer_lamb_fused_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    float max_grad_norm) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_adagrad_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_sgd_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_sgd_momentum_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::tuple<torch::Tensor&, torch::Tensor&>
+optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    Tensor& weights_in,
+    Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_ema_hpu_wrap(
+    const TensorList& model_inputs,
+    TensorList& updated_ema,
+    const at::Tensor& decay) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::tuple<torch::Tensor&, torch::Tensor&>
+optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    Tensor& weights_in,
+    Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_lars_hpu_wrap(
+    const at::TensorList& params,
+    at::TensorList& grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  EAGER_NOT_SUPPORTED;
+}
+
+void optimizer_ResourceApplyMomentum_hpu_wrap(
+    at::TensorList& params_momentum_buffer_list,
+    const at::TensorList& d_p_list,
+    const float momentum) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor torchvision_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    double iou_threshold) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor batched_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    const at::Tensor& indices,
+    float iou_threshold) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor embedding_bag_sum_hpu_wrap(
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor habana_cast_to_fp8_wrap(
+    const at::Tensor& input,
+    bool stochastic_rounding,
+    int seed) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& lengths,
+    const at::Tensor& indices,
+    const c10::optional<at::Tensor>& weights) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor habana_expand_into_jagged_permute_wrap(
+    const at::Tensor& permute,
+    const at::Tensor& input_offsets,
+    const at::Tensor& output_offsets,
+    int64_t output_size) {
+  EAGER_NOT_SUPPORTED;
+}
+
+std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
+habana_bounds_check_indices_wrap(
+    at::Tensor& indices,
+    at::Tensor& offsets,
+    at::Tensor& warning,
+    const at::Tensor& rows_per_table,
+    int64_t bounds_check_mode,
+    const c10::optional<at::Tensor>& weights) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor matmul_ex_wrap(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::ScalarType dtype) {
+  EAGER_NOT_SUPPORTED;
+}
+std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& other,
+    at::ScalarType dtype) {
+  EAGER_NOT_SUPPORTED;
+}
+at::Tensor linear_ex_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const at::ScalarType dtype) {
+  EAGER_NOT_SUPPORTED;
+}
+std::vector<at::Tensor> linear_ex_backward_wrap(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt,
+    const c10::optional<at::Tensor>& bias_grad_opt,
+    const at::ScalarType dtype) {
+  EAGER_NOT_SUPPORTED;
+}
+
+Tensor habana_random_seed_wrap(const at::Tensor& input) {
+  EAGER_NOT_SUPPORTED;
+}
+
+namespace vision {
+namespace ops {
+at::Tensor roi_align_fwd_wrap(
+    const at::Tensor& images,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor roi_align_bwd_wrap(
+    const at::Tensor& grad_out,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t bs,
+    int64_t ch,
+    int64_t h,
+    int64_t w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  EAGER_NOT_SUPPORTED;
+}
+} // namespace ops
+} // namespace vision

@@ -91,3 +91,23 @@ Tensor hpu_wrap::_reshape_alias(
     return habana::eager::view_hpu(self, size);
   return habana::eager::view_hpu(depermute_dims(self, synapse_permute), size);
 }
+
+at::Tensor fused_norm_hpu_wrap(
+    std::vector<at::Tensor>& grad,
+    const at::Tensor& max_norm,
+    float norm_type) {
+  auto FusedNormMeta = [](const at::Stack& stack) {
+    OutputMetaDataVector meta_vec;
+    meta_vec.resize(stack[0].toTensorList().size() + 1);
+    return meta_vec;
+  };
+
+  habana::eager::EagerOp<std::vector<at::Tensor>> hpu_op{
+      "hpu::fused_norm_lazy", {grad, max_norm, norm_type}};
+  hpu_op.SetOutputMeta(FusedNormMeta);
+  auto res = hpu_op.call();
+  for (int i = 0; i < grad.size(); ++i) {
+    grad[i].copy_(res[i + 1]);
+  }
+  return res[0];
+}

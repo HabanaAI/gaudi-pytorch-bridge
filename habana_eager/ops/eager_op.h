@@ -459,7 +459,8 @@ class EagerOp : public EagerOpBase {
       call() {
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
-    const auto& tensors = get_result_overrideable();
+    // TODO avoid calling get_result
+    const auto& tensors = get_result();
 
     std::vector<OutputSpec> out_spec;
     for (auto& el : tensors) {
@@ -546,6 +547,29 @@ class EagerOp : public EagerOpBase {
           });
     }
     return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
+      type
+      get_result() {
+    if (m_output_meta) {
+      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
+      const auto& meta = m_output_meta(get_inputs());
+      std::vector<at::Tensor> results;
+
+      results.reserve(meta.size());
+      for (const auto output_meta : meta) {
+        results.emplace_back(at::empty(
+            output_meta.shape, output_meta.dtype, output_meta.mem_format));
+      }
+      return results;
+    }
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    return {};
   }
 
  protected:

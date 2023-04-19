@@ -2225,6 +2225,13 @@ void GroupNormBackwardOperator::AllocateAndAddSynapseNode(
 }
 
 ///////////////////////////////////////
+TORCH_LIBRARY_FRAGMENT(hpu, m) {
+  m.def(
+      "fused_norm_(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor");
+  m.def(
+      "fused_norm_lazy(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor");
+}
+
 static auto& NormKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
