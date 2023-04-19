@@ -97,10 +97,10 @@ inline bool isTracingForced(
       {HlLogger::LoggerType::PT_MEMLOG, 0x100000},
       {HlLogger::LoggerType::PT_EXEC_THREAD, 0x200000},
       {HlLogger::LoggerType::PT_EAGER, 0x400000},
-      {HlLogger::LoggerType::PT_RECIPE_STATS, 0x800000},
       {HlLogger::LoggerType::PT_CUSTOM,
        0x800000}, // Don't use it in checkin code.
-      {HlLogger::LoggerType::LOG_MAX, 0x1000000} // Don't use it
+      {HlLogger::LoggerType::PT_RECIPE_STATS, 0x1000000},
+      {HlLogger::LoggerType::LOG_MAX, 0x2000000} // Don't use it
   };
 
   if (GET_ENV_FLAG_NEW(PT_FORCED_TRACING_MASK) & mask_map[mod])
