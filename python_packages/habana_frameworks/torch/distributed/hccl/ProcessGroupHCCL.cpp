@@ -673,6 +673,14 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   auto work = initWork(out_view_vec, devices, comms, deviceCtxts);
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
+    if (in_view_vec[i].numel() == 0) {
+      // It is a W/A for SW-140597
+      // When empty tensor is passed to collective op, its processing is
+      // skipped.
+      PT_DISTRIBUTED_DEBUG("Empty tensor, skipping collective");
+      continue;
+    }
+
     auto deviceCtxt = deviceCtxts[i];
     synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr input_storage_ptr =
