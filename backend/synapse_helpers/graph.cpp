@@ -234,7 +234,9 @@ graph::graph(graph&& other) noexcept
 graph::~graph() {
   if (is_valid_) {
     PT_SYNHELPER_DEBUG("Graph destroy.");
-    synGraphDestroy(graph_handle_);
+    if (graph_handle_ != nullptr) {
+      synGraphDestroy(graph_handle_);
+    }
 
     is_valid_ = false;
   }
