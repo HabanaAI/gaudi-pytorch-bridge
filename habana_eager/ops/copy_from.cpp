@@ -17,6 +17,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/ops/eager_op.h"
+#include "habana_eager/ops/view.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/op_logger.h"
 
@@ -111,18 +112,6 @@ at::Tensor _copy_from_and_resize(
   return dst.copy_(self);
 }
 
-at::Tensor create_base(const at::Tensor& self) {
-  auto self_impl = self.unsafeGetTensorImpl();
-  auto base_size = (int64_t)(
-      habana_helpers::GetNBytes(self_impl) /
-      c10::elementSize(habana_helpers::getInternalDtype(self.scalar_type())));
-  auto base =
-      at::empty(base_size, self.options(), c10::MemoryFormat::Contiguous);
-  base.unsafeGetTensorImpl()->set_storage_keep_dtype(self.storage());
-
-  return base;
-}
-
 at::Tensor _copy_from_d2h(
     const at::Tensor& self,
     const at::Tensor& dst,
@@ -132,8 +121,10 @@ at::Tensor _copy_from_d2h(
   // also comes through pipeline SW-126657
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
-  if (!self.is_contiguous()) {
-    auto base = create_base(self);
+  auto self_tmeta{habana::get_tensor_extra_meta(self)};
+
+  if (self_tmeta->is_view_lowering()) {
+    auto base = habana::eager::create_base(self);
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "aten::as_strided",
         {base, self.sizes(), self.strides(), self.storage_offset()}};
@@ -152,14 +143,14 @@ at::Tensor _copy_from_d2h(
   } else {
     habana_helpers::copy_data_to_host(self_, dst, non_blocking);
   }
-  handlePermutedTensor(self, dst, non_blocking);
+  handlePermutedTensor(self_, dst, non_blocking);
   return dst;
 }
 
 at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
   auto strides = dst.strides().vec();
   auto offset = dst.unsafeGetTensorImpl()->storage_offset();
-  auto base = create_base(dst);
+  auto base = habana::eager::create_base(dst);
   base.unsafeGetTensorImpl()->set_storage_keep_dtype(dst.storage());
 
   habana::eager::EagerOp<at::Tensor> hpu_op{
@@ -182,13 +173,16 @@ at::Tensor _copy_from_h2d(
     temp_self = self.to(c10::ScalarType::Float);
   }
 
-  // Handling of CH last case
-  // NHWC 'dst' tensor will show up as NCHW but with strides.
-  // any consumer node of this tensor will go through JIT IR pass and as_strided
-  // node will get added
-  temp_self = temp_self.contiguous(self.suggest_memory_format());
+  // TODO optimize user configured CH last cpu tensor
+  temp_self = temp_self.contiguous();
+  if (dst.is_contiguous(dst.suggest_memory_format())) {
+    dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
+  }
 
-  if (!dst.is_contiguous(dst.suggest_memory_format())) {
+  if (!dst.is_contiguous()) {
+    auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
+    dst_tmeta->set_view_lowering(true);
+
     // This is done in two steps. First copy the contiguous Host tensor to
     // device. Then invoke strided_insert
     auto insert_t = at::empty(
@@ -205,16 +199,22 @@ at::Tensor _copy_from_h2d(
 }
 
 at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
+  if (!dst.is_contiguous()) {
+    auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
+    dst_tmeta->set_view_lowering(true);
+  }
+
   at::Tensor result;
-  if (dst.is_contiguous()) {
+  auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
+  if (dst_tmeta->is_view_lowering()) {
+    result = add_strided_insert(dst, self);
+  } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the
     // backend with "dst" as the out tensor
     habana::eager::EagerOp<at::Tensor&> hpu_op{
         "hpu::_copy_from", {self, dst}, {dst.sizes().vec()}, 1};
     result = hpu_op.call(const_cast<at::Tensor&>(dst));
-  } else {
-    result = add_strided_insert(dst, self);
   }
   return result;
 }
@@ -225,6 +225,36 @@ at::Tensor _copy_from(
     bool non_blocking) {
   const auto src_device = self.device().type();
   const auto dst_device = dst.device().type();
+
+  // Note: copy operations can have strided tensors without going through any
+  // view operations
+  // examples: 1. H2d copy of strided tensors 2.  usage of
+  // torch.empty_strided 3. channels last memory format
+  if (src_device == at::kHPU) {
+    if (!self.is_contiguous()) {
+      auto self_tmeta{habana::get_tensor_extra_meta(self)};
+      self_tmeta->set_view_lowering(true);
+    }
+  }
+
+  PT_EAGER_DEBUG(
+      "_copy_from: src_sizes: ",
+      self.sizes(),
+      " src_strides: ",
+      self.strides(),
+      " src_dtype: ",
+      self.scalar_type(),
+      " src_device: ",
+      src_device,
+      " dst_sizes: ",
+      dst.sizes(),
+      " dst_strides: ",
+      dst.strides(),
+      " dst_dtype: ",
+      dst.scalar_type(),
+      " dst_device: ",
+      dst_device);
+
   at::Tensor result;
   // Special handling for Long/Double tensors
   // Unpack received data (implicitly received as Int/Float half of buffer)

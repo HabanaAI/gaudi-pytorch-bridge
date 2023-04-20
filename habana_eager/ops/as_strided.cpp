@@ -13,6 +13,7 @@
 
 #include "habana_eager/ops/as_strided.h"
 #include <ATen/native/Resize.h>
+#include "habana_eager/ops/view.h"
 
 namespace habana {
 namespace eager {
@@ -28,6 +29,7 @@ at::Tensor as_strided_hpu(
       self.key_set(),
       self.dtype());
   at::native::setStrided(result, size, stride, storage_offset);
+  habana::eager::view_propagate_permutation(self, result);
   return result;
 }
 } // namespace eager

@@ -301,3 +301,23 @@ def test_view_cache2():
     hres = fn(ha, 2)
 
     assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+
+def test_view_layout1():
+    def fn (x, dev):
+        torch.manual_seed(0)
+        m = torch.nn.Conv2d(2, 3, 3, stride=2).to(dev)
+        x = m(x)
+        x = x[:]
+        return x
+
+    a = torch.randn(2, 2, 6, 6)
+    ha = a.to('hpu')
+
+    #CPU
+    res = fn(a, torch.device('cpu'))
+
+    #HPU
+    hres = fn(ha, torch.device('hpu'))
+    hres_cpu = hres.cpu()
+
+    assert torch.allclose(hres_cpu, res, atol=0.01, rtol=0.01)

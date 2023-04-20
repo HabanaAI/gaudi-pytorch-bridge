@@ -189,24 +189,32 @@ torch::jit::Stack EagerExec::launch() {
         continue;
       }
 
-      auto in = val.toTensor();
-      if (in.is_contiguous()) {
-        continue;
-      }
-
       // If an input tensor is not contiguous view handling JIT IR pass
-      // would have modified the input tensor to 1D base tensor. Need to
+      // would have modified the input tensor to base tensor. Need to
       // perform this operation for the cache hit case as well
-      int64_t elem_size =
-          c10::elementSize(habana_helpers::getInternalDtype(in.scalar_type()));
-      auto impl = in.unsafeGetTensorImpl();
-      auto total_num_elements =
-          (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
-      impl->set_storage_offset(0);
-      impl->set_sizes_and_strides(
-          at::IntArrayRef{total_num_elements}, at::IntArrayRef{1});
-      PT_EAGER_DEBUG(
-          "Eager op: Input tensor converted to base for the cache hit case");
+      auto in = val.toTensor();
+      auto input_tmeta{habana::get_tensor_extra_meta(in)};
+
+      if (input_tmeta->is_view_lowering() || !in.is_contiguous()) {
+        // modify the backend tensor of the view as the base
+        auto impl = in.unsafeGetTensorImpl();
+        impl->set_storage_offset(0);
+
+        std::vector<int64_t> base_sizes;
+        if (input_tmeta->get_memory_permutation().size()) {
+          base_sizes = input_tmeta->get_base_tensor_size();
+        } else {
+          int64_t elem_size = c10::elementSize(
+              habana_helpers::getInternalDtype(in.scalar_type()));
+          auto total_num_elements =
+              (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
+          base_sizes = {total_num_elements};
+        }
+
+        impl->set_sizes_contiguous(base_sizes);
+        PT_EAGER_DEBUG(
+            "Eager op: Input tensor converted to base for the cache hit case");
+      }
     }
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
@@ -386,10 +394,20 @@ size_t EagerExec::calculate_operator_key(
 
 void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
+
+  // hash view attribute
+  auto input_tmeta{habana::get_tensor_extra_meta(t)};
+  key = at::hash_combine(
+      key, static_cast<size_t>(input_tmeta->is_view_lowering()));
   key = at::hash_combine(key, static_cast<size_t>(t.is_contiguous()));
 
-  // TODO: remove the below code block once the node params are patched.
-  if (t.is_contiguous() == false) {
+  if (input_tmeta->is_view_lowering() || !t.is_contiguous()) {
+    // base tensor size used in JIT IR pass varies w.r.t. permutation
+    for (auto s : input_tmeta->get_memory_permutation()) {
+      key = at::hash_combine(key, s);
+    }
+
+    // TODO: remove the below code block once the node params are patched.
     for (auto s : t.strides())
       key = at::hash_combine(key, s);
     // two different sized tensors can have same strides. ex: [2, 4, 1], and

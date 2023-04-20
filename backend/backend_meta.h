@@ -325,6 +325,31 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     }
   }
 
+  // view related member functions
+  bool is_view_tensor() const {
+    return is_view_;
+  }
+
+  void set_view_tensor() {
+    is_view_ = true;
+  }
+
+  void set_base_tensor_size(std::vector<int64_t> s) {
+    base_sizes_ = s;
+  }
+
+  std::vector<int64_t>& get_base_tensor_size() {
+    return base_sizes_;
+  }
+
+  bool& is_view_lowering() {
+    return is_view_lowering_;
+  }
+
+  void set_view_lowering(bool is_lowering) {
+    is_view_lowering_ = is_lowering;
+  }
+
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -348,6 +373,11 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_redundant_ = false;
   int id_{-1};
   int total_elem_{0};
+
+  // view meta
+  bool is_view_{false};
+  std::vector<int64_t> base_sizes_{0};
+  bool is_view_lowering_{false};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

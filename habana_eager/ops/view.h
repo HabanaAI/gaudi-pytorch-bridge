@@ -41,5 +41,8 @@ at::Tensor alias_with_sizes_and_strides(
 
 at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size);
 
+void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t);
+at::Tensor create_base(const at::Tensor& self);
+
 } // namespace eager
 } // namespace habana

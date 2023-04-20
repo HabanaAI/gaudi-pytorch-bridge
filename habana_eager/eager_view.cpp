@@ -53,8 +53,15 @@ static JitNode* insert_strided_view_node(
 
   auto* impl = input.unsafeGetTensorImpl();
   impl->set_storage_offset(0);
-  impl->set_sizes_and_strides(
-      at::IntArrayRef{p->getTotalElements()}, at::IntArrayRef{1});
+  std::vector<int64_t> base_sizes;
+  auto input_tmeta{habana::get_tensor_extra_meta(input)};
+  if (input_tmeta->get_memory_permutation().size()) {
+    base_sizes = input_tmeta->get_base_tensor_size();
+  } else {
+    base_sizes = {p->getTotalElements()};
+  }
+  impl->set_sizes_contiguous(base_sizes);
+
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), input.sizes()));
 
@@ -126,7 +133,8 @@ static void collect_output_view_param(
 
     HABANA_ASSERT(inputs[idx].isTensor(), "Expected tensor input");
     auto output_tensor = inputs.at(idx).toTensor();
-    if (!output_tensor.is_contiguous()) {
+    auto output_tmeta{habana::get_tensor_extra_meta(output_tensor)};
+    if (output_tmeta->is_view_lowering() || !output_tensor.is_contiguous()) {
       StridedOutInfo s;
       s.index = idx;
       s.tensor = output_tensor;
@@ -250,7 +258,9 @@ void HandleInputOutputViews(
     auto val = inputs.at(idx);
     HABANA_ASSERT(val.isTensor(), "Non-tensor value");
     auto input_tensor = val.toTensor();
-    if (!input_tensor.is_contiguous()) {
+    auto input_tmeta{habana::get_tensor_extra_meta(input_tensor)};
+
+    if (input_tmeta->is_view_lowering() || !input_tensor.is_contiguous()) {
       std::unique_ptr<ViewParam> p_in = std::make_unique<ViewParam>();
       p_in->setParam(input_tensor);
       insert_strided_view_node(graph, input_tensor, node, idx, p_in);
