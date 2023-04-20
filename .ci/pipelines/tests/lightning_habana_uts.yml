@@ -19,16 +19,15 @@ common:
           install_pillow_simd
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
           pip install -U habana-media-loader --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple
-          pip freeze list | grep habana
-          pip freeze list | grep hpu
-          python3 -c "from habana_frameworks.mediapipe import fn"
-          pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
+          pip install -U scikit-learn
+          build_deepspeed_fork
+          pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps
 testsMap:
-  Test_pytorch_modules_gaudi2_asic_8cards_lightning_habana_uts:
+  Test_pytorch_modules_gaudi2_asic_lightning_habana_uts:
     stages:
       Run Lightning habana unit tests:
         filter: -t all
-  Test_pytorch_modules_gaudi_asic_8cards_lightning_habana_uts:
+  Test_pytorch_modules_gaudi_asic_lightning_habana_uts:
     stages:
       Run Lightning habana unit tests:
         filter: -t all

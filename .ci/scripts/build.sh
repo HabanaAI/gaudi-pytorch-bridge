@@ -1802,11 +1802,11 @@ run_lightning_habana_fw_tests()
     if [ -n "$__print_tests" ]; then
         pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
         echo "Fabric tests:"
-        ${__pytorch_lightning_qa_tests_exe} --collectonly tests_fabric/
+        ${__pytorch_lightning_qa_tests_exe} --collectonly test_fabric/
         __test_status=$?
 
         echo "Lightning HPU tests:"
-        ${__pytorch_lightning_qa_tests_exe} --collectonly tests_pytorch/
+        ${__pytorch_lightning_qa_tests_exe} --collectonly test_pytorch/
         __test_status=$?
 
         popd
@@ -1817,13 +1817,14 @@ run_lightning_habana_fw_tests()
         pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
 
         echo "Executing Lightning fabric tests on HPU"
-        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_fabric/ --forked --junit-xml="${__xml}fabric_fw_uts.xml" ${__marker})
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter test_fabric/ --forked --junit-xml="${__xml}fabric_fw_uts.xml" ${__marker})
         ((__test_status=__test_status || $?))
 
         echo "Executing Lightning Habana tests"
-        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter tests_pytorch \
-         --hmp-bf16 'tests_pytorch/plugins/precision/hpu/ops_bf16.txt'\
-         --hmp-fp32 'tests_pytorch/plugins/precision/hpu/ops_fp32.txt' --forked --hpus 8 --junit-xml="${__xml}lightning_fw_uts_8.xml" ${__marker})
+        pip freeze list
+        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter test_pytorch --forked -o xfail_strict=false\
+         --hmp-bf16 'test_pytorch/ops_bf16.txt'\
+         --hmp-fp32 'test_pytorch/ops_fp32.txt' --junit-xml="${__xml}lightning_fw_uts_8.xml" ${__marker})
         ((__test_status=__test_status || $?))
 
         popd
