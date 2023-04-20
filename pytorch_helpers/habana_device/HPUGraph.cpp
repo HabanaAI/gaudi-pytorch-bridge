@@ -73,9 +73,11 @@ void HPUGraph::capture_end() {
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
-  if (dynamic_env_) {
+
+  // Not enabling DS back once HPU graph detected
+  /*if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();
-  }
+  }*/
 }
 
 void HPUGraph::mark_step() {
@@ -244,9 +246,11 @@ void SingleHPUGraph::replayGraph(
         true /*is_cached*/,
         launch_jobid);
   }
-  if (dynamic_env_) {
+
+  // Not enabling DS back once HPU graph detected
+  /*if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();
-  }
+  }*/
 }
 
 void SingleHPUGraph::replay(bool async) {
