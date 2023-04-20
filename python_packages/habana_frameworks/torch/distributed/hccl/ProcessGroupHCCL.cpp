@@ -12,17 +12,19 @@
  */
 
 #include "ProcessGroupHCCL.hpp"
+
+#include <hccl.h>
+#include <hccl_types.h>
 #include <pybind11/chrono.h>
+#include <pybind11/pybind11.h>
 #include <unistd.h>
 #include <future>
 #include <map>
-#include "backend/synapse_helpers/env_flags.h"
-#include "hccl.h"
-#include "hccl_types.h"
 
-#include <pybind11/chrono.h>
+#include "backend/helpers/collective_utils.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -51,117 +53,6 @@ namespace {
       nwStreamSync();                                  \
     }                                                  \
   }
-
-std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
-    {at::kByte, hcclUint8},
-    {at::kChar, hcclChar},
-    {at::kDouble, hcclDouble},
-    {at::kFloat, hcclFloat},
-    {at::kHalf, hcclHalf},
-    {at::kInt, hcclInt32},
-    {at::kLong, hcclInt64},
-    {at::kBFloat16, hcclBfloat16},
-};
-
-// HCCL op mapping
-std::map<ReduceOp, hcclRedOp_t> hcclOp = {
-    {ReduceOp::MIN, hcclMin},
-    {ReduceOp::MAX, hcclMax},
-    {ReduceOp::SUM, hcclSum},
-    {ReduceOp::PRODUCT, hcclProd},
-};
-
-typedef enum {
-  collectiveAllReduce = 0,
-  collectiveReduce = 1,
-  collectiveAllGather = 2,
-  collectiveReduceScatter = 3,
-  collectiveBroadcast = 4,
-  collectiveNone
-} collectiveKind_t;
-
-hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
-  try {
-    return hcclOp.at(reduceOp);
-  } catch (std::out_of_range& e) {
-    TORCH_CHECK(false, "Unsupported ReduceOp for HCCL process group");
-  }
-}
-
-size_t getHCCLSliceSize(collectiveKind_t kind) {
-  size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
-  if (slice_size != DEFAULT_HCCL_SLICE_SIZE_MB) {
-    // user has set slicing for tuning
-    return slice_size * 1024 * 1024;
-  }
-
-  // hccl slicing is static for now and will get updated once SIMB is enabled
-  switch (kind) {
-    case collectiveAllReduce:
-    case collectiveReduceScatter:
-    case collectiveBroadcast:
-      slice_size = 128;
-      break;
-    case collectiveReduce:
-    case collectiveAllGather:
-      slice_size = 16;
-      break;
-  }
-  return slice_size * 1024 * 1024;
-}
-
-hcclDataType_t getHCCLDataType(at::ScalarType type) {
-  type = habana_helpers::getInternalDtype(type);
-  auto it = hcclDataType.find(type);
-  TORCH_CHECK(
-      it != hcclDataType.end(),
-      "Input tensor data type is not supported for HCCL process group: ",
-      type);
-  return it->second;
-}
-
-size_t getHCCLDataSize(hcclDataType_t type) {
-  const std::map<hcclDataType_t, size_t> type2size = {
-      {hcclBfloat16, 2}, {hcclFloat, 4}};
-
-  auto it = type2size.find(type);
-  TORCH_CHECK(
-      it != type2size.end(),
-      "Getting size for given data type is not supported: ",
-      type);
-  return it->second;
-}
-
-void getCountDatatype(
-    c10::ScalarType scalar_type,
-    int64_t& numel,
-    hcclDataType_t& tensor_data_type) {
-  switch (scalar_type) {
-    case at::kChar:
-    case at::kByte:
-      numel = (numel * sizeof(char)) / sizeof(uint16_t);
-      tensor_data_type = getHCCLDataType(at::kBFloat16);
-      break;
-    case at::kInt:
-      tensor_data_type = getHCCLDataType(at::kFloat);
-      break;
-    case at::kLong:
-      if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
-        numel = (numel * 2);
-      }
-      tensor_data_type = getHCCLDataType(at::kFloat);
-      break;
-    case at::kDouble:
-      numel = (numel * sizeof(float)) / sizeof(float);
-      tensor_data_type = getHCCLDataType(at::kFloat);
-      break;
-    case at::kHalf:
-      tensor_data_type = getHCCLDataType(at::kBFloat16);
-      break;
-    default:
-      break;
-  }
-}
 
 void adjustElementcount_int64(
     c10::ScalarType scalar_type,
@@ -226,48 +117,6 @@ bool is_valid_hccl_dtype(hcclDataType_t data_type) {
   return false;
 }
 
-// Flatten each list in `tensor_lists' for a gather or scatter operation, and
-// ensure compatibility with the corresponding tensor in `other'.
-std::vector<at::Tensor> flatten_for_scatter_gather(
-    std::vector<std::vector<at::Tensor>>& tensor_lists,
-    std::vector<at::Tensor>& other,
-    size_t world_size) {
-  if (tensor_lists.size() != other.size()) {
-    throw std::runtime_error(
-        "Tensor list operands to scatter/gather must have the same length");
-  }
-  const auto num_devices = tensor_lists.size();
-
-  std::vector<at::Tensor> flattened;
-  flattened.resize(num_devices);
-
-  for (auto i = size_t{}; i < num_devices; ++i) {
-    if (tensor_lists[i].size() != world_size * num_devices) {
-      throw std::runtime_error(
-          "Tensor list input to scatter/gather must match number of collective"
-          " participants");
-    }
-
-    // Only check device match for the first tensor in the list; the call to
-    // newLikeFlat() below will check the rest.
-    if (tensor_lists[i].front().get_device() != other[i].get_device()) {
-      throw std::runtime_error(
-          "Corresponding input/output tensors to scatter/gather must all reside"
-          " on the same device");
-    }
-
-    for (const auto& t : tensor_lists[i]) {
-      if (t.numel() != other[i].numel()) {
-        throw std::runtime_error(
-            "All tensor operands to scatter/gather must have the same size");
-      }
-    }
-    // Flatten the tensors (from all ranks) into a single big tensor.
-    flattened[i] = newLikeFlat(tensor_lists, i);
-  }
-  return flattened;
-}
-
 class JobThreadHCCL {
  public:
   static std::shared_ptr<habana_helpers::JobThread> getInstance() {
@@ -279,7 +128,6 @@ class JobThreadHCCL {
 
 } // namespace
 
-const int64_t ProcessGroupHCCL::kWatchdogThreadSleepMillis = 40000;
 void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
   if (this->emulate_distributed_) {
     return;
@@ -843,42 +691,47 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::broadcast(
           synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
+        hcclDataType_t hccl_data_type;
         const auto scalar_type = input.scalar_type();
-        auto tensor_data_type = getHCCLDataType(scalar_type);
-        auto num_elems = input.numel();
+        auto hccl_numel = input.numel();
 
-        getCountDatatype(scalar_type, num_elems, tensor_data_type);
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
 
-        size_t element_size = getHCCLDataSize(tensor_data_type);
+        size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
         size_t chunk_size_in_elems =
-            getHCCLSliceSize(collectiveBroadcast) / element_size;
+            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
+            element_size;
 
         size_t data_offset = 0;
         hcclResult_t hccl_result{hcclSuccess};
 
-        while (num_elems > 0) {
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] broadcast with input_address=",
+            send_buffer,
+            " output_address=",
+            recv_buffer,
+            " numel=",
+            input.numel(),
+            " scalar_type=",
+            input.scalar_type(),
+            " element_size=",
+            input.element_size(),
+            " hccl_type=",
+            hccl_data_type,
+            " hccl_count=",
+            hccl_numel);
+        while (hccl_numel > 0) {
           size_t num_elements_in_current_chunk =
-              (static_cast<size_t>(num_elems) > chunk_size_in_elems)
+              (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
               ? chunk_size_in_elems
-              : num_elems;
-          PT_DISTRIBUTED_DEBUG(
-              "[PYT-DIST] broadcast with input_address :: ",
-              static_cast<const void*>(
-                  static_cast<const uint8_t*>(send_buffer) + data_offset),
-              " output_address :: ",
-              static_cast<void*>(
-                  static_cast<uint8_t*>(recv_buffer) + data_offset),
-              " elem_cnt :: ",
-              num_elements_in_current_chunk,
-              " data_type :: ",
-              tensor_data_type);
-
+              : hccl_numel;
           if (!this->emulate_distributed_) {
             hccl_result = hcclBroadcast(
                 static_cast<const uint8_t*>(send_buffer) + data_offset,
                 static_cast<uint8_t*>(recv_buffer) + data_offset,
                 num_elements_in_current_chunk,
-                tensor_data_type,
+                hccl_data_type,
                 rootRank,
                 hccl_comm,
                 stream);
@@ -888,7 +741,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::broadcast(
               hcclSuccess == hccl_result, "Collective call returned error");
           data_offset =
               data_offset + (num_elements_in_current_chunk * element_size);
-          num_elems -= num_elements_in_current_chunk;
+          hccl_numel -= num_elements_in_current_chunk;
         }
         return hccl_result;
       });
@@ -904,7 +757,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
   habana_lazy::NoAccThread no_acc_thread;
   std::vector<at::Tensor> allreduce_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
-    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
     if (is_valid_hccl_dtype(data_type)) {
       allreduce_tensors.push_back(tensors[i]);
     } else {
@@ -930,7 +783,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
         size_t chunk_size =
-            getHCCLSliceSize(collectiveAllReduce) / element_size;
+            getHCCLSliceSize(habana_helpers::collectiveAllReduce) /
+            element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -947,15 +801,15 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
               " elem_cnt :: ",
               num_elements_in_current_chunk,
               " data_type :: ",
-              getHCCLDataType(input.scalar_type()));
+              habana_helpers::getHCCLDataType(input.scalar_type()));
 
           if (!this->emulate_distributed_) {
             hccl_result = hcclAllReduce(
                 offseted_send_buffer,
                 offseted_recv_buffer,
                 num_elements_in_current_chunk,
-                getHCCLDataType(input.scalar_type()),
-                getHCCLReduceOp(reduceOp),
+                habana_helpers::getHCCLDataType(input.scalar_type()),
+                habana_helpers::getHCCLReduceOp(reduceOp),
                 hccl_comm,
                 stream);
           }
@@ -970,7 +824,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
       true /*is_allreduce*/);
 
   for (size_t i = 0; i < tensors.size(); i++) {
-    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
     if (!is_valid_hccl_dtype(data_type)) {
       work->wait();
       tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
@@ -994,7 +848,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
   habana_lazy::NoAccThread no_acc_thread;
   std::vector<at::Tensor> reduction_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
-    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
     if (is_valid_hccl_dtype(data_type)) {
       reduction_tensors.push_back(tensors[i]);
     } else {
@@ -1024,12 +878,13 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
         size_t element_size = c10::elementSize(
             habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size = getHCCLSliceSize(collectiveReduce) / element_size;
+        size_t chunk_size =
+            getHCCLSliceSize(habana_helpers::collectiveReduce) / element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -1041,8 +896,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
                 reinterpret_cast<void*>(
                     reinterpret_cast<char*>(recv_buffer) + data_offset),
                 num_elements_in_current_chunk,
-                getHCCLDataType(input.scalar_type()),
-                getHCCLReduceOp(reduceOp),
+                habana_helpers::getHCCLDataType(input.scalar_type()),
+                habana_helpers::getHCCLReduceOp(reduceOp),
                 root,
                 hccl_comm,
                 stream);
@@ -1057,7 +912,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
       });
 
   for (size_t i = 0; i < tensors.size(); i++) {
-    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    auto data_type = habana_helpers::getHCCLDataType(tensors[i].scalar_type());
     if (!is_valid_hccl_dtype(data_type)) {
       work->wait();
       tensors[i].copy_(reduction_tensors[i].to(tensors[i].scalar_type()));
@@ -1094,23 +949,31 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall(
           synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
-        int64_t count = input.numel();
-        auto type = getHCCLDataType(input.scalar_type());
+        hcclDataType_t hccl_data_type;
+        int64_t hccl_numel = input.numel();
         hcclResult_t hccl_result{hcclSuccess};
         const auto scalar_type = input.scalar_type();
-        getCountDatatype(scalar_type, count, type);
+
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] alltoall with input_address :: ",
             send_buffer,
             " output_address :: ",
             recv_buffer,
             " elem_cnt :: ",
-            count,
+            hccl_numel,
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            hccl_data_type);
 
         hccl_result = hcclAlltoAll(
-            send_buffer, recv_buffer, count, type, hccl_comm, stream);
+            send_buffer,
+            recv_buffer,
+            hccl_numel,
+            hccl_data_type,
+            hccl_comm,
+            stream);
         return hccl_result;
       });
 
@@ -1137,7 +1000,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
   at::Tensor alltoall_out_tensors;
   at::Tensor alltoall_in_tensors;
   auto out_scalar_t = outputTensor.scalar_type();
-  auto data_type = getHCCLDataType(outputTensor.scalar_type());
+  auto data_type = habana_helpers::getHCCLDataType(outputTensor.scalar_type());
   if (is_valid_hccl_dtype(data_type) || out_scalar_t == at::kInt ||
       out_scalar_t == at::kLong) {
     alltoall_out_tensors = outputTensor;
@@ -1163,27 +1026,34 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
             void* recv_buffer,
             hcclComm_t& hccl_comm,
             synStreamHandle stream) {
-          int64_t count = input.numel();
-          auto type = getHCCLDataType(input.scalar_type());
+          int64_t hccl_numel = input.numel();
+          auto hccl_data_type =
+              habana_helpers::getHCCLDataType(input.scalar_type());
           HOST_SYNC()
           NW_STREAM_SYNC()
+
+          const auto scalar_type = input.scalar_type();
+          habana_helpers::getCountDatatype(
+              scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+
           PT_DISTRIBUTED_DEBUG(
               "[PYT-DIST] alltoall with input_address :: ",
               send_buffer,
               " output_address :: ",
               recv_buffer,
               " elem_cnt :: ",
-              count,
+              hccl_numel,
               " data_type :: ",
-              getHCCLDataType(input.scalar_type()));
+              hccl_data_type);
           hcclResult_t hccl_result{hcclSuccess};
-
-          const auto scalar_type = input.scalar_type();
-          getCountDatatype(scalar_type, count, type);
-
           if (!this->emulate_distributed_) {
             hccl_result = hcclAlltoAll(
-                send_buffer, recv_buffer, count, type, hccl_comm, stream);
+                send_buffer,
+                recv_buffer,
+                hccl_numel,
+                hccl_data_type,
+                hccl_comm,
+                stream);
           }
           return hccl_result;
         });
@@ -1212,8 +1082,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
               inputSplitSizes, input, &send_lengths, &send_offsets);
           c10d::computeLengthsAndOffsets(
               outputSplitSizes, output, &recv_lengths, &recv_offsets);
-          int64_t count = input.numel();
-          auto type = getHCCLDataType(input.scalar_type());
+          int64_t hccl_numel = input.numel();
+          auto hccl_data_type =
+              habana_helpers::getHCCLDataType(input.scalar_type());
           HOST_SYNC()
           NW_STREAM_SYNC()
           PT_DISTRIBUTED_DEBUG(
@@ -1222,11 +1093,12 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
               " output_address :: ",
               recv_buffer,
               " elem_cnt :: ",
-              count,
+              hccl_numel,
               " data_type :: ",
-              getHCCLDataType(input.scalar_type()));
+              hccl_data_type);
           size_t ele_size = input.element_size();
-          getCountDatatype(scalar_type, count, type);
+          habana_helpers::getCountDatatype(
+              scalar_type, input.element_size(), hccl_numel, hccl_data_type);
           adjustElementcount_int64(
               scalar_type, send_lengths, recv_lengths, ele_size);
           hcclGroupStart();
@@ -1237,7 +1109,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
                   reinterpret_cast<const unsigned char*>(send_buffer) +
                       send_offsets[r] * ele_size,
                   send_lengths[r],
-                  type,
+                  hccl_data_type,
                   r,
                   hccl_comm,
                   stream);
@@ -1250,7 +1122,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
                   reinterpret_cast<unsigned char*>(recv_buffer) +
                       recv_offsets[r] * ele_size,
                   recv_lengths[r],
-                  type,
+                  hccl_data_type,
                   r,
                   hccl_comm,
                   stream);
@@ -1296,8 +1168,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
   change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
-  auto outputFlattened =
-      flatten_for_scatter_gather(outputTensors, inputTensors, size_);
+  auto outputFlattened = habana_helpers::flatten_for_scatter_gather(
+      outputTensors, inputTensors, size_);
 
   auto work = collective(
       inputTensors,
@@ -1318,18 +1190,19 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allgather(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         auto scalar_type = input.scalar_type();
-        auto tensor_data_type = getHCCLDataType(scalar_type);
-        auto numel = input.numel();
-        getCountDatatype(scalar_type, numel, tensor_data_type);
+        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        auto hccl_numel = input.numel();
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclAllGather(
               send_buffer,
               recv_buffer,
-              numel,
-              tensor_data_type,
+              hccl_numel,
+              hccl_data_type,
               hccl_comm,
               stream);
         }
@@ -1398,18 +1271,19 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::_allgather_base(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         auto scalar_type = input.scalar_type();
-        auto tensor_data_type = getHCCLDataType(scalar_type);
-        auto numel = input.numel();
-        getCountDatatype(scalar_type, numel, tensor_data_type);
+        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        auto hccl_numel = input.numel();
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclAllGather(
               send_buffer,
               recv_buffer,
-              numel,
-              tensor_data_type,
+              hccl_numel,
+              hccl_data_type,
               hccl_comm,
               stream);
         }
@@ -1497,8 +1371,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce_scatter(
     const ReduceScatterOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
-  auto inputFlattened =
-      flatten_for_scatter_gather(inputTensors, outputTensors, size_);
+  auto inputFlattened = habana_helpers::flatten_for_scatter_gather(
+      inputTensors, outputTensors, size_);
   for (size_t i = 0; i < inputTensors.size(); ++i) {
     for (size_t j = 0; j < inputTensors[0].size(); ++j) {
       inputFlattened[i][j].copy_(inputTensors[i][j], true);
@@ -1525,15 +1399,15 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce_scatter(
             " elem_cnt :: ",
             output.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclReduceScatter(
               send_buffer,
               recv_buffer,
               output.numel(),
-              getHCCLDataType(input.scalar_type()),
-              getHCCLReduceOp(reduceOp),
+              habana_helpers::getHCCLDataType(input.scalar_type()),
+              habana_helpers::getHCCLReduceOp(reduceOp),
               hccl_comm,
               stream);
         }
@@ -1586,15 +1460,15 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::_reduce_scatter_base(
             " elem_cnt :: ",
             output.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclReduceScatter(
               send_buffer,
               recv_buffer,
               output.numel(),
-              getHCCLDataType(input.scalar_type()),
-              getHCCLReduceOp(reduceOp),
+              habana_helpers::getHCCLDataType(input.scalar_type()),
+              habana_helpers::getHCCLReduceOp(reduceOp),
               hccl_comm,
               stream);
         }
@@ -1686,15 +1560,21 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::send(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()));
         auto scalar_type = input.scalar_type();
-        auto tensor_data_type = getHCCLDataType(scalar_type);
-        auto numel = input.numel();
-        getCountDatatype(scalar_type, numel, tensor_data_type);
+        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        auto hccl_numel = input.numel();
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclSend(
-              send_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+              send_buff,
+              hccl_numel,
+              hccl_data_type,
+              peerRank,
+              hccl_comm,
+              stream);
         }
         return hccl_result;
       },
@@ -1730,15 +1610,21 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::recv(
             " elem_cnt :: ",
             tensor.numel(),
             " data_type :: ",
-            getHCCLDataType(tensor.scalar_type()));
+            habana_helpers::getHCCLDataType(tensor.scalar_type()));
         auto scalar_type = tensor.scalar_type();
-        auto tensor_data_type = getHCCLDataType(scalar_type);
-        auto numel = tensor.numel();
-        getCountDatatype(scalar_type, numel, tensor_data_type);
+        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        auto hccl_numel = tensor.numel();
+        habana_helpers::getCountDatatype(
+            scalar_type, tensor.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclRecv(
-              recv_buff, numel, tensor_data_type, peerRank, hccl_comm, stream);
+              recv_buff,
+              hccl_numel,
+              hccl_data_type,
+              peerRank,
+              hccl_comm,
+              stream);
         }
         return hccl_result;
       },
@@ -1814,4 +1700,17 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts) {
 
 } // namespace c10d
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {}
+namespace py = pybind11;
+
+template <typename T, typename... TOptions>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, TOptions...>;
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
+  intrusive_ptr_class_<::c10d::ProcessGroupHCCL, c10d::ProcessGroup>
+      processGroupHccl(module, "ProcessGroupHCCL");
+
+  processGroupHccl.def(py::init<
+                       const c10::intrusive_ptr<c10d::Store>&,
+                       int,
+                       int,
+                       std::chrono::milliseconds>());
+};

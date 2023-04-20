@@ -390,6 +390,8 @@ if (BUILD_PKGS)
     habana_frameworks/torch/distributed/hccl/__init__.py
     habana_frameworks/torch/distributed/hccl/process_group_lazy_hccl.cpp
     habana_frameworks/torch/distributed/hccl/process_group_lazy_hccl.hpp
+    habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.cpp
+    habana_frameworks/torch/distributed/hccl/process_group_eager_hccl.hpp
     habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.cpp
     habana_frameworks/torch/distributed/hccl/ProcessGroupHCCL.hpp
     habana_frameworks/torch/distributed/hccl/reducer_timer.cpp

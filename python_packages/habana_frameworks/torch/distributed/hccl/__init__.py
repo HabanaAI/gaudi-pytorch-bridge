@@ -4,8 +4,22 @@ import logging
 from typing import Tuple
 
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
-from habana_frameworks.torch.distributed._hccl_C import *
-from habana_frameworks.torch.utils.experimental.distributed_emulation import distributed_emulation_apply_if_enabled, is_distributed_emulation_enabled
+from habana_frameworks.torch.utils.experimental.distributed_emulation import \
+    distributed_emulation_apply_if_enabled,\
+    is_distributed_emulation_enabled
+
+_lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "1"))
+_lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]
+if _lazy_mode == 0:
+    # PT 2.0 eager mode
+    from habana_frameworks.torch.distributed._hccl_eager_C import *
+elif _lazy_collectives_enabled:
+    # Lazy mode with lazy collectives
+    from habana_frameworks.torch.distributed._hccl_lazy_C import *
+else:
+    # Lazy mode without lazy collectives
+    from habana_frameworks.torch.distributed._hccl_C import *
+
 
 distributed_emulation_apply_if_enabled()
 
@@ -96,3 +110,14 @@ def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> T
 
 
 initialize_distributed_hpu()
+
+
+def _create_process_group_hccl(store, rank, size, timeout):
+    return ProcessGroupHCCL(
+        store,
+        rank,
+        size,
+        timeout)
+
+
+torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl)

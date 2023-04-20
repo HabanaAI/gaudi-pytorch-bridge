@@ -7,12 +7,15 @@
  *
  ******************************************************************************
  */
-#include <hccl.h>
-#include <hccl_types.h>
-
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "process_group_lazy_hccl.hpp"
 
+#include <hccl.h>
+#include <hccl_types.h>
+#include <pybind11/chrono.h>
+#include <pybind11/pybind11.h>
+
+#include "backend/helpers/collective_utils.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -63,48 +66,6 @@ void restoreTensorsize(
           sizeList[i], strideList[i]);
     }
   }
-}
-
-// Flatten each list in `tensor_lists' for a gather or scatter operation, and
-// ensure compatibility with the corresponding tensor in `other'.
-std::vector<at::Tensor> flatten_for_scatter_gather(
-    std::vector<std::vector<at::Tensor>>& tensor_lists,
-    std::vector<at::Tensor>& other,
-    size_t world_size) {
-  if (tensor_lists.size() != other.size()) {
-    throw std::runtime_error(
-        "Tensor list operands to scatter/gather must have the same length");
-  }
-  const auto num_devices = tensor_lists.size();
-
-  std::vector<at::Tensor> flattened;
-  flattened.resize(num_devices);
-
-  for (auto i = size_t{}; i < num_devices; ++i) {
-    if (tensor_lists[i].size() != world_size * num_devices) {
-      throw std::runtime_error(
-          "Tensor list input to scatter/gather must match number of collective"
-          " participants");
-    }
-
-    // Only check device match for the first tensor in the list; the call to
-    // newLikeFlat() below will check the rest.
-    if (tensor_lists[i].front().get_device() != other[i].get_device()) {
-      throw std::runtime_error(
-          "Corresponding input/output tensors to scatter/gather must all reside"
-          " on the same device");
-    }
-
-    for (const auto& t : tensor_lists[i]) {
-      if (t.numel() != other[i].numel()) {
-        throw std::runtime_error(
-            "All tensor operands to scatter/gather must have the same size");
-      }
-    }
-    // Flatten the tensors (from all ranks) into a single big tensor.
-    flattened[i] = newLikeFlat(tensor_lists, i);
-  }
-  return flattened;
 }
 
 } // namespace
@@ -268,8 +229,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
   change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
-  auto output_flattened =
-      flatten_for_scatter_gather(outputTensors, inputTensors, size_);
+  auto output_flattened = habana_helpers::flatten_for_scatter_gather(
+      outputTensors, inputTensors, size_);
   HOST_SYNC()
   for (size_t index = 0; index < output_flattened.size(); ++index) {
     habana_lazy::allgather_hpu_lazy_out(
@@ -361,8 +322,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
-  auto input_flattened =
-      flatten_for_scatter_gather(inputTensors, outputTensors, size_);
+  auto input_flattened = habana_helpers::flatten_for_scatter_gather(
+      inputTensors, outputTensors, size_);
   for (size_t i = 0; i < inputTensors.size(); ++i) {
     for (size_t j = 0; j < inputTensors[0].size(); ++j) {
       input_flattened[i][j].copy_(inputTensors[i][j], true);
@@ -504,3 +465,19 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
 };
 
 } // namespace c10d
+
+namespace py = pybind11;
+
+template <typename T, typename... TOptions>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, TOptions...>;
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
+  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::ProcessGroup>
+      processGroupHccl(module, "ProcessGroupHCCL");
+
+  processGroupHccl.def(py::init<
+                       const c10::intrusive_ptr<c10d::Store>&,
+                       int,
+                       int,
+                       std::chrono::milliseconds>());
+};
