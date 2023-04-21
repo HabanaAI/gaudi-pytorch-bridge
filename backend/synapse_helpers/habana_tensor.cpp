@@ -410,7 +410,13 @@ synapse_error_o tensor::create() {
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
 
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_)) {
+  // Device Data Type should not be set in 2 scenarios as per GC(SW-141747):
+  // 1: intermediate/workspace tensors having quantization_data in inference
+  // mode
+  // 2: persistent tensors in constant sections having quantization_data in
+  // inference mode
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_ &&
+        ((!is_persistent_) || (is_persistent_ && is_const_section_)))) {
     status = synTensorSetDeviceDataType(tensor_, data_type_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "Set device data type failed", status, cleanup());
