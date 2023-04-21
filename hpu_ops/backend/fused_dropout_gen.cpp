@@ -15,13 +15,14 @@
 #include "generated/backend/_fused_dropout.h"
 #include "habana_kernels/random_gen_kernels.h"
 
-#include <ATen/Tensor.h>
-
 namespace habana {
-sizes_vec FusedDropoutOutputShape(const at::Stack& stack) {
-  const auto& outputSizes = stack_tensor(stack, 0).sizes().vec();
+OutputMetaDataVector FusedDropoutMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
 
-  return {outputSizes, outputSizes};
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta, meta};
 }
 
 void FusedDropout::AddNode(
@@ -36,14 +37,14 @@ void FusedDropout::AddNode(
   size_t paramsSize = sizeof(params);
   params.ratio = ratio;
 
-  auto outputShapes = FusedDropoutOutputShape(stack);
+  auto outputShape = FusedDropoutMeta(stack)[0].shape;
 
   auto dropout = BuildDropout(
       this,
       graph,
       {self, seed},
-      {NodeAttr::NodeOutputAttr{outputShapes[0], self.pt_t.scalar_type(), 0},
-       NodeAttr::NodeOutputAttr{outputShapes[1], at::kChar, 1}},
+      {NodeAttr::NodeOutputAttr{outputShape, self.pt_t.scalar_type(), 0},
+       NodeAttr::NodeOutputAttr{outputShape, at::kChar, 1}},
       &params,
       paramsSize);
 
