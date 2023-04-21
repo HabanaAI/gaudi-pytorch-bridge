@@ -722,17 +722,16 @@ add.Scalar_out:
   promote_to_common_type: [self, other]
 
 addbmm:
-  custom_output_shape: AddBMMOutshape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: batch_gemm
   op_backend: AddBMM
+  output_meta: AddBMMMeta
   out_ids: [0]
 
 addbmm_:
-  custom_output_shape: AddBMMOutshape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -740,15 +739,16 @@ addbmm_:
   guid: batch_gemm
   op_backend: AddBMM
   inplace_ids: [0]
+  output_meta: AddBMMMeta
 
 addbmm.out:
-  custom_output_shape: AddBMMOutshape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: batch_gemm
   op_backend: AddBMM
+  output_meta: AddBMMMeta
 
 addcdiv:
   force_default: false

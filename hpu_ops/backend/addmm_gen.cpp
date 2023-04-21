@@ -43,7 +43,7 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
   return {outshape};
 }
 
-sizes_vec AddBMMOutshape(const at::Stack& stack) {
+OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, idxSelf);
   auto batch1 = stack_tensor(stack, idxBatch1);
   auto batch2 = stack_tensor(stack, idxBatch2);
@@ -64,7 +64,11 @@ sizes_vec AddBMMOutshape(const at::Stack& stack) {
       "-D");
   std::vector<int64_t> outshape{
       batch1.sizes()[1], batch2.sizes()[2]}; // (b, n, m)@(b, m, p) -> (n, p)
-  return {outshape};
+
+  OutputMetaData meta;
+  meta.shape = outshape;
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
@@ -248,7 +252,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 }
 
 void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = AddBMMOutshape(stack)[0];
+  auto outshape = AddBMMMeta(stack)[0].shape;
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
   const int64_t batch_size = stack_tensor(stack, idxBatch1).sizes()[0];
   auto gemm_outshape = {batch_size, outshape[0], outshape[1]};
