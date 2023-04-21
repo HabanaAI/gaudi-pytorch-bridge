@@ -572,7 +572,7 @@ void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
-    PT_EAGER_DEBUG("[Eager] Apply I/O View Handling pass.");
+    PT_EAGER_DEBUG("Apply I/O View Handling pass.");
     HandleInputOutputViews(graph, m_inputs, m_eager_op_meta_data);
   }
 }

@@ -134,7 +134,9 @@ void habana_assert(
   throw c10::Error(
       msg,
       Logger::str(
-          Logger::print_hdr(),
+          "[Rank:",
+          Logger::get_rank(),
+          "] ",
           "Habana exception raised from ",
           func,
           " at ",

@@ -285,18 +285,25 @@ class PTFuncLog {
       bool isActive)
       : module(module), pName(pn), name(n), isActive(isActive) {
     if (isActive) {
-      auto message{Logger::print_hdr()};
       HLLOG_TRACE(
-          PT_TRACE, FORMAT_AND_MSG(message, module, ": begin of ", pName));
+          PT_TRACE,
+          FORMAT_AND_MSG(
+              "[Rank:",
+              Logger::get_rank(),
+              "] ",
+              module,
+              ": begin of ",
+              pName));
     }
     synapse_helpers::trace_start(name.data());
     habana::profile::bridge::trace_start(name);
   }
   ~PTFuncLog() {
     if (isActive) {
-      auto message{Logger::print_hdr()};
       HLLOG_TRACE(
-          PT_TRACE, FORMAT_AND_MSG(message, module, ": end of ", pName));
+          PT_TRACE,
+          FORMAT_AND_MSG(
+              "[Rank:", Logger::get_rank(), "] ", module, ": end of ", pName));
     }
     synapse_helpers::trace_end(name.data());
     habana::profile::bridge::trace_end(name);
@@ -328,8 +335,6 @@ class PTFuncLog {
             __LINE__,                                                          \
             "\nrank: ",                                                        \
             Logger::get_rank(),                                                \
-            "\ntid: ",                                                         \
-            Logger::get_tid(),                                                 \
             __VA_ARGS__));                                                     \
     hl_logger::logStacktrace(HlLogger::LoggerType::MOD, HLLOG_LEVEL_CRITICAL); \
     Logger::habana_assert(                                                     \
@@ -337,7 +342,9 @@ class PTFuncLog {
         __FILE__,                                                              \
         static_cast<uint32_t>(__LINE__),                                       \
         Logger::str(                                                           \
-            Logger::print_hdr(),                                               \
+            "[Rank:",                                                          \
+            Logger::get_rank(),                                                \
+            "] ",                                                              \
             "FATAL ERROR :: MODULE:",                                          \
             Logger::DebugString(HlLogger::LoggerType::MOD),                    \
             " ",                                                               \
