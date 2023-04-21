@@ -1,0 +1,135 @@
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************/
+
+#include <c10/util/ArrayRef.h>
+
+#include <queue>
+
+#include "habana_eager/graph_exec.h"
+#include "habana_helpers/logging_pt.h"
+
+namespace habana {
+namespace graph {
+namespace pass {
+
+struct DetectWeightTensorsPass {
+  explicit DetectWeightTensorsPass(std::shared_ptr<torch::jit::Graph> graph)
+      : m_graph(std::move(graph)) {}
+
+  bool run() {
+    processInputs(m_graph->inputs());
+    return false;
+  }
+
+  std::set<int> get_weight_input_indices() {
+    return m_weight_input_indices;
+  }
+
+ private:
+  void processInputs(at::ArrayRef<torch::jit::Value*> inputs) {
+    for (int input_idx = 0; input_idx < inputs.size(); input_idx++) {
+      torch::jit::Value* input{inputs.at(input_idx)};
+      for (auto& use : input->uses()) {
+        bool is_weight_input{processInputUse(input, use)};
+        if (is_weight_input) {
+          m_weight_input_indices.insert(input_idx);
+          m_weight_inputs.insert(input);
+          break;
+        }
+      }
+    }
+  }
+
+  bool processInputUse(torch::jit::Value* input, const torch::jit::Use& use) {
+    torch::jit::Node* user{use.user};
+    return isWeightInput(input, user);
+  }
+
+  bool isWeightInput(
+      torch::jit::Value* initial_input,
+      torch::jit::Node* user_node) {
+    std::queue<std::pair<torch::jit::Value*, torch::jit::Node*>> nodes_to_visit;
+
+    nodes_to_visit.push(std::make_pair(initial_input, user_node));
+
+    while (!nodes_to_visit.empty()) {
+      auto input_node_pair{nodes_to_visit.front()};
+      torch::jit::Value* input{input_node_pair.first};
+      torch::jit::Node* node{input_node_pair.second};
+
+      if (isDirectConvoWeightInput(input, node)) {
+        // No point for further graph searching
+        PT_EAGER_INFO(
+            "Convolution weight input detected: ", input->debugName());
+        return true;
+      }
+
+      static const c10::Symbol cast_symbol{
+          c10::Symbol::fromQualString("aten::to")};
+      static const int cast_tensor_input_idx{0};
+      if (cast_symbol == node->kind()) {
+        HABANA_ASSERT(node->inputs().size() >= cast_tensor_input_idx);
+        HABANA_ASSERT(node->outputs().size() == 1);
+        torch::jit::Value* cast_input{node->input(cast_tensor_input_idx)};
+        torch::jit::Value* cast_output{node->output(0)};
+        // Node looks like valid cast so we need to look for nodes that using
+        // it's output
+        if (cast_input == input)
+          for (auto& use : cast_output->uses()) {
+            torch::jit::Node* user_node{use.user};
+            nodes_to_visit.push(std::make_pair(cast_output, user_node));
+          }
+      }
+      nodes_to_visit.pop();
+    }
+
+    return false;
+  }
+
+  bool isDirectConvoWeightInput(
+      torch::jit::Value* input,
+      torch::jit::Node* user_node) {
+    static const std::set<c10::Symbol> conv_symbols{
+        c10::Symbol::fromQualString("aten::convolution"),
+        c10::Symbol::fromQualString("aten::convolution_backward"),
+        c10::Symbol::fromQualString("aten::convolution_overrideable"),
+        c10::Symbol::fromQualString("aten::convolution_backward_overrideable")};
+
+    if (conv_symbols.find(user_node->kind()) != conv_symbols.end()) {
+      static const int weight_input_idx{1};
+      HABANA_ASSERT(user_node->inputs().size() >= weight_input_idx);
+      torch::jit::Value* weight_input{user_node->input(weight_input_idx)};
+
+      if (input == weight_input) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::set<int> m_weight_input_indices;
+  std::set<torch::jit::Value*> m_weight_inputs;
+  std::shared_ptr<torch::jit::Graph> m_graph;
+}; // namespace pass
+
+void DetectWeightTensors(
+    std::shared_ptr<torch::jit::Graph> graph,
+    std::set<int>& indices_to_permute) {
+  PT_EAGER_TRACE;
+  DetectWeightTensorsPass pass{graph};
+  bool changed{pass.run()};
+  indices_to_permute = pass.get_weight_input_indices();
+}
+
+} // namespace pass
+} // namespace graph
+} // namespace habana

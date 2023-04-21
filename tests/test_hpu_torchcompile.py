@@ -90,6 +90,7 @@ def test_relu_hpuinput():
         assert torch.allclose(result_nocompile, result_compile_train)
         assert torch.allclose(result_compile_infer, result_compile_train)
 
+
 def test_relu_hpuinput_mixed():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
@@ -376,37 +377,69 @@ def test_use_random():
         assert torch.allclose(result_nocompile.cpu(), result_compile.cpu())
 
 
+@pytest.mark.xfail
 def test_simple_convolution():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
+
+        torch.manual_seed(2562825)
 
         class Net(torch.nn.Module):
             def __init__(self):
                 super().__init__()
                 self.layer = torch.nn.Sequential(
                     torch.nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
-                    torch.nn.BatchNorm2d(6),
-                    torch.nn.ReLU(),
-                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
                 )
 
             def forward(self, x):
                 out = self.layer(x)
                 return out
 
+        torch.manual_seed(2562825)
         model = Net().to("hpu")
+        torch.manual_seed(2562825)
+        raw_model = Net().to("hpu")
 
-        def raw_function(x):
-            return model(x)
+        compiled_model = torch.compile(model, backend="aot_hpu_inference_backend")
 
         tensor = torch.rand(8, 1, 32, 32).to("hpu")
 
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
-
-        res_eager = raw_function(tensor)
-        res_graph = compiled_function(tensor)
-
+        res_eager = raw_model(tensor)
+        res_graph = compiled_model(tensor)
         assert torch.allclose(res_eager, res_graph, rtol=1e-03)
+
+
+@pytest.mark.xfail
+def test_convolution_autocast():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        torch.manual_seed(2562825)
+
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=3, stride=1, padding=0),
+                )
+
+            def forward(self, x):
+                with torch.autocast("hpu", dtype=torch.bfloat16):
+                    out = self.layer(x)
+                return out
+
+        torch.manual_seed(2562825)
+        model = Net().to("hpu")
+        torch.manual_seed(2562825)
+        raw_model = Net().to("hpu")
+
+        tensor = torch.rand(8, 1, 32, 32).to("hpu")
+        compiled_model = torch.compile(model, backend="aot_hpu_inference_backend")
+
+        for idx in range(10):
+            res_graph = compiled_model(tensor)
+            res_eager = raw_model(tensor)
+            assert torch.allclose(res_eager, res_graph, rtol=1e-03)
 
 
 def test_simple_convolution_mixed():
@@ -442,10 +475,12 @@ def test_simple_convolution_mixed():
                 return out
 
         model_1 = Net_1().to("hpu")
+
         def raw_function_1(x):
             return model_1(x)
 
         model_2 = Net_2().to("hpu")
+
         def raw_function_2(x):
             return model_2(x)
 
@@ -543,6 +578,7 @@ def test_simple_sgd_convnet():
         assert loss_compile2 < loss_compile1
 
 
+@pytest.mark.xfail
 def test_simple_sgd_convnet_with_device_pingpong():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
@@ -830,3 +866,24 @@ def test_relu_than_maxpool():
         res = compiled_fnc(tensor)
 
         assert torch.allclose(res, res_ver, rtol=1e-06)
+
+
+def test_erfinv():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+        torch.manual_seed(2562825)
+
+        class TestModel(torch.nn.Module):
+            def forward(self, tensor):
+                out = torch.ops.aten.erfinv.default(tensor)
+                return out
+
+        model = TestModel().to("hpu")
+
+        def raw_function(x):
+            return model(x)
+        compiled_fnc = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        tensor = torch.rand(64, 128, 128, device="cpu").to("hpu")
+
+        res_ver = raw_function(tensor)

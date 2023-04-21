@@ -16,6 +16,8 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/graph_weight_permute.h"
+
 #include "habana_helpers/logging.h"
 
 namespace habana {
@@ -59,6 +61,7 @@ GraphExec::GraphExec(
   m_graph_name = "habana_graph_" + std::to_string(m_graph_index);
 
   RunGraphPasses();
+  PT_EAGER_INFO("Jit for ", m_graph_name, ":\n", *m_graph);
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(example_inputs, m_graph->inputs().size());
@@ -74,8 +77,9 @@ GraphExec::GraphExec(
 };
 
 void GraphExec::RunGraphPasses() {
-  PT_EAGER_DEBUG("Compiling graph: ", m_graph_name, "\n", *m_graph);
+  PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
+  pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
   pass::ConvertConvolutions(m_graph);
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);
@@ -92,6 +96,8 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(stack, m_graph->inputs().size());
 
+  HandleWeightPermutation(stack);
+
   m_graph_and_meta->SetHPUStream(stream);
 
   try {
@@ -100,6 +106,16 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
+  }
+}
+
+void GraphExec::HandleWeightPermutation(torch::jit::Stack& stack) {
+  for (auto input : m_graph_inputs_to_permute) {
+    c10::IValue input_value{stack[input]};
+    HABANA_ASSERT(input_value.isTensor());
+    torch::Tensor weight_tensor{input_value.toTensor()};
+    habana::graph::PermuteWeightTensor t(weight_tensor);
+    t.PermuteIfNeeded();
   }
 }
 

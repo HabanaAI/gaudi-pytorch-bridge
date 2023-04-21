@@ -19,6 +19,7 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/synapse_helpers/layout_utils.h"
 
 namespace habana {
 namespace graph {
@@ -28,6 +29,9 @@ void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
 void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
 void ConvertConvolutions(std::shared_ptr<torch::jit::Graph> graph);
+void DetectWeightTensors(
+    std::shared_ptr<torch::jit::Graph> graph,
+    std::set<int>& graph_inputs_to_permute);
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 } // namespace pass
 
@@ -44,6 +48,7 @@ class GraphExec {
 
  private:
   void RunGraphPasses();
+  void HandleWeightPermutation(torch::jit::Stack& stack);
 
   size_t m_graph_index;
   std::shared_ptr<torch::jit::Graph> m_graph;
@@ -51,6 +56,7 @@ class GraphExec {
   bool m_dynamic;
   bool m_inference;
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
+  std::set<int> m_graph_inputs_to_permute;
 };
 
 class GraphStorage {

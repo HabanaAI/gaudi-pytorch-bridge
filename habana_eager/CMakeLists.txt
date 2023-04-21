@@ -39,6 +39,7 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/eager_op.cpp
           passes/add_attribute_alpha.cpp
           passes/convert_convolution.cpp
+          passes/detect_weights_tensors.cpp
           passes/handle_tupple_on_output.cpp
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
@@ -48,6 +49,7 @@ add_library(habana_pytorch2_frontend OBJECT
           eager_view.cpp
           eager_context.cpp
           graph_exec.cpp
+          graph_weight_permute.cpp
           kernels_impl.cpp
           unused_link_symbols.cpp
           ../hpu_ops/op_validator.cpp

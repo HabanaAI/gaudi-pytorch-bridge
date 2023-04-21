@@ -1516,7 +1516,7 @@ std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
   std::ostringstream o;
   node->print(o, 0, nullptr);
   auto str = o.str();
-  if (node->output(0)->type() != torch::ListType::ofTensors()) {
+  if (*node->output(0)->type() != *torch::ListType::ofTensors()) {
     for (auto value_out : node->outputs()) {
       if (value_to_ivalue[value_out]->isTensor()) {
         auto tensor = value_to_ivalue[value_out]->toTensor();
