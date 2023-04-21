@@ -84,25 +84,37 @@ class TestMetricsAPI:
             print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
 
     @staticmethod
-    def _worker_graph_compilation_metric_zero_at_beginning(q):
+    def _worker_metric_zero_at_beginning(q, metric_name):
         from habana_frameworks.torch.hpu import metric_global
-        metric = metric_global("graph_compilation")
+        metric = metric_global(metric_name)
         metric_dict = dict(metric.stats())
         q.put(metric_dict)
 
-    def test_graph_compilation_metric_zero_at_beginning(self):
+    @pytest.mark.parametrize("metric_name",
+                             [("graph_compilation"),
+                              ("cpu_fallback"),
+                              ("memory_defragmentation")])
+    def test_metric_zero_at_beginning(self, metric_name):
         """
         Spawns fresh process and verifies if metric are equal 0 at beginning.
         """
         q = Queue()
-        p = Process(target=TestMetricsAPI._worker_graph_compilation_metric_zero_at_beginning, args=(q,))
+        p = Process(target=TestMetricsAPI._worker_metric_zero_at_beginning, args=(q, metric_name))
         p.start()
         metric_dict = q.get(timeout=10)
         p.join()
 
         assert metric_dict["TotalNumber"] == 0
-        assert metric_dict["TotalTime"] == 0
-        assert metric_dict["AvgTime"] == 0
+        if metric_name == "cpu_fallback":
+            assert len(metric_dict.items()) == 2
+            assert len(metric_dict["FallbackOps"].items()) == 0
+        if metric_name == "graph_compilation":
+            assert metric_dict["TotalTime"] == 0
+            assert metric_dict["AvgTime"] == 0
+        if metric_name == "memory_defragmentation":
+            assert metric_dict["MaxTime"] == 0
+            assert metric_dict["TotalSuccessful"] == 0
+
 
     def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(self, gc_metric):
         device = torch.device('hpu')
@@ -315,7 +327,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 1
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -337,7 +349,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4  # 3 metrics chanages + process exit
+        assert len(parsed) == 6  # 5 metrics chanages + process exit
         prev_total_time = 0
         prev_generated_on = None
         for idx, metric_on_metric_change in enumerate(parsed[:3]):
@@ -369,7 +381,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, "json")
 
-        assert len(parsed) == 1
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -431,7 +443,7 @@ class TestMetricsDump:
                 payload = f.read()
             parsed = TestMetricsDump._parse_dump(payload, "json")
 
-            assert len(parsed) == 1
+            assert len(parsed) == 3
             metric = parsed[0]
             assert metric["metric_name"] == "graph_compilation"
             assert metric["triggered_by"] == "process_exit"
@@ -462,7 +474,7 @@ class TestMetricsDump:
             payload = f.read()
 
         parsed = TestMetricsDump._parse_dump(payload, format)
-        assert len(parsed) == 1
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "user"

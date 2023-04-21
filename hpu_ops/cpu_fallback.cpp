@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -9,6 +9,7 @@
  */
 
 #include "cpu_fallback.h"
+#include "backend/helpers/event_dispatcher.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
@@ -61,6 +62,9 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   const auto& op_name = c10::toString(op.operator_name());
   HpuFallbackHelper::get()->check_fallback_allowed(op_name);
   HpuFallbackHelper::get()->increment_count(op_name);
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
+      habana_helpers::EventDispatcher::EventParams({{"op_name", op_name}}));
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
 

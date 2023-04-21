@@ -46,6 +46,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value(
           "GRAPH_COMPILATION",
           habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE)
+      .value(
+          "CPU_FALLBACK", habana_helpers::EventDispatcher::Topic::CPU_FALLBACK)
+      .value(
+          "MEMORY_DEFRAGMENTATION",
+          habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION)
       .value("MARK_STEP", habana_helpers::EventDispatcher::Topic::MARK_STEP)
       .value(
           "PROCESS_EXIT", habana_helpers::EventDispatcher::Topic::PROCESS_EXIT)

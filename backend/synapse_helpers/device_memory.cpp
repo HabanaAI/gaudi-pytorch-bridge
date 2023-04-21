@@ -18,6 +18,7 @@
 #include <utility>
 
 #include <synapse_api.h>
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
@@ -659,6 +660,9 @@ bool device_memory::defragment_memory(
   if (not region) {
     PT_DEVMEM_WARN(
         "Defragmentation cannot be started. There is not enough free memory.");
+    habana_helpers::EmitEvent(
+        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+        habana_helpers::EventDispatcher::EventParams({{"success", false}}));
     return false;
   }
 
@@ -738,6 +742,15 @@ bool device_memory::defragment_memory(
     PT_DEVMEM_DEBUG(
         "Move of resources completed no of resources::", movers.size());
     suballoc_->set_defragmenter_state(false);
+
+    auto milliseconds_metric =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - timestamp_init)
+            .count();
+    habana_helpers::EmitEvent(
+        habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
+        habana_helpers::EventDispatcher::EventParams(
+            {{"success", true}, {"milliseconds", milliseconds_metric}}));
   }
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {

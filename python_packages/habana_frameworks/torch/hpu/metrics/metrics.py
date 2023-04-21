@@ -12,6 +12,7 @@
 import abc
 import atexit
 from contextlib import contextmanager
+from statistics import mean
 from typing import Sequence, Tuple
 
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
@@ -133,6 +134,105 @@ class Metric(metaclass=abc.ABCMeta):
             self._metric_change_callback(timestamp, self.name(), self.stats())
 
 
+class MemoryDefragmentationMetric(Metric):
+    _TOTAL_DEFRAGMENTATION_TAG = "TotalNumber"
+    _TOTAL_DEFRAGMENTATION_SUCCESSFUL_TAG = "TotalSuccessful"
+    _DEFRAGMENTATION_SUCCESS_EVENT_NAME = "success"
+    _DEFRAGMENTATION_MILLISECONDS_EVENT_NAME = "milliseconds"
+    _TOTAL_DEFRAGMENTATION_MAX_TAG = "MaxTime"
+    _TOTAL_DEFRAGMENTATION_MEAN_TAG = "AvgTime"
+
+    def __init__(self):
+        self._total_defragmentation_count = 0
+        self._total_successful_defragmentation_count = 0
+        self._defragmentation_time = []
+        self._ed = EventDispatcher.instance()
+        self._handle = None
+        self.start()
+
+    def _get_event_callback_fn(self):
+        def callback(timestamp, event_params):
+            event_params = dict(event_params)
+            self._total_defragmentation_count += 1
+            if bool(event_params[self._DEFRAGMENTATION_SUCCESS_EVENT_NAME]):
+                self._total_successful_defragmentation_count += 1
+                self._defragmentation_time.append(int(event_params[self._DEFRAGMENTATION_MILLISECONDS_EVENT_NAME]))
+            self.notify(timestamp, event_params)
+        return callback
+
+    def name(self):
+        return "memory_defragmentation"
+
+    def start(self):
+        if not self._handle:
+            self._handle = self._ed.subscribe(EventId.MEMORY_DEFRAGMENTATION, self._get_event_callback_fn())
+
+    def stop(self):
+        if self._handle:
+            self._ed.unsubscribe(self._handle)
+            self._handle = None
+
+    def stats(self):
+        return [
+            (self._TOTAL_DEFRAGMENTATION_TAG, self._total_defragmentation_count),
+            (self._TOTAL_DEFRAGMENTATION_SUCCESSFUL_TAG, self._total_successful_defragmentation_count),
+            (self._TOTAL_DEFRAGMENTATION_MEAN_TAG, mean(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0),
+            (self._TOTAL_DEFRAGMENTATION_MAX_TAG, max(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0)
+        ]
+
+    def reset(self):
+        self._total_defragmentation_count = 0
+        self._total_successful_defragmentation_count = 0
+        self._defragmentation_time.clear()
+
+    def __del__(self):
+        self.stop()
+
+
+class CpuFallbackMetric(Metric):
+    _TOTAL_FALLBACKS_TAG = "TotalNumber"
+    _FALLBACK_OPS_TAG = "FallbackOps"
+    _OP_NAME_EVENT_NAME = "op_name"
+
+    def __init__(self):
+        self._total_fallback_count = 0
+        self._total_op_fallback_count = dict()
+        self._ed = EventDispatcher.instance()
+        self._handle = None
+        self.start()
+
+    def _get_event_callback_fn(self):
+        def callback(timestamp, event_params):
+            event_params = dict(event_params)
+            self._total_fallback_count += 1
+            op_name = event_params[self._OP_NAME_EVENT_NAME]
+            self._total_op_fallback_count[op_name] = self._total_op_fallback_count.get(op_name, 0) + 1
+            self.notify(timestamp, event_params)
+        return callback
+
+    def name(self):
+        return "cpu_fallback"
+
+    def start(self):
+        if not self._handle:
+            self._handle = self._ed.subscribe(EventId.CPU_FALLBACK, self._get_event_callback_fn())
+
+    def stop(self):
+        if self._handle:
+            self._ed.unsubscribe(self._handle)
+            self._handle = None
+
+    def stats(self):
+        return [(self._TOTAL_FALLBACKS_TAG, self._total_fallback_count), (self._FALLBACK_OPS_TAG, self._total_op_fallback_count)]
+
+    def reset(self):
+        self._total_fallback_count = 0
+        self._total_op_fallback_count = dict()
+
+    def __del__(self):
+        self.stop()
+
+
 class GraphCompilationMetric(Metric):
     _TOTAL_NUMBER_TAG = "TotalNumber"
     _TOTAL_TIME_TAG = "TotalTime"
@@ -191,6 +291,8 @@ def _init_metric_mgr():
     global _metric_mgr
     _metric_mgr = MetricManager()
     _metric_mgr.register("graph_compilation", GraphCompilationMetric)
+    _metric_mgr.register("cpu_fallback", CpuFallbackMetric)
+    _metric_mgr.register("memory_defragmentation", MemoryDefragmentationMetric)
 
 
 _init_metric_mgr()

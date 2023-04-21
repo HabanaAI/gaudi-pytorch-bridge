@@ -35,6 +35,8 @@ class EventDispatcher {
     PROCESS_EXIT,
     DEVICE_ACQUIRED,
     CUSTOM_EVENT,
+    MEMORY_DEFRAGMENTATION,
+    CPU_FALLBACK
   };
 
   static EventDispatcher& Instance() {
@@ -117,6 +119,12 @@ inline std::ostream& operator<<(
       break;
     case EventDispatcher::Topic::CUSTOM_EVENT:
       o << "CUSTOM_EVENT";
+      break;
+    case EventDispatcher::Topic::MEMORY_DEFRAGMENTATION:
+      o << "MEMORY_DEFRAGMENTATION";
+      break;
+    case EventDispatcher::Topic::CPU_FALLBACK:
+      o << "CPU_FALLBACK";
       break;
   }
   return o;
