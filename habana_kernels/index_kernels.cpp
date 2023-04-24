@@ -1966,8 +1966,10 @@ void SliceOperator::AllocateAndAddSynapseNode(
     auto step = inputs[2].toTensor().sizes().vec();
     auto start = inputs[3].toTensor().sizes().vec();
 
-    if (habana::ShapeInference::GetCurrentPass() ==
-        habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    if ((habana::ShapeInference::GetCurrentPass() ==
+         habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+        (habana::ShapeInference::GetMaxPolicyInUse() ==
+         habana_helpers::DynamicDimsPolicy::CALCULATED)) {
       std::vector<int64_t> min, max;
       synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       std::tie(min, max) =
