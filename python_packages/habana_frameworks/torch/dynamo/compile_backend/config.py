@@ -14,4 +14,5 @@
 configuration_flags = {
     "use_compiled_recipes": True,
     "verbose": False,
-    "keep_input_mutations": False}
+    "keep_input_mutations": False,
+    "shared_layer_fallback_check": False}

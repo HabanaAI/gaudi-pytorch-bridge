@@ -13,7 +13,6 @@
 import os
 import logging
 from .config import configuration_flags
-from . import backends
 
 logging.basicConfig()
 
@@ -37,7 +36,14 @@ if os.getenv("PT_HPU_KEEP_INPUT_MUTATIONS", "").upper() in ["ON", "1", "YES", "T
 else:
     configuration_flags["keep_input_mutations"] = False
 
+if os.getenv("PT_HPU_USE_SHARED_LAYER_FALLBACK_CHECK", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+    configuration_flags["shared_layer_fallback_check"] = True
+else:
+    configuration_flags["shared_layer_fallback_check"] = False
+
 if configuration_flags["verbose"]:
     logger = logging.getLogger("aot_hpu_backend")
     logger.setLevel(logging.DEBUG)
     logger.info("config.verbose is ON")
+
+from . import backends

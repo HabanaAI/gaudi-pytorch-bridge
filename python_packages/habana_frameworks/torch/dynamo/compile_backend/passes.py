@@ -272,6 +272,10 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
             with self.fake_mode:
                 result = super().run_node(node)
 
+            args, kwargs = self.fetch_args_kwargs_from_env(node)
+            node.val_args = args
+            node.val_kwargs = kwargs
+
             fill_propagated_tensor_metadata_to_node(result, node)
 
             return result
