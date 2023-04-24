@@ -19,7 +19,7 @@ namespace habana_lazy {
 using Graph = torch::jit::Graph;
 using Node = torch::jit::Node;
 
-HbInternalTensorImpl* GetBackEndTensorImpl(
+habana::TensorExtraMeta* GetBackEndTensorMeta(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
     Node* node,

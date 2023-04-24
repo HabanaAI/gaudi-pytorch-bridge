@@ -190,10 +190,10 @@ bool FuseConvBatchnorm(
       auto ib = auto_cast ? -1 : 2;
       auto nb = auto_cast ? b_auto_cast.at(0) : conv;
 
-      auto conv_b_hb_tensor =
-          habana_lazy::GetBackEndTensorImpl(graph, stack, nb, ib);
+      auto conv_b_tmeta_ptr =
+          habana_lazy::GetBackEndTensorMeta(graph, stack, nb, ib);
       auto conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
-      if (!conv_b_hb_tensor || !conv_b) {
+      if (!conv_b_tmeta_ptr || !conv_b) {
         PT_LAZY_DEBUG(
             "[FuseConvBatchnorm] Convolution without bias not yet supported");
         continue;
@@ -202,24 +202,23 @@ bool FuseConvBatchnorm(
       auto iw = auto_cast ? -1 : 1;
       auto nw = auto_cast ? w_auto_cast.at(0) : conv;
 
-      auto conv_w_hb_tensor =
-          habana_lazy::GetBackEndTensorImpl(graph, stack, nw, iw);
+      auto conv_w_tmeta_ptr =
+          habana_lazy::GetBackEndTensorMeta(graph, stack, nw, iw);
       auto conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
-      if (!conv_w_hb_tensor || !conv_w) {
+      if (!conv_w_tmeta_ptr || !conv_w) {
         continue;
       }
 
-      auto conv_w_permutation =
-          conv_w_hb_tensor->get_tensor_extra_meta().get_memory_permutation();
+      auto conv_w_permutation = conv_w_tmeta_ptr->get_memory_permutation();
       PT_LAZY_DEBUG(
           "Conv weight permutation vector: ", VecToString(conv_w_permutation));
 
       // const auto& uses = conv->output()->uses();
       // if ((uses.size() > 1) ||
-      //    (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && conv_w_hb_tensor &&
-      //    !conv_w_hb_tensor->IsConstTensor()) ||
-      //    (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && conv_b_hb_tensor &&
-      //    !conv_b_hb_tensor->IsConstTensor())) {
+      //    (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && conv_w_tmeta_ptr &&
+      //    !conv_w_tmeta_ptr->is_const_tensor()) ||
+      //    (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && conv_b_tmeta_ptr &&
+      //    !conv_b_tmeta_ptr->is_const_tensor())) {
       //     continue;
       // }
 
@@ -274,9 +273,10 @@ bool FuseConvBatchnorm(
 
       auto bn_eps =
           torch::jit::constant_as<double>(bn->namedInput("eps")).value();
+      PT_LAZY_DEBUG("[FuseConvBatchnorm] bn_eps = ", bn_eps);
 
       auto status = computeUpdatedConvWeightAndBias(
-          conv_w_hb_tensor->GetTensorSize(),
+          conv_w_tmeta_ptr->get_tensor_size(),
           (float*)conv_w,
           (float*)conv_b,
           (float*)bn_rv,

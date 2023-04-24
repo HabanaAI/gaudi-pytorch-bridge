@@ -43,18 +43,16 @@ size_t getValuePosInStack(
 
 namespace habana_lazy {
 
-habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
+habana::TensorExtraMeta* GetBackEndTensorMeta(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
     const int idx) {
-  habana_lazy::HbInternalTensorImpl* impl{nullptr};
+  habana::TensorExtraMeta* tmeta_ptr{nullptr};
 
   if (idx != -1) {
     if (node->input(idx)->type() == torch::jit::NoneType::get()) {
-      // std::cout << "[GetBackEndTensorImpl] [" << idx << "] NoneType" <<
-      // std::endl << std::flush;
-      return impl;
+      return tmeta_ptr;
     }
 
     auto value = node->input(idx);
@@ -63,10 +61,8 @@ habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
       if (stack[index].isTensor()) {
         auto tensor = stack[index].toTensor();
         if (tensor.has_storage()) {
-          // std::cout << "[GetBackEndTensorImpl] [" << idx << "]" << std::endl
-          // << std::flush;
-          habana::get_tensor_extra_meta(tensor)->set_tensor_size(
-              tensor.sizes());
+          tmeta_ptr = habana::get_tensor_extra_meta(tensor);
+          tmeta_ptr->set_tensor_size(tensor.sizes());
         }
       }
     }
@@ -76,14 +72,13 @@ habana_lazy::HbInternalTensorImpl* GetBackEndTensorImpl(
     if (stack[index].isTensor()) {
       auto tensor = stack[index].toTensor();
       if (tensor.has_storage()) {
-        // std::cout << "[GetBackEndTensorImpl] [" << idx << "]" << std::endl <<
-        // std::flush;
-        habana::get_tensor_extra_meta(tensor)->set_tensor_size(tensor.sizes());
+        tmeta_ptr = habana::get_tensor_extra_meta(tensor);
+        tmeta_ptr->set_tensor_size(tensor.sizes());
       }
     }
   }
 
-  return impl;
+  return tmeta_ptr;
 }
 
 bool recomputeBatchnormParams(
@@ -297,20 +292,16 @@ void RecalculateBatchnormParams(
   for (auto node : graph->nodes()) {
     auto node_name = node->kind().toQualString();
     PT_BRIDGE_DEBUG("Node Name: ", node_name);
-    // std::cout << "[RecalculateBatchnormParams] Node Name: " << node_name <<
-    // std::endl << std::flush;
 
     if (strcmp(node_name, "hpu::native_batch_norm_inf") == 0) {
-      // std::cout << "[RecalculateBatchnormParams] [Apply] " << std::endl <<
-      // std::flush;
       PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Apply]");
 
       auto bn = node;
       int idx_bias = 1;
 
-      auto bn_b_hb_tensor = GetBackEndTensorImpl(graph, stack, bn, idx_bias);
+      auto bn_b_tmeta_ptr = GetBackEndTensorMeta(graph, stack, bn, idx_bias);
       auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
-      if (!bn_b_hb_tensor || !bn_b) {
+      if (!bn_b_tmeta_ptr || !bn_b) {
         continue;
       }
 
@@ -334,11 +325,12 @@ void RecalculateBatchnormParams(
 
       auto bn_eps =
           torch::jit::constant_as<double>(bn->namedInput("eps")).value();
+      PT_LAZY_DEBUG(
+          "[RecalculateBatchnormParams] [recompute batchnorm Params] bn_eps = ",
+          bn_eps);
 
-      // std::cout << "[RecalculateBatchnormParams] [recompute batchnorm Params]
-      // with bn_eps = " << bn_eps << std::endl << std::flush;
       auto status = recomputeBatchnormParams(
-          bn_b_hb_tensor->GetTensorSize(),
+          bn_b_tmeta_ptr->get_tensor_size(),
           (float*)bn_rv,
           (float*)bn_rm,
           (float*)bn_w,
@@ -346,15 +338,11 @@ void RecalculateBatchnormParams(
           bn_eps);
 
       if (!status) {
-        // std::cout << "[RecalculateBatchnormParams] [recompute batchnorm
-        // Params ERROR!] " << std::endl << std::flush;
         PT_LAZY_DEBUG(
             "[RecalculateBatchnormParams] [recompute batchnorm Params ERROR!]");
         continue;
       }
 
-      // std::cout << "[RecalculateBatchnormParams] [Update batchnorm Params] "
-      // << std::endl << std::flush;
       PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Update batchnorm Params]");
       UpdateDataInDeviceMem(graph, stack, bn, idx_bias, bn_b);
       UpdateDataInDeviceMem(graph, stack, bn, idx_weight, bn_w);
@@ -363,8 +351,6 @@ void RecalculateBatchnormParams(
     }
   }
 
-  // std::cout << "[RecalculateBatchnormParams] [Exit] " << std::endl <<
-  // std::flush;
   PT_LAZY_DEBUG("[RecalculateBatchnormParams] [Exit]");
   return;
 }
