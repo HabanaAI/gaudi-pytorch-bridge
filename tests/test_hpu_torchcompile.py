@@ -90,6 +90,28 @@ def test_relu_hpuinput():
         assert torch.allclose(result_nocompile, result_compile_train)
         assert torch.allclose(result_compile_infer, result_compile_train)
 
+def test_relu_hpuinput_mixed():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        def raw_function(x):
+            tmp1 = x * 2 - 1
+            return torch.relu(tmp1)
+
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+        tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
+
+        result_nocompile = 2 * raw_function(tensor) + 3
+
+        result_compile_train = compiled_function_training(tensor)
+        result_mixed_train = 2 * result_compile_train + 3
+        result_mixed_infer = 2 * compiled_function_inference(tensor) + 3
+
+        assert torch.allclose(result_nocompile, result_mixed_train)
+        assert torch.allclose(result_mixed_infer, result_mixed_train)
+
 
 def test_device_partition_cpuinput():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
@@ -385,6 +407,59 @@ def test_simple_convolution():
         res_graph = compiled_function(tensor)
 
         assert torch.allclose(res_eager, res_graph, rtol=1e-03)
+
+
+def test_simple_convolution_mixed():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        class Net_1(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(6),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+
+            def forward(self, x):
+                out = self.layer(x)
+                return out
+
+        class Net_2(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer = torch.nn.Sequential(
+                    torch.nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
+                    torch.nn.BatchNorm2d(16),
+                    torch.nn.ReLU(),
+                    torch.nn.MaxPool2d(kernel_size=2, stride=2),
+                )
+
+            def forward(self, x):
+                out = self.layer(x)
+                return out
+
+        model_1 = Net_1().to("hpu")
+        def raw_function_1(x):
+            return model_1(x)
+
+        model_2 = Net_2().to("hpu")
+        def raw_function_2(x):
+            return model_2(x)
+
+        tensor = torch.rand(8, 1, 32, 32).to("hpu")
+
+        compiled_function_1 = torch.compile(raw_function_1, backend="aot_hpu_inference_backend")
+        compiled_function_2 = torch.compile(raw_function_2, backend="aot_hpu_inference_backend")
+
+        res_eager = raw_function_2(raw_function_1(tensor))
+        res_graph_to_eager = raw_function_2(compiled_function_1(tensor))
+        res_eager_to_graph = compiled_function_2(raw_function_1(tensor))
+
+        assert torch.allclose(res_eager, res_graph_to_eager, rtol=1e-03)
+        assert torch.allclose(res_eager, res_eager_to_graph, rtol=1e-03)
 
 
 def test_simple_sgd_convnet():
