@@ -615,11 +615,19 @@ uint64_t device::get_compute_stream_count() {
   return 0;
 }
 
+// Each stream is associate to 1 GC thread, creating unlimited
+// streams can cause OS resource unavailable. in practical
+// situations only use few user streams. CUDA has a limiation
+// of 32 and later stream are assigned in round robin fashion.
+//
+#define GENERIC_STREAM_LIMIT 32
 void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
   std::unique_lock<std::mutex> lock(stream_mutex_);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     hpu_stream = ++stream_index_;
-    streams_[hpu_stream] = absl::make_unique<stream>(*this);
+    if (stream_index_ <= GENERIC_STREAM_LIMIT) {
+      streams_[hpu_stream] = absl::make_unique<stream>(*this);
+    }
     PT_SYNHELPER_DEBUG(
         "STREAM:: New device stream created with index", stream_index_);
   } else {
@@ -713,7 +721,15 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
       PT_SYNHELPER_DEBUG("STREAM:: get stream handle", stream, " for id::", id);
       return stream;
     } else {
-      auto it = streams_.find(id);
+      auto index = id;
+      if (id >= GENERIC_STREAM_LIMIT) {
+        index = (id % GENERIC_STREAM_LIMIT);
+        if (index == 0)
+          index = 1; // start round robin from the 1 as 0 is default.
+        else if (index < GENERIC_STREAM_LIMIT)
+          index += 1;
+      }
+      auto it = streams_.find(index);
       HABANA_ASSERT(it != streams_.end());
 
       auto& stream = *it->second;
