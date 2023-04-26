@@ -14,6 +14,7 @@
 
 #include <ATen/EmptyTensor.h>
 #include <c10/core/DeviceType.h>
+#include <c10/core/MemoryFormat.h>
 #include <c10_ver/core/SymIntArrayRef.h>
 #include <tuple>
 #include <utility>
@@ -500,7 +501,10 @@ class EagerOp : public EagerOpBase {
       HABANA_ASSERT(m_scalar_types.size() == 1);
       options = options.dtype(m_scalar_types[0]);
     }
-    return at::empty(out_shape, options, t.suggest_memory_format());
+    auto mem_format{
+        out_shape.empty() ? at::MemoryFormat::Contiguous
+                          : t.suggest_memory_format()};
+    return at::empty(out_shape, options, mem_format);
   }
 
   template <typename T = ReturnType>
