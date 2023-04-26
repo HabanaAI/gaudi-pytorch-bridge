@@ -37,7 +37,6 @@ class LazyEagerTest : public HpuOpTestUtil {
     SetLazyMode(2);
 
     DisableRecipeCache();
-    EnableEagerGC();
     DisableAccParMode();
 
     SetSeed();
@@ -51,7 +50,6 @@ class LazyEagerTest : public HpuOpTestUtil {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     RestoreRecipeCache();
-    RestoreEagerGC();
     RestoreAccParMode();
 
     RestoreMode();
@@ -132,7 +130,6 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
   if (device.type() == synDeviceGaudi2) {
     SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
     SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
-    SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
     torch::Tensor A = torch::randn({2, 3});
     torch::Tensor B = torch::randn({2, 3});
     torch::Tensor C = torch::randn({2, 3});

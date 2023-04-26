@@ -118,13 +118,11 @@ synapse_error_v<graph> graph::create(
   syn_graph.eager_mode_ = eager_mode;
   if (syn_graph.dry_run_ == false) {
     synStatus status = synSuccess;
-    if (syn_graph.eager_mode_ &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API) == true) {
-      status = synGraphCreateEager(
-          &syn_graph.graph_handle_, syn_graph.device_.type());
+    const auto device_type = syn_graph.device_.type();
+    if (syn_graph.eager_mode_ && device_type != synDeviceGaudi) {
+      status = synGraphCreateEager(&syn_graph.graph_handle_, device_type);
     } else {
-      status =
-          synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
+      status = synGraphCreate(&syn_graph.graph_handle_, device_type);
     }
     SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
   }

@@ -161,19 +161,6 @@ class EnvHelper {
     }
   }
 
-  void EnableEagerGC() {
-    m_eager_gc_enable = GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API);
-    if (!m_eager_gc_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, true, 1);
-    }
-  }
-
-  void RestoreEagerGC() {
-    if (!m_eager_gc_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SYN_API, false, 1);
-    }
-  }
-
   void EnableEagerViewHandling() {
     m_eager_view_handling_enable =
         GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING);

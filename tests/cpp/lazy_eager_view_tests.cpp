@@ -37,7 +37,6 @@ class LazyEagerViewOpsTest : public habana_lazy_test::LazyTest {
     SetLazyMode(2);
 
     DisableRecipeCache();
-    EnableEagerGC();
     EnableEagerViewHandling();
     // EnableShapeAgnostic();
     DisableAccParMode();
@@ -53,7 +52,6 @@ class LazyEagerViewOpsTest : public habana_lazy_test::LazyTest {
     habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     RestoreRecipeCache();
-    RestoreEagerGC();
     RestoreEagerViewHandling();
     // RestoreShapeAgnostic();
     RestoreAccParMode();
