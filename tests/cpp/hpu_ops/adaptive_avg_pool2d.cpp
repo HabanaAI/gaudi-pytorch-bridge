@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -28,8 +28,6 @@ class HpuOpTest : public HpuOpTestUtil {
       atol = 1e-02;
     }
     if (is_out) {
-#if IS_PYTORCH_AT_LEAST(1, 13)
-      // op flavor not existent in 1.12
       std::vector<int64_t> output_size_with_batch = input_shapes[0].vec();
       std::copy_n(
           output_size.begin(),
@@ -40,7 +38,6 @@ class HpuOpTest : public HpuOpTestUtil {
       torch::_adaptive_avg_pool2d_outf(GetCpuInput(0), output_size, expected);
       torch::_adaptive_avg_pool2d_outf(GetHpuInput(0), output_size, result);
       Compare(expected, result, rtol, atol);
-#endif
     } else {
       auto expected = torch::_adaptive_avg_pool2d(GetCpuInput(0), output_size);
       auto result = torch::_adaptive_avg_pool2d(GetHpuInput(0), output_size);
@@ -62,14 +59,12 @@ class HpuOpTest : public HpuOpTestUtil {
     if (is_out) {
       auto expected = torch::empty(input_shapes[1]).to(dtype);
       auto result = torch::empty(input_shapes[1], "hpu").to(dtype);
-#if IS_PYTORCH_AT_LEAST(1, 13)
       // op flavor not existent in 1.12
       torch::_adaptive_avg_pool2d_backward_outf(
           GetCpuInput(0), GetCpuInput(1), expected);
       torch::_adaptive_avg_pool2d_backward_outf(
           GetHpuInput(0), GetHpuInput(1), result);
       Compare(expected, result, rtol, atol);
-#endif
     } else {
       auto expected =
           torch::_adaptive_avg_pool2d_backward(GetCpuInput(0), GetCpuInput(1));

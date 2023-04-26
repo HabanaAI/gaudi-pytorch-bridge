@@ -156,40 +156,6 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   return copy_hpu_lazy_(self, src, non_blocking);
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor hpu_wrap::_reshape_alias(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "_reshape_alias :",
-      " self=",
-      to_string(self),
-      " size=",
-      to_string(size),
-      " stride",
-      to_string(stride));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      _reshape_alias, PARAMS1(self), PARAMS2(self, size, stride))
-  // TODO: In order to align the changes of bert with Pytorchv1.9 we used
-  // view inplace of as_strided implementation for the reshape of tensor
-  // with no-change.
-  // We need to revert existing change and use only as_strided once we
-  // establish the convergence with below changes.
-  // Pytorch change: https://github.com/pytorch/pytorch/pull/61466
-  //
-  // Note: as_strided_hpu_lazy is enabled only for lazy eager mode '2'
-  const auto& mode = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
-  if (mode == 2) {
-    return as_strided_hpu_lazy(self, size, stride, self.storage_offset());
-  }
-
-  return view_hpu(self, size);
-}
-
-#else
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     SymIntArrayRef size,
@@ -290,7 +256,6 @@ Tensor hpu_wrap::_efficientzerotensor(
   fill_hpu_lazy_(zero_tensor, 0);
   return zero_tensor;
 }
-#endif
 #endif
 
 Tensor embedding_bag_sum_hpu_wrap(
@@ -496,45 +461,6 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
 
   return nonzero_out_hpu_lazy(self, out);
 }
-
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor hpu_wrap::kl_div_backward(
-    const Tensor& grad,
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction,
-    bool log_target) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "kl_div_backward :",
-      " grad=",
-      to_string(grad),
-      " self=",
-      to_string(self),
-      " target=",
-      to_string(target),
-      " reduction=",
-      to_string(reduction),
-      " log_target=",
-      to_string(log_target));
-  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
-  std::vector<c10::IValue> op_stack = {
-      IValue(grad),
-      IValue(self),
-      IValue(target),
-      IValue(reduction),
-      IValue(log_target)};
-  check_handle->hpu_check_ivalues("kl_div_backward", op_stack);
-
-  FALLBACK_IF_UNSUPPORTED_OP1(
-      kl_div_backward,
-      PARAMS1(grad, self, target),
-      PARAMS2(grad, self, target, reduction, log_target))
-
-  return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
-}
-#endif
 
 ::std::tuple<at::Tensor, at::Tensor> hpu_wrap::batch_norm_stats(
     const at::Tensor& input,
@@ -778,72 +704,6 @@ Tensor hpu_wrap::softmax(
   return SoftmaxFunction::apply(self, dim, dtype);
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor hpu_wrap::empty(
-    IntArrayRef size,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory,
-    c10::optional<MemoryFormat> optional_memory_format) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "empty :",
-      " size=",
-      to_string(size),
-      " dtype=",
-      to_string(dtype),
-      " layout=",
-      to_string(layout),
-      " device=",
-      to_string(device),
-      " pin_memory=",
-      to_string(pin_memory),
-      " optional_memory_format=",
-      to_string(optional_memory_format));
-  at::TensorOptions options = at::TensorOptions()
-                                  .dtype(dtype)
-                                  .layout(layout)
-                                  .pinned_memory(pin_memory)
-                                  .device(device);
-
-  return empty_hpu_lazy(size, options, optional_memory_format);
-}
-
-Tensor hpu_wrap::empty_strided(
-    IntArrayRef size,
-    IntArrayRef stride,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "empty_strided :",
-      " size=",
-      to_string(size),
-      " stride=",
-      to_string(stride),
-      " dtype=",
-      to_string(dtype),
-      " layout=",
-      to_string(layout),
-      " device=",
-      to_string(device),
-      " pin_memory=",
-      to_string(pin_memory));
-
-  at::TensorOptions options = at::TensorOptions()
-                                  .dtype(std::move(dtype))
-                                  .layout(std::move(layout))
-                                  .pinned_memory(std::move(pin_memory))
-                                  .device(std::move(device));
-  return empty_strided_hpu_lazy(size, stride, options);
-}
-
-#else
 Tensor hpu_wrap::empty(
     SymIntArrayRef size,
     c10::optional<ScalarType> dtype,
@@ -909,30 +769,6 @@ Tensor hpu_wrap::empty_strided(
       C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride), options);
 }
 
-#endif
-
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-std::vector<Tensor> hpu_wrap::split_with_sizes(
-    const Tensor& self,
-    IntArrayRef split_sizes,
-    int64_t dim) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "split_with_sizes :",
-      " self=",
-      to_string(self),
-      " split_sizes=",
-      to_string(split_sizes),
-      " dim=",
-      to_string(dim));
-  FALLBACK_IF_UNSUPPORTED_OP(
-      split_with_sizes, PARAMS1(self), PARAMS2(self, split_sizes, dim))
-
-  return split_with_sizes_hpu_lazy(self, split_sizes, dim);
-}
-
-#else
 std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     c10::SymIntArrayRef split_sizes,
@@ -953,7 +789,6 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
   return split_with_sizes_hpu_lazy(
       self, C10_AS_INTARRAYREF_SLOW(split_sizes), dim);
 }
-#endif
 
 std::tuple<Tensor, Tensor> hpu_wrap::sort(
     const Tensor& self,
@@ -979,17 +814,6 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   return sort_hpu_lazy(self, dim, descending);
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
-  FALLBACK_IF_UNSUPPORTED_OP(_unsafe_view, PARAMS1(self), PARAMS2(self, size))
-
-  return view_hpu_lazy(self, size);
-}
-#else
 Tensor hpu_wrap::_unsafe_view(
     const at::Tensor& self,
     c10::SymIntArrayRef size) {
@@ -1001,55 +825,7 @@ Tensor hpu_wrap::_unsafe_view(
 
   return view_hpu(self, size);
 }
-#endif
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-std::vector<at::Tensor> hpu_wrap::split(
-    const at::Tensor& self,
-    int64_t split_size,
-    int64_t dim) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "split :",
-      " self=",
-      to_string(self),
-      " split_size=",
-      to_string(split_size),
-      " dim=",
-      to_string(dim));
-  FALLBACK_IF_UNSUPPORTED_OP_O(
-      split, PARAMS1(self), PARAMS2(self, split_size, dim), Tensor)
-
-  // lower aten::split as split_with_sizes using the logic used in Fork
-  int64_t dim_size = self.size(dim);
-  TORCH_CHECK(
-      split_size > 0 || self.size(dim) == 0,
-      "split_size can only be 0 if dimension size is 0, "
-      "but got dimension size of ",
-      dim_size);
-
-  // if split_size is 0 and dimension size is 0, there is 1 split.
-  int64_t num_splits = 1;
-  if (split_size != 0) {
-    // ensuring num_splits is at least 1 makes consistent the case where
-    // split_size > dim_size (returns a single split).  We might want to
-    // error here, but keep it for BC.
-    num_splits = std::max<int64_t>((dim_size + split_size - 1) / split_size, 1);
-  }
-
-  std::vector<int64_t> splits(num_splits);
-  int64_t last_split_size = split_size - (split_size * num_splits - dim_size);
-
-  for (int64_t i = 0; i < num_splits; ++i) {
-    auto length = i < num_splits - 1 ? split_size : last_split_size;
-    splits[i] = length;
-  }
-
-  IntArrayRef split_sizes(splits);
-  return hpu_wrap::split_with_sizes(self, split_sizes, dim);
-}
-#else
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
     c10::SymInt split_size_symint,
@@ -1096,7 +872,6 @@ std::vector<at::Tensor> hpu_wrap::split(
   c10::SymIntArrayRef split_sizes(splits);
   return hpu_wrap::split_with_sizes(self, split_sizes, dim);
 }
-#endif
 
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
@@ -2155,31 +1930,6 @@ Tensor hpu_wrap::linear(
   }
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor hpu_wrap::slice(
-    const at::Tensor& self,
-    int64_t dim,
-    c10::optional<int64_t> start,
-    c10::optional<int64_t> end,
-    int64_t step) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " slice:",
-      " self=",
-      to_string(self),
-      "dim=",
-      to_string(dim),
-      "start=",
-      to_string(start),
-      "end=",
-      to_string(end),
-      "step=",
-      to_string(step));
-
-  return slice_hpu_lazy(self, dim, start, end, step);
-}
-#else
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2205,7 +1955,6 @@ Tensor hpu_wrap::slice(
 
   return slice_hpu_lazy(self, dim, temp_start, temp_end, step.expect_int());
 }
-#endif
 
 struct DropoutFunction : public Function<DropoutFunction> {
   static at::Tensor forward(

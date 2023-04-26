@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
@@ -101,47 +104,6 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_size) {
   Compare(expected, result);
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_scale_CL) {
-  GenerateInputs(1, {{2, 7, 1, 6}});
-  std::vector<double> scale = {0.6, 1.7};
-  std::vector<int64_t> input_size = {2, 7, 3, 4};
-
-  auto expected = torch::upsample_bicubic2d_backward(
-      GetCpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
-      input_size,
-      /*align_corner*/ true,
-      scale);
-  auto result = torch::upsample_bicubic2d_backward(
-      GetHpuInput(0).to(c10::MemoryFormat::ChannelsLast),
-      c10::nullopt,
-      input_size,
-      /*align_corner*/ true,
-      scale);
-  Compare(expected, result);
-}
-
-TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
-  GenerateInputs(1, {{2, 7, 1, 6}});
-  std::vector<double> scale = {0.6, 1.7};
-  std::vector<int64_t> input_size = {2, 7, 3, 4};
-
-  auto expected = torch::upsample_bicubic2d_backward(
-      GetCpuInput(0),
-      c10::nullopt,
-      input_size,
-      /*align_corner*/ true,
-      scale);
-  auto result = torch::upsample_bicubic2d_backward(
-      GetHpuInput(0),
-      c10::nullopt,
-      input_size,
-      /*align_corner*/ true,
-      scale);
-  Compare(expected, result);
-}
-#else
 TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
   c10::optional<double> scale_h(0.6);
@@ -189,7 +151,6 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
       scale_w);
   Compare(expected, result);
 }
-#endif
 
 TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_out_CL) {
   GenerateInputs(1, {{1, 5, 28, 64}});

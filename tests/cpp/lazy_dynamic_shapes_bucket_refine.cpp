@@ -192,10 +192,6 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
     auto grad_mat1 = tensor.grad();
     torch::Tensor grad_mat1_h;
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-    grad_mat1_h = torch::upsample_nearest2d_backward(
-        grad_out_h, out_size, in_sizes, scale_factors);
-#else
     std::array<int64_t, 2> out_sizes_arr = {8, 21};
     c10::IntArrayRef out_sizes = out_sizes_arr;
     c10::optional<double> scales_h(2.0);
@@ -203,7 +199,6 @@ TEST_F(LazyDynamicShapesBucketRefineTest, DISABLED_RefineUpsamplingNearest2d) {
 
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_sizes, in_sizes, scales_h, scales_w);
-#endif
 
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     HbLazyTensor::StepMarker({});

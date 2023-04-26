@@ -1,12 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -71,19 +75,6 @@ TEST_F(HpuOpTest, upsample_nearest1d_bwd_size) {
   Compare(expected, result);
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-TEST_F(HpuOpTest, upsample_nearest1d_bwd_scale) {
-  GenerateInputs(1, {{10, 5, 12}});
-  std::vector<double> scale_factor = {3.0};
-  std::vector<int64_t> input_size = {10, 5, 4};
-
-  auto expected = torch::upsample_nearest1d_backward(
-      GetCpuInput(0), {}, input_size, scale_factor);
-  auto result = torch::upsample_nearest1d_backward(
-      GetHpuInput(0), {}, input_size, scale_factor);
-  Compare(expected, result);
-}
-#else
 TEST_F(HpuOpTest, upsample_nearest1d_bwd_scale) {
   GenerateInputs(1, {{10, 5, 12}});
   c10::optional<double> scale_factor(3.0);
@@ -96,7 +87,6 @@ TEST_F(HpuOpTest, upsample_nearest1d_bwd_scale) {
       GetHpuInput(0), output_size, input_size, scale_factor);
   Compare(expected, result);
 }
-#endif
 
 TEST_F(HpuOpTest, upsample_nearest1d_bwd_out) {
   GenerateInputs(1, {{2, 28, 64}});

@@ -776,19 +776,6 @@ TEST_F(LazyNormKernelTest, NormScalarZeroDimTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
 
-#if IS_PYTORCH_OLDER_THAN(2, 0)
-TEST_F(LazyNormKernelTest, NormScalarZSTTest) {
-  torch::Tensor A = torch::randn({2, 0, 2, 4}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHPU);
-  std::vector<int64_t> dimarr = {};
-  c10::IntArrayRef dims(dimarr.data(), dimarr.size());
-  torch::Tensor Out = torch::norm(A, -10.0, dims);
-  torch::Tensor hOut = torch::norm(hA, -10.0, dims);
-
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
-}
-#endif
-
 TEST_F(LazyNormKernelTest, WeightNormTest) {
   at::Tensor v_in =
       at::randn({1024, 64, 128}, at::device(at::kCPU).dtype(at::kFloat));

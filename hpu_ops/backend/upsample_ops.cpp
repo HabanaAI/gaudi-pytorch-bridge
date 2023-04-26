@@ -11,7 +11,6 @@
  *******************************************************************************/
 #include <pytorch_helpers/habana_helpers/pt_version_check.h>
 
-#if IS_PYTORCH_AT_LEAST(2, 0)
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/upsample_bicubic2d.h"
 #include "generated/backend/upsample_bilinear2d.h"
@@ -139,4 +138,3 @@ static const auto& UpsampleKernelRegistry =
             "aten::upsample_nearest3d.vec",
             KERNEL_FN_GLOBAL(UpsampleNearest3dVec));
 } // namespace habana
-#endif

@@ -1,20 +1,17 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
-
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-#define EXP_FN torch::exponential_functional
-#else
-#define EXP_FN torch::exponential
-#endif
 
 class HpuOpTest : public HpuOpTestUtil {};
 
@@ -104,10 +101,10 @@ TEST_F(HpuOpTest, exponential_f32_diff_seed) {
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
   GenerateInputs(1, {{1024}});
-  auto result1 = EXP_FN(GetHpuInput(0), lambd, gen1);
+  auto result1 = torch::exponential(GetHpuInput(0), lambd, gen1);
 
   GenerateInputs(1, {{1024}});
-  auto result2 = EXP_FN(GetHpuInput(0), lambd, gen2);
+  auto result2 = torch::exponential(GetHpuInput(0), lambd, gen2);
 
   EXPECT_FALSE(torch::equal(result1, result2));
 }
@@ -116,10 +113,10 @@ TEST_F(HpuOpTest, exponential_f32_2) {
   double lambd = GenerateScalar<double>(5.0, 15.0);
 
   GenerateInputs(1, {{256, 256}});
-  auto result1 = EXP_FN(GetHpuInput(0), lambd);
+  auto result1 = torch::exponential(GetHpuInput(0), lambd);
 
   GenerateInputs(1, {{256, 256}});
-  auto result2 = EXP_FN(GetHpuInput(0), lambd);
+  auto result2 = torch::exponential(GetHpuInput(0), lambd);
 
   EXPECT_TRUE(torch::equal(result1, result2));
 }
@@ -130,10 +127,10 @@ TEST_F(HpuOpTest, exponential_bf16_diff_seed) {
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
 
   GenerateInputs(1, {{1024}}, torch::kBFloat16);
-  auto result1 = EXP_FN(GetHpuInput(0), lambd, gen1);
+  auto result1 = torch::exponential(GetHpuInput(0), lambd, gen1);
 
   GenerateInputs(1, {{1024}}, torch::kBFloat16);
-  auto result2 = EXP_FN(GetHpuInput(0), lambd, gen2);
+  auto result2 = torch::exponential(GetHpuInput(0), lambd, gen2);
 
   EXPECT_FALSE(torch::equal(result1, result2));
 }
@@ -142,10 +139,10 @@ TEST_F(HpuOpTest, exponential_bf16_2) {
   double lambd = GenerateScalar<double>(5.0, 15.0);
 
   GenerateInputs(1, {{256, 256}}, torch::kBFloat16);
-  auto result1 = EXP_FN(GetHpuInput(0), lambd);
+  auto result1 = torch::exponential(GetHpuInput(0), lambd);
 
   GenerateInputs(1, {{256, 256}}, torch::kBFloat16);
-  auto result2 = EXP_FN(GetHpuInput(0), lambd);
+  auto result2 = torch::exponential(GetHpuInput(0), lambd);
 
   EXPECT_TRUE(torch::equal(result1, result2));
 }

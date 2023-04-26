@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -55,20 +68,6 @@ class LazyLossKernelWithParamsTest
         input, target, weight, pos_weight, reductionType);
 
     EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
-
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-
-    auto hboutput = torch::binary_cross_entropy_with_logits_backward(
-        hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
-
-    auto houtbwd = hboutput.to(torch::kCPU);
-
-    auto expbwd = torch::binary_cross_entropy_with_logits_backward(
-        grad_output, input, target, weight, pos_weight, reductionType);
-
-    EXPECT_EQ(allclose(houtbwd, expbwd, 0.001, 0.001), true);
-
-#endif
   }
 };
 
@@ -123,21 +122,6 @@ TEST_F(LazyLossKernelTest, KLDivLossTest) {
     auto exp1 = kl_div(input, target, reduction, log_target);
 
     EXPECT_EQ(allclose(out1, exp1), true);
-
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-
-    torch::Tensor hout2 = torch::kl_div_backward(
-        hgrad_out, hinput, htarget, reduction, log_target);
-
-    auto out2 = hout2.to(torch::kCPU);
-
-    auto exp2 = kl_div_backward(grad_out, input, target, reduction, log_target);
-
-    EXPECT_EQ(allclose(out2, exp2), true);
-
-#endif
-
-    return true;
   };
 
   // 1D test case.

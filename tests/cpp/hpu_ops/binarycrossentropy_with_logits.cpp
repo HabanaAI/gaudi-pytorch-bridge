@@ -1,14 +1,18 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
+
 class HpuOpTest : public HpuOpTestUtil {};
 
 class BCEWithLogitsParameterizedTestFixture
@@ -44,14 +48,6 @@ TEST_P(BCEWithLogitsParameterizedTestFixture, tests) {
       input, target, weight, pos_weight, reductionType);
 
   Compare(expected_fwd, result_fwd);
-
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-  auto result_bwd = torch::binary_cross_entropy_with_logits_backward(
-      hgrad_out, hinput, htarget, hweight, hpos_weight, reductionType);
-  auto expected_bwd = torch::binary_cross_entropy_with_logits_backward(
-      grad_output, input, target, weight, pos_weight, reductionType);
-  Compare(expected_bwd, result_bwd);
-#endif
 }
 
 INSTANTIATE_TEST_CASE_P(

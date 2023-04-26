@@ -1539,15 +1539,6 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
         "as_strided_ called with strides creating non-contiguous output tensor not supported");
   }
 };
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-const Tensor& as_strided_hpu_lazy_(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
-    c10::optional<int64_t> storage_offset) {
-  auto orig_size = self.sizes().vec();
-  auto orig_stride = self.strides().vec();
-#else
 const Tensor& as_strided_hpu_lazy_(
     const Tensor& self,
     SymIntArrayRef _size,
@@ -1560,7 +1551,6 @@ const Tensor& as_strided_hpu_lazy_(
   auto storage_offset = _storage_offset.has_value()
       ? _storage_offset.value().expect_int()
       : self.storage_offset();
-#endif
   self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   handle_collective(self);
   auto func = [self,
@@ -2097,13 +2087,6 @@ Tensor& mul_out_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-Tensor constant_pad_hpu_lazy(
-    const Tensor& self,
-    IntArrayRef pad,
-    const Scalar& value) {
-  PT_LAZY_TRACE;
-#else
 Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     at::SymIntArrayRef pad_sym,
@@ -2115,7 +2098,6 @@ Tensor constant_pad_hpu_lazy(
     pad_int.push_back(val.expect_int());
   }
   IntArrayRef pad = makeArrayRef(pad_int);
-#endif
 
   auto sizes = PadOperator::compute_output_shape(self, pad);
   auto out = empty_hpu_lazy(
@@ -3599,43 +3581,7 @@ Tensor alias_hpu_lazy(const Tensor& self) {
   };
   RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(alias, self, out, param_setter);
 }
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
-  PT_LAZY_TRACE;
-  int64_t ndim = self.dim();
-  if (ndim == 0) {
-    TORCH_CHECK_INDEX(false, "select() cannot be applied to a 0-dim tensor.");
-  }
-  dim = c10::maybe_wrap_dim(dim, ndim);
-  auto size = self.size(dim);
-  if (index < -size || index >= size) {
-    TORCH_CHECK_INDEX(
-        false,
-        "select(): index ",
-        index,
-        " out of range for tensor of size ",
-        self.sizes(),
-        " at dimension ",
-        dim);
-  }
-  if (index < 0) {
-    index += size;
-  }
 
-  c10::optional<int64_t> start_opt = c10::make_optional(index);
-
-  int64_t end = index + 1;
-  c10::optional<int64_t> end_opt = c10::make_optional(end);
-  auto slice_out = slice_hpu_lazy(self, dim, start_opt, end_opt, 1);
-  auto out = squeeze_hpu_lazy(slice_out, dim);
-
-  // single op tests expect 0-D to be preserved at the front end.
-  if (self.dim() == 1) {
-    SET_SIZE_STRIDE_0D(out);
-  }
-  return out;
-}
-#else
 at::Tensor select_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
@@ -3675,7 +3621,6 @@ at::Tensor select_hpu_lazy(
   }
   return out;
 }
-#endif
 
 bool can_convert(const Scalar& value) {
   if (value.isFloatingPoint()) {
@@ -4806,16 +4751,11 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
-  PT_LAZY_TRACE;
-#else
 at::Tensor repeat_hpu_lazy(
     const at::Tensor& self,
     at::SymIntArrayRef _repeats) {
   PT_LAZY_TRACE;
   auto repeats = C10_AS_INTARRAYREF_SLOW(_repeats);
-#endif
   if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR)) {
     return repeat_hpu_lazy_ht(self, repeats);
   }
@@ -4933,75 +4873,6 @@ at::Tensor repeat_inlv_hpu_lazy(
   return k.call();
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor sum_dim_IntList_hpu_lazy(
-    const Tensor& self,
-    IntArrayRef dim,
-    bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  PT_LAZY_TRACE;
-
-  at::Tensor self_updated_dtype = self;
-  ScalarType result_dtype;
-  /* Match the HPU return dtype with CPU behaviour.
-   * If 'dtype' parameter is specified and it has value:
-   *      Return result in the dtype as specified by 'dtype' parameter.
-   * Else:
-   * Return result in:
-   * i.  int64 for inputs of integral or bool dtypes
-   * ii. corresponding floating point dtype for inputs
-   *      of FP type.
-   *      ie, fp32 input -> fp32 output
-   *      ie, bf16 input -> bf16 output
-   */
-  if (dtype.has_value()) {
-    if (dtype.value() != self_updated_dtype.scalar_type()) {
-      self_updated_dtype = self.to(dtype.value());
-    }
-    result_dtype = dtype.value();
-  } else {
-    result_dtype = c10::isIntegralType(self_updated_dtype.scalar_type(), true)
-        ? c10::ScalarType::Long
-        : self_updated_dtype.scalar_type();
-  }
-  /* for non-floating types, tpc supports only int dtype for sum */
-  if (c10::isIntegralType(self_updated_dtype.scalar_type(), true)) {
-    self_updated_dtype = self_updated_dtype.to(c10::ScalarType::Int);
-  }
-  std::vector<at::IValue> vector_of_inputs;
-  vector_of_inputs = {self_updated_dtype, dim, keepdim, dtype};
-
-  using T = at::Tensor;
-  class Kernel : public LazyOp<T> {
-   public:
-    Kernel(
-        const std::vector<at::IValue>& vector_of_inputs,
-        ScalarType result_dtype)
-        : LazyOp<T>("hpu::sum_dim_IntList", vector_of_inputs, {}, {}, -1),
-          result_dtype_(result_dtype) {}
-
-   private:
-    T get_result_overrideable() override {
-      auto inputs = get_inputs();
-      auto self = inputs[0].toTensor();
-      auto dim = inputs[1].toIntList();
-      auto keepdim = inputs[2].toBool();
-      auto shape =
-          ReduceOperator::compute_output_shape(self, dim.vec(), keepdim);
-      return empty_hpu_lazy(
-          shape,
-          self.options().dtype(result_dtype_),
-          self.suggest_memory_format(),
-          false);
-    }
-    ScalarType result_dtype_;
-  };
-
-  Kernel kernel{vector_of_inputs, result_dtype};
-  RUN_MAYBE_WITH_ACC_THREAD(sum_dim, kernel)
-}
-
-#else
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     OptionalIntArrayRef dim,
@@ -5068,7 +4939,6 @@ Tensor sum_dim_IntList_hpu_lazy(
   Kernel kernel{vector_of_inputs, result_dtype};
   RUN_MAYBE_WITH_ACC_THREAD(sum_dim, kernel)
 }
-#endif
 
 void InitSizesAndStrides(
     at::Tensor& at_tensor,
@@ -5472,14 +5342,9 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   }
 }
 
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
-  PT_LAZY_TRACE;
-#else
 Tensor expand_hpu_lazy(const Tensor& self, SymIntArrayRef size, bool implicit) {
   PT_LAZY_TRACE;
   auto size_in = C10_AS_INTARRAYREF_SLOW(size);
-#endif
   // This ZST output tensor should ideally be handled at Synapse level, but
   // since it is throwing errors in that case we are forced to add this
   // work-around. E.g. self.sizes() = {1} size_in = {0}

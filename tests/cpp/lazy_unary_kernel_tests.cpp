@@ -1170,8 +1170,6 @@ static void TestInfNan(bool ndims, c10::ScalarType dType, F ptFun) {
 TEST_(Finite, finite)
 TEST_(Nan, nan)
 TEST_(Inf, inf)
-#if IS_PYTORCH_AT_LEAST(1, 13)
 TEST_OUT(Inf, inf)
-#endif
 TEST_WITH_OUT(Neginf, neginf)
 TEST_WITH_OUT(Posinf, posinf)

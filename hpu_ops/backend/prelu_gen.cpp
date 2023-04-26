@@ -1,18 +1,17 @@
 /******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <pytorch_helpers/habana_helpers/pt_version_check.h>
-#if IS_PYTORCH_OLDER_THAN(2, 0)
-#include "generated/backend/prelu.h"
-#else
 #include "generated/backend/_prelu_kernel.h"
-#endif
 
 namespace habana {
 void Prelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

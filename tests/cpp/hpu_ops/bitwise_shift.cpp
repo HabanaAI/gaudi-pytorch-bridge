@@ -1,14 +1,18 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
+
 #define SIZE(...) __VA_ARGS__
 
 /*shift-size is greater than the number of bits a dtype supports
@@ -260,12 +264,8 @@ HPU_RIGHT_SHIFT_INPLACE_TEST(
     8)
 
 // self is scalar, and cannot use the macro above
-#if IS_PYTORCH_AT_LEAST(2, 0)
 // TODO (SW-137838): fix or remove this test case
 TEST_F(HpuOpTest, DISABLED_left_shift_scal_ten) {
-#else
-TEST_F(HpuOpTest, left_shift_scal_ten) {
-#endif
   GenerateInputs(1, {torch::kInt32});
   int self = 100;
   auto expected = torch::bitwise_left_shift(self, GetCpuInput(0));

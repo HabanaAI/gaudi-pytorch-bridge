@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/floor_divide.h"
@@ -29,11 +32,7 @@ void FloorDivideOperator::AddNode(
 
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-  const std::string rounding_mode = "trunc";
-#else
   const std::string rounding_mode = "floor";
-#endif
   std::vector<at::Tensor> tensors = {self, other};
 
   const at::ScalarType& final_result_type = at::result_type(self, other);

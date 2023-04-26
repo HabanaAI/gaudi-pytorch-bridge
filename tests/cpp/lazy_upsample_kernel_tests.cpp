@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -69,21 +82,12 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
 
     torch::Tensor grad_mat1_h;
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-    std::array<double, 2> scales = {2.0, 3.0};
-    c10::ArrayRef<double> scale_factors = scales;
-    std::array<int64_t, 2> out_sizes = {8, 21};
-    c10::IntArrayRef out_size = out_sizes;
-    grad_mat1_h = torch::upsample_nearest2d_backward(
-        grad_out_h, out_size, size1, scale_factors);
-#else
     c10::optional<double> scales_h(2.0);
     c10::optional<double> scales_w(3.0);
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, size1, scales_h, scales_w);
-#endif
 
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);
@@ -106,21 +110,12 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
 
     torch::Tensor grad_mat1_h;
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-    std::array<double, 2> scales = {2.0, 3.0};
-    c10::ArrayRef<double> scale_factors = scales;
-    std::array<int64_t, 2> out_sizes = {8, 21};
-    c10::IntArrayRef out_size = out_sizes;
-    grad_mat1_h = torch::upsample_nearest2d_backward(
-        grad_out_h, out_size, size1, scale_factors);
-#else
     c10::optional<double> scales_h(2.0);
     c10::optional<double> scales_w(3.0);
     std::array<int64_t, 2> out_sizes = {8, 21};
     c10::IntArrayRef out_size = out_sizes;
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size, size1, scales_h, scales_w);
-#endif
 
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);
@@ -151,16 +146,11 @@ TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
 
     torch::Tensor grad_mat1_h;
 
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-    grad_mat1_h = torch::upsample_nearest2d_backward(
-        grad_out_h, out_size, size1, scale_factors);
-#else
     c10::IntArrayRef out_size2 = out_sizes;
     c10::optional<double> scales_h(2.0);
     c10::optional<double> scales_w(3.0);
     grad_mat1_h = torch::upsample_nearest2d_backward(
         grad_out_h, out_size2, size1, scales_h, scales_w);
-#endif
 
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);

@@ -50,19 +50,11 @@ void strided_insert_hpu_lazy(
     const at::Tensor&,
     const at::Tensor&,
     bool is_flush = true);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-const at::Tensor& as_strided_hpu_lazy_(
-    const at::Tensor& self,
-    at::IntArrayRef size,
-    at::IntArrayRef stride,
-    c10::optional<int64_t> storage_offset);
-#else
 const at::Tensor& as_strided_hpu_lazy_(
     const at::Tensor& self,
     at::SymIntArrayRef size,
     at::SymIntArrayRef stride,
     c10::optional<c10::SymInt> storage_offset);
-#endif
 at::Tensor& set_source_Storage_storage_offset(
     at::Tensor& self,
     at::Storage source,
@@ -106,17 +98,10 @@ at::Tensor& mul_out_hpu_lazy(
 at::Tensor floor_divide_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-at::Tensor constant_pad_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef pad,
-    const at::Scalar& value);
-#else
 at::Tensor constant_pad_hpu_lazy(
     const at::Tensor& self,
     at::SymIntArrayRef pad,
     const at::Scalar& value);
-#endif
 at::Tensor embedding_bag_sum_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& indices,
@@ -204,12 +189,7 @@ at::Tensor slice_hpu_lazy(
 at::Tensor select_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
-#if IS_PYTORCH_OLDER_THAN(1, 14)
-    int64_t
-#else
-    c10::SymInt
-#endif
-        index);
+    c10::SymInt index);
 at::Tensor masked_select_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mask);
@@ -336,27 +316,15 @@ at::Tensor& bernoulli_scalar_hpu_lazy(
     at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::IntArrayRef repeats);
-#else
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
-#endif
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor sum_dim_IntList_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef dim,
-    bool keepdim,
-    c10::optional<at::ScalarType> dtype);
-#else
 at::Tensor sum_dim_IntList_hpu_lazy(
     const at::Tensor& self,
     at::OptionalIntArrayRef dim,
     bool keepdim,
     c10::optional<at::ScalarType> dtype);
-#endif
 
 std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
     const at::Tensor& self,
@@ -409,17 +377,10 @@ at::Tensor& unsqueeze_hpu_lazy_(at::Tensor& self, const int64_t dim);
 std::vector<at::Tensor> unbind_hpu_lazy_(const at::Tensor& self, int64_t dim);
 at::Tensor permute_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
 at::Tensor permute_cl_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims_);
-#if IS_PYTORCH_OLDER_THAN(1, 13)
-at::Tensor expand_hpu_lazy(
-    const at::Tensor& self,
-    at::IntArrayRef size,
-    bool implicit);
-#else
 at::Tensor expand_hpu_lazy(
     const at::Tensor& self,
     at::SymIntArrayRef size,
     bool implicit);
-#endif
 
 std::vector<at::Tensor> split_with_sizes_hpu_lazy(
     const at::Tensor& self,

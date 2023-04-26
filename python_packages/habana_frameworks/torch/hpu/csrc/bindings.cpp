@@ -16,9 +16,7 @@
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
-#if (IS_PYTORCH_FORK_AT_LEAST(1, 0)) || (IS_PYTORCH_AT_LEAST(2, 0))
 #include <ATen/autocast_mode.h>
-#endif
 //clang-format on
 #include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
@@ -223,7 +221,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return std::make_tuple(event.device_index(), event.isCreated());
   });
   py::class_<at::hpu::HPUEvent>(m, "HPUEvent");
-#if (IS_PYTORCH_FORK_AT_LEAST(1, 0)) || (IS_PYTORCH_AT_LEAST(2, 0))
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
   });
@@ -240,7 +237,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
     return py::reinterpret_borrow<py::object>(dtype);
   });
-#endif
   py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
   m.def(
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });

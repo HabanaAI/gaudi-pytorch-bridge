@@ -65,15 +65,9 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
       backend_tensor.is_alias_of(frontend_tensor),
       "HbEagerTensorPool::get_backend_tensor backend and frontend tensor must share same "
       "storage.");
-#if IS_PYTORCH_OLDER_THAN(2, 0)
-  HABANA_ASSERT(
-      !backend_tensor.unsafeGetTensorImpl()->owns_pyobj(),
-      "HbEagerTensorPool::get_backend_tensor backend tensor shouldn't own pyobj");
-#else
   HABANA_ASSERT(
       !backend_tensor.unsafeGetTensorImpl()->pyobj_slot()->owns_pyobj(),
       "HbEagerTensorPool::get_backend_tensor backend tensor shouldn't own pyobj");
-#endif
   if (take_timestamp) {
     auto t_end = std::chrono::steady_clock::now();
     auto duration =
