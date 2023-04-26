@@ -414,6 +414,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "_native_batch_norm_legit_functional",  # SW-137176
             "native_batch_norm_backward",
             "addcmul",
+            "_to_copy",  # SW-137099
         ]
 
         return node_target in unsupported_ops
