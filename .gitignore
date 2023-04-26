@@ -1,11 +1,9 @@
-.cache/
 **/*build*/**
 !.devops/build_profiles/**
+*cache*/
 .idea/
 .vscode/*
 data/
-.pytest_cache/
-__pycache__/
 *.log
 *.so
 *.so.*
@@ -14,6 +12,5 @@ __pycache__/
 *.pbtxt
 *.swp
 *.swo
-.cache/
 *.egg-info
 test_pt_integration
