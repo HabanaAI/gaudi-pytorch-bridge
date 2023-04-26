@@ -39,7 +39,8 @@ bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   synStatus status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
-        "POOL:: Cannot obtain device memory info. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "POOL:: Cannot obtain device memory info.");
   }
   if (size > free_mem) {
     PT_DEVMEM_DEBUG("POOL:: requested size is more than avaiable memory");
@@ -58,7 +59,8 @@ bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   if (synStatus::synSuccess != status) {
     freeHostMemory(p);
     PT_DEVMEM_FATAL(
-        "POOL:: Cannot obtain device memory size. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "POOL:: Cannot obtain device memory size.");
     return false;
   }
 
@@ -89,7 +91,6 @@ void StaticPooling::pool_destroy() const {
         uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->memptr)};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
-          // TORCH_HABANA_CHECK(status, "synDeviceFree failed");
           pool_allocator::set_device_deallocation(true);
         }
       }
@@ -338,7 +339,8 @@ void DynamicPooling::freeUnusedBlocks(Block* block) const {
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
           PT_DEVMEM_DEBUG(
-              "POOL:: freeUnusedBlocks synDeviceFree failed :: ", status);
+              Logger::formatStatusMsg(status),
+              "POOL:: freeUnusedBlocks synDeviceFree failed :: ");
         }
       }
       block->memptr = 0;
@@ -391,7 +393,8 @@ Block* DynamicPooling::requestNewBlock(uint64_t size) const {
     if (synStatus::synSuccess != status) {
       freeHostMemory(block);
       PT_DEVMEM_DEBUG(
-          "POOL:: Cannot obtain device memory size. Status: ", status);
+          Logger::formatStatusMsg(status),
+          "POOL:: Cannot obtain device memory size.");
       return nullptr;
     }
   }
@@ -498,7 +501,8 @@ bool DynamicPooling::is_mem_threshold_hit() const {
   auto status = synDeviceGetMemoryInfo(pool_id, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
-        "POOL:: Cannot obtain device memory info. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "POOL:: Cannot obtain device memory info.");
     return false;
   }
   if (bytes_in_use > (total_mem * 0.8))

@@ -21,7 +21,9 @@ namespace hccl_integration {
 hcclResult_t to_hccl_result(const synapse_helpers::synapse_error& status) {
   if (status.status != synSuccess) {
     PT_DISTRIBUTED_FATAL(
-        ": error occurred: status: ", status.status, ", msg: ", status.error);
+        Logger::formatStatusMsg(status.status),
+        ": error occurred, msg: ",
+        status.error);
   }
   return to_hccl_result(status.status);
 }

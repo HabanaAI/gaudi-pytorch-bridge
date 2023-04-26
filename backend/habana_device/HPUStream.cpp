@@ -115,7 +115,8 @@ bool HPUStream::query() const {
     if (status == synSuccess)
       return true;
     else
-      PT_DEVICE_DEBUG("STREAM:: synStreamQuery failed with status", status);
+      PT_DEVICE_DEBUG(
+          Logger::formatStatusMsg(status), "STREAM:: synStreamQuery");
 
     return false;
   }

@@ -16,12 +16,17 @@
 #include <thread>
 #include <vector>
 inline uint64_t NowMicros() {
-  static std::chrono::time_point<std::chrono::high_resolution_clock> t0 = std::chrono::high_resolution_clock::now();
+  static std::chrono::time_point<std::chrono::high_resolution_clock> t0 =
+      std::chrono::high_resolution_clock::now();
   return static_cast<uint64_t>(
-      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t0).count());
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::high_resolution_clock::now() - t0)
+          .count());
 }
 
-inline int get_current_tid() { return syscall(__NR_gettid); }
+inline int get_current_tid() {
+  return syscall(__NR_gettid);
+}
 
 class syncrotron {
  public:
@@ -30,7 +35,9 @@ class syncrotron {
   std::mutex mutex;
   std::vector<std::thread> threads;
   using sync_lock = std::unique_lock<std::mutex>;
-  syncrotron() { threads.reserve(16); }
+  syncrotron() {
+    threads.reserve(16);
+  }
 
   template <typename... Args>
   void add_proc(Args&&... args) {
@@ -39,15 +46,18 @@ class syncrotron {
 
   void sync(int set_step) {
     sync_lock lock(mutex);
-    std::clog << NowMicros() << ": tid " << get_current_tid() << " waiting for " << set_step - 1 << " step " << step
-              << std::endl;
-    if (step < set_step - 1) sync_cv.wait(lock, [this, set_step]() { return step == set_step - 1; });
+    std::clog << NowMicros() << ": tid " << get_current_tid() << " waiting for "
+              << set_step - 1 << " step " << step << std::endl;
+    if (step < set_step - 1)
+      sync_cv.wait(lock, [this, set_step]() { return step == set_step - 1; });
     step = set_step;
     std::clog << NowMicros() << " step " << step << std::endl;
     lock.unlock();
     sync_cv.notify_all();
   }
-  void start() { sync_cv.notify_all(); }
+  void start() {
+    sync_cv.notify_all();
+  }
   ~syncrotron() {
     for (auto& t : threads) {
       t.join();

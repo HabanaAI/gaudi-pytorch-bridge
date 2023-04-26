@@ -27,6 +27,7 @@
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>
 #include <hl_logger/hllog.hpp>
+#include <synapse_common_types.h>
 
 #define BRACED_PARAM(p) "{}"
 #define FORMAT_AND_MSG(...) \
@@ -69,6 +70,10 @@ enum class LoggerType {
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
 namespace Logger {
+
+std::string synStatusToStr(synStatus statusArg);
+
+std::string formatStatusMsg(synStatus statusArg);
 
 inline bool isTracingForced(
     const HlLogger::LoggerType& mod,
@@ -330,11 +335,11 @@ class PTFuncLog {
     HLLOG_CRITICAL_F(                                                          \
         MOD,                                                                   \
         FORMAT_AND_MSG(                                                        \
-            __FILE__,                                                          \
-            ":",                                                               \
-            __LINE__,                                                          \
-            "\nrank: ",                                                        \
+            Logger::_str_wrapper(                                              \
+                __FILE__, ":", static_cast<uint32_t>(__LINE__)),               \
+            "\n[Rank: ",                                                       \
             Logger::get_rank(),                                                \
+            "] ",                                                              \
             __VA_ARGS__));                                                     \
     hl_logger::logStacktrace(HlLogger::LoggerType::MOD, HLLOG_LEVEL_CRITICAL); \
     Logger::habana_assert(                                                     \
@@ -527,3 +532,18 @@ std::string VecToString(const std::vector<Integer>& vec) {
 #define CREATE_OSTREAM_FORMATTER(type) \
   template <>                          \
   struct fmt::formatter<type> : ostream_formatter {};
+
+#define TORCH_HABANA_CHECK(EXPR, ...)     \
+  do {                                    \
+    synStatus __err = EXPR;               \
+    if (__err != synStatus::synSuccess) { \
+      TORCH_CHECK(                        \
+          false,                          \
+          "synStatus=",                   \
+          __err,                          \
+          " [",                           \
+          Logger::synStatusToStr(__err),  \
+          "] ",                           \
+          __VA_ARGS__);                   \
+    }                                     \
+  } while (0)

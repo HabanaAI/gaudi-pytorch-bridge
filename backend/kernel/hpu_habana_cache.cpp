@@ -20,8 +20,8 @@
 
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "habana_helpers/logging.h"
 
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
@@ -204,7 +204,7 @@ void RecipeArgumentSpec::ComputeH2DHashCode(
                 h2d_elem < LONG_MAX,
                 "H2D data ",
                 h2d_elem,
-                " exceeds the int64 limit ");
+                " exceeds the int64 limit");
             h2d_vec.push_back(static_cast<int64_t>(h2d_elem));
           }
         } else {
@@ -260,7 +260,7 @@ RecipeValueSpec::~RecipeValueSpec() {
     auto device_id = device.id();
     status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
     if (status != synSuccess)
-      PT_BRIDGE_DEBUG("host-free failed");
+      PT_BRIDGE_DEBUG(Logger::formatStatusMsg(status), "host-free failed");
   }
 
   if (nullptr != tensor_names) {
@@ -391,7 +391,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
       dtensorinfos->at(buf_idx)->get_buffer_start_syn(),
       buf_size,
       [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
   // wait for copy completion
   while (!copyDone) {
@@ -782,12 +782,12 @@ void RecipeValueSpec::update_output_permutation() {
           "syn query recipe tensor info encountered : ",
           error.error,
           " ",
-          error.status);
+          Logger::formatStatusMsg(error.status));
       TORCH_CHECK(
           false,
           std::string("syn query recipe tensor info failed ") +
               std::string(error.error) + std::string(" ") +
-              std::to_string(error.status));
+              Logger::formatStatusMsg(error.status));
     }
 
     size_t count = 0;
@@ -1370,7 +1370,8 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
         recipe->syn_recipe_handle_, tensor_names, tensor_ids, num_tensors);
     if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
       PT_BRIDGE_FATAL(
-          "synTensorRetrieveIds launch failed ", std::to_string(status));
+          Logger::formatStatusMsg(status),
+          "synTensorRetrieveIds launch failed");
     }
   }
 }
@@ -1649,7 +1650,10 @@ void RecipeValueSpec::launch(
         if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
           auto& error = error_optional.value();
           PT_BRIDGE_FATAL(
-              "syn launch encountered : ", error.error, " ", error.status);
+              "syn launch encountered : ",
+              error.error,
+              " ",
+              Logger::formatStatusMsg(error.status));
         }
       } else {
         PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");
@@ -1755,11 +1759,14 @@ void RecipeValueSpec::launch(
       if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
         auto& error = error_optional.value();
         PT_BRIDGE_FATAL(
-            "syn launch encountered : ", error.error, " ", error.status);
+            "syn launch encountered : ",
+            error.error,
+            " ",
+            Logger::formatStatusMsg(error.status));
         TORCH_CHECK(
             false,
             std::string("syn launch failed ") + std::string(error.error) +
-                std::string(" ") + std::to_string(error.status));
+                std::string(" ") + Logger::formatStatusMsg(error.status));
       }
     }
     TORCH_HABANA_CHECK(
@@ -2102,7 +2109,7 @@ size_t RecipeCacheLRU::Size() const {
 
 void RecipeCacheLRU::Serialize(std::string recipe_cache_path) {
   if (recipe_cache_path.empty()) {
-    PT_BRIDGE_DEBUG("disk recipe cache not path, cannot serialize ");
+    PT_BRIDGE_DEBUG("disk recipe cache not path, cannot serialize");
     return;
   }
 
@@ -2118,7 +2125,7 @@ void RecipeCacheLRU::Serialize(std::string recipe_cache_path) {
 
 void RecipeCacheLRU::Deserialize(std::string recipe_cache_path) {
   if (recipe_cache_path.empty()) {
-    PT_BRIDGE_DEBUG("disk recipe cache not path, cannot De-serialize ");
+    PT_BRIDGE_DEBUG("disk recipe cache not path, cannot De-serialize");
     return;
   }
   SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, false, 1);

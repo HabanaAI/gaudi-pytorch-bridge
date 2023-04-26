@@ -38,7 +38,10 @@ bool recipe::create(synapse_helpers::graph& graph) {
               compile_result))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(compile_result);
     PT_SYNHELPER_FATAL(
-        "syn compile encountered : ", error.error, " ", error.status);
+        "syn compile encountered : ",
+        error.error,
+        " ",
+        Logger::formatStatusMsg(error.status));
   }
   auto recipe_handle = get_value(std::move(compile_result));
   if (recipe_handle != nullptr) {
@@ -53,7 +56,10 @@ bool recipe::create(synapse_helpers::graph& graph) {
                   ws_size_result))) {
         auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
         PT_SYNHELPER_FATAL(
-            "syn query workspace failed: ", error.error, " ", error.status);
+            "syn query workspace failed: ",
+            error.error,
+            " ",
+            Logger::formatStatusMsg(error.status));
       }
       workspace_size_ = get_value(ws_size_result);
     }
@@ -95,7 +101,8 @@ void recipe::populate_syn_tensor_ids() {
 
     if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
       PT_SYNHELPER_FATAL(
-          "synTensorRetrieveIds launch failed ", std::to_string(status));
+          Logger::formatStatusMsg(status),
+          "synTensorRetrieveIds launch failed");
     }
   }
 }
@@ -136,7 +143,10 @@ bool recipe::launch(
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(
-        "syn launch encountered : ", error.error, " ", error.status);
+        "syn launch encountered : ",
+        error.error,
+        " ",
+        Logger::formatStatusMsg(error.status));
     return false;
   }
   return true;

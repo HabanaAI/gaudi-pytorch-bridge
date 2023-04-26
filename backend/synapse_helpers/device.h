@@ -145,7 +145,9 @@ class device {
     auto status = synDeviceGetName(deviceName, maxStringLength, id_);
     if (status != synSuccess) {
       PT_SYNHELPER_DEBUG(
-          "Failed to get device name for id ", id_, " Status: ", status);
+          Logger::formatStatusMsg(status),
+          "Failed to get device name for id ",
+          id_);
       return "";
     }
     return deviceName;

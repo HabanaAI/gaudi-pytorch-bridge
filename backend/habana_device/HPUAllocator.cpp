@@ -13,11 +13,11 @@
 #include <synapse_api.h>
 
 #include "HPUAllocator.h"
-#include "HPUCheck.h"
 #include "HPUGuardImpl.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/kernels_accumulation.h"
+#include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
 #include "habana_lazy/lazy_executor.h"
@@ -220,7 +220,9 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
       auto status_mem = synDeviceGetMemoryInfo(
           allocator_active_device_id, &free_mem, &total_mem);
       if (synStatus::synSuccess != status_mem) {
-        PT_DEVICE_FATAL("device memory size query failed with ", status_mem);
+        PT_DEVICE_FATAL(
+            Logger::formatStatusMsg(status_mem),
+            "device memory size query failed");
       }
 
       if (num_bytes > free_mem) {

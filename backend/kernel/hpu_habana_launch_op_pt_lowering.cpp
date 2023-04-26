@@ -157,12 +157,12 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
           "syn query recipe tensor info encountered : ",
           error.error,
           " ",
-          error.status);
+          Logger::formatStatusMsg(error.status));
       TORCH_CHECK(
           false,
           std::string("syn query recipe tensor info failed ") +
               std::string(error.error) + std::string(" ") +
-              std::to_string(error.status));
+              Logger::formatStatusMsg(error.status));
     }
     // updating the BE tensor and the cache record with the permutation
     for (auto& info : tensor_info_vec) {
@@ -284,7 +284,7 @@ void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
               habana_helpers::GetNBytes(src),
               [&copyDone]() { copyDone = true; },
               true);
-          TORCH_CHECK(syn_error.status == 0, syn_error.error);
+          TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
           // wait for copy completion
           while (!copyDone) {
             std::this_thread::yield();
@@ -305,22 +305,26 @@ static void getTensorSectionId(
   synStatus status;
   uint32_t numOfTensors = 0;
   status = synTensorRetrieveLaunchAmount(recipeHandle, &numOfTensors);
-  HABANA_ASSERT(status == synStatus::synSuccess);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
   uint64_t ids[numOfTensors];
   status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
-  HABANA_ASSERT(status == synStatus::synSuccess);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
   synRetrievedLaunchTensorInfo tensorInfos[numOfTensors];
   for (unsigned i = 0; i < numOfTensors; i++) {
     tensorInfos[i].tensorId = ids[i];
   }
   status =
       synTensorRetrieveLaunchInfoById(recipeHandle, numOfTensors, tensorInfos);
-  HABANA_ASSERT(status == synStatus::synSuccess);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
 
   // get tensor name
   char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
   status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
-  HABANA_ASSERT(status == synStatus::synSuccess);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
 
   // search for tensor according to tensor name and set it's sectionId
   for (unsigned tensorIdx = 0; tensorIdx < numOfTensors; tensorIdx++) {
@@ -360,7 +364,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               tensorSectionId,
               SECTION_SIZE,
               &section_size);
-          HABANA_ASSERT(status == synStatus::synSuccess);
+          HABANA_ASSERT(
+              status == synStatus::synSuccess, Logger::synStatusToStr(status));
           PT_BRIDGE_DEBUG(
               "section_size:: ",
               section_size,
@@ -371,13 +376,17 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             auto old_size = tensor.get_host_ptr_size();
             auto device_id = tensor.device_id();
             status = synHostMalloc(device_id, section_size, 0, &host_ptr);
-            HABANA_ASSERT(status == synStatus::synSuccess);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
             status = synRecipeSectionGetProp(
                 rv.recipe->syn_recipe_handle_,
                 tensorSectionId,
                 SECTION_DATA,
                 &section_data);
-            HABANA_ASSERT(status == synStatus::synSuccess);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
             std::copy(
                 reinterpret_cast<uint8_t*>(section_data),
                 reinterpret_cast<uint8_t*>(section_data) + section_size,
@@ -407,13 +416,15 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 [&copyDone]() { copyDone = true; },
                 false,
                 true);
-            TORCH_CHECK(syn_error.status == 0, syn_error.error);
+            TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
             // wait for copy completion
             while (!copyDone) {
               std::this_thread::yield();
             }
             status = synHostFree(device_id, host_ptr, 0);
-            HABANA_ASSERT(status == synStatus::synSuccess);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
           }
         }
       }
@@ -464,7 +475,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
         "syn compile encountered : ",
         error.error,
         " ",
-        error.status,
+        Logger::formatStatusMsg(error.status),
         " compile time ",
         t_compile_ns,
         " ns");
@@ -496,7 +507,10 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
               ws_size_result))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
     PT_BRIDGE_FATAL(
-        "workspace size query failed: ", error.error, " ", error.status);
+        "workspace size query failed: ",
+        error.error,
+        " ",
+        Logger::formatStatusMsg(error.status));
     TORCH_CHECK(false, "workspace size query failed");
   }
   rv.workspace_size = get_value(ws_size_result);
@@ -712,7 +726,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
       synStatus status;
       status = synHostMalloc(
           device_id, htensor_wbuff_size, 0, (void**)&(htensor_wbuff));
-      TORCH_CHECK(status == synSuccess, "host-malloc failed");
+      TORCH_HABANA_CHECK(
+          status, Logger::synStatusToStr(status), "host-malloc failed");
     }
     rv.htensor_wbuff = htensor_wbuff;
     rv.htensor_wbuff_size = htensor_wbuff_size;
@@ -1243,7 +1258,7 @@ void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
   // We dont support running some ops on CPU while running fused op on Habana
   // All tensors should be alocated to habana before entering this phase
   TORCH_CHECK(
-      is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
+      is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU");
 
   // Set the habana operators to capture data
   habana::ShapeInference::Capture(&m_map_shape);

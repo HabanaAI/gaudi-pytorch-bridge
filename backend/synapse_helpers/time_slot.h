@@ -55,12 +55,14 @@ class TimeSlot : public TimeSlotBase {
   void Start() {
     auto status = synEventRecord(event_start_.get(), stream_handle_);
     if (status != synSuccess)
-      PT_SYNHELPER_FATAL("Failed to record start event");
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status), "Failed to record start event");
   };
   void Stop() {
     auto status = synEventRecord(event_end_.get(), stream_handle_);
     if (status != synSuccess)
-      PT_SYNHELPER_FATAL("Failed to record end event");
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status), "Failed to record end event");
   };
 
   absl::optional<uint64_t> getTime() const override {

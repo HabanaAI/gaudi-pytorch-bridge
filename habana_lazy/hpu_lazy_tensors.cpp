@@ -1239,8 +1239,7 @@ void PrepareInputOrderMap(
     exec::HlExec& hlexec) {
   auto graph_input_stack_uids =
       lazyFrontEndInfo->get_lazy_eager_op_input_uids();
-  HABANA_ASSERT(
-      graph_input_stack_uids.size() > 0, " Input uids not prepared! ");
+  HABANA_ASSERT(graph_input_stack_uids.size() > 0, " Input uids not prepared!");
   auto& graph_hash_builder = GraphHashBuilder::getInstance();
   graph_hash_builder.set_graph_input_stack_uids(
       std::move(graph_input_stack_uids));

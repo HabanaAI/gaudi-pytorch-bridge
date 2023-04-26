@@ -26,20 +26,19 @@ ThreadPool::ThreadPool(size_t threads, QueueType qType) : m_stop(false) {
       for (;;) {
         std::function<void()> task;
         {
-            std::unique_lock<std::mutex> lock(this->m_queueMutex);
-            this->m_condition.wait(lock, [this] {
-              return this->m_stop || !this->m_tasks->empty();
-            });
-            if (this->m_stop && this->m_tasks->empty()) {
-              this->has_queued_items.store(false);
-              if (this->m_tasks) {
-                delete this->m_tasks;
-                this->m_tasks = NULL;
-              }
-              return;
+          std::unique_lock<std::mutex> lock(this->m_queueMutex);
+          this->m_condition.wait(
+              lock, [this] { return this->m_stop || !this->m_tasks->empty(); });
+          if (this->m_stop && this->m_tasks->empty()) {
+            this->has_queued_items.store(false);
+            if (this->m_tasks) {
+              delete this->m_tasks;
+              this->m_tasks = NULL;
             }
-            task = std::move(this->m_tasks->front());
-            this->m_tasks->pop();
+            return;
+          }
+          task = std::move(this->m_tasks->front());
+          this->m_tasks->pop();
         }
 
         // Run the task.
@@ -51,11 +50,11 @@ ThreadPool::ThreadPool(size_t threads, QueueType qType) : m_stop(false) {
           PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
         }
 
-          if (this->m_tasks->empty()) {
-            this->has_queued_items.store(false);
-          } else {
-            this->has_queued_items.store(true);
-          }
+        if (this->m_tasks->empty()) {
+          this->has_queued_items.store(false);
+        } else {
+          this->has_queued_items.store(true);
+        }
       }
     });
 }

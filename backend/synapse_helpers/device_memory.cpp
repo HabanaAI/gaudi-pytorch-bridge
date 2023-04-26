@@ -43,7 +43,7 @@ device_memory::device_memory(device& device) : device_{device} {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
     case pool_allocator::strategy_dynamic:
@@ -55,7 +55,7 @@ device_memory::device_memory(device& device) : device_{device} {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
     case pool_allocator::startegy_static_coalesce_with_memthreshold:
@@ -70,7 +70,7 @@ device_memory::device_memory(device& device) : device_{device} {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
     case pool_allocator::startegy_static_coalesce:
@@ -82,7 +82,7 @@ device_memory::device_memory(device& device) : device_{device} {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
     case pool_allocator::startegy_coalesce_stringent:
@@ -94,7 +94,7 @@ device_memory::device_memory(device& device) : device_{device} {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
     case pool_allocator::strategy_none:
@@ -117,7 +117,8 @@ device_memory::device_memory(device& device) : device_{device} {
     synDeviceAttribute* deviceAttr = deviceAttrs.data();
     auto status = synDeviceGetAttribute(dram_info, deviceAttr, 2, device_.id());
     if (synStatus::synSuccess != status) {
-      PT_DEVMEM_FATAL("Cannot obtain dram info. Status: ", status);
+      PT_DEVMEM_FATAL(
+          Logger::formatStatusMsg(status), "Cannot obtain dram info.");
     }
     log_DRAM_start(dram_info[0]);
     log_DRAM_size(dram_info[1]);
@@ -200,7 +201,10 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
     if (synStatus::synSuccess != status) {
-      PT_DEVMEM_DEBUG("synDeviceMalloc failed, requested size ", size);
+      PT_DEVMEM_DEBUG(
+          Logger::formatStatusMsg(status),
+          "synDeviceMalloc failed, requested size ",
+          size);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
@@ -221,7 +225,7 @@ synStatus device_memory::deallocate(void* ptr) {
   } else {
     uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
-    PT_DEVMEM_DEBUG("SynDeviceFree Failed.", status);
+    PT_DEVMEM_DEBUG(Logger::formatStatusMsg(status), "SynDeviceFree Failed.");
   }
   log_synDeviceMemStats(*this);
   return status;
@@ -570,12 +574,13 @@ void device_memory::MoveData(
       synDmaDir::DRAM_TO_DRAM,
       move_address.size());
   if (synStatus::synSuccess != status) {
-    PT_DEVMEM_FATAL("synMemCopyAsync failed ", status);
+    PT_DEVMEM_FATAL(Logger::formatStatusMsg(status), "synMemCopyAsync failed");
   }
 
   auto& handle = device_.get_stream(0, DMA_D2D);
   if (synStatus::synSuccess != synStreamSynchronize(handle)) {
-    PT_DEVMEM_FATAL("Waiting for Move complete failed");
+    PT_DEVMEM_FATAL(
+        Logger::formatStatusMsg(status), "Waiting for Move complete failed");
   }
 }
 
@@ -641,12 +646,12 @@ bool device_memory::defragment_memory(
       PT_DEVMEM_WARN(
           "There is enough memory free memory to allocate ",
           allocation_size,
-          "B. Running defragmentation may indicate a bug ");
+          "B. Running defragmentation may indicate a bug");
     } else {
       PT_DEVMEM_WARN(
           "There is enough memory free memory to extend workspace by ",
           allocation_size,
-          "B. Running defragmentation may indicate a bug ");
+          "B. Running defragmentation may indicate a bug");
     }
     return true;
   }

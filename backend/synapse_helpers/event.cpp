@@ -67,7 +67,8 @@ void event::synchronize() const {
   if (!is_partial())
     status = synEventSynchronize(handle_);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("Event synchronization failed with: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Event synchronization failed");
   }
 }
 
@@ -100,7 +101,8 @@ void event::stream_wait_event(stream& stream, const uint32_t flags) {
 
   auto status = synStreamWaitEvent(stream, handle_, flags);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("Recording of WaitEvent failed with: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Recording of WaitEvent failed");
   }
 }
 
@@ -109,7 +111,8 @@ void event::map_event_to_tensor(
     synLaunchTensorInfoExt* tensor_info) {
   auto status = synEventMapTensorExt(&handle_, 1, tensor_info, recipe_handle);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("synEventMapTensorExt failed with: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synEventMapTensorExt failed");
   }
   is_partial_ = true;
 }

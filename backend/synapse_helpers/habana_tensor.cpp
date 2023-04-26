@@ -605,7 +605,8 @@ memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph)
     : memory_section_{} {
   auto status = synSectionCreate(&memory_section_, memory_attributes, graph);
   if (synSuccess != status)
-    PT_SYNHELPER_FATAL("Unable to create a memory section with err: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Unable to create a memory section");
 }
 
 tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg) {

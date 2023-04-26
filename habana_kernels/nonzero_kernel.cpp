@@ -19,11 +19,11 @@
 #include <torch/script.h>
 
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "habana_helpers/frontend_utils.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/index_kernels.h"

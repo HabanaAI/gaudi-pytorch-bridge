@@ -12,8 +12,8 @@
  */
 #include <algorithm>
 
-#include "backend/habana_device/HPUCheck.h"
 #include "conv_pool_utils.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/logging_pt.h"
 
 namespace habana_helpers {

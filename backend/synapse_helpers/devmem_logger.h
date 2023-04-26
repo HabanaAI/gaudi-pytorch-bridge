@@ -249,12 +249,8 @@ void log_synDevicePoolCreate(
     uint64_t free_mem,
     uint64_t mem_acquire_perc,
     uint64_t base_mem_ptr);
-void log_synDeviceWorkspace(
-    uint64_t ptr,
-    size_t size);
-void log_synDeviceAlloc(
-    uint64_t ptr,
-    size_t size);
+void log_synDeviceWorkspace(uint64_t ptr, size_t size);
+void log_synDeviceAlloc(uint64_t ptr, size_t size);
 void log_synDeviceDeallocate(uint64_t ptr);
 void log_synDeviceLockMemory(
     absl::Span<const synapse_helpers::device_ptr> ptrs);

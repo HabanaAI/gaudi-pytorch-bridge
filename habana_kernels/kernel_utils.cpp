@@ -14,7 +14,6 @@
 
 #include <perf_lib_layer_params.h>
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/cast_sequence.h"
@@ -22,6 +21,7 @@
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/recipe.h"
 #include "habana_helpers/dtype_helpers.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/compare_kernels.h"
 #include "hpu_ops/lazy_cast.h"
 #include "kernel_utils.h"

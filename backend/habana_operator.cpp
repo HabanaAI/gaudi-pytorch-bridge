@@ -12,7 +12,6 @@
  */
 #include "backend/habana_operator.h"
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
@@ -698,7 +697,7 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
   auto& device =
       synapse_helpers::HPURegistrar::get_device(p_context_->device_id_);
   auto status = device.get_host_memory().malloc(&host_ptr, host_ptr_size);
-  HABANA_ASSERT(status == synSuccess);
+  HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
 
   if (scalar_val.type() == at::ScalarType::Double) {
     // WA for copying float data to host_ptr

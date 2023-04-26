@@ -32,8 +32,8 @@
 
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "habana_helpers/logging.h"
 
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -1729,7 +1729,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                 auto value_in = node->input(0);
 
                 if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                  PT_BRIDGE_DEBUG(": wt not present is it bf16 test ? ");
+                  PT_BRIDGE_DEBUG(": wt not present is it bf16 test ?");
                   continue;
                 }
                 auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1742,7 +1742,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                       " as const");
                   value_in = mm_node->input(0)->node()->input(0);
                   if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                    PT_BRIDGE_DEBUG(": bias not present, is it bf16 test ? ");
+                    PT_BRIDGE_DEBUG(": bias not present, is it bf16 test ?");
                     continue;
                   }
                   auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1757,7 +1757,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                     mm_node->scope()->name().toUnqualString());
                 auto value_in = node->input(0);
                 if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                  PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+                  PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
                   continue;
                 }
                 auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1779,13 +1779,13 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           } else if (node->output(0) == cast_u.user->input(1)) {
             PT_BRIDGE_DEBUG(" wt of conv: ")
           } else if (node->output(0) == cast_u.user->input(2)) {
-            PT_BRIDGE_DEBUG(" bias of conv: ");
+            PT_BRIDGE_DEBUG(" bias of conv:");
           } else {
-            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor: ");
+            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor:");
             continue;
           }
           if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-            PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+            PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
             continue;
           }
           auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1803,13 +1803,13 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           } else if (node->output(0) == cast_u.user->input(1)) {
             PT_BRIDGE_DEBUG(" wt of linear: ")
           } else if (node->output(0) == cast_u.user->input(2)) {
-            PT_BRIDGE_DEBUG(" bias of linear: ");
+            PT_BRIDGE_DEBUG(" bias of linear:");
           } else {
-            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor: ");
+            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor:");
             continue;
           }
           if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-            PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+            PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
             continue;
           }
           auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1838,7 +1838,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
             PT_BRIDGE_DEBUG(": bias_idx ", bias_idx);
             auto mm_value_in = mm_node->input(bias_idx);
             if (value_to_ivalue.find(mm_value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
               continue;
             }
             auto mm_tensor = value_to_ivalue[mm_value_in]->toTensor();
@@ -1847,7 +1847,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
             auto value_in = node->input(0);
 
             if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
               continue;
             }
             auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1861,7 +1861,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
                 mm_node->scope()->name().toUnqualString());
             auto value_in = node->input(0);
             if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
               continue;
             }
             auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1877,7 +1877,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": conv wt not present is it bf16 test ? ");
+        PT_BRIDGE_DEBUG(": conv wt not present is it bf16 test ?");
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1885,7 +1885,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
       // assumption is conv will always have bias in inference
       value_in = node->input(2);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": conv bias not present is it bf16 test ? ");
+        PT_BRIDGE_DEBUG(": conv bias not present is it bf16 test ?");
         continue;
       }
       tensor = value_to_ivalue[value_in]->toTensor();
@@ -1898,7 +1898,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -1921,7 +1921,7 @@ void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
           node->scope()->name().toUnqualString());
       auto value_in = node->input(1);
       if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": not present is it bf16 test ? ");
+        PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
         continue;
       }
       auto tensor = value_to_ivalue[value_in]->toTensor();
@@ -2620,7 +2620,7 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
                 h2d_elem < LONG_MAX,
                 "H2D data ",
                 h2d_elem,
-                " exceeds the int64 limit ");
+                " exceeds the int64 limit");
             h2d_vec.push_back(static_cast<int64_t>(h2d_elem));
           }
         } else {
@@ -3252,7 +3252,7 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
-            " output shapes not ok! ");
+            " output shapes not ok!");
         break;
       }
     }
@@ -4168,7 +4168,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
     DynamicShapeInfo& graph_input_info,
     const PassException& e) {
   PT_BRIDGE_BEGIN;
-  PT_DYNAMIC_SHAPE_DEBUG("Handling the exception .. ");
+  PT_DYNAMIC_SHAPE_DEBUG("Handling the exception ..");
   switch (e.Pass()) {
     // Min inference pass can have exception only in HISTORIC if exception is
     // in policy = CURRENT, it is unrecoverable, throw runtime error in this
@@ -4240,7 +4240,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
               habana_helpers::DynamicDimsPolicy::CURRENT &&
           graph_input_info.max_policy ==
               habana_helpers::DynamicDimsPolicy::CURRENT) {
-        PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
+        PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
         throw std::runtime_error("Exception was not handled ..");
       }
       graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
@@ -4248,7 +4248,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
       break;
     }
     default:
-      PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
+      PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
       throw std::runtime_error("Exception was not handled ..");
       break;
   }
@@ -4327,7 +4327,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
       CompileAndRunDynamicGraph(graph_input_info);
       break;
     default:
-      PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting .. ");
+      PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
       throw std::runtime_error("Exception was not handled ..");
       break;
   }

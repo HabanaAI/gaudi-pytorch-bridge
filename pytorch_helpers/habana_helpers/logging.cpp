@@ -112,6 +112,36 @@ HLLOG_DEFINE_MODULE_LOGGER(
 
 namespace Logger {
 
+std::string synStatusToStr(synStatus statusArg) {
+  static std::mutex mtx{};
+  static std::vector<std::string> statusStr(
+      static_cast<int>(synStatus::synStatusLast), std::string(""));
+
+  auto idx = static_cast<size_t>(statusArg);
+  std::unique_lock<std::mutex> lock(mtx);
+  if (statusStr[idx].empty()) {
+    char statusDescription[STATUS_DESCRIPTION_MAX_SIZE];
+    auto isDescriptionValid =
+        synStatusGetBriefDescription(
+            statusArg, statusDescription, STATUS_DESCRIPTION_MAX_SIZE) ==
+        synStatus::synSuccess;
+
+    if (isDescriptionValid) {
+      statusStr[idx] = std::string(statusDescription);
+      return statusStr[idx];
+    } else {
+      PT_BRIDGE_WARN("Could not get translation for synStatus: ", statusArg);
+      return std::string("UnkownDescription");
+    }
+  }
+
+  return statusStr[idx];
+}
+
+std::string formatStatusMsg(synStatus statusArg) {
+  return fmt::format("synStatus {} [{}]", statusArg, synStatusToStr(statusArg));
+}
+
 uint64_t get_tid_internal() {
   static thread_local uint64_t tid{static_cast<uint64_t>(syscall(__NR_gettid))};
   return tid;

@@ -908,7 +908,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::allreduce(
     if (is_valid_hccl_dtype(data_type)) {
       allreduce_tensors.push_back(tensors[i]);
     } else {
-      PT_DISTRIBUTED_DEBUG("[PYT-DIST] allreduce tensors converted to float ");
+      PT_DISTRIBUTED_DEBUG("[PYT-DIST] allreduce tensors converted to float");
       allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
@@ -998,7 +998,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::reduce(
     if (is_valid_hccl_dtype(data_type)) {
       reduction_tensors.push_back(tensors[i]);
     } else {
-      PT_DISTRIBUTED_DEBUG("[PYT-DIST] reduction tensors converted to float ");
+      PT_DISTRIBUTED_DEBUG("[PYT-DIST] reduction tensors converted to float");
       reduction_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
     }
   }
@@ -1143,7 +1143,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::alltoall_base(
     alltoall_out_tensors = outputTensor;
     alltoall_in_tensors = inputTensor;
   } else {
-    PT_DISTRIBUTED_DEBUG("[PYT-DIST] alltoall tensors converted to float ");
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] alltoall tensors converted to float");
     alltoall_out_tensors = outputTensor.to(c10::ScalarType::Float);
     alltoall_in_tensors = inputTensor.to(c10::ScalarType::Float);
   }

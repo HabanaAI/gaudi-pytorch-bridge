@@ -17,10 +17,10 @@
 #include <memory>
 
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -431,7 +431,8 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       "Adding ",
       guid,
       " to graph failed with ",
-      get_error(result).error);
+      get_error(result).error,
+      Logger::synStatusToStr(get_error(result).status));
 
   auto output = habana::createPTTensor(
       input,
@@ -471,7 +472,8 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       "Adding ",
       guid,
       " to graph failed with ",
-      get_error(result).error);
+      get_error(result).error,
+      Logger::synStatusToStr(get_error(result).status));
 }
 
 static auto& RandomGenKernelsKernelRegistry =

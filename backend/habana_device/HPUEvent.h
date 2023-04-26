@@ -109,7 +109,8 @@ struct HPUEvent {
       if (status == synSuccess) {
         return true;
       } else {
-        PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+        PT_DEVICE_DEBUG(
+            Logger::formatStatusMsg(status), "STREAM:: synEventQuery");
       }
     }
 
@@ -167,7 +168,8 @@ struct HPUEvent {
     } else {
       auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
       if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventRecord failed ", status);
+        PT_DEVICE_FATAL(
+            Logger::formatStatusMsg(status), "synEventRecord failed");
       }
     }
     recorded_stream_ = stream.stream();
@@ -189,7 +191,8 @@ struct HPUEvent {
         auto status =
             synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
         if (synStatus::synSuccess != status) {
-          PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+          PT_DEVICE_FATAL(
+              Logger::formatStatusMsg(status), "synStreamWaitEvent failed");
         }
       }
     }
@@ -208,7 +211,8 @@ struct HPUEvent {
     } else {
       auto status = synEventElapsedTime(&time_ms, handle_, other.handle_);
       if (synStatus::synSuccess != status) {
-        PT_DEVICE_DEBUG("synEventElapsedTime failed: ", status);
+        PT_DEVICE_DEBUG(
+            Logger::formatStatusMsg(status), "synEventElapsedTime failed");
       }
     }
     return time_ms;
@@ -224,7 +228,8 @@ struct HPUEvent {
       } else {
         auto status = synEventSynchronize(handle_);
         if (synStatus::synSuccess != status) {
-          PT_DEVICE_FATAL("synEventSynchronize failed: ", status);
+          PT_DEVICE_FATAL(
+              Logger::formatStatusMsg(status), "synEventSynchronize failed");
         }
       }
     }

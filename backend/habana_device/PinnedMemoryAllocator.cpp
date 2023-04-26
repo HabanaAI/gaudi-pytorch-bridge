@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "PinnedMemoryAllocator.h"
-#include "HPUCheck.h"
+#include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
 namespace habana {

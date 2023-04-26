@@ -715,3 +715,10 @@ synTensorGetExternal(const synTensor tensor, bool* isExternal) {
   } else
     return syn_api->synTensorGetExternal(tensor, isExternal);
 }
+
+synStatus SYN_API_CALL synStatusGetBriefDescription(
+    synStatus status,
+    char* statusDescription,
+    size_t len) {
+  return syn_api->synStatusGetBriefDescription(status, statusDescription, len);
+}

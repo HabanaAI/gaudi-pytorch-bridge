@@ -24,8 +24,8 @@
 #include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "habana_helpers/logging.h"
 
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_shape_inference.h"

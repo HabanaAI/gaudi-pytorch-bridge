@@ -15,6 +15,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/graph.h"
+#include "habana_helpers/logging.h"
 
 namespace habana_helpers {
 static inline synapse_helpers::graph create_graph(
@@ -28,7 +29,7 @@ static inline synapse_helpers::graph create_graph(
 
   if (absl::holds_alternative<synapse_helpers::synapse_error>(graph_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);
-    TORCH_CHECK(error.status, error.error);
+    TORCH_HABANA_CHECK(error.status, error.error);
   }
   return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
 }

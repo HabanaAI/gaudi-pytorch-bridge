@@ -173,7 +173,8 @@ void DisableDynamicShapeGaudi3() {
   char deviceName[maxStringLength];
   auto status = synDeviceGetName(deviceName, maxStringLength, 0);
   if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "Failed to get device name.");
   }
 
   if ((strcmp(deviceName, "GAUDI3") == 0) ||
@@ -471,15 +472,16 @@ synapse_error_v<std::shared_ptr<device>> device::create(
       status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
       if (status == synSuccess) {
         PT_SYNHELPER_DEBUG(
-            "Device acquire successful for device_type: ", device_type);
+            Logger::formatStatusMsg(status),
+            "Device acquire successful for device_type: ",
+            device_type);
         acquired_device_type = device_type;
         break;
       } else {
         PT_SYNHELPER_DEBUG(
+            Logger::formatStatusMsg(status),
             "Device acquire failed for device_type: ",
-            device_type,
-            " with status ",
-            status);
+            device_type);
       }
     }
   }
@@ -497,7 +499,8 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("Cannot obtain device memory size. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Cannot obtain device memory size.");
   }
   PT_SYNHELPER_DEBUG(
       "Device memory size: total=", total_mem, " free=", free_mem);
@@ -512,7 +515,8 @@ int device::get_count_by_current_type() {
   synStatus status{synStatus::synSuccess};
   status = synDeviceGetCountByDeviceType((uint32_t*)&count, type_);
   if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG("Fail to get device count. Status: ", status);
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "Fail to get device count.");
   }
 
   return count;
@@ -542,7 +546,8 @@ int device::get_total_device_count() {
   synStatus status{synStatus::synSuccess};
   status = synDeviceGetCount((uint32_t*)&count);
   if (status != synSuccess) {
-    PT_SYNHELPER_WARN("Fail to get device count. Status: ", status);
+    PT_SYNHELPER_WARN(
+        Logger::formatStatusMsg(status), "Fail to get device count.");
   }
 
   return count;
@@ -586,7 +591,8 @@ void device::cleanup() {
   // We should unmap all buffers BEFORE device is released.
   auto status = memory_mapper_.drop_cache();
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "memory_mapper::drop_cache() failed.");
   }
   synapse_helpers::memstats_dump(*this, "Stats after cleanup.");
   streams_.clear();
@@ -813,7 +819,7 @@ bool device::query_default_stream() {
       auto status = stream.query();
       if (status != synSuccess) {
         PT_SYNHELPER_DEBUG(
-            "STREAM:: synStreamQuery failed with status", status);
+            Logger::formatStatusMsg(status), "STREAM:: synStreamQuery");
         return false;
       }
     }
@@ -822,7 +828,8 @@ bool device::query_default_stream() {
     auto& stream = *default_streams_[COMPUTE];
     auto status = stream.query();
     if (status != synSuccess) {
-      PT_SYNHELPER_DEBUG("STREAM:: synStreamQuery failed with status", status);
+      PT_SYNHELPER_DEBUG(
+          Logger::formatStatusMsg(status), "STREAM:: synStreamQuery failed");
       return false;
     }
     return true;
@@ -1013,7 +1020,7 @@ inline bool device::copy_data_to_device_(
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_FATAL("Host malloc failed with ", status);
+      PT_SYNHELPER_FATAL(Logger::formatStatusMsg(status), "Host malloc failed");
       return false;
     }
     std::copy(
@@ -1046,9 +1053,8 @@ inline bool device::copy_data_to_device_(
       break;
     } else if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
-          "DMA to HPU start failed with status ",
-          status,
-          ". Attempt ",
+          Logger::formatStatusMsg(status),
+          "DMA to HPU start failed. Attempt ",
           attempt + 1,
           "/",
           max_dma_copy_retry_count_,
@@ -1058,7 +1064,8 @@ inline bool device::copy_data_to_device_(
       if (!is_pinned) {
         host_memory_.free((void*)dst_ptr);
       }
-      PT_SYNHELPER_FATAL("DMA to HPU start failed with ", status);
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status), "DMA to HPU start failed");
       return false;
     }
   } while (++attempt < max_dma_copy_retry_count_);
@@ -1152,7 +1159,7 @@ synapse_error device::copy_data_to_device(
       });
   status = host_memory_.malloc((void**)&host_mem_ptr, total_bytes);
   if (status != synStatus::synSuccess) {
-    PT_SYNHELPER_FATAL("Host malloc failed with ", status);
+    PT_SYNHELPER_FATAL(Logger::formatStatusMsg(status), "Host malloc failed");
     return {};
   }
 
@@ -1190,14 +1197,16 @@ synapse_error device::copy_data_to_device(
     if (status == synStatus::synSuccess) {
       if (attempt != 0) {
         PT_SYNHELPER_WARN(
-            "DMA to HPU start succeeded on ", attempt + 1, " attempt.");
+            Logger::formatStatusMsg(status),
+            "DMA to HPU start succeeded on ",
+            attempt + 1,
+            " attempt.");
       }
       break;
     } else if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
-          "DMA to HPU start failed with status ",
-          status,
-          ". Attempt ",
+          Logger::formatStatusMsg(status),
+          "DMA to HPU start failed. Attempt ",
           attempt + 1,
           "/",
           max_dma_copy_retry_count_,
@@ -1205,7 +1214,8 @@ synapse_error device::copy_data_to_device(
       std::this_thread::sleep_for(dma_copy_retry_delay_);
     } else {
       host_memory_.free((void*)host_mem_ptr);
-      PT_SYNHELPER_FATAL("DMA to HPU start failed with ", status);
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status), "DMA to HPU start failed");
       return {};
     }
   } while (++attempt < max_dma_copy_retry_count_);
@@ -1247,7 +1257,7 @@ synapse_error device::copy_data_to_host(
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_WARN("Host malloc failed: ", status);
+      PT_SYNHELPER_WARN(Logger::formatStatusMsg(status), "Host malloc failed");
       return synapse_error{"Host Malloc failed with status.", status};
     }
     mapped_destination = dst_ptr;
@@ -1273,9 +1283,8 @@ synapse_error device::copy_data_to_host(
       break;
     } else if (attempt < max_dma_copy_retry_count_ - 1) {
       PT_SYNHELPER_WARN(
-          "DMA from HPU start failed with status ",
-          status,
-          ". Attempt ",
+          Logger::formatStatusMsg(status),
+          "DMA from HPU start failed. Attempt ",
           attempt + 1,
           "/",
           max_dma_copy_retry_count_,
@@ -1579,14 +1588,16 @@ std::set<synDeviceType> device::get_supported_devices() {
 void device::synchronize() {
   auto status = synDeviceSynchronize(id_);
   if (status != synSuccess) {
-    PT_SYNHELPER_FATAL("synDeviceSynchronize failed. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synDeviceSynchronize failed.");
   }
 }
 
 void device::release() {
   auto status = synDeviceRelease(id_);
   if (status != synSuccess) {
-    PT_SYNHELPER_FATAL("synDeviceRelease failed with. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synDeviceRelease failed.");
   }
 }
 
@@ -1594,7 +1605,8 @@ std::string device::get_device_capability() {
   char pDriverVersion[256];
   auto status = synDriverGetVersion(pDriverVersion, 256);
   if (status != synSuccess) {
-    PT_SYNHELPER_FATAL("synDriverGetVersion failed. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synDriverGetVersion failed.");
   }
   return std::string(pDriverVersion);
 }
@@ -1603,7 +1615,8 @@ std::string device::get_device_properties(int id) {
   synDeviceInfo device_info;
   auto status = synDeviceGetInfo(id, &device_info);
   if (status != synSuccess) {
-    PT_SYNHELPER_FATAL("synDeviceGetInfo failed. Status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synDeviceGetInfo failed.");
   }
 
   std::string properties = "";
@@ -1637,7 +1650,8 @@ device_id::~device_id() {
   if (id_ != device::INVALID_ID) {
     auto status = synDeviceRelease(id_);
     if (status != synSuccess) {
-      PT_SYNHELPER_FATAL("synDeviceRelease failed with. Status: ", status);
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status), "synDeviceRelease failed.");
     }
   }
 }

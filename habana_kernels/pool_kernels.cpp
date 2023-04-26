@@ -18,10 +18,10 @@
 #include <iostream>
 
 #include "backend/create_pt_tensor.h"
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/conv_pool_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/pool_kernels.h"

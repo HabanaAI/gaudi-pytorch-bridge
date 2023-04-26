@@ -10,8 +10,8 @@
 #include <hccl.h>
 #include <hccl_types.h>
 
-#include "process_group_lazy_hccl.hpp"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "process_group_lazy_hccl.hpp"
 
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -327,7 +327,6 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
     const AllToAllOptions& opts) {
-
   auto data_type = outputTensor.scalar_type();
   bool cast_tensor = !(
       data_type == c10::ScalarType::Float ||

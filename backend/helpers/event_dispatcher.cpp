@@ -118,7 +118,7 @@ void EventDispatcher::log_publish_request(
     std::visit(
         [param_name](auto&& param_data_unpacked) {
           PT_HABHELPER_DEBUG(
-              "param | [", param_name, "]=", param_data_unpacked, " | ");
+              "param | [", param_name, "]=", param_data_unpacked, " |");
         },
         param_data);
   }

@@ -63,7 +63,6 @@ class RecipeCache {
   // map to track opened metadata files, so can be closed, once cache entry is
   // stored on disk
   std::unordered_map<std::string, int> meta2fd_map_;
-
 };
 
 } // namespace serialization

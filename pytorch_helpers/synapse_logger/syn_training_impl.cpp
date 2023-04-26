@@ -137,6 +137,7 @@ SYN_API_PTR(synTensorSetQuantizationData);
 SYN_API_PTR(synTensorGetQuantizationData);
 SYN_API_PTR(synTensorSetAllowPermutation);
 SYN_API_PTR(synTensorGetHostPtr);
+SYN_API_PTR(synStatusGetBriefDescription);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceSynchronize);
@@ -234,6 +235,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorGetQuantizationData);
   SYN_API_INIT_PTR(synTensorSetAllowPermutation);
   SYN_API_INIT_PTR(synTensorGetHostPtr);
+  SYN_API_INIT_PTR(synStatusGetBriefDescription);
 }
 
 } // namespace lib_synapse
@@ -1762,6 +1764,23 @@ synStatus SYN_API_CALL synTensorSetPermutation(
   API_LOG_CALL(ARG(tensor), ARG(permutation));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synTensorSetPermutation, tensor, permutation);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synStatusGetBriefDescription(
+    synStatus in_status,
+    char* statusDescription,
+    size_t len) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(in_status), ARG(statusDescription), ARG(len));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synStatusGetBriefDescription,
+      in_status,
+      statusDescription,
+      len);
   API_LOG_RESULT();
   return status;
 }

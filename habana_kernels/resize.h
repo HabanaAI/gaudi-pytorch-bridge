@@ -22,6 +22,7 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
+
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
 namespace at {
@@ -81,7 +82,7 @@ inline void THStorage_resizeBytes(
               habana_helpers::GetNBytes(self, dtype),
               (unsigned long)size_bytes),
           [&copyDone]() { copyDone = true; });
-      TORCH_CHECK(syn_error.status == 0, syn_error.error);
+      TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
       while (!copyDone) {
         std::this_thread::yield();

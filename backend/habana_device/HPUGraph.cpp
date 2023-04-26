@@ -112,7 +112,7 @@ void HPUGraph::mark_step() {
       context->getGraphKey(),
       context->getOpStrs());
   captured_graphs.push_back(captured_graph);
-  PT_IRGRAPH_DEBUG("GRAPH:: captured graph ");
+  PT_IRGRAPH_DEBUG("GRAPH:: captured graph");
   PT_IRGRAPH_DEBUG(
       (captured_graph->graph_ ? (captured_graph->graph_->dump(), "")
                               : "null graph"));

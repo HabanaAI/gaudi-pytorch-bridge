@@ -47,7 +47,8 @@ stream::stream(class device& device)
   auto status =
       synStreamCreateGeneric(&handle_, device_.id(), STREAM_EMPTY_FLAGS);
   if (synStatus::synSuccess != status)
-    PT_SYNHELPER_FATAL("Stream creation failed with status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Stream creation failed.");
   PT_SYNHELPER_DEBUG("Stream creation with handle: ", handle_);
 }
 
@@ -60,10 +61,9 @@ void stream::register_pending_event(
       auto status = synEventRecord(*event, handle_);
       if (synStatus::synSuccess != status) {
         PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status),
             "Event record failed on stream ",
-            handle_,
-            " with status: ",
-            status);
+            handle_);
       }
     }
     pending_cleanups_.push(event);
@@ -108,13 +108,15 @@ void stream::gc_thread_proc() {
 void stream::synchronize() {
   synStatus status = synStreamSynchronize(handle_);
   if (synStatus::synSuccess != status)
-    PT_SYNHELPER_FATAL("synStreamSynchronize failed with status: ", status);
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synStreamSynchronize failed.");
 }
 
 synStatus stream::query() {
   synStatus status = synStreamQuery(handle_);
   if (synStatus::synSuccess != status)
-    PT_SYNHELPER_DEBUG("synStreamSynchronize failed with status: ", status);
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "synStreamSynchronize failed.");
   return status;
 }
 

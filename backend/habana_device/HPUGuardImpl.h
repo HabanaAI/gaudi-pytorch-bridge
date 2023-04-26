@@ -21,9 +21,9 @@
 #include <unordered_set>
 
 #include "HPUAllocator.h"
-#include "HPUCheck.h"
 #include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
+#include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
 using namespace c10::hpu;
@@ -282,7 +282,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       auto status =
           synEventRecord(handle, device.get_stream(hpu_stream.stream()));
       if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventRecord failed ", status);
+        PT_DEVICE_FATAL(
+            Logger::formatStatusMsg(status), "synEventRecord failed");
       }
     }
   }
@@ -305,7 +306,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       auto status =
           synStreamWaitEvent(device.get_stream(hpu_stream.stream()), handle, 0);
       if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+        PT_DEVICE_FATAL(
+            Logger::formatStatusMsg(status), "synStreamWaitEvent failed");
       }
     }
   }
@@ -326,7 +328,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       if (status == synSuccess) {
         return true;
       } else {
-        PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+        PT_DEVICE_DEBUG(
+            Logger::formatStatusMsg(status), "STREAM:: synEventQuery");
       }
     }
 

@@ -57,7 +57,8 @@ absl::optional<synRecipeHandle> get_recipe_handle(
     synRecipeHandle recipeHandle;
     auto status = synRecipeDeSerialize(&recipeHandle, recipe_path.c_str());
     if (status != synSuccess) {
-      PT_HABHELPER_TRACE("Failed to odeserialize recipe with error:  ", status);
+      PT_HABHELPER_TRACE(
+          Logger::formatStatusMsg(status), "Failed to deserialize recipe");
       return {};
     }
     PT_HABHELPER_TRACE("Found cache entry with recipe: ", recipe_path);
@@ -140,10 +141,10 @@ void RecipeCache::store(
       cfHandler->fileUnLock(fd);
       cfHandler->fileClose(fd);
       PT_HABHELPER_WARN(
+          Logger::formatStatusMsg(serialize_status),
           "Failed to serialized recipe(",
           recipe_path,
-          "). Err: ",
-          serialize_status);
+          ").");
       return;
     }
 

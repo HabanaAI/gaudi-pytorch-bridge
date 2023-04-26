@@ -15,6 +15,7 @@
 #include <torch/script.h>
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 #include <cmath>
@@ -108,7 +109,8 @@ bool recomputeBatchnormParams(
   // std::cout << "[synHostMalloc - s] " << bytes * 2 << std::endl <<
   // std::flush; std::cout << "[synHostMalloc - s] " << status << std::endl <<
   // std::flush;
-  HABANA_ASSERT(status == synStatus::synSuccess);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
   double* s = (double*)host_ptr;
   for (auto i = 0; i < co; i++) {
     s[i] = ((double)1.0 / sqrt((double)v[i] + (double)bn_eps));
@@ -181,7 +183,9 @@ void* GetDataInHostBuffer(
             // std::cout << "[GetDataInHostBuffer] [" << idx << "]
             // size_in_bytes: " << size_in_bytes << std::endl << std::flush;
             auto status = synHostMalloc(device_id, size_in_bytes, 0, &host_ptr);
-            HABANA_ASSERT(status == synStatus::synSuccess);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
             std::atomic<bool> copyDone{false};
             auto syn_error = device.copy_data_to_host(
                 reinterpret_cast<synapse_helpers::device_ptr>(
@@ -192,7 +196,7 @@ void* GetDataInHostBuffer(
                 size_in_bytes,
                 [&copyDone]() { copyDone = true; },
                 true);
-            TORCH_CHECK(syn_error.status == 0, syn_error.error);
+            TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
             // wait for copy completion
             while (!copyDone) {
               std::this_thread::yield();
@@ -220,7 +224,8 @@ void* GetDataInHostBuffer(
           // std::cout << "[GetDataInHostBuffer] [" << idx << "] size_in_bytes:
           // " << size_in_bytes << std::endl << std::flush;
           auto status = synHostMalloc(device_id, size_in_bytes, 0, &host_ptr);
-          HABANA_ASSERT(status == synStatus::synSuccess);
+          HABANA_ASSERT(
+              status == synStatus::synSuccess, Logger::synStatusToStr(status));
           std::atomic<bool> copyDone{false};
           auto syn_error = device.copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
@@ -230,7 +235,7 @@ void* GetDataInHostBuffer(
               size_in_bytes,
               [&copyDone]() { copyDone = true; },
               true);
-          TORCH_CHECK(syn_error.status == 0, syn_error.error);
+          TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
           // wait for copy completion
           while (!copyDone) {
             std::this_thread::yield();
@@ -276,7 +281,7 @@ void UpdateDataInDeviceMem(
       [&copyDone]() { copyDone = true; },
       false,
       true);
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   // wait for copy completion
   while (!copyDone) {
     std::this_thread::yield();

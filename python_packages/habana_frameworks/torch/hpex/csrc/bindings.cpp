@@ -244,7 +244,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "sparse_adagrad_with_valid_count",
       &optimizer_sparse_adagrad_with_valid_count_hpu_wrap,
-      "Optimizer Sparse Adagrad with valid count ");
+      "Optimizer Sparse Adagrad with valid count");
   m.def("fused_lars", &optimizer_fused_lars, "Optimizer Fused Lars");
   m.def(
       "fused_resource_apply_momentum",

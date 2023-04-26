@@ -40,9 +40,9 @@ void TensorExtraMeta::set_host_data(
   int total_elem = 2 * size * el_size;
   int data_size = size * el_size;
   auto status = device.get_host_memory().malloc(&host_ptr_, total_elem);
-  HABANA_ASSERT(status == synSuccess);
+  HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
   status = device.get_host_memory().malloc(&compile_host_ptr_, total_elem);
-  HABANA_ASSERT(status == synSuccess);
+  HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
   memcpy(host_ptr_, d, data_size);
   char* ptr = static_cast<char*>(host_ptr_) + data_size;
   memcpy(ptr, d, data_size);
@@ -78,7 +78,7 @@ void TensorExtraMeta::set_const_tensor(
     void* host_ptr{};
     auto status = device.get_host_memory().malloc(
         &host_ptr, tensor.numel() * tensor.itemsize());
-    HABANA_ASSERT(status == synSuccess);
+    HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
     tmeta->set_host_ptr(host_ptr);
     PT_LAZY_DEBUG(
         "constant section host_ptr : ",

@@ -673,8 +673,8 @@ class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
       // create an exception. Ignore the exception as the wait is already
       // over.
       try {
-          queueStatus();
-          m_compile_thread_handle.get();
+        queueStatus();
+        m_compile_thread_handle.get();
       } catch (std::exception& e) {
       }
     }

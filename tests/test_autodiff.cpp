@@ -42,34 +42,34 @@ struct ADTestSpec {
     return test_fn(inputs);
   };
 
-  //struct Net : torch::nn::Module {
-  //Net()
+  // struct Net : torch::nn::Module {
+  // Net()
   //    : conv1(torch::nn::Conv2dOptions(1, 20, /*kernel_size=*/5)),
-   //     conv2(torch::nn::Conv2dOptions(20, 50, /*kernel_size=*/5)),
-   /*     fc1(450, 500),
-        fc2(500, 10) {
-    register_module("conv1", conv1);
-    register_module("conv2", conv2);
-    register_module("conv2_drop", conv2_drop);
-    register_module("fc1", fc1);
-    register_module("fc2", fc2);
-  }
+  //     conv2(torch::nn::Conv2dOptions(20, 50, /*kernel_size=*/5)),
+  /*     fc1(450, 500),
+       fc2(500, 10) {
+   register_module("conv1", conv1);
+   register_module("conv2", conv2);
+   register_module("conv2_drop", conv2_drop);
+   register_module("fc1", fc1);
+   register_module("fc2", fc2);
+ }
 
-  torch::Tensor forward(torch::Tensor x) {
-    x = torch::relu(torch::max_pool2d(conv1->forward(x), 2));
-    x = torch::relu(
-        torch::max_pool2d(conv2_drop->forward(conv2->forward(x)), 2));
-    x = x.view({-1, 450});
-    x = torch::relu(fc1->forward(x));
-    x = fc2->forward(x);*/
-//    return torch::log_softmax(x, /*dim=*/1);
-/*  }
+ torch::Tensor forward(torch::Tensor x) {
+   x = torch::relu(torch::max_pool2d(conv1->forward(x), 2));
+   x = torch::relu(
+       torch::max_pool2d(conv2_drop->forward(conv2->forward(x)), 2));
+   x = x.view({-1, 450});
+   x = torch::relu(fc1->forward(x));
+   x = fc2->forward(x);*/
+  //    return torch::log_softmax(x, /*dim=*/1);
+  /*  }
 
-  torch::nn::Conv2d conv1;
-  torch::nn::Conv2d conv2;
-  torch::nn::Linear fc1;
-  torch::nn::Linear fc2;
-};*/
+    torch::nn::Conv2d conv1;
+    torch::nn::Conv2d conv2;
+    torch::nn::Linear fc1;
+    torch::nn::Linear fc2;
+  };*/
 
   std::vector<Variable> make_vars() const {
     std::vector<Variable> out;
@@ -94,7 +94,9 @@ variable_list grad(
     const variable_list& outputs,
     const variable_list& inputs,
     const variable_list& grad_outputs) {
-  const auto get_edge = [](const Variable& v) { return torch::autograd::impl::gradient_edge(v); };
+  const auto get_edge = [](const Variable& v) {
+    return torch::autograd::impl::gradient_edge(v);
+  };
   auto& engine = torch::autograd::Engine::get_default_engine();
   return engine.execute(
       fmap(outputs, get_edge),
@@ -105,7 +107,8 @@ variable_list grad(
 }
 
 /*void testADFormulas() {
-  const auto cast = [](const Variable& v) { return static_cast<at::Tensor>(v); };
+  const auto cast = [](const Variable& v) { return static_cast<at::Tensor>(v);
+};
 
   using VL = variable_list;
   const var_meta_list binary_pointwise = {{2, 3, 4, 5}, {2, 3, 4, 5}};
@@ -193,22 +196,24 @@ variable_list grad(
 void testDifferentiate() {
   // Note: can't use IRParser for this test due to issue #23989
   auto graph = std::make_shared<Graph>();
-  const auto type = TensorType::create(at::ScalarType::Float, at::kCPU, {2, 3, 4}, {12, 4, 1});
+  const auto type = TensorType::create(
+      at::ScalarType::Float, at::kCPU, {2, 3, 4}, {12, 4, 1});
 
   // Builds graph a * b * a + b
   auto* a = graph->addInput()->setType(type);
   auto* b = graph->addInput()->setType(type);
   auto* cOne = graph->insertConstant(1);
 
-  auto* ab = graph->insertNode(graph->create(aten::mul, /*num_outputs =*/ 1));
+  auto* ab = graph->insertNode(graph->create(aten::mul, /*num_outputs =*/1));
   ab->addInput(a);
   ab->addInput(b);
 
-  auto* aba = graph->insertNode(graph->create(aten::mul, /*num_outputs =*/ 1));
+  auto* aba = graph->insertNode(graph->create(aten::mul, /*num_outputs =*/1));
   aba->addInput(ab->output());
   aba->addInput(a);
 
-  auto* abaplusb = graph->insertNode(graph->create(aten::add, /*num_outputs =*/ 1));
+  auto* abaplusb =
+      graph->insertNode(graph->create(aten::add, /*num_outputs =*/1));
   abaplusb->addInput(aba->output());
   abaplusb->addInput(b);
   abaplusb->addInput(cOne);
@@ -248,7 +253,7 @@ void testDifferentiateWithRequiresGrad(std::string graph_string) {
       %6 : Tensor = aten::mul(%5, %0)
       %7 : Tensor = aten::add(%6, %1, %2)
       return (%4, %7))IR";*/
-  
+
   auto g = std::make_shared<Graph>();
 
   torch::jit::parseIR(graph_string, g.get());
@@ -341,27 +346,27 @@ void testDifferentiateWithRequiresGrad(std::string graph_string) {
 } // namespace jit
 } // namespace torch
 
-int main(int argc, char* argv[])
-{
-   if (argc != 3){
-     std::cout << "Invalid Arguments!" << std::endl;
-     std::cout << "Usage: ./test_plugin --file <path to ir string file>" << std::endl; 
-     return 0;    
-   }
+int main(int argc, char* argv[]) {
+  if (argc != 3) {
+    std::cout << "Invalid Arguments!" << std::endl;
+    std::cout << "Usage: ./test_plugin --file <path to ir string file>"
+              << std::endl;
+    return 0;
+  }
 
-   /*torch::jit::script::Module module = torch::jit::load(argv[2]);
-   std::vector<torch::jit::IValue> inputs;
-   inputs.push_back(torch::ones({ 5, 1, 28, 28 }));
-   at::Tensor output = module.forward(inputs).toTensor();*/
+  /*torch::jit::script::Module module = torch::jit::load(argv[2]);
+  std::vector<torch::jit::IValue> inputs;
+  inputs.push_back(torch::ones({ 5, 1, 28, 28 }));
+  at::Tensor output = module.forward(inputs).toTensor();*/
 
-   std::ifstream input_file_handle(argv[2]);
-   std::string graph_str( (std::istreambuf_iterator<char>(input_file_handle)),
-                           (std::istreambuf_iterator<char>()));
-   //std::stringstream file_buffer;
-   //file_buffer << input_file_handle.rdbuf();
-   //auto graph_string = file_buffer.str();
-   torch::jit::testDifferentiateWithRequiresGrad(graph_str);
+  std::ifstream input_file_handle(argv[2]);
+  std::string graph_str(
+      (std::istreambuf_iterator<char>(input_file_handle)),
+      (std::istreambuf_iterator<char>()));
+  // std::stringstream file_buffer;
+  // file_buffer << input_file_handle.rdbuf();
+  // auto graph_string = file_buffer.str();
+  torch::jit::testDifferentiateWithRequiresGrad(graph_str);
 
-   return 0;
-
+  return 0;
 }

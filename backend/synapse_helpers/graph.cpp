@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-#include "backend/synapse_helpers/graph.h"
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_join.h>
 #include <absl/types/optional.h>
@@ -24,20 +23,22 @@
 #include <iterator>
 #include <ostream>
 #include <type_traits>
+
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"
 #include "backend/synapse_helpers/util.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/stat_collection.h"
-#include "util/time_measure.h"
-
 #include "habana_lazy/memlog.h"
+#include "util/time_measure.h"
 
 namespace synapse_helpers {
 
@@ -298,11 +299,7 @@ synapse_error_o graph::add_node(
     synTensorPermutation perm;
     perm.dims = 0;
     auto status = synTensorSetPermutation(tensor, &perm);
-    HABANA_ASSERT(
-        status == synStatus::synSuccess,
-        "Node " + node_type + "  failed.",
-        " Err: ",
-        status);
+    TORCH_HABANA_CHECK(status, "Node " + node_type + "  failed.");
   }
   PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());
   if (!in_build_phase_) {
@@ -349,8 +346,9 @@ synapse_error_o graph::add_node(
       input_layouts,
       output_layouts);
   if (status != synStatus::synSuccess) {
-    PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
-    PT_SYNHELPER_FATAL("node add failed ", status);
+    PT_SYNHELPER_WARN(
+        Logger::formatStatusMsg(status), "Node " + node_type + " add failed.");
+    PT_SYNHELPER_FATAL(Logger::formatStatusMsg(status), "node add failed");
   }
 
   graph_is_empty_ = false;
@@ -363,8 +361,11 @@ synapse_error_o graph::add_node(
     auto status = synNodeSetDeterministic(graph_handle_, nodeId, deterministic);
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN(
-          "Node " + node_type + " synNodeSetDeterministic", " Err: ", status);
-      PT_SYNHELPER_FATAL("node add synNodeSetDeterministic failed ", status);
+          Logger::formatStatusMsg(status),
+          "Node " + node_type + " synNodeSetDeterministic");
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status),
+          "node add synNodeSetDeterministic failed");
     }
   }
   return {};
@@ -706,7 +707,8 @@ uint64_t graph::recipe_handle::get_recipe_host_mem_size() {
   auto status = synRecipeGetAttribute(
       (&recipe_size_), &recipe_attr, 1, syn_recipe_handle_);
   if (status != synSuccess)
-    PT_SYNHELPER_WARN("Failed to retrieve recipe size");
+    PT_SYNHELPER_WARN(
+        Logger::formatStatusMsg(status), "Failed to retrieve recipe size");
   return recipe_size_;
 }
 

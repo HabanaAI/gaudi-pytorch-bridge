@@ -29,7 +29,8 @@ std::string get_device_name() {
   char deviceName[maxStringLength];
   auto status = synDeviceGetName(deviceName, maxStringLength, 0);
   if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "Failed to get device name.");
     return "";
   }
   return deviceName;
@@ -39,7 +40,8 @@ uint64_t get_memory_size() {
   uint64_t free_mem{}, total_mem{};
   auto status = synDeviceGetMemoryInfo(0, &free_mem, &total_mem);
   if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG("Failed to get device name. Status: ", status);
+    PT_SYNHELPER_DEBUG(
+        Logger::formatStatusMsg(status), "Failed to get device name.");
     return 0;
   }
   return total_mem;

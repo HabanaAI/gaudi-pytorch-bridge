@@ -132,7 +132,8 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
-        "CS_POOL:: Cannot obtain device memory info. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "CS_POOL:: Cannot obtain device memory info.");
   }
 
   // try to take max free memory when not set by user
@@ -173,8 +174,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   status = synDeviceMalloc(pool_id, size, 0, 0, &p->basememptr);
   if (synStatus::synSuccess != status) {
     delete (p);
-    PT_DEVMEM_FATAL(
-        "CS_POOL:: Cannot obtain device memory size. Status: ", status);
+    PT_DEVMEM_FATAL("CS_POOL:: Cannot obtain device memory size.");
     return false;
   }
   log_synDevicePoolCreate(
@@ -302,7 +302,6 @@ void CoalescedStringentPooling::pool_destroy() const {
         uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->basememptr)};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
-          // TORCH_HABANA_CHECK(status, "synDeviceFree failed");
           set_device_deallocation(true);
         }
       }
@@ -876,7 +875,7 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       c2->used);
 
   if (c1->used || c2->used) {
-    PT_DEVMEM_FATAL(" Chunk is in use, cannot merge ");
+    PT_DEVMEM_FATAL(" Chunk is in use, cannot merge");
   }
 
   if (c2->prev != c1) {

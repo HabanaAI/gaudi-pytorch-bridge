@@ -23,7 +23,8 @@
 class t1000 {
  public:
   t1000(std::string where, int line, bool kill) : kill_(kill) {
-    std::cerr << " line " << std::to_string(line) << " assertion " << where << " failed.\n";
+    std::cerr << " line " << std::to_string(line) << " assertion " << where
+              << " failed.\n";
   }
 
   ~t1000() {
@@ -42,17 +43,23 @@ t1000&& operator<<(t1000&& t, T&& arg) {
   return std::move(t);
 }
 
-#define EXPECT_EQ(a, b) \
-  if ((a) == (b)) {     \
-  } else                \
-    t1000 { #a " == " #b, __LINE__, false }
+#define EXPECT_EQ(a, b)             \
+  if ((a) == (b)) {                 \
+  } else                            \
+    t1000 {                         \
+#a " == " #b, __LINE__, false \
+    }
 
-#define ASSERT_EQ(a, b) \
-  if ((a) == (b)) {     \
-  } else                \
-    t1000 { #a " == " #b, __LINE__, true }
+#define ASSERT_EQ(a, b)            \
+  if ((a) == (b)) {                \
+  } else                           \
+    t1000 {                        \
+#a " == " #b, __LINE__, true \
+    }
 #define ASSERT_TRUE(a) ASSERT_EQ(true, a)
-#define ASSERT_NE(a, b) \
-  if ((a) != (b)) {     \
-  } else                \
-    t1000 { #a " != " #b, __LINE__, true }
+#define ASSERT_NE(a, b)            \
+  if ((a) != (b)) {                \
+  } else                           \
+    t1000 {                        \
+#a " != " #b, __LINE__, true \
+    }

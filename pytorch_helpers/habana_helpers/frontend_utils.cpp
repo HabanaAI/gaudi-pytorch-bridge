@@ -18,6 +18,7 @@
 #include "backend/helpers/graph.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/python_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -115,7 +116,7 @@ void habana_helpers::copy_scalar_to_host(
               [&copyDone]() { copyDone = true; },
               is_pinned,
               c10::hpu::getCurrentHPUStream());
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting

@@ -19,7 +19,6 @@
 #include "utils.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
-//#define DEFRAGMENT_ON_REUSE
 
 namespace synapse_helpers {
 namespace pool_allocator {
@@ -44,7 +43,8 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
     PT_DEVMEM_DEBUG(
-        "POOL:: Cannot obtain device memory info. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "POOL:: Cannot obtain device memory info.");
   }
 
   // try to take max free memory when not set by user
@@ -82,7 +82,8 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   if (synStatus::synSuccess != status) {
     delete (p);
     PT_DEVMEM_FATAL(
-        "POOL:: Cannot obtain device memory size. Status: ", status);
+        Logger::formatStatusMsg(status),
+        "POOL:: Cannot obtain device memory size.");
     return false;
   }
 
@@ -137,7 +138,6 @@ void StaticCoalescedPooling::pool_destroy() const {
         uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->basememptr)};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
-          // TORCH_HABANA_CHECK(status, "synDeviceFree failed");
           set_device_deallocation(true);
         }
       }
@@ -393,7 +393,7 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
   bool isFreeBlockAvailble = false;
   uint16_t counter = 0;
   if (free_list.empty()) {
-    PT_DEVMEM_DEBUG("POOL:: no free blocks availabe: ");
+    PT_DEVMEM_DEBUG("POOL:: no free blocks availabe:");
     return nullptr;
   }
   do {
@@ -728,7 +728,7 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
       " next:: ",
       (c2->next ? c2->next->memptr : 0));
   if (c1->used || c2->used) {
-    PT_DEVMEM_DEBUG(" Chunk is in use, cannot merge ");
+    PT_DEVMEM_DEBUG(" Chunk is in use, cannot merge");
     return nullptr;
   }
 

@@ -17,11 +17,11 @@
 #include "backend/backend_meta.h"
 #include "backend/synapse_helpers/graph.h"
 
-#include "backend/habana_device/HPUCheck.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "habana_helpers/logging.h"
 
 #include "backend/helpers/graph.h"
 #include "habana_helpers/pt_version_check.h"
@@ -38,8 +38,6 @@
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/util.h"
-
-//#include "dtype_helpers.h"
 
 using namespace torch;
 
@@ -207,7 +205,7 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
-
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_to_device(
@@ -218,7 +216,7 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -266,12 +264,14 @@ void habana_helpers::copy_scalars_to_device(
         manifest,
         [src_list, dst_list]() { return; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_to_device(
         manifest,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -391,7 +391,7 @@ void habana_helpers::copy_data_to_host(
         [srcRef, dstRef]() { return; },
         is_pinned,
         hpu_stream);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_to_host(
@@ -403,7 +403,7 @@ void habana_helpers::copy_data_to_host(
         [&copyDone]() { copyDone = true; },
         is_pinned,
         hpu_stream);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -445,7 +445,7 @@ void habana_helpers::copy_data_to_device(
         non_blocking,
         is_pinned,
         c10::hpu::getCurrentHPUStream());
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_to_device(
@@ -458,7 +458,7 @@ void habana_helpers::copy_data_to_device(
         false,
         is_pinned,
         c10::hpu::getCurrentHPUStream());
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -494,7 +494,7 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
     auto syn_error = device.copy_data_within_device(
@@ -507,7 +507,7 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

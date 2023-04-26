@@ -22,7 +22,7 @@ using namespace at;
     auto min = min_val;                                                        \
     auto max = max_val;                                                        \
     A = at::clamp(A, min, max);                                                \
-    auto hA = A.to(torch::kHPU);                                            \
+    auto hA = A.to(torch::kHPU);                                               \
     auto expectedOutput = torch::op_code(A);                                   \
     auto habanaOutput = torch::op_code(hA);                                    \
     EXPECT_EQ(                                                                 \

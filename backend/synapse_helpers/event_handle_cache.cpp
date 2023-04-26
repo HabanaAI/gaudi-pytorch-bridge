@@ -61,7 +61,8 @@ synEventHandle event_handle_cache::get_free_handle() {
 
   auto status{synEventCreate(&handle, device_.id(), event_flag_)};
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL("Event creation failed");
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "Event creation failed");
   } else {
     ++events_count_;
   }

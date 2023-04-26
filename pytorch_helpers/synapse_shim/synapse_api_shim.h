@@ -110,7 +110,8 @@
   visitor(synConstTensorCreate);               \
   visitor(synTensorSetAllowPermutation);       \
   visitor(synTensorGetHostPtr);                \
-  visitor(synTensorSetDeviceDataType);
+  visitor(synTensorSetDeviceDataType);         \
+  visitor(synStatusGetBriefDescription);
 
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \

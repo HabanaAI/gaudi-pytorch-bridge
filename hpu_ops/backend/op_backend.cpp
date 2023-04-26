@@ -690,7 +690,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       "Adding ",
       node_attr.guid,
       " to graph failed with ",
-      get_error(result).error);
+      get_error(result).error,
+      Logger::synStatusToStr(get_error(result).status));
 
   return outputs;
 }
