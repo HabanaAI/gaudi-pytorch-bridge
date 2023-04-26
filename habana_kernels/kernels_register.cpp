@@ -664,10 +664,26 @@ Tensor hpu_wrap::instance_norm(
       auto istd = saved[2];
       auto gamma = saved[3];
 
-      Tensor grad_out, grad_beta, grad_gamma;
+      Tensor grad_out, grad_out_maybe_reshaped, grad_beta, grad_gamma;
+      auto input_maybe_reshaped = input;
+      auto grad_in_maybe_reshaped = grad_in[0];
+      const auto is_3d = input.dim() == 3;
+      if (is_3d) {
+        auto new_shape = input.sizes().vec();
+        new_shape.push_back(1);
+        input_maybe_reshaped = at::reshape(input, new_shape);
+        grad_in_maybe_reshaped = at::reshape(grad_in[0], new_shape);
+      }
 
-      std::tie(grad_out, grad_beta, grad_gamma) =
-          instance_norm_backward_hpu_lazy(input, grad_in[0], mean, istd, gamma);
+      std::tie(grad_out_maybe_reshaped, grad_beta, grad_gamma) =
+          instance_norm_backward_hpu_lazy(
+              input_maybe_reshaped, grad_in_maybe_reshaped, mean, istd, gamma);
+
+      if (is_3d) {
+        grad_out = at::reshape(grad_out_maybe_reshaped, input.sizes());
+      } else {
+        grad_out = grad_out_maybe_reshaped;
+      }
 
       // Autograds same number of gradients as the number of forward inputs and
       // in the same order
