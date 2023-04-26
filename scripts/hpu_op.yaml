@@ -993,8 +993,8 @@ any.out:
   op_backend: AnyDim
 
 arange.start_out:
-  op_frontend: ArangeInputs
   op_backend: Arange
+  op_frontend: ArangeFE
   guid: range
   dtypes:
     Gaudi: [Float, BFloat16, Int, Short, Char, Byte]

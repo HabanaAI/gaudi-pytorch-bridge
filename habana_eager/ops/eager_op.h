@@ -102,7 +102,6 @@ class EagerOpBase {
   EagerOpMetaData m_eager_op_meta_data;
   bool m_is_pipeline_supported = false;
 
- private:
   void validate_inputs(const std::vector<at::IValue>& inputs) {
     for (size_t idx = 0; idx < inputs.size(); ++idx) {
       auto& t = inputs[idx];

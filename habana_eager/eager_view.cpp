@@ -146,7 +146,7 @@ static void collect_output_view_param(
   }
 
   for (auto& idx : eager_op_meta_data.out_indices_) {
-    if (inputs[idx].isScalar()) {
+    if (inputs[idx].isScalar() || inputs[idx].isNone()) {
       continue;
     }
 

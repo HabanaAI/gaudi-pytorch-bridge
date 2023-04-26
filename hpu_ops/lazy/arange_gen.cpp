@@ -48,7 +48,7 @@ static bool can_use_dynamic_shapes(
 }
 
 template <>
-ArangeInputs<at::Tensor&>::ArangeInputs(
+ArangeFE<at::Tensor&>::ArangeFE(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
@@ -105,7 +105,7 @@ ArangeInputs<at::Tensor&>::ArangeInputs(
 }
 
 template <>
-at::Tensor& ArangeInputs<at::Tensor&>::get_result_overrideable() {
+at::Tensor& ArangeFE<at::Tensor&>::get_result_overrideable() {
   HABANA_ASSERT(false, "Shouldn't be reachable");
   return LazyOp<at::Tensor&>::get_result_overrideable();
 }

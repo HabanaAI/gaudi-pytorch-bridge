@@ -1336,6 +1336,7 @@ eager_ops_override_fns_whitelist = [
 ]
 
 eager_custom_frontends_whitelist = [
+    "ArangeFE",
     "BernoulliFE",
     "BernoulliFEOut",
     "ClampFE",
