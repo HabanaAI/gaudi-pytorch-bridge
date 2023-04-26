@@ -78,27 +78,6 @@ FALLBACK_CHECK(
 }
 
 template <>
-LazyDivScalar<at::Tensor>::LazyDivScalar(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
-
-template <>
-at::Tensor LazyDivScalar<at::Tensor>::get_result_overrideable() {
-  auto& inputs = LazyOp<at::Tensor>::get_inputs();
-  at::ScalarType result_dtype = get_scalar_types()[0];
-  convert_scalar_to_tensor(inputs, result_dtype);
-
-  const auto& self = inputs[0].toTensor();
-  return habana_lazy::empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(result_dtype),
-      self.suggest_memory_format(),
-      false);
-}
-
-template <>
 LazyDivScalarInplace<at::Tensor&>::LazyDivScalarInplace(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
