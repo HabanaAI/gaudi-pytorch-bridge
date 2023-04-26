@@ -650,6 +650,158 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
   }
 }
 
+// In Case of Generic stream, NETWORK type is not part of the default.
+// as the collectives always uses a different stream.
+void device::create_default_stream_event(synEventHandle keyHandle, bool flags) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    std::array<synEventHandle, _END_TYPE> event_array;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      if (flags) {
+        event_array[i] = get_time_event_handle_cache().get_free_handle();
+      } else {
+        event_array[i] = get_event_handle_cache().get_free_handle();
+      }
+    }
+    user_event_handle_map_[keyHandle] = event_array;
+    PT_SYNHELPER_DEBUG("Create_default_stream_event handle::", keyHandle);
+  }
+}
+
+void device::record_event_default_stream(synEventHandle keyHandle) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    PT_SYNHELPER_DEBUG("record_event_default_stream with handle::", keyHandle);
+    auto it = user_event_handle_map_.find(keyHandle);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array = it->second;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      auto type = (default_stream_type)i;
+      auto status = synEventRecord(event_array[i], *default_streams_[type]);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL(
+            "synStreamWaitEvent failed: ",
+            status,
+            " for stream::",
+            *default_streams_[type]);
+      }
+    }
+  }
+}
+
+void device::wait_event_default_stream(synEventHandle handle) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  PT_SYNHELPER_DEBUG("wait_event_default_stream with handle::", handle);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      auto type = (default_stream_type)i;
+      auto status = synStreamWaitEvent(*default_streams_[type], handle, 0);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL(
+            "synStreamWaitEvent failed: ",
+            status,
+            " for stream::",
+            *default_streams_[type]);
+      }
+    }
+  }
+}
+
+void device::synchronize_event_default_stream(synEventHandle keyHandle) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = user_event_handle_map_.find(keyHandle);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array = it->second;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      auto status = synEventSynchronize(event_array[i]);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL(
+            "synEventSynchronize failed: ",
+            status,
+            " for Event::",
+            event_array[i]);
+      }
+    }
+  }
+}
+
+bool device::query_event_default_stream(synEventHandle keyHandle) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  bool result = false;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = user_event_handle_map_.find(keyHandle);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array = it->second;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      auto status = synEventQuery(event_array[i]);
+      if (synStatus::synSuccess == status) {
+        result = true;
+      } else {
+        PT_DEVICE_DEBUG(
+            "synEventQuery failed: ", status, " for Event::", event_array[i]);
+        result = false;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+uint64_t device::eplased_time_default_stream(
+    synEventHandle keyHandle1,
+    synEventHandle keyHandle2) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  uint64_t max_time_ms = 0;
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = user_event_handle_map_.find(keyHandle1);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array1 = it->second;
+
+    it = user_event_handle_map_.find(keyHandle2);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array2 = it->second;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      uint64_t time_ms = 0;
+      auto status =
+          synEventElapsedTime(&time_ms, event_array1[i], event_array2[i]);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL("synEventElapsedTime failed: ", status);
+      }
+      max_time_ms = std::max(time_ms, max_time_ms);
+    }
+  }
+  return max_time_ms;
+}
+
+void device::delete_event_default_stream(synEventHandle keyHandle, bool flags) {
+  std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+    auto it = user_event_handle_map_.find(keyHandle);
+    HABANA_ASSERT(it != user_event_handle_map_.end());
+
+    std::array<synEventHandle, _END_TYPE> event_array = it->second;
+    for (int i = 0; i < (int)default_streams_.size(); i++) {
+      if (flags) {
+        get_time_event_handle_cache().release_handle(event_array[i]);
+      } else {
+        get_event_handle_cache().release_handle(event_array[i]);
+      }
+    }
+    if (flags) {
+      get_time_event_handle_cache().release_handle(keyHandle);
+    } else {
+      get_event_handle_cache().release_handle(keyHandle);
+    }
+    user_event_handle_map_.erase(keyHandle);
+  }
+}
+
 // Default stream ==> 4 synapse stream, so if the query or
 // synchronize is done on default stream, Need to do it on
 // all 4 streams.

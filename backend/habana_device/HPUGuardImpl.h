@@ -201,7 +201,10 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     return hpu_flag;
   }
 
-  void createEvent(synEventHandle& handle, const at::EventFlag flag) const {
+  void createEvent(
+      synEventHandle& handle,
+      const at::EventFlag flag,
+      synapse_helpers::hpuStream_t stream) const {
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     unsigned int hpu_flag = get_hpu_flag(flag);
     if (hpu_flag) {
@@ -209,7 +212,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     } else {
       handle = dev.get_event_handle_cache().get_free_handle();
     }
-    dev.add_user_event(handle, hpu_flag);
+    dev.add_user_event_info(handle, hpu_flag, stream);
   }
 
   void destroyEvent(
@@ -222,12 +225,19 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (handle) {
       PT_DEVICE_DEBUG("Event:: removing the handle", handle);
       auto& dev = synapse_helpers::HPURegistrar::get_device();
-      if (dev.get_user_event_flag(handle)) {
-        dev.get_time_event_handle_cache().release_handle(handle);
+      std::pair<bool, synapse_helpers::hpuStream_t> event_info =
+          dev.get_user_event_info(handle);
+      if (event_info.second == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
+        dev.delete_event_default_stream(handle, event_info.first);
       } else {
-        dev.get_event_handle_cache().release_handle(handle);
+        if (event_info.first) {
+          dev.get_time_event_handle_cache().release_handle(handle);
+        } else {
+          dev.get_event_handle_cache().release_handle(handle);
+        }
       }
-      dev.remove_user_event(handle);
+      dev.remove_user_event_info(handle);
     }
   }
 
@@ -245,11 +255,17 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         ".");
     synEventHandle handle = static_cast<synEventHandle>(*event);
     HPUStream hpu_stream{stream};
+    auto& device = synapse_helpers::HPURegistrar::get_device();
 
     // Creates the event (lazily)
     if (!handle) {
       synEventHandle syn_handle{};
-      createEvent(syn_handle, flag);
+      createEvent(syn_handle, flag, hpu_stream.stream());
+      if (hpu_stream.stream() == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+        unsigned int hpu_flag = get_hpu_flag(flag);
+        device.create_default_stream_event(handle, hpu_flag);
+      }
       handle = syn_handle;
     }
 
@@ -258,11 +274,16 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         stream == c10::hpu::getCurrentHPUStream()) {
       habana_lazy::HbLazyTensor::StepMarker({});
     }
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto status =
-        synEventRecord(handle, device.get_stream(hpu_stream.stream()));
-    if (synStatus::synSuccess != status) {
-      PT_DEVICE_FATAL("synEventRecord failed ", status);
+
+    if (hpu_stream.stream() == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      device.record_event_default_stream(handle);
+    } else {
+      auto status =
+          synEventRecord(handle, device.get_stream(hpu_stream.stream()));
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL("synEventRecord failed ", status);
+      }
     }
   }
 
@@ -272,10 +293,20 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     synEventHandle handle = static_cast<synEventHandle>(event);
     HPUStream hpu_stream{stream};
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto status =
-        synStreamWaitEvent(device.get_stream(hpu_stream.stream()), handle, 0);
-    if (synStatus::synSuccess != status) {
-      PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+    std::pair<bool, synapse_helpers::hpuStream_t> event_info =
+        device.get_user_event_info(handle);
+    if (event_info.second == hpu_stream.stream())
+      return;
+
+    if (hpu_stream.stream() == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      device.wait_event_default_stream(handle);
+    } else {
+      auto status =
+          synStreamWaitEvent(device.get_stream(hpu_stream.stream()), handle, 0);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+      }
     }
   }
 
@@ -284,11 +315,19 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return true;
     synEventHandle handle = static_cast<synEventHandle>(event);
-    auto status = synEventQuery(handle);
-    if (status == synSuccess) {
-      return true;
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    std::pair<bool, synapse_helpers::hpuStream_t> event_info =
+        device.get_user_event_info(handle);
+    if (event_info.second == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      return device.query_event_default_stream(handle);
     } else {
-      PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+      auto status = synEventQuery(handle);
+      if (status == synSuccess) {
+        return true;
+      } else {
+        PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+      }
     }
 
     return false;

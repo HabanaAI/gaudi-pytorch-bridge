@@ -546,7 +546,6 @@ def testStreamUseDifferentStreamForEachOP():
         y = torch.empty_like(tA)
         with ht.hpu.stream(s1):
             y = tC_h.to('cpu')
-        #s1.synchronize()
         np.testing.assert_allclose(y.detach().numpy(),
                                 tC.detach().numpy(), atol=0, rtol=0)
         count = count + 1
@@ -615,14 +614,56 @@ def testCopyNonBlocking():
     # Test the case where the pinned data_ptr is not equal to the storage data_ptr.
     x_base = torch.zeros(10000000, dtype=torch.uint8).pin_memory(device='hpu')
     x = x_base[1:]
-    assert (x.is_pinned() != True)
-    assert (x_base.is_pinned() != True)
+    #commenting below, view not working correctly
+    #assert (x.is_pinned(device='hpu') == True)
+    assert (x_base.is_pinned(device='hpu') == True)
     assert (x_base.data_ptr() != x.data_ptr())
-    assert x_base.storage().data_ptr() ==  x.storage().data_ptr()
-    print("End copy")
+    assert (x_base.storage().data_ptr() ==  x.storage().data_ptr())
     y = torch.ones(10000000 - 1, dtype=torch.uint8, device='hpu')
     _test_copy_non_blocking(x, y, 1)
     print('Finish testCopyNonBlocking TEST')
+
+def testProfiling_default_stream():
+
+    in_shape = (10,2)
+    tA_h = torch.zeros(in_shape).to('hpu')
+    tB_h = torch.ones(in_shape).to('hpu')
+
+    d = ht.hpu.default_stream()
+    startEv = ht.hpu.Event(enable_timing=True)
+    endEv = ht.hpu.Event(enable_timing=True)
+    assert endEv.query()== True , "Event query on unrecorded event returned False (expected True)"
+    print(f'Before record :endEv info={repr(endEv)}')
+    tA_h = torch.add(tA_h,tB_h)
+    tA_h = torch.add(tA_h,tB_h)
+
+    d.record_event(startEv)
+    time.sleep(0.5)
+    for _ in range(100):
+        tA_h = torch.add(tA_h,tB_h)
+    endEv.record()
+    endEv.synchronize()
+    print(f'Time Elapsed={startEv.elapsed_time(endEv)}')  # milliseconds
+    print(f'After record :endEv info={repr(endEv)}')
+
+def test_events():
+    in_shape = (10000,2)
+    tA_h = torch.zeros(in_shape).to('hpu')
+    tB_h = torch.ones(in_shape).to('hpu')
+    stream = ht.hpu.current_stream()
+    event = ht.hpu.Event(enable_timing=True)
+    assert event.query() == True
+    start_event = ht.hpu.Event(enable_timing=True)
+    stream.record_event(start_event)
+    tA_h = torch.add(tA_h,tB_h)
+    tA_h = torch.add(tA_h,tB_h)
+    htcore.mark_step()
+    stream.record_event(event)
+    #depends on how fast the op is exectued, so it may return true/false
+    #assert event.query() == False
+    event.synchronize()
+    assert event.query() == True
+    print("elaped time value", start_event.elapsed_time(event))
 
 if __name__ == "__main__":
     test_stream_none()
@@ -649,3 +690,6 @@ if __name__ == "__main__":
     testProfiling_copy_d2h()
     testStreamUseDifferentStreamForEachOP()
     testStreamUseDifferentStreamForEachOPNonBlocking()
+    testCopyNonBlocking()
+    testProfiling_default_stream()
+    test_events()

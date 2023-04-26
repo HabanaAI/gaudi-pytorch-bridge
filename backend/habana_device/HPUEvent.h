@@ -46,10 +46,15 @@ struct HPUEvent {
   ~HPUEvent() {
     auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (is_created_) {
-      if (flags_) {
-        dev.get_time_event_handle_cache().release_handle(handle_);
+      if (created_with_stream_ == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+        dev.delete_event_default_stream(handle_, flags_);
       } else {
-        dev.get_event_handle_cache().release_handle(handle_);
+        if (flags_) {
+          dev.get_time_event_handle_cache().release_handle(handle_);
+        } else {
+          dev.get_event_handle_cache().release_handle(handle_);
+        }
       }
     }
   }
@@ -94,12 +99,18 @@ struct HPUEvent {
     if (!is_created_) {
       return true;
     }
+    auto& device = synapse_helpers::HPURegistrar::get_device();
 
-    auto status = synEventQuery(handle_);
-    if (status == synSuccess) {
-      return true;
+    if (created_with_stream_ == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      return device.query_event_default_stream(handle_);
     } else {
-      PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+      auto status = synEventQuery(handle_);
+      if (status == synSuccess) {
+        return true;
+      } else {
+        PT_DEVICE_DEBUG("STREAM:: synEventQuery failed with status", status);
+      }
     }
 
     return false;
@@ -116,8 +127,14 @@ struct HPUEvent {
 
   // Note: hpuEventRecord must be called on the same device as the event.
   void record(const c10::hpu::HPUStream& stream) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     if (!is_created_) {
       createEvent(stream.device_index());
+      created_with_stream_ = stream.stream();
+      if (created_with_stream_ == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+        device.create_default_stream_event(handle_, flags_);
+      }
       PT_DEVICE_DEBUG("reusing event handle::", handle_);
     }
 
@@ -128,7 +145,6 @@ struct HPUEvent {
         " does not match recording stream's device ",
         stream.device_index(),
         ".");
-    auto& device = synapse_helpers::HPURegistrar::get_device();
 
     // if the current stream and the record stream is different
     // just add a event record without a step_marker.
@@ -145,11 +161,14 @@ struct HPUEvent {
         habana_lazy::HbLazyTensor::StepMarker({});
       }
     }
-
-    // FIXME TBD check how to handle in case of default stream
-    auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
-    if (synStatus::synSuccess != status) {
-      PT_DEVICE_FATAL("synEventRecord failed ", status);
+    if (created_with_stream_ == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      device.record_event_default_stream(handle_);
+    } else {
+      auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_FATAL("synEventRecord failed ", status);
+      }
     }
     recorded_stream_ = stream.stream();
     was_recorded_ = true;
@@ -163,11 +182,15 @@ struct HPUEvent {
         return;
       }
       auto& device = synapse_helpers::HPURegistrar::get_device();
-      // FIXME TBD check how to handle in case of default stream
-      auto status =
-          synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+      if (stream.stream() == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+        device.wait_event_default_stream(handle_);
+      } else {
+        auto status =
+            synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
+        if (synStatus::synSuccess != status) {
+          PT_DEVICE_FATAL("synStreamWaitEvent failed: ", status);
+        }
       }
     }
   }
@@ -177,11 +200,16 @@ struct HPUEvent {
     TORCH_CHECK(
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     uint64_t time_ms = 0;
-    // FIXME TBD check how to handle in case of default stream
-    auto status = synEventElapsedTime(&time_ms, handle_, other.handle_);
-    if (synStatus::synSuccess != status) {
-      PT_DEVICE_DEBUG("synEventElapsedTime failed: ", status);
+    if (created_with_stream_ == 0 &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+      time_ms = device.eplased_time_default_stream(handle_, other.handle_);
+    } else {
+      auto status = synEventElapsedTime(&time_ms, handle_, other.handle_);
+      if (synStatus::synSuccess != status) {
+        PT_DEVICE_DEBUG("synEventElapsedTime failed: ", status);
+      }
     }
     return time_ms;
   }
@@ -189,10 +217,15 @@ struct HPUEvent {
   // Note: hpuEventSynchronize can be safely called from any device
   void synchronize() const {
     if (is_created_) {
-      // FIXME TBD check how to handle in case of default stream
-      auto status = synEventSynchronize(handle_);
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventSynchronize failed: ", status);
+      auto& device = synapse_helpers::HPURegistrar::get_device();
+      if (created_with_stream_ == 0 &&
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
+        device.synchronize_event_default_stream(handle_);
+      } else {
+        auto status = synEventSynchronize(handle_);
+        if (synStatus::synSuccess != status) {
+          PT_DEVICE_FATAL("synEventSynchronize failed: ", status);
+        }
       }
     }
   }
@@ -207,6 +240,7 @@ struct HPUEvent {
   DeviceIndex device_index_ = -1;
   synEventHandle handle_ = {nullptr};
   synapse_helpers::hpuStream_t recorded_stream_;
+  synapse_helpers::hpuStream_t created_with_stream_;
 
   void createEvent([[maybe_unused]] DeviceIndex device_index) {
     // get device

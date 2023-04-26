@@ -48,11 +48,13 @@ typedef uint64_t hpuStream_t;
 
 // this enum is used only for the case where non generic stream is used
 enum default_stream_type {
+  _BEGIN_TYPE = 0,
   COMPUTE = 0,
   DMA_D2D = 1,
   DMA_H2D = 2,
   DMA_D2H = 3,
-  NETWORK = 4
+  NETWORK = 4,
+  _END_TYPE = 4
 };
 
 class session;
@@ -397,29 +399,49 @@ class device {
 
   void delete_stream(hpuStream_t id);
 
+  void create_default_stream_event(synEventHandle keyHandle, bool flags);
+
+  void record_event_default_stream(synEventHandle keyHandle);
+
+  void wait_event_default_stream(synEventHandle handle);
+
+  void synchronize_event_default_stream(synEventHandle keyHandle);
+
+  bool query_event_default_stream(synEventHandle keyHandle);
+
+  uint64_t eplased_time_default_stream(
+      synEventHandle keyHandle1,
+      synEventHandle keyHandle2);
+
+  void delete_event_default_stream(synEventHandle keyHandle, bool flags);
+
   size_t get_real_workspace_size() const {
     return real_workspace_size_;
   }
 
   // since we have 2 cache for event this is required
-  void add_user_event(synEventHandle handle, bool flag) {
+  void add_user_event_info(
+      synEventHandle handle,
+      bool flag,
+      hpuStream_t stream) {
     std::unique_lock<std::mutex> lock(event_mutex_);
-    user_event_flag_map_[handle] = flag;
+    user_event_flag_map_[handle] = std::make_pair(flag, stream);
   }
 
-  void remove_user_event(synEventHandle handle) {
+  void remove_user_event_info(synEventHandle handle) {
     std::unique_lock<std::mutex> lock(event_mutex_);
     auto it = user_event_flag_map_.find(handle);
     if (it != user_event_flag_map_.end())
       user_event_flag_map_.erase(it);
   }
 
-  bool get_user_event_flag(synEventHandle handle) {
+  std::pair<bool, hpuStream_t> get_user_event_info(synEventHandle handle) {
     std::unique_lock<std::mutex> lock(event_mutex_);
     auto it = user_event_flag_map_.find(handle);
     HABANA_ASSERT(it != user_event_flag_map_.end());
     return user_event_flag_map_[handle];
   }
+
   bool getDeterministic() {
     return deterministic_;
   }
@@ -496,7 +518,8 @@ class device {
   // stream counter
   std::atomic<uint64_t> stream_index_{0};
 
-  std::unordered_map<synEventHandle, bool> user_event_flag_map_;
+  std::unordered_map<synEventHandle, std::pair<bool, hpuStream_t>>
+      user_event_flag_map_;
   std::mutex event_mutex_;
   bool deterministic_ = 0;
 
@@ -517,6 +540,9 @@ class device {
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
   std::map<size_t, uint32_t> workspace_usage_;
+  std::unordered_map<synEventHandle, std::array<synEventHandle, _END_TYPE>>
+      user_event_handle_map_;
+  std::mutex usr_event_mutex_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);
