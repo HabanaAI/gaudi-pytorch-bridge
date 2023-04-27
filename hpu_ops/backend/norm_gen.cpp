@@ -835,7 +835,7 @@ void WeightNormOp::AddNode(
   can_use_fused=0) path.
   */
   TORCH_CHECK(
-      v_in.device() == g_in.device(),
+      v_in.device().type() == g_in.device().type(),
       "weight_norm: expected v_in and g_in to be on the same device, but v_in is "
       "on ",
       v_in.device(),
