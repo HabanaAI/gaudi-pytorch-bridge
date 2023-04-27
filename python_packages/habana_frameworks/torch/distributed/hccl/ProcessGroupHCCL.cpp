@@ -408,8 +408,8 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
 
 void ProcessGroupHCCL::destroy() {
   hostBarrier();
-  device_contexts_.clear();
-  if (!this->emulate_distributed_) {
+
+  if (!emulate_distributed_) {
     std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
     auto worker_count = store_->add(barrier_key, 1);
     if (getRank() == 0) {
@@ -419,12 +419,31 @@ void ProcessGroupHCCL::destroy() {
             std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
       }
     }
-
-    for (auto element : hccl_communicator_) {
-      hcclCommDestroy(*(element.second));
-    }
   }
-  hccl_communicator_ = {};
+
+  // Postpone the proper destruction to avoid potential deadlocks.
+  // This function is called with GIL lock acquired, but effectively leads to
+  // SEM mutexes locks. Meanwhile, event completion handlers are called from
+  // within SEM locks, but may free tensors, which requires GIL lock. The
+  // following job deferral prevents that sitaution.
+  JobThreadHCCL::getInstance()->addJob(
+      [emulate_distributed = emulate_distributed_,
+       device_contexts = std::move(device_contexts_),
+       comm_streams = std::move(comm_streams_),
+       hccl_communicator = std::move(hccl_communicator_)]() mutable {
+        if (!emulate_distributed) {
+          for (auto element : hccl_communicator) {
+            hcclCommDestroy(*(element.second));
+          }
+        }
+
+        hccl_communicator.clear();
+        comm_streams.clear();
+        device_contexts.clear();
+
+        return false; // Notify JobThreadHCCL that this is the last job and it
+                      // should cease to function.
+      });
 }
 
 void ProcessGroupHCCL::abort() {
@@ -596,8 +615,13 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
           collective_stream,
           tensor_storage_ptr,
           [resource_holder, &recipe_counter]() mutable {
-            resource_holder.reset();
-            recipe_counter.decrease_and_notify();
+            // Postpone freeing up the tensor to avoid potential deadlocks.
+            JobThreadHCCL::getInstance()->addJob(
+                [resource_holder, &recipe_counter]() mutable {
+                  resource_holder.reset();
+                  recipe_counter.decrease_and_notify();
+                  return true;
+                });
           });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
@@ -744,8 +768,13 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
           collective_stream,
           output_storage_ptr,
           [resource_holder, &recipe_counter]() mutable {
-            resource_holder.reset();
-            recipe_counter.decrease_and_notify();
+            // Postpone freeing up the tensor to avoid potential deadlocks.
+            JobThreadHCCL::getInstance()->addJob(
+                [resource_holder, &recipe_counter]() mutable {
+                  resource_holder.reset();
+                  recipe_counter.decrease_and_notify();
+                  return true;
+                });
           });
       pr->set_value(hccl_result == hcclSuccess);
       return true;
