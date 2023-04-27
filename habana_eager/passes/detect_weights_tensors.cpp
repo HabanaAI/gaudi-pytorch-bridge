@@ -12,6 +12,7 @@
 
 #include <c10/util/ArrayRef.h>
 
+#include <map>
 #include <queue>
 
 #include "habana_eager/graph_exec.h"
@@ -98,14 +99,15 @@ struct DetectWeightTensorsPass {
   bool isDirectConvoWeightInput(
       torch::jit::Value* input,
       torch::jit::Node* user_node) {
-    static const std::set<c10::Symbol> conv_symbols{
-        c10::Symbol::fromQualString("aten::convolution"),
-        c10::Symbol::fromQualString("aten::convolution_backward"),
-        c10::Symbol::fromQualString("aten::convolution_overrideable"),
-        c10::Symbol::fromQualString("aten::convolution_backward_overrideable")};
+    static const std::map<c10::Symbol, int> conv_symbols_map{
+        {c10::Symbol::fromQualString("aten::convolution"), 1},
+        {c10::Symbol::fromQualString("aten::convolution_backward"), 2},
+        {c10::Symbol::fromQualString("aten::convolution_overrideable"), 1},
+        {c10::Symbol::fromQualString("aten::convolution_backward_overrideable"),
+         2}};
 
-    if (conv_symbols.find(user_node->kind()) != conv_symbols.end()) {
-      static const int weight_input_idx{1};
+    if (conv_symbols_map.find(user_node->kind()) != conv_symbols_map.end()) {
+      const int weight_input_idx{conv_symbols_map.at(user_node->kind())};
       HABANA_ASSERT(user_node->inputs().size() >= weight_input_idx);
       torch::jit::Value* weight_input{user_node->input(weight_input_idx)};
 

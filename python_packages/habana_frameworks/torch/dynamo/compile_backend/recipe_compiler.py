@@ -17,34 +17,37 @@ from .config import configuration_flags
 
 logger = logging.getLogger("aot_hpu_backend")
 
+
 def get_updated_args(args):
     args_new = []
     for arg in args:
         if torch.is_tensor(arg):
-            args_new.append(arg.contiguous())
+            # Temporary W/A - we should remove it after we handle views in torch.compile properly
+            args_new.append(arg.clone())
         else:
             args_new.append(arg)
     return args_new
 
+
 class HabanaGraphModule(torch.nn.Module):
-    def __init__(self, jit_ir, is_training=False, dynamic=False):
+    def __init__(self, jit_ir, graph_module, is_training=False, dynamic=False):
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
         self._jit_ir = jit_ir
+        self._fx_module = graph_module
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = False
 
     def __call__(self, *args):
         from ._recipe_compiler_C import graph_compile, graph_launch
-
         args_new = get_updated_args(args)
 
         if self._recipe_id is None:
             self.propagate_dtype(args)
-            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs= tuple(args_new),
+            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=tuple(args_new),
                                             dynamic=self._dynamic, inference=self._inference)
-        return graph_launch(recipe_id=self._recipe_id, inputs= tuple(args_new))
+        return graph_launch(recipe_id=self._recipe_id, inputs=tuple(args_new))
 
     def propagate_dtype(self, sample_input):
         if not configuration_flags["dtype_propagation_in_backend"]:
@@ -64,7 +67,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
 
     if configuration_flags["use_compiled_recipes"]:
 
-        return HabanaGraphModule(jit_ir, is_training=is_training, dynamic=is_dynamic)
+        return HabanaGraphModule(jit_ir, graph_module, is_training=is_training, dynamic=is_dynamic)
     else:
         # Return unchanged module, it will be ran eagerly.
         return graph_module

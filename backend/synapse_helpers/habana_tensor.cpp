@@ -427,6 +427,7 @@ synapse_error_o tensor::create() {
         permutation_.size() == maxGeometry.dims,
         " create tensor invalid permutation ",
         permutation_.size(),
+        " ",
         maxGeometry.dims);
   }
   set_permutation();

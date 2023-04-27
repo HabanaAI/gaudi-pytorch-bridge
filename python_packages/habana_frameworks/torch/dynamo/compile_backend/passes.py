@@ -406,6 +406,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "multinomial",
             "normal",
             # Other
+            "convolution_backward",
             "max_pool2d_with_indices",
             "max_pool2d_with_indices_backward",
             "convolution",  # SW-137174

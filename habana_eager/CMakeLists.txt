@@ -40,6 +40,7 @@ add_library(habana_pytorch2_frontend OBJECT
           passes/add_attribute_alpha.cpp
           passes/convert_convolution.cpp
           passes/detect_weights_tensors.cpp
+          passes/handle_input_views.cpp
           passes/handle_tupple_on_output.cpp
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
