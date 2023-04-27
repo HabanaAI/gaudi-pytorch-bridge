@@ -12,15 +12,13 @@
 ###############################################################################
 from __future__ import annotations
 
-import argparse
 import json
 import os
-import sys
 from dataclasses import astuple, dataclass
 from enum import Enum
 from typing import Optional, Sequence
 
-from build_profiles.version import Version
+from .version import Version
 
 
 @dataclass(frozen=True)
@@ -190,39 +188,11 @@ def get_cmakelists_supported_vers():
     )
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Script for retrieving information from json file describing build profiles"
-    )
-    actions = parser.add_mutually_exclusive_group()
-    actions.add_argument(
-        "--get-pt-requirement",
-        action="store",
-        nargs=1,
-        metavar=("pt_version_id",),
-        help="Prints required PyTorch pip package for pt_version_id.",
-    )
-    actions.add_argument("--get-version-literal", action="store", help="Prints version literal for version id provided")
-    actions.add_argument(
-        "--get-cmakelists-supported-vers",
-        action="store_true",
-        help="Prints value that Torch_SUPPORTED_VERSIONS should be set to in CMakeLists",
-    )
-    actions.add_argument("--check", action="store_true", help="Checks profile file integrity")
-    parser.add_argument("--profiles", action="store", help="Allows providing of custom profile json")
-    args = parser.parse_args()
-
-    if args.profiles:
-        get_profiles_json.JSON_PATH = args.profiles
-    if args.check:
-        check_profile_file_integrity()
-        sys.exit()
-    if args.get_pt_requirement:
-        print(
-            get_required_pt(get_version_literal_and_source(args.get_pt_requirement).version, RequirementPurpose.RUNTIME)
-        )
-    if args.get_version_literal:
-        found = get_version_literal_and_source(args.get_version_literal)
-        print(found.version if found else None)
-    if args.get_cmakelists_supported_vers:
-        print(get_cmakelists_supported_vers())
+def get_extras_version(package_name: str, pt_version_id: str) -> str:
+    profiles_json = get_profiles_json()
+    available_pt_versions = profiles_json["pt_versions"]
+    try:
+        node = available_pt_versions[pt_version_id]
+        return node["extras"][package_name]
+    except KeyError as exc:
+        raise KeyError(f'{package_name} version for "{pt_version_id}" is not defined') from exc

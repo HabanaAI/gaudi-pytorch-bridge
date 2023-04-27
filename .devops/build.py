@@ -30,8 +30,8 @@ from typing import (Any, Dict, Iterable, List, NamedTuple, Optional, Sequence,
 
 import op_stats_generator
 
-from build_profiles import profile_getter
-from build_profiles.profile_getter import VersionLiteralAndSource
+from build_profiles import profiles
+from build_profiles.profiles import VersionLiteralAndSource
 from build_profiles.version import Version, is_wheel_version
 
 log = logging.getLogger(__file__)
@@ -82,8 +82,8 @@ class WheelConfig(NamedTuple):
 venv_base_dir = os.path.join(os.environ["HOME"], ".venvs")
 
 
-supported_pt_versions = tuple(map(_to_version_and_source, profile_getter.get_available_versions()))
-recommended_pt_version = _to_version_and_source(profile_getter.get_version_literal_and_source("current"))
+supported_pt_versions = tuple(map(_to_version_and_source, profiles.get_available_versions()))
+recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and_source("current"))
 
 supported_python_versions = (
     Version("3.8"),
@@ -388,7 +388,7 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
         # source must be an index_url
         args += ("--extra-index-url", source)
 
-    return args + (profile_getter.get_required_pt(version, profile_getter.RequirementPurpose.BUILD), )  # e.g. 'torch==1.12.0'
+    return args + (profiles.get_required_pt(version, profiles.RequirementPurpose.BUILD), )  # e.g. 'torch==1.12.0'
 
 
 def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
@@ -480,8 +480,8 @@ def prepare_venv(
 
     venv_dir = os.path.join(
         venv_base_dir,
-        profile_getter.get_required_pt_package_name(
-            pt_ver.version, profile_getter.RequirementPurpose.BUILD
+        profiles.get_required_pt_package_name(
+            pt_ver.version, profiles.RequirementPurpose.BUILD
         ),
         f"py{python_ver}",
         f"pt{pt_ver.version}",
@@ -634,8 +634,8 @@ def prepare_build_envs(
                 get_supported_python_version(current_python_version, (py_ver,))
             )
             for pt_ver in wheel_spec.pt_versions:
-                required_pt_package_name = profile_getter.get_required_pt_package_name(
-                    pt_ver.version, profile_getter.RequirementPurpose.BUILD
+                required_pt_package_name = profiles.get_required_pt_package_name(
+                    pt_ver.version, profiles.RequirementPurpose.BUILD
                 )
                 use_preinstalled_pt = (
                     current_pt_version
@@ -770,8 +770,8 @@ def create_ctest_target(pmake):
 
 
 def target_reldir(py_ver, pt_ver, cmake_config, target=None):
-    pt_package_name = profile_getter.get_required_pt_package_name(
-        pt_ver, profile_getter.RequirementPurpose.BUILD
+    pt_package_name = profiles.get_required_pt_package_name(
+        pt_ver, profiles.RequirementPurpose.BUILD
     )
     subdir = f"{pt_package_name}/py{py_ver}/pt{pt_ver}/{cmake_config}"
     return f"{subdir}/{target}" if target else subdir
@@ -1393,8 +1393,8 @@ def parse_args():
  For example assume user is building --pt_version=current, then:
      PT version available  | script result
      ----------------------+---------------------------------
-                     none  | install pytorch=={profile_getter.get_version_literal_and_source("current").version}
-                    {profile_getter.get_version_literal_and_source("next").version} | use pytorch=={profile_getter.get_version_literal_and_source("next").version}
+                     none  | install pytorch=={profiles.get_version_literal_and_source("current").version}
+                    {profiles.get_version_literal_and_source("next").version} | use pytorch=={profiles.get_version_literal_and_source("next").version}
                     1.11   | fail
 
   Build directories
@@ -1543,7 +1543,7 @@ def parse_args():
         "Unless otherwise noted, when conflicting with flags imposed by other"
         "arguments, the effective setting is the one given explicitly.",
     )
-    available_profiles = profile_getter.get_available_profiles()
+    available_profiles = profiles.get_available_profiles()
     parser.add_argument(
         "--profile",
         action="store",
@@ -1569,7 +1569,7 @@ def parse_args():
     args = parser.parse_args()
 
     if args.profile:
-        profile_args = profile_getter.get_args_for_profile(args.profile)
+        profile_args = profiles.get_args_for_profile(args.profile)
         raw_args = profile_args
         if args.describe_profile:
             print("build.py " + " ".join(profile_args))
@@ -1795,7 +1795,7 @@ def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
                     pt_versions.add(VersionAndSource(Version(requested), "uri"))
                 else:
                     try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
-                        version_literal_and_source = profile_getter.get_version_literal_and_source(requested)
+                        version_literal_and_source = profiles.get_version_literal_and_source(requested)
                         if version_literal_and_source is not None:
                             pt_versions.add(_to_version_and_source(version_literal_and_source))
                     except KeyError:  # if not given by name, try finding profile by PT version

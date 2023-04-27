@@ -33,7 +33,11 @@
   "pt_versions": {
     "current": {
       "version": "2.0.0",
-      "default_source": "build"
+      "default_source": "build",
+      "extras" : {
+          "torchvision": "0.15.1",
+          "torchaudio": "2.0.1"
+      }
     },
     "previous": {
       "version": null,
