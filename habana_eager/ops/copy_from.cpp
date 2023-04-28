@@ -207,13 +207,34 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
   at::Tensor result;
   auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
   if (dst_tmeta->is_view_lowering()) {
-    result = add_strided_insert(dst, self);
+    auto self_ = self;
+    auto self_tmeta{habana::get_tensor_extra_meta(self)};
+    if (self_tmeta->is_view_lowering()) {
+      bool same_data_type = (dst.scalar_type() == self.scalar_type());
+      // If dtype is same, post_process_eager_graph() will take care
+      // of strided-view node insertion when source is non-contiguous.
+      // But, if dtype is different, additional cast operation is also
+      // needed. As there is no explicit hpu::cast kind of eager-op, we
+      // use hpu::_copy_from, which takes care of cast in the back-end.
+      if (!same_data_type) {
+        at::Tensor cast_out = at::empty(
+            self.sizes(), dst.options(), c10::MemoryFormat::Contiguous);
+        habana::eager::EagerOp<at::Tensor&> hpu_op{
+            "hpu::_copy_from", {self, cast_out}, {cast_out.sizes().vec()}, 1};
+        hpu_op.set_eager_op_info(
+            {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
+        self_ = hpu_op.call(const_cast<at::Tensor&>(cast_out));
+      }
+    }
+    result = add_strided_insert(dst, self_);
   } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the
     // backend with "dst" as the out tensor
     habana::eager::EagerOp<at::Tensor&> hpu_op{
         "hpu::_copy_from", {self, dst}, {dst.sizes().vec()}, 1};
+    hpu_op.set_eager_op_info(
+        {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
     result = hpu_op.call(const_cast<at::Tensor&>(dst));
   }
   return result;

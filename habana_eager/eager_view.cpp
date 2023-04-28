@@ -117,6 +117,25 @@ static std::unordered_set<size_t> get_input_tensors_positions(
   return in_indices;
 }
 
+static size_t get_node_output_idx(JitNode* node, size_t idx) {
+  if (node->outputs().size() == 1) {
+    return 0;
+  } else {
+    int out_idx = -1;
+    auto value = node->input(idx);
+    PT_EAGER_DEBUG("[get_node_output_idx] Search for output value = ", value);
+    for (auto i = 0; i < node->outputs().size(); i++) {
+      PT_EAGER_DEBUG("[get_node_output_idx] Output value = ", node->output(i));
+      if (node->output(i) == value) {
+        out_idx = (int)i;
+        break;
+      }
+    }
+    HABANA_ASSERT(out_idx != -1, "Invalid node output index!");
+    return (size_t)out_idx;
+  }
+}
+
 static void collect_output_view_param(
     JitNode* node,
     const std::vector<at::IValue>& inputs,
@@ -136,12 +155,20 @@ static void collect_output_view_param(
     auto output_tmeta{habana::get_tensor_extra_meta(output_tensor)};
     if (output_tmeta->is_view_lowering() || !output_tensor.is_contiguous()) {
       StridedOutInfo s;
-      s.index = idx;
+      auto node_output_idx = get_node_output_idx(node, idx);
+      s.index = node_output_idx;
       s.tensor = output_tensor;
       s.value = node->input(idx);
       s.param = std::make_unique<ViewParam>();
       s.param->setParam(output_tensor);
       strided_out_info.emplace_back(std::move(s));
+      PT_EAGER_DEBUG(
+          "[collect_output_view_param] JIT node outputs count = ",
+          node->outputs().size(),
+          "idx = ",
+          idx,
+          "node_output_idx = ",
+          node_output_idx);
     }
   }
 }
@@ -155,7 +182,11 @@ static JitNode* replace_with_out_of_place_op(
 
   auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
   new_node->addInput(node->input(0));
-  for (size_t i = 1; i < node->inputs().size(); ++i) {
+  auto num_inputs = node->inputs().size();
+  if (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut) {
+    num_inputs -= eager_op_meta_data.out_indices_.size();
+  }
+  for (size_t i = 1; i < num_inputs; ++i) {
     new_node->addInput(node->input(i));
   }
   new_node->setScope(node->scope());
@@ -235,6 +266,8 @@ void HandleInputOutputViews(
   // If yes, check if output is strided and if so, collect output view param
   // now. This view param will be used in output view handling later.
 
+  PT_EAGER_DEBUG(
+      "[HandleInputOutputViews] Op Name: ", node->kind().toQualString());
   bool is_inplace_op = check_inplace_op(eager_op_meta_data);
   std::vector<StridedOutInfo> strided_out_info;
   if (is_inplace_op) {

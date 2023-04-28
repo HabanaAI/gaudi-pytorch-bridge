@@ -321,3 +321,32 @@ def test_view_layout1():
     hres_cpu = hres.cpu()
 
     assert torch.allclose(hres_cpu, res, atol=0.01, rtol=0.01)
+
+# dtype:different, src:view, dst:view
+def test_d2d_src_dst_view_different_dtype():
+    cpu_src_tensor = torch.randn([4,6], dtype=torch.bfloat16)
+    hpu_src_tensor = cpu_src_tensor.to("hpu")
+
+    cpu_dst_tensor = torch.randn([6,9], dtype=torch.float32)
+    hpu_dst_tensor = cpu_dst_tensor.to('hpu')
+
+    cpu_dst_tensor_view = cpu_dst_tensor[0::3,0::3]
+    hpu_dst_tensor_view = hpu_dst_tensor[0::3,0::3]
+
+    cpu_dst_tensor_view.copy_(cpu_src_tensor[0::2,0::2])
+    hpu_dst_tensor_view.copy_(hpu_src_tensor[0::2,0::2])
+
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol = 0.001, rtol = 0.001)
+
+def test_copy_inplace_2d_noncontiguous_view():
+    cpu_tensor = torch.randn([4,4], dtype=torch.float)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_ones = torch.ones([4,4], dtype=torch.int8)
+    hpu_ones = cpu_ones.to("hpu")
+
+    cpu_ones[0::2,0::2] = cpu_tensor[0::2,0::2].to(torch.int8)
+    hpu_ones[0::2,0::2] = hpu_tensor[0::2,0::2].to(torch.int8)
+
+    torch.allclose(hpu_ones.cpu(), cpu_ones, atol = 0, rtol = 0)
+
