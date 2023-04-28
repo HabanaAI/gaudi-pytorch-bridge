@@ -124,6 +124,7 @@ add_executable(
   hpu_ops/nan_to_num.cpp
   hpu_ops/nansum.cpp
   hpu_ops/ne.cpp
+  hpu_ops/new_zeros.cpp
   hpu_ops/nextafter.cpp
   hpu_ops/nll_loss.cpp
   hpu_ops/norm.cpp

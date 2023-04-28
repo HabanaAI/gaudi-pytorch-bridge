@@ -4734,6 +4734,15 @@ neg:
   force_default: false
   out_ids: [0]
 
+new_zeros:
+  output_meta: NewZerosMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+  op_backend: NewZerosOperator
+  out_ids: [0]
+
 nextafter:
   force_default: false
   dtypes:
