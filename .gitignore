@@ -14,4 +14,5 @@ data/
 *.swo
 *.egg-info
 test_pt_integration
+test_pt2_integration
 .gdb_history
