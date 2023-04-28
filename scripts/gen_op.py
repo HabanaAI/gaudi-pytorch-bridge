@@ -1378,6 +1378,9 @@ def get_eager_op_info(ctxop, opname):
 
     return type, op_name
 
+inplace_params_blacklist = [
+    "_native_batch_norm_legit",
+]
 
 def generate_code(
     ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend
@@ -1429,8 +1432,9 @@ def generate_code(
             assert cptype == "Tensor"
             xname = tfetcher.add(pname, True)
             meta_param_vars.append(xname)
-            call_args.append(pname)
-            out_indices.append(i)
+            if fname not in inplace_params_blacklist:
+                call_args.append(pname)
+                out_indices.append(i)
 
         if rtype == "void":
             if cptype == "TensorList" or cptype == "Tensor":
