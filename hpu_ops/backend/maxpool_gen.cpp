@@ -165,6 +165,18 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
 sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
   std::vector<int64_t> input_shape = self.sizes().vec();
+  at::Stack stack_fwd(stack.begin() + 1, stack.end());
+  auto grad = stack.at(0).toTensor();
+  auto kernel = stack.at(2).toIntVector();
+  std::vector<int64_t> indices;
+  if (kernel.size() == 2) {
+    indices = MaxPool2DOutputShape(stack_fwd)[0];
+  }
+  if (kernel.size() == 3) {
+    indices = MaxPool3DIndicesOutputShape(stack_fwd)[0];
+  }
+  HABANA_ASSERT(
+      (grad.sizes() == indices), "Grad and Indices sizes don't match");
   return {input_shape};
 }
 

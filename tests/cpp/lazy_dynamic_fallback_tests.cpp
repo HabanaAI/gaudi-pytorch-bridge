@@ -377,3 +377,131 @@ TEST_F(LazyDynamicFallbackTest, DISABLED_ArangeTestFloat) {
     EXPECT_EQ(allclose(h_cout, a), true);
   }
 }
+
+TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
+  // unset the env variable if set for this case
+  bool org_state = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING);
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, true, 1);
+  std::pair<int, int> tensor0_sizes = {3, 3};
+  std::vector<std::pair<int, int>> addSizes = {{3, 3}, {3, 1}, {1, 3}, {1, 1}};
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < addSizes.size(); j++) {
+      // HbLazyTensor::IterStepMarker();
+      int H1 = addSizes[j].first;
+      int W1 = addSizes[j].second;
+      if (addSizes[j].first != 1) {
+        H1 = addSizes[j].first + i;
+      }
+      if (addSizes[j].second != 1) {
+        W1 = addSizes[j].second + i;
+      }
+      auto in1 = torch::randn(
+          {H1, W1}, torch::dtype(torch::kFloat).requires_grad(false));
+      auto in2 = torch::randn(
+          {tensor0_sizes.first + i, tensor0_sizes.second + i},
+          torch::dtype(torch::kFloat).requires_grad(false));
+      torch::Tensor h_in1 = in1.to(torch::kHPU);
+      torch::Tensor h_in2 = in2.to(torch::kHPU);
+      auto add_1 = torch::add(h_in1, h_in2);
+      torch::Tensor cpu_add_1 = add_1.to(torch::kCPU);
+    }
+  }
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, org_state, 1);
+}
+
+TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
+  // Static Maxpool Fwd +BWD
+  if (1) {
+    torch::Tensor A = torch::randn(
+        {2, 64, 320, 464}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor B = torch::randn(
+        {2, 64, 160, 232}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    std::vector<int64_t> kernel_size = {{3, 3}};
+    std::vector<int64_t> stride = {{2, 2}};
+    std::vector<int64_t> pad_size = {{1, 1}};
+    std::vector<int64_t> dilation = {{1, 1}};
+    bool ceil_mode = false;
+
+    auto maxpool_cpu = torch::max_pool2d_with_indices(
+        A, kernel_size, stride, pad_size, dilation, ceil_mode);
+    auto maxpool_hpu = torch::max_pool2d_with_indices(
+        hA, kernel_size, stride, pad_size, dilation, ceil_mode);
+
+    auto expected_indices = std::get<1>(maxpool_cpu);
+    auto max_pool_fwd_out_0 = std::get<0>(maxpool_cpu);
+    auto result_indices = std::get<1>(maxpool_hpu);
+
+    auto expected_gradinp = torch::max_pool2d_with_indices_backward(
+        B,
+        A,
+        kernel_size,
+        stride,
+        pad_size,
+        dilation,
+        ceil_mode,
+        expected_indices);
+
+    auto result_gradinp = torch::max_pool2d_with_indices_backward(
+        hB,
+        hA,
+        kernel_size,
+        stride,
+        pad_size,
+        dilation,
+        ceil_mode,
+        result_indices);
+    EXPECT_EQ(
+        allclose(
+            result_gradinp.to(torch::kCPU), expected_gradinp, 0.001, 0.001),
+        true);
+  }
+  // Dynamic Maxpool Fwd +BWD
+  if (1) {
+    torch::Tensor A = torch::randn(
+        {2, 120, 321, 489}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor B = torch::randn(
+        {2, 120, 161, 245}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hB = B.to(torch::kHPU);
+    std::vector<int64_t> kernel_size = {{3, 3}};
+    std::vector<int64_t> stride = {{2, 2}};
+    std::vector<int64_t> pad_size = {{1, 1}};
+    std::vector<int64_t> dilation = {{1, 1}};
+    bool ceil_mode = false;
+
+    auto maxpool_cpu = torch::max_pool2d_with_indices(
+        A, kernel_size, stride, pad_size, dilation, ceil_mode);
+    auto maxpool_hpu = torch::max_pool2d_with_indices(
+        hA, kernel_size, stride, pad_size, dilation, ceil_mode);
+
+    auto expected_indices = std::get<1>(maxpool_cpu);
+    auto result_indices = std::get<1>(maxpool_hpu);
+    auto max_pool_fwd_out_0 = std::get<0>(maxpool_cpu);
+
+    auto expected_gradinp = torch::max_pool2d_with_indices_backward(
+        B,
+        A,
+        kernel_size,
+        stride,
+        pad_size,
+        dilation,
+        ceil_mode,
+        expected_indices);
+
+    auto result_gradinp = torch::max_pool2d_with_indices_backward(
+        hB,
+        hA,
+        kernel_size,
+        stride,
+        pad_size,
+        dilation,
+        ceil_mode,
+        result_indices);
+    EXPECT_EQ(
+        allclose(
+            result_gradinp.to(torch::kCPU), expected_gradinp, 0.001, 0.001),
+        true);
+  }
+}

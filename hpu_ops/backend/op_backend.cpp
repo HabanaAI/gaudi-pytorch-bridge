@@ -216,6 +216,9 @@ void OpBackend::HandleOutFn(
     return;
   }
 
+  // Check Out variant has output shapes else raise exception
+  ComputeOutputShapes(stack);
+
   unsigned stack_size = stack.size();
   unsigned syn_inputs_size = p_context_->syn_inputs_.size();
 
