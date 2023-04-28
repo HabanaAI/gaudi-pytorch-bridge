@@ -2,7 +2,6 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include "tests/cpp/habana_lazy_test_infra.h"
-
 using namespace habana_lazy;
 using namespace at;
 
@@ -104,7 +103,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
     std::vector<int> indices = {0};
 
     auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-    std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
+    std::vector<at::Tensor> input_list{tensor_in1};
 
     auto stack = torch::jit::Stack(
         std::make_move_iterator(input_list.begin()),
