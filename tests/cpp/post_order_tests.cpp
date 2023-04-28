@@ -25,7 +25,7 @@ TEST_F(PostOrderTest, poTestAdd) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0;
-  auto result = torch::add(tensor_in1, tensor_in2, alpha);
+  auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
@@ -94,9 +94,9 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0f, beta = 2.0f;
-  auto result = torch::add(tensor_in1, tensor_in2, alpha);
+  auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
 
-  auto result2 = torch::add(result, tensor_in2, beta);
+  auto result2 = add_tensor_hpu_lazy(result, tensor_in2, beta);
   auto hl_result = SyncAndGetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
@@ -109,20 +109,26 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[2]->ToString();
-  cond = (str.find("prim::constant") != string::npos);
-  EXPECT_TRUE(cond);
-  str = po_data.post_order[3]->ToString();
   cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
+  str = po_data.post_order[3]->ToString();
+  cond = (str.find("aten::mul") != string::npos);
+  EXPECT_TRUE(cond);
   str = po_data.post_order[4]->ToString();
-  cond = (str.find("aten::add") != string::npos);
+  cond = (str.find("prim::constant") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[5]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[6]->ToString();
+  cond = (str.find("aten::add") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[7]->ToString();
   cond = (str.find("aten::add") != string::npos);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);
-  EXPECT_TRUE(po_data.inputs.size() == 2);
+  EXPECT_TRUE(po_data.inputs.size() == 3);
 }
 
 TEST_F(PostOrderTest, poTestAddInplace) {

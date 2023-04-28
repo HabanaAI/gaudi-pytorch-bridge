@@ -28,44 +28,40 @@ sizes_vec BinaryOutputShape(const at::Stack& stack) {
   return {at::infer_size(self.sizes(), other.sizes())};
 }
 
-sizes_vec BinaryOutputShapeInplace(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  return {self.sizes().vec()};
-}
-
-enum modes { cadd, csub, crsub };
-std::shared_ptr<void> FillBinaryWithAlphaParams(
-    const at::Stack& stack,
-    size_t& size,
-    enum modes mode_t) {
-  PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
-  //      params.alpha.i = static_cast<int>(alpha_val);
-  params->alpha.f = stack[ALPHA_INDEX].toScalar().toFloat();
-  if (mode_t == cadd)
-    params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_ADD;
-  else if (mode_t == csub)
-    params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_SUB;
-  else
-    params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_RSUB;
-
-  return params;
-}
 std::shared_ptr<void> FillBinaryRSubParams(
     const at::Stack& stack,
     size_t& size) {
-  return FillBinaryWithAlphaParams(stack, size, crsub);
-}
+  PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
 
-std::shared_ptr<void> FillBinarySubParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillBinaryWithAlphaParams(stack, size, csub);
-}
+  c10::ScalarType self_type = stack_tensor(stack, 0).scalar_type();
+  auto other = stack.at(OTHER_INDEX);
+  // self_type and other_type to check whether to use alpha as float or int. For
+  // integral inputs, alpha shouldn't be float
+  c10::ScalarType other_type;
+  if (other.isScalar()) {
+    other_type = other.toScalar().isFloatingPoint() ? c10::ScalarType::Float
+                                                    : c10::ScalarType::Int;
+  } else {
+    other_type = other.toTensor().scalar_type();
+  }
 
-std::shared_ptr<void> FillBinaryAddParams(
-    const at::Stack& stack,
-    size_t& size) {
-  return FillBinaryWithAlphaParams(stack, size, cadd);
+  auto alpha = stack[ALPHA_INDEX].toScalar();
+  if ((c10::isIntegralType(self_type, /*includeBool*/ true) &&
+       c10::isIntegralType(other_type, /*includeBool*/ true))) {
+    HABANA_ASSERT(
+        !alpha.isFloatingPoint(),
+        "For integral input tensors, argument alpha must not be a floating",
+        "point number.");
+  }
+
+  if (alpha.isFloatingPoint()) {
+    params->alpha.f = stack[ALPHA_INDEX].toScalar().toFloat();
+  } else {
+    params->alpha.i = stack[ALPHA_INDEX].toScalar().toInt();
+  }
+
+  params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_RSUB;
+  return params;
 }
 
 static auto BuildBinary(
@@ -115,6 +111,53 @@ static auto BuildBinary(
        {{outshape, result_type, out_index}}});
 }
 
+void BinaryWithAlpha::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const at::Tensor& self = stack_tensor(stack, 0);
+  std::vector<int64_t> other_size = {};
+  at::ScalarType result_type;
+  at::ScalarType other_type;
+  at::ScalarType self_type = self.scalar_type();
+
+  if (stack.at(1).isTensor()) {
+    const at::Tensor& other = stack_tensor(stack, 1);
+    other_size = other.sizes().vec();
+    result_type = at::result_type(self, other);
+    other_type = other.scalar_type();
+
+  } else {
+    const auto& other_scalar = stack[1].toScalar();
+    result_type = at::result_type(self, other_scalar);
+    // other_size remains empty in scalar case
+    other_type = result_type;
+  }
+  auto alpha = stack[2].toScalar();
+  if (IsInplace()) {
+    TORCH_CHECK(
+        result_type == self_type ||
+            (c10::isFloatingType(result_type) &&
+             c10::isFloatingType(self_type)),
+        "result type ",
+        result_type,
+        " can't be cast to the desired output type ",
+        self_type)
+  }
+  auto op = BuildBinary(
+      this,
+      graph,
+      guid_,
+      {syn_in(0), syn_in(1)},
+      {self.sizes().vec(), other_size},
+      {self_type, other_type},
+      result_type,
+      alpha,
+      0,
+      !IsTypePromotion());
+
+  syn_out(0) = std::move(op[0]);
+}
+
 void ForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -144,9 +187,9 @@ void ForeachBinary::AddNode(
     }
   } else {
     for (auto i = 0u; i < selfs.size(); ++i) {
-      const auto& other_scalar = stack[OTHER_INDEX].isScalar()
-          ? stack[OTHER_INDEX].toScalar()
-          : stack[OTHER_INDEX].toListRef()[i].toScalar();
+      const auto& other_scalar = stack[1].isScalar()
+          ? stack[1].toScalar()
+          : stack[1].toListRef()[i].toScalar();
       const auto& self = selfs[i];
       const auto& result_type = at::result_type(self, other_scalar);
       auto other = ConstantHelper(graph, other_scalar, result_type);

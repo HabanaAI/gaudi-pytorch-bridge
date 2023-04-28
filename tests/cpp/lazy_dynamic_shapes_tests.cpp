@@ -556,6 +556,37 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
   }
 }
 
+TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
+  // unset the env variable if set for this case
+  bool org_state = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING);
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, false, 1);
+  std::pair<int, int> tensor0_sizes = {3, 3};
+  std::vector<std::pair<int, int>> addSizes = {{3, 3}, {3, 1}, {1, 3}, {1, 1}};
+  for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < addSizes.size(); j++) {
+      // HbLazyTensor::IterStepMarker();
+      int H1 = addSizes[j].first;
+      int W1 = addSizes[j].second;
+      if (addSizes[j].first != 1) {
+        H1 = addSizes[j].first + i;
+      }
+      if (addSizes[j].second != 1) {
+        W1 = addSizes[j].second + i;
+      }
+      auto in1 = torch::randn(
+          {H1, W1}, torch::dtype(torch::kFloat).requires_grad(false));
+      auto in2 = torch::randn(
+          {tensor0_sizes.first + i, tensor0_sizes.second + i},
+          torch::dtype(torch::kFloat).requires_grad(false));
+      torch::Tensor h_in1 = in1.to(torch::kHPU);
+      torch::Tensor h_in2 = in2.to(torch::kHPU);
+      auto add_1 = torch::add(h_in1, h_in2);
+      torch::Tensor cpu_add_1 = add_1.to(torch::kCPU);
+    }
+  }
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, org_state, 1);
+}
+
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
   int kH = 3;
   int kW = 3;

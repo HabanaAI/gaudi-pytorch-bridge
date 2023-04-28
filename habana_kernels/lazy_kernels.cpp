@@ -1836,6 +1836,158 @@ Tensor view_dtype_hpu(const Tensor& self, ScalarType dtype) {
   return new_tensor;
 }
 
+void add_tensor_hpu_lazy_parallel_impl(
+    const Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor mul_out;
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      // For lazy eager Skip scalar handling at FE
+      mul_out = torch::mul(other, alpha);
+    } else {
+      at::Tensor alpha_tensor =
+          get_tensor_for_scalar(alpha_double, other.options());
+
+      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+      mul_out = torch::mul(other, alpha_tensor);
+    }
+    if (other.unsafeGetTensorImpl()->is_wrapped_number()) {
+      // The operation has been split into intermediate multiply and then
+      // again add op tensor produced by this split resulted in inappropriate
+      // type deduction of whole add operation. alpha is always scalar, when
+      // also other is scalar then marking intermediate as wrapped number is
+      // also necessary to further proper deduction
+      mul_out.unsafeGetTensorImpl()->set_wrapped_number(true);
+    }
+    add_tensor_hpu_lazy_parallel_impl(self, mul_out, 1.0, out);
+  } else {
+    LazyBinaryOp<at::Tensor> k{
+        "aten::add",
+        {self, other, alpha},
+        false,
+        true,
+        {BinaryOperator::compute_output_shape(self, other)},
+        -1};
+    k.call(out);
+  }
+}
+
+Tensor add_tensor_hpu_lazy(
+    const Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+  }
+
+  LazyBinaryOp<at::Tensor> k{
+      "aten::add",
+      {self, other, alpha},
+      false,
+      true,
+      {BinaryOperator::compute_output_shape(self, other)},
+      -1};
+
+  auto out = k.get_result();
+
+  auto op_func = [self, other, alpha, out]() mutable {
+    add_tensor_hpu_lazy_parallel_impl(self, other, alpha, out);
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add, op_func, out);
+}
+
+Tensor add_scalar_hpu_lazy(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> op{
+      "aten::add", {self, other, alpha}, {self.sizes().vec()}};
+  RUN_MAYBE_WITH_ACC_THREAD(add, op)
+}
+
+Tensor& add_scalar_hpu_lazy_(
+    Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+
+  // Handle scalar handling for lazy mode only at FE
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    auto other_tensor = get_tensor_for_scalar(other.toDouble(), self.options());
+    return add_tensor_hpu_lazy_(self, other_tensor, alpha);
+  }
+
+  LazyOp<Tensor&> op("aten::add_", {self, other, alpha});
+  return op.call(self);
+}
+
+void add_tensor_hpu_lazy_inplace_parallel_impl(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0) {
+    at::Tensor mul_out;
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+      // For lazy eager Skip scalar handling at FE
+      mul_out = torch::mul(other, alpha);
+    } else {
+      at::Tensor alpha_tensor =
+          get_tensor_for_scalar(alpha_double, other.options());
+
+      auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
+      mul_out = torch::mul(other, alpha_tensor);
+    }
+    add_tensor_hpu_lazy_inplace_parallel_impl(self, mul_out, 1.0);
+  } else {
+    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
+    op.call(self);
+  }
+}
+
+Tensor& add_tensor_hpu_lazy_(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
+  PT_LAZY_TRACE;
+
+  auto alpha_double = alpha.toDouble();
+  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_double, other.options());
+  }
+
+  if (habana_lazy::AccThread::IsAccThreadEnabled()) {
+    // try to construct DTypeHelper to make sure,
+    // that type promotion does not throw due to incompatible dtypes
+    at::IValue ivalue(self);
+    auto output = c10::make_optional<const at::IValue*>(&ivalue);
+    auto dtype_helper =
+        habana_helpers::DTypeHelper::binary_op_with_type_promotion(
+            {self, other}, output, true);
+  }
+
+  handle_collective(self);
+  handle_collective(other);
+  auto op_func = [self, other, alpha]() mutable {
+    add_tensor_hpu_lazy_inplace_parallel_impl(self, other, alpha);
+  };
+
+  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
+}
+
 Tensor baddbmm_hpu_lazy(
     const Tensor& self,
     const Tensor& batch1,
@@ -6039,8 +6191,8 @@ std::tuple<Tensor, Tensor> _unique_hpu_lazy(
   if (return_inverse) {
     auto inverse_tensor = std::get<2>(output);
     // Index flipping to match the cpu results
-    Tensor subtracter = torch::add(valid_count, 1, -1);
-    auto inverse_result = torch::add(subtracter, inverse_tensor, -1);
+    Tensor subtracter = add_scalar_hpu_lazy(valid_count, 1, -1);
+    auto inverse_result = add_tensor_hpu_lazy(subtracter, inverse_tensor, -1);
     inverse_result =
         view_hpu(inverse_result, fromIntArrayRefUnchecked(self.sizes()));
 
