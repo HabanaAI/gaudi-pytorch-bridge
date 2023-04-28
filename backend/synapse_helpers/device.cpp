@@ -315,14 +315,12 @@ void dumpEnvSettings() {
     }
 
     std::clog
-        << "=============================SYSTEM CONFIGURATION ========================================= "
-        << "\n";
-    std::clog << "Num CPU Cores = " << std::thread::hardware_concurrency()
+        << "---------------------------: System Configuration :---------------------------\n";
+    std::clog << "Num CPU Cores : " << std::thread::hardware_concurrency()
               << "\n";
-    std::clog << "CPU RAM = " << GetSystemRamInKB() << " KB \n";
+    std::clog << "CPU RAM       : " << GetSystemRamInKB() << " KB\n";
     std::clog
-        << "============================================================================================ "
-        << "\n";
+        << "------------------------------------------------------------------------------\n";
   }
 }
 device::device(
