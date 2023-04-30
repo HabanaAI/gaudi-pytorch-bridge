@@ -322,7 +322,7 @@ class EagerOp : public EagerOpBase {
     auto stack = run({out_spec});
     HABANA_ASSERT(stack.size() == 1); // single output only
     auto out = stack.at(0).toTensor();
-    return out.item().to<T>();
+    return out.item().template to<T>();
   }
 
   template <typename T = ReturnType>
@@ -486,8 +486,8 @@ class EagerOp : public EagerOpBase {
       auto meta = m_output_meta(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
       auto output_meta = meta[0];
-      return at::empty(
-          output_meta.shape, output_meta.dtype, output_meta.mem_format);
+      auto options = at::TensorOptions(at::kHPU).dtype(output_meta.dtype);
+      return at::empty(output_meta.shape, options, output_meta.mem_format);
     }
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
@@ -516,11 +516,14 @@ class EagerOp : public EagerOpBase {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           std::tuple_size<T>::value == meta.size());
       ReturnType results;
+      auto options = at::TensorOptions(at::kHPU);
       habana::for_each_in_tuple_with_index(
           results, [&](auto& result, size_t index) {
             auto output_meta = meta[index];
             result = at::empty(
-                output_meta.shape, output_meta.dtype, output_meta.mem_format);
+                output_meta.shape,
+                options.dtype(output_meta.dtype),
+                output_meta.mem_format);
           });
       return results;
     }
@@ -560,12 +563,15 @@ class EagerOp : public EagerOpBase {
     if (m_output_meta) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta(get_inputs());
+      auto options = at::TensorOptions(at::kHPU);
       std::vector<at::Tensor> results;
 
       results.reserve(meta.size());
       for (const auto output_meta : meta) {
         results.emplace_back(at::empty(
-            output_meta.shape, output_meta.dtype, output_meta.mem_format));
+            output_meta.shape,
+            options.dtype(output_meta.dtype),
+            output_meta.mem_format));
       }
       return results;
     }
