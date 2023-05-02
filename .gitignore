@@ -17,4 +17,3 @@ __pycache__/
 .cache/
 *.egg-info
 test_pt_integration
-test_pt2_integration
