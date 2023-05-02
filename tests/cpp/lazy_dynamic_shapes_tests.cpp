@@ -2480,3 +2480,33 @@ TEST_F(LazyDynamicShapesTest, MatMulOutTest) {
   }
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
 }
+
+/*
+cat_out Op vaiant has issue.
+It will be enable after fix of jira: SW-120927
+*/
+TEST_F(LazyDynamicShapesTest, DISABLED_CatOutTest) {
+  torch::Tensor A = torch::randn({1, 8}, torch::dtype(torch::kFloat));
+  torch::Tensor B = torch::randn({1, 1}, torch::dtype(torch::kFloat));
+  torch::Tensor out1 = torch::empty(0, at::kFloat);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor h_out1 = out1.to(torch::kHPU);
+
+  torch::cat_outf({A, B}, 0, out1);
+  torch::cat_outf({hA, hB}, 0, h_out1);
+  EXPECT_EQ(allclose(h_out1.to(torch::kCPU), out1, 0.001, 0.001), true);
+
+  torch::Tensor X = torch::randn({1, 64566}, torch::dtype(torch::kFloat));
+  torch::Tensor Y = torch::randn({1, 599836}, torch::dtype(torch::kFloat));
+  torch::Tensor out2 = torch::empty(0, at::kFloat);
+
+  torch::Tensor hX = X.to(torch::kHPU);
+  torch::Tensor hY = Y.to(torch::kHPU);
+  torch::Tensor h_out2 = out2.to(torch::kHPU);
+
+  torch::cat_outf({X, Y}, 0, out2);
+  torch::cat_outf({hX, hY}, 0, h_out2);
+  EXPECT_EQ(allclose(h_out2.to(torch::kCPU), out2, 0.001, 0.001), true);
+}

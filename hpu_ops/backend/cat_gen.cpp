@@ -15,6 +15,46 @@
 
 namespace habana {
 
+void ValidateInputParams(
+    const at::Stack& stack,
+    std::vector<int64_t>& cal_out_shape) {
+  auto tensors = stack[0].toTensorList().vec();
+  auto out_result = stack[2].toTensor();
+  auto in_tensor_count = tensors.size();
+  auto input_tensor_type = tensors[0].scalar_type();
+  auto input_tensor_dim = tensors[0].dim();
+
+  for (unsigned i = 1; i < in_tensor_count; i++) {
+    TORCH_CHECK(
+        (input_tensor_type == tensors[i].scalar_type()),
+        "Input tensor expected to be of same type. Expected:",
+        input_tensor_type,
+        ", got:",
+        tensors[i].scalar_type());
+
+    TORCH_CHECK(
+        (input_tensor_dim == tensors[i].dim()),
+        "Input tensor expected to be of same dimensions. Expected:",
+        input_tensor_dim,
+        ", got:",
+        tensors[i].dim());
+  }
+
+  TORCH_CHECK(
+      (out_result.dim() == cal_out_shape.size()),
+      "Calculated Output tensor ambiguity with expected output dims. Calculated:",
+      cal_out_shape.size(),
+      ", got:",
+      out_result.dim());
+
+  TORCH_CHECK(
+      (out_result.sizes() == cal_out_shape),
+      "Calculated Output tensor shape is different than expected output shape. Calculated:",
+      cal_out_shape,
+      ", got:",
+      out_result.sizes());
+}
+
 sizes_vec CatOutOutputShape(const at::Stack& stack) {
   auto tensors = stack[0].toTensorList().vec();
   auto dim_ = stack[1].toInt();
@@ -51,7 +91,8 @@ void CatOutHabanaOperator::AddNode(
     cat_input_synTensor.emplace_back(syn_in(i));
   }
 
-  auto out_size = ComputeOutputShapes(stack)[0];
+  auto cal_out_size = ComputeOutputShapes(stack)[0];
+  ValidateInputParams(stack, cal_out_size);
 
   synConcatenateParams concat_params{};
   concat_params.axis = tensorlist[0].dim() - dim - 1;
@@ -60,7 +101,7 @@ void CatOutHabanaOperator::AddNode(
       graph,
       "concat",
       cat_input_synTensor,
-      {{{out_size}, result.scalar_type(), 0}},
+      {{{cal_out_size}, result.scalar_type(), 0}},
       &concat_params,
       sizeof(concat_params));
 
