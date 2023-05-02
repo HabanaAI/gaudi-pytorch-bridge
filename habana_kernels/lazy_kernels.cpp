@@ -5691,8 +5691,6 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
   // If self is a lazy tensor make sure the execution till the point of self
   // getting flled has finished before we start copying
   if (IsHbLazyTensor(self)) {
-    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-    hb_tensor = HbLazyTensorViews::HandleViewsOrUpdate(self, hb_tensor);
     if (self.device().type() == c10::DeviceType::HPU) {
       flush_op();
       // Trigger point execution
@@ -5701,9 +5699,10 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
       StageSubmission::getInstance().setStageSubmissionFlow(
           StageSubmission::Mode::SET_WHEN_ANY_ITEM_CALL);
     }
+
     // if there is a view, we need to sync before accessing the tensor_data.
     // This is because we skip view outputs in stepmarker
-    hb_tensor = GetHbLazyTensor(HbLazyTensorViews::HandleViewsD2H(self));
+    auto hb_tensor = GetHbLazyTensor(HbLazyTensorViews::HandleViewsD2H(self));
     auto tensor_data = hb_tensor.EvaluateTensorData();
     out = habana_helpers::_local_scalar_dense_internal(tensor_data);
   } else {
