@@ -171,6 +171,7 @@ void HlExec::Launch(
     launcher->Run(stack);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
+    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
 }

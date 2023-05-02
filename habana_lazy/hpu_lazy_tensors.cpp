@@ -1110,6 +1110,7 @@ void LaunchSyncTensorsGraph(
     } catch (...) {
       launch_except = std::current_exception();
       exception = true;
+      habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
     }
   } else {
     try {

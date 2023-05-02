@@ -9,9 +9,11 @@ class LazyMiscTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyMiscTest, CatchExceptionTest) {
   // TBD: revisit to check if there is anyway to enable this with DS
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    GTEST_SKIP();
+  bool org_state = habana_helpers::GetRefineDynamicShapeStatus();
+  if (org_state) {
+    habana_helpers::DisableRefineDynamicShape();
   }
+
   auto x = torch::randn({2, 3});
   auto y1 = torch::randn({4, 3});
 
@@ -29,6 +31,10 @@ TEST_F(LazyMiscTest, CatchExceptionTest) {
     return;
   }
   EXPECT_EQ(false, true);
+
+  if (org_state) {
+    habana_helpers::EnableRefineDynamicShape();
+  }
 }
 
 TEST_F(LazyMiscTest, CloneTest) {
@@ -89,9 +95,11 @@ TEST_F(LazyMiscTest, SliceInsertTest) {
 
 TEST_F(LazyMiscTest, SliceInsertIRTest) {
   // TBD: revisit to check if there is anyway to enable this with DS
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-    GTEST_SKIP();
+  bool org_state = habana_helpers::GetRefineDynamicShapeStatus();
+  if (org_state) {
+    habana_helpers::DisableRefineDynamicShape();
   }
+
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SLICE_INSERT)) {
     torch::Tensor tensor_in1 = torch::randn({2, 10}).to(torch::kHPU);
     tensor_in1 = tensor_in1.slice(1, 1, 9, 3);
@@ -103,7 +111,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
     std::vector<int> indices = {0};
 
     auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-    std::vector<at::Tensor> input_list{tensor_in1};
+    std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
 
     auto stack = torch::jit::Stack(
         std::make_move_iterator(input_list.begin()),
@@ -115,5 +123,9 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
     torch::jit::testing::FileCheck()
         .check_count("hpu::slice_insert", 1, true)
         ->run(*hlexec->get_graph());
+  }
+
+  if (org_state) {
+    habana_helpers::EnableRefineDynamicShape();
   }
 }
