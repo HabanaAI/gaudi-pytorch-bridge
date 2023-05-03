@@ -398,6 +398,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_USE_UNSORTED_SCATTER_ADD) &&
+      synapse_helpers::HPURegistrar::get_device().getDeterministic() == false &&
       synapse_helpers::HPURegistrar::get_device().type() !=
           synDeviceType::synDeviceGaudi) {
     if (self.scalar_type() == c10::ScalarType::BFloat16) {
