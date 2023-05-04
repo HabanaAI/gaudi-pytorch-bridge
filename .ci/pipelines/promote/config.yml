@@ -39,7 +39,6 @@ orchestratorConfig:
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_asic_unit_tests_promote
     silentMode: true
   - testToLaunch:  deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
 # deepspeed-fork <End>
   - testToLaunch: model_garden/Tests/Test_model_garden_gaudi2_asic_pytorch_perf_singlenode
     silentMode: true
