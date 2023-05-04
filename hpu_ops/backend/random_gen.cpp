@@ -89,7 +89,25 @@ void RandomSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
-  std::vector<synTensor> inputs{syn_in(1)};
+  // The following kernels have an optional tesor input before seed tensor
+  // (also optional) input. Eg stddev tensor. If we are not passing this tensor
+  // to TPC we should set it as null. This is because TPC requires that all
+  // leading unused optional tensors are passed as null if any valid tensor
+  // (eg. seed in this case) follows them.
+  static std::vector<std::string> guids_seed_tensor_pos_check = {
+      "random_normal", // TPC spec tensor list : {stddev(opt), seed(opt)}
+      "log_normal"}; // TPC spec tensor list : {stddev(opt), seed(opt)}
+
+  std::vector<synTensor> inputs;
+
+  for (size_t i = 0; i < guids_seed_tensor_pos_check.size(); i++) {
+    if (guid_.find(guids_seed_tensor_pos_check[i]) != std::string::npos) {
+      inputs.push_back(nullptr);
+      break;
+    }
+  }
+
+  inputs.push_back(syn_in(1)); // insert seed tensor
   CreateShapeTensorInput(
       graph,
       ScalarType() == c10::ScalarType::Int ? at::kFloat : ScalarType(),

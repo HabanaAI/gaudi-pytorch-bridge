@@ -54,8 +54,7 @@ TEST_F(HpuOpTest, normal_) {
   EXPECT_TRUE(result1.equal(result2));
 }
 
-// Disabled due to SW-14299
-TEST_F(HpuOpTest, DISABLED_log_normal_) {
+TEST_F(HpuOpTest, log_normal_) {
   GenerateInputs(2);
 
   auto result1 = GetHpuInput(0).log_normal_().cpu();
