@@ -362,8 +362,8 @@ def get_shape(item):
         return tuple([get_shape(k) for k in item])
     elif type(item) == type(tuple()):
         return tuple([get_shape(k) for k in item])
-    elif type(item) == type({}):
-        return tuple((get_shape(k),)+get_shape(item[k]) for k in item)
+    elif isinstance(item,dict):
+        return tuple((get_shape(k),get_shape(v)) for k,v in item.items())
     else:
         print(
             f'Found type{type(item)}, not of types list, tuple, dict or tensor so using hash')
