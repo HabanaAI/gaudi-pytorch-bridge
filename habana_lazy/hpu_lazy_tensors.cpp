@@ -319,6 +319,21 @@ void HbLazyTensor::ResetExecutionInProgress() const {
   data()->is_executing = false;
 }
 
+bool HbLazyTensor::IsOpAccumulationInProgress() const {
+  return data()->is_op_acc;
+}
+
+void HbLazyTensor::SetOpAccumulationInProgress() const {
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  std::lock_guard<std::mutex> lock(context->GetOpAccTidsMutex());
+  // note: we need to increment only once per op accmulation pphase
+  if (context->op_acc_tids.find(data()->unique_id) ==
+      context->op_acc_tids.end()) {
+    data()->is_op_acc++;
+    context->op_acc_tids.emplace(data()->unique_id);
+  }
+}
+
 const ir::Value& HbLazyTensor::GetIrValue() const {
   ir::Value& ir_value = CurrentIrValue();
   if (ir_value) {
@@ -958,6 +973,7 @@ void PostLaunch(
     torch::jit::Stack& stack,
     std::vector<int>& indices,
     std::vector<int64_t>& executing_indices,
+    std::set<int64_t>& accumulated_indices,
     std::vector<at::Tensor>& retained_tensor_list,
     bool is_exception,
     [[maybe_unused]] bool is_OptimizedLazyEager = false) {
@@ -977,6 +993,7 @@ void PostLaunch(
   }
 
   context->MarkTensorsExecuted(device, executing_indices);
+  context->ClearOpAccmulationFlag(device, accumulated_indices);
 
   SBSDebug::getInstance().CompareTensors(*tensors);
 
@@ -1002,6 +1019,8 @@ struct LaunchTensorsInfo {
   std::vector<int> indices;
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
+  // Tensorids list that are marked in accumulation phase
+  std::set<int64_t> op_acc_tids;
   habana_lazy::ir::PostOrderData po_data;
   exec::HlExec hlexec;
   torch::jit::Stack stack;
@@ -1142,6 +1161,7 @@ void LaunchSyncTensorsGraph(
       launch_info.stack,
       launch_info.indices,
       launch_info.executing_tids,
+      launch_info.op_acc_tids,
       lazy_eager_info.retained_tensor_list,
       exception);
 
@@ -1449,6 +1469,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       std::move(input_list),
       indices,
       std::move(executing_tids),
+      std::move(context->op_acc_tids),
       std::move(po_data),
       hlexec,
       stack,
@@ -1631,7 +1652,7 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
           GetHbLazyTensor(dest->getDataPtr()->tensor_shallow_copy.value());
     }
 
-    if (!hl_dest_updated.IsExecutionInProgress()) {
+    if (!hl_dest_updated.IsOpAccumulationInProgress()) {
       dest->SetTensorData(*data_tensor);
     }
   }

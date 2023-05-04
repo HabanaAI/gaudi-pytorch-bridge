@@ -81,8 +81,8 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
 
   auto hl_dst = GetOrCreateHbLazyTensor(dst);
   auto hl_src = GetHbLazyTensor(src);
-  hl_src.SetExecutionInProgress();
-  hl_dst.SetExecutionInProgress();
+  hl_src.SetOpAccumulationInProgress();
+  hl_dst.SetOpAccumulationInProgress();
 
   // add control edge to avoid GC error " writing to already
   // registered graph output"

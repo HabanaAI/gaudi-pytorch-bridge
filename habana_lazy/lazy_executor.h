@@ -123,6 +123,34 @@ class HbExecutionContext {
     }
   }
 
+  void ClearOpAccmulationFlag(
+      const c10::Device& device,
+      const std::set<int64_t>& acc_indices) {
+    // ensure that Data is destroyed outside of HbContextArena mutex
+    // to avoid deadlock with StridedViewContext mutex that can be
+    // acquired during Data d'tors
+    std::vector<std::shared_ptr<Data>> data_tensors;
+    data_tensors.reserve(acc_indices.size());
+    {
+      std::lock_guard<std::recursive_mutex> lock(
+          habana_lazy::HbContextArena::Get()->GetMutex());
+      HbContext* devctx =
+          habana_lazy::HbContextArena::Get()->GetHbContext(device);
+
+      for (const auto& k : acc_indices) {
+        if (devctx->tensors_data.find(k) != devctx->tensors_data.end()) {
+          std::shared_ptr<Data> data = devctx->tensors_data.at(k).lock();
+          data_tensors.push_back(data);
+          if (data != nullptr) {
+            if (data->is_op_acc) {
+              data->is_op_acc--;
+            }
+          }
+        }
+      }
+    }
+  }
+
   void MarkAllTensorsExecuted(const c10::Device& device) {
     HbContext* devctx =
         habana_lazy::HbContextArena::Get()->GetHbContext(device);
@@ -244,6 +272,10 @@ class HbExecutionContext {
     return m_hblazy_tensors;
   }
 
+  std::mutex& GetOpAccTidsMutex() {
+    return m_op_acc_tid_mtx;
+  }
+
   void clear() {
     viewContext.hb_tensors_exclude_out_view.clear();
     m_retained_tensor_list.clear();
@@ -269,6 +301,11 @@ class HbExecutionContext {
     }
 
     viewContext.updated_bucket_list.clear();
+
+    {
+      std::lock_guard<std::mutex> lock(GetOpAccTidsMutex());
+      op_acc_tids.clear();
+    }
   }
 
   void resetGraph() {
@@ -323,6 +360,10 @@ class HbExecutionContext {
   // Tensorids list which is part of current exec thread
   std::vector<int64_t> executing_tids;
 
+  // Ids of tensors whose is_op_acc field is set
+  // These tids are used to reset them post launch
+  std::set<int64_t> op_acc_tids;
+
   thread_local static bool m_async_d2h_context;
 
   void AddToJobidStreamidMap(
@@ -350,6 +391,7 @@ class HbExecutionContext {
   std::unordered_map<uint64_t, synapse_helpers::hpuStream_t>
       m_jobid_streamid_map;
   std::mutex m_jobid_streamid_map_mtx;
+  std::mutex m_op_acc_tid_mtx;
 };
 
 class HbExecutionContextArena {

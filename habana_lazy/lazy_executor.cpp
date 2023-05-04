@@ -80,7 +80,6 @@ std::uint64_t HbExecutionContext::GetUniqueJobId() {
 
 void HbExecutionContext::JoinPendingLaunchThread(bool wait_only) {
   PT_LAZY_TRACE;
-
   if (m_launch_thread_handle.valid()) {
     if (!m_launch_thread_context) {
       PT_LAZY_EXEC_THREAD("Waiting for launch thread to finish");

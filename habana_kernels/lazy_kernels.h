@@ -1391,7 +1391,7 @@ class LazyOp {
           }
         } else {
           // hpu input tensors
-          GetHbLazyTensor(tensor).SetExecutionInProgress();
+          GetHbLazyTensor(tensor, true, false).SetOpAccumulationInProgress();
         }
       }
 

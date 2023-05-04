@@ -93,6 +93,7 @@ struct Data {
   // is_executing flag is set to true if this tensor is part of launch
   // thread. Reset after launch is completed
   bool is_executing = false;
+  std::atomic<unsigned int> is_op_acc{0};
   ir::LazyView parent_view;
   int num_views = 0;
   // Version counter tracks the number of times we use tensor as output
@@ -259,6 +260,8 @@ class HbLazyTensor {
   bool IsExecutionInProgress() const;
   void SetExecutionInProgress() const;
   void ResetExecutionInProgress() const;
+  bool IsOpAccumulationInProgress() const;
+  void SetOpAccumulationInProgress() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
   /* Produces underlying data Tensor.
