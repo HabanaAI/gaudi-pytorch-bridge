@@ -13,7 +13,14 @@ namespace habana {
 
 struct RaggedSoftmax : OpBackend {
   RaggedSoftmax(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(device_id, "softmax_fwd_", scalar_type, {0}, {}, {}, false) {
+      : OpBackend(
+            device_id,
+            "ragged_softmax_fwd_",
+            scalar_type,
+            {0},
+            {},
+            {},
+            false) {
     SetFillParams(FillSoftmaxForwardParams);
   }
 };
