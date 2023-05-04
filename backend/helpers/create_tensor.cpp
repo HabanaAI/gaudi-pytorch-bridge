@@ -190,8 +190,12 @@ synapse_helpers::tensor create_tensor(
       builder.use_suffix(name);
     }
 
+    // To avoid special device index(-1) when it use
+    // StorageLessWrapperTensorImpl to create tensor
+    auto device_index =
+        tensor.device().index() == -1 ? 0 : tensor.device().index();
     auto variant = builder.build(
-        synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+        synapse_helpers::HPURegistrar::get_device(device_index),
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -268,8 +272,12 @@ synapse_helpers::tensor create_tensor(
     builder.use_suffix(name);
   }
 
+  // To avoid special device index(-1) when it use
+  // StorageLessWrapperTensorImpl to create tensor
+  auto device_index =
+      tensor.device().index() == -1 ? 0 : tensor.device().index();
   auto variant = builder.build(
-      synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+      synapse_helpers::HPURegistrar::get_device(device_index),
       graph.get_graph_handle());
   if (absl::holds_alternative<synapse_helpers::synapse_error>(variant)) {
     auto error = absl::get<synapse_helpers::synapse_error>(variant);

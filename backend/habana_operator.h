@@ -247,6 +247,7 @@ class OutputMetaData {
   bool external{false};
   at::ScalarType dtype{at::ScalarType::Undefined};
   std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
   at::Layout layout;
   at::MemoryFormat mem_format;
   std::optional<at::Tensor> allocated_tensor;

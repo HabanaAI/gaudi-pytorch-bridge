@@ -506,6 +506,8 @@ void OpBackend::PopulateMetadata(
     for (int i = 0; i < m_output_metadata.size(); ++i) {
       m_output_metadata[i].shape = meta[i].shape;
       m_output_metadata[i].dtype = meta[i].dtype;
+      m_output_metadata[i].strides = meta[i].strides;
+      m_output_metadata[i].mem_format = meta[i].mem_format;
     }
   } else if (m_res_ids.size()) {
     auto outshapes = ComputeOutputShapes(stack);

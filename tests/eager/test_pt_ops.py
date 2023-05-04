@@ -1,4 +1,6 @@
 import functools
+import numpy as np
+import pytest
 import torch
 import pytest
 import habana_frameworks.torch.core as htcore
@@ -79,3 +81,53 @@ def test_clone(mode, memory_format):
         result_cpu = raw_function(cpu_tensor)
         result_hpu = raw_function(hpu_tensor).to("cpu")
         assert torch.equal(result_cpu, result_hpu)
+
+@pytest.mark.parametrize("size_stride", [
+                        ((20, 20), (20, 1)),
+                        ((20, 20), (30, 1))])
+def test_empty_strided(mode, size_stride):
+    def test(size, stride, device):
+        x = torch.empty_strided(size, stride, device=device)
+        return x
+
+    size, stride = size_stride
+    hpu_device = torch.device("hpu")
+    cpu_device = torch.device("cpu")
+
+    if mode == "graph":
+        result_nocompile = test(size, stride, hpu_device)
+        compiled_function_training = torch.compile(test, backend="aot_hpu_training_backend")
+        result_compile = compiled_function_training(size, stride, hpu_device)
+        assert (result_nocompile.size() == result_compile.size() \
+            and result_nocompile.dtype == result_compile.dtype \
+            and result_nocompile.stride() == result_compile.stride())
+    else:
+        result_cpu = test(size, stride, cpu_device)
+        result_hpu = test(size, stride, hpu_device)
+        assert (result_hpu.size() == result_cpu.size() \
+            and result_hpu.dtype == result_cpu.dtype \
+            and result_hpu.stride() == result_cpu.stride())
+
+@pytest.mark.parametrize("memory_format", [
+                        None,
+                        torch.contiguous_format])
+@pytest.mark.parametrize("size", [(2, 3, 4, 5)])
+def test_empty_memory_format(mode, size, memory_format):
+    def test(size, device, memory_format):
+        x = torch.empty(size, device=device, memory_format=memory_format)
+        return x
+
+    hpu_device = torch.device("hpu")
+    cpu_device = torch.device("cpu")
+
+    if mode == "graph":
+        result_nocompile = test(size, hpu_device, memory_format)
+        compiled_function = torch.compile(test, backend="aot_hpu_training_backend")
+        result_compile = compiled_function(size, hpu_device, memory_format)
+        assert (result_nocompile.size() == result_compile.size() \
+            and result_nocompile.dtype == result_compile.dtype)
+    else:
+        result_cpu = test(size, cpu_device, memory_format)
+        result_hpu = test(size, hpu_device, memory_format)
+        assert (result_hpu.size() == result_cpu.size() \
+            and result_hpu.dtype == result_cpu.dtype)
