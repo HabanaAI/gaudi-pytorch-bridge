@@ -375,18 +375,24 @@ void MaxPool2DWithIndices::AddNode(
   size_t size = 0;
   const auto& params = FillParams(stack, size);
 
-  auto index_type = FindRetainTensorType(ScalarType());
+  auto retain_tensor_type = FindRetainTensorType(ScalarType());
 
   auto maxpool2d = BuildOp(
       graph,
       "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
-      {{out_shape, index_type, 1}, {out_shape, ScalarType(), 0}},
+      {{out_shape, retain_tensor_type}, {out_shape, ScalarType(), 0}},
       params.get(),
       size);
 
   syn_out(0) = std::move(maxpool2d[1]);
-  syn_out(1) = std::move(maxpool2d[0]);
+  syn_out(1) = CastHelper(
+      graph,
+      maxpool2d.at(0).get(),
+      out_shape,
+      retain_tensor_type,
+      at::kLong,
+      1);
 }
 
 // Since the out varriant intices tensor has some issue
@@ -398,8 +404,15 @@ void MaxPool2DWithIndicesBwd::AddNode(
   size_t size = 0;
   const auto& params = FillParams(stack, size);
 
-  std::vector<synTensor> grad = {syn_in(0), syn_in(2)};
-  this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape[0], grad);
+  auto cast_input = CastHelper(
+      graph,
+      syn_in(2),
+      stack[7].toTensor().sizes(),
+      at::kLong,
+      FindRetainTensorType(ScalarType()));
+
+  std::vector<synTensor> grad = {syn_in(0), cast_input.get()};
+  CreateShapeTensorInput(graph, ScalarType(), out_shape[0], grad);
 
   auto maxpool2d_gradout = BuildOp(
       graph,

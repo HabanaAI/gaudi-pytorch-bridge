@@ -571,21 +571,7 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     std::vector<synapse_helpers::tensor> out;
     out.reserve(output_attrs_size);
 
-    std::vector<NodeAttr::NodeOutputAttr> ordered_output_attrs =
-        node_attr.output_attrs;
-    if (output_attrs_size > 1) {
-      // Rearrange output_attrs as per final_result_index
-      for (auto i = 0; i < output_attrs_size; ++i) {
-        const auto& attr = node_attr.output_attrs.at(i);
-        if (attr.final_result_index.has_value()) {
-          ordered_output_attrs.at(attr.final_result_index.value()) = attr;
-        } else {
-          ordered_output_attrs.at(i) = attr;
-        }
-      }
-    }
-
-    for (const auto& attr : ordered_output_attrs) {
+    for (const auto& attr : node_attr.output_attrs) {
       const auto& attr_strides = HabanaOperator::CalculateStrides(
           attr.sizes.vec(), at::MemoryFormat::Contiguous);
       const auto& md = TensorMetaData(
