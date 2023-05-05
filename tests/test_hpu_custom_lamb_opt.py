@@ -10,16 +10,14 @@
 #
 # ******************************************************************************
 
-import torch
+import copy
+
+import habana_frameworks.torch.core as htcore
 import pytest
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import habana_frameworks.torch.core as htcore
-from habana_frameworks.torch import _hpex_C
-from test_utils import compare_tensors
-import copy
-from test_utils import *
+from test_utils import compare_tensors, cpu, hpu
 
 
 def reference_lamb_fused_norm(grads, max_grad_norm):
@@ -35,6 +33,7 @@ def reference_lamb_fused_norm(grads, max_grad_norm):
         clip_global_grad_norm = torch.tensor([1.0], dtype=grads[0].dtype)
     return clip_global_grad_norm
 
+
 def create_grads(dtypes, shapes):
     torch.manual_seed(0)
     cpu_grads, hpu_grads = [], []
@@ -43,26 +42,25 @@ def create_grads(dtypes, shapes):
         hpu_grads.append(cpu_grads[-1].to(hpu))
     return cpu_grads, hpu_grads
 
+
 @pytest.mark.parametrize("max_grad_norm", (0.2, 1.0, 4.0, 8))
-@pytest.mark.parametrize("dtypes, shapes", (([(3, 4), (5, 6)], [torch.float, torch.float]),
-                                            ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16])))
-@pytest.mark.parametrize("fn", (torch.ops.hpu.optimizer_lamb_fused_norm,
-                                _hpex_C.fused_lamb_norm
-                                ))
-def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm, fn):
+@pytest.mark.parametrize(
+    "dtypes, shapes",
+    (
+        ([(3, 4), (5, 6)], [torch.float, torch.float]),
+        ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16]),
+    ),
+)
+def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm):
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
-    result = fn(hpu_grads, max_grad_norm)
+
+    result = torch.ops.hpu.optimizer_lamb_fused_norm(hpu_grads, max_grad_norm)
     reference = reference_lamb_fused_norm(cpu_grads, max_grad_norm)
-    if shapes[0] == torch.bfloat16:
-        result = result.to(torch.float)
-        reference = reference.to(torch.float)
-    result = np.array(result.cpu())
-    reference = np.array(reference)
-    assert np.allclose(result, reference, rtol=1e-05, atol=1e-08)
+
+    compare_tensors(result, reference, atol=1e-08, rtol=1e-05)
 
 
 def test_lamb0():
-    import habana_frameworks.torch.core as htcore
     from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
     class TinyModel(nn.Module):
@@ -77,11 +75,22 @@ def test_lamb0():
     m_hpu = TinyModel().to(hpu)
 
     param_optimizer = list(m_hpu.named_parameters())
-    no_decay = ['bias', 'gamma', 'beta', 'LayerNorm']
+    no_decay = ["bias", "gamma", "beta", "LayerNorm"]
 
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
+        {
+            "params": [
+                p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": 0.01,
+        },
+        {
+            "params": [
+                p for n, p in param_optimizer if any(nd in n for nd in no_decay)
+            ],
+            "weight_decay": 0.0,
+        },
+    ]
 
     opt_hpu_fl = FusedLamb(optimizer_grouped_parameters, lr=0.1)
     opt_hpu_fl.zero_grad()
@@ -124,7 +133,7 @@ class MNISTNet(nn.Module):
 test_case_list = [
     # iterations, lr,
     (1, 0.001),
-    (1, 0.01)
+    (1, 0.01),
 ]
 
 

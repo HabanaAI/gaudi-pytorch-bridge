@@ -13,7 +13,6 @@
 #include <torch/extension.h>
 
 #include "bindings.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "transformer_engine/common.h"
@@ -215,12 +214,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "fused_lamb_phase2",
       &optimizer_lamb_phase2_hpu_wrap,
       "Compute and apply gradient update to parameters for lamb optimizer phase2");
-  // TODO: Remove fused_lamb_norm when all references from _hpex_C will be
-  // removed
-  m.def(
-      "fused_lamb_norm",
-      &habana_lazy::optimizer_lamb_fused_norm_hpu_lazy,
-      "Compute and apply global grad norm for lamb optimizer");
   m.def(
       "fused_adagrad",
       &optimizer_fused_adagrad,
