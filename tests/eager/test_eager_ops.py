@@ -1,18 +1,19 @@
 import os
 
 import torch
-
-assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
-
 import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 
-@pytest.mark.parametrize("data1, data2", [
-                                          ((2,), (1,)),
-                                          ((2,3), (2,3)),
-                                          ((6,), (6, 0)),
-                                         ])
+
+@pytest.mark.parametrize(
+    "data1, data2",
+    [
+        ((2,), (1,)),
+        ((2, 3), (2, 3)),
+        ((6,), (6, 0)),
+    ],
+)
 def test_equal(data1, data2):
     cpu_tensor1 = torch.Tensor(data1).type(torch.float32)
     hpu_tensor1 = cpu_tensor1.to("hpu")
@@ -25,10 +26,8 @@ def test_equal(data1, data2):
 
     assert hpu_result == cpu_result
 
-@pytest.mark.parametrize("shape_in, shape_out", [((2,3), (4,6)),
-                                                 ((4,6), (2,3)),
-                                                   ((2,3,4,5), (3,4,5,6))
-                                                   ])
+
+@pytest.mark.parametrize("shape_in, shape_out", [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))])
 def test_resize_inplace(shape_in, shape_out):
     num_elements = np.multiply.reduce(shape_in)
     cpu_tensor = torch.Tensor(np.reshape(np.arange(num_elements, dtype=np.int32), shape_in)).type(torch.int32)
@@ -38,14 +37,16 @@ def test_resize_inplace(shape_in, shape_out):
 
     assert np.array_equal(result_hpu, result_cpu)
 
+
 def test_clone():
     cpu_tensor = torch.rand([2])
     hpu_tensor = cpu_tensor.to("hpu")
 
-    result_cpu = copy.deepcopy(cpu_tensor)
-    result_hpu = copy.deepcopy(hpu_tensor).to("cpu")
+    result_cpu = cpu_tensor.clone()
+    result_hpu = hpu_tensor.clone().to("cpu")
 
     assert torch.equal(result_hpu, result_cpu)
+
 
 def test_relu():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
@@ -226,6 +227,7 @@ def test_relu2d_contiguous():
     result_cpu = torch.relu(cpu_tensor)
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
+
 def test_batch_norm():
     torch.manual_seed(10)
     N = 2
@@ -235,36 +237,30 @@ def test_batch_norm():
 
     # 1. Compute BN Fwd + Bwd on CPU
     cpu_inputs = {
-        'input': torch.randn(N, C, H, W, requires_grad=True),
-        'running_mean': torch.randn(C),
-        'running_var': torch.randn(C) + 1,
-        'weight': torch.randn(C, requires_grad=True) + 1,
-        'bias': torch.randn(C, requires_grad=True),
+        "input": torch.randn(N, C, H, W, requires_grad=True),
+        "running_mean": torch.randn(C),
+        "running_var": torch.randn(C) + 1,
+        "weight": torch.randn(C, requires_grad=True) + 1,
+        "bias": torch.randn(C, requires_grad=True),
     }
     cpu_res = torch.nn.functional.batch_norm(**cpu_inputs)
     cpu_grad_outputs = torch.randn(N, C, H, W)
-    (cpu_input_grad,
-     cpu_weight_grad,
-     cpu_bias_grad) = torch.autograd.grad(
-                        outputs=cpu_res,
-                        inputs=[v for k, v in cpu_inputs.items() if
-                                k in ['input', 'bias', 'weight']],
-                        grad_outputs=cpu_grad_outputs)
+    (cpu_input_grad, cpu_weight_grad, cpu_bias_grad) = torch.autograd.grad(
+        outputs=cpu_res,
+        inputs=[v for k, v in cpu_inputs.items() if k in ["input", "bias", "weight"]],
+        grad_outputs=cpu_grad_outputs,
+    )
 
     # 2. Compute BN Fwd + Bwd on HPU
-    hpu_inputs = {
-        k: v.to("hpu") for k, v in cpu_inputs.items()
-    }
+    hpu_inputs = {k: v.to("hpu") for k, v in cpu_inputs.items()}
 
     hpu_res = torch.nn.functional.batch_norm(**hpu_inputs)
     hpu_grad_outputs = cpu_grad_outputs.to("hpu")
-    (hpu_input_grad,
-     hpu_weight_grad,
-     hpu_bias_grad) = torch.autograd.grad(
-                        outputs=hpu_res,
-                        inputs=[v for k, v in hpu_inputs.items() if
-                                k in ['input', 'bias', 'weight']],
-                        grad_outputs=hpu_grad_outputs)
+    (hpu_input_grad, hpu_weight_grad, hpu_bias_grad) = torch.autograd.grad(
+        outputs=hpu_res,
+        inputs=[v for k, v in hpu_inputs.items() if k in ["input", "bias", "weight"]],
+        grad_outputs=hpu_grad_outputs,
+    )
 
     hpu_res = hpu_res.to("cpu")
     hpu_input_grad = hpu_input_grad.to("cpu")
@@ -276,12 +272,14 @@ def test_batch_norm():
     assert torch.allclose(hpu_weight_grad, cpu_weight_grad, atol=1e-3)
     assert torch.allclose(hpu_bias_grad, cpu_bias_grad, atol=1e-3)
 
+
 def test_pow2d_contiguous():
     cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
     hpu_tensor = cpu_tensor.to("hpu")
     result_hpu = torch.pow(hpu_tensor, 2).to("cpu")
     result_cpu = torch.pow(cpu_tensor, 2)
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
 
 def test_clamp_variants():
     min = None
@@ -304,6 +302,7 @@ def test_clamp_variants():
     result_cpu = torch.clamp(cpu_tensor, min, max)
     assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)
 
+
 def test_add():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
     hpu_tensor = cpu_tensor.to("hpu")
@@ -312,6 +311,7 @@ def test_add():
     result_cpu = torch.add(cpu_tensor, 2)
 
     assert torch.equal(result_hpu, result_cpu)
+
 
 def test_add_with_alpha():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
@@ -322,6 +322,7 @@ def test_add_with_alpha():
 
     assert torch.equal(result_hpu, result_cpu)
 
+
 def test_div():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
     hpu_tensor = cpu_tensor.to("hpu")
@@ -330,6 +331,7 @@ def test_div():
     result_cpu = torch.div(cpu_tensor, 3)
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
 
 def test_eq():
     cpu_tensor = torch.randint(0, 2, (10,), dtype=torch.int32)
@@ -340,11 +342,12 @@ def test_eq():
 
     assert torch.equal(result_hpu, result_cpu)
 
+
 def test_sub():
-    cpu_tensor = torch.randn(2,3)
+    cpu_tensor = torch.randn(2, 3)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    result_cpu = torch.randn(2,3)
+    result_cpu = torch.randn(2, 3)
     result_hpu = result_cpu.to("hpu")
 
     torch.sub(1.0, cpu_tensor, alpha=2, out=result_cpu)
@@ -353,6 +356,7 @@ def test_sub():
     result_hpu = result_hpu.to("cpu")
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+
 
 def test_wrapped_number_tensors():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
@@ -374,6 +378,7 @@ def test_wrapped_number_tensors():
 
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
 
+
 def test_where_variants():
     self = torch.randn(3, 5, 7, dtype=torch.float32)
     other = torch.randn(7, dtype=torch.float32)
@@ -389,3 +394,14 @@ def test_where_variants():
     torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu)
     assert torch.equal(where_out_hpu.to("cpu"), where_out_cpu)
 
+
+# For Scalars to() operator and item() are going with different paths for scalars
+# copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
+# both should support INT64 downcasting
+@pytest.mark.parametrize("init_val, dtype", [(1234567, torch.int64), (12345.678, torch.double)])
+def test_local_scalar_dense(init_val, dtype):
+    hpu_tensor = torch.Tensor([init_val]).type(dtype).to("hpu")
+    if dtype == torch.double:
+        assert np.allclose([hpu_tensor.item()], [init_val], atol=0.001, rtol=0.001)
+    else:
+        assert hpu_tensor.item() == init_val

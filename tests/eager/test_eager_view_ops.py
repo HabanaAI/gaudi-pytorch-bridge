@@ -1,7 +1,6 @@
 import os
 import pytest
 import torch
-assert torch.__version__.startswith("2.0"), "Test suite only for PT2.0"
 import numpy as np
 
 os.environ["PT_HPU_LAZY_MODE"] = "0"

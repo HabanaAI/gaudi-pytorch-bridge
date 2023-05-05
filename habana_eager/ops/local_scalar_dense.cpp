@@ -14,6 +14,7 @@
 #include <ATen/Dispatch.h>
 #include <ATen/core/TensorBody.h>
 #include <pybind11/pybind11.h>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/helpers.h"
 #include "habana_helpers/frontend_utils.h"
@@ -48,6 +49,14 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
             elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
         habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
+        // copy_from_ operator is doing implicit down/upcasting
+        // for Long and Double. _local_scalar_dense_hpu needs to preserve it
+        if (self.scalar_type() == c10::ScalarType::Long &&
+            !GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+          val = *reinterpret_cast<int32_t*>(&val);
+        } else if (self.scalar_type() == c10::ScalarType::Double) {
+          val = *reinterpret_cast<float*>(&val);
+        }
         r = c10::Scalar(val);
       });
   return r;
