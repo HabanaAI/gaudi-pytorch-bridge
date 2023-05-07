@@ -1244,7 +1244,7 @@ run_pytorch_modules_tests()
         	__test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
         echo "Running tests on Gaudi2"
-	(set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:BCELogitsLossTest/LazyLossKernelWithParamsTest.BCELogitsLossTest/4:logical_not_outf/LogicalNotHpuOpTest.logical_not_outf/0:logical_xor_/LogicalInplaceHpuOpTest.*:LazyInferencePassTest.linear:TypePromotion/BinaryIntToFloatPromotion.div/FloatxIntxFloat:TestStream.TestWAR_multistream:TypePromotion/BinaryIntToFloatPromotion.div/*:logical_and_/LogicalInplaceHpuOpTest.*:SBS/SBSWithParamsTest*:UniqueDimTest/UniqueDimParameterizedTestFixture.tests/*:logical_xor/LogicalHpuOpTest*:logical_xor_outf/LogicalOutHpuOpTest.*:logical_or/LogicalHpuOpTest*:logical_or_outf/LogicalOutHpuOpTest*:HpuOpTest.addbmm_inplace_3:HpuOpTest.addmm_inplace_2:logical_or_/LogicalInplaceHpuOpTest* $__cpp_filter)
+	(set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:LazyInferencePassTest.linear $__cpp_filter)
     		__test_status=$?
 	elif [ "$__dut" == "gaudi3" ]; then
 	echo "Running tests on Gaudi3"
