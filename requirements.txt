@@ -11,5 +11,6 @@ yamllint
 pkginfo
 requests
 packaging
+urllib3<2  # otherwise we break Amazon Linux 2 builds
 wheel==0.38.4
 habana_pyhlml
