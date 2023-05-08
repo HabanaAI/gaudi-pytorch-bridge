@@ -491,7 +491,7 @@ synapse_error_o tensor::create() {
       if (is_const_section_) {
         host_ptr_size_ = total_size_bytes_;
         status = synTensorSetHostPtr(
-            tensor_, host_ptr_, total_size_bytes_, data_type_, false);
+            tensor_, host_ptr_, total_size_bytes_, data_type_, true);
         SYNAPSE_SUCCESS_CHECK_WITH_OP(
             "synTensorSetHostPtr min sizes failed.", status, cleanup());
       }
