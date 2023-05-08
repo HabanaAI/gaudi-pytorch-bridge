@@ -189,6 +189,72 @@ class MemoryDefragmentationMetric(Metric):
         self.stop()
 
 
+class RecipeCacheMetric(Metric):
+    _TOTAL_CACHE_HIT_TAG = "TotalHit"
+    _RECIPE_CACHE_HIT_TAG = "RecipeHit"
+    _TOTAL_CACHE_MISS_TAG = "TotalMiss"
+    _RECIPE_CACHE_MISS_TAG = "RecipeMiss"
+    _RECIPE_ID_EVENT_NAME = "recipe_id"
+
+    def __init__(self):
+        self.total_cache_hit = 0
+        self.total_recipe_cache_hit = {}
+        self.total_cache_miss = 0
+        self.total_recipe_cache_miss =  {}
+        self._ed = EventDispatcher.instance()
+        self._handle_hit = None
+        self._handle_miss = None
+        self.start()
+
+    def _get_hit_event_callback_fn(self):
+        def callback(timestamp, event_params):
+            event_params = dict(event_params)
+            self.total_cache_hit += 1
+            recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
+            self.total_recipe_cache_hit[recipe_id] = self.total_recipe_cache_hit.get(recipe_id, 0) + 1
+            self.notify(timestamp, event_params)
+        return callback
+
+    def _get_miss_event_callback_fn(self):
+        def callback(timestamp, event_params):
+            event_params = dict(event_params)
+            self.total_cache_miss += 1
+            recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
+            self.total_recipe_cache_miss[recipe_id] = self.total_recipe_cache_miss.get(recipe_id, 0) + 1
+            self.notify(timestamp, event_params)
+        return callback
+
+    def name(self):
+        return "recipe_cache"
+
+    def start(self):
+        if not self._handle_hit:
+            self._handle_hit = self._ed.subscribe(EventId.CACHE_HIT, self._get_hit_event_callback_fn())
+        if not self._handle_miss:
+            self._handle_miss = self._ed.subscribe(EventId.CACHE_MISS, self._get_miss_event_callback_fn())
+
+    def stop(self):
+        if self._handle_hit:
+            self._ed.unsubscribe(self._handle_hit)
+            self._handle_hit = None
+        if self._handle_miss:
+            self._ed.unsubscribe(self._handle_miss)
+            self._handle_miss = None
+
+    def stats(self):
+        return [(self._TOTAL_CACHE_HIT_TAG, self.total_cache_hit), (self._RECIPE_CACHE_HIT_TAG, self.total_recipe_cache_hit),
+                (self._TOTAL_CACHE_MISS_TAG, self.total_cache_miss), (self._RECIPE_CACHE_MISS_TAG, self.total_recipe_cache_miss)]
+
+    def reset(self):
+        self.total_cache_hit = 0
+        self.total_recipe_cache_hit = {}
+        self.total_cache_miss = 0
+        self.total_recipe_cache_miss =  {}
+
+    def __del__(self):
+        self.stop()
+
+
 class CpuFallbackMetric(Metric):
     _TOTAL_FALLBACKS_TAG = "TotalNumber"
     _FALLBACK_OPS_TAG = "FallbackOps"
@@ -293,6 +359,7 @@ def _init_metric_mgr():
     _metric_mgr.register("graph_compilation", GraphCompilationMetric)
     _metric_mgr.register("cpu_fallback", CpuFallbackMetric)
     _metric_mgr.register("memory_defragmentation", MemoryDefragmentationMetric)
+    _metric_mgr.register("recipe_cache", RecipeCacheMetric)
 
 
 _init_metric_mgr()
