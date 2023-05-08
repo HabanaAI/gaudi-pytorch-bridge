@@ -516,6 +516,15 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
+at::Tensor habana_split_permute_cat_wrap(
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    int64_t batch_size,
+    int64_t num_features,
+    int64_t dims) {
+  EAGER_NOT_SUPPORTED;
+}
+
 at::Tensor habana_expand_into_jagged_permute_wrap(
     const at::Tensor& permute,
     const at::Tensor& input_offsets,
