@@ -502,8 +502,8 @@ class EagerOp : public EagerOpBase {
       options = options.dtype(m_scalar_types[0]);
     }
     auto mem_format{
-        out_shape.empty() ? at::MemoryFormat::Contiguous
-                          : t.suggest_memory_format()};
+        out_shape.size() < 4 ? at::MemoryFormat::Contiguous
+                             : t.suggest_memory_format()};
     return at::empty(out_shape, options, mem_format);
   }
 
