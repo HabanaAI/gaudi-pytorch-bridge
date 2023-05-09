@@ -58,5 +58,4 @@ at::Tensor slice(
     const at::Tensor& self,
     c10::SymIntArrayRef split_sizes,
     int64_t dim);
-
 } // namespace hpu_wrap

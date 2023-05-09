@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "generated/backend/_foreach_abs.h"
 #include "generated/backend/_foreach_acos.h"
 #include "generated/backend/_foreach_add.h"
 #include "generated/backend/_foreach_exp.h"

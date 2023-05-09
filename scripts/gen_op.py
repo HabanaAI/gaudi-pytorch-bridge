@@ -269,6 +269,7 @@ using tuple_vector_tensor = std::tuple<::std::vector<Tensor>,Tensor>;
 using tuple_tensor_2_vectors = std::tuple<Tensor,::std::vector<Tensor>,::std::vector<Tensor>>;
 using tuple_4_tensors_4_int64_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,int64_t,int64_t,Tensor>;
 using tuple_2_tensors_2_int64_tensor = std::tuple<Tensor,Tensor,int64_t,int64_t,Tensor>;
+using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,Tensor,Tensor,Tensor>;
 
 TORCH_LIBRARY_IMPL(_, AutocastHPU, m) {{
   m.fallback(torch::CppFunction::makeFallthrough());
@@ -2031,6 +2032,10 @@ def generate_autocast_ops(fgens, args, out_dir):
         (
             "::std::tuple<at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor>",
             "tuple_2_tensors_2_int64_tensor",
+        ),
+        (
+            "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor,at::Tensor,at::Tensor>",
+            "tuple_4_tensors_2_int64_3_tensor",
         ),
         ("SymIntArrayRef", "IntArrayRef"),
         ("c10::SymInt", "int64_t"),
