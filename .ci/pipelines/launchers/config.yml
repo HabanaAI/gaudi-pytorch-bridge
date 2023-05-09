@@ -63,6 +63,20 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_8cards_ptl_fw_uts
   silentMode: true
   gerritTriggerMap:
