@@ -134,6 +134,7 @@ stream::~stream() {
   cond_var_.notify_one();
   gc_worker_.join();
   synStreamSynchronize(handle_);
+  PT_SYNHELPER_DEBUG("Stream dtor handle: ", handle_);
   synStreamDestroy(handle_);
 }
 } // namespace synapse_helpers

@@ -337,10 +337,11 @@ class PTFuncLog {
         FORMAT_AND_MSG(                                                        \
             Logger::_str_wrapper(                                              \
                 __FILE__, ":", static_cast<uint32_t>(__LINE__)),               \
-            "\n[Rank: ",                                                       \
+            "\n[Rank:",                                                        \
             Logger::get_rank(),                                                \
             "] ",                                                              \
-            __VA_ARGS__));                                                     \
+            __VA_ARGS__,                                                       \
+            "\tFunc: "));                                                      \
     hl_logger::logStacktrace(HlLogger::LoggerType::MOD, HLLOG_LEVEL_CRITICAL); \
     Logger::habana_assert(                                                     \
         __func__,                                                              \

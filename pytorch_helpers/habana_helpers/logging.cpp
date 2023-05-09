@@ -139,7 +139,8 @@ std::string synStatusToStr(synStatus statusArg) {
 }
 
 std::string formatStatusMsg(synStatus statusArg) {
-  return fmt::format("synStatus {} [{}]", statusArg, synStatusToStr(statusArg));
+  return fmt::format(
+      "synStatus {} [{}]. ", statusArg, synStatusToStr(statusArg));
 }
 
 uint64_t get_tid_internal() {

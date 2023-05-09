@@ -875,7 +875,8 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     if (id == 0) { // default stream any type stream
       auto& stream = *default_streams_[stream_type];
-      PT_SYNHELPER_DEBUG("STREAM:: get stream handle", stream, " for id::", id);
+      PT_SYNHELPER_DEBUG(
+          "STREAM:: get stream handle ", stream, " for id::", id);
       return stream;
     } else {
       auto index = id;
@@ -895,7 +896,8 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
   } else {
     if (id == 0 || stream_type != COMPUTE) { // any type stream
       auto& stream = *default_streams_[stream_type];
-      PT_SYNHELPER_DEBUG("STREAM:: get stream handle", stream, " for id::", id);
+      PT_SYNHELPER_DEBUG(
+          "STREAM:: get stream handle ", stream, " for id::", id);
       return stream;
     } else {
       auto compute_stream_count = get_compute_stream_count();
@@ -910,7 +912,7 @@ stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {
       if (index == 0) { // coumpute stream
         auto& stream = *default_streams_[stream_type];
         PT_SYNHELPER_DEBUG(
-            "STREAM:: get stream handle", stream, " for id::", id);
+            "STREAM:: get stream handle ", stream, " for id::", id);
         return stream;
       }
 
