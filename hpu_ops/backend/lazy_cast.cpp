@@ -13,7 +13,6 @@
 
 #include "hpu_ops/lazy_cast.h"
 #include "backend/helpers/cast_sequence.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

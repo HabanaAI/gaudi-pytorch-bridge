@@ -12,7 +12,6 @@
 #include "generated/backend/reflection_pad1d.h"
 #include "generated/backend/reflection_pad2d.h"
 #include "generated/backend/reflection_pad3d.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

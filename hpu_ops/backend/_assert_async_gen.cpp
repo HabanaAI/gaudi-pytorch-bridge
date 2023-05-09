@@ -12,7 +12,6 @@
  */
 
 #include "generated/backend/_assert_async.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 void AssertAsync::AddNode(

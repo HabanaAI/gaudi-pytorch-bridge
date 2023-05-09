@@ -14,7 +14,6 @@
 #include "hpu_ops/common/arange_gen.h"
 #include "generated/backend/arange.h"
 #include "hpu_ops/backend/arange.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

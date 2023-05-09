@@ -9,7 +9,6 @@
  */
 #include "generated/backend/_foreach_erfc.h"
 #include "generated/backend/erfc.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

@@ -10,7 +10,6 @@
 #include "generated/backend/hardshrink.h"
 #include "generated/backend/hardshrink_backward.h"
 #include "generated/backend/softshrink.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 // mode_t = softshrink/hardshrink

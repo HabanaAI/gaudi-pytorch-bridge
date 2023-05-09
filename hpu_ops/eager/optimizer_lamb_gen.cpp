@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "hpu_ops/optimizer_lamb_gen.h"
-#include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 

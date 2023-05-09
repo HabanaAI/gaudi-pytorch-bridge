@@ -14,7 +14,6 @@
 #include "generated/backend/binary_cross_entropy.h"
 #include "generated/backend/binary_cross_entropy_backward.h"
 #include "generated/backend/binary_cross_entropy_with_logits.h"
-#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
 constexpr int64_t index_of_fwd_weight_tensor = 2;

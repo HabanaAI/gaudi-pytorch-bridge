@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include "generated/backend/logit.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 std::shared_ptr<void> FillLogitParams(

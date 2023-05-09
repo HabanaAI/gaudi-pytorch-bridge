@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include "generated/backend/ne.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 void NE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

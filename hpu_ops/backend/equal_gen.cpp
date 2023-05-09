@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include "generated/backend/equal.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

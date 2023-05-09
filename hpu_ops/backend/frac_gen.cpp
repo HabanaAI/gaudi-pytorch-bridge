@@ -9,7 +9,6 @@
  */
 #include "generated/backend/_foreach_frac.h"
 #include "generated/backend/frac.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 static auto BuildFrac(

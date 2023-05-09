@@ -12,7 +12,6 @@
  */
 #include "generated/backend/sort.h"
 #include "habana_kernels/index_kernels.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

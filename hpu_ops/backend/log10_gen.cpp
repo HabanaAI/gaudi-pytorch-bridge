@@ -9,7 +9,6 @@
  */
 #include "generated/backend/_foreach_log10.h"
 #include "generated/backend/log10.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

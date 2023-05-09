@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #pragma once
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(

@@ -9,7 +9,6 @@
  */
 #include "generated/backend/gelu.h"
 #include "generated/backend/gelu_backward.h"
-#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
 namespace habana {

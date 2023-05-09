@@ -18,7 +18,6 @@
 #include "generated/backend/norm.h"
 #include "habana_kernels/norm_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 #define INF std::numeric_limits<float>::infinity()
 namespace habana {

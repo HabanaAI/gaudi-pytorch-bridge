@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #pragma once
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 synapse_helpers::tensor ArangeCommon(

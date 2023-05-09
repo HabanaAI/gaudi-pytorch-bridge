@@ -9,7 +9,6 @@
  ******************************************************************************
  */
 #include "generated/backend/softplus.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 std::shared_ptr<void> FillSoftplusParams(

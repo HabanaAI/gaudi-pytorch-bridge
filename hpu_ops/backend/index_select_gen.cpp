@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "generated/backend/index_select.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 constexpr int64_t index_of_self = 0;
 constexpr int64_t index_of_dim = 1;

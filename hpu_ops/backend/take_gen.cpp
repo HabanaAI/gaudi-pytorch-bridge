@@ -9,7 +9,6 @@
  */
 
 #include "generated/backend/take.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

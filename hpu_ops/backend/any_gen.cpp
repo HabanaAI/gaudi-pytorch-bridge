@@ -15,7 +15,6 @@
 #include "generated/backend/any.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 sizes_vec AllAnyOutputShape(const at::Stack&) {

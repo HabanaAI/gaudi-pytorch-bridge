@@ -9,7 +9,6 @@
  */
 
 #include "generated/backend/eye.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 sizes_vec EyeOutputShape(const at::Stack& stack) {

@@ -11,7 +11,6 @@
 #include "generated/backend/amin.h"
 #include "generated/backend/aminmax.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {

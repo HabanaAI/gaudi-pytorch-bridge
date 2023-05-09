@@ -9,7 +9,6 @@
  */
 #include "generated/backend/log_sigmoid_backward.h"
 #include "generated/backend/log_sigmoid_forward.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

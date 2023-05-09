@@ -10,7 +10,6 @@
 
 #include "generated/backend/replication_pad1d_backward.h"
 #include "generated/backend/replication_pad3d_backward.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

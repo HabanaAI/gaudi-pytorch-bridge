@@ -15,7 +15,6 @@
 #include "generated/backend/gather.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/index.h"
-#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/index_put.h"
 #include "hpu_ops/topk_util.h"
 

@@ -9,7 +9,6 @@
  */
 
 #include "generated/backend/scatter.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 

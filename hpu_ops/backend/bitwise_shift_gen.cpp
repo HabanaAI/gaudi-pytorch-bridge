@@ -14,7 +14,6 @@
 #include "hpu_ops/common/bitwise_shift_gen.h"
 #include "generated/backend/bitwise_left_shift.h"
 #include "generated/backend/bitwise_right_shift.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

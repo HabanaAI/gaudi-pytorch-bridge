@@ -10,7 +10,6 @@
 
 #include "hpu_ops/div_mod_util.h"
 #include "generated/backend/div.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 

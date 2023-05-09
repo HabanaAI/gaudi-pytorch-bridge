@@ -9,7 +9,6 @@
  */
 
 #include "generated/backend/nan_to_num.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

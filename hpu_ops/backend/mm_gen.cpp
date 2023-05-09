@@ -9,7 +9,6 @@
  */
 
 #include "generated/backend/mm.h"
-#include "hpu_ops/hpu_op_helper.h"
 namespace habana {
 sizes_vec MmOutputShape(const at::Stack& stack) {
   TORCH_CHECK(

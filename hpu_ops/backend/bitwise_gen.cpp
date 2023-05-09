@@ -14,6 +14,5 @@
 #include "generated/backend/bitwise_and.h"
 #include "generated/backend/bitwise_or.h"
 #include "generated/backend/bitwise_xor.h"
-#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {} // namespace habana

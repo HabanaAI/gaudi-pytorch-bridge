@@ -10,7 +10,8 @@
  *
  *******************************************************************************
  */
-#include "hpu_ops/hpu_op_helper.h"
+
+#include "generated/backend/isposinf.h"
 
 namespace habana {
 
