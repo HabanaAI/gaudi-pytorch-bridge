@@ -140,9 +140,10 @@ c10::Scalar habana_helpers::_local_scalar_dense_internal(
   // 3. A TORCH_CHECK is added to ensure that the size at source
   //   matches with the destination.
 
-  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
+  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
       at::ScalarType::Bool,
       at::ScalarType::BFloat16,
+      at::ScalarType::Half,
       self.scalar_type(),
       "_local_scalar_dense",
       [&] {
