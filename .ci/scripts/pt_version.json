@@ -1,7 +1,7 @@
 {
     "pytorch_fork_version": {
         "supported_vers":["1.8.1", "1.7.1"],
-        "default_vers":"2.0.0"
+        "default_vers":"2.0.1"
     },
 
     "pytorch_fork_tags" : {
