@@ -15,8 +15,8 @@
 #include "habana_kernels/random_gen_kernels.h"
 
 namespace habana {
-static void ScalarPToTensor(at::IValue& p) {
-  p = at::tensor(p.toDouble(), at::kHPU);
+static void ScalarPToTensor(at::IValue& p, at::ScalarType dtype) {
+  p = at::scalar_tensor(p.toScalar(), at::TensorOptions(at::kHPU).dtype(dtype));
 }
 
 static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
@@ -28,14 +28,14 @@ static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliFE, at::Tensor&) {
   auto& p = get_inputs()[1];
-  ScalarPToTensor(p);
+  ScalarPToTensor(p, inputs[0].toTensor().scalar_type());
 
   ConvertGeneratorToSeedTensor(get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliOutFE, at::Tensor&) {
   auto& p = get_inputs()[1];
-  ScalarPToTensor(p);
+  ScalarPToTensor(p, inputs[0].toTensor().scalar_type());
 
   ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
 }
