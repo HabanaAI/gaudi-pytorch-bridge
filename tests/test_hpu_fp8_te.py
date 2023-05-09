@@ -200,7 +200,7 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.float32])
-@pytest.mark.parametrize("amax_history_len", [1, 2])
+@pytest.mark.parametrize("amax_history_len", [1, 2, 3])
 def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
     import habana_frameworks.torch as ht
     # Prepare te linear module
@@ -221,7 +221,7 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
 
     my_linear = te.Linear(4, 3, bias=True)
 
-    inputs = [input1, input2, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
     outputs = []
 
     if hpu_graph:
@@ -250,22 +250,22 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
                 out = my_linear(input)
                 outputs.append(out.cpu())
 
-    def has_infs_or_nans(x):
-        return torch.logical_or(torch.any(torch.isinf(x)), torch.any(torch.isnan(x)))
+    clamped_output = [outputs[1], outputs[2]]
+    def was_clamped(x, scale):
+        return torch.eq(x, clamped_output[scale]).all()
+    def wasnt_clamped(x):
+        return not was_clamped(x, 0) and not was_clamped(x, 1)
 
-    # Second input is bigger than first, so output should contain nans or infs
-    assert(has_infs_or_nans(outputs[1]))
-
-    # Third input is the same as second, scale should be already updated - so the output should contain only valid values
-    assert(not has_infs_or_nans(outputs[2]))
-
-    # In case amax_history longer than 1, fifth output should not contain nans (amax should be remembered from 3rd iteration)
-    if amax_history_len > 1:
-        assert(not has_infs_or_nans(outputs[4]))
-
-    if amax_history_len == 2:
-        # 7-th output should not have nans, because scale should be updated after 6-th iteration
-        assert(not has_infs_or_nans(outputs[6]))
-        # Only two last amax values should be remembered - when the big input comes after two small ones, nans should be observed
-        assert(has_infs_or_nans(outputs[9]))
-
+    assert(wasnt_clamped(outputs[3]))
+    assert(wasnt_clamped(outputs[4]))
+    # 5th input is bigger than 4th, so output should have been clamped using scale from input 0
+    # In case amax_history longer than 1, fifth output should not have been clamped (amax should be remembered from 3rd iteration)
+    assert(was_clamped(outputs[5], 0) if amax_history_len == 1 else wasnt_clamped(outputs[5]))
+    # 6th input is bigger than 5th, so output should have been clamped using scale from input 1
+    assert(was_clamped(outputs[6], 1))
+    assert(wasnt_clamped(outputs[7]))
+    assert(wasnt_clamped(outputs[8]))
+    assert(wasnt_clamped(outputs[9]))
+    # 10th input is bigger than 9th, so output should have been clamped using scale from input 0
+    # If up to two last amax values are remembered - when the big input comes after two small ones, clamping should be observed
+    assert(was_clamped(outputs[10], 0) if amax_history_len <= 2 else wasnt_clamped(outputs[10]))
