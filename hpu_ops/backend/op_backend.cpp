@@ -132,16 +132,15 @@ void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
     }
   }
 }
-
 void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
   if (m_res_ids.empty()) {
     return;
   }
-
   if (!m_output_metadata.empty() &&
       m_output_metadata.at(0).allocated_tensor.has_value()) {
-    for (const auto& el : m_output_metadata)
+    for (const auto& el : m_output_metadata) {
       AllocateSynapseOutput(graph, el.allocated_tensor.value(), el);
+    }
     return;
   }
 
@@ -532,7 +531,8 @@ void OpBackend::CreateShapeTensorInput(
     at::ScalarType dtype,
     at::IntArrayRef sizes,
     std::vector<synTensor>& inputs,
-    synTensorType shape_tensor_type) {
+    synTensorType shape_tensor_type,
+    bool force_create) {
   // Add intermediate shape tensor
   if (isMetaMode()) {
     auto& meta = GetMeta();
@@ -547,7 +547,7 @@ void OpBackend::CreateShapeTensorInput(
     return;
   }
 
-  if (graph.is_dynamic_graph()) {
+  if (force_create or graph.is_dynamic_graph()) {
     auto st = habana_helpers::create_shape_tensor(
         GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
     st.set_intermediate_shape_tensor();

@@ -5069,13 +5069,6 @@ nll_loss2d_forward.output:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
   - [WHN]
 
-nonzero:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Half]
-  override_fn: nonzero_hpu_lazy
-
 normal_:
   custom_fill_params: FillNormalParams
   dtypes:

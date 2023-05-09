@@ -17,6 +17,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/index_put.h"
+#include "habana_eager/ops/nonzero.h"
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -130,4 +131,36 @@ at::Tensor& hpu_wrap::_index_put_impl_(
   }
   return habana::eager::_index_put_impl_eager(
       self, indices, values, accumulate, unsafe);
+}
+
+at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::Long) &&
+      (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        synapse_helpers::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi &&
+        self.dim() >
+            4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
+    return dispatch_fallback<ATEN_OP(nonzero)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self));
+  }
+  return habana::eager::nonzero_eager(self);
+}
+
+at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        synapse_helpers::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
+    return dispatch_fallback<ATEN_OP(nonzero_out)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
+  }
+  return habana::eager::nonzero_out_eager(self, out);
 }

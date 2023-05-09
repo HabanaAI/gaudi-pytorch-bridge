@@ -34,6 +34,7 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/copy_from.cpp
           ops/index_put.cpp
           ops/local_scalar_dense.cpp
+          ops/nonzero.cpp
           ops/set.cpp
           ops/view.cpp
           ops/pin_memory.cpp

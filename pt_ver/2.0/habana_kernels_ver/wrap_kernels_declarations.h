@@ -64,4 +64,5 @@ at::Tensor& _index_put_impl_(
     const at::Tensor& values,
     bool accumulate,
     bool unsafe);
+at::Tensor nonzero(const at::Tensor& self);
 } // namespace hpu_wrap

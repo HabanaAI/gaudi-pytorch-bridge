@@ -2724,7 +2724,6 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   // .item() internally triggers a mark_step
   auto end = end_tensor.item<int64_t>();
   StageSubmission::getInstance().setStageSubmissionFlow();
-
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
     auto shape = DimVector{0, dimensions};

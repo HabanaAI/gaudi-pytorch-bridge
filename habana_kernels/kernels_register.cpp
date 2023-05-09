@@ -338,6 +338,24 @@ at::Tensor& hpu_wrap::_index_put_impl_(
   return _index_put_impl_hpu_lazy_(self, indices, values, accumulate, unsafe);
 }
 
+at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::Long) &&
+      (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        synapse_helpers::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi &&
+        self.dim() >
+            4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
+    return dispatch_fallback<ATEN_OP(nonzero)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self));
+  }
+  return nonzero_hpu_lazy(self);
+}
+
 Tensor& hpu_wrap::index_add_out(
     const Tensor& self,
     int64_t dim,

@@ -75,7 +75,8 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       at::IntArrayRef sizes,
       std::vector<synTensor>& inputs,
-      synTensorType shape_tensor_type = SHAPE_TENSOR);
+      synTensorType shape_tensor_type = SHAPE_TENSOR,
+      bool force_create = false);
 
   sizes_vec ComputeOutputShapes(const at::Stack& stack) const {
     if (m_compute_output_shapes) {

@@ -158,6 +158,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/nantonum_gen.cpp
           backend/ne_gen.cpp
           backend/nll_loss_gen.cpp
+          backend/nonzero_gen.cpp
           backend/norm_gen.cpp
           backend/normal_gen.cpp
           backend/one_hot_gen.cpp

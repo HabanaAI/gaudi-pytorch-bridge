@@ -401,6 +401,13 @@ def test_index_put():
     cpu_tensor[torch.tensor([0, 2]), torch.tensor([0, 1]), torch.tensor([0, 1])] = -100
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
+@pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
+def test_nonzero(shape_in):
+    self = torch.randint(10, shape_in) > 5
+    nonzero_cpu = torch.nonzero(self)
+    nonzero_hpu = torch.nonzero(self.to("hpu")).to("cpu")
+    assert torch.equal(nonzero_hpu, nonzero_cpu)
+
 # For Scalars to() operator and item() are going with different paths for scalars
 # copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
 # both should support INT64 downcasting
