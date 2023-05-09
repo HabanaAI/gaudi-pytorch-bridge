@@ -14,6 +14,10 @@
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <torch/library.h>
+#include "common/dump_args.h"
+#include "habana_eager/ops/eager_op.h"
+#include "habana_helpers/logging.h"
+#include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 
 namespace habana {
@@ -125,12 +129,32 @@ at::Tensor& fp8_transpose(const at::Tensor&, at::Tensor&) {
 at::Tensor optimizer_lamb_fused_norm(
     const std::vector<at::Tensor>& grad,
     double max_grad_norm) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
 
   EagerOptimizerLambFusedNorm<at::Tensor> hpu_op{
       "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
   return hpu_op.call();
+}
+
+void optimizer_resource_apply_momentum(
+    at::TensorList params_momentum_buf_list,
+    const at::TensorList dp_list,
+    const double momentum) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "optimizer_resource_apply_momentum :",
+      DUMP_3ARGS(params_momentum_buf_list, dp_list, momentum));
+
+  eager::EagerOp<void> hpu_op{
+      "hpu::optimizer_resource_apply_momentum",
+      {params_momentum_buf_list, dp_list, momentum}};
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut,
+       "hpu::optimizer_resource_apply_momentum",
+       {0}});
+
+  hpu_op.call(params_momentum_buf_list);
 }
 
 TORCH_LIBRARY(hpu, m) {
@@ -155,6 +179,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
+  m.def(
+      "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -169,6 +195,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::fp8_transpose", fp8_transpose);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm);
+  m.impl(
+      "hpu::optimizer_resource_apply_momentum",
+      optimizer_resource_apply_momentum);
 }
 
 } // namespace eager

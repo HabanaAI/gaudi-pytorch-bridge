@@ -18,17 +18,6 @@
 #include "transformer_engine/common.h"
 
 // Wrappers to match signatures
-static void optimizer_ResourceApplyMomentum(
-    std::vector<at::Tensor>& params_momentum_buffer_vec,
-    const std::vector<at::Tensor>& d_p_vec,
-    const float momentum) {
-  at::TensorList params_momentum_buffer_list(params_momentum_buffer_vec);
-  at::TensorList d_p_list(d_p_vec);
-
-  optimizer_ResourceApplyMomentum_hpu_wrap(
-      params_momentum_buffer_list, d_p_list, momentum);
-}
-
 static void optimizer_fused_lars(
     const std::vector<at::Tensor>& paramsVec,
     std::vector<at::Tensor>& gradsVec,
@@ -239,10 +228,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &optimizer_sparse_adagrad_with_valid_count_hpu_wrap,
       "Optimizer Sparse Adagrad with valid count");
   m.def("fused_lars", &optimizer_fused_lars, "Optimizer Fused Lars");
-  m.def(
-      "fused_resource_apply_momentum",
-      &optimizer_ResourceApplyMomentum,
-      "Optimizer Fused Resource Apply Momentum");
   //////////////////////////// Normalizations /////////////////////////////////
   m.def(
       "fused_norm",

@@ -811,25 +811,6 @@ class OptimizerFusedLarsOperator : public OpBackend {
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
 };
 
-class OptimizerFusedResourceApplyMomentumOperator : public OpBackend {
- public:
-  OptimizerFusedResourceApplyMomentumOperator(
-      int device_id,
-      c10::ScalarType scalar_type)
-      : OpBackend(
-            device_id,
-            NO_TPC + "optimizer_fused_ResourceApplyMomentumOperator_",
-            scalar_type,
-            {},
-            {0}, // inplace id ; interleaved param and momentum buffer tensors
-            {},
-            false) {
-    this->CreateSynContext(device_id);
-  }
-
-  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
-};
-
 OutputMetaDataVector OptimizerFusedLarsOperator::OptimizerFusedLarsMeta(
     const at::Stack& stack) {
   auto grads = stack.at(0).toTensorList();
@@ -1048,47 +1029,6 @@ void OptimizerFusedLarsOperator::AddNode(
   } // for (size_t i=0; i< tlSize; ++i)
 }
 
-void OptimizerFusedResourceApplyMomentumOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  static_cast<void>(graph);
-  static_cast<void>(stack);
-
-  auto params_momentum_buffer = stack.at(0).toTensorList();
-  auto momentum = stack.at(2).toDouble();
-
-  auto dtype = params_momentum_buffer.get(0).scalar_type();
-  auto tlSize = params_momentum_buffer.size();
-  int k = 0;
-  for (size_t i = 0; i < tlSize; i += 2) {
-    auto outshape = params_momentum_buffer.get(i).sizes();
-    auto momentumTensor = ConstantHelper(graph, momentum, dtype, outshape);
-
-    auto syn_param = syn_in(i);
-    auto syn_momentum_buffer = syn_in(i + 1);
-    auto syn_d_p = syn_in(k + tlSize);
-    k = k + 1;
-    auto mul1 = BuildOp(
-        graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
-        {syn_momentum_buffer, momentumTensor.get()},
-        {{outshape, dtype}});
-    auto sub1 = BuildOp(
-        graph,
-        "sub_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-        {mul1[0].get(), syn_d_p},
-        {{outshape, dtype, i + 1}});
-
-    auto add1 = BuildOp(
-        graph,
-        "add_fwd_" + habana_helpers::name_suffix_from_type(dtype),
-        {syn_param, sub1[0].get()},
-        {{outshape, dtype, i}});
-    syn_out(i) = std::move(add1[0]);
-    syn_out(i + 1) = std::move(sub1[0]);
-
-  } // for (size_t i = 0; i < tlSize; ++i) {
-}
 } // namespace habana
 
 static auto& OptimizerKernelsKernelRegistry =
@@ -1110,9 +1050,6 @@ static auto& OptimizerKernelsKernelRegistry =
             "hpu::habanaOptimizerFusedSGDMomentum",
             KERNEL_FN(OptimizerFusedSGDMomentumOperator))
         .add("hpu::habanaOptimizerLars", KERNEL_FN(OptimizerFusedLarsOperator))
-        .add(
-            "hpu::habanaOptimizerResourceApplyMomentum",
-            KERNEL_FN(OptimizerFusedResourceApplyMomentumOperator))
         .add(
             "hpu::habanaOptimizerFusedEMA",
             KERNEL_FN(OptimizerFusedEMAOperator));

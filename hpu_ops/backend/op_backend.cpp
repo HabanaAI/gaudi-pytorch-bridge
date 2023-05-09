@@ -22,6 +22,8 @@
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
 
+namespace sh = synapse_helpers;
+
 namespace {
 auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
   static const std::string prefix = "cast_";
@@ -85,17 +87,17 @@ synTensor OpBackend::syn_in(int index) {
   return SynInput(index).ref().get();
 }
 
-synapse_helpers::tensor& OpBackend::syn_out(int index) {
+sh::tensor& OpBackend::syn_out(int index) {
   if (isMetaMode()) {
     // create dummy tensor with out incrementing tensor id
-    static auto ph = synapse_helpers::tensor::create_placeholder(
+    static auto ph = sh::tensor::create_placeholder(
         0, {}, {}, false, std::string(), DATA_TENSOR, false);
     return ph;
   }
   return p_context_->syn_outputs_.at(index);
 }
 
-synapse_helpers::tensor_or_ref& OpBackend::SynInput(int index) {
+sh::tensor_or_ref& OpBackend::SynInput(int index) {
   auto it = syn_inputs_cast_.find(index);
   if (it != syn_inputs_cast_.end()) {
     return it->second;
@@ -144,9 +146,7 @@ at::ScalarType OpBackend::HandleDtypePropagation(
   return propagated_dtype;
 }
 
-void OpBackend::HandleScalarToTensor(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
   if (m_scalar_ids.empty()) {
     return;
   }
@@ -165,9 +165,7 @@ void OpBackend::HandleScalarToTensor(
   }
 }
 
-void OpBackend::HandleFn(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
   if (m_res_ids.empty()) {
     return;
   }
@@ -209,9 +207,7 @@ void OpBackend::HandleFn(
   }
 }
 
-void OpBackend::HandleOutFn(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   if (!m_is_outfn) {
     return;
   }
@@ -237,9 +233,7 @@ void OpBackend::HandleOutFn(
       p_context_->syn_inputs_.end());
 }
 
-void OpBackend::HandleInplaceFn(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
   if (m_inplace_ids.empty()) {
     return;
   }
@@ -262,9 +256,7 @@ void OpBackend::HandleInplaceFn(
   }
 }
 
-void OpBackend::HandleTypePromotion(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
   if (!m_promote_type && !m_promote_int_to_float) {
     return;
   }
@@ -334,8 +326,8 @@ void OpBackend::HandleTypePromotion(
       habana_helpers::name_suffix_from_type(m_scalar_type));
 }
 
-std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
-    synapse_helpers::graph& graph,
+std::vector<sh::tensor> OpBackend::BuildOp(
+    sh::graph& graph,
     const std::string& guid,
     std::vector<synTensor> node_inputs,
     const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
@@ -353,8 +345,8 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildOp(
        name});
 }
 
-synapse_helpers::tensor OpBackend::CastHelper(
-    synapse_helpers::graph& graph,
+sh::tensor OpBackend::CastHelper(
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     const at::ScalarType& from,
@@ -374,8 +366,8 @@ synapse_helpers::tensor OpBackend::CastHelper(
       sr_seed);
 }
 
-synapse_helpers::tensor OpBackend::ConstantHelper(
-    synapse_helpers::graph& graph,
+sh::tensor OpBackend::ConstantHelper(
+    sh::graph& graph,
     const at::Scalar& val,
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
@@ -384,8 +376,8 @@ synapse_helpers::tensor OpBackend::ConstantHelper(
       this, graph, val, force_type, constant_outshape, final_result_index);
 }
 
-synapse_helpers::tensor OpBackend::BroadcastHelper(
-    synapse_helpers::graph& graph,
+sh::tensor OpBackend::BroadcastHelper(
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
@@ -394,8 +386,8 @@ synapse_helpers::tensor OpBackend::BroadcastHelper(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
 
-synapse_helpers::tensor OpBackend::ReshapeHelper(
-    synapse_helpers::graph& graph,
+sh::tensor OpBackend::ReshapeHelper(
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
@@ -404,8 +396,8 @@ synapse_helpers::tensor OpBackend::ReshapeHelper(
       this, graph, syn_in, sizes, dtype, final_result_index);
 }
 
-synapse_helpers::tensor OpBackend::PermuteHelper(
-    synapse_helpers::graph& graph,
+sh::tensor OpBackend::PermuteHelper(
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::IntArrayRef permutation,
@@ -415,7 +407,17 @@ synapse_helpers::tensor OpBackend::PermuteHelper(
       this, graph, syn_in, sizes, permutation, dtype, final_result_index);
 }
 
-void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+sh::tensor OpBackend::IdentityHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildIdentity(
+      this, graph, syn_in, sizes, dtype, final_result_index);
+}
+
+void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   if (isMetaMode()) {
     if (m_is_outfn) { // out place fn
       for (int i = m_num_out_tensors; i > 0; --i) {
@@ -471,9 +473,8 @@ void OpBackend::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
-  auto& device = synapse_helpers::HPURegistrar::get_device(0);
-  auto graph = absl::get<synapse_helpers::graph>(
-      synapse_helpers::graph::create(device, {}, true));
+  auto& device = sh::HPURegistrar::get_device(0);
+  auto graph = absl::get<sh::graph>(sh::graph::create(device, {}, true));
 
   HandleScalarToTensor(graph, stack);
 
@@ -515,7 +516,7 @@ void OpBackend::PopulateMetadata(
 }
 
 void OpBackend::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     at::Stack& stack,
     const OutputMetaDataVector& output_metadata) {
   PopulateMetadata(stack, output_metadata);
@@ -536,7 +537,7 @@ void OpBackend::AllocateAndAddSynapseNode(
 }
 
 void OpBackend::CreateShapeTensorInput(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     at::ScalarType dtype,
     at::IntArrayRef sizes,
     std::vector<synTensor>& inputs,
@@ -564,14 +565,14 @@ void OpBackend::CreateShapeTensorInput(
   }
 }
 
-std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
+std::vector<sh::tensor> OpBackend::BuildNode(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     NodeAttr node_attr) {
   if (op->isMetaMode()) {
     auto& meta = op->GetMeta();
     const auto& output_attrs_size = node_attr.output_attrs.size();
-    std::vector<synapse_helpers::tensor> out;
+    std::vector<sh::tensor> out;
     out.reserve(output_attrs_size);
 
     for (const auto& attr : node_attr.output_attrs) {
@@ -596,15 +597,15 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       }
 
       // create dummy tensor with only sizes and strides info
-      out.emplace_back(synapse_helpers::tensor::create_placeholder(
-          attr.sizes.vec(), attr_strides));
+      out.emplace_back(
+          sh::tensor::create_placeholder(attr.sizes.vec(), attr_strides));
     }
 
     return out;
   }
 
   const auto& ctx = op->p_context_;
-  std::vector<synapse_helpers::tensor> outputs;
+  std::vector<sh::tensor> outputs;
   outputs.reserve(node_attr.output_attrs.size());
   std::vector<synTensor> node_outputs;
   node_outputs.reserve(node_attr.output_attrs.size());
@@ -618,10 +619,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
       outputs.emplace_back(
           std::move(ctx->syn_outputs_.at(*attr.final_result_index).ref()));
     } else if (attr.inplace_out_ptr) {
-      if (std::holds_alternative<synapse_helpers::tensor*>(
-              *attr.inplace_out_ptr)) {
+      if (std::holds_alternative<sh::tensor*>(*attr.inplace_out_ptr)) {
         outputs.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
-            *(std::get<synapse_helpers::tensor*>(*attr.inplace_out_ptr)),
+            *(std::get<sh::tensor*>(*attr.inplace_out_ptr)),
             graph,
             /* is_external */ false));
       } else {
@@ -676,9 +676,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
     node_outputs.emplace_back(outputs.back().get());
   }
 
-  auto input_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+  auto input_layouts = sh::layouts::getSynapseLayoutFormat(
       op->kernel_meta_data_.synapse_input_layout);
-  auto output_layouts = synapse_helpers::layouts::getSynapseLayoutFormat(
+  auto output_layouts = sh::layouts::getSynapseLayoutFormat(
       op->kernel_meta_data_.synapse_output_layout);
 
   HABANA_ASSERT(
@@ -710,9 +710,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNode(
   return outputs;
 }
 
-synapse_helpers::tensor OpBackend::BuildCast(
+sh::tensor OpBackend::BuildCast(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     synTensor syn_in,
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
@@ -751,7 +751,7 @@ synapse_helpers::tensor OpBackend::BuildCast(
   const auto cast_sequence = habana_helpers::get_cast_sequence(cast_types);
 
   synTensor* input = &syn_in;
-  std::vector<synapse_helpers::tensor> casts;
+  std::vector<sh::tensor> casts;
   casts.reserve(cast_sequence.size());
   for (size_t i = 0; i < cast_sequence.size(); ++i) {
     const auto src =
@@ -803,9 +803,9 @@ synapse_helpers::tensor OpBackend::BuildCast(
   return std::move(casts.back());
 }
 
-synapse_helpers::tensor OpBackend::BuildConstant(
+sh::tensor OpBackend::BuildConstant(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const at::Scalar& val,
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
@@ -848,22 +848,22 @@ synapse_helpers::tensor OpBackend::BuildConstant(
   return std::move(constant.at(0));
 }
 
-synapse_helpers::tensor OpBackend::BuildConstantTensor(
+sh::tensor OpBackend::BuildConstantTensor(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const at::Scalar& val,
     [[maybe_unused]] const at::IntArrayRef outshape) {
   if (op->isMetaMode()) {
     // dummy synapse tensor
-    return synapse_helpers::tensor::create_placeholder({1}, {1});
+    return sh::tensor::create_placeholder({1}, {1});
   }
 
   return op->AllocateConstantSynapseTensor(graph, val);
 }
 
-synapse_helpers::tensor OpBackend::BuildBroadcast(
+sh::tensor OpBackend::BuildBroadcast(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
@@ -880,9 +880,9 @@ synapse_helpers::tensor OpBackend::BuildBroadcast(
   return std::move(broadcast.at(0));
 }
 
-synapse_helpers::tensor OpBackend::BuildPermute(
+sh::tensor OpBackend::BuildPermute(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::IntArrayRef permutation,
@@ -930,9 +930,9 @@ synapse_helpers::tensor OpBackend::BuildPermute(
   return std::move(permute.at(0));
 }
 
-synapse_helpers::tensor OpBackend::BuildReshape(
+sh::tensor OpBackend::BuildReshape(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
@@ -961,10 +961,22 @@ synapse_helpers::tensor OpBackend::BuildReshape(
   return std::move(reshape.at(0));
 }
 
-std::vector<synapse_helpers::tensor> OpBackend::BuildNonZero(
+sh::tensor OpBackend::BuildIdentity(
     OpBackend* op,
-    synapse_helpers::graph& graph,
-    synapse_helpers::tensor& inTensor,
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  auto identity = BuildNode(
+      op, graph, {"identity", {syn_in}, {{sizes, dtype, final_result_index}}});
+  return std::move(identity.at(0));
+}
+
+std::vector<sh::tensor> OpBackend::BuildNonZero(
+    OpBackend* op,
+    sh::graph& graph,
+    sh::tensor& inTensor,
     at::IntArrayRef outShape,
     at::ScalarType inScalarType,
     c10::optional<int> finalResultIndex) {
@@ -991,9 +1003,9 @@ std::vector<synapse_helpers::tensor> OpBackend::BuildNonZero(
            {shapeTensorDim}, at::kInt, c10::nullopt, DEVICE_SHAPE_TENSOR}});
 }
 
-synapse_helpers::tensor OpBackend::BuildScatterNDOnnx(
+sh::tensor OpBackend::BuildScatterNDOnnx(
     OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const std::vector<synTensor>& inTensors,
     at::IntArrayRef outShape,
     at::ScalarType inScalarType,

@@ -120,7 +120,7 @@ struct ReplaceGetItemWithListUnpackPass {
         torch::jit::Node* const_node_with_idx{
             output_to_const_map.at(getitem_idx_input)};
         static const auto value_attr{torch::jit::Symbol::attr("value")};
-        int out_idx{const_node_with_idx->i(value_attr)};
+        long out_idx{const_node_with_idx->i(value_attr)};
         // Adding information about output value and index on list to descriptor
         desc.add_output(out_idx, node->output(0));
         // Callecting which nodes should be removed at the end.

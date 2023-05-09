@@ -235,6 +235,13 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  synapse_helpers::tensor IdentityHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
  public:
@@ -286,6 +293,14 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
+  static synapse_helpers::tensor BuildIdentity(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   static std::vector<synapse_helpers::tensor> BuildNonZero(
       OpBackend*,
       synapse_helpers::graph&,
@@ -318,6 +333,12 @@ class OpBackend : public HabanaOperator {
     int syn_idx = -1; // In case it's needed to call SynInput instead of syn_in,
                       // we hold also syn_idx
   };
+
+ private:
+  at::ScalarType HandleDtypePropagation(
+      const at::Stack& stack,
+      const at::Tensor& t,
+      at::ScalarType metadata_dtype);
 
  protected:
   // The class StackGetter and this::getNextInputInternal() overloads are
@@ -368,11 +389,6 @@ class OpBackend : public HabanaOperator {
     int syn_pos = sg.GetAndIncrSynPos();
     return {sg.stack[pos].toTensor(), syn_in(syn_pos), syn_pos};
   }
-
-  at::ScalarType HandleDtypePropagation(
-      const at::Stack& stack,
-      const at::Tensor& t,
-      at::ScalarType metadata_dtype);
 
   c10::optional<TensorsPair> getNextInputInternal(
       StackGetter& sg,

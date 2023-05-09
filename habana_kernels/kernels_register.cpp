@@ -14,6 +14,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/dump_args.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -1261,22 +1262,23 @@ void optimizer_lars_hpu_wrap(
       params, grads, skipMasks, eeta, weight_decay, eps, lr);
 }
 
-void optimizer_ResourceApplyMomentum_hpu_wrap(
-    at::TensorList& params_momentum_buffer_list,
-    const at::TensorList& d_p_list,
-    const float momentum) {
+void optimizer_resource_apply_momentum_hpu_wrap(
+    at::TensorList params_momentum_buf_list,
+    const at::TensorList dp_list,
+    const double momentum) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " optimizer_ResourceApplyMomentum_hpu_wrap:",
-      " params_momentum_buffer_list =",
-      to_string(params_momentum_buffer_list),
-      " d_p_list=",
-      to_string(d_p_list),
-      "momentum=",
-      to_string(momentum));
-  return optimizer_ResourceApplyMomentum_hpu_lazy(
-      params_momentum_buffer_list, d_p_list, momentum);
+      "optimizer_resource_apply_momentum :",
+      DUMP_3ARGS(params_momentum_buf_list, dp_list, momentum));
+
+  LazyOp<void> hpu_op{
+      "hpu::optimizer_resource_apply_momentum",
+      {params_momentum_buf_list, dp_list, momentum},
+      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
+      -1};
+
+  hpu_op.call(params_momentum_buf_list);
 }
 
 Tensor torchvision_nms_hpu_wrap(
@@ -2140,7 +2142,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerLars(Tensor[] params, Tensor(a!)[] grads, Tensor lr_t, int[] skip_masks, float eeta, float weight_decay, float eps) -> ()");
   m.def(
-      "habanaOptimizerResourceApplyMomentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
+      "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def(
@@ -2312,6 +2314,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
   m.impl("hpu::fp8_permute", fp8_permute_wrap);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm_hpu_lazy);
+  m.impl(
+      "hpu::optimizer_resource_apply_momentum",
+      optimizer_resource_apply_momentum_hpu_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

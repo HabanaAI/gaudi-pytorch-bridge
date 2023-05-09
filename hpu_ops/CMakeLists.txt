@@ -161,6 +161,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/one_hot_gen.cpp
           backend/op_backend.cpp
           backend/optimizer_lamb_gen.cpp
+          backend/optimizer_resource_apply_momentum_gen.cpp
           backend/poission_gen.cpp
           backend/pow_gen.cpp
           backend/prelu_gen.cpp

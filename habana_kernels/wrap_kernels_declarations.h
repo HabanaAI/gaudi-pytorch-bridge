@@ -249,10 +249,10 @@ void optimizer_lars_hpu_wrap(
     const float weight_decay,
     const float eps,
     const float lr);
-void optimizer_ResourceApplyMomentum_hpu_wrap(
-    at::TensorList& params_momentum_buffer_list,
-    const at::TensorList& d_p_list,
-    const float momentum);
+void optimizer_resource_apply_momentum_hpu_wrap(
+    at::TensorList params_momentum_buf_list,
+    const at::TensorList dp_list,
+    const double momentum);
 at::Tensor batched_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,

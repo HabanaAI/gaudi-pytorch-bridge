@@ -66,6 +66,10 @@ def meta_fp8_transpose(input, out):
 def meta_optimizer_lamb_fused_norm(grads, scale):
     return grads[0].new_empty((1,))
 
+@register_meta([torch.ops.hpu.optimizer_resource_apply_momentum.default])
+def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, momentum):
+    return
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

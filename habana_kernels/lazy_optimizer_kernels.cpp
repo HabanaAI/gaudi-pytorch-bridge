@@ -472,35 +472,4 @@ void optimizer_lars_hpu_lazy(
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_lars, func);
 }
 
-void optimizer_ResourceApplyMomentum_hpu_lazy(
-    at::TensorList& params_momentum_buffer_list,
-    const at::TensorList& d_p_list,
-    const float momentum) {
-  handle_collective(params_momentum_buffer_list);
-  handle_collective(d_p_list);
-
-  std::vector<at::Tensor> params_momentum_buffer_list_copy;
-  std::copy(
-      params_momentum_buffer_list.begin(),
-      params_momentum_buffer_list.end(),
-      std::back_inserter(params_momentum_buffer_list_copy));
-  std::vector<at::Tensor> d_p_list_copy;
-  std::copy(
-      d_p_list.begin(), d_p_list.end(), std::back_inserter(d_p_list_copy));
-
-  auto func = [params_momentum_buffer_list_copy =
-                   std::move(params_momentum_buffer_list_copy),
-               d_p_list_copy = std::move(d_p_list_copy),
-               momentum]() {
-    auto params_momentum_buffer_list =
-        torch::TensorList(params_momentum_buffer_list_copy);
-    auto d_p_list = torch::TensorList(d_p_list_copy);
-    LazyOptimizationOp<void> lo(
-        "hpu::habanaOptimizerResourceApplyMomentum",
-        {params_momentum_buffer_list, d_p_list, momentum});
-    lo.call(params_momentum_buffer_list);
-  };
-  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(
-      optimizer_ResourceApplyMomentum, func);
-}
 } // namespace habana_lazy

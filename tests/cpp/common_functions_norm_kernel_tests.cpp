@@ -12,64 +12,8 @@
  */
 #include "common_functions_norm_kernel_tests.h"
 #include <torch/torch.h>
+#include "common_functions_helpers.h"
 #include "variable_get.h"
-
-template <class T>
-const at::Tensor* convert_to_type_supported_on_cpu(
-    const at::Tensor& tin,
-    at::Tensor& storage) {
-  if (std::is_same_v<T, float>) {
-    switch (tin.scalar_type()) {
-      case torch::kBFloat16:
-      case torch::kFloat16:
-        storage = tin.to(torch::kFloat32);
-        return &storage;
-      default:
-        break;
-    }
-  }
-  return &tin;
-}
-
-template <class T>
-void dump_tensor(
-    const std::string& label,
-    const at::Tensor& tin,
-    bool verbose) {
-  if (verbose) {
-    at::Tensor storage;
-    const auto* t = convert_to_type_supported_on_cpu<T>(tin, storage);
-    auto ptr = (T*)t->data_ptr();
-    std::cout << label << " shape = " << tin.sizes() << std::endl;
-    for (size_t i = 0; i < t->numel(); ++i) {
-      std::cout << i << " : " << ptr[i] << std::endl;
-    }
-  }
-}
-
-template <class T>
-void dump_tensors(
-    const std::string& label,
-    const at::Tensor& t1in,
-    const at::Tensor& t2in,
-    bool verbose) {
-  if (verbose) {
-    std::array<at::Tensor, 2> storage;
-    const auto* t1 = convert_to_type_supported_on_cpu<T>(t1in, storage[0]);
-    const auto* t2 = convert_to_type_supported_on_cpu<T>(t2in, storage[1]);
-
-    auto ptr1 = (T*)t1->data_ptr();
-    auto ptr2 = (T*)t2->data_ptr();
-    std::cout << label << " shapes = " << t1in.sizes() << ", " << t2in.sizes()
-              << std::endl;
-    for (size_t i = 0; (i < t1->numel()) && (i < t2->numel()); ++i) {
-      auto d = fabs(ptr1[i] - ptr2[i]);
-      auto r = ptr1[i] ? d / abs(ptr1[i]) : INFINITY;
-      std::cout << i << " : " << ptr1[i] << " vs " << ptr2[i] << " D = " << d
-                << " R = " << r << std::endl;
-    }
-  }
-}
 
 std::vector<AtTensorPair> native_layer_norm_test(
     NativeLayerNormTestMode mode,

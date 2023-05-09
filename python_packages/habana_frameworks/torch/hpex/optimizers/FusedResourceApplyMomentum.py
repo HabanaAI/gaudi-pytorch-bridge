@@ -15,7 +15,6 @@ from torch import Tensor
 from typing import List, Optional
 from torch.optim.optimizer import Optimizer
 import habana_frameworks.torch.core as htcore
-from habana_frameworks.torch import _hpex_C
 
 hpu = torch.device("hpu")
 
@@ -41,7 +40,7 @@ def resource_apply_momentum(params_momentum_buffer_list: List[Tensor],
             param.add_(d_p)
 
     else:
-        _hpex_C.fused_resource_apply_momentum(
+        torch.ops.hpu.optimizer_resource_apply_momentum(
         params_momentum_buffer_list,
         d_p_list,
         momentum

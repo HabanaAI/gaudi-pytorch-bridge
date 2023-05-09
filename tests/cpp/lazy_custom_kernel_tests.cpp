@@ -15,6 +15,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "common_functions_custom_kernel_tests.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
@@ -348,6 +349,8 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
     EXPECT_EQ(equal, true);
   }
 }
+
+RESOURCE_APPLY_MOMENTUM_OPT_TEST(LazyCustomKernelTest)
 
 TEST_F(LazyCustomKernelTest, EMATest) {
   torch::manual_seed(0);

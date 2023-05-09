@@ -15,11 +15,13 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 add_executable(
   test_pt_integration
   acc_thread_pool_tests.cpp
+  common_functions_custom_kernel_tests.cpp
   common_functions_norm_kernel_tests.cpp
   compute_shapes.cpp
   debug_utils_tests.cpp
   ds_bucket_tests.cpp
   ds_cache_tests.cpp
+  eager_custom_kernel_tests.cpp
   eager_kernel_tests.cpp
   env_flags_test.cpp
   fallback_tests.cpp
