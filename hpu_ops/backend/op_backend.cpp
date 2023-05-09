@@ -666,9 +666,19 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       if (is_persistent) {
         const auto& impl =
             ctx->pt_outputs_.at(*attr.final_result_index).unsafeGetTensorImpl();
-        impl->set_sizes_contiguous(attr.sizes);
+        // Free the old storage
+        impl->FreeMemory();
+
+        auto storage = c10::make_intrusive<c10::StorageImpl>(
+            c10::StorageImpl::use_byte_size_t(),
+            c10::multiply_integers(attr.sizes) *
+                c10::scalarTypeToTypeMeta(attr.dtype).itemsize(),
+            habana::getHABANADeviceAllocator(),
+            true);
         impl->set_storage_and_dtype(
-            impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
+            storage, c10::scalarTypeToTypeMeta(attr.dtype));
+        impl->set_sizes_contiguous(attr.sizes);
+
       } else if (is_final_result) {
         ctx->pt_outputs_.at(*attr.final_result_index) = t;
       }
