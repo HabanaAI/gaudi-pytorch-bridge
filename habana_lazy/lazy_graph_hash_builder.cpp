@@ -250,10 +250,11 @@ void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
     {
       auto t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
       if (t_shallow_copy_opt.has_value()) {
-        impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value());
+        auto t = t_shallow_copy_opt.value().back();
+        impl = GetHbLazyTensorImpl(t);
         hl_t = impl->tensor();
         PT_LAZY_DEBUG("addInputTensors also shallow copy uid ", id);
-        rememberIfInput(t_shallow_copy_opt.value());
+        rememberIfInput(t);
       }
     }
 

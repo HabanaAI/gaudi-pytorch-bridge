@@ -79,7 +79,7 @@ struct Data {
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
   c10::optional<at::Tensor> cpu_tensor_data;
-  c10::optional<at::Tensor> tensor_shallow_copy;
+  c10::optional<std::vector<at::Tensor>> tensor_shallow_copy;
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;

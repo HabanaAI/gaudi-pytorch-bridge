@@ -1626,44 +1626,44 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   PT_LAZY_TRACE;
-  std::vector<at::Tensor> cleanup_tensors;
   // check for shallow copy in src
-  auto hl_t = *this;
-  auto src_tensor_opt = hl_t.getDataPtr()->tensor_shallow_copy;
+  auto hl_src_updated = *this;
+  auto src_tensor_opt = hl_src_updated.getDataPtr()->tensor_shallow_copy;
   if (src_tensor_opt.has_value()) {
-    hl_t = GetHbLazyTensor(src_tensor_opt.value());
+    hl_src_updated = GetHbLazyTensor(src_tensor_opt.value().back());
   }
 
   auto aten_t = AtenFromHbLazyTensor(
-      hl_t, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
-  if (dest->getDataPtr()->tensor_shallow_copy) {
-    cleanup_tensors.push_back(dest->getDataPtr()->tensor_shallow_copy.value());
+      hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+
+  // loop over the shallow copy vectors to collect the ones that are in use
+  std::vector<at::Tensor> tensors_in_use;
+  auto hl_dest_updated = *dest;
+  auto dst_tensor_opt = dest->getDataPtr()->tensor_shallow_copy;
+  if (dst_tensor_opt.has_value()) {
+    auto& t_vec = dest->getDataPtr()->tensor_shallow_copy.value();
+    for (auto& t : t_vec) {
+      auto hl_t = GetHbLazyTensor(t);
+      if (hl_t.IsOpAccumulationInProgress()) {
+        tensors_in_use.emplace_back(t);
+      }
+    }
+
+    // update the vector with the latest shallow copy
+    tensors_in_use.emplace_back(aten_t);
+    dest->getDataPtr()->tensor_shallow_copy = tensors_in_use;
+  } else {
+    // Shallow copy field is being created for the first time
+    dest->getDataPtr()->tensor_shallow_copy = {aten_t};
   }
 
-  // copy the src memory to dst to avoid double allocation
-  auto data_tensor = CurrentTensorData();
-  if (data_tensor.has_value()) {
-    if (dest->getDataPtr()->tensor_data) {
-      cleanup_tensors.push_back(dest->getDataPtr()->tensor_data.value());
-    }
-
-    auto hl_dest_updated = *dest;
-    if (dest->getDataPtr()->tensor_shallow_copy) {
-      hl_dest_updated =
-          GetHbLazyTensor(dest->getDataPtr()->tensor_shallow_copy.value());
-    }
-
-    if (!hl_dest_updated.IsOpAccumulationInProgress()) {
+  if (!dest->IsOpAccumulationInProgress()) {
+    // Memory optimization
+    auto data_tensor = hl_src_updated.CurrentTensorData();
+    if (data_tensor.has_value()) {
+      // Note: this is just a memory optimization to free up unused data
       dest->SetTensorData(*data_tensor);
     }
-  }
-
-  dest->getDataPtr()->tensor_shallow_copy = aten_t;
-
-  if (habana_lazy::AccThread::IsAccThreadEnabled() &&
-      habana_lazy::AccThread::Get().inAccThreadContext()) {
-    habana_lazy::AccThread::Get().PushCleanupTask(
-        [cleanup_tensors = std::move(cleanup_tensors)]() {});
   }
 }
 

@@ -212,7 +212,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
 
   auto t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
   if (t_shallow_copy_opt.has_value()) {
-    impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value());
+    impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value().back());
     hl_t = impl->tensor();
     id = hl_t.getTensorUniqueId();
   }

@@ -1,4 +1,9 @@
+
+import os
 import torch
+
+os.environ["PT_HPU_LAZY_MODE"] = "1"
+
 import habana_frameworks.torch.core as htcore
 device = torch.device("hpu")
 
@@ -86,3 +91,49 @@ def test_shallow_copy_free2():
     hres = fn(ha, hb, hc, 'hpu')
 
     assert(torch.allclose(res, hres.cpu()))
+
+def test_shallow_copy_free3():
+    def fn(param, ds_tensor,dev):
+        ds_tensor.copy_(param)
+        param.data = torch.empty(0,dtype = torch.float , device=dev)
+        return ds_tensor
+
+
+    param = torch.randn([6])
+    hparam = param.to('hpu')
+    hparam.data = param.to('hpu')
+
+    ds_tensor = torch.randn([6])
+    hds_tensor = ds_tensor.to('hpu')
+
+    # # CPU
+    res = fn(param,ds_tensor, 'cpu')
+    # HPU
+    hres = fn(hparam, hds_tensor, 'hpu')
+    hres_cpu = hres.cpu()
+    assert(torch.allclose(res, hres_cpu))
+
+def test_shallow_copy_free4():
+    def fn(param, ds_tensor,dev):
+        torch.manual_seed(0)
+        ds_tensor.copy_(param)
+        param.data = torch.randn([2, 2],dtype = torch.float).to(device=dev)
+        new_consumer = param.add(1.0)
+        return ds_tensor, new_consumer
+
+
+    param = torch.randn([6])
+    hparam = param.to('hpu')
+    hparam.data = param.to('hpu')
+
+    ds_tensor = torch.randn([6])
+    hds_tensor = ds_tensor.to('hpu')
+
+    # # CPU
+    res1, res2 = fn(param,ds_tensor, 'cpu')
+    # HPU
+    hres1, hres2 = fn(hparam, hds_tensor, 'hpu')
+    hres1_cpu = hres1.cpu()
+    hres2_cpu = hres2.cpu()
+    assert(torch.allclose(res1, hres1_cpu, atol = 0.001, rtol = 0.001))
+    assert(torch.allclose(res2, hres2_cpu, atol = 0.001, rtol = 0.001))
