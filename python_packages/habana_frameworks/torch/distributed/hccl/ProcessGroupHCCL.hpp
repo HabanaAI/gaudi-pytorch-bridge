@@ -26,15 +26,14 @@
 #include <thread>
 #include <unordered_map>
 #include "backend/synapse_helpers/device_context.h"
-#include "process_group_eager_hccl.hpp"
-#include "process_group_lazy_hccl.hpp"
+#include "process_group_hccl_base.hpp"
 
 using Work = c10d_ver::Work;
 
 namespace c10d {
 
 // Now continue on other work in the current stream.
-class TORCH_API ProcessGroupHCCL : public ProcessGroup {
+class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
  public:
   class WorkHCCL : public Work, public std::enable_shared_from_this<WorkHCCL> {
    public:
@@ -85,136 +84,31 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
       const std::chrono::milliseconds& opTimeout);
 
   virtual ~ProcessGroupHCCL();
-  void abort();
-  const std::string getBackendName() const override {
-    return std::string("hccl");
-  }
-
-  c10::intrusive_ptr<Work> broadcast(
-      std::vector<at::Tensor>& tensors,
-      const BroadcastOptions& opts = BroadcastOptions()) override;
-
-  c10::intrusive_ptr<Work> allreduce(
-      std::vector<at::Tensor>& tensors,
-      const AllreduceOptions& opts = AllreduceOptions()) override;
-
-  c10::intrusive_ptr<Work> allreduce_coalesced(
-      std::vector<at::Tensor>& tensors,
-      const AllreduceCoalescedOptions& opts =
-          AllreduceCoalescedOptions()) override;
-
-  c10::intrusive_ptr<Work> reduce(
-      std::vector<at::Tensor>& tensors,
-      const ReduceOptions& opts = ReduceOptions()) override;
-
-  c10::intrusive_ptr<Work> allgather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
-
-  c10::intrusive_ptr<Work> _allgather_base(
-      at::Tensor& outputBuffer,
-      at::Tensor& inputBuffer,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
-
-  c10::intrusive_ptr<Work> allgather_coalesced(
-      std::vector<std::vector<at::Tensor>>& outputTensorLists,
-      std::vector<at::Tensor>& inputTensors,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
-
-  c10::intrusive_ptr<Work> gather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
-      const GatherOptions& opts = GatherOptions()) override;
-
-  c10::intrusive_ptr<Work> alltoall_base(
-      at::Tensor& outputTensor,
-      at::Tensor& inputTensor,
-      std::vector<int64_t>& outputSplitSizes,
-      std::vector<int64_t>& inputSplitSizes,
-      const AllToAllOptions& opts = AllToAllOptions()) override;
-
-  c10::intrusive_ptr<Work> alltoall(
-      std::vector<at::Tensor>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
-      const AllToAllOptions& opts = AllToAllOptions()) override;
-
-  c10::intrusive_ptr<Work> scatter(
-      std::vector<at::Tensor>& outputTensors,
-      std::vector<std::vector<at::Tensor>>& inputTensors,
-      const ScatterOptions& opts = ScatterOptions()) override;
-
-  c10::intrusive_ptr<Work> reduce_scatter(
-      std::vector<at::Tensor>& outputTensors,
-      std::vector<std::vector<at::Tensor>>& inputTensors,
-      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
-
-  c10::intrusive_ptr<Work> _reduce_scatter_base(
-      at::Tensor& outputBuffer,
-      at::Tensor& inputBuffer,
-      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
-
-  c10::intrusive_ptr<Work> send(
-      std::vector<at::Tensor>& tensors,
-      int dstRank,
-      int tag) override;
-
-  c10::intrusive_ptr<Work> recv(
-      std::vector<at::Tensor>& tensors,
-      int srcRank,
-      int tag) override;
-
-  void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors);
-  void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors);
-
-  static void groupStart();
-
-  static void groupEnd();
-
-  c10::intrusive_ptr<Work> recvAnysource(
-      std::vector<at::Tensor>& tensor,
-      int tag) override;
 
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
 
- private:
-  // Helper that encapsulates work shared across all collective communication
-  template <typename Fn>
-  c10::intrusive_ptr<Work> collective(
-      std::vector<at::Tensor>& input,
-      std::vector<at::Tensor>& output,
-      Fn fn,
-      bool is_allreduce = false);
-  template <typename Fn, typename PreProcess, typename PostProcess>
-  c10::intrusive_ptr<Work> collective(
-      std::vector<at::Tensor>& input,
-      std::vector<at::Tensor>& output,
-      Fn fn,
-      PreProcess pre,
-      PostProcess post,
-      bool is_allreduce);
-
-  template <typename Fn>
-  c10::intrusive_ptr<Work> pointToPoint(
-      std::vector<at::Tensor>& tensors,
-      Fn fn,
-      int peerRank);
-  template <typename Fn, typename PreProcess, typename PostProcess>
-  c10::intrusive_ptr<Work> pointToPoint(
-      std::vector<at::Tensor>& tensors,
-      Fn fn,
-      int peerRank,
-      PreProcess pre,
-      PostProcess post);
-
  protected:
-  virtual c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> initWork(
+  // Helper that encapsulates work shared across all collective communication
+  c10::intrusive_ptr<Work> collective(
+      std::vector<at::Tensor>& input,
+      std::vector<at::Tensor>& output,
+      CollectiveFn fn,
+      bool is_allreduce = false) override;
+  c10::intrusive_ptr<Work> pointToPoint(
+      std::vector<at::Tensor>& tensors,
+      PointToPointFn fn,
+      int peerRank) override;
+
+  c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> initWork(
       std::vector<at::Tensor>& outputs,
       std::vector<int> devices,
       std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
       std::vector<std::shared_ptr<hccl_integration::device_context>>&
           deviceCtxts);
+
+  void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) override;
+  void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
 
   void broadcastUniqueHCCLID(hcclUniqueId* hcclID);
   std::shared_ptr<hcclComm_t> getComm(int deviceId);
@@ -233,18 +127,13 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroup {
 
   uint64_t hcclCommCounter_{0};
   std::mutex mutex_;
-  c10::intrusive_ptr<Store> store_;
-  void hostBarrier();
   void nwStreamSync();
-  size_t barrier_cnt_;
 
   // Maintains the list of communicators associated with the devices.
   std::map<int, std::shared_ptr<hcclComm_t>> hccl_communicator_;
   std::map<int, std::shared_ptr<hccl_integration::device_context>>
       device_contexts_;
   std::map<int, synStreamHandle> comm_streams_;
-
-  bool emulate_distributed_;
 };
 
 } // namespace c10d

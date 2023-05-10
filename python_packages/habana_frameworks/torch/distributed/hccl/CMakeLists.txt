@@ -12,6 +12,7 @@ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 set(TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME "_hccl_C")
 add_library(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} SHARED
+    process_group_hccl_base.cpp
     ProcessGroupHCCL.cpp
     reducer_timer.cpp)
 target_compile_definitions(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME})
@@ -30,6 +31,7 @@ install(TARGETS ${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} LIBRARY DESTINATION haba
 
 set(TARGET_HCCL_EAGER_COLL_NAME "_hccl_eager_C")
 add_library(${TARGET_HCCL_EAGER_COLL_NAME} SHARED
+    process_group_hccl_base.cpp
     process_group_eager_hccl.cpp
     reducer_timer.cpp)
 target_compile_definitions(${TARGET_HCCL_EAGER_COLL_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_HCCL_EAGER_COLL_NAME})

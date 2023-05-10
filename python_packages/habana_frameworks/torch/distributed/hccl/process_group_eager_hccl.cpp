@@ -23,6 +23,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
+#include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 
 namespace c10d {
 
@@ -31,9 +32,10 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
     int rank,
     int size,
     const std::chrono::milliseconds& timeout)
-    : ProcessGroup(rank, size), store_(store), barrier_cnt_(0) {
+    : ProcessGroupHcclBase(store, rank, size) {
   PT_EAGER_DEBUG(
       "Create ProcessGroupEagerHCCL, rank = ", rank, " size = ", size);
+  always_support_int64_ = true;
   comm_ = habana::HcclCommunicator::Create(
       rank,
       size,
@@ -96,14 +98,65 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupEagerHCCL::WorkEager::
   return future_;
 };
 
-template <typename Fn, typename PreProcess, typename PostProcess>
+c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
+    std::vector<at::Tensor>& tensors,
+    PointToPointFn fn,
+    int peerRank) {
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
+
+  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors);
+
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    at::Tensor& tensor = tensors[i];
+    auto device = tensor.get_device();
+    auto deviceCtxt = comm_->getDeviceCtxt(device);
+    synStreamHandle collective_stream = comm_->getCommStream(device);
+
+    synapse_helpers::device_ptr tensor_storage_ptr =
+        (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
+    deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
+
+    auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
+
+    struct ResourceHolder {
+      at::Tensor tensor_;
+      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+    };
+    auto resource_holder = std::make_shared<ResourceHolder>();
+    resource_holder->tensor_ = tensor;
+
+    void* tensor_address;
+    deviceCtxt->lock_address(
+        tensor.data_ptr(), &tensor_address, resource_holder->address_lock);
+
+    hcclResult_t hccl_result =
+        fn(tensor,
+           tensor_address,
+           *(comm_->GetHcclHandle()),
+           collective_stream,
+           peerRank);
+    TORCH_CHECK(hcclSuccess == hccl_result, "P2P call returned error");
+
+    recipe_counter.increase();
+    deviceCtxt->submit_events(
+        collective_stream,
+        tensor_storage_ptr,
+        [resource_holder, &recipe_counter]() mutable {
+          resource_holder.reset();
+          recipe_counter.decrease_and_notify();
+        });
+  }
+  return work;
+}
+
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
-    Fn fn,
-    PreProcess pre,
-    PostProcess post,
+    CollectiveFn fn,
     bool is_allreduce) {
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
   auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs);
 
   for (size_t i = 0; i < inputs.size(); ++i) {
@@ -175,262 +228,6 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   return work;
 }
 
-template <typename Fn>
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
-    std::vector<at::Tensor>& inputs,
-    std::vector<at::Tensor>& outputs,
-    Fn fn,
-    bool is_allreduce) {
-  // Need to replace int by device work streams
-  return collective(
-      inputs,
-      outputs,
-      fn,
-      [](std::vector<int>&) {},
-      [](std::vector<int>&) {},
-      is_allreduce);
-}
-
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::allgather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
-    std::vector<at::Tensor>& inputTensors,
-    const AllgatherOptions& opts) {
-  PT_DISTRIBUTED_BEGIN;
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-
-  auto outputFlattened = habana_helpers::flatten_for_scatter_gather(
-      outputTensors, inputTensors, size_);
-
-  auto work = collective(
-      inputTensors,
-      outputFlattened,
-      [&](at::Tensor& input,
-          at::Tensor& output,
-          const void* send_buffer,
-          void* recv_buffer,
-          hcclComm_t& hccl_comm,
-          synStreamHandle stream) {
-        auto scalar_type = input.scalar_type();
-        auto hccl_numel = input.numel();
-        hcclDataType_t hccl_data_type;
-        habana_helpers::getCountDatatype(
-            scalar_type,
-            input.element_size(),
-            hccl_numel,
-            hccl_data_type,
-            true);
-        PT_DISTRIBUTED_DEBUG(
-            "[PYT-DIST] allgather with input_address=",
-            send_buffer,
-            " output_address=",
-            recv_buffer,
-            " numel=",
-            input.numel(),
-            " scalar_type=",
-            input.scalar_type(),
-            " element_size=",
-            input.element_size(),
-            " hccl_type=",
-            hccl_data_type,
-            " hccl_count=",
-            hccl_numel);
-        hcclResult_t hccl_result{hcclSuccess};
-        hccl_result = hcclAllGather(
-            send_buffer,
-            recv_buffer,
-            hccl_numel,
-            hccl_data_type,
-            hccl_comm,
-            stream);
-        return hccl_result;
-      });
-  for (size_t i = 0; i < outputTensors.size(); ++i) {
-    for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-      outputTensors[i][j].copy_(outputFlattened[i][j], true);
-    }
-  }
-  PT_DISTRIBUTED_END;
-  return work;
-};
-
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::allreduce(
-    std::vector<at::Tensor>& tensors,
-    const AllreduceOptions& opts) {
-  PT_DISTRIBUTED_BEGIN;
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-
-  auto work = collective(
-      tensors,
-      tensors,
-      [reduceOp = opts.reduceOp, this](
-          at::Tensor& input,
-          at::Tensor& output,
-          const void* send_buffer,
-          void* recv_buffer,
-          hcclComm_t& hccl_comm,
-          synStreamHandle stream) {
-        hcclResult_t hccl_result{hcclSuccess};
-        size_t num_elements = input.numel();
-        size_t element_size = c10::elementSize(
-            habana_helpers::getInternalDtype(input.scalar_type()));
-        size_t chunk_size = habana_helpers::getHCCLSliceSize(
-                                habana_helpers::collectiveAllReduce) /
-            element_size;
-        size_t data_offset = 0;
-        while (num_elements > 0) {
-          size_t num_elements_in_current_chunk =
-              (num_elements > chunk_size) ? chunk_size : num_elements;
-          const void* offseted_send_buffer = reinterpret_cast<const void*>(
-              reinterpret_cast<const char*>(send_buffer) + data_offset);
-          void* offseted_recv_buffer = reinterpret_cast<void*>(
-              reinterpret_cast<char*>(recv_buffer) + data_offset);
-          PT_DISTRIBUTED_DEBUG(
-              "[PYT-DIST] allreduce with input_address :: ",
-              offseted_send_buffer,
-              " output_address :: ",
-              offseted_recv_buffer,
-              " elem_cnt :: ",
-              num_elements_in_current_chunk,
-              " data_type :: ",
-              habana_helpers::getHCCLDataType(input.scalar_type()));
-
-          hccl_result = hcclAllReduce(
-              offseted_send_buffer,
-              offseted_recv_buffer,
-              num_elements_in_current_chunk,
-              habana_helpers::getHCCLDataType(input.scalar_type()),
-              habana_helpers::getHCCLReduceOp(reduceOp),
-              hccl_comm,
-              stream);
-          TORCH_CHECK(
-              hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset =
-              data_offset + (num_elements_in_current_chunk * element_size);
-          num_elements -= num_elements_in_current_chunk;
-        }
-        return hccl_result;
-      },
-      true /*is_allreduce*/);
-
-  PT_DISTRIBUTED_END;
-  return work;
-}
-
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::broadcast(
-    std::vector<at::Tensor>& tensors,
-    const BroadcastOptions& opts) {
-  PT_DISTRIBUTED_BEGIN;
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-  size_t tensor_size = tensors.size();
-  auto work = collective(
-      tensors,
-      tensors,
-      [rootRank = opts.rootRank, this](
-          at::Tensor& input,
-          at::Tensor& output,
-          const void* send_buffer,
-          void* recv_buffer,
-          hcclComm_t& hccl_comm,
-          synStreamHandle stream) {
-        const auto scalar_type = input.scalar_type();
-        auto hccl_numel = input.numel();
-        hcclDataType_t hccl_data_type;
-
-        habana_helpers::getCountDatatype(
-            scalar_type,
-            input.element_size(),
-            hccl_numel,
-            hccl_data_type,
-            true);
-
-        size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
-        size_t chunk_size_in_elems = habana_helpers::getHCCLSliceSize(
-                                         habana_helpers::collectiveBroadcast) /
-            element_size;
-
-        size_t data_offset = 0;
-        hcclResult_t hccl_result{hcclSuccess};
-
-        PT_DISTRIBUTED_DEBUG(
-            "[PYT-DIST] broadcast with input_address=",
-            send_buffer,
-            " output_address=",
-            recv_buffer,
-            " numel=",
-            input.numel(),
-            " scalar_type=",
-            input.scalar_type(),
-            " element_size=",
-            input.element_size(),
-            " hccl_type=",
-            hccl_data_type,
-            " hccl_count=",
-            hccl_numel);
-        while (hccl_numel > 0) {
-          size_t num_elements_in_current_chunk =
-              (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
-              ? chunk_size_in_elems
-              : hccl_numel;
-
-          hccl_result = hcclBroadcast(
-              static_cast<const uint8_t*>(send_buffer) + data_offset,
-              static_cast<uint8_t*>(recv_buffer) + data_offset,
-              num_elements_in_current_chunk,
-              hccl_data_type,
-              rootRank,
-              hccl_comm,
-              stream);
-
-          TORCH_CHECK(
-              hcclSuccess == hccl_result, "Collective call returned error");
-          data_offset =
-              data_offset + (num_elements_in_current_chunk * element_size);
-          hccl_numel -= num_elements_in_current_chunk;
-        }
-        return hccl_result;
-      });
-  PT_DISTRIBUTED_END;
-  return work;
-}
-
-void ProcessGroupEagerHCCL::hostBarrier() {
-  PT_DISTRIBUTED_BEGIN;
-
-  constexpr int64_t kSynchronizeBusyWaitMillis = 1;
-  // Minumum three keys are required to avoid race condition
-  constexpr int64_t kNumBarrierKeys = 3;
-
-  auto hccl_rank = getRank();
-  std::string barrier_key = std::string("HOST_BARRIER:");
-  std::string storeKey = std::to_string(barrier_cnt_);
-  storeKey += barrier_key;
-  storeKey += std::to_string(size_);
-
-  auto first_count = store_->add(storeKey, 1);
-  TORCH_CHECK(first_count - 1 < size_, "Host barrier Key error");
-  auto worker_count = store_->add(storeKey, 0);
-  while (worker_count != size_) {
-    worker_count = store_->add(storeKey, 0);
-    std::this_thread::sleep_for(
-        std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
-  }
-
-  if (hccl_rank == 0) {
-    // Delete the previous key
-    std::string storeKey_pre = std::to_string(
-        barrier_cnt_ == 0 ? (kNumBarrierKeys - 1) : barrier_cnt_ - 1);
-    storeKey_pre += barrier_key;
-    storeKey_pre += std::to_string(size_);
-    store_->deleteKey(storeKey_pre);
-  }
-
-  barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
-  PT_DISTRIBUTED_END;
-}
-
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
     const BarrierOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
@@ -445,6 +242,39 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
   PT_DISTRIBUTED_END;
   return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>();
 };
+
+// Sending a tensor doesn't have metadata field, hence we can't send the info if
+// tensor is dense or permuted. So for first functional step, we'll always
+// permute it back to be dnese before sending it. In future it can be optimized
+// if we can send metadata too via send mechanism to provide this info.
+void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
+    std::vector<at::Tensor>& tensors) {
+  for (auto& tensor : tensors) {
+    auto t_meta{habana::get_tensor_extra_meta(tensor)};
+    auto permutation = t_meta->get_memory_permutation();
+    if (!permutation.empty()) {
+      PT_DISTRIBUTED_DEBUG(
+          "Tensor: ",
+          t_meta->get_id(),
+          " has permutation: ",
+          VecToString(permutation),
+          " transposing it back to be dense");
+      tensor = torch::clone(tensor);
+    }
+  }
+}
+
+// When recieving a tensor we make sure during send it's dense.
+// So once we recive a tensor, we clear it's permutation info.
+void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
+    std::vector<at::Tensor>& tensors) {
+  for (auto& tensor : tensors) {
+    auto t_meta{habana::get_tensor_extra_meta(tensor)};
+    PT_DISTRIBUTED_DEBUG(
+        "Received tensor: ", t_meta->get_id(), " clearing its permutation.");
+    t_meta->set_memory_permutation({});
+  }
+}
 
 } // namespace c10d
 
