@@ -2794,15 +2794,14 @@ frac.out:
 
 frexp.Tensor:
   dtypes: [Float, BFloat16]
-  custom_output_shape: FrexpOutputShape
-  op_frontend: LazyFrexp
+  output_meta: FrexpMeta
   op_backend: Frexp
   force_default: false
   guid: frexp
   out_ids: [0, 0]
 
 frexp.Tensor_out:
-  custom_output_shape: FrexpOutputShape
+  output_meta: FrexpMeta
   dtypes: [Float, BFloat16]
   guid: frexp
   op_backend: Frexp

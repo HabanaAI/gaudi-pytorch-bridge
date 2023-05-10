@@ -272,7 +272,6 @@ add_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/cumsum_gen.cpp
   hpu_ops/lazy/div_round_gen.cpp
   hpu_ops/lazy/embedding_gen.cpp
-  hpu_ops/lazy/frexp_gen.cpp
   hpu_ops/lazy/index_select_gen.cpp
   hpu_ops/lazy/kthvalue_gen.cpp
   hpu_ops/lazy/logical_gen.cpp

@@ -15,22 +15,55 @@
 
 namespace habana {
 
-sizes_vec FrexpOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  std::vector<int64_t> shape = self.sizes().vec();
-  return {{shape, shape}};
+OutputMetaDataVector FrexpMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto shape = self.sizes().vec();
+
+  OutputMetaData mantissaMeta, exponentMeta;
+  mantissaMeta.shape = exponentMeta.shape = shape;
+
+  mantissaMeta.dtype = self.scalar_type();
+  exponentMeta.dtype = c10::ScalarType::Int;
+
+  return {mantissaMeta, exponentMeta};
+}
+
+c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
+  switch (dtype) {
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Half:
+      return c10::ScalarType::Short;
+    default:
+      return c10::ScalarType::Int;
+  }
 }
 
 void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = FrexpOutputShape(stack)[0];
+  const auto meta = FrexpMeta(stack);
+  const auto kernelExponentType = GetKernelExponentType(meta[0].dtype);
+  const bool castIsNeededForExponent = kernelExponentType != meta[1].dtype;
+  const c10::optional<int> exponentFinalResultIndex =
+      castIsNeededForExponent ? c10::nullopt : c10::optional<int>{1};
+
   auto frexp = BuildOp(
       graph,
       guid_,
       {syn_in(0)},
-      {{outshape, c10::ScalarType::Int, 1}, {outshape, ScalarType(), 0}});
+      {{meta[1].shape, kernelExponentType, exponentFinalResultIndex},
+       {meta[0].shape, meta[0].dtype, 0}});
 
   syn_out(0) = std::move(frexp[1]);
-  syn_out(1) = std::move(frexp[0]);
+  if (castIsNeededForExponent) {
+    syn_out(1) = CastHelper(
+        graph,
+        frexp[0].get(),
+        meta[1].shape,
+        kernelExponentType,
+        meta[1].dtype,
+        1);
+  } else {
+    syn_out(1) = std::move(frexp[0]);
+  }
 }
 
 } // namespace habana

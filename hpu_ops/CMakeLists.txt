@@ -253,7 +253,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/div_round_gen.cpp
           lazy/embedding_gen.cpp
           lazy/fill_gen.cpp
-          lazy/frexp_gen.cpp
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
           lazy/kthvalue_gen.cpp
