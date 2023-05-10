@@ -33,25 +33,18 @@ void runResourceApplyMomentumOptTest(
     auto params_in = torch::randn({M, N});
     dump_tensor<float>(
         "params_in[" + std::to_string(i) + "]", params_in, verbose);
+    PushBackHpuAndCpuTensors(
+        params_in, hpu, cpu, &Data::params_momentum_buf_list);
 
     auto momentum_in = torch::randn({M, N});
     dump_tensor<float>(
         "momentum_in[" + std::to_string(i) + "]", momentum_in, verbose);
+    PushBackHpuAndCpuTensors(
+        momentum_in, hpu, cpu, &Data::params_momentum_buf_list);
 
     auto dp_in = torch::randn({M, N});
     dump_tensor<float>("dp_in[" + std::to_string(i) + "]", dp_in, verbose);
-
-    cpu.params_momentum_buf_list.push_back(params_in);
-    auto paramsH = params_in.to(torch::kHPU);
-    hpu.params_momentum_buf_list.push_back(paramsH);
-
-    cpu.params_momentum_buf_list.push_back(momentum_in);
-    auto momentumH = momentum_in.to(torch::kHPU);
-    hpu.params_momentum_buf_list.push_back(momentumH);
-
-    cpu.dp_list.push_back(dp_in);
-    auto dpH = dp_in.to(torch::kHPU);
-    hpu.dp_list.push_back(dpH);
+    PushBackHpuAndCpuTensors(dp_in, hpu, cpu, &Data::dp_list);
   }
 
   torch::TensorList params_momentum_buf_list(hpu.params_momentum_buf_list);
@@ -84,6 +77,91 @@ void runResourceApplyMomentumOptTest(
         std::make_pair(&Data::params_momentum_buf_list, 2 * i + 1),
         "dp_list",
         &Data::dp_list);
+    // Don't shorten to equal = equal && CompareFewTensors(...) as we want
+    // CompareFewTensors() is executed even if equal is false beforehand, for
+    // logging purpose.
+    equal = equal && equal1;
+  }
+  EXPECT_TRUE(equal);
+}
+
+void runLarsOptTest(
+    int num_params,
+    int M,
+    int N,
+    const std::vector<int64_t>& skip_masks,
+    double eeta,
+    double weight_decay,
+    double eps,
+    double lr,
+    bool params_zero,
+    bool grads_zero) {
+  const bool verbose = false;
+
+  torch::manual_seed(0);
+
+  struct Data {
+    std::vector<torch::Tensor> params;
+    std::vector<torch::Tensor> grads;
+  } cpu, hpu;
+
+  std::vector<long> shape =
+      (N > 1) ? std::vector<long>{M, N} : std::vector<long>{M};
+
+  for (auto i = 0; i < num_params; ++i) {
+    auto params_in = params_zero ? torch::zeros(shape) : torch::randn(shape);
+    dump_tensor<float>(
+        "params_in[" + std::to_string(i) + "]", params_in, verbose);
+    PushBackHpuAndCpuTensors(params_in, hpu, cpu, &Data::params);
+
+    auto grads_in = grads_zero ? torch::zeros(shape) : torch::randn(shape);
+    dump_tensor<float>(
+        "grads_in[" + std::to_string(i) + "]", grads_in, verbose);
+    PushBackHpuAndCpuTensors(grads_in, hpu, cpu, &Data::grads);
+  }
+
+  torch::TensorList params(hpu.params);
+  torch::TensorList grads(hpu.grads);
+
+  optimizer_lars_hpu_wrap(
+      params, grads, skip_masks, eeta, weight_decay, eps, lr);
+
+  // CPU calculations
+  for (auto i = 0; i < num_params; i++) {
+    if (!skip_masks[i]) {
+      cpu.grads[i].mul_(lr);
+    } else {
+      auto params_norm = cpu.params[i].square().sum().sqrt();
+      auto grads_norm = cpu.grads[i].square().sum().sqrt();
+      auto params_norm_positive = params_norm.greater(0.0);
+      auto grads_norm_positive = grads_norm.greater(0.0);
+      auto nominator = params_norm.mul(eeta);
+      auto denominator = params_norm.mul(weight_decay).add(eps).add(grads_norm);
+      auto division = nominator.div(denominator);
+      auto selection = torch::where(
+          grads_norm_positive,
+          torch::where(params_norm_positive, division, 1.0),
+          1.0);
+      cpu.grads[i] = cpu.params[i]
+                         .mul(weight_decay)
+                         .add(cpu.grads[i])
+                         .mul(selection.mul(lr));
+    }
+  }
+
+  bool equal = true;
+  for (auto i = 0; i < num_params; i++) {
+    bool equal1 = CompareFewTensors<float>(
+        i,
+        hpu,
+        cpu,
+        verbose,
+        0.001,
+        0.001,
+        "params",
+        &Data::params,
+        "grads",
+        &Data::grads);
     // Don't shorten to equal = equal && CompareFewTensors(...) as we want
     // CompareFewTensors() is executed even if equal is false beforehand, for
     // logging purpose.

@@ -18,21 +18,6 @@
 #include "transformer_engine/common.h"
 
 // Wrappers to match signatures
-static void optimizer_fused_lars(
-    const std::vector<at::Tensor>& paramsVec,
-    std::vector<at::Tensor>& gradsVec,
-    const std::vector<int64_t> skipMasks,
-    const float eeta,
-    const float weight_decay,
-    const float eps,
-    const float lr) {
-  at::TensorList params(paramsVec);
-  at::TensorList grads(gradsVec);
-
-  optimizer_lars_hpu_wrap(
-      params, grads, skipMasks, eeta, weight_decay, eps, lr);
-}
-
 static void optimizer_fused_adamw(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
@@ -227,7 +212,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "sparse_adagrad_with_valid_count",
       &optimizer_sparse_adagrad_with_valid_count_hpu_wrap,
       "Optimizer Sparse Adagrad with valid count");
-  m.def("fused_lars", &optimizer_fused_lars, "Optimizer Fused Lars");
   //////////////////////////// Normalizations /////////////////////////////////
   m.def(
       "fused_norm",

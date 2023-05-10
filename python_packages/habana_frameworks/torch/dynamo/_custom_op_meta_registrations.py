@@ -70,6 +70,10 @@ def meta_optimizer_lamb_fused_norm(grads, scale):
 def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, momentum):
     return
 
+@register_meta([torch.ops.hpu.optimizer_lars.default])
+def meta_optimizer_optimizer_lars(params, grads, skip_masks, eeta, weight_decay, eps, lr):
+    return
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

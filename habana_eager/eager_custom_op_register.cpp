@@ -157,6 +157,29 @@ void optimizer_resource_apply_momentum(
   hpu_op.call(params_momentum_buf_list);
 }
 
+void optimizer_lars(
+    const at::TensorList params,
+    at::TensorList grads,
+    c10::ArrayRef<int64_t> skip_masks,
+    const double eeta,
+    const double weight_decay,
+    const double eps,
+    const double lr) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      " optimizer_lars :",
+      DUMP_7ARGS(params, grads, skip_masks, eeta, weight_decay, eps, lr));
+
+  eager::EagerOp<void> hpu_op{
+      "hpu::optimizer_lars",
+      {params, grads, skip_masks, eeta, weight_decay, eps, lr}};
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::optimizer_lars", {1}});
+
+  hpu_op.call(grads);
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -181,6 +204,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
       "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
+  m.def(
+      "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -198,6 +223,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
+  m.impl("hpu::optimizer_lars", optimizer_lars);
 }
 
 } // namespace eager

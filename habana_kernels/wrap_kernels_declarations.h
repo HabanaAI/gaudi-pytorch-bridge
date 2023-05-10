@@ -242,13 +242,13 @@ void optimizer_lamb_phase2_hpu_wrap(
     const float weight_decay,
     const int use_lamb);
 void optimizer_lars_hpu_wrap(
-    const at::TensorList& params,
-    at::TensorList& grads,
-    const std::vector<int64_t> skipMasks,
-    const float eeta,
-    const float weight_decay,
-    const float eps,
-    const float lr);
+    const at::TensorList params,
+    at::TensorList grads,
+    c10::ArrayRef<int64_t> skip_masks,
+    const double eeta,
+    const double weight_decay,
+    const double eps,
+    const double lr);
 void optimizer_resource_apply_momentum_hpu_wrap(
     at::TensorList params_momentum_buf_list,
     const at::TensorList dp_list,

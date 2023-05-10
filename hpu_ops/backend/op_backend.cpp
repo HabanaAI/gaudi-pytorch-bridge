@@ -246,19 +246,28 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
   }
 
   int syn_counter = 0;
-  for (int inplace_id : m_inplace_ids) {
-    // Index can vary in syn_inputs_ and in stack
-    const auto& ival = stack[inplace_id];
+  int out_counter = 0;
+  for (int stack_id = 0, inplace_ids_pos = 0;
+       (stack_id < stack.size()) && (inplace_ids_pos < m_inplace_ids.size());
+       ++stack_id) {
+    const auto& ival = stack[stack_id];
     const auto& tensors = ival.isTensor()
         ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-        : ival.toTensorList();
-    for (auto i = 0u; i < tensors.size(); ++i) {
-      p_context_->syn_outputs_.emplace_back(
-          habana_helpers::duplicate_tensor_in_memory_section(
-              p_context_->syn_inputs_[syn_counter++],
-              graph,
-              m_output_metadata.at(inplace_id).external));
-      p_context_->pt_outputs_.emplace_back(tensors[i]);
+        : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
+
+    const auto inplace_id = m_inplace_ids[inplace_ids_pos];
+    if (inplace_id != stack_id) {
+      syn_counter += tensors.size();
+    } else {
+      for (auto i = 0u; i < tensors.size(); ++i) {
+        p_context_->syn_outputs_.emplace_back(
+            habana_helpers::duplicate_tensor_in_memory_section(
+                p_context_->syn_inputs_[syn_counter++],
+                graph,
+                m_output_metadata.at(out_counter++).external));
+        p_context_->pt_outputs_.emplace_back(tensors[i]);
+      }
+      ++inplace_ids_pos;
     }
   }
 }

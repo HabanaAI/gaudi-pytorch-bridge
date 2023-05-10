@@ -152,3 +152,14 @@ bool CompareFewTensors(Args&&... args) {
   return CompareRecursiveForCompareFewTensors<T>(
       true, std::forward<Args>(args)...);
 }
+
+template <class T>
+void PushBackHpuAndCpuTensors(
+    torch::Tensor src,
+    T& hpu,
+    T& cpu,
+    std::vector<torch::Tensor> T::*pmTensorVec) {
+  (cpu.*pmTensorVec).push_back(src);
+  auto src_on_hpu = src.to(torch::kHPU);
+  (hpu.*pmTensorVec).push_back(src_on_hpu);
+}
