@@ -33,7 +33,7 @@ TEST_P(HuberLossHpuOpTest, huber_loss_out) {
   const auto mode = std::get<1>(testParams);
 
   auto result =
-      torch::empty(1, torch::TensorOptions(torch::kFloat).device("hpu"));
+      torch::empty({}, torch::TensorOptions(torch::kFloat).device("hpu"));
 
   // Not Using outf variant for CPU as it gives incorrect results
   auto expected =

@@ -210,7 +210,7 @@ class EagerOp : public EagerOpBase {
 
     if (self.sizes() != out_shape) {
       HABANA_ASSERT(
-          self.numel() == 0 || (self.numel() == 1 && self.sizes().empty()),
+          self.numel() == 0 || self.sizes().empty(),
           "Got a non-empty out tensor for out operation. Out shape: ",
           self.sizes(),
           ", out numel: ",

@@ -58,6 +58,7 @@ set(lazy_tests_src
     lazy_upsample_kernel_tests.cpp
     lazy_where_kernel_tests.cpp
     post_order_tests.cpp
+    sbs_tests.cpp
 )
 
 set(hpu_ops_tests_src
@@ -234,7 +235,6 @@ list(APPEND misc_tests_src
   main.cpp
   misc_utils_tests.cpp
   nms_tests.cpp
-  sbs_tests.cpp
   serialization/habana_serialization_tests.cpp
   sif_tests.cpp
   synapse_helpers_memory_test.cpp

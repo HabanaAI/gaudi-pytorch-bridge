@@ -145,15 +145,17 @@ static void collect_output_view_param(
     return;
   }
 
-  for (auto& idx : eager_op_meta_data.out_indices_) {
-    if (inputs[idx].isScalar() || inputs[idx].isNone()) {
-      continue;
-    }
-
-    HABANA_ASSERT(inputs[idx].isTensor(), "Expected tensor input");
-    auto output_tensor = inputs.at(idx).toTensor();
+  auto parse_output_tensor = [&inputs, &node, &strided_out_info](
+                                 const size_t idx, const at::IValue& out_ival) {
+    HABANA_ASSERT(
+        out_ival.isTensor(), "Expected tensor input, when parsing idx: ", idx);
+    auto output_tensor = out_ival.toTensor();
     auto output_tmeta{habana::get_tensor_extra_meta(output_tensor)};
     if (output_tmeta->is_view_lowering() || !output_tensor.is_contiguous()) {
+      HABANA_ASSERT(
+          inputs[idx].isTensor(),
+          "Tensor lists containing views are unsupported. Failed for idx: ",
+          idx);
       StridedOutInfo s;
       auto node_output_idx = get_node_output_idx(node, idx);
       s.index = node_output_idx;
@@ -169,6 +171,19 @@ static void collect_output_view_param(
           idx,
           "node_output_idx = ",
           node_output_idx);
+    }
+  };
+
+  for (auto& idx : eager_op_meta_data.out_indices_) {
+    if (inputs.at(idx).isScalar() || inputs[idx].isNone()) {
+      continue;
+    }
+
+    if (inputs[idx].isList()) {
+      for (const auto& list_element : inputs[idx].toList())
+        parse_output_tensor(idx, list_element.get());
+    } else {
+      parse_output_tensor(idx, inputs[idx]);
     }
   }
 }

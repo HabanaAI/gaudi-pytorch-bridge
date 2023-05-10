@@ -259,11 +259,10 @@ TEST_F(TypePromotionTests, OutClampMin) {
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kFloat);
   auto t2_cpu = torch::tensor({1, 2, 3, 4}, torch::kFloat);
   auto t3_cpu = torch::tensor({scalar}, torch::kInt32);
-  auto t4_cpu = torch::tensor({0}, torch::kFloat);
-  auto t5_cpu = torch::tensor({0}, torch::kFloat);
+  auto t4_cpu = torch::tensor({}, torch::kFloat);
+  auto t5_cpu = torch::tensor({}, torch::kFloat);
 
   auto t1_hpu = t1_cpu.to(torch::kHPU);
-  auto t2_hpu = t2_cpu.to(torch::kHPU);
   auto t3_hpu = t3_cpu.to(torch::kHPU);
   auto t4_hpu = t4_cpu.to(torch::kHPU);
   auto t5_hpu = t5_cpu.to(torch::kHPU);
@@ -284,13 +283,11 @@ TEST_F(TypePromotionTests, OutClampMin) {
 TEST_F(TypePromotionTests, OutClampMax) {
   auto scalar = 2;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kFloat);
-  auto t2_cpu = torch::tensor({1, 2, 3, 4}, torch::kFloat);
   auto t3_cpu = torch::tensor({scalar}, torch::kInt32);
-  auto t4_cpu = torch::tensor({0}, torch::kFloat);
-  auto t5_cpu = torch::tensor({0}, torch::kFloat);
+  auto t4_cpu = torch::tensor({}, torch::kFloat);
+  auto t5_cpu = torch::tensor({}, torch::kFloat);
 
   auto t1_hpu = t1_cpu.to(torch::kHPU);
-  auto t2_hpu = t2_cpu.to(torch::kHPU);
   auto t3_hpu = t3_cpu.to(torch::kHPU);
   auto t4_hpu = t4_cpu.to(torch::kHPU);
   auto t5_hpu = t5_cpu.to(torch::kHPU);
@@ -348,7 +345,7 @@ TEST_F(TypePromotionTests, OutGreaterThan) {
 
 TEST_F(TypePromotionTests, OutMean) {
   auto t1_cpu = torch::tensor({1, 2}, torch::kFloat);
-  auto t2_cpu = torch::tensor({0}, torch::kBFloat16);
+  auto t2_cpu = torch::tensor({}, torch::kBFloat16);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
   auto t2_hpu = t2_cpu.to(torch::kHPU);
   torch::mean_out(t2_cpu, t1_cpu, {0}, false, torch::kBFloat16);

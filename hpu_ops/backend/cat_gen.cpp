@@ -13,6 +13,8 @@
 
 #include "generated/backend/cat.h"
 
+namespace sh = synapse_helpers;
+
 namespace habana {
 
 void ValidateInputParams(
@@ -25,13 +27,6 @@ void ValidateInputParams(
   auto input_tensor_dim = tensors[0].dim();
 
   for (unsigned i = 1; i < in_tensor_count; i++) {
-    TORCH_CHECK(
-        (input_tensor_type == tensors[i].scalar_type()),
-        "Input tensor expected to be of same type. Expected:",
-        input_tensor_type,
-        ", got:",
-        tensors[i].scalar_type());
-
     TORCH_CHECK(
         (input_tensor_dim == tensors[i].dim()),
         "Input tensor expected to be of same dimensions. Expected:",
@@ -85,10 +80,24 @@ void CatOutHabanaOperator::AddNode(
       tensorlist[0].dim(),
       /*wrap_scalar=*/true);
 
+  std::vector<sh::tensor> cat_input_shTensor;
   std::vector<synTensor> cat_input_synTensor;
 
-  for (int i = 0; i < (int)tensorlist.size(); i++) {
-    cat_input_synTensor.emplace_back(syn_in(i));
+  auto in_tensors = stack[0].toTensorList().vec();
+  auto out_tensor_type = in_tensors[0].scalar_type();
+
+  for (unsigned i = 0; i < in_tensors.size(); i++) {
+    if (in_tensors[i].scalar_type() != out_tensor_type) {
+      cat_input_shTensor.emplace_back(CastHelper(
+          graph,
+          syn_in(i),
+          in_tensors[i].sizes(),
+          in_tensors[i].scalar_type(),
+          out_tensor_type));
+      cat_input_synTensor.emplace_back(cat_input_shTensor.back().get());
+    } else {
+      cat_input_synTensor.emplace_back(syn_in(i));
+    }
   }
 
   auto cal_out_size = ComputeOutputShapes(stack)[0];
