@@ -223,6 +223,38 @@ void optimizer_lars(
   hpu_op.call(grads);
 }
 
+void optimizer_lamb_fused_phase2(
+    at::TensorList weights,
+    const at::TensorList adam_norms,
+    const at::TensorList weight_norms,
+    const at::TensorList adam_steps,
+    const double step,
+    const double weight_decay,
+    const bool use_lamb) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "optimizer_lamb_fused_phase2:",
+      DUMP_7ARGS(
+          weights,
+          adam_norms,
+          weight_norms,
+          adam_steps,
+          step,
+          weight_decay,
+          use_lamb));
+
+  EagerOp<void> hpu_op{
+      "hpu::optimizer_lamb_fused_phase2",
+      {weights,
+       adam_norms,
+       weight_norms,
+       adam_steps,
+       step,
+       weight_decay,
+       use_lamb}};
+  return hpu_op.call(weights);
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -258,6 +290,8 @@ TORCH_LIBRARY(hpu, m) {
       "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
       "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
+  m.def(
+      "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -281,6 +315,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
   m.impl("hpu::optimizer_lars", optimizer_lars);
+  m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
 }
 
 } // namespace eager

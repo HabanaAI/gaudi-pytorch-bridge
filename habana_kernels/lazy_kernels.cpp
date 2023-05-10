@@ -21,6 +21,7 @@
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
+#include "common/dump_args.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_kernels/basic_kernels.h"
@@ -59,6 +60,7 @@
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "lazy_kernels_declarations.h"
+#include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
@@ -6997,6 +6999,41 @@ at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
       "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
 
   RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, op)
+}
+
+void optimizer_lamb_fused_phase2(
+    at::TensorList weights,
+    const at::TensorList adam_norms,
+    const at::TensorList weight_norms,
+    const at::TensorList adam_steps,
+    const double step,
+    const double weight_decay,
+    const bool use_lamb) {
+  PT_OP_TRACE
+  PT_LAZY_TRACE;
+
+  PT_OP_INFO(
+      "optimizer_lamb_fused_phase2 :",
+      DUMP_7ARGS(
+          weights,
+          adam_norms,
+          weight_norms,
+          adam_steps,
+          step,
+          weight_decay,
+          use_lamb));
+
+  LazyOptimizationOp<void> loo(
+      "hpu::optimizer_lamb_fused_phase2",
+      {weights,
+       adam_norms,
+       weight_norms,
+       adam_steps,
+       step,
+       weight_decay,
+       use_lamb});
+  loo.call(weights);
+  flush_op(weights.size());
 }
 
 } // namespace habana_lazy

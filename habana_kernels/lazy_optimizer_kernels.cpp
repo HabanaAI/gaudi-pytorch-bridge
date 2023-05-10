@@ -346,38 +346,6 @@ optimizer_lamb_phase1_hpu_lazy(
   return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
 }
 
-void optimizer_lamb_phase2_hpu_lazy(
-    std::vector<at::Tensor>& weights,
-    const std::vector<at::Tensor>& adam_norm,
-    const std::vector<at::Tensor>& weight_norm,
-    const std::vector<at::Tensor>& adam_step,
-    const float step,
-    const float weight_decay,
-    const int use_lamb) {
-  PT_LAZY_TRACE;
-  habana_lazy::NoAccThread no_acc_thread;
-
-  // TODO: SW-69618 JIT optimization passes are failing for
-  // habanaOptimizerLambPhase1 and habanaOptimizerLambPhase2 because we
-  // dont support tensorlist in lowering that matches kernel schema.
-  // Adding unpack will return TensorList, which is not supported as
-  // graph output.
-  exec::OptPassCfg::GetInstance()->BkupAndDisableAndAllOptPass();
-
-  auto nstep_t = at::tensor(-step).to(c10::kHPU, true);
-
-  LazyOptimizationOp<void> loo(
-      "hpu::habanaOptimizerLambPhase2",
-      {weights,
-       adam_norm,
-       weight_norm,
-       adam_step,
-       nstep_t,
-       weight_decay,
-       use_lamb});
-  loo.call(weights);
-  flush_op(weights.size());
-}
 
 void optimizer_adagrad_hpu_lazy(
     const TensorList& gradients,

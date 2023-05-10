@@ -28,16 +28,4 @@ class OptimizerLambPhase1Operator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-class OptimizerLambPhase2Operator : public HabanaOperator {
- public:
-  OptimizerLambPhase2Operator(int device_id, c10::ScalarType)
-      : HabanaOperator({}) {
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
 } // namespace habana

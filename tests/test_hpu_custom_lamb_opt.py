@@ -35,9 +35,8 @@ def reference_lamb_fused_norm(grads, max_grad_norm):
 
 
 def create_grads(dtypes, shapes):
-    torch.manual_seed(0)
     cpu_grads, hpu_grads = [], []
-    for shape, dtype in zip(dtypes, shapes):
+    for dtype, shape in zip(dtypes, shapes):
         cpu_grads.append(torch.randn(shape, device=cpu).to(dtype))
         hpu_grads.append(cpu_grads[-1].to(hpu))
     return cpu_grads, hpu_grads
@@ -45,13 +44,14 @@ def create_grads(dtypes, shapes):
 
 @pytest.mark.parametrize("max_grad_norm", (0.2, 1.0, 4.0, 8))
 @pytest.mark.parametrize(
-    "dtypes, shapes",
+    "shapes, dtypes",
     (
         ([(3, 4), (5, 6)], [torch.float, torch.float]),
         ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16]),
     ),
 )
 def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm):
+    torch.manual_seed(0)
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
 
     result = torch.ops.hpu.optimizer_lamb_fused_norm(hpu_grads, max_grad_norm)
@@ -62,9 +62,9 @@ def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm):
 
 def test_optimizer_lamb_fused_norm_slice_insert():
     tensor_hpu = torch.zeros(4).to("hpu")
-    tensor_hpu[:2] = 2.
-    tensor_hpu[2:] = 1.
-    tensor_cpu = torch.tensor([2., 2., 1., 1.])
+    tensor_hpu[:2] = 2.0
+    tensor_hpu[2:] = 1.0
+    tensor_cpu = torch.tensor([2.0, 2.0, 1.0, 1.0])
 
     grad_denom_hpu = torch.ops.hpu.optimizer_lamb_fused_norm([tensor_hpu], 1.0)
     grad_denom_cpu = reference_lamb_fused_norm([tensor_cpu], 1.0)
@@ -73,7 +73,10 @@ def test_optimizer_lamb_fused_norm_slice_insert():
 
 
 def test_optimizer_lamb_fused_norm_views():
-    tensor_cpu, tensor_hpu = create_grads([(2, 2,)], [torch.float32])
+    tensor_cpu, tensor_hpu = create_grads(
+        [torch.float32],
+        [(2, 2)],
+    )
     tensor_hpu = tensor_hpu[0].view(-1)
     tensor_cpu = tensor_cpu[0].view(-1)
 
@@ -81,6 +84,59 @@ def test_optimizer_lamb_fused_norm_views():
     grad_denom_cpu = reference_lamb_fused_norm([tensor_cpu], 1.0)
 
     compare_tensors(grad_denom_hpu, grad_denom_cpu, atol=1e-08, rtol=1e-05)
+
+
+def reference_optimizer_lamb_fused_phase2(
+    weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb
+):
+    for weight, adam_norm, weight_norm, adam_step in zip(
+        weights, adam_norms, weight_norms, adam_steps
+    ):
+        if (weight_decay != 0 or use_lamb) and adam_norm > 0 and weight_norm > 0:
+            trust_ratio = weight_norm / adam_norm
+        else:
+            trust_ratio = 1
+        adam_step = adam_step * -step * trust_ratio
+        weight.add_(adam_step)
+
+
+@pytest.mark.parametrize(
+    "weight_dtype",
+    [torch.float, torch.bfloat16],
+)
+@pytest.mark.parametrize("weight_shapes", [[(5, 4)], [(2, 3, 3), (4, 2)]])
+@pytest.mark.parametrize("use_lamb", [True, False])
+@pytest.mark.parametrize("weight_decay", [0, 0.1])
+def test_optimizer_lamb_fused_phase2(
+    weight_dtype, weight_shapes, weight_decay, use_lamb
+):
+    torch.manual_seed(0)
+    n = len(weight_shapes)
+    cpu_weights, hpu_weights = create_grads([weight_dtype] * n, weight_shapes)
+    cpu_adam_norm, hpu_adam_norm = create_grads([weight_dtype] * n, [(1,)] * n)
+    cpu_weight_norm, hpu_weight_norm = create_grads([weight_dtype] * n, [(1,)] * n)
+    cpu_adam_step, hpu_adam_step = create_grads([weight_dtype] * n, weight_shapes)
+
+    torch.ops.hpu.optimizer_lamb_fused_phase2(
+        hpu_weights,
+        hpu_adam_norm,
+        hpu_weight_norm,
+        hpu_adam_step,
+        0.1,
+        weight_decay,
+        use_lamb,
+    )
+    reference_optimizer_lamb_fused_phase2(
+        cpu_weights,
+        cpu_adam_norm,
+        cpu_weight_norm,
+        cpu_adam_step,
+        0.1,
+        weight_decay,
+        use_lamb,
+    )
+    compare_tensors(hpu_weights, cpu_weights, atol=1e-08, rtol=1e-05)
+
 
 def test_lamb0():
     from habana_frameworks.torch.hpex.optimizers import FusedLamb

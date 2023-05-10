@@ -233,14 +233,6 @@ optimizer_lamb_phase1_hpu_wrap(
     const int step,
     const int bias_correction,
     const float weight_decay);
-void optimizer_lamb_phase2_hpu_wrap(
-    std::vector<at::Tensor>& weight_vec,
-    const std::vector<at::Tensor>& adam_norm_vec,
-    const std::vector<at::Tensor>& weight_norm_vec,
-    const std::vector<at::Tensor>& adam_step_vec,
-    const float step,
-    const float weight_decay,
-    const int use_lamb);
 void optimizer_lars_hpu_wrap(
     const at::TensorList params,
     at::TensorList grads,

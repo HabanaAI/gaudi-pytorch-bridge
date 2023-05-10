@@ -13,6 +13,7 @@
 
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "backend/create_pt_tensor.h"
+
 namespace habana {
 
 OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
@@ -181,8 +182,125 @@ void OptimizerFusedLambNorm::AddNode(
   syn_out(0) = std::move(add[0]);
 }
 
+OptimizerLambFusedPhase2::OptimizerLambFusedPhase2(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "optimizer_lamb_fused_phase2",
+          scalar_type,
+          {},
+          {0},
+          {},
+          false) {}
+
+void OptimizerLambFusedPhase2::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 7,
+      "OptimizerLambFusedPhase2 must have 7 input arguments");
+
+  StackGetter stackGetter(stack, "OptimizerLambFusedPhase2::AddNode");
+  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto adam_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto weight_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto adam_steps = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  float step = static_cast<float>(getNextInput<double>(stackGetter));
+  auto weight_decay = static_cast<float>(getNextInput<double>(stackGetter));
+  bool use_lamb = getNextInput<bool>(stackGetter);
+
+  auto syn_negative_step = ConstantHelper(graph, -step, torch::kFloat, {1});
+  auto dtype = weights[0].pt_t.scalar_type();
+
+  std::optional<synapse_helpers::tensor> zero;
+  std::optional<synapse_helpers::tensor> one;
+  bool calc_trust_ratio = weight_decay != 0 || use_lamb;
+  if (calc_trust_ratio) {
+    zero = ConstantHelper(graph, 0, dtype, {1});
+    one = ConstantHelper(graph, 1, dtype, {1});
+  }
+
+  for (size_t i = 0; i < weights.size(); ++i) {
+    std::optional<synapse_helpers::tensor> trust_ratio;
+    std::optional<synapse_helpers::tensor> update;
+
+    if (calc_trust_ratio) {
+      auto div = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("div_fwd", dtype),
+           {weight_norms[i].syn_t, adam_norms[i].syn_t},
+           {{{1}, dtype}}});
+
+      auto weight_mask = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("greater_fwd", dtype),
+           {weight_norms[i].syn_t, zero->get()},
+           {{{1}, at::kBool}}});
+
+      auto adam_mask = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("greater_fwd", dtype),
+           {adam_norms[i].syn_t, zero->get()},
+           {{{1}, at::kBool}}});
+
+      auto mask = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("and_fwd", at::kBool),
+           {weight_mask[0].get(), adam_mask[0].get()},
+           {{{1}, at::kBool}}});
+
+      auto where = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("where_fwd", dtype),
+           {mask[0].get(), div[0].get(), one->get()},
+           {{{1}, dtype}}});
+
+      trust_ratio = std::move(where[0]);
+    }
+
+    auto mul = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {adam_steps[i].syn_t, syn_negative_step.get()},
+         {{adam_steps[i].pt_t.sizes(), dtype}}});
+
+    if (trust_ratio.has_value()) {
+      update = std::move(OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("mult_fwd", dtype),
+           {mul[0].get(), trust_ratio->get()},
+           {{adam_steps[i].pt_t.sizes(), dtype}}})[0]);
+
+    } else {
+      update = std::move(mul[0]);
+    }
+
+    auto updated_weight = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("add_fwd", dtype),
+         {weights[i].syn_t, update->get()},
+         {{weights[i].pt_t.sizes(), dtype, i}}});
+
+    syn_out(i) = std::move(updated_weight[0]);
+  }
+}
+
 } // namespace habana
 
-static const auto& LambKernelRegistry = habana::KernelRegistry().add(
-    "hpu::optimizer_lamb_fused_norm",
-    KERNEL_FN_GLOBAL(habana::OptimizerFusedLambNorm));
+static const auto& LambKernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::optimizer_lamb_fused_norm",
+            KERNEL_FN_GLOBAL(habana::OptimizerFusedLambNorm))
+        .add(
+            "hpu::optimizer_lamb_fused_phase2",
+            KERNEL_FN_GLOBAL(habana::OptimizerLambFusedPhase2));

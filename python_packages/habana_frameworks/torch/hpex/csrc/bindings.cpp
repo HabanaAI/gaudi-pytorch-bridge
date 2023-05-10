@@ -185,10 +185,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &optimizer_lamb_phase1_hpu_wrap,
       "Compute and apply gradient update to parameters for lamb optimizer phase1");
   m.def(
-      "fused_lamb_phase2",
-      &optimizer_lamb_phase2_hpu_wrap,
-      "Compute and apply gradient update to parameters for lamb optimizer phase2");
-  m.def(
       "fused_adagrad",
       &optimizer_fused_adagrad,
       "Compute and apply gradient update to parameters for Adagrad optimizer");

@@ -1198,42 +1198,6 @@ optimizer_lamb_phase1_hpu_wrap(
       weight_decay);
 }
 
-void optimizer_lamb_phase2_hpu_wrap(
-    std::vector<at::Tensor>& weight_vec,
-    const std::vector<at::Tensor>& adam_norm_vec,
-    const std::vector<at::Tensor>& weight_norm_vec,
-    const std::vector<at::Tensor>& adam_step_vec,
-    const float step,
-    const float weight_decay,
-    const int use_lamb) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_lamb_phase2:",
-      " weight_vec=",
-      to_string(weight_vec),
-      "adam_norm_vec=",
-      to_string(adam_norm_vec),
-      "weight_norm_vec=",
-      to_string(weight_norm_vec),
-      "adam_step_vec=",
-      to_string(adam_step_vec),
-      "step=",
-      to_string(step),
-      "weight_decay=",
-      to_string(weight_decay),
-      "use_lamb=",
-      to_string(use_lamb));
-  optimizer_lamb_phase2_hpu_lazy(
-      weight_vec,
-      adam_norm_vec,
-      weight_norm_vec,
-      adam_step_vec,
-      step,
-      weight_decay,
-      use_lamb);
-}
-
 void optimizer_lars_hpu_wrap(
     const at::TensorList params,
     at::TensorList grads,
@@ -2243,7 +2207,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
-      "habanaOptimizerLambPhase2(Tensor(a!)[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor neg_step, float wd, int use_lamb) -> ()");
+      "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
   m.def(
       "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
   m.def(
@@ -2431,6 +2395,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum_hpu_wrap);
   m.impl("hpu::optimizer_lars", optimizer_lars_hpu_wrap);
+  m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

@@ -31,4 +31,10 @@ OUTMETA_DECL(ComputeLambOutputMetadata)
 HPU_OP_FRONTEND(habana_lazy::LazyOp, LazyOptimizerLambFusedNorm);
 HPU_OP_FRONTEND(eager::EagerOp, EagerOptimizerLambFusedNorm)
 
+struct OptimizerLambFusedPhase2 : OpBackend {
+  OptimizerLambFusedPhase2(int device_id, c10::ScalarType scalar_type);
+
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
 } // namespace habana

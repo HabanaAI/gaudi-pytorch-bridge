@@ -348,7 +348,7 @@ class HabanaLaunchOpPT {
       "hpu::habanaOptimizerFusedAdagrad",
       "hpu::habanaOptimizerAdamW",
       "hpu::habanaOptimizerLambPhase1",
-      "hpu::habanaOptimizerLambPhase2"};
+      "hpu::optimizer_lamb_fused_phase2"};
 
   // TODO collect the control edge structures in a child class
   std::unordered_map<torch::jit::Node*, std::pair<size_t, size_t>>

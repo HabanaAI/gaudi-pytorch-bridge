@@ -439,14 +439,14 @@ optimizer_lamb_phase1_hpu_lazy(
     const int step,
     const int bias_correction,
     const float weight_decay);
-void optimizer_lamb_phase2_hpu_lazy(
-    std::vector<at::Tensor>& weight_vec,
-    const std::vector<at::Tensor>& adam_norm_vec,
-    const std::vector<at::Tensor>& weight_norm_vec,
-    const std::vector<at::Tensor>& adam_step_vec,
-    const float step,
-    const float weight_decay,
-    const int use_lamb);
+void optimizer_lamb_fused_phase2(
+    at::TensorList weights,
+    const at::TensorList adam_norms,
+    const at::TensorList weight_norms,
+    const at::TensorList adam_steps,
+    const double step,
+    const double weight_decay,
+    const bool use_lamb);
 void optimizer_ema_hpu_lazy(
     const at::TensorList& model_inputs,
     at::TensorList& updated_ema,

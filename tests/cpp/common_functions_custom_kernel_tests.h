@@ -51,3 +51,28 @@ void runLarsOptTest(
   TEST_F(BASE, LarsOptTest1D) {                                           \
     runLarsOptTest(3, 8, 1, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, false, false); \
   }
+
+void runLambPhase2OptimizerTest(
+    int num_params,
+    int M,
+    int N,
+    const double weight_decay,
+    const bool use_lamb,
+    const bool with_view);
+
+#define LAMB_PHASE2_OPT_TEST(BASE)                          \
+  TEST_F(BASE, LambPhase2Test) {                            \
+    runLambPhase2OptimizerTest(2, 4, 3, 0.9, true, false);  \
+  }                                                         \
+                                                            \
+  TEST_F(BASE, LambPhase2TestNoWd) {                        \
+    runLambPhase2OptimizerTest(2, 4, 3, 0.0, true, false);  \
+  }                                                         \
+                                                            \
+  TEST_F(BASE, LambPhase2TestNoLamb) {                      \
+    runLambPhase2OptimizerTest(2, 4, 3, 0.9, false, false); \
+  }                                                         \
+                                                            \
+  TEST_F(BASE, LambPhase2TestWithView) {                    \
+    runLambPhase2OptimizerTest(2, 4, 3, 0.9, true, true);   \
+  }

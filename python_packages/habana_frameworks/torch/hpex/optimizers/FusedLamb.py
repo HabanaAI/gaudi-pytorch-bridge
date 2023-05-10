@@ -193,7 +193,7 @@ class FusedLamb(Optimizer):
 
             htcore.step_closure._mark_step_if_lazy()
 
-            _hpex_C.fused_lamb_phase2(
+            torch.ops.hpu.optimizer_lamb_fused_phase2(
                 wt_list,
                 adam_norm_list,
                 wt_norm_list,
