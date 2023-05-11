@@ -95,3 +95,33 @@ void runEmaOptTest(
   TEST_F(BASE, EmaOptTest) {             \
     runEmaOptTest(2, 4, 4, 0.9, ENA_VW); \
   }
+
+void runLambPhase1OptimizerTest(
+    int num_params,
+    int M,
+    int N,
+    double weight_decay,
+    int bias_correction,
+    int step,
+    int grad_averaging,
+    bool with_view);
+
+#define LAMB_PHASE1_OPT_TEST(BASE, ENA_VW)                     \
+  TEST_F(BASE, LambPhase1Test) {                               \
+    runLambPhase1OptimizerTest(1, 3, 4, 0.1, 1, 1, 1, false);  \
+  }                                                            \
+  TEST_F(BASE, LambPhase1TestNoBiasCorrection) {               \
+    runLambPhase1OptimizerTest(2, 3, 4, 0.1, 0, 1, 1, false);  \
+  }                                                            \
+  TEST_F(BASE, LambPhase1TestLargerStep) {                     \
+    runLambPhase1OptimizerTest(2, 3, 4, 0.1, 1, 3, 1, false);  \
+  }                                                            \
+  TEST_F(BASE, LambPhase1TestNoGradAveraging) {                \
+    runLambPhase1OptimizerTest(2, 3, 4, 0.1, 1, 1, 0, false);  \
+  }                                                            \
+  TEST_F(BASE, LambPhase1TestNoWeightDecay) {                  \
+    runLambPhase1OptimizerTest(2, 3, 4, 0.0, 1, 1, 1, false);  \
+  }                                                            \
+  TEST_F(BASE, LambPhase1TestWithViews) {                      \
+    runLambPhase1OptimizerTest(1, 3, 4, 0.1, 1, 1, 1, ENA_VW); \
+  }

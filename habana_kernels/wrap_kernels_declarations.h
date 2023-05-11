@@ -207,24 +207,6 @@ at::Tensor gather2d_hpu_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
     int64_t validCount);
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_wrap(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const at::Tensor& clip_global_grad_norm,
-    const int grad_averaging,
-    const float lr,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const int step,
-    const int bias_correction,
-    const float weight_decay);
 void optimizer_lars_hpu_wrap(
     const at::TensorList params,
     at::TensorList grads,

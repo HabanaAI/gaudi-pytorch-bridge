@@ -17,13 +17,13 @@ namespace habana {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR(
     habana_lazy::LazyOp,
-    LazyOptimizerLambFusedNorm,
+    LazyOptimizerLambNorm,
     -1,
     at::Tensor) {}
 
 HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     habana_lazy::LazyOp,
-    LazyOptimizerLambFusedNorm,
+    LazyOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
   const auto& t = inputs.at(0).toTensorList().get(0);

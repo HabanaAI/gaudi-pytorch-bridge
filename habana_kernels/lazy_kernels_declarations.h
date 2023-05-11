@@ -418,28 +418,26 @@ at::Tensor fused_norm_hpu_lazy(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,
     float norm_type = 2.0);
-at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
+at::Tensor optimizer_lamb_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     double max_grad_norm);
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_lazy(
-    const std::vector<at::Tensor>& gradients,
-    std::vector<at::Tensor>& weights,
-    std::vector<at::Tensor>& exp_avg,
-    std::vector<at::Tensor>& exp_avg_sq,
+void optimizer_lamb_phase1(
+    const at::TensorList gradients,
+    const at::TensorList weights,
+    at::TensorList exp_avg,
+    at::TensorList exp_avg_sq,
+    at::TensorList out_weight_norms,
+    at::TensorList out_adam_norms,
+    at::TensorList out_adam_steps,
     const at::Tensor& clip_global_grad_norm,
-    const int grad_averaging,
-    const float lr,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const int step,
-    const int bias_correction,
-    const float weight_decay);
-void optimizer_lamb_fused_phase2(
+    const int64_t grad_averaging,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const int64_t step,
+    const int64_t bias_correction,
+    const double weight_decay);
+void optimizer_lamb_phase2(
     at::TensorList weights,
     const at::TensorList adam_norms,
     const at::TensorList weight_norms,

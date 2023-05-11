@@ -1100,70 +1100,6 @@ void optimizer_sgd_momentum_hpu_wrap(
       ArrayRef<TensorList>{weights, momentum});
 }
 
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_wrap(
-    const std::vector<at::Tensor>& gradients,
-    std::vector<at::Tensor>& weights,
-    std::vector<at::Tensor>& exp_avg,
-    std::vector<at::Tensor>& exp_avg_sq,
-    const at::Tensor& clip_global_grad_norm,
-    const int grad_averaging,
-    const float lr,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const int step,
-    const int bias_correction,
-    const float weight_decay) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_lamb_phase1:",
-      " gradients=",
-      to_string(gradients),
-      "weights=",
-      to_string(weights),
-      "exp_avg=",
-      to_string(exp_avg),
-      "exp_avg_sq=",
-      to_string(exp_avg_sq),
-      "clip_global_grad_norm=",
-      to_string(clip_global_grad_norm),
-      "grad_averaging=",
-      to_string(grad_averaging),
-      "lr=",
-      to_string(lr),
-      "beta1=",
-      to_string(beta1),
-      "beta2=",
-      to_string(beta2),
-      "epsilon=",
-      to_string(epsilon),
-      "step=",
-      to_string(step),
-      "bias_correction=",
-      to_string(bias_correction),
-      "weight_decay=",
-      to_string(weight_decay));
-  return optimizer_lamb_phase1_hpu_lazy(
-      gradients,
-      weights,
-      exp_avg,
-      exp_avg_sq,
-      clip_global_grad_norm,
-      grad_averaging,
-      lr,
-      beta1,
-      beta2,
-      epsilon,
-      step,
-      bias_correction,
-      weight_decay);
-}
-
 void optimizer_lars_hpu_wrap(
     const at::TensorList params,
     at::TensorList grads,
@@ -2176,9 +2112,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
-      "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta3, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
+      "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, int step, int bias_correction, float weight_decay) -> ()");
   m.def(
-      "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
+      "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
   m.def(
       "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor(b!) lr) -> ()");
   m.def(
@@ -2364,12 +2300,13 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::custom_softmax", custom_softmax_wrap);
   m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
   m.impl("hpu::fp8_permute", fp8_permute_wrap);
-  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm_hpu_lazy);
+  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum_hpu_wrap);
   m.impl("hpu::optimizer_lars", optimizer_lars_hpu_wrap);
-  m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
+  m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
+  m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);
   m.impl("hpu::optimizer_sgd", optimizer_sgd_hpu_wrap);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum_hpu_wrap);

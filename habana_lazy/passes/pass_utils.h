@@ -97,8 +97,7 @@ class WeightIdentificationPass {
           {"hpu::optimizer_sgd_momentum", {0, 1, 2}},
           {"hpu::habanaOptimizerFusedAdagrad", {0, 1, 2}},
           {"hpu::habanaOptimizerAdamW", {0, 1, 2, 3}},
-          {"hpu::habanaOptimizerLambPhase1", {0, 1}},
-          {"hpu::habanaOptimizerLambPhase1", {0, 1}}};
+          {"hpu::optimizer_lamb_phase1", {0, 1}}};
 
   void markWeights(const torch::jit::Value* value);
   bool isTensor(const torch::jit::Value* value);

@@ -71,7 +71,7 @@ class FusedLamb(Optimizer):
         max_grad_norm=1.0,
         use_lamb=False,
         fused=False,
-        dtype=None
+        dtype=None,
     ):
         if amsgrad:
             raise RuntimeError("FusedLamb does not support the AMSGrad variant.")
@@ -106,8 +106,6 @@ class FusedLamb(Optimizer):
             closure (callable, optional): A closure that re-evaluates the model
                 and returns the loss.
         """
-        from habana_frameworks.torch import _hpex_C
-
         loss = None
         if closure is not None:
             loss = closure()
@@ -124,11 +122,17 @@ class FusedLamb(Optimizer):
                         raise RuntimeError(
                             "Lamb does not support sparse gradients, consider SparseAdam instead."
                         )
-                    grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
+                    grad_list_norm.append(
+                        grad if self.dtype is None else grad.to(dtype=self.dtype)
+                    )
 
-            clip_global_grad_norm = torch.ops.hpu.optimizer_lamb_fused_norm(grad_list_norm, max_grad_norm)
+            clip_global_grad_norm = torch.ops.hpu.optimizer_lamb_fused_norm(
+                grad_list_norm, max_grad_norm
+            )
         else:
-            clip_global_grad_norm = torch.tensor([1.0], dtype=torch.float32, device='hpu:0')
+            clip_global_grad_norm = torch.tensor(
+                [1.0], dtype=torch.float32, device="hpu:0"
+            )
 
         for group in self.param_groups:
             bias_correction = 1 if group["bias_correction"] else 0
@@ -164,9 +168,9 @@ class FusedLamb(Optimizer):
                 # State initialization
                 if len(state) == 0:
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros(p.data.shape).to(self.device)
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros(p.data.shape).to(self.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -175,14 +179,20 @@ class FusedLamb(Optimizer):
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
 
-            (wt_norm_list, adam_norm_list, adam_step_list) = _hpex_C.fused_lamb_phase1(
+                wt_norm_list.append(torch.empty((1,), device=self.device))
+                adam_norm_list.append(torch.empty((1,), device=self.device))
+                adam_step_list.append(torch.empty_like(exp_avg))
+
+            torch.ops.hpu.optimizer_lamb_phase1(
                 grad_list,
                 wt_list,
                 exp_avg_list,
                 exp_avg_sq_list,
+                wt_norm_list,
+                adam_norm_list,
+                adam_step_list,
                 clip_global_grad_norm,
                 grad_averaging,
-                group["lr"],
                 beta1,
                 beta2,
                 group["eps"],
@@ -193,7 +203,7 @@ class FusedLamb(Optimizer):
 
             htcore.step_closure._mark_step_if_lazy()
 
-            torch.ops.hpu.optimizer_lamb_fused_phase2(
+            torch.ops.hpu.optimizer_lamb_phase2(
                 wt_list,
                 adam_norm_list,
                 wt_norm_list,

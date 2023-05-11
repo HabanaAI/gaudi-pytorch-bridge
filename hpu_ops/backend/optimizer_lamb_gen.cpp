@@ -16,6 +16,8 @@
 
 namespace habana {
 
+// OptimizerLambNorm
+
 OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
   OutputMetaData meta;
   auto tensors = stack[0].toTensorList();
@@ -25,12 +27,10 @@ OutputMetaDataVector ComputeLambOutputMetadata(const at::Stack& stack) {
   return {meta};
 }
 
-OptimizerFusedLambNorm::OptimizerFusedLambNorm(
-    int device_id,
-    c10::ScalarType scalar_type)
+OptimizerLambNorm::OptimizerLambNorm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "optimizer_lamb_fused_norm_fwd_",
+          "optimizer_lamb_norm_fwd_",
           scalar_type,
           {},
           {},
@@ -39,7 +39,7 @@ OptimizerFusedLambNorm::OptimizerFusedLambNorm(
   SetOutputMetaFn(ComputeLambOutputMetadata);
 }
 
-void OptimizerFusedLambNorm::CustomHandler(
+void OptimizerLambNorm::CustomHandler(
     synapse_helpers::graph& graph,
     at::Stack& stack) {
   auto metadata = GetOutputMetaData(0);
@@ -57,19 +57,19 @@ void OptimizerFusedLambNorm::CustomHandler(
   AllocateSynapseOutput(graph, output, metadata);
 }
 
-void OptimizerFusedLambNorm::AddNode(
+void OptimizerLambNorm::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(
-      stack.size() == 2, "OptimizerFusedLambNorm must have 2 input arguments");
+      stack.size() == 2, "OptimizerLambNorm must have 2 input arguments");
 
-  StackGetter stackGetter(stack, "OptimizerFusedLambNorm::AddNode");
+  StackGetter stackGetter(stack, "OptimizerLambNorm::AddNode");
   auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
   float max_grad_norm = static_cast<float>(getNextInput<double>(stackGetter));
 
   TORCH_CHECK(
       gradients.size() > 0,
-      "Gradiens list in OptimizerFusedLambNorm cannot be empty");
+      "Gradiens list in OptimizerLambNorm cannot be empty");
 
   auto dtype = gradients[0].pt_t.scalar_type();
 
@@ -182,26 +182,300 @@ void OptimizerFusedLambNorm::AddNode(
   syn_out(0) = std::move(add[0]);
 }
 
-OptimizerLambFusedPhase2::OptimizerLambFusedPhase2(
+// OptimizerLambPhase1
+
+OptimizerLambPhase1::OptimizerLambPhase1(
     int device_id,
     c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "optimizer_lamb_fused_phase2",
+          "optimizer_lamb_phase1",
+          scalar_type,
+          {},
+          {2, 3, 4, 5, 6},
+          {},
+          false) {}
+
+static std::vector<synapse_helpers::tensor> ComputeNorm(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor input_syn_tensor,
+    const at::IntArrayRef input_shape,
+    c10::ScalarType dtype,
+    c10::optional<int> final_idx = c10::nullopt) {
+  if (input_shape.size() <= 1 || input_shape[0] == 1) {
+    auto norm_mul = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {input_syn_tensor, input_syn_tensor},
+         {{input_shape, dtype}}});
+
+    auto reduction_shape = input_shape.vec();
+    auto rank = input_shape.size();
+    std::vector<synapse_helpers::tensor> reductions;
+    reductions.emplace_back(std::move(norm_mul[0]));
+
+    for (size_t i = 0; i < rank; ++i) {
+      ns_Reduction::Params reduce_params{};
+      reduce_params.reductionDimension = rank - i - 1;
+      reduction_shape[i] = 1;
+
+      auto sum = OpBackend::BuildNode(
+          op,
+          graph,
+          {get_guid_with_precision("reduce_sum_fwd", dtype),
+           {reductions.back().get()},
+           {{reduction_shape, dtype}},
+           &reduce_params,
+           sizeof(reduce_params)});
+      reductions.emplace_back(std::move(sum[0]));
+    }
+
+    auto norm_reduction =
+        OpBackend::BuildReshape(op, graph, reductions.back().get(), {1}, dtype);
+
+    return OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("sqrt_fwd", dtype),
+         {norm_reduction.get()},
+         {{{1}, dtype, final_idx}}});
+  } else {
+    return OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("frobenius_norm_fwd", dtype),
+         {input_syn_tensor},
+         {{{1}, dtype, final_idx}}});
+  }
+}
+
+void OptimizerLambPhase1::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 15, "OptimizerLambPhase1 must have 15 input arguments");
+
+  StackGetter stackGetter(stack, "OptimizerLambPhase1::AddNode");
+  auto gradients = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto exp_avg = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto exp_avg_sq = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto out_wt_norm = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto out_adam_norm = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto out_adam_step = getNextInput<std::vector<TensorsPair>>(stackGetter);
+  auto clip_global_grad_norm = getNextInput<TensorsPair>(stackGetter);
+  auto grad_averaging = getNextInput<int>(stackGetter);
+  auto beta1 = getNextInput<double>(stackGetter);
+  auto beta2 = getNextInput<double>(stackGetter);
+  auto epsilon = getNextInput<double>(stackGetter);
+  auto step = getNextInput<int>(stackGetter);
+  auto bias_correction = getNextInput<int>(stackGetter);
+  auto weight_decay = getNextInput<double>(stackGetter);
+
+  float bias_correction1 = 1.0;
+  float bias_correction2 = 1.0;
+  if (bias_correction) {
+    bias_correction1 = 1.0 - std::pow(beta1, step);
+    bias_correction2 = 1.0 - std::pow(beta2, step);
+  }
+
+  float beta3 = 1.0;
+  if (grad_averaging) {
+    beta3 = 1 - beta1;
+  }
+
+  auto bias_correction1_t =
+      ConstantHelper(graph, bias_correction1, at::kFloat, {1});
+  auto bias_correction2_t =
+      ConstantHelper(graph, bias_correction2, at::kFloat, {1});
+  auto beta1_t = ConstantHelper(graph, beta1, at::kFloat, {1});
+  auto beta2_t = ConstantHelper(graph, beta2, at::kFloat, {1});
+  auto beta3_t = ConstantHelper(graph, beta3, at::kFloat, {1});
+  auto one_minus_beta2_t = ConstantHelper(graph, 1.0 - beta2, at::kFloat, {1});
+  auto epsilon_t = ConstantHelper(graph, epsilon, at::kFloat, {1});
+  auto weight_decay_t = ConstantHelper(graph, weight_decay, at::kFloat, {1});
+
+  auto dtype = gradients[0].pt_t.scalar_type();
+  auto num_params = static_cast<int>(weights.size());
+
+  for (auto i = 0; i < num_params; i++) {
+    auto div_grad_shape = gradients[i].pt_t.sizes().vec();
+    auto div_grad = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("div_fwd", dtype),
+         {gradients[i].syn_t, clip_global_grad_norm.syn_t},
+         {{div_grad_shape, dtype}}});
+
+    auto mul_exp_avg_shape = exp_avg[i].pt_t.sizes().vec();
+    auto mul_exp_avg = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {exp_avg[i].syn_t, beta1_t.get()},
+         {{mul_exp_avg_shape, dtype}}});
+
+    auto add_exp_beta_avg = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {div_grad[0].get(), beta3_t.get()},
+         {{div_grad_shape, dtype}}});
+
+    auto add_exp_avg = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("add_fwd", dtype),
+         {mul_exp_avg[0].get(), add_exp_beta_avg[0].get()},
+         {{mul_exp_avg_shape, dtype}}});
+
+    auto add_exp_avg_out = OpBackend::IdentityHelper(
+        graph, add_exp_avg[0].get(), mul_exp_avg_shape, dtype, i);
+
+    syn_out(i) = std::move(add_exp_avg_out);
+
+    auto mul_exp_avg_sq_shape = exp_avg_sq[i].pt_t.sizes().vec();
+    auto mul_exp_avg_sq = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {exp_avg_sq[i].syn_t, beta2_t.get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto addcmul_a = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {div_grad[0].get(), div_grad[0].get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto addcmul_b = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", dtype),
+         {addcmul_a[0].get(), one_minus_beta2_t.get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto addcmul_exp_avg_sq = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("add_fwd", dtype),
+         {mul_exp_avg_sq[0].get(), addcmul_b[0].get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto addcmul_exp_avg_sq_out = OpBackend::IdentityHelper(
+        graph,
+        addcmul_exp_avg_sq[0].get(),
+        mul_exp_avg_sq_shape,
+        dtype,
+        i + num_params);
+
+    syn_out(i + num_params) = std::move(addcmul_exp_avg_sq_out);
+
+    auto div_exp_avg = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("div_fwd", dtype),
+         {add_exp_avg[0].get(), bias_correction1_t.get()},
+         {{mul_exp_avg_shape, dtype}}});
+
+    auto div_exp_avg_sq = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("div_fwd", dtype),
+         {addcmul_exp_avg_sq[0].get(), bias_correction2_t.get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto sqrt_exp_avg_sq = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("sqrt_fwd", dtype),
+         {div_exp_avg_sq[0].get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    auto add_exp_avg_sq = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("add_fwd", dtype),
+         {sqrt_exp_avg_sq[0].get(), epsilon_t.get()},
+         {{mul_exp_avg_sq_shape, dtype}}});
+
+    const bool is_weight_decay = weight_decay != 0.0;
+
+    c10::optional<int> div_wt_result_index = is_weight_decay
+        ? c10::nullopt
+        : c10::make_optional<int>(i + 4 * num_params);
+
+    std::vector<synapse_helpers::tensor> norm_input;
+    auto div_wt = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("div_fwd", dtype),
+         {div_exp_avg[0].get(), add_exp_avg_sq[0].get()},
+         {{mul_exp_avg_sq_shape, dtype, div_wt_result_index}}});
+    norm_input.emplace_back(std::move(div_wt[0]));
+
+    if (is_weight_decay) {
+      auto add_wt_beta = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("mult_fwd", dtype),
+           {weights[i].syn_t, weight_decay_t.get()},
+           {{div_grad_shape, dtype}}});
+
+      auto add_wt = OpBackend::BuildNode(
+          this,
+          graph,
+          {get_guid_with_precision("add_fwd", dtype),
+           {norm_input.back().get(), add_wt_beta[0].get()},
+           {{mul_exp_avg_shape, dtype, i + 4 * num_params}}});
+      norm_input.emplace_back(std::move(add_wt[0]));
+    }
+
+    auto norm_wt = ComputeNorm(
+        this,
+        graph,
+        weights[i].syn_t,
+        mul_exp_avg_shape,
+        dtype,
+        i + 2 * num_params);
+    syn_out(i + 2 * num_params) = std::move(norm_wt[0]);
+
+    auto norm_adam_step = ComputeNorm(
+        this,
+        graph,
+        norm_input.back().get(),
+        mul_exp_avg_shape,
+        dtype,
+        i + 3 * num_params);
+    syn_out(i + 3 * num_params) = std::move(norm_adam_step[0]);
+    syn_out(i + 4 * num_params) = std::move(norm_input.back());
+  }
+}
+
+// OptimizerLambPhase2
+
+OptimizerLambPhase2::OptimizerLambPhase2(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "optimizer_lamb_phase2",
           scalar_type,
           {},
           {0},
           {},
           false) {}
 
-void OptimizerLambFusedPhase2::AddNode(
+void OptimizerLambPhase2::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(
-      stack.size() == 7,
-      "OptimizerLambFusedPhase2 must have 7 input arguments");
+      stack.size() == 7, "OptimizerLambPhase2 must have 7 input arguments");
 
-  StackGetter stackGetter(stack, "OptimizerLambFusedPhase2::AddNode");
+  StackGetter stackGetter(stack, "OptimizerLambPhase2::AddNode");
   auto weights = getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto adam_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto weight_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
@@ -293,14 +567,16 @@ void OptimizerLambFusedPhase2::AddNode(
     syn_out(i) = std::move(updated_weight[0]);
   }
 }
-
 } // namespace habana
 
 static const auto& LambKernelRegistry =
     habana::KernelRegistry()
         .add(
             "hpu::optimizer_lamb_fused_norm",
-            KERNEL_FN_GLOBAL(habana::OptimizerFusedLambNorm))
+            KERNEL_FN_GLOBAL(habana::OptimizerLambNorm))
         .add(
-            "hpu::optimizer_lamb_fused_phase2",
-            KERNEL_FN_GLOBAL(habana::OptimizerLambFusedPhase2));
+            "hpu::optimizer_lamb_phase1",
+            KERNEL_FN_GLOBAL(habana::OptimizerLambPhase1))
+        .add(
+            "hpu::optimizer_lamb_phase2",
+            KERNEL_FN_GLOBAL(habana::OptimizerLambPhase2));

@@ -338,27 +338,6 @@ void optimizer_adamw_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
-std::tuple<
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>,
-    std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu_wrap(
-    const std::vector<at::Tensor>& gradients,
-    std::vector<at::Tensor>& weights,
-    std::vector<at::Tensor>& exp_avg,
-    std::vector<at::Tensor>& exp_avg_sq,
-    const at::Tensor& clip_global_grad_norm,
-    const int grad_averaging,
-    const float lr,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const int step,
-    const int bias_correction,
-    const float weight_decay) {
-  EAGER_NOT_SUPPORTED;
-}
-
 void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,

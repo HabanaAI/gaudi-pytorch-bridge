@@ -6999,25 +6999,83 @@ habana_bounds_check_indices_lazy(
   RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(bounds_check_indices, op, result)
 }
 
-at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
+at::Tensor optimizer_lamb_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     double max_grad_norm) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " optimizer_lamb_fused_norm:",
+      " optimizer_lamb_norm:",
       " grad=",
       to_string(grad),
       "max_grad_norm=",
       to_string(max_grad_norm));
 
-  LazyOptimizerLambFusedNorm<at::Tensor> op{
+  LazyOptimizerLambNorm<at::Tensor> op{
       "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
 
-  RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, op)
+  RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_norm, op)
 }
 
-void optimizer_lamb_fused_phase2(
+void optimizer_lamb_phase1(
+    const at::TensorList gradients,
+    const at::TensorList weights,
+    at::TensorList exp_avg,
+    at::TensorList exp_avg_sq,
+    at::TensorList out_weight_norms,
+    at::TensorList out_adam_norms,
+    at::TensorList out_adam_steps,
+    const at::Tensor& clip_global_grad_norm,
+    const int64_t grad_averaging,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const int64_t step,
+    const int64_t bias_correction,
+    const double weight_decay) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "optimizer_lamb_phase1:",
+      DUMP_12ARGS(
+          gradients,
+          weights,
+          exp_avg,
+          exp_avg_sq,
+          clip_global_grad_norm,
+          grad_averaging,
+          beta1,
+          beta2,
+          epsilon,
+          step,
+          bias_correction,
+          weight_decay));
+
+  LazyOp<void> hpu_op{
+      "hpu::optimizer_lamb_phase1",
+      {gradients,
+       weights,
+       exp_avg,
+       exp_avg_sq,
+       out_weight_norms,
+       out_adam_norms,
+       out_adam_steps,
+       clip_global_grad_norm,
+       grad_averaging,
+       beta1,
+       beta2,
+       epsilon,
+       step,
+       bias_correction,
+       weight_decay},
+      std::vector<std::vector<int64_t>>{},
+      -1};
+
+  return hpu_op.call(std::vector<at::TensorList>{
+      exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
+}
+
+void optimizer_lamb_phase2(
     at::TensorList weights,
     const at::TensorList adam_norms,
     const at::TensorList weight_norms,
@@ -7029,7 +7087,7 @@ void optimizer_lamb_fused_phase2(
   PT_LAZY_TRACE;
 
   PT_OP_INFO(
-      "optimizer_lamb_fused_phase2 :",
+      "optimizer_lamb_phase2 :",
       DUMP_7ARGS(
           weights,
           adam_norms,
@@ -7040,7 +7098,7 @@ void optimizer_lamb_fused_phase2(
           use_lamb));
 
   LazyOptimizationOp<void> loo(
-      "hpu::optimizer_lamb_fused_phase2",
+      "hpu::optimizer_lamb_phase2",
       {weights,
        adam_norms,
        weight_norms,

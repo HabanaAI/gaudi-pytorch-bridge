@@ -18,13 +18,13 @@ namespace habana {
 
 HPU_OP_FRONTEND_CUSTOM_CTOR(
     eager::EagerOp,
-    EagerOptimizerLambFusedNorm,
+    EagerOptimizerLambNorm,
     -1,
     at::Tensor) {}
 
 HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
     eager::EagerOp,
-    EagerOptimizerLambFusedNorm,
+    EagerOptimizerLambNorm,
     at::Tensor) {
   const auto& inputs = get_inputs();
   const auto& t = inputs.at(0).toTensorList().get(0);

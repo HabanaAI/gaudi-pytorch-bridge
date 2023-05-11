@@ -181,6 +181,147 @@ void runLarsOptTest(
   EXPECT_TRUE(equal);
 }
 
+void runLambPhase1OptimizerTest(
+    int num_params,
+    int M,
+    int N,
+    double weight_decay,
+    int bias_correction,
+    int step,
+    int grad_averaging,
+    bool with_view) {
+  torch::manual_seed(0);
+  const bool verbose = false;
+
+  struct Data {
+    std::vector<TensorAndView> grads_vec;
+    std::vector<TensorAndView> weights_vec;
+    std::vector<TensorAndView> exp_avg_vec;
+    std::vector<TensorAndView> exp_avg_sq_vec;
+    std::vector<TensorAndView> weight_norms_vec;
+    std::vector<TensorAndView> adam_norms_vec;
+    std::vector<TensorAndView> adam_steps_vec;
+  } cpu, hpu;
+
+  for (auto i = 0; i < num_params; ++i) {
+    auto grad = torch::randn({M, N});
+    dump_tensor<float>("grad_in[" + std::to_string(i) + "]", grad, verbose);
+    PushBackHpuAndCpuTensors(grad, hpu, cpu, &Data::grads_vec, with_view);
+
+    auto weight = torch::randn({M, N});
+    dump_tensor<float>("weight_in[" + std::to_string(i) + "]", weight, verbose);
+    PushBackHpuAndCpuTensors(weight, hpu, cpu, &Data::weights_vec, with_view);
+
+    auto exp_avg = torch::rand({M, N});
+    dump_tensor<float>(
+        "exp_avg_in[" + std::to_string(i) + "]", exp_avg, verbose);
+    PushBackHpuAndCpuTensors(exp_avg, hpu, cpu, &Data::exp_avg_vec, with_view);
+
+    auto exp_avg_sq = torch::rand({M, N});
+    dump_tensor<float>(
+        "exp_avg_sq_in[" + std::to_string(i) + "]", exp_avg_sq, verbose);
+    PushBackHpuAndCpuTensors(
+        exp_avg_sq, hpu, cpu, &Data::exp_avg_sq_vec, with_view);
+
+    auto adam_norm = torch::zeros({1});
+    dump_tensor<float>(
+        "adam_norm_in[" + std::to_string(i) + "]", adam_norm, verbose);
+    PushBackHpuAndCpuTensors(
+        adam_norm, hpu, cpu, &Data::adam_norms_vec, with_view);
+
+    auto weight_norm = torch::zeros({1});
+    dump_tensor<float>(
+        "weight_norm_in[" + std::to_string(i) + "]", weight_norm, verbose);
+    PushBackHpuAndCpuTensors(
+        weight_norm, hpu, cpu, &Data::weight_norms_vec, with_view);
+
+    auto adam_step = torch::zeros({M, N});
+    dump_tensor<float>(
+        "adam_step_in[" + std::to_string(i) + "]", adam_step, verbose);
+    PushBackHpuAndCpuTensors(
+        adam_step, hpu, cpu, &Data::adam_steps_vec, with_view);
+  }
+
+  auto grads = TensorAndViewVecToViewVec(hpu.grads_vec);
+  auto weights = TensorAndViewVecToViewVec(hpu.weights_vec);
+  auto exp_avg = TensorAndViewVecToViewVec(hpu.exp_avg_vec);
+  auto exp_avg_sq = TensorAndViewVecToViewVec(hpu.exp_avg_sq_vec);
+  auto weight_norms = TensorAndViewVecToViewVec(hpu.weight_norms_vec);
+  auto adam_norms = TensorAndViewVecToViewVec(hpu.adam_norms_vec);
+  auto adam_steps = TensorAndViewVecToViewVec(hpu.adam_steps_vec);
+  torch::Tensor cpu_clip_global_grad_norm = torch::ones({1});
+  torch::Tensor hpu_clip_global_grad_norm =
+      cpu_clip_global_grad_norm.to(torch::kHPU);
+
+  float beta1 = 0.9;
+  float beta2 = 0.999;
+  float eps = 1e-6;
+
+  habana_lazy::optimizer_lamb_phase1(
+      grads,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      weight_norms,
+      adam_norms,
+      adam_steps,
+      hpu_clip_global_grad_norm,
+      grad_averaging,
+      beta1,
+      beta2,
+      eps,
+      step,
+      bias_correction,
+      weight_decay);
+
+  // CPU calculation
+  float beta3 = grad_averaging != 0 ? 1.0 - beta1 : 1.0;
+  float bias_correction1 =
+      bias_correction != 0 ? 1.0 - std::pow(beta1, step) : 1.0;
+  float bias_correction2 =
+      bias_correction != 0 ? 1.0 - std::pow(beta2, step) : 1.0;
+
+  for (int i = 0; i < num_params; i++) {
+    auto& grad = cpu.grads_vec[i].t.div_(cpu_clip_global_grad_norm);
+    cpu.exp_avg_vec[i].t.mul_(beta1).add_(grad, beta3);
+    cpu.exp_avg_sq_vec[i].t.mul_(beta2).addcmul_(grad, grad, 1 - beta2);
+
+    auto exp_avg = cpu.exp_avg_vec[i].t.div(bias_correction1);
+    auto exp_avg_sq = cpu.exp_avg_sq_vec[i].t.div(bias_correction2);
+
+    cpu.weight_norms_vec[i].t = cpu.weights_vec[i].t.norm();
+
+    cpu.adam_steps_vec[i].t = exp_avg.div(exp_avg_sq.sqrt().add_(eps));
+    if (weight_decay != 0) {
+      cpu.adam_steps_vec[i].t.add_(cpu.weights_vec[i].t, weight_decay);
+    }
+
+    cpu.adam_norms_vec[i].t = cpu.adam_steps_vec[i].t.norm();
+  }
+
+  bool equal = true;
+  for (auto i = 0; i < num_params; i++) {
+    equal &= CompareFewTensors<float>(
+        i,
+        hpu,
+        cpu,
+        verbose,
+        1e-06,
+        1e-06,
+        "exp_avg_vec",
+        &Data::exp_avg_vec,
+        "exp_avg_sq_vec",
+        &Data::exp_avg_sq_vec,
+        "weight_norms_vec",
+        &Data::weight_norms_vec,
+        "adam_norms_vec",
+        &Data::adam_norms_vec,
+        "adam_steps_vec",
+        &Data::adam_steps_vec);
+  }
+  EXPECT_TRUE(equal);
+}
+
 void runLambPhase2OptimizerTest(
     int num_params,
     int M,
@@ -189,7 +330,7 @@ void runLambPhase2OptimizerTest(
     const bool use_lamb,
     const bool with_view) {
   torch::manual_seed(0);
-  bool verbose = false;
+  const bool verbose = false;
   float step = 0.1;
 
   struct Data {
@@ -227,7 +368,7 @@ void runLambPhase2OptimizerTest(
   auto weight_norms = TensorAndViewVecToViewVec(hpu.weight_norms_vec);
   auto adam_steps = TensorAndViewVecToViewVec(hpu.adam_steps_vec);
 
-  habana_lazy::optimizer_lamb_fused_phase2(
+  habana_lazy::optimizer_lamb_phase2(
       weights,
       adam_norms,
       weight_norms,
@@ -251,12 +392,8 @@ void runLambPhase2OptimizerTest(
 
   bool equal = true;
   for (auto i = 0; i < num_params; i++) {
-    bool equal1 = CompareFewTensors<float>(
+    equal &= CompareFewTensors<float>(
         i, hpu, cpu, verbose, 1e-06, 1e-06, "weights_vec", &Data::weights_vec);
-    // Don't shorten to equal = equal && CompareFewTensors(...) as we want
-    // CompareFewTensors() is executed even if equal is false beforehand, for
-    // logging purpose.
-    equal = equal && equal1;
   }
   EXPECT_TRUE(equal);
 }

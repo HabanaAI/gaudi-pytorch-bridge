@@ -20,7 +20,7 @@ import torch.nn.functional as F
 from test_utils import compare_tensors, cpu, hpu
 
 
-def reference_lamb_fused_norm(grads, max_grad_norm):
+def reference_lamb_norm(grads, max_grad_norm):
     global_grad_norm = torch.zeros(1, dtype=grads[0].dtype, device=grads[0].device)
     for grad in grads:
         global_grad_norm.add_(grad.pow(2).sum())
@@ -50,29 +50,29 @@ def create_grads(dtypes, shapes):
         ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16]),
     ),
 )
-def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm):
+def test_optimizer_lamb_norm(dtypes, shapes, max_grad_norm):
     torch.manual_seed(0)
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
 
     result = torch.ops.hpu.optimizer_lamb_fused_norm(hpu_grads, max_grad_norm)
-    reference = reference_lamb_fused_norm(cpu_grads, max_grad_norm)
+    reference = reference_lamb_norm(cpu_grads, max_grad_norm)
 
     compare_tensors(result, reference, atol=1e-08, rtol=1e-05)
 
 
-def test_optimizer_lamb_fused_norm_slice_insert():
+def test_optimizer_lamb_norm_slice_insert():
     tensor_hpu = torch.zeros(4).to("hpu")
     tensor_hpu[:2] = 2.0
     tensor_hpu[2:] = 1.0
     tensor_cpu = torch.tensor([2.0, 2.0, 1.0, 1.0])
 
     grad_denom_hpu = torch.ops.hpu.optimizer_lamb_fused_norm([tensor_hpu], 1.0)
-    grad_denom_cpu = reference_lamb_fused_norm([tensor_cpu], 1.0)
+    grad_denom_cpu = reference_lamb_norm([tensor_cpu], 1.0)
 
     compare_tensors(grad_denom_hpu, grad_denom_cpu, atol=1e-08, rtol=1e-05)
 
 
-def test_optimizer_lamb_fused_norm_views():
+def test_optimizer_lamb_norm_views():
     tensor_cpu, tensor_hpu = create_grads(
         [torch.float32],
         [(2, 2)],
@@ -81,12 +81,12 @@ def test_optimizer_lamb_fused_norm_views():
     tensor_cpu = tensor_cpu[0].view(-1)
 
     grad_denom_hpu = torch.ops.hpu.optimizer_lamb_fused_norm([tensor_hpu], 1.0)
-    grad_denom_cpu = reference_lamb_fused_norm([tensor_cpu], 1.0)
+    grad_denom_cpu = reference_lamb_norm([tensor_cpu], 1.0)
 
     compare_tensors(grad_denom_hpu, grad_denom_cpu, atol=1e-08, rtol=1e-05)
 
 
-def reference_optimizer_lamb_fused_phase2(
+def reference_optimizer_lamb_phase2(
     weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb
 ):
     for weight, adam_norm, weight_norm, adam_step in zip(
@@ -107,7 +107,7 @@ def reference_optimizer_lamb_fused_phase2(
 @pytest.mark.parametrize("weight_shapes", [[(5, 4)], [(2, 3, 3), (4, 2)]])
 @pytest.mark.parametrize("use_lamb", [True, False])
 @pytest.mark.parametrize("weight_decay", [0, 0.1])
-def test_optimizer_lamb_fused_phase2(
+def test_optimizer_lamb_phase2(
     weight_dtype, weight_shapes, weight_decay, use_lamb
 ):
     torch.manual_seed(0)
@@ -117,7 +117,7 @@ def test_optimizer_lamb_fused_phase2(
     cpu_weight_norm, hpu_weight_norm = create_grads([weight_dtype] * n, [(1,)] * n)
     cpu_adam_step, hpu_adam_step = create_grads([weight_dtype] * n, weight_shapes)
 
-    torch.ops.hpu.optimizer_lamb_fused_phase2(
+    torch.ops.hpu.optimizer_lamb_phase2(
         hpu_weights,
         hpu_adam_norm,
         hpu_weight_norm,
@@ -126,7 +126,7 @@ def test_optimizer_lamb_fused_phase2(
         weight_decay,
         use_lamb,
     )
-    reference_optimizer_lamb_fused_phase2(
+    reference_optimizer_lamb_phase2(
         cpu_weights,
         cpu_adam_norm,
         cpu_weight_norm,
@@ -136,6 +136,127 @@ def test_optimizer_lamb_fused_phase2(
         use_lamb,
     )
     compare_tensors(hpu_weights, cpu_weights, atol=1e-08, rtol=1e-05)
+
+
+def reference_optimizer_lamb_phase1(
+    grad_list,
+    wt_list,
+    exp_avg_list,
+    exp_avg_sq_list,
+    wt_norm_list,
+    adam_norm_list,
+    adam_step_list,
+    clip_global_grad_norm,
+    averaging,
+    beta1,
+    beta2,
+    eps,
+    step,
+    bias_correction,
+    weight_decay,
+):
+    if averaging:
+        beta3 = 1.0 - beta1
+    else:
+        beta3 = 1.0
+    for i in range(len(wt_list)):
+        grad = grad_list[i].div_(clip_global_grad_norm)
+        # Decay the first and second moment running average coefficient
+        # m_t
+        exp_avg_list[i].mul_(beta1).add_(grad, alpha=beta3)
+        # v_t
+        exp_avg_sq_list[i].mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+
+        if bias_correction:
+            bias_correction1 = 1 - beta1**step
+            bias_correction2 = 1 - beta2**step
+        else:
+            bias_correction1, bias_correction2 = 1.0, 1.0
+        # create clones to avoid modifying runner stats
+        exp_avg = exp_avg_list[i].div(bias_correction1)
+        exp_avg_sq = exp_avg_sq_list[i].div(bias_correction2)
+        # || w_t ||
+        wt_norm_list[i] = wt_list[i].norm()
+        # u_t
+        adam_step_list[i] = exp_avg.div(exp_avg_sq.sqrt().add_(eps))
+
+        if weight_decay != 0:
+            adam_step_list[i].add_(wt_list[i], alpha=weight_decay)
+        # || u_t ||
+        adam_norm_list[i] = adam_step_list[i].norm()
+
+
+@pytest.mark.parametrize("weight_decay", [0, 0.01])
+@pytest.mark.parametrize("bias_correction", [0, 1])
+@pytest.mark.parametrize("step", [1, 4])
+@pytest.mark.parametrize("grad_averaging", [0, 1])
+def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averaging):
+    torch.manual_seed(0)
+
+    dtype = torch.float
+    shape = (5, 4)
+    beta1 = 0.9
+    beta2 = 0.999
+    eps = 1e-6
+
+    cpu_grad_list = [torch.randn(shape, dtype=dtype)]
+    cpu_wt_list = [torch.randn(shape, dtype=dtype)]
+    cpu_exp_avg_list = [torch.randn(shape, dtype=dtype)]
+    cpu_exp_avg_sq_list = [torch.abs(torch.randn(shape, dtype=dtype))]
+    cpu_wt_norm_list = [torch.empty((1,), dtype=dtype)]
+    cpu_adam_norm_list = [torch.empty((1,), dtype=dtype)]
+    cpu_adam_step_list = [torch.empty(shape, dtype=dtype)]
+    cpu_clip_global_grad_norm = reference_lamb_norm(cpu_grad_list, 1.0)
+
+    hpu_grad_list = [cpu_grad_list[0].to(hpu)]
+    hpu_wt_list = [cpu_wt_list[0].to(hpu)]
+    hpu_exp_avg_list = [cpu_exp_avg_list[0].to(hpu)]
+    hpu_exp_avg_sq_list = [cpu_exp_avg_sq_list[0].to(hpu)]
+    hpu_wt_norm_list = [torch.empty((1,), dtype=dtype).to(hpu)]
+    hpu_adam_norm_list = [torch.empty((1,), dtype=dtype).to(hpu)]
+    hpu_adam_step_list = [torch.empty(shape, dtype=dtype).to(hpu)]
+    hpu_clip_global_grad_norm = cpu_clip_global_grad_norm.to(hpu)
+
+    torch.ops.hpu.optimizer_lamb_phase1(
+        hpu_grad_list,
+        hpu_wt_list,
+        hpu_exp_avg_list,
+        hpu_exp_avg_sq_list,
+        hpu_wt_norm_list,
+        hpu_adam_norm_list,
+        hpu_adam_step_list,
+        hpu_clip_global_grad_norm,
+        grad_averaging,
+        beta1,
+        beta2,
+        eps,
+        step,
+        bias_correction,
+        weight_decay,
+    )
+    reference_optimizer_lamb_phase1(
+        cpu_grad_list,
+        cpu_wt_list,
+        cpu_exp_avg_list,
+        cpu_exp_avg_sq_list,
+        cpu_wt_norm_list,
+        cpu_adam_norm_list,
+        cpu_adam_step_list,
+        cpu_clip_global_grad_norm,
+        grad_averaging,
+        beta1,
+        beta2,
+        eps,
+        step,
+        bias_correction,
+        weight_decay,
+    )
+
+    compare_tensors(hpu_exp_avg_list, cpu_exp_avg_list, atol=1.0e-6, rtol=1.0e-6)
+    compare_tensors(hpu_exp_avg_sq_list, cpu_exp_avg_sq_list, atol=1.0e-6, rtol=1.0e-6)
+    compare_tensors(hpu_wt_norm_list, cpu_wt_norm_list, atol=1.0e-6, rtol=1.0e-6)
+    compare_tensors(hpu_adam_norm_list, cpu_adam_norm_list, atol=1.0e-6, rtol=1.0e-6)
+    compare_tensors(hpu_adam_step_list, cpu_adam_step_list, atol=1.0e-6, rtol=1.0e-6)
 
 
 def test_lamb0():
@@ -210,8 +331,8 @@ class MNISTNet(nn.Module):
 
 test_case_list = [
     # iterations, lr,
-    (1, 0.001),
-    (1, 0.01),
+    (3, 0.001),
+    (2, 0.01),
 ]
 
 
@@ -258,7 +379,7 @@ def test_lamb(count, lr):
     # compare NVLamb and FusedLamb results
     for p, q in zip(m_hpu_nv.parameters(), m_clone.parameters()):
         if p.requires_grad and q.requires_grad:
-            compare_tensors(p.data.to(cpu), q.data.to(cpu), atol=1.0e-3, rtol=1.0e-3)
+            compare_tensors(p.data.to(cpu), q.data.to(cpu), atol=1.0e-4, rtol=1.0e-4)
 
 
 if __name__ == "__main__":

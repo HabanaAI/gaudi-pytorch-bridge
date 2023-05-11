@@ -382,6 +382,7 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
 }
 
 EMA_OPT_TEST(LazyCustomKernelTest, true)
+LAMB_PHASE1_OPT_TEST(LazyCustomKernelTest, true)
 LAMB_PHASE2_OPT_TEST(LazyCustomKernelTest)
 LARS_OPT_TEST(LazyCustomKernelTest, true)
 RESOURCE_APPLY_MOMENTUM_OPT_TEST(LazyCustomKernelTest, true)

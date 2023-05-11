@@ -19,8 +19,8 @@
 
 namespace habana {
 
-struct OptimizerFusedLambNorm : OpBackend {
-  OptimizerFusedLambNorm(int device_id, c10::ScalarType scalar_type);
+struct OptimizerLambNorm : OpBackend {
+  OptimizerLambNorm(int device_id, c10::ScalarType scalar_type);
 
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
   void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
@@ -28,11 +28,17 @@ struct OptimizerFusedLambNorm : OpBackend {
 
 OUTMETA_DECL(ComputeLambOutputMetadata)
 
-HPU_OP_FRONTEND(habana_lazy::LazyOp, LazyOptimizerLambFusedNorm);
-HPU_OP_FRONTEND(eager::EagerOp, EagerOptimizerLambFusedNorm)
+HPU_OP_FRONTEND(habana_lazy::LazyOp, LazyOptimizerLambNorm);
+HPU_OP_FRONTEND(eager::EagerOp, EagerOptimizerLambNorm)
 
-struct OptimizerLambFusedPhase2 : OpBackend {
-  OptimizerLambFusedPhase2(int device_id, c10::ScalarType scalar_type);
+struct OptimizerLambPhase1 : OpBackend {
+  OptimizerLambPhase1(int device_id, c10::ScalarType scalar_type);
+
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+struct OptimizerLambPhase2 : OpBackend {
+  OptimizerLambPhase2(int device_id, c10::ScalarType scalar_type);
 
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };

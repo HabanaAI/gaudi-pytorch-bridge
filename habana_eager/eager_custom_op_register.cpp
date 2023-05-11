@@ -177,12 +177,12 @@ at::Tensor& fp8_permute(
   TORCH_CHECK(false, "hpu::fp8_permute is not available in Eager mode.");
 }
 
-at::Tensor optimizer_lamb_fused_norm(
+at::Tensor optimizer_lamb_norm(
     const std::vector<at::Tensor>& grad,
     double max_grad_norm) {
   PT_EAGER_TRACE;
 
-  EagerOptimizerLambFusedNorm<at::Tensor> hpu_op{
+  EagerOptimizerLambNorm<at::Tensor> hpu_op{
       "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
   return hpu_op.call();
 }
@@ -231,7 +231,61 @@ void optimizer_lars(
   hpu_op.call(grads);
 }
 
-void optimizer_lamb_fused_phase2(
+void optimizer_lamb_phase1(
+    const at::TensorList gradients,
+    const at::TensorList weights,
+    at::TensorList exp_avg,
+    at::TensorList exp_avg_sq,
+    at::TensorList out_weight_norms,
+    at::TensorList out_adam_norms,
+    at::TensorList out_adam_steps,
+    const at::Tensor clip_global_grad_norm,
+    const int64_t grad_averaging,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const int64_t step,
+    const int64_t bias_correction,
+    const double weight_decay) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "optimizer_lamb_phase1:",
+      DUMP_12ARGS(
+          gradients,
+          weights,
+          exp_avg,
+          exp_avg_sq,
+          clip_global_grad_norm,
+          grad_averaging,
+          beta1,
+          beta2,
+          epsilon,
+          step,
+          bias_correction,
+          weight_decay));
+
+  EagerOp<void> hpu_op{
+      "hpu::optimizer_lamb_phase1",
+      {gradients,
+       weights,
+       exp_avg,
+       exp_avg_sq,
+       out_weight_norms,
+       out_adam_norms,
+       out_adam_steps,
+       clip_global_grad_norm,
+       grad_averaging,
+       beta1,
+       beta2,
+       epsilon,
+       step,
+       bias_correction,
+       weight_decay}};
+  return hpu_op.call(
+      {exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
+}
+
+void optimizer_lamb_phase2(
     at::TensorList weights,
     const at::TensorList adam_norms,
     const at::TensorList weight_norms,
@@ -241,7 +295,7 @@ void optimizer_lamb_fused_phase2(
     const bool use_lamb) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
-      "optimizer_lamb_fused_phase2:",
+      "optimizer_lamb_phase2:",
       DUMP_7ARGS(
           weights,
           adam_norms,
@@ -252,7 +306,7 @@ void optimizer_lamb_fused_phase2(
           use_lamb));
 
   EagerOp<void> hpu_op{
-      "hpu::optimizer_lamb_fused_phase2",
+      "hpu::optimizer_lamb_phase2",
       {weights,
        adam_norms,
        weight_norms,
@@ -376,7 +430,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor(b!) lr) -> ()");
   m.def(
-      "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
+      "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, int step, int bias_correction, float weight_decay) -> ()");
+  m.def(
+      "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
   m.def(
@@ -402,12 +458,13 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_reshape", fp8_reshape);
   m.impl("hpu::fp8_transpose", fp8_transpose);
   m.impl("hpu::fp8_permute", fp8_permute);
-  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm);
+  m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
   m.impl("hpu::optimizer_lars", optimizer_lars);
-  m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
+  m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
+  m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema);
   m.impl("hpu::optimizer_sgd", optimizer_sgd);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
