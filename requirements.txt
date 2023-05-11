@@ -1,3 +1,5 @@
+--extra-index-url="https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple"
+
 cmake>=3.25.2
 flake8
 lark
