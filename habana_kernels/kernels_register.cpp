@@ -1785,6 +1785,19 @@ at::Tensor scaled_masked_softmax_wrap(
   return scaled_masked_softmax_lazy(input, mask, scale);
 }
 
+at::Tensor custom_softmax_wrap(const at::Tensor& input, int64_t flavor) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " custom_softmax:",
+      " input=",
+      to_string(input),
+      " flavor=",
+      to_string(flavor));
+
+  return custom_softmax_lazy(input, flavor);
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_wrap(
     at::Tensor& indices,
@@ -2266,6 +2279,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(
       "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor");
+  m.def("hpu::custom_softmax(Tensor input, int flavor) -> Tensor");
   m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
 }
@@ -2285,6 +2299,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
+  m.impl("hpu::custom_softmax", custom_softmax_wrap);
   m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
   m.impl("hpu::fp8_permute", fp8_permute_wrap);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_fused_norm_hpu_lazy);

@@ -93,6 +93,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/convolution_overrideable_gen.cpp
           backend/convolution_backward_overrideable_gen.cpp
           backend/cumsum_gen.cpp
+          backend/custom_softmax.cpp
           backend/diag_gen.cpp
           backend/div_mod_util.cpp
           backend/div_round_gen.cpp

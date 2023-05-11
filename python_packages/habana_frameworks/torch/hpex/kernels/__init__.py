@@ -17,4 +17,5 @@ if not is_lazy():
 
 from .CustomNms import CustomNms
 from .CustomRoiAlign import RoiAlignFunction
+from .CustomSoftmax import CustomSoftmax
 from .ScaledMaskedSoftmax import ScaledMaskedSoftmax

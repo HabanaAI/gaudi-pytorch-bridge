@@ -736,6 +736,7 @@ at::Tensor scaled_masked_softmax_lazy(
     const at::Tensor& input,
     const at::Tensor& mask,
     double scale);
+at::Tensor custom_softmax_lazy(const at::Tensor& input, int64_t flavor);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,

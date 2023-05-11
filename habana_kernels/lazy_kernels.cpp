@@ -7064,6 +7064,15 @@ at::Tensor scaled_masked_softmax_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_softmax, op)
 }
 
+at::Tensor custom_softmax_lazy(const at::Tensor& input, int64_t flavor) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::custom_softmax", {input, flavor}, {{input.sizes().vec()}}};
+  RUN_MAYBE_WITH_ACC_THREAD(custom_softmax, op)
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_lazy(
     at::Tensor& indices,
