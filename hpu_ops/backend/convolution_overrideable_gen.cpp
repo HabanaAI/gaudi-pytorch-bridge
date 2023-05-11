@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_overrideable.h"
+#include "generated/backend/convolution.h"
 
 using namespace synapse_helpers::layouts;
 

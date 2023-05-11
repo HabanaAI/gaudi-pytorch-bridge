@@ -2279,6 +2279,13 @@ def generate_backend(fgens, fgen_files):
             file=gen_h_output_file(args, "backend/" + fgen_file),
         )
 
+# List of ops that shouldn't be generated in lazy mode
+lazy_frontend_blacklist = [
+    # convolution and convolution_backward are handled in lazy mode with
+    # convolution_overrideable and convolution_backward_overrideable
+    'convolution',
+    'convolution_backward',
+]
 
 def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
     num_shards = 10
@@ -2293,8 +2300,14 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
     header_inclusions = ""
     # TODO only iwyu
     for h in fgen_files.keys():
+        if h in lazy_frontend_blacklist and out_dir == 'lazy':
+            continue
         header_inclusions += '#include "' + h + '.h"\n'
+
     for idx, fgen in enumerate(fgens):
+        if fgen.func in lazy_frontend_blacklist and out_dir =='lazy':
+            continue
+
         (
             _dtype_defs,
             _functions,
@@ -2342,6 +2355,9 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
     frontend_class_headers = {}
 
     for fgen_file, ffgens in fgen_files.items():
+        if fgen_file in lazy_frontend_blacklist and out_dir == 'lazy':
+            continue
+
         op_frontend_classes = generate_op_frontend_hclasses(
             ffgens,
             frontend_class_headers,
