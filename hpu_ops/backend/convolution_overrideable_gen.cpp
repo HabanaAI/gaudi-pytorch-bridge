@@ -10,8 +10,10 @@
  *
  *******************************************************************************
  */
+#include <string>
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_overrideable.h"
+#include "generated/backend/convolution.h"
+#include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -71,11 +73,18 @@ static std::shared_ptr<void> ConvolutionOverrideable2dParams(
 std::shared_ptr<void> FillConvolutionOverrideableParams(
     const at::Stack& stack,
     size_t& size) {
-  const auto weight_shape = stack_tensor(stack, 1).sizes();
-  const auto stride = stack[3].toIntList().vec();
-  const auto padding = stack[4].toIntList().vec();
-  const auto dilation = stack[5].toIntList().vec();
+  auto weight_shape = stack_tensor(stack, 1).sizes().vec();
+  auto stride = stack[3].toIntList().vec();
+  auto padding = stack[4].toIntList().vec();
+  auto dilation = stack[5].toIntList().vec();
   const int64_t groups = stack[8].toInt();
+
+  if (stack_tensor(stack, 0).dim() == 3) {
+    weight_shape.push_back(1);
+    stride.push_back(1);
+    padding.push_back(0);
+    dilation.push_back(1);
+  }
 
   if (stack_tensor(stack, 0).dim() == 5) {
     return ConvolutionOverrideable3dParams(
@@ -138,8 +147,15 @@ void ConvolutionOverrideable::AddNode(
   size_t size = 0;
 
   at::Tensor input = stack_tensor(stack, 0);
+  at::Tensor weight = stack_tensor(stack, 1);
   auto bias = stack.at(2).toOptional<at::Tensor>().value_or(at::Tensor());
   const bool transposed = stack[6].toBool();
+
+  const bool is_conv_1d = input.dim() == 3;
+
+  // For convolution 1d we add additional reshapes
+  IF_CONV1D_RESHAPE_TO_2D(input, 0);
+  IF_CONV1D_RESHAPE_TO_2D(weight, 1);
 
   const uint64_t DIM5 = 5;
   const bool is_conv_3d = input.dim() == DIM5;
@@ -162,9 +178,13 @@ void ConvolutionOverrideable::AddNode(
   if (is_conv_3d)
     guid += "3d";
 
-  std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
+  std::vector<synTensor> inputs = {input_reshaped, weight_reshaped};
 
   auto out_shape = ConvolutionOverrideableOutputShape(stack)[0];
+
+  if (is_conv_1d) {
+    out_shape.push_back(1);
+  }
 
   if (guid == "dedx" || guid == "dedx3d") {
     this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape, inputs);
@@ -175,7 +195,7 @@ void ConvolutionOverrideable::AddNode(
   const auto& params = FillConvolutionOverrideableParams(stack, size);
 
   NodeAttr::NodeOutputAttr node_output_attr = {out_shape, ScalarType(), 0};
-  if (transposed && bias.defined())
+  if ((transposed && bias.defined()) || is_conv_1d)
     node_output_attr.final_result_index = c10::nullopt;
 
   auto convOp =
@@ -188,15 +208,17 @@ void ConvolutionOverrideable::AddNode(
     synapse_helpers::tensor biasReshaped =
         BuildReshape(this, graph, syn_in(2), shape, ScalarType());
 
+    c10::optional<int> final_result_index_0 =
+        is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
     auto addOp = BuildOp(
         graph,
         get_guid_with_precision("add_fwd", ScalarType()),
         {convOp[0].get(), biasReshaped.get()},
-        {{out_shape, ScalarType(), 0}});
+        {{out_shape, ScalarType(), final_result_index_0}});
 
-    syn_out(0) = std::move(addOp[0]);
+    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(addOp[0], out_shape, 0);
   } else {
-    syn_out(0) = std::move(convOp[0]);
+    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp[0], out_shape, 0);
   }
 }
 } // namespace habana

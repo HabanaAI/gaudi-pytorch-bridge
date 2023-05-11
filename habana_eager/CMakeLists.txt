@@ -39,7 +39,6 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/pin_memory.cpp
           ops/eager_op.cpp
           passes/add_attribute_alpha.cpp
-          passes/convert_convolution.cpp
           passes/detect_weights_tensors.cpp
           passes/handle_input_views.cpp
           passes/handle_tupple_on_output.cpp

@@ -12,7 +12,8 @@
  */
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_backward_overrideable.h"
+#include "generated/backend/convolution_backward.h"
+#include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -86,29 +87,26 @@ static std::shared_ptr<void> SynapseConv3dParamsBuilder(
 }
 
 static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
-    bool is_conv_3d,
-    const at::Tensor& weight,
-    const std::vector<int64_t> stride,
-    const std::vector<int64_t> padding,
-    const std::vector<int64_t> dilation,
+    size_t input_rank,
+    std::vector<int64_t> weight_shape,
+    std::vector<int64_t> stride,
+    std::vector<int64_t> padding,
+    std::vector<int64_t> dilation,
     int64_t groups,
     size_t& size) {
-  if (is_conv_3d) {
+  if (input_rank == 3) {
+    weight_shape.push_back(1);
+    stride.push_back(1);
+    padding.push_back(0);
+    dilation.push_back(1);
+  }
+
+  if (input_rank == 5) {
     return SynapseConv3dParamsBuilder(
-        weight.sizes(),
-        c10::IntArrayRef(stride),
-        c10::IntArrayRef(padding),
-        c10::IntArrayRef(dilation),
-        groups,
-        size);
+        weight_shape, stride, padding, dilation, groups, size);
   } else {
     return SynapseConvParamsBuilder(
-        weight.sizes(),
-        c10::IntArrayRef(stride),
-        c10::IntArrayRef(padding),
-        c10::IntArrayRef(dilation),
-        groups,
-        size);
+        weight_shape, stride, padding, dilation, groups, size);
   }
 }
 
@@ -250,22 +248,51 @@ void ConvolutionBackwardOverrideable::AddNode(
   at::Tensor grad_output = stack_tensor(stack, 0); // Result of convolution fwd
   at::Tensor input = stack_tensor(stack, 1);
   at::Tensor weight = stack_tensor(stack, 2);
-  const auto stride = stack[3].toIntList().vec();
-  const auto padding = stack[4].toIntList().vec();
-  const auto dilation = stack[5].toIntList().vec();
-  const bool transposed = stack[6].toBool();
-  const int64_t groups = stack[8].toInt();
-  const auto output_mask_in = stack[9].toBoolList();
+
+  // Both convolution_backward_overrideable and convolution_backward ops
+  // are implemented by this backend. The difference in these two is that
+  // the latter takes additional argument at idx 3, which, as pytorch docs
+  // says:
+  //
+  // bias_sizes_opt: if specified, indicates that a bias was used in the forward
+  // pass and contains the shape
+  //   of the bias. While the bias shape can be computed from other inputs, it
+  //   is provided to this function for ease of use. The bias shape is
+  //   (weight.shape[0]) for normal convolution and (weight.shape[1] * groups)
+  //   for transposed convolution.
+  //
+  // Since it's not needed, it's just being ignored below, by shifting the rest
+  // of inputs' indices.
+  const int index_shift =
+      GetGuid().find("convolution_backward") != std::string::npos ? 1 : 0;
+  const auto stride = stack[3 + index_shift].toIntList().vec();
+  const auto padding = stack[4 + index_shift].toIntList().vec();
+  const auto dilation = stack[5 + index_shift].toIntList().vec();
+  const bool transposed = stack[6 + index_shift].toBool();
+  const int64_t groups = stack[8 + index_shift].toInt();
+  const auto output_mask_in = stack[9 + index_shift].toBoolList();
 
   const uint64_t DIM5 = 5;
+  const bool is_conv_1d = input.dim() == 3;
   const bool is_conv_3d = input.dim() == DIM5;
 
   const auto output_meta = ConvolutionOverrideableMetaBwd(stack);
-  const auto out0_shape = output_meta[0].shape;
-  const auto out1_shape = output_meta[1].shape;
+  auto out0_shape = output_meta[0].shape;
+  auto out1_shape = output_meta[1].shape;
+
+  if (is_conv_1d) {
+    out0_shape.push_back(1);
+    out1_shape.push_back(1);
+  }
 
   const auto& params = FillConvolutionBackwardOverrideableParams(
-      is_conv_3d, weight, stride, padding, dilation, groups, params_size);
+      input.dim(),
+      weight.sizes().vec(),
+      stride,
+      padding,
+      dilation,
+      groups,
+      params_size);
   // In case of dynamic graph and dry run check if the input and output sizes
   // are valid fix for SW-94417
   if (graph.is_dynamic_graph() && graph.is_dry_run()) {
@@ -360,10 +387,14 @@ void ConvolutionBackwardOverrideable::AddNode(
 
   std::string guid;
 
-  synTensor syn_grad_output = syn_in(0);
-  synTensor syn_input = syn_in(1);
-  synTensor syn_weight = syn_in(2);
+  IF_CONV1D_RESHAPE_TO_2D(grad_output, 0);
+  IF_CONV1D_RESHAPE_TO_2D(input, 1);
+  IF_CONV1D_RESHAPE_TO_2D(weight, 2);
 
+#define COND_FINAL_RES_IDX(condition, false_val)                      \
+  condition ? c10::optional<int>{c10::nullopt} : c10::optional<int> { \
+    false_val                                                         \
+  }
   if (transposed) {
     if (output_mask_in[0]) {
       guid = "spatial_convolution";
@@ -371,11 +402,12 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           guid,
           is_conv_3d,
-          {syn_grad_output, syn_weight},
-          {{out0_shape, ScalarType(), 0}},
+          {grad_output_reshaped, weight_reshaped},
+          {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
           params.get(),
           params_size);
-      syn_out(0) = std::move(convOp);
+
+      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     }
 
     if (output_mask_in[1]) {
@@ -384,15 +416,16 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           guid,
           is_conv_3d,
-          {syn_input, syn_grad_output},
-          {{out1_shape, ScalarType(), 1}},
+          {input_reshaped, grad_output_reshaped},
+          {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
           params.get(),
           params_size);
-      syn_out(1) = std::move(dedwOp);
+
+      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     }
   } else {
     if (output_mask_in[0]) {
-      std::vector syn_inputs = {syn_grad_output, syn_weight};
+      std::vector syn_inputs = {grad_output_reshaped, weight_reshaped};
 
       // Allocate Shape Tensor
       CreateShapeTensorInput(graph, ScalarType(), out0_shape, syn_inputs);
@@ -403,10 +436,11 @@ void ConvolutionBackwardOverrideable::AddNode(
           guid,
           is_conv_3d,
           syn_inputs,
-          {{out0_shape, ScalarType(), 0}},
+          {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
           params.get(),
           params_size);
-      syn_out(0) = std::move(convOp);
+
+      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     }
 
     if (output_mask_in[1]) {
@@ -415,11 +449,12 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           guid,
           is_conv_3d,
-          {syn_grad_output, syn_input},
-          {{out1_shape, ScalarType(), 1}},
+          {grad_output_reshaped, input_reshaped},
+          {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
           params.get(),
           params_size);
-      syn_out(1) = std::move(dedwOp);
+
+      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     }
   }
 
@@ -432,7 +467,7 @@ void ConvolutionBackwardOverrideable::AddNode(
         is_conv_3d,
         GetOutputMetaData(0),
         grad_output,
-        {syn_grad_output},
+        {syn_in(0)},
         syn_out(2));
     syn_out(2) = std::move(biasRes);
   }
