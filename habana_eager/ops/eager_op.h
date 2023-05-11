@@ -594,7 +594,7 @@ class EagerOp : public EagerOpBase {
   }
 
  private:
-} __attribute__((aligned(64)));
+};
 
 } // namespace eager
 } // namespace habana

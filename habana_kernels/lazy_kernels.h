@@ -1701,7 +1701,7 @@ class LazyOp {
       }
     }
   }
-} __attribute__((aligned(64)));
+};
 
 template <typename ReturnType>
 class LazyBinaryOp : public LazyOp<ReturnType> {
@@ -1943,6 +1943,6 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     PT_LAZY_DEBUG("bcast_vec : ", bcast_vec);
     return bcast_vec;
   }
-} __attribute__((aligned(64)));
+};
 
 } // namespace habana_lazy

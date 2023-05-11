@@ -70,8 +70,7 @@ class ViewParam {
   std::vector<int64_t> strides;
   int64_t offset;
   int64_t total_num_elements;
-
-} __attribute__((aligned(64)));
+};
 
 struct StridedOutInfo {
   size_t index;
