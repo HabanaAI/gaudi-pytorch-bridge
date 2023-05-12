@@ -55,6 +55,31 @@ at::Tensor& prepare_out(
       {});
   return copy;
 }
+
+auto to_cpu(const std::vector<c10::optional<at::Tensor>>& tensors) {
+  std::vector<c10::optional<at::Tensor>> result(tensors.size());
+  for (const auto i : c10::irange(tensors.size())) {
+    const auto& tensor = tensors[i];
+    if (tensor && tensor->defined()) {
+      result[i] = tensor->cpu();
+    } else {
+      result[i] = tensor;
+    }
+  }
+  return result;
+}
+
+void convert_optional_tensor_lists_to_cpu(torch::jit::Stack* stack) {
+  for (const auto idx : c10::irange(stack->size())) {
+    const auto& ivalue = (*stack)[idx];
+    if (ivalue.isOptionalTensorList()) {
+      auto cpu_ivalue = c10::IValue(c10::List<c10::optional<at::Tensor>>(
+          to_cpu(ivalue.toOptionalTensorList().vec())));
+      (*stack)[idx] = std::move(cpu_ivalue);
+    }
+  }
+}
+
 } // namespace detail
 
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
@@ -74,6 +99,10 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   HABANA_ASSERT(
       context->getCapturing() == false,
       "cpu fallback is not supported during hpu graph capturing");
+
+  // Note: torch's native cpu_fallback doesn't handle optional tensor lists, so
+  // they need to be moved to cpu here.
+  detail::convert_optional_tensor_lists_to_cpu(stack);
 
   at::native::cpu_fallback(op, stack);
 
