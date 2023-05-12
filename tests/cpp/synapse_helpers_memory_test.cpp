@@ -670,3 +670,75 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
       device.get_device_memory().free(small[j]);
   }
 }
+
+TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  // allocate workspace buffer 1gb
+  device.get_workspace_buffer(1960834120);
+  std::vector<device_ptr> address;
+  void* small[16384];
+  for (int j = 0; j < 16384; j++) {
+    device.get_device_memory().malloc(&small[j], 128);
+    address.push_back((uint64_t)small[j]);
+  }
+  device.lock_addresses(address);
+  address.clear();
+  int free_start_index = 122;
+  for (int k = 0; k < 48; k++) {
+    int index = free_start_index + k;
+    device.get_device_memory().free(small[index]);
+  }
+  free_start_index = 173;
+  for (int k = 0; k < 40; k++) {
+    int index = free_start_index + k;
+    device.get_device_memory().free(small[index]);
+  }
+
+  free_start_index = 214;
+  for (int k = 0; k <= 16169; k++) {
+    int index = free_start_index + k;
+    device.get_device_memory().free(small[index]);
+  }
+  // allocate 5 varaibles of size 200 MB
+  void* ptr1{nullptr};
+  device.get_device_memory().malloc(&ptr1, 209715200);
+  void* ptr2{nullptr};
+  device.get_device_memory().malloc(&ptr2, 104857600);
+  void* ptr3{nullptr};
+  device.get_device_memory().malloc(&ptr3, 209715200);
+  void* ptr4{nullptr};
+  device.get_device_memory().malloc(&ptr4, 209715200);
+  void* ptr5{nullptr};
+  device.get_device_memory().malloc(&ptr5, 209715200);
+  void* ptr6{nullptr};
+  device.get_device_memory().malloc(&ptr6, 209715200);
+  void* ptr7{nullptr};
+  device.get_device_memory().malloc(&ptr7, 104857600);
+  PT_TEST_DEBUG("getting device address");
+  address.push_back((uint64_t)ptr1);
+  address.push_back((uint64_t)ptr2);
+  address.push_back((uint64_t)ptr3);
+  address.push_back((uint64_t)ptr4);
+  address.push_back((uint64_t)ptr5);
+  address.push_back((uint64_t)ptr6);
+  address.push_back((uint64_t)ptr7);
+  device.lock_addresses(address);
+  address.clear();
+  // delete 2 & 4 varaible
+  device.get_device_memory().free(ptr1);
+  device.get_device_memory().free(ptr2);
+  device.get_device_memory().free(ptr7);
+
+  // allocate 400 MB memory this willl lead OOM and defragmentor will kick in
+  // here
+  void* ptr_400mb{nullptr};
+  device.get_device_memory().malloc(&ptr_400mb, 419430400);
+  address.push_back((uint64_t)ptr_400mb);
+  device.lock_addresses(address);
+
+  device.get_device_memory().free(ptr6);
+  device.get_device_memory().free(ptr3);
+  device.get_device_memory().free(ptr5);
+  device.get_device_memory().free(ptr4);
+  device.get_device_memory().free(ptr_400mb);
+}

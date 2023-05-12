@@ -271,33 +271,34 @@ bool MemoryDefragementer::CreateMemoryMap(
   for (auto it = in_use_memory_blocks.begin(); it != in_use_memory_blocks.end();
        ++it) {
     // checking if previous memory block was free
-    auto prev_it = it - 1;
-    auto next_it = it + 1;
-    auto ptr_next = ptr_add_offset(prev_it->ptr_, prev_it->actual_size_);
-    auto small_alloc_block = small_allocs_ptr_ + small_allocs_size_;
-    while (it != in_use_memory_blocks.begin() && it->ptr_ > ptr_next) {
-      auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
-      if (ptr_next < small_alloc_block) {
-        if (next_it->ptr_ <= small_alloc_block) {
-          mem_block_size = ptr_diff(it->ptr_, ptr_next);
-        } else {
-          mem_block_size = ptr_diff(small_alloc_block, ptr_next);
+    if (it != in_use_memory_blocks.begin()) {
+      auto prev_it = it - 1;
+      auto ptr_next = ptr_add_offset(prev_it->ptr_, prev_it->actual_size_);
+      auto small_alloc_block = small_allocs_ptr_ + small_allocs_size_;
+      while (it->ptr_ > ptr_next) {
+        auto mem_block_size = ptr_diff(it->ptr_, ptr_next);
+        if (ptr_next < small_alloc_block) {
+          if (it->ptr_ <= small_alloc_block) {
+            mem_block_size = ptr_diff(it->ptr_, ptr_next);
+          } else {
+            mem_block_size = ptr_diff(small_alloc_block, ptr_next);
+          }
         }
+        if (mem_block_size == 0)
+          break;
+        memory_blocks.emplace_back(
+            MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
+        PT_DEVMEM_DEBUG(
+            "CreateMemoryMap:: ptr:: ",
+            (void*)ptr_next,
+            " Mem Size:: ",
+            mem_block_size,
+            " State::",
+            MemoryStateToString(MemoryState::FREE),
+            " Actual size:: ",
+            mem_block_size);
+        ptr_next = ptr_add_offset(ptr_next, mem_block_size);
       }
-      if (mem_block_size == 0)
-        break;
-      memory_blocks.emplace_back(
-          MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
-      PT_DEVMEM_DEBUG(
-          "CreateMemoryMap:: ptr:: ",
-          (void*)ptr_next,
-          " Mem Size:: ",
-          mem_block_size,
-          " State::",
-          MemoryStateToString(MemoryState::FREE),
-          " Actual size:: ",
-          mem_block_size);
-      ptr_next = ptr_add_offset(ptr_next, mem_block_size);
     }
 
     // adding occupied memory block
