@@ -64,6 +64,7 @@ add_custom_command(OUTPUT
 add_library(habana_pytorch_backend_ops OBJECT
           indexing_ops_helper.cpp
           backend/_assert_async_gen.cpp
+          backend/_efficientzerotensor_gen.cpp
           backend/_masked_scale_gen.cpp
           backend/adaptive_avg_pool2d_gen.cpp
           backend/add_composite_gen.cpp

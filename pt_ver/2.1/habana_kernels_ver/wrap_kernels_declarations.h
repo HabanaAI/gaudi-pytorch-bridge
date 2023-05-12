@@ -19,12 +19,6 @@
 
 namespace hpu_wrap {
 
-at::Tensor _efficientzerotensor(
-    c10::SymIntArrayRef size,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory);
 at::Tensor _reshape_alias(
     const at::Tensor& self,
     c10::SymIntArrayRef size,

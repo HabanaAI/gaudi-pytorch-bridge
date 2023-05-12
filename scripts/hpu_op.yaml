@@ -106,6 +106,15 @@ _copy_from:
 _copy_from_and_resize:
   override_fn: _copy_from_and_resize
 
+_efficientzerotensor:
+  output_meta: EfficientZeroMeta
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  op_backend: EfficientZeroTensor
+  out_ids: [0]
+
 _foreach_abs:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
