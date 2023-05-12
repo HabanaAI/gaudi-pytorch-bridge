@@ -548,6 +548,7 @@ at::Tensor get_tensor_for_scalar(
   static uint64_t hit_count, miss_count;
   auto dtype = options.dtype().toScalarType();
 
+  std::lock_guard<std::mutex> lock(context->GetScalarToTensorMutex());
   auto map_it =
       context->scalar_to_tensor_map.find(std::make_pair(alpha, dtype));
   if (map_it == context->scalar_to_tensor_map.end()) {

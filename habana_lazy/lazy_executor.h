@@ -276,6 +276,10 @@ class HbExecutionContext {
     return m_op_acc_tid_mtx;
   }
 
+  std::mutex& GetScalarToTensorMutex() {
+    return m_scalar_to_tensor_map_mtx;
+  }
+
   void clear() {
     viewContext.hb_tensors_exclude_out_view.clear();
     m_retained_tensor_list.clear();
@@ -290,14 +294,17 @@ class HbExecutionContext {
     // max value for PT_HPU_SCALAR_MAP_MAXSIZE is heuristically set at 500
     // entries as of now, and can be fine tuned based on performance profiling
     // feedback from model runs.
-    PT_LAZY_DEBUG(
-        "scalar_to_tensor_map size at HbExecutionContext::clear = ",
-        scalar_to_tensor_map.size());
-    if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP, 1) ||
-        scalar_to_tensor_map.size() >
-            GET_ENV_FLAG_NEW(PT_HPU_SCALAR_MAP_MAXSIZE)) {
-      PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
-      scalar_to_tensor_map.clear();
+    {
+      std::lock_guard<std::mutex> lock(GetScalarToTensorMutex());
+      PT_LAZY_DEBUG(
+          "scalar_to_tensor_map size at HbExecutionContext::clear = ",
+          scalar_to_tensor_map.size());
+      if (GET_ENV_FLAG_NEW(PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP, 1) ||
+          scalar_to_tensor_map.size() >
+              GET_ENV_FLAG_NEW(PT_HPU_SCALAR_MAP_MAXSIZE)) {
+        PT_LAZY_DEBUG("scalar_to_tensor_map cleared");
+        scalar_to_tensor_map.clear();
+      }
     }
 
     viewContext.updated_bucket_list.clear();
@@ -392,6 +399,7 @@ class HbExecutionContext {
       m_jobid_streamid_map;
   std::mutex m_jobid_streamid_map_mtx;
   std::mutex m_op_acc_tid_mtx;
+  std::mutex m_scalar_to_tensor_map_mtx;
 };
 
 class HbExecutionContextArena {
