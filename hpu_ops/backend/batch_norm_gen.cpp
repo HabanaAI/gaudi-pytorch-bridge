@@ -335,11 +335,17 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
          NodeAttr::NodeOutputAttr{
              out_shapes[SAVED_MEAN_IDX],
              c10::ScalarType::Float,
-             .inplace_out_ptr{running_mean_sh_t_or_idx}},
+             c10::nullopt,
+             DATA_TENSOR,
+             syn_type_na,
+             running_mean_sh_t_or_idx},
          NodeAttr::NodeOutputAttr{
              out_shapes[SAVED_ISTD_IDX],
              c10::ScalarType::Float,
-             .inplace_out_ptr{running_var_sh_t_or_idx}}},
+             c10::nullopt,
+             DATA_TENSOR,
+             syn_type_na,
+             running_var_sh_t_or_idx}},
         params.get(),
         size);
 
