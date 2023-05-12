@@ -176,11 +176,10 @@ void RepeatOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for repeat operator");
   TORCH_CHECK(
-      inputs[1].isIntList() || inputs[1].isTensor(),
-      "Input arg2 expected to be intlist or tenspr shape for repeat operator");
+      inputs[1].isIntList(),
+      "Input arg2 expected to be intlist for repeat operator");
   auto input = inputs[0].toTensor();
-  auto repeats = inputs[1].isIntList() ? inputs[1].toIntVector()
-                                       : inputs[1].toTensor().sizes().vec();
+  auto repeats = inputs[1].toIntVector();
   int64_t size = repeats.size();
 
   if (size > input.ndimension()) {
@@ -205,20 +204,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
       input.options(),
       output_metadata.at(0).persistent);
 
-  if (inputs[1].isIntList()) {
-    for (int64_t i = 0; i < size; ++i) {
-      params.repeat[size - i - 1] = repeats[i];
-    }
-
-    // Allocate Shape Tensor
-    if (graph.is_dynamic_graph()) {
-      auto repeatsShape =
-          habana::createPTTensor(input, repeats, input.options(), false);
-      AllocateSynapseShapeTensor(
-          graph, repeatsShape, INPUT_DESCRIBING_SHAPE_TENSOR);
-    }
-  } else {
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_input_shape_tensor());
+  for (int64_t i = 0; i < size; ++i) {
+    params.repeat[size - i - 1] = repeats[i];
   }
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -382,7 +369,6 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
         .add("aten::repeat", KERNEL_FN(RepeatOperator))
-        .add("hpu::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
         .add("hpu::repeat_inlv_ht", KERNEL_FN(RepeatInlvOperatorHT))
         .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));

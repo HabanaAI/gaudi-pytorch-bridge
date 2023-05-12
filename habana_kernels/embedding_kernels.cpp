@@ -111,80 +111,38 @@ void PadOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 4 || inputs.size() == 3,
+      inputs.size() == 3,
       "Incorrect size of inputs expected for PadOperator Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for PadOperator Operator");
   TORCH_CHECK(
-      inputs[1].isTensor() || inputs[1].isIntList(),
-      "Input arg1 expected to be of type Int or Tensor for PadOperator operator");
-  auto pad = inputs[1].isIntList() ? inputs[1].toIntVector()
-                                   : inputs[1].toTensor().sizes().vec();
-  bool have_shape_tensor = inputs[1].isTensor();
-  std::vector<int64_t> shape;
+      inputs[1].isIntList(),
+      "Input arg2 expected to be IntList for PadOperator Operator");
+  TORCH_CHECK(
+      inputs[2].isScalar(),
+      "Input arg3 expected to be Scalar for PadOperator Operator");
+
   auto self = inputs[0].toTensor();
-  if (have_shape_tensor) {
-    TORCH_CHECK(
-        p_context_->syn_inputs_[1].ref().is_input_shape_tensor(),
-        "Synapse input1 type expected to be shape tensor");
-    TORCH_CHECK(
-        p_context_->syn_inputs_[2].ref().is_input_shape_tensor(),
-        "Synapse input2 type expected to be shape tensor");
+  auto pad = inputs[1].toIntVector();
 
-    shape = compute_output_shape_ds(
-        self,
-        inputs[1].toTensor().sizes().vec(),
-        inputs[2].toTensor().sizes().vec());
-  } else {
-    shape = compute_output_shape(self, pad);
-  }
-  ns_PadKernelEx::Params param;
+  std::vector<int64_t> shape;
+  shape = compute_output_shape(self, pad);
   auto output = at::empty(shape, self.options());
+  auto ndim = self.dim();
+  auto lpad = pad.size() / 2;
 
-  if (have_shape_tensor) {
-    param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    if (c10::isIntegralType(self.scalar_type())) {
-      param.value.i = inputs[3].toScalar().to<decltype(param.value.i)>();
-    } else {
-      param.value.f = inputs[3].toScalar().to<float>();
-    }
-    TORCH_CHECK(p_context_->syn_inputs_.back().ref().is_input_shape_tensor());
+  ns_PadKernelEx::Params param;
+  param.mode = PadMode_t::PAD_MODE_CONSTANT;
+  if (c10::isIntegralType(self.scalar_type())) {
+    param.value.i = inputs[2].toScalar().to<decltype(param.value.i)>();
   } else {
-    auto ndim = self.dim();
-    auto lpad = pad.size() / 2;
-
-    param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    if (c10::isIntegralType(self.scalar_type())) {
-      param.value.i = inputs[2].toScalar().to<decltype(param.value.i)>();
-    } else {
-      param.value.f = inputs[2].toScalar().to<float>();
-    }
-    memset(param.pads, 0, sizeof(param.pads));
-    for (unsigned int i = 0; i < lpad; i++) {
-      param.pads[i] = pad[2 * i];
-      param.pads[i + ndim] = pad[2 * i + 1];
-    }
-    // Allocate Shape tensor
-    if (graph.is_dynamic_graph()) {
-      std::vector<int64_t> pad_before(MAX_DIMENSIONS_NUM);
-      std::vector<int64_t> pad_after(MAX_DIMENSIONS_NUM);
-
-      for (unsigned int i = 0; i < pad.size() / 2; i++) {
-        pad_before[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i];
-        pad_after[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i + 1];
-      }
-      auto pad_before_tensor = at::empty(
-          IntArrayRef(pad_before.data(), pad_before.size()),
-          self.options().dtype(c10::ScalarType::Int));
-      auto pad_after_tensor = at::empty(
-          IntArrayRef(pad_after.data(), pad_after.size()),
-          self.options().dtype(c10::ScalarType::Int));
-      AllocateSynapseShapeTensor(
-          graph, pad_before_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
-      AllocateSynapseShapeTensor(
-          graph, pad_after_tensor, INPUT_DESCRIBING_SHAPE_TENSOR);
-    }
+    param.value.f = inputs[2].toScalar().to<float>();
+  }
+  memset(param.pads, 0, sizeof(param.pads));
+  for (unsigned int i = 0; i < lpad; i++) {
+    param.pads[i] = pad[2 * i];
+    param.pads[i + ndim] = pad[2 * i + 1];
   }
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -557,7 +515,6 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
 static auto& EmbeddingKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::constant_pad_nd", KERNEL_FN(PadOperator))
-        .add("hpu::constant_pad_nd", KERNEL_FN(PadOperator))
         .add("hpu::constant_pad_nd_ht", KERNEL_FN(PadOperatorHT))
         .add(
             "aten::embedding_bag_sum_fwd",

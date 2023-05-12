@@ -2073,80 +2073,50 @@ Tensor constant_pad_hpu_lazy(
     std::vector<at::IValue> vector_of_inputs;
     std::string op_name;
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
-      // Keep IDST implementation also, but use H2D implementation by default
-      bool isIDST =
-          (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR) == false);
-      if (isIDST) {
-        op_name = "hpu::constant_pad_nd";
-        std::vector<int64_t> pad_before(MAX_DIMENSIONS_NUM);
-        std::vector<int64_t> pad_after(MAX_DIMENSIONS_NUM);
-
-        for (unsigned int i = 0; i < pad.size() / 2; i++) {
-          pad_before[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i];
-          pad_after[MAX_DIMENSIONS_NUM - i - 1] = pad[2 * i + 1];
-        }
-
-        auto pad_before_tensor = empty_hpu_lazy(
-            IntArrayRef(pad_before),
-            self.options().dtype(c10::ScalarType::Int),
-            self.suggest_memory_format(),
-            false,
-            INPUT_DESCRIBING_SHAPE_TENSOR);
-        auto pad_after_tensor = empty_hpu_lazy(
-            IntArrayRef(pad_after),
-            self.options().dtype(c10::ScalarType::Int),
-            self.suggest_memory_format(),
-            false,
-            INPUT_DESCRIBING_SHAPE_TENSOR);
-
-        vector_of_inputs = {self, pad_before_tensor, pad_after_tensor, value};
-      } else {
-        op_name = "hpu::constant_pad_nd_ht";
-        std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
-        // assuming that "pad" has a pair of pad values corresponding to each
-        // dim that needs to be padded.
-        for (unsigned int i = 0; i < pad.size() / 2; i++) {
-          // Host tensor layout 1D - 10 elements:
-          // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
-          // dimensionality IFM less then 5 some elements not in use)
-          pad_ht_vec[i] = pad[2 * i];
-          pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
-        }
-
-        auto pad_tensor = empty_hpu_lazy(
-            pad_ht_vec.size(),
-            self.options().dtype(c10::ScalarType::Int),
-            self.suggest_memory_format(),
-            false,
-            HOST_TO_DEVICE_TENSOR);
-        auto output_shape_tensor = empty_hpu_lazy(
-            IntArrayRef(PadOperator::compute_output_shape(self, pad)),
-            self.options().dtype(c10::ScalarType::Int),
-            self.suggest_memory_format(),
-            false,
-            SHAPE_TENSOR);
-        // Mark this front end shape tensor as it does not need synapse tensor
-        auto hl_output_shape_tensor =
-            GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
-        auto hl_output_shape_tensor_internal =
-            hl_output_shape_tensor.CurrentTensorAttached().value();
-        auto tmeta_shape_tensor_internal{
-            get_tensor_extra_meta(hl_output_shape_tensor_internal, true)};
-        if (tmeta_shape_tensor_internal) {
-          tmeta_shape_tensor_internal->set_H2D_frontend_shape_tensor();
-        }
-        auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
-
-        auto hl_param_internal =
-            hl_params_shape.CurrentTensorAttached().value();
-        auto tmeta{get_tensor_extra_meta(hl_param_internal)};
-        tmeta->set_host_data(
-            pad_ht_vec.data(),
-            pad_ht_vec.size(),
-            sizeof(uint32_t),
-            HostDataType::UINT32_T);
-        vector_of_inputs = {self, pad_tensor, output_shape_tensor, value};
+      op_name = "hpu::constant_pad_nd_ht";
+      std::vector<uint32_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
+      // assuming that "pad" has a pair of pad values corresponding to each
+      // dim that needs to be padded.
+      for (unsigned int i = 0; i < pad.size() / 2; i++) {
+        // Host tensor layout 1D - 10 elements:
+        // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
+        // dimensionality IFM less then 5 some elements not in use)
+        pad_ht_vec[i] = pad[2 * i];
+        pad_ht_vec[MAX_DIMENSIONS_NUM + i] = pad[2 * i + 1];
       }
+
+      auto pad_tensor = empty_hpu_lazy(
+          pad_ht_vec.size(),
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          false,
+          HOST_TO_DEVICE_TENSOR);
+      auto output_shape_tensor = empty_hpu_lazy(
+          IntArrayRef(PadOperator::compute_output_shape(self, pad)),
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          false,
+          SHAPE_TENSOR);
+      // Mark this front end shape tensor as it does not need synapse tensor
+      auto hl_output_shape_tensor =
+          GetOrCreateHbLazyTensor(output_shape_tensor, c10::kHPU);
+      auto hl_output_shape_tensor_internal =
+          hl_output_shape_tensor.CurrentTensorAttached().value();
+      auto tmeta_shape_tensor_internal{
+          get_tensor_extra_meta(hl_output_shape_tensor_internal, true)};
+      if (tmeta_shape_tensor_internal) {
+        tmeta_shape_tensor_internal->set_H2D_frontend_shape_tensor();
+      }
+      auto hl_params_shape = GetOrCreateHbLazyTensor(pad_tensor, c10::kHPU);
+
+      auto hl_param_internal = hl_params_shape.CurrentTensorAttached().value();
+      auto tmeta{get_tensor_extra_meta(hl_param_internal)};
+      tmeta->set_host_data(
+          pad_ht_vec.data(),
+          pad_ht_vec.size(),
+          sizeof(uint32_t),
+          HostDataType::UINT32_T);
+      vector_of_inputs = {self, pad_tensor, output_shape_tensor, value};
     } else {
       op_name = "aten::constant_pad_nd";
       vector_of_inputs = {self, pad, value};
@@ -4613,21 +4583,7 @@ Tensor& randperm_hpu_lazy(
   if (habana_helpers::GetRefineDynamicShapeStatus() &&
       (output.scalar_type() == c10::ScalarType::Int ||
        output.scalar_type() == c10::ScalarType::Long)) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
-      return randperm_hpu_lazy_ht(output, n, seed);
-    } else {
-      std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
-      auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
-      auto params_shape = empty_hpu_lazy(
-          input_size,
-          output.options(),
-          output.suggest_memory_format(),
-          false,
-          INPUT_DESCRIBING_SHAPE_TENSOR);
-      LazyOp<Tensor&> op{
-          "hpu::randperm_out_ds", {params_shape, seed, output}, nullptr, 2};
-      RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
-    }
+    return randperm_hpu_lazy_ht(output, n, seed);
   } else {
     LazyOp<Tensor&> op{
         "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
@@ -4650,21 +4606,7 @@ Tensor& randperm_hpu_lazy(
   if (habana_helpers::GetRefineDynamicShapeStatus() &&
       (output.scalar_type() == c10::ScalarType::Int ||
        output.scalar_type() == c10::ScalarType::Long)) {
-    if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR)) {
-      return randperm_hpu_lazy_ht(output, n, seed);
-    } else {
-      std::vector<int64_t> params_vec{1 /*step*/, n /*end*/, 0 /*start*/};
-      auto input_size = IntArrayRef(params_vec.data(), params_vec.size());
-      auto params_shape = empty_hpu_lazy(
-          input_size,
-          output.options(),
-          output.suggest_memory_format(),
-          false,
-          INPUT_DESCRIBING_SHAPE_TENSOR);
-      LazyOp<Tensor&> op{
-          "hpu::randperm_out_ds", {params_shape, seed, output}, nullptr, 2};
-      RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
-    }
+    return randperm_hpu_lazy_ht(output, n, seed);
   } else {
     LazyOp<Tensor&> op{
         "hpu::randperm_out", {Scalar((int32_t)n), seed, output}, {{n}}};
@@ -4718,30 +4660,13 @@ at::Tensor repeat_hpu_lazy(
     at::SymIntArrayRef _repeats) {
   PT_LAZY_TRACE;
   auto repeats = C10_AS_INTARRAYREF_SLOW(_repeats);
-  if (GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR)) {
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
     return repeat_hpu_lazy_ht(self, repeats);
   }
 
-  std::vector<at::IValue> vector_of_inputs;
-  std::string op_name;
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
-    auto repeats_shape = empty_hpu_lazy(
-        repeats,
-        self.options(),
-        self.suggest_memory_format(),
-        false,
-        INPUT_DESCRIBING_SHAPE_TENSOR);
-
-    vector_of_inputs = {self, repeats_shape};
-    op_name = "hpu::repeat";
-  } else {
-    vector_of_inputs = {self, repeats};
-    op_name = "aten::repeat";
-  }
-
   LazyOp<at::Tensor> k{
-      op_name,
-      vector_of_inputs,
+      "aten::repeat",
+      {self, repeats},
       {RepeatOperator::compute_output_shape(self, repeats)}};
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }

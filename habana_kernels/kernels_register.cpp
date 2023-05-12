@@ -2192,8 +2192,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def("diag_out(Tensor self, int diagonal, Tensor(a!) out) -> Tensor(a!)");
   m.def("randperm_out(int n, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "randperm_out_ds(Tensor idst, Tensor seed, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
       "randperm_out_ds_ht(Tensor ht, Tensor seed, Tensor output) -> Tensor(a!)");
   m.def("habana_d2d_memcpy(Tensor self) -> Tensor");
   m.def(
@@ -2316,9 +2314,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::expand(Tensor(a) self, int[] sizes, *, bool implicit=False) -> Tensor(a)");
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
-  m.def("hpu::repeat(Tensor self, Tensor repeats_shape) -> Tensor");
-  m.def(
-      "hpu::constant_pad_nd(Tensor self, Tensor pad_before_tensor, Tensor pad_after_tensor, Scalar value) -> Tensor");
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");

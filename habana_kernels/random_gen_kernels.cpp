@@ -189,8 +189,8 @@ void RandpermOperator::AllocateAndAddSynapseNode(
       inputs.size(),
       " of inputs expected for Randperm Operator");
   TORCH_CHECK(
-      inputs[0].isScalar() || inputs[0].isTensor(),
-      "Input arg0 expected to be Scalar or Tensor for RandpermOperator operator");
+      inputs[0].isScalar(),
+      "Input arg0 expected to be Scalar for RandpermOperator operator");
   TORCH_CHECK(
       inputs[1].isTensor(),
       "Input arg1 expected to be (seed) Tensor for RandpermOperator");
@@ -205,51 +205,28 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   auto arangeOp =
       make_operator<ArangeOperator>(this->p_context_->device_id_, scalar_type);
   // Order of tensors
-  // {shape_tensor, seed_tensor, output_tensor}
-  if (inputs[0].isTensor()) {
-    auto shape_tensor = inputs[0].toTensor();
-    arangeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
-    torch::jit::Stack stack{IValue(shape_tensor), IValue(arangeOutput)};
-    arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-    stack.clear();
+  // {seed_tensor, output_tensor}
+  auto n = inputs[0].toInt();
+  auto start = 0;
+  auto end = n;
+  auto step = 1;
+  arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
+  torch::jit::Stack stack{
+      IValue(start), IValue(end), IValue(step), IValue(arangeOutput)};
+  arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+  stack.clear();
 
-    // create RandomShuffle operator
-    auto randShuffleOp = make_operator<RandomShuffleOperator>(
-        this->p_context_->device_id_, scalar_type);
-    stack.emplace_back(IValue(arangeOutput));
-    randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
-    randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-    randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    p_context_->syn_outputs_.emplace_back(
-        std::move(randShuffleOp->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(
-        std::move(randShuffleOp->GetOutputs()[0]));
-  } else {
-    // Order of tensors
-    // {seed_tensor, output_tensor}
-    auto n = inputs[0].toInt();
-    auto start = 0;
-    auto end = n;
-    auto step = 1;
-    arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
-    torch::jit::Stack stack{
-        IValue(start), IValue(end), IValue(step), IValue(arangeOutput)};
-    arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-    stack.clear();
-
-    // create RandomShuffle operator
-    auto randShuffleOp = make_operator<RandomShuffleOperator>(
-        this->p_context_->device_id_, scalar_type);
-    stack.emplace_back(IValue(arangeOutput));
-    randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
-    randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    p_context_->syn_outputs_.emplace_back(
-        std::move(randShuffleOp->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(
-        std::move(randShuffleOp->GetOutputs()[0]));
-  }
+  // create RandomShuffle operator
+  auto randShuffleOp = make_operator<RandomShuffleOperator>(
+      this->p_context_->device_id_, scalar_type);
+  stack.emplace_back(IValue(arangeOutput));
+  randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
+  randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  randShuffleOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(randShuffleOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(
+      std::move(randShuffleOp->GetOutputs()[0]));
 }
 
 void BernoulliOperator::AllocateAndAddSynapseNode(
@@ -479,7 +456,6 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
 static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
-        .add("hpu::randperm_out_ds", KERNEL_FN(RandpermOperator))
         .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator))
         .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT))
         .add("hpu::habana_random_seed", KERNEL_FN(HabanaRandomSeedOperator));
