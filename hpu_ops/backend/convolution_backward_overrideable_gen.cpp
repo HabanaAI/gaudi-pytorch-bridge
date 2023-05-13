@@ -225,6 +225,25 @@ static synapse_helpers::tensor ComputeBiasGrad(
   }
 }
 
+static int64_t ComputeOutputSize(
+    const int64_t input_dim,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t kernel_size,
+    const int64_t stride,
+    const bool transposed) {
+  if (!transposed) {
+    return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) /
+        stride +
+        1;
+  } else {
+    // conv2d fwd output shape computation done as per formula provided below
+    // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
+    return (input_dim - 1) * stride - 2 * padding +
+        dilation * (kernel_size - 1) + 1;
+  }
+}
+
 void ConvolutionBackwardOverrideable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -248,6 +267,36 @@ void ConvolutionBackwardOverrideable::AddNode(
 
   const auto& params = FillConvolutionBackwardOverrideableParams(
       is_conv_3d, weight, stride, padding, dilation, groups, params_size);
+  // In case of dynamic graph and dry run check if the input and output sizes
+  // are valid fix for SW-94417
+  if (graph.is_dynamic_graph() && graph.is_dry_run()) {
+    auto shape_in = input.sizes().vec();
+    auto shape_wt = weight.sizes().vec();
+    auto K = transposed ? shape_wt[1] * groups : shape_wt[0];
+    std::vector<int64_t> out_shape{shape_in[0], K};
+    for (int i = 0; i < shape_in.size() - 2; ++i) {
+      out_shape.push_back(ComputeOutputSize(
+          shape_in[i + 2],
+          padding[i],
+          dilation[i],
+          shape_wt[i + 2],
+          stride[i],
+          transposed));
+    }
+    auto grad_output_sizes = grad_output.sizes().vec();
+    bool validateRes = std::equal(
+        out_shape.begin(),
+        out_shape.end(),
+        grad_output_sizes.begin(),
+        grad_output_sizes.end());
+    TORCH_CHECK(
+        validateRes,
+        "Mismatch in Grad Out size{",
+        grad_output_sizes,
+        "} and calculated size{",
+        out_shape,
+        "} according to input and params");
+  }
 
   auto BuildOpFor =
       [&](synapse_helpers::graph& graph,
