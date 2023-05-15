@@ -16,7 +16,6 @@ class SupportedDtypes {
  public:
   SupportedDtypes(std::unordered_map<int, std::unordered_set<at::ScalarType>>
                       per_gen_dtypes);
-  ~SupportedDtypes();
   bool count(at::ScalarType type) const;
   bool count(const at::Tensor& tensor) const;
   bool count(const at::optional<at::Tensor>& tensor) const;

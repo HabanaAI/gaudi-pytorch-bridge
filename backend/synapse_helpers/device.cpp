@@ -32,6 +32,7 @@
 #include "backend/kernel/refinement_engine.h"
 
 #include "habana_helpers/logging.h"
+#include "habana_kernels/fallback_helper.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
@@ -600,6 +601,8 @@ void device::cleanup() {
 device::~device() {
   PT_SYNHELPER_DEBUG("Device dectructor entry");
   cleanup();
+
+  habana::HpuFallbackHelper::get()->print_fallback_freq();
 }
 
 // only used when generic stream is not used

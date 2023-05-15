@@ -39,12 +39,6 @@ SupportedDtypes::SupportedDtypes(
   m_dtypes = std::move(per_gen_dtypes.at(curr_dev_type));
 }
 
-SupportedDtypes::~SupportedDtypes() {
-  static std::once_flag flag;
-  std::call_once(
-      flag, []() { HpuFallbackHelper::get()->print_fallback_freq(); });
-}
-
 bool SupportedDtypes::count(at::ScalarType type) const {
   return m_dtypes.count(type) ||
       (!GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&

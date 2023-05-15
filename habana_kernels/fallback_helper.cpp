@@ -54,6 +54,6 @@ void HpuFallbackHelper::print_fallback_freq() const {
     ss << oc.second << "\t" << oc.first << "\n";
   }
 
-  PT_FALLBACK_INFO(ss.str())
+  HLLOG_CRITICAL(PT_FALLBACK, FORMAT_AND_MSG(ss.str()));
 }
 } // namespace habana
