@@ -20,8 +20,7 @@ bool device_supports_fp8(synDeviceType device_type) {
 }
 
 bool device_supports_fp16(synDeviceType device_type) {
-  return device_type == synDeviceGaudi2 || device_type == synDeviceGaudi3 ||
-      device_type == synDeviceGreco;
+  return device_type == synDeviceGaudi2 || device_type == synDeviceGaudi3;
 }
 
 } // namespace synapse_helpers

@@ -846,7 +846,10 @@ addmm.out:
 
 addmv:
   custom_output_shape: AddMVOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   out_ids: [0]
   guid: addmv
@@ -854,7 +857,10 @@ addmv:
 
 addmv_:
   custom_output_shape: AddMVOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   inplace_ids: [0]
   guid: addmv
@@ -862,27 +868,39 @@ addmv_:
 
 addmv.out:
   custom_output_shape: AddMVOutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: addmv
   op_backend: AddMV
 
 addr:
   custom_output_shape: AddROutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   op_backend: AddR
   out_ids: [0]
 
 addr_:
   custom_output_shape: AddROutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   op_backend: AddR
   inplace_ids: [0]
 
 addr.out:
   custom_output_shape: AddROutshape
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   op_backend: AddR
 
@@ -1034,7 +1052,10 @@ argmax.out:
 
 argmin:
   custom_output_shape: ArgMinMaxOutputShape
-  dtypes: [Float, BFloat16]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   force_default: false
   guid: argmin_fwd
   op_backend: ArgMinMax
@@ -1043,20 +1064,29 @@ argmin:
 
 argmin.out:
   custom_output_shape: ArgMinMaxOutputShape
-  dtypes: [Float, BFloat16]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: argmin_fwd
   op_backend: ArgMinMax
 
 asin:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: asin_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
 asin.out:
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   promote_int_to_float: [self]
   guid: asin_fwd
   op_validator: check-node-with-shared-layer
@@ -1064,7 +1094,10 @@ asin.out:
 asin_:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: asin_fwd
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -1072,21 +1105,30 @@ asin_:
 asinh:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: asinh_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
 asinh.out:
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: asinh_fwd
   op_validator: check-node-with-shared-layer
 
 asinh_:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: asinh_fwd
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -1094,21 +1136,30 @@ asinh_:
 atan:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: atan_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
 atan.out:
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: atan_fwd
   op_validator: check-node-with-shared-layer
 
 atan_:
   force_default: false
   promote_int_to_float: [self]
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: atan_fwd
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -1235,18 +1286,27 @@ avg_pool2d_backward:
   force_default: false
 
 atanh:
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   force_default: false
   guid: atanh_fwd
   out_ids: [0]
 
 atanh.out:
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: atanh_fwd
 
 atanh_:
   force_default: false
-  dtypes: [Float]
+  dtypes:
+    Gaudi: [Float]
+    Gaudi2: [Float]
+    Gaudi3: [Float]
   guid: atanh_fwd
   inplace_ids: [0]
 
@@ -2624,7 +2684,6 @@ fill.Scalar:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Greco: [BFloat16, Float, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
   out_ids: [0]

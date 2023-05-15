@@ -128,12 +128,6 @@ inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
   return static_cast<int>(max_dims - dim - 1);
 }
 
-inline bool is_Greco_device() {
-  return (
-      synapse_helpers::HPURegistrar::get_device().type() ==
-      synDeviceType::synDeviceGreco);
-}
-
 std::vector<at::Tensor> GetMetaTensorList(
     const std::vector<at::Tensor>& tensors);
 std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(

@@ -197,11 +197,6 @@ TEST_F(EagerKernelTest, LeakyReluBackwardTest) {
   auto hgrad = grad.to(torch::kHPU);
   auto hA = A.to(torch::kHPU);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
-
   auto expectedOutput = torch::leaky_relu_backward(grad, A, 0.1, false);
   auto habanaOutput = torch::leaky_relu_backward(hgrad, hA, 0.1, false);
 
@@ -209,10 +204,6 @@ TEST_F(EagerKernelTest, LeakyReluBackwardTest) {
 }
 
 TEST_F(EagerKernelTest, LeakyReluBackward0DTest) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   auto grad = torch::tensor(6.0);
   auto A = torch::tensor(-1.0);
 
@@ -231,7 +222,7 @@ TEST_F(EagerKernelTest, AddTest) {
   auto outHabana = torch::add(tHabana, 4.0);
   auto out = torch::add(tensor, 4.0);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
-  EXPECT_EQ(equal, true);
+  EXPECT_TRUE(equal);
 }
 
 TEST_F(EagerKernelTest, MatMulTest) {
@@ -245,12 +236,8 @@ TEST_F(EagerKernelTest, MatMulTest) {
     auto out = torch::matmul(tensor1, tensor2);
     bool equal;
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    if (device.type() == synDeviceGreco) {
-      equal = out.allclose(outHabana.to(torch::kCPU), 0.01, 0.01);
-    } else {
-      equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
-    }
-    EXPECT_EQ(equal, true);
+    equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
+    EXPECT_TRUE(equal);
   };
 
   // Testing all configurations supported by CPU.
@@ -310,10 +297,6 @@ TEST_F(EagerKernelTest, IsfiniteTest) {
   input_tensor[1] = 2.0 / 0.0;
   input_tensor[2] = -2.0 / 0.0;
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   torch::Tensor cpu_out = torch::isfinite(input_tensor);
 
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
@@ -327,10 +310,6 @@ TEST_F(EagerKernelTest, IsfiniteTest) {
 TEST_F(EagerKernelTest, IsnanTest) {
   auto input_tensor = torch::tensor({2.0, sqrt(-1.0), 1.0});
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   torch::Tensor cpu_out = torch::isnan(input_tensor);
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::isnan(tHabanaX);
@@ -340,10 +319,6 @@ TEST_F(EagerKernelTest, IsnanTest) {
 }
 
 TEST_F(EagerKernelTest, Isnan0DTest) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   auto input_tensor = torch::tensor(sqrt(-1.0));
 
   torch::Tensor cpu_out = torch::isnan(input_tensor);
@@ -439,10 +414,6 @@ TEST_F(EagerKernelTest, BroadCastIndexTest1) {
 };
 
 TEST_F(EagerKernelTest, Silu) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   const std::vector<int64_t> dimentions{7, 3};
   auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
   auto hinput = input_tensor.to(torch::kHPU);
@@ -455,10 +426,6 @@ TEST_F(EagerKernelTest, Silu) {
 }
 
 TEST_F(EagerKernelTest, Silu0Dim) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHPU);
 
@@ -507,10 +474,6 @@ TEST_F(EagerKernelTest, Diag2DTest) {
 }
 
 TEST_F(EagerKernelTest, Diag1DTest) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   torch::Tensor tensor = torch::randn({3});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::diag(tHabana, 1);
@@ -546,10 +509,6 @@ TEST_F(EagerKernelTest, DiagOut1DTest) {
 }
 
 TEST_F(EagerKernelTest, BatchNormBackwardAdd) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
   auto tHabanaGrad = grad_tensor.to(torch::kHPU);
 
@@ -613,10 +572,6 @@ TEST_F(EagerKernelTest, BatchNormBackwardAdd) {
 }
 
 TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   torch::Tensor input = torch::rand({64, 10}, torch::requires_grad(false));
   torch::Tensor grad = torch::rand({64, 10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64, 10}, torch::requires_grad(false));

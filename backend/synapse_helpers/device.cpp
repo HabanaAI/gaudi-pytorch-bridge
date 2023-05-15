@@ -545,8 +545,6 @@ uint64_t device::get_compute_stream_count() {
       return 2;
     if (type_ == synDeviceGaudi2)
       return 4;
-    if (type_ == synDeviceGreco)
-      return 4;
     if (type_ == synDeviceGaudi3)
       return 4;
     return 1;
@@ -910,9 +908,6 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
       break;
     case synDeviceGaudi2:
       stream << " Gaudi2 ";
-      break;
-    case synDeviceGreco:
-      stream << " Greco ";
       break;
     case synDeviceGaudi3:
       stream << " Gaudi3 ";
@@ -1517,7 +1512,6 @@ std::set<synDeviceType> device::get_supported_devices() {
   return {
       synDeviceType::synDeviceGaudi,
       synDeviceType::synDeviceGaudi2,
-      synDeviceType::synDeviceGreco,
       synDeviceType::synDeviceGaudi3};
 }
 

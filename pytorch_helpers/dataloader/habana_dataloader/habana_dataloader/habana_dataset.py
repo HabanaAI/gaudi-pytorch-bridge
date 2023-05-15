@@ -39,16 +39,11 @@ def isGaudi(device):
 def isGaudi2(device):
     return device == htexp.synDeviceType.synDeviceGaudi2
 
-def isGreco(device):
-    return device == htexp.synDeviceType.synDeviceGreco
-
 def deviceStr(device):
     if isGaudi(device):
         return "gaudi"
     elif isGaudi2(device):
         return "gaudi2"
-    elif isGreco(device):
-        return "greco"
     else:
         raise ValueError("Unsupported device")
 

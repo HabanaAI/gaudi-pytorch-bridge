@@ -23,8 +23,7 @@ bool IsUnsupported(torch::ScalarType dtype) {
   device_guard.getDevice();
   const auto device_type = synapse_helpers::HPURegistrar::get_device().type();
   if (!IsDtypeSupportedOnCurrentDevice(dtype) ||
-      (dtype == torch::kLong && device_type != synDeviceGaudi2) ||
-      (dtype == torch::kInt && device_type == synDeviceGreco)) {
+      (dtype == torch::kLong && device_type != synDeviceGaudi2)) {
     return true;
   }
   return false;

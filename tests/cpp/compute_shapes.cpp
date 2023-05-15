@@ -56,10 +56,6 @@ TEST_F(ComputeShapes, sigmoid) {
 }
 
 TEST_F(ComputeShapes, ge) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    GTEST_SKIP();
-  }
   auto cpu_in1 = torch::randn({42}).to(at::kBFloat16);
   auto cpu_in2 = torch::randn({2, 42});
 

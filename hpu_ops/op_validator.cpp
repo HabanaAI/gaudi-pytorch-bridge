@@ -45,8 +45,6 @@ gcapi::DeviceId_t synDeviceTypeToGcApiDeviceType(synDeviceType tp) {
       return gcapi::DEVICE_ID_GAUDI2;
     case synDeviceGaudi3:
       return gcapi::DEVICE_ID_GAUDI3;
-    case synDeviceGreco:
-      return gcapi::DEVICE_ID_GRECO;
     default:
       break;
   }

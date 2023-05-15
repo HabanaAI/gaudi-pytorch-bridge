@@ -186,18 +186,10 @@ static void GuidOutCount(
       num_tpc_outputs = 2;
       // when caller needs only one output but TPC returns two output
       if (num_outputs_required == 1) {
-        // For Greco, TPC returns only one output
-        if (synapse_helpers::HPURegistrar::get_device().type() ==
-            synDeviceType::synDeviceGreco) {
-          num_tpc_outputs = 1;
-          break;
-        } else {
-          // For Gaudi/Gaudi2 , TPC returns 2 outputs
-          output_attr.push_back(
-              {retain_ten_shape,
-               (retain_tensor_int == true) ? c10::ScalarType::Int
-                                           : op->ScalarType()});
-        }
+        output_attr.push_back(
+            {retain_ten_shape,
+             (retain_tensor_int == true) ? c10::ScalarType::Int
+                                         : op->ScalarType()});
       }
       break;
     }

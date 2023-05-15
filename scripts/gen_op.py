@@ -222,10 +222,9 @@ _FILL_PARAMS = """[](const at::Stack& stack, size_t& size) {{
 
 
 _DEVICE_STR_TO_ENUM = {
-    -1: "-1",
+    "All": "-1",
     "Gaudi": "synDeviceGaudi",
     "Gaudi2": "synDeviceGaudi2",
-    "Greco": "synDeviceGreco",
     "Gaudi3": "synDeviceGaudi3",
 }
 
@@ -1734,13 +1733,13 @@ def generate_dtype_macro(dtypes):
         )
 
     if isinstance(dtypes, list):
-        return generate_line([(-1, dtypes)])
+        return generate_line([("All", dtypes)])
     elif isinstance(dtypes, dict) and not any(
         x in dtypes.keys() for x in _DEVICE_STR_TO_ENUM.keys()
     ):
         lines = ""
         for k, v in dtypes.items():
-            lines += generate_line([(-1, v)], k)
+            lines += generate_line([("All", v)], k)
         return lines
     else:
         assert isinstance(dtypes, dict)

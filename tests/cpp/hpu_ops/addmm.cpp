@@ -23,12 +23,7 @@ TEST_F(HpuOpTest, addmm_inplace_1) {
   GetHpuInput(0).addmm_(
       GetHpuInput(1), GetHpuInput(2), /*beta*/ 4.0031, /*alpha*/ 3.0);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(GetCpuInput(0), GetHpuInput(0), 0.01, 0.01);
-  } else {
-    Compare(GetCpuInput(0), GetHpuInput(0));
-  }
+  Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
 /**
@@ -58,12 +53,7 @@ TEST_F(HpuOpTest, addmm_inplace_3) {
   GetHpuInput(0).addmm_(
       GetHpuInput(1), GetHpuInput(2), /*beta*/ 2.0, /*alpha*/ 3.0);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(GetCpuInput(0), GetHpuInput(0), 0.01, 0.01);
-  } else {
-    Compare(GetCpuInput(0), GetHpuInput(0));
-  }
+  Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
 TEST_F(HpuOpTest, addmm_out_broadcast_1) {
@@ -89,12 +79,7 @@ TEST_F(HpuOpTest, addmm_out_broadcast_1) {
       /*alpha*/ 4.0,
       result);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(expected, result, 0.05, 0.05);
-  } else {
-    Compare(expected, result);
-  }
+  Compare(expected, result);
 }
 
 TEST_F(HpuOpTest, addmm_out_broadcast_2) {
@@ -120,12 +105,7 @@ TEST_F(HpuOpTest, addmm_out_broadcast_2) {
       /*alpha*/ 8.0,
       result);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(expected, result, 0.05, 0.05);
-  } else {
-    Compare(expected, result);
-  }
+  Compare(expected, result);
 }
 
 TEST_F(HpuOpTest, addmmTest) {
@@ -171,12 +151,7 @@ TEST_F(HpuOpTest, addmmTestAlpha) {
   auto result =
       torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(expected, result, 0.01, 0.01);
-  } else {
-    Compare(expected, result);
-  }
+  Compare(expected, result);
 }
 
 TEST_F(HpuOpTest, addmmTestAlphaBF16) {
@@ -222,12 +197,7 @@ TEST_F(HpuOpTest, addmmTestAlphaBetaBroadcast1) {
   auto result =
       torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(expected, result, 0.01, 0.01);
-  } else {
-    Compare(expected, result);
-  }
+  Compare(expected, result);
 }
 
 TEST_F(HpuOpTest, addmmTestAlphaBetaBroadcast2) {
@@ -243,10 +213,5 @@ TEST_F(HpuOpTest, addmmTestAlphaBetaBroadcast2) {
   auto result =
       torch::addmm(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), beta, alpha);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.type() == synDeviceGreco) {
-    Compare(expected, result, 0.01, 0.01);
-  } else {
-    Compare(expected, result);
-  }
+  Compare(expected, result);
 }

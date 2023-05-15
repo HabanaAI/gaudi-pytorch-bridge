@@ -83,7 +83,7 @@ FALLBACK_CHECK(
   //  where_fwd_i32
   //  where_fwd_bf16
   //  where_fwd_f32
-  //  where_fwd_f16 only for Gaudi2/Gaudi3/Greco
+  //  where_fwd_f16 only for Gaudi2/Gaudi3
   auto result_type = at::result_type(self, other);
   switch (result_type) {
     case torch::kBool:

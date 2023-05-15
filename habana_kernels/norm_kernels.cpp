@@ -70,13 +70,6 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   params.epsilon = static_cast<float>(eps);
   p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
-  if (synapse_helpers::HPURegistrar::get_device().type() ==
-      synDeviceType::synDeviceGreco) {
-    SetGuid(get_guid_with_precision("batch_norm", input.scalar_type()));
-    // Ignore mean and var
-    const auto& end = p_context_->syn_inputs_.end();
-    p_context_->syn_inputs_.erase(end - 2, end);
-  }
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -272,13 +265,10 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
-  if (synapse_helpers::HPURegistrar::get_device().type() !=
-      synDeviceType::synDeviceGreco) {
-    synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
-    syn_outputs.push_back(syn_out_ln_mean.get());
-    synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
-    syn_outputs.push_back(syn_out_ln_istd.get());
-  }
+  synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
+  syn_outputs.push_back(syn_out_ln_mean.get());
+  synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
+  syn_outputs.push_back(syn_out_ln_istd.get());
 
   ns_LayerNormKernel::Params params{};
   params.eps = static_cast<float>(eps);
@@ -374,13 +364,10 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
   AllocateSynapseOutput(graph, istd, output_metadata_all_outputs.at(2));
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
-  if (synapse_helpers::HPURegistrar::get_device().type() !=
-      synDeviceType::synDeviceGreco) {
-    synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
-    syn_outputs.push_back(syn_out_ln_mean.get());
-    synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
-    syn_outputs.push_back(syn_out_ln_istd.get());
-  }
+  synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
+  syn_outputs.push_back(syn_out_ln_mean.get());
+  synapse_helpers::tensor& syn_out_ln_istd = p_context_->syn_outputs_[2];
+  syn_outputs.push_back(syn_out_ln_istd.get());
 
   ns_LayerNormKernel::ParamsNorm params{};
   params.eps = static_cast<float>(eps);

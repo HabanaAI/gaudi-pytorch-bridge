@@ -53,33 +53,11 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {shape, ScalarType(), 0}, {shape, c10::ScalarType::Int, 1}};
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs_greco{
-      {shape, ScalarType(), 0}};
 
-  const bool greco_device = is_Greco_device();
-
-  if (greco_device) {
-    p_context_->syn_outputs_.pop_back();
-
-    DummyOutput(
-        graph,
-        p_context_,
-        IsOutputPersistent(1),
-        GetOutputMetaData(1).external);
-  }
   auto reduce_max = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      self,
-      {syn_in(0)},
-      dim,
-      keepdim,
-      guid_,
-      greco_device ? output_attrs_greco : output_attrs);
+      this, graph, self, {syn_in(0)}, dim, keepdim, guid_, output_attrs);
 
-  if (!is_Greco_device()) {
-    syn_out(1) = std::move(reduce_max[1]);
-  }
+  syn_out(1) = std::move(reduce_max[1]);
   syn_out(0) = std::move(reduce_max[0]);
 }
 

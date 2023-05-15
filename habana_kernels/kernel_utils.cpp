@@ -117,7 +117,6 @@ static auto get_platform_cast_map() {
   switch (type) {
     case synDeviceGaudi2:
     case synDeviceGaudi3:
-    case synDeviceGreco:
       // Half
       cast_map.insert(
           {{c10::ScalarType::Float, c10::ScalarType::Half}, "cast_f32_to_f16"});
