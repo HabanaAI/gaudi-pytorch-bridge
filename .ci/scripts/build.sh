@@ -160,7 +160,7 @@ function pytorch_usage()
         echo -e "       --dut                          Choose gaudi or gaudi2 or greco. Default is gaudi"
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
-        echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests]. Default: all"
+        echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests, cpp_lazy, cpp_eager]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
@@ -1212,12 +1212,15 @@ run_pytorch_modules_tests()
 {
     local __pytorch_modules_tests_exe="python -m pytest"
     local __cpp_tests_exe="$PYTORCH_MODULES_RELEASE_BUILD/test_pt_integration"
+    local __cpp_tests_exe_eager="$PYTORCH_MODULES_RELEASE_BUILD/test_pt2_integration"
+    local __pt_major_version=`python -m pip list | grep  "^torch\s" | tr -s [:space:] | cut -d ' ' -f 2 | cut -d '.' -f 1`
     local __scriptname=$(__get_func_name)
-    local __xml=""
+    local __xml="test_detail.xml"
     local __ld_lib="$BUILD_ROOT_RELEASE"
     local __print_tests=""
     local __py_filter=""
     local __cpp_filter=""
+    local __cpp_filter_eager=""
     local __failures=""
     local __marker=""
     local __verbose=""
@@ -1226,12 +1229,16 @@ run_pytorch_modules_tests()
     local __dut="gaudi"
     local __hllog=3
 
+    source ${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/disabled_tests.sh
+    local __disable_failing_eager_tests="--gtest_filter=-"`echo ${FAILING_EAGER_TESTS[@]} | tr ' ' ':'`
+
     # parameter while-loop
     while [ -n "$1" ];
     do
         case $1 in
         -d  | --debug )
             __cpp_tests_exe="$PYTORCH_MODULES_DEBUG_BUILD/test_pt_integration"
+            __cpp_tests_exe_eager="$PYTORCH_MODULES_DEBUG_BUILD/test_pt2_integration"
             ;;
         -l  | --list-tests )
             __print_tests="yes"
@@ -1240,6 +1247,7 @@ run_pytorch_modules_tests()
             shift
             __py_filter="-k $1"
             __cpp_filter="--gtest_filter=$1"
+            __cpp_filter_eager="--gtest_filter=$1"
             ;;
         -m  | --maxfail )
             shift
@@ -1289,6 +1297,12 @@ run_pytorch_modules_tests()
     py_tests)
         __test_type="py_tests"
         ;;
+    cpp_lazy)
+        __test_type="cpp_lazy"
+        ;;
+    cpp_eager)
+        __test_type="cpp_eager"
+        ;;
     cpp_tests)
         __test_type="cpp_tests"
         ;;
@@ -1300,23 +1314,53 @@ run_pytorch_modules_tests()
     esac
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
-    if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
+    if [ ! -n "$__print_tests" ]; then
         if [ "$__dut" == "gaudi" ]; then
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
-            __test_status=$?
+            if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
+                echo "Running tests on Gaudi"
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                __test_status=$?
+            fi
+            if [ $__pt_major_version -eq 2 ]; then
+                if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    __test_status=$((__test_status | $?))
+                fi
+            fi
         elif [ "$__dut" == "gaudi2" ]; then
-            echo "Running tests on Gaudi2"
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
-            __test_status=$?
+            if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
+                echo "Running tests on Gaudi2"
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                __test_status=$?
+            fi
+            if [ $__pt_major_version -eq 2 ]; then
+                if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    __test_status=$((__test_status | $?))
+                fi
+            fi
         elif [ "$__dut" == "gaudi3" ]; then
-            echo "Running tests on Gaudi3"
-            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
-            __test_status=$?
+            if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_lazy" ]; then
+                echo "Running tests on Gaudi3"
+                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+                __test_status=$?
+            fi
+            if [ $__pt_major_version -eq 2 ]; then
+                if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ] || [ "$__suite_type" == "cpp_eager" ]; then
+                    (LOG_LEVEL_ALL=${__hllog} PT_HPU_LAZY_MODE=0 $__cpp_tests_exe_eager --gtest_output=xml:$__xml $__disable_failing_eager_tests $__cpp_filter)
+                    __test_status=$((__test_status | $?))
+                fi
+            fi
         elif [ "$__dut" == "greco" ]; then
             echo "Running greco tests"
             (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
-            __test_status=$?
+                __test_status=$?
         fi
+    fi
+
+    if [ "$__suite_type" != "py_tests" ] && [ "$__suite_type" != "cpp_lazy" ] && [ -f "$__xml/test_pt2_integration.xml" ]; then
+        # Workaround for jenkins skipping duplicated test names within "AllTests" scope
+        sed -i -E 's/classname="(.+)"/classname="CppEager.\1"/g' $__xml/test_pt2_integration.xml
     fi
 
     if [ -n "$__print_tests" ]; then
@@ -1326,6 +1370,12 @@ run_pytorch_modules_tests()
 
         echo "cpp tests:"
         ${__cpp_tests_exe} --gtest_list_tests
+
+        if [ $__pt_major_version -eq 2 ]; then
+            echo "cpp eager tests:"
+            ${__cpp_tests_exe_eager} --gtest_list_tests
+        fi
+
         __test_status=$?
         popd
         return $__test_status
@@ -1334,7 +1384,7 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         if [ "$__dut" != "gaudi3" ]; then
             pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}tests.xml" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_pytest.xml" ${__marker})
             __test_status=$((__test_status | $?))
             popd
         fi
