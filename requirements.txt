@@ -1,18 +1,20 @@
 --extra-index-url="https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple"
 
-cmake>=3.25.2
-flake8
-lark
-ninja
-numpy>=1.21
-pandas==1.4.1
-pip>=23
-pyyaml
+cmake>=3.26.3
 cython
-yamllint
-pkginfo
-requests
-packaging
-urllib3<2  # otherwise we break Amazon Linux 2 builds
-wheel==0.38.4
+flake8
 habana_pyhlml
+lark
+ninja>=1.11.1
+numpy==1.23.5
+packaging>=23.1
+pandas==2.0.1
+pip>=23.1.2
+pkginfo>=1.9.6
+pybind11==2.10.4
+pyyaml==6.0
+requests
+setuptools>=67.7.2
+urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
+wheel>=0.40
+yamllint>=1.31

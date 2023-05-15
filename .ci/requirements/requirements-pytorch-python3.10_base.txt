@@ -1,21 +1,22 @@
-#common
-cmake>=3.25
-protobuf==3.19.5
-regex==2020.10.28
-pandas==1.4.1
-wheel>=0.38.4
-yamllint
+# Common
+cmake>=3.26.3
+pandas==2.0.1
+protobuf==3.20.3
+regex==2023.5.5
+wheel>=0.40
+yamllint>=1.31
 
 # Below pkgs are required for pytorch-fork
-cffi==1.14.6
-typing-extensions>=4.0.0
+cffi==1.15.1
+mkl-include==2023.1
+mkl==2023.1
+ninja>=1.11.1
 numpy==1.23.5
-setuptools>=67.6
-ninja==1.10.2
-pyyaml==5.4.1
-mkl==2022.0.2
-mkl-include==2022.0.2
-pybind11==2.6.2
+pybind11==2.10.4
+pyyaml==6.0
+setuptools>=67.7.2
+typing-extensions>=4.5.0
+urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
 
-#pytorch lightining with habana support
+# Lightning with Habana support
 lightning==2.0.0
