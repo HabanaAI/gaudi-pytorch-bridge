@@ -100,6 +100,31 @@ TEST_HPU_BITWISE_OP(bitwise_and)
 TEST_HPU_BITWISE_OP(bitwise_or)
 TEST_HPU_BITWISE_OP(bitwise_xor)
 
+#define HPU_DYNAMIC_BITWISE_INPLACE_TEST(name, op, dtype)        \
+  TEST_F(HpuOpDynamicTest, name) {                               \
+    {                                                            \
+      /* Tensor Tensor inputs */                                 \
+      GenerateInputs(2, {{16}, {1}}, GET_TENSOR_TYPE(dtype));    \
+      GetCpuInput(0).op(GetCpuInput(1));                         \
+      GetHpuInput(0).op(GetHpuInput(1));                         \
+      Compare(GetCpuInput(0), GetHpuInput(0));                   \
+    }                                                            \
+    {                                                            \
+      /* Tensor Tensor inputs */                                 \
+      GenerateInputs(2, {{128}, {128}}, GET_TENSOR_TYPE(dtype)); \
+      GetCpuInput(0).op(GetCpuInput(1));                         \
+      GetHpuInput(0).op(GetHpuInput(1));                         \
+      Compare(GetCpuInput(0), GetHpuInput(0));                   \
+    }                                                            \
+  }
+
+class HpuOpDynamicTest : public HpuOpTestUtil {};
+
+#define TEST_HPU_DYNAMIC_BITWISE_OP(op) \
+  HPU_DYNAMIC_BITWISE_INPLACE_TEST(op##_inplace_tensor, op##_, bool)
+
+TEST_HPU_DYNAMIC_BITWISE_OP(bitwise_or)
+
 // bitwise_not takes only one input, and cannot use the macro above which is
 // generalized for two inputs
 TEST_F(HpuOpTest, bitwise_not) {

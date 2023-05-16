@@ -2205,6 +2205,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         }
       }
 
+      // Check Compute output shapes for mismatch else raise exception
+      if (syn_graph.is_dynamic_graph()) {
+        if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel))
+          op->ComputeOutputShapes(input_stack);
+      }
+
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputs_metadata);
       if (needUpdateMinMax) {
