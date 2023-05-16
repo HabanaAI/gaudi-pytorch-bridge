@@ -76,7 +76,11 @@ at::Tensor fused_norm_hpu_wrap(
     float norm_type) {
   auto FusedNormMeta = [](const at::Stack& stack) {
     OutputMetaDataVector meta_vec;
-    meta_vec.resize(stack[0].toTensorList().size() + 1);
+    OutputMetaData meta;
+    const Tensor& grad = stack[0].toTensorList()[0];
+    meta.dtype = grad.scalar_type();
+    meta.shape = grad.sizes().vec();
+    meta_vec.resize(stack[0].toTensorList().size() + 1, meta);
     return meta_vec;
   };
 
