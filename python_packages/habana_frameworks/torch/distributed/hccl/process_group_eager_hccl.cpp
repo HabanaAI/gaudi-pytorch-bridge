@@ -9,10 +9,15 @@
  */
 #include "process_group_eager_hccl.hpp"
 
+#include <c10/core/TensorImpl.h>
+#include <c10/util/Exception.h>
 #include <hccl.h>
 #include <hccl_types.h>
 #include <pybind11/chrono.h>
 #include <pybind11/pybind11.h>
+#include <optional>
+#include <utility>
+#include <vector>
 
 #include "backend/helpers/collective_utils.h"
 #include "habana_eager/eager_context.h"
@@ -26,6 +31,75 @@
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 
 namespace c10d {
+
+namespace {
+class CollectiveContext {
+ public:
+  CollectiveContext(
+      std::vector<at::Tensor>& inputs,
+      std::vector<at::Tensor>& outputs)
+      : inputs_(inputs), outputs_(outputs) {
+    TORCH_CHECK(inputs.size() == outputs.size());
+    ensure_input_output_tensors_contiguity();
+  }
+  CollectiveContext(const CollectiveContext&) = delete;
+  CollectiveContext& operator=(CollectiveContext&) = delete;
+
+  ~CollectiveContext() {
+    restore_output_tensors_if_needed();
+  }
+
+  CollectiveContext(std::vector<at::Tensor>& tensors)
+      : CollectiveContext(tensors, tensors) {}
+
+  std::vector<std::pair<at::Tensor, at::Tensor>>& tensors() {
+    return in_out_tensors_contiguous_;
+  }
+
+ private:
+  std::vector<std::pair<at::Tensor, at::Tensor>> in_out_tensors_contiguous_;
+  std::vector<at::Tensor>& inputs_;
+  std::vector<at::Tensor>& outputs_;
+
+  void ensure_input_output_tensors_contiguity() {
+    in_out_tensors_contiguous_.resize(inputs_.size());
+
+    for (size_t i = 0; i < inputs_.size(); ++i) {
+      if (!inputs_[i].is_contiguous() || !outputs_[i].is_contiguous()) {
+        PT_DISTRIBUTED_WARN(
+            "Provided input/output is not contiguous. Additional tensor copy will"
+            " be created prior to collective operation execution, what may impact"
+            " performance.");
+      }
+
+      // create tensor copy in case if provided input is not contiguous
+      at::Tensor input_contiguous = inputs_[i].contiguous();
+      at::Tensor output_contiguous;
+      if (inputs_[i].unsafeGetTensorImpl() ==
+          outputs_[i].unsafeGetTensorImpl()) {
+        // inplace collective: output == intput
+        output_contiguous = input_contiguous;
+      } else {
+        // create tensor copy in case if provided output is not contiguous
+        output_contiguous = outputs_[i].contiguous();
+      }
+      in_out_tensors_contiguous_[i] =
+          std::make_pair(input_contiguous, output_contiguous);
+    }
+  }
+
+  void restore_output_tensors_if_needed() {
+    for (size_t i = 0; i < in_out_tensors_contiguous_.size(); ++i) {
+      if (outputs_[i].unsafeGetTensorImpl() !=
+          in_out_tensors_contiguous_[i].second.unsafeGetTensorImpl()) {
+        // provided output wasn't contiguous, so the result of collective is
+        // stored in tensors_contiguous[i]
+        outputs_[i].copy_(in_out_tensors_contiguous_[i].second, true);
+      }
+    }
+  }
+};
+} // namespace
 
 ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
     const c10::intrusive_ptr<Store>& store,
@@ -102,19 +176,19 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
     std::vector<at::Tensor>& tensors,
     PointToPointFn fn,
     int peerRank) {
+  CollectiveContext collective_ctx(tensors);
+
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
 
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors);
-
-  for (size_t i = 0; i < tensors.size(); ++i) {
-    at::Tensor& tensor = tensors[i];
+  for (auto& input_output : collective_ctx.tensors()) {
+    at::Tensor& tensor = input_output.first;
     auto device = tensor.get_device();
     auto deviceCtxt = comm_->getDeviceCtxt(device);
     synStreamHandle collective_stream = comm_->getCommStream(device);
 
     synapse_helpers::device_ptr tensor_storage_ptr =
-        (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
+        (synapse_helpers::device_ptr)tensor.storage().data_ptr().get();
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
     auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
@@ -147,6 +221,8 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
           recipe_counter.decrease_and_notify();
         });
   }
+
+  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors);
   return work;
 }
 
@@ -155,13 +231,18 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     std::vector<at::Tensor>& outputs,
     CollectiveFn fn,
     bool is_allreduce) {
+  TORCH_CHECK(
+      inputs.size() == outputs.size(),
+      "Number of inputs has to be the same as num of outputs");
+
+  CollectiveContext collective_ctx(inputs, outputs);
+
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs);
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    at::Tensor& input = inputs[i];
-    at::Tensor& output = outputs[i];
+  for (auto& input_output : collective_ctx.tensors()) {
+    at::Tensor& input = input_output.first;
+    at::Tensor& output = input_output.second;
 
     if (input.numel() == 0) {
       // It is a W/A for SW-140597
@@ -225,6 +306,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
         });
   }
 
+  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs);
   return work;
 }
 
