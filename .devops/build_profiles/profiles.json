@@ -36,7 +36,8 @@
       "default_source": "build",
       "extras" : {
           "torchvision": "0.15.1",
-          "torchaudio": "2.0.1"
+          "torchaudio": "2.0.1",
+          "torchtext": "0.15.2"
       }
     },
     "previous": {
