@@ -4384,13 +4384,12 @@ native_group_norm_backward_hpu_lazy(
   bool use_bn_fwd_in_gn_bwd = GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
   at::Tensor mean;
   at::Tensor rstd;
-  if (weight_opt.has_value()) {
-    mean = mean_.to(weight_opt.value().scalar_type());
-    rstd = rstd_.to(weight_opt.value().scalar_type());
-  } else {
-    mean = mean_;
-    rstd = rstd_;
-  }
+  // batch_norm_bwd TPC guid expects mean_istd tensor for stage2 as Float
+  // so, whatever the fwd generated as mean/istd based on input Float/BF16,
+  // we need to convert mean_istd to Float
+  mean = mean_.to(c10::ScalarType::Float);
+  rstd = rstd_.to(c10::ScalarType::Float);
+
   Tensor bn_fwd_out;
   auto input_shape = input_.sizes().vec();
   int64_t rszarr_bn_in[input_.dim()];
