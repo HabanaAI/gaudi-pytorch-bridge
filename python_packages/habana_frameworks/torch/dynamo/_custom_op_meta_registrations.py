@@ -23,17 +23,23 @@ _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
 def meta_cast_to_fp8(input, scale, stochastic, out, amax):
     return out, amax
 
+@register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
+def meta_cast_to_fp8_v2(input, scale, stochastic, is_amax):
+    out = input.new_empty(input.shape, dtype=torch.int8)
+    amax = input.new_empty((), dtype=torch.float32)
+    return out, amax
+
 @register_meta([torch.ops.hpu.fp8_cast_transpose.default])
-def meta_fp8_cast_transpose(input, scale, stochastic, out, amax, transposed):
-    return out, amax, transposed
+def meta_fp8_cast_transpose(input, scale, stochastic, out, transposed, amax):
+    return out, transposed, amax
 
 @register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad.default])
-def meta_fp8_cast_transpose_bgrad(input, scale, stochastic, out, amax, transposed, bgrad):
-    return out, amax, transposed, bgrad
+def meta_fp8_cast_transpose_bgrad(input, scale, stochastic, out, transposed, bgrad, amax):
+    return out, transposed, bgrad, amax
 
 @register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu.default])
-def meta_fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, out, amax, transposed, bgrad):
-    return out, amax, transposed, bgrad
+def meta_fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, out, transposed, bgrad, amax):
+    return out, transposed, bgrad, amax
 
 @register_meta([torch.ops.hpu.cast_from_fp8.default])
 def meta_cast_from_fp8(input, scale, out_dtype):
@@ -47,20 +53,44 @@ def meta_fp8_dropout(input, p, scale, stochastic_rounding, is_amax):
     return out, mask, amax
 
 @register_meta([torch.ops.hpu.fp8_gelu.default])
-def meta_fp8_gelu(input, scale, stochastic, out, amax, retain):
-    return out, amax, retain
+def meta_fp8_gelu(input, scale, stochastic, out, retain, amax):
+    return out, retain, amax
+
+@register_meta([torch.ops.hpu.fp8_bgrad_dgelu.default])
+def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax):
+    out = input.new_empty(input.shape, dtype=torch.int8)
+    bgrad = input.new_empty(input.shape[1], dtype=input.dtype)
+    amax = input.new_empty((), dtype=torch.float32)
+    return out, bgrad, amax
 
 @register_meta([torch.ops.hpu.fp8_layernorm.default])
-def meta_fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, amax, mean, istd):
-    return out, amax, mean, istd
+def meta_fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, mean, istd, amax):
+    return out, mean, istd, amax
 
 @register_meta([torch.ops.hpu.fp8_gemm.default])
-def meta_fp8_gemm(A, A_scale_inv, trans_A, B, B_scale_inv, trans_B, D, out_dtype, bias, accumulate, out):
+def meta_fp8_gemm(A, trans_A, B, trans_B, D, out_dtype, A_scale_inv, B_scale_inv, bias, accumulate, out):
+    return out
+
+@register_meta([torch.ops.hpu.fp8_gemm_v2.default])
+def meta_fp8_gemm_v2(A, trans_A, B, trans_B, D, out_dtype, A_scale_inv, B_scale_inv, bias, accumulate):
+    batch_dims = A.dim() - 2
+    dim_a = batch_dims + (A.shape[1] if trans_A else A.shape[0])
+    dim_b = batch_dims + (B.shape[0] if trans_B else A.shape[1])
+    out_shape = list(A.shape[0:batch_dims]) + [dim_a, dim_b]
+    out = A.new_empty(out_shape, dtype=out_dtype)
     return out
 
 @register_meta([torch.ops.hpu.fp8_transpose.default])
-def meta_fp8_transpose(input, out):
+def meta_fp8_transpose(input, dims, out):
     return out
+
+@register_meta([torch.ops.hpu.fp8_permute.default])
+def meta_fp8_permute(input, out):
+    return out
+
+@register_meta([torch.ops.hpu.fp8_reshape.default])
+def meta_fp8_reshape(input, shape):
+    return input.new_empty(shape)
 
 @register_meta([torch.ops.hpu.optimizer_lamb_fused_norm.default])
 def meta_optimizer_lamb_fused_norm(grads, scale):

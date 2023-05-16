@@ -17,7 +17,7 @@
 namespace habana {
 
 CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "cast_to_fp8_", scalar_type, {}, {}, {}, true) {
+    : OpBackend(device_id, "cast_to_fp8", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(2);
 }
 
@@ -81,7 +81,7 @@ std::shared_ptr<void> FillCastToFp8V2Params(
 CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "cast_to_fp8_v2_",
+          "cast_to_fp8_v2",
           scalar_type,
           {0, 0},
           {},
@@ -132,7 +132,7 @@ void CastToFp8V2::AddNode(
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "fp8_cast_transpose_",
+          "fp8_cast_transpose",
           scalar_type,
           {},
           {},
@@ -193,7 +193,7 @@ Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
     c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "fp8_cast_transpose_bgrad_",
+          "fp8_cast_transpose_bgrad",
           scalar_type,
           {},
           {},
@@ -257,7 +257,7 @@ Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
     c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "fp8_cast_transpose_bgrad_dgelu_",
+          "fp8_cast_transpose_bgrad_dgelu",
           scalar_type,
           {},
           {},
@@ -326,7 +326,7 @@ void Fp8CastTransposeBgradDgelu::AddNode(
 }
 
 CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "cast_from_fp8_", scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, "cast_from_fp8", scalar_type, {0}, {}, {}, false) {}
 
 void CastFromFp8::AddNode(
     synapse_helpers::graph& graph,
@@ -362,7 +362,7 @@ sizes_vec Fp8DropoutOutputShape(const at::Stack& stack) {
 Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "fp8_dropout_",
+          "fp8_dropout",
           scalar_type,
           {0, 0, 0},
           {},
@@ -416,7 +416,7 @@ void Fp8Dropout::AddNode(
 }
 
 Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_gelu_", scalar_type, {}, {}, {}, true) {
+    : OpBackend(device_id, "fp8_gelu", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(3);
 }
 
@@ -465,8 +465,71 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 }
 
+sizes_vec Fp8BgradDgeluOutputShape(const at::Stack& stack) {
+  std::vector<int64_t> amax_size{1};
+  auto out_size = stack_tensor(stack, 0).sizes().vec();
+  auto bgrad_size = std::vector<int64_t>{out_size[1]};
+  return {out_size, bgrad_size, amax_size};
+}
+
+Fp8BgradDgelu::Fp8BgradDgelu(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_bgrad_dgelu",
+          scalar_type,
+          {0, 0, 0},
+          {},
+          {},
+          false) {}
+
+void Fp8BgradDgelu::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 6, "Fp8BgradDgelu must have 6 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8eBgradDgelu::AddNode");
+  auto grad = getNextInput<TensorsPair>(stackGetter);
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto retainOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto stochastic_rounding = getNextInput<bool>(stackGetter);
+  auto is_amax = getNextInput<bool>(stackGetter);
+
+  auto out_sizes = Fp8BgradDgeluOutputShape(stack);
+
+  std::string guid = get_guid_with_precision("fp8_bgrad_dgelu", ScalarType());
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  std::vector<synTensor> syn_inputs{grad.syn_t, input.syn_t};
+  if (scaleOpt) {
+    syn_inputs.push_back(scaleOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (retainOpt) {
+    syn_inputs.push_back(retainOpt->syn_t);
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152},
+      {out_sizes[1], ScalarType(), 1}};
+  if (is_amax) {
+    output_attrs.push_back({out_sizes[2], at::ScalarType::Float, 2});
+  }
+
+  auto result = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+  syn_out(1) = std::move(result[1]);
+  if (is_amax) {
+    syn_out(2) = std::move(result[2]);
+  }
+}
+
 Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_layernorm_", scalar_type, {}, {}, {}, true) {
+    : OpBackend(device_id, "fp8_layernorm", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(4);
 }
 
@@ -522,7 +585,7 @@ void Fp8Layernorm::AddNode(
 }
 
 Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_gemm_", scalar_type, {}, {}, {}, true) {}
+    : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
 
 void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 11, "Fp8Gemm must have 11 input arguments");
@@ -599,7 +662,7 @@ sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
 }
 
 Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_gemm_v2_", scalar_type, {0}, {}, {}, false) {
+    : OpBackend(device_id, "fp8_gemm_v2", scalar_type, {0}, {}, {}, false) {
   SetComputeOutputShapes(Fp8GemmV2OutputShape);
 }
 
@@ -660,7 +723,7 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 }
 
 Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_transpose_", scalar_type, {}, {}, {}, true) {}
+    : OpBackend(device_id, "fp8_transpose", scalar_type, {}, {}, {}, true) {}
 
 void Fp8Transpose::AddNode(
     synapse_helpers::graph& graph,
@@ -685,7 +748,7 @@ void Fp8Transpose::AddNode(
 }
 
 Fp8Permute::Fp8Permute(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_permute_", scalar_type, {}, {}, {}, true) {}
+    : OpBackend(device_id, "fp8_permute", scalar_type, {}, {}, {}, true) {}
 
 void Fp8Permute::AddNode(
     synapse_helpers::graph& graph,
@@ -718,7 +781,7 @@ sizes_vec Fp8ReshapeOutputShape(const at::Stack& stack) {
 }
 
 Fp8Reshape::Fp8Reshape(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "fp8_reshape_", scalar_type, {0}, {}, {}, false) {
+    : OpBackend(device_id, "fp8_reshape", scalar_type, {0}, {}, {}, false) {
   SetComputeOutputShapes(Fp8ReshapeOutputShape);
 }
 
@@ -758,6 +821,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
         .add("hpu::fp8_dropout", KERNEL_FN_GLOBAL(habana::Fp8Dropout))
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
+        .add("hpu::fp8_bgrad_dgelu", KERNEL_FN_GLOBAL(habana::Fp8BgradDgelu))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
         .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))

@@ -46,13 +46,11 @@ def test_cast_to_fp8(dtype):
         verify_jit(fx_module, op_name)
         return fx_module
 
-    compiled_fn = torch.compile(fn, backend=toy_compiler)
-
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale, amax_temp, out)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+    casted = compiled_fn(input, scale, amax_temp, out)
+    amax[1][2].copy_(amax_temp)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_cast_to_fp8_v2(dtype):
@@ -68,10 +66,7 @@ def test_cast_to_fp8_v2(dtype):
         return fx_module
 
     compiled_fn = torch.compile(fn, backend=toy_compiler)
-
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale)
-    verify_not_available(error, op_name)
+    casted = compiled_fn(input, scale)
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -81,7 +76,7 @@ def test_fp8_cast_transpose(dtype):
     input, scale, amax, amax_temp = create_inputs(input_shape, dtype)
 
     def fn(input, scale, amax, out, out_t):
-        torch.ops.hpu.fp8_cast_transpose(input, scale, False, out, amax, out_t)
+        torch.ops.hpu.fp8_cast_transpose(input, scale, False, out, out_t, amax)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
@@ -92,10 +87,9 @@ def test_fp8_cast_transpose(dtype):
 
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
     out_t = torch.empty((input_shape[1], input_shape[0]), dtype=torch.int8, device=input.device)
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale, amax_temp, out, out_t)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    casted = compiled_fn(input, scale, amax_temp, out, out_t)
+    amax[1][2].copy_(amax_temp)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_cast_transpose_bgrad(dtype):
@@ -104,7 +98,7 @@ def test_fp8_cast_transpose_bgrad(dtype):
     input, scale, amax, amax_temp = create_inputs(input_shape, dtype)
 
     def fn(input, scale, amax, out, out_t, bgrad_out):
-        torch.ops.hpu.fp8_cast_transpose_bgrad(input, scale, False, out, amax, out_t, bgrad_out)
+        torch.ops.hpu.fp8_cast_transpose_bgrad(input, scale, False, out, out_t, bgrad_out, amax)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
@@ -116,10 +110,9 @@ def test_fp8_cast_transpose_bgrad(dtype):
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
     out_t = torch.empty((input_shape[1], input_shape[0]), dtype=torch.int8, device=input.device)
     bgrad_out = torch.empty((input_shape[1],), dtype=dtype, device="hpu")
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale, amax_temp, out, out_t, bgrad_out)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    casted = compiled_fn(input, scale, amax_temp, out, out_t, bgrad_out)
+    amax[1][2].copy_(amax_temp)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_cast_transpose_bgrad_dgelu(dtype):
@@ -130,7 +123,7 @@ def test_fp8_cast_transpose_bgrad_dgelu(dtype):
     retain = torch.rand(input_shape, dtype=dtype).to("hpu")
 
     def fn(grad, input, scale, retain, amax, out, out_t, bgrad_out):
-        torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, False, out, amax, out_t, bgrad_out)
+        torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, False, out, out_t, bgrad_out, amax)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
@@ -142,10 +135,9 @@ def test_fp8_cast_transpose_bgrad_dgelu(dtype):
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
     out_t = torch.empty((input_shape[1], input_shape[0]), dtype=torch.int8, device=input.device)
     bgrad_out = torch.empty((input_shape[1],), dtype=dtype, device="hpu")
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(grad, input, scale, retain, amax_temp, out, out_t, bgrad_out)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    casted = compiled_fn(grad, input, scale, retain, amax_temp, out, out_t, bgrad_out)
+    amax[1][2].copy_(amax_temp)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_cast_from_fp8(dtype):
@@ -163,10 +155,7 @@ def test_cast_from_fp8(dtype):
         return fx_module
 
     compiled_fn = torch.compile(fn, backend=toy_compiler)
-
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale, dtype)
-    verify_not_available(error, op_name)
+    casted = compiled_fn(input, scale, dtype)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_dropout(dtype):
@@ -183,10 +172,7 @@ def test_fp8_dropout(dtype):
         return fx_module
 
     compiled_fn = torch.compile(fn, backend=toy_compiler)
-
-    with pytest.raises(RuntimeError) as error:
-        result = compiled_fn(input, scale)
-    verify_not_available(error, op_name)
+    result = compiled_fn(input, scale)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_gelu(dtype):
@@ -195,7 +181,7 @@ def test_fp8_gelu(dtype):
     input, scale, amax, amax_temp = create_inputs(input_shape, dtype)
 
     def fn(input, scale, amax, out, retain):
-        torch.ops.hpu.fp8_gelu(input, scale, False, out, amax, retain)
+        torch.ops.hpu.fp8_gelu(input, scale, False, out, retain, amax)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
@@ -206,10 +192,27 @@ def test_fp8_gelu(dtype):
 
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
     retain = torch.empty(input_shape, dtype=dtype, device=input.device)
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, scale, amax_temp, out, retain)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    casted = compiled_fn(input, scale, amax_temp, out, retain)
+    amax[1][2].copy_(amax_temp)
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_fp8_bgrad_dgelu(dtype):
+    op_name = "fp8_bgrad_dgelu"
+    input_shape = (64, 48)
+    grad = (torch.rand(input_shape, dtype=dtype)).to("hpu")
+    input = (torch.rand(input_shape, dtype=dtype)*30 + 10).to("hpu")
+    scale = torch.tensor(0.75, dtype=torch.float).to("hpu")
+
+    def fn(grad, input, scale, is_amax):
+        return torch.ops.hpu.fp8_bgrad_dgelu(grad, input, scale, None, False, is_amax)
+
+    def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+        verify_jit(fx_module, op_name)
+        return fx_module
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+    result = compiled_fn(grad, input, scale, True)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_layernorm(dtype):
@@ -221,22 +224,19 @@ def test_fp8_layernorm(dtype):
     eps = 0.07
 
     def fn(input, weight, bias, eps, scale, out, amax, mean, istd):
-        torch.ops.hpu.fp8_layernorm(input, weight, bias, eps, scale, False, out, amax, mean, istd)
+        torch.ops.hpu.fp8_layernorm(input, weight, bias, eps, scale, False, out, mean, istd, amax)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         verify_jit(fx_module, op_name)
         return fx_module
 
-    compiled_fn = torch.compile(fn, backend=toy_compiler)
-
     out = torch.empty(input_shape, dtype=torch.int8, device=input.device)
     mean = torch.empty((input_shape[0],), dtype=torch.float, device="hpu")
     istd = torch.empty((input_shape[0],), dtype=torch.float, device="hpu")
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(input, weight, bias, eps, scale, out, amax_temp, mean, istd)
-        amax[1][2].copy_(amax_temp)
-    verify_not_available(error, op_name)
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+    casted = compiled_fn(input, weight, bias, eps, scale, out, amax_temp, mean, istd)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_gemm(dtype):
@@ -253,19 +253,17 @@ def test_fp8_gemm(dtype):
     out = torch.full(out_shape, 1000.0, dtype=dtype).to(hpu)
 
     def fn(A, scale_A, B, scale_B, out_dtype, bias, accumulate, out):
-        torch.ops.hpu.fp8_gemm(A, scale_A, True, B, scale_B, False, out, out_dtype, bias, accumulate, out)
+        torch.ops.hpu.fp8_gemm(A, True, B, False, out, out_dtype, scale_A, scale_B, bias, accumulate, out)
         return out
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         verify_jit(fx_module, op_name)
         return fx_module
 
-    compiled_fn = torch.compile(fn, backend=toy_compiler)
-
     out = torch.empty(out_shape, dtype=dtype, device=A.device)
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True, out)
-    verify_not_available(error, op_name)
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+    result = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True, out)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_gemm_v2(dtype):
@@ -281,14 +279,11 @@ def test_fp8_gemm_v2(dtype):
     bias = (torch.rand(out_shape, dtype=dtype)*10 + 30.0).to(hpu)
 
     def fn(A, scale_A, B, scale_B, out_dtype, bias, accumulate):
-        return torch.ops.hpu.fp8_gemm(A, scale_A, B, scale_B, None, out_dtype, True, False, bias, accumulate)
+        return torch.ops.hpu.fp8_gemm_v2(A, True, B, False, None, out_dtype, scale_A, scale_B, bias, accumulate)
 
     def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         verify_jit(fx_module, op_name)
         return fx_module
 
     compiled_fn = torch.compile(fn, backend=toy_compiler)
-
-    with pytest.raises(RuntimeError) as error:
-        casted = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True)
-    verify_not_available(error, op_name)
+    result = compiled_fn(A, scale_A, B, scale_B, dtype, bias, False)

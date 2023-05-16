@@ -366,6 +366,48 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax):
         assert amax.cpu()[1][2] == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
 
+@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("retain", [True, False])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    full_shape = (shape[0]*2, shape[1])
+    input_pos = torch.rand(shape, dtype=dtype, requires_grad=True)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+    input_hpu = input.to(hpu)
+    grad = torch.rand(full_shape, dtype=dtype)
+    grad_hpu = grad.to(hpu)
+
+    scale_val = 1.3 if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+
+    retain_tensor = None
+    if retain:
+        retain_tensor = torch.tanh(torch.sqrt(torch.tensor(2/np.pi, dtype=dtype))*(input +  0.044715*torch.pow(input, 3))).to(dtype).to(hpu)
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    # amax_tensor = amax[1][2] if is_amax else None
+    casted, bgrad, amax = torch.ops.hpu.fp8_bgrad_dgelu(grad_hpu, input_hpu, scale_hpu, retain_tensor, False, is_amax)
+
+    gelu = torch.nn.GELU(approximate='tanh')
+    gelu_res = gelu(input)
+    gelu_bwd = gelu_res.grad_fn(grad)
+    reduced = torch.sum(gelu_bwd, 0)
+
+    scaled_input_low_precision = simulateFp8Precision(gelu_bwd * scale)
+    unscaled_input = scaled_input_low_precision * scale_inv
+
+    uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype).cpu()
+
+    assert torch.allclose(bgrad.cpu(), reduced)
+    assert torch.allclose(uncasted, unscaled_input, rtol=0.0, atol=0.01)
+    if is_amax:
+        assert amax.cpu() == torch.max(gelu_bwd.abs())
+
 # TODO analyze why single elements of outputs differ for torch.bfloat16
 @pytest.mark.parametrize("shape", [(64, 96)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])

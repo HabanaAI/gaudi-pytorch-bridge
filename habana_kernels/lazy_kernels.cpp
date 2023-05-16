@@ -6480,6 +6480,28 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
   RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_gelu, k_, result)
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    const c10::optional<at::Tensor>& retain,
+    bool stochastic_rounding,
+    bool is_amax) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  std::vector<int64_t> out_size = input.sizes().vec();
+  std::vector<int64_t> bgrad_size{out_size[1]};
+  std::vector<int64_t> amax_size{1};
+  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> k_{
+      "hpu::fp8_bgrad_dgelu",
+      {grad, input, scale, retain, stochastic_rounding, is_amax},
+      {out_size, bgrad_size, amax_size}};
+  k_.set_scalar_types(
+      {c10::ScalarType::Char, input.scalar_type(), c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_bgrad_dgelu, k_)
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_layernorm_lazy(
     const at::Tensor& input,

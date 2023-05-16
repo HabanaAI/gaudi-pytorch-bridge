@@ -111,6 +111,8 @@ bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
       "fp8_dropout_bf16",
       "fp8_gelu_f32",
       "fp8_gelu_bf16",
+      "fp8_bgrad_dgelu_f32",
+      "fp8_bgrad_dgelu_bf16",
       "fp8_gemm_i8",
       "fp8_gemm_v2_i8",
       "fp8_layernorm_f32",
