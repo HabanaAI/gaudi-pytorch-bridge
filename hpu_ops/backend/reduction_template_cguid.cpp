@@ -35,14 +35,6 @@ static std::shared_ptr<void> FillReductionParams(
   return params;
 }
 
-static at::optional<at::ScalarType> get_dtype(
-    at::Stack stack,
-    at::optional<uint8_t> dtype_index) {
-  return dtype_index.has_value()
-      ? stack.at(dtype_index.value()).toOptional<at::ScalarType>()
-      : at::nullopt;
-}
-
 // Returns the input after cast to the supplied dtype. If dtype is none or if
 // dtype is same as input's dtype, returns nullopt.
 static c10::optional<synapse_helpers::tensor> HandleReductionDtype(
