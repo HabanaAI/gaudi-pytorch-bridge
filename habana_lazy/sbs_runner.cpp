@@ -455,11 +455,8 @@ at::Tensor SBSRunner::prepareTensorToCPU(
   hb_tensor.SetSBSTensorName(hb_tensor.CurrentIrValue().ToString());
 
   // Special handling for view tensors - we need to sync before we copy to CPU
-  auto id = hb_tensor.getTensorUniqueId();
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-
-  StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-  if (params_ptr != nullptr) {
+  auto& params_opt = hb_tensor.getDataPtr()->stride_params;
+  if (params_opt.has_value()) {
     PT_LAZY_DEBUG(
         "SBSRunner::",
         __FUNCTION__,

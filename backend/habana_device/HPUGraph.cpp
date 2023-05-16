@@ -347,10 +347,7 @@ void SingleHPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
       auto& out_tensor = hblazy_tensors_out_[idx];
       // exclude view tensors
       {
-        LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-        auto params_ptr = context->viewContext.GetViewTableEntry(
-            out_tensor.getTensorUniqueId());
-        if (params_ptr != nullptr) {
+        if (out_tensor.getDataPtr()->stride_params.has_value()) {
           hpugraph_dependant_out_t_list_.insert(idx);
           continue;
         }

@@ -245,7 +245,6 @@ void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
   {
     auto id = hbo1.getTensorUniqueId();
 
-    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     // shallow copy tensor map
     {
       auto t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
@@ -259,16 +258,15 @@ void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
     }
 
     {
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
       // view or recent base
-
-      auto params_ptr = context->viewContext.GetViewTableEntry(id);
-      if (params_ptr != nullptr) {
+      auto& params_opt = hl_t.getDataPtr()->stride_params;
+      if (params_opt.has_value()) {
+        auto& params = params_opt.value();
         auto recent_base =
-            HbLazyTensorViews::get_recent_base_tensor(params_ptr->base);
+            HbLazyTensorViews::get_recent_base_tensor(params.base);
         hl_t = GetHbLazyTensor(recent_base);
-        fwd_running_hash = HbLazyTensorViews::updateViewHash(
-            hbo1.getTensorUniqueId(), fwd_running_hash);
+        fwd_running_hash =
+            HbLazyTensorViews::updateViewHash(hbo1, fwd_running_hash);
         PT_LAZY_DEBUG(
             "addInputTensors also view base tensor uid ",
             hl_t.getTensorUniqueId());
@@ -350,7 +348,7 @@ int64_t GraphHashBuilder::combineSyncData(
   // a.view().to(cpu)
   if (indices.size() == 1) {
     fwd_running_hash = HbLazyTensorViews::updateViewHash(
-        tensors[indices[0]].getTensorUniqueId(), fwd_running_hash);
+        tensors[indices[0]], fwd_running_hash);
     for (auto& s : tensors[indices[0]].GetSizes()) {
       fwd_running_hash = at::hash_combine(fwd_running_hash, s);
     }

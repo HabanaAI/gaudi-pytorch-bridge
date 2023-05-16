@@ -597,31 +597,25 @@ class LazyOp {
 
   bool viewUpdateInputsProcessSingleTensor(at::Tensor& t, size_t& idx) {
     bool is_view = false;
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
     if (t.defined() && (t.device().type() == c10::DeviceType::HPU)) {
       auto hl_t = GetHbLazyTensor(t, true, !m_collective_op);
 
       // if it is base tensor, use the most recent version else check if
       // it is a view
-      auto id = hl_t.getTensorUniqueId();
-      {
-        LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-        c10::optional<at::Tensor> base_tensor =
-            context->viewContext.GetOrigTensorMapEntry(id);
-        if (base_tensor != c10::nullopt) {
-          // accumulation thread cannot release tensors as it can cause a
-          // deadlock with GIL
-          if (AccThread::Get().inAccThreadContext()) {
-            auto old_tensor = std::move(m_inputs[idx]);
-            AccThread::Get().PushCleanupTask(
-                [old_tensor = std::move(old_tensor)]() {});
-          }
+      auto& base_tensor_opt = hl_t.getDataPtr()->recent_base;
+      if (base_tensor_opt.has_value()) {
+        // accumulation thread cannot release tensors as it can cause a
+        // deadlock with GIL
+        if (AccThread::Get().inAccThreadContext()) {
+          auto old_tensor = std::move(m_inputs[idx]);
+          AccThread::Get().PushCleanupTask(
+              [old_tensor = std::move(old_tensor)]() {});
+        }
 
-          m_inputs[idx] = base_tensor;
-        } else {
-          if (HbLazyTensorViews::HandleViews(t, hl_t)) {
-            is_view = true;
-          }
+        m_inputs[idx] = base_tensor_opt.value();
+      } else {
+        if (HbLazyTensorViews::HandleViews(t, hl_t)) {
+          is_view = true;
         }
       }
     } // if (t.defined() && (
@@ -761,7 +755,6 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
 
-    auto id = hl_self.getTensorUniqueId();
     bool is_self_view = false;
 
     if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
@@ -778,9 +771,9 @@ class LazyOp {
         }
       }
     } else {
-      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-      if (params_ptr != nullptr) {
-        if (params_ptr->viewStatus != kEvaluated) {
+      auto& params_opt = hl_self.getDataPtr()->stride_params;
+      if (params_opt.has_value()) {
+        if (params_opt.value().viewStatus != kEvaluated) {
           is_self_view = true;
         }
       }
@@ -887,14 +880,10 @@ class LazyOp {
     std::string node_str = m_symbol.toQualString();
     if ((node_str == "aten::mul") && (m_inputs.size() == 3)) {
       // WA to enable autogen for mul_out in lazy
-      auto context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-      auto id = GetHbLazyTensorId(m_inputs[2].toTensor());
+      auto& params_opt =
+          GetHbLazyTensor(m_inputs[2].toTensor()).getDataPtr()->stride_params;
 
-      LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-      StrideParams* params_ptr = context->viewContext.GetViewTableEntry(id);
-
-      if (params_ptr != nullptr) {
+      if (params_opt.has_value()) {
         return mul_out_hpu_lazy(
             m_inputs[0].toTensor(),
             m_inputs[1].toTensor(),

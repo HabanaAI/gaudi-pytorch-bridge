@@ -203,25 +203,19 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     return c10::nullopt;
   }
 
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   HbLazyTensor hl_t = impl->tensor();
   // always fetch most recent version of the tensor
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
-  auto id = hl_t.getTensorUniqueId();
-
   auto t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
   if (t_shallow_copy_opt.has_value()) {
     impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value().back());
     hl_t = impl->tensor();
-    id = hl_t.getTensorUniqueId();
   }
 
   if (get_updated) {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    c10::optional<at::Tensor> base_tensor =
-        context->viewContext.GetOrigTensorMapEntry(id);
-    if (base_tensor != c10::nullopt) {
+    auto& base_tensor = hl_t.getDataPtr()->recent_base;
+    if (base_tensor.has_value()) {
       impl = GetHbLazyTensorImpl(base_tensor.value());
       hl_t = impl->tensor();
     }

@@ -182,50 +182,47 @@ void HbLazyTensorImpl::handle_view_cycles(
       hl_src, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
 
   auto src_updated_t = HbLazyTensorViews::get_recent_base_tensor(src_t);
-  auto src_id = GetHbLazyTensorId(src_updated_t);
+  auto hl_src_updated = GetHbLazyTensor(src_updated_t);
+  auto& params_opt = hl_src_updated.getDataPtr()->stride_params;
+  if (params_opt.has_value()) {
+    auto& params = params_opt.value();
+    auto base = params.base;
+    auto recent_base = HbLazyTensorViews::get_recent_base_tensor(base);
 
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-  {
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    auto* params_ptr = context->viewContext.GetViewTableEntry(src_id);
-    if (params_ptr != nullptr) {
-      auto base = params_ptr->base;
-      auto recent_base = HbLazyTensorViews::get_recent_base_tensor(base);
+    auto base_id = GetHbLazyTensorId(recent_base);
 
-      auto base_id = GetHbLazyTensorId(recent_base);
+    auto dst_t = AtenFromHbLazyTensor(
+        hl_dst, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+    auto dst_id = GetHbLazyTensorId(dst_t);
 
-      auto dst_t = AtenFromHbLazyTensor(
-          hl_dst, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
-      auto dst_id = GetHbLazyTensorId(dst_t);
+    if (dst_id == base_id) {
+      // create a different hb lazy tensor for base
+      auto base_tensor_data = GetHbLazyTensor(recent_base).EvaluateTensorData();
+      auto base_or_parent_impl = c10::make_intrusive<HbLazyTensorImpl>(
+          HbLazyTensor::Create(recent_base, recent_base.device()));
 
-      if (dst_id == base_id) {
-        // create a different hb lazy tensor for base
-        auto base_tensor_data =
-            GetHbLazyTensor(recent_base).EvaluateTensorData();
-        auto base_or_parent_impl = c10::make_intrusive<HbLazyTensorImpl>(
-            HbLazyTensor::Create(recent_base, recent_base.device()));
+      auto new_base_t = AtenFromHbLazyTensor(
+          base_or_parent_impl->m_tensor,
+          c10::nullopt,
+          recent_base.sizes(),
+          c10::nullopt,
+          c10::nullopt);
 
-        auto new_base_t = AtenFromHbLazyTensor(
-            base_or_parent_impl->m_tensor,
-            c10::nullopt,
-            recent_base.sizes(),
-            c10::nullopt,
-            c10::nullopt);
+      GetHbLazyTensor(new_base_t).SetTensorData(base_tensor_data);
 
-        GetHbLazyTensor(new_base_t).SetTensorData(base_tensor_data);
+      // for simplicity always use as_strided op for this case. This helps to
+      // set just the base and avoid complications in multilevel view
+      // scenarios
+      params.optype = kStridedOpDefault;
+      params.base = new_base_t;
 
-        // for simplicity always use as_strided op for this case. This helps to
-        // set just the base and avoid complications in multilevel view
-        // scenarios
-        params_ptr->optype = kStridedOpDefault;
-        params_ptr->base = new_base_t;
-
-        // Now replace the base tensor for all the other views pointing to the
-        // same base
-        context->viewContext.ReplaceViewBase(base_id, new_base_t);
-      }
-    } // if (params_ptr != nullptr)
-  }
+      // Now replace the base tensor for all the other views pointing to the
+      // same base
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+      context->viewContext.ReplaceViewBase(base_id, new_base_t);
+    }
+  } // if (params_ptr != nullptr)
 }
 
 void HbLazyTensorImpl::shallow_copy_from(
@@ -396,8 +393,6 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   // TryGetHbLazyTensor there is StridedViewContext mutex lock temporarily so it
   // needs to be locked in outer scope, since this function is re-called from
   // the scope below with HbContextArena mutex taken
-  LOCK_VIEW_TABLE_MUTEX(
-      habana_lazy_executor.getDeviceExecutionContext(0)->viewContext);
   auto hl_t_opt = TryGetHbLazyTensor(aten_t, true, false, false);
   auto hl_t_updated = hl_t_opt.has_value() ? hl_t_opt.value() : m_tensor;
 

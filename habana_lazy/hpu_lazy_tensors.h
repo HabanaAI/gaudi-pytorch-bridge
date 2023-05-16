@@ -39,6 +39,77 @@ enum LazyTensorExecutionStatus {
 // namespace habana_lazy
 
 namespace habana_lazy {
+
+enum StridedOPType {
+  kStridedOpDefault = 0,
+  kStridedOpView,
+  kStridedOpSlice,
+  kStridedOpTranspose,
+  kStridedOpT,
+  kStridedOpPermute,
+  kStridedOpSqueeze,
+  kStridedOpUnsqueeze,
+  kStridedOpExpand,
+  kStridedOpIdentity,
+  kStridedOpViewDtype
+};
+
+enum ViewStatus { kViewRead = 0, kViewWrite = 1, kEvaluated };
+
+struct StridedOpSliceParams {
+  int64_t dim;
+  int64_t start;
+  int64_t end;
+  int64_t step;
+};
+
+struct StridedOpTransposeParams {
+  int64_t dim0;
+  int64_t dim1;
+};
+
+struct StridedOpSqueezeParams {
+  int64_t dim;
+};
+
+struct StridedOpExpandParams {
+  bool implicit = false;
+};
+
+union OpParams {
+  StridedOpSliceParams slice_param;
+  StridedOpTransposeParams transpose_param;
+  StridedOpSqueezeParams squeeze_param;
+  StridedOpExpandParams expand_param;
+  OpParams(){};
+};
+
+struct StrideParams {
+  // storing the tensor helps to retain extend the lifetime of tensor until all
+  // the views have expired
+  // base is used as node input for torch.as_strided. For rest of the view like
+  // ops like view, select, slice, transpose etc we should the parent. This is
+  // because only for as_strided the following relation holds true b =
+  // torch.as_strided(a) c = as_strided(b) this is same as c = as_strided(a)
+  // with the composite stride, size and offset params
+  at::Tensor base;
+  at::Tensor parent;
+  std::vector<int64_t> sizes;
+  std::vector<int64_t> strides;
+  int64_t offset;
+  int64_t parent_id;
+  StridedOPType optype;
+  OpParams params;
+  ViewStatus viewStatus = kViewRead;
+  size_t write_cnt = 0;
+
+  size_t Size() const {
+    size_t size = sizeof(*this);
+    size += sizes.size() * sizeof(decltype(sizes)::value_type);
+    size += strides.size() * sizeof(decltype(strides)::value_type);
+    return size;
+  }
+};
 struct Data {
   Data(at::Tensor tensor_data, const c10::Device& device)
       : data_ptr(nullptr),
@@ -80,6 +151,8 @@ struct Data {
   c10::optional<at::Tensor> tensor_data;
   c10::optional<at::Tensor> cpu_tensor_data;
   c10::optional<std::vector<at::Tensor>> tensor_shallow_copy;
+  c10::optional<StrideParams> stride_params;
+  c10::optional<at::Tensor> recent_base;
   bool sbs_live_tensor = false;
   bool sbs_compare_tensor = true;
   int sbs_tensor_version = 0;
@@ -307,7 +380,7 @@ class HbLazyTensor {
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false,
       bool is_allreduce = false,
-      std::set<int64_t> bucket_id = {},
+      std::vector<HbLazyTensor> bucket_hl_t = {},
       std::set<int64_t> bucket_recent_id = {});
 
   static void IterStepMarker();
@@ -319,7 +392,7 @@ class HbLazyTensor {
       std::vector<HbLazyTensor> out_hb_lazy_tensor = {},
       bool async = false /* Wait for launch thread to finish for internal MS */,
       bool is_allreduce = false,
-      std::set<int64_t> bucket_id = {},
+      std::vector<HbLazyTensor> bucket_hl_t = {},
       std::set<int64_t> bucket_recent_id = {});
   static void StepMarkerBind(const std::string& device_str = {});
   static void StepMarkerFinish(bool wait_only = false);

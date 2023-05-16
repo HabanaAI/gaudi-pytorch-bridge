@@ -101,20 +101,6 @@ void HbContextArena::UnregisterTensor(Data* data) {
       reporter->getTensorStats()->removeTensor(unique_id);
     }
   }
-
-  c10::optional<at::Tensor> viewEntryTensor;
-  StrideParams strideParams;
-  {
-    // clear the entry in view tables
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
-    viewEntryTensor = context->viewContext.GetOrigTensorMapEntry(unique_id);
-    context->viewContext.DelOrigTensorMapEntry(unique_id);
-    auto* params_ptr = context->viewContext.GetViewTableEntry(unique_id);
-    if (params_ptr != nullptr) {
-      strideParams = *params_ptr;
-      context->viewContext.DelViewTableEntry(unique_id);
-    }
-  }
 }
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
@@ -132,7 +118,6 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   //   HABANA_ASSERT(context->m_launch_thread_handle.valid() == false);
   // }
 
-  LOCK_VIEW_TABLE_MUTEX(context->viewContext);
   HbContext* devctx = habana_lazy::HbContextArena::Get()->GetHbContext(*device);
 
   HbLazyTensorViews::HandleViewsLiveTensors(
@@ -143,8 +128,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     auto id = data->unique_id;
     auto hl_t = HbLazyTensor(std::move(data));
 
-    auto params_ptr = context->viewContext.GetViewTableEntry(id);
-    auto is_view = (params_ptr != nullptr);
+    auto is_view = hl_t.getDataPtr()->stride_params.has_value();
 
     if (bucket_recent_id.count(id)) {
       context->viewContext.updated_bucket_list.emplace_back(hl_t);
@@ -153,7 +137,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
     if (is_view_out ||
         ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-         (context->viewContext.GetOrigTensorMapEntry(id) == c10::nullopt))) {
+         (hl_t.getDataPtr()->recent_base == c10::nullopt))) {
       tensors.emplace_back(hl_t);
     }
   }
@@ -823,7 +807,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async,
     bool is_allreduce,
-    std::set<int64_t> bucket_id,
+    std::vector<HbLazyTensor> bucket_hl_t,
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
   if (StageSubmission::getInstance().getCurrentOpCount() == 0) {
@@ -845,15 +829,14 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   {
     auto context =
         habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    LOCK_VIEW_TABLE_MUTEX(context->viewContext);
 
     if (context->viewContext.view_outputs.size()) {
       // delete the origtensor map entry only when view outputs are present
       // ex: megatron has all reduce on embedding tables which doesnt involve
       // strided view output. Such cases should be excluded from deletion
 
-      for (auto id : bucket_id) {
-        context->viewContext.DelOrigTensorMapEntry(id);
+      for (auto& hl_t : bucket_hl_t) {
+        hl_t.getDataPtr()->recent_base = c10::nullopt;
       }
       context->viewContext.view_outputs.clear();
     }
@@ -1600,13 +1583,12 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   size_t i = 0;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
-  auto& view_context = context->viewContext;
   for (const torch::IValue& v : stack) {
     // auto st = v.toTensor();
     HbLazyTensor out_tensor = hblazy_tensors[i++];
 
     // clear the orig tensor map entries corresponding to cached graph outputs
-    view_context.DelOrigTensorMapEntry(out_tensor.getTensorUniqueId());
+    out_tensor.getDataPtr()->recent_base = c10::nullopt;
     if (out_tensor.IsHpuGraphOutTensor()) {
       auto st = v.toTensor();
       out_tensor.SetTensorData(st);
@@ -1705,7 +1687,7 @@ void HbLazyTensor::StepMarker(
     std::vector<HbLazyTensor> out_hb_lazy_tensor,
     bool async,
     bool is_allreduce,
-    std::set<int64_t> bucket_id,
+    std::vector<HbLazyTensor> bucket_hl_t,
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
 
@@ -1746,7 +1728,7 @@ void HbLazyTensor::StepMarker(
       out_hb_lazy_tensor,
       async,
       is_allreduce,
-      bucket_id,
+      bucket_hl_t,
       bucket_recent_id);
   if (!async) {
     context->JoinPendingLaunchThread();
