@@ -144,8 +144,8 @@ void PadOperator::AllocateAndAddSynapseNode(
 
   if (have_shape_tensor) {
     param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    if (self.scalar_type() == c10::ScalarType::Int) {
-      param.value.i = inputs[3].toScalar().to<int>();
+    if (c10::isIntegralType(self.scalar_type())) {
+      param.value.i = inputs[3].toScalar().to<decltype(param.value.i)>();
     } else {
       param.value.f = inputs[3].toScalar().to<float>();
     }
@@ -155,8 +155,8 @@ void PadOperator::AllocateAndAddSynapseNode(
     auto lpad = pad.size() / 2;
 
     param.mode = PadMode_t::PAD_MODE_CONSTANT;
-    if (self.scalar_type() == c10::ScalarType::Int) {
-      param.value.i = inputs[2].toScalar().to<int>();
+    if (c10::isIntegralType(self.scalar_type())) {
+      param.value.i = inputs[2].toScalar().to<decltype(param.value.i)>();
     } else {
       param.value.f = inputs[2].toScalar().to<float>();
     }
@@ -262,8 +262,8 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
 
   ns_PadKernelEx::Params param;
   param.mode = PadMode_t::PAD_MODE_CONSTANT;
-  if (self.scalar_type() == c10::ScalarType::Int) {
-    param.value.i = inputs[3].toScalar().to<int>();
+  if (c10::isIntegralType(self.scalar_type())) {
+    param.value.i = inputs[3].toScalar().to<decltype(param.value.i)>();
   } else {
     param.value.f = inputs[3].toScalar().to<float>();
   }
