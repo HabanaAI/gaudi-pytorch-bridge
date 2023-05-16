@@ -42,6 +42,9 @@
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 
+#define PRINT_ENV_FLAG_DEFAULT(name) \
+  std::clog << " #name = " << GET_ENV_FLAG_NEW(name) << "\n";
+
 namespace synapse_helpers {
 /**
  * END: These will be removed when all lazy kernels start using shape
@@ -218,92 +221,22 @@ void dumpEnvSettings() {
   if (!node_id) {
     if (const char* env_p = std::getenv("HB_BUILD_VER")) {
       std::clog
-          << "=============================HABANA SW VERSION======================================= "
-          << "\n";
+          << "=============================HABANA SW VERSION======================================= \n";
       std::clog << " HB_BUILD_VER = " << env_p << '\n';
     }
     std::clog
-        << "=============================HABANA PT BRIDGE CONFIGURATION =========================== "
-        << "\n";
-    std::clog << " PT_HPU_LAZY_MODE = " << GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)
-              << (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0
-                      ? " is set but no longer supported"
-                      : "")
-              << "\n";
-    std::clog << " PT_HPU_LAZY_EAGER_OPTIM_CACHE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_OPTIM_CACHE) << "\n";
-    std::clog << " PT_HPU_ENABLE_COMPILE_THREAD = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD) << "\n";
-    std::clog << " PT_HPU_ENABLE_EXECUTION_THREAD = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) << "\n";
-    std::clog << " PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD)
-              << "\n";
-    std::clog << " PT_ENABLE_INTER_HOST_CACHING = "
-              << GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING) << "\n";
-    std::clog << " PT_ENABLE_INFERENCE_MODE = "
-              << GET_ENV_FLAG_NEW(PT_ENABLE_INFERENCE_MODE) << "\n";
-    std::clog << " PT_ENABLE_HABANA_CACHING = "
-              << GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_CACHING) << "\n";
-    std::clog << " PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT = "
-              << GET_ENV_FLAG_NEW(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT) << "\n";
-    std::clog << " PT_HPU_MAX_COMPOUND_OP_SIZE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE) << "\n";
-    std::clog << " PT_HPU_MAX_COMPOUND_OP_SIZE_SS = "
-              << GET_ENV_FLAG_NEW(PT_HPU_MAX_COMPOUND_OP_SIZE_SS) << "\n";
-    std::clog << " PT_HPU_ENABLE_STAGE_SUBMISSION = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_STAGE_SUBMISSION) << "\n";
-    std::clog << " PT_HPU_STAGE_SUBMISSION_MODE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_STAGE_SUBMISSION_MODE) << "\n";
-    std::clog << " PT_HPU_PGM_ENABLE_CACHE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE) << "\n";
-    std::clog << " PT_HPU_ENABLE_LAZY_COLLECTIVES = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES) << "\n";
-    std::clog << " PT_HCCL_SLICE_SIZE_MB = "
-              << GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB) << "\n";
-    std::clog << " PT_HCCL_MEMORY_ALLOWANCE_MB = "
-              << GET_ENV_FLAG_NEW(PT_HCCL_MEMORY_ALLOWANCE_MB) << "\n";
-    std::clog << " PT_HPU_INITIAL_WORKSPACE_SIZE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) << "\n";
-    std::clog << " PT_HABANA_POOL_SIZE = "
-              << GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE) << "\n";
-    std::clog << " PT_HPU_POOL_STRATEGY = "
-              << GET_ENV_FLAG_NEW(PT_HPU_POOL_STRATEGY) << "\n";
-    std::clog << " PT_HPU_POOL_LOG_FRAGMENTATION_INFO = "
-              << GET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO) << "\n";
-    std::clog << " PT_ENABLE_MEMORY_DEFRAGMENTATION = "
-              << GET_ENV_FLAG_NEW(PT_ENABLE_MEMORY_DEFRAGMENTATION) << "\n";
-    std::clog << " PT_ENABLE_DEFRAGMENTATION_INFO = "
-              << GET_ENV_FLAG_NEW(PT_ENABLE_DEFRAGMENTATION_INFO) << "\n";
-    std::clog << " PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) << "\n";
-    std::clog << " PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_VALID_DATA_RANGE_CHECK) << "\n";
-    std::clog << " PT_HPU_FORCE_USE_DEFAULT_STREAM = "
-              << GET_ENV_FLAG_NEW(PT_HPU_FORCE_USE_DEFAULT_STREAM) << "\n";
-    auto cpath = std::getenv("PT_RECIPE_CACHE_PATH");
-    if (cpath) {
-      std::clog << " PT_RECIPE_CACHE_PATH = " << cpath << "\n";
-    } else {
-      std::clog << " PT_RECIPE_CACHE_PATH = "
-                << GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH) << "\n";
-    }
-    std::clog << " PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES = "
-              << GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) << "\n";
-    std::clog << " PT_HPU_DYNAMIC_MIN_POLICY_ORDER = "
-              << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MIN_POLICY_ORDER) << "\n";
-    std::clog << " PT_HPU_DYNAMIC_MAX_POLICY_ORDER = "
-              << GET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER) << "\n";
-    std::clog << " PT_HPU_LAZY_ACC_PAR_MODE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_PAR_MODE) << "\n";
-    std::clog << " PT_HPU_CLUSTERED_PROGRAM = "
-              << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM) << "\n";
-    std::clog << " PT_HPU_CLUSTERED_PROGRAM_ENFORCE = "
-              << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_ENFORCE) << "\n";
-    std::clog << " PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR = "
-              << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR) << "\n";
-    std::clog << " PT_HPU_CLUSTERED_PROGRAM_SCHED_STR = "
-              << GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM_SCHED_STR) << "\n";
+        << "=============================HABANA PT BRIDGE CONFIGURATION =========================== \n";
+
+    // Below should be logged only flags documented in
+    // https://docs.habana.ai/en/latest/PyTorch/Runtime_Flags.html
+    // Make sure to update the user docs, if new flag is added.
+    // NOTE: Only flags represented in env_flags.h are logged.
+    PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_MODE)
+    PRINT_ENV_FLAG_DEFAULT(PT_RECIPE_CACHE_PATH)
+    PRINT_ENV_FLAG_DEFAULT(PT_CACHE_FOLDER_DELETE)
+    PRINT_ENV_FLAG_DEFAULT(PT_HPU_MAX_COMPOUND_OP_SIZE)
+    PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_ACC_PAR_MODE)
+
     if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
       PT_BRIDGE_WARN(
           "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "
