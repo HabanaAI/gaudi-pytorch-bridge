@@ -39,12 +39,6 @@ def habanaLightningPlugins = [
         util.runBuildShell('build_habana_lightning_plugins')
     }
 ]
-def buildPytorchModulesNext = [
-    'Build Pytorch Modules Next': { util ->
-        util.runBuildShell('build_pytorch_modules --pt-version next')
-        util.runShellCommandWrapper('mv ${PYTORCH_MODULES_RELEASE_BUILD} ${BUILD_ROOT}/builds_next')
-    }
-]
 def preBuildStages = [
     'Install Python test dependencies': { util ->
         util.runShellCommandWrapper("""
@@ -79,21 +73,9 @@ if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && env.IS_PROMOTE == "false"
     preBuildStages =  preBuildStages + lightningHabanaFork
 }
 preBuildStages =  preBuildStages + habanaLightningPlugins + lightningHabanaFork
-// TODO: SW-127368: compile PT 2.0 only in CI and for promote only for U20. This is temporary hack, untill issues fixed by dev.
-if(env.OS == 'ubuntu20.04'){
-    preBuildStages =  preBuildStages + buildPytorchModulesNext
-}
 def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
     'Pytorch modules': 'build_pytorch_modules'
-]
-def postRecoverArtifacts = [
-    'Post recover artifacts': { util ->
-        util.runShellCommandWrapper("""
-            mkdir -p \${PYTORCH_MODULES_RELEASE_BUILD}/pkgs_2.0.0
-            cp -a \${BUILD_ROOT}/builds_next/pkgs_2.0.0/* \${PYTORCH_MODULES_RELEASE_BUILD}/pkgs_2.0.0/
-        """)
-    }
 ]
 def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'MEDIA', 'CODEC']
 def requiredArtifact = [
@@ -124,7 +106,6 @@ genericBuilder(
     preBuildStages: preBuildStages,
     buildDependencies: buildDependencies,
     buildCommands: buildCommands,
-    postBuildStages: postRecoverArtifacts,
     testDependencies: testDependencies,
     requiredArtifact: requiredArtifact,
     manifest: manifest
