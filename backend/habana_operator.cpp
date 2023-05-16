@@ -529,8 +529,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
     void* host_ptr) {
   HABANA_ASSERT(
       shape_tensor_type == SHAPE_TENSOR ||
-      shape_tensor_type == HOST_TO_DEVICE_TENSOR ||
-      shape_tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR);
+      shape_tensor_type == HOST_TO_DEVICE_TENSOR);
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input, graph, false, shape_tensor_type, "", host_ptr);
   syn_shape_input.set_intermediate_shape_tensor();
@@ -549,8 +548,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
     void* host_ptr) {
   HABANA_ASSERT(
       shape_tensor_type == SHAPE_TENSOR ||
-      shape_tensor_type == HOST_TO_DEVICE_TENSOR ||
-      shape_tensor_type == INPUT_DESCRIBING_SHAPE_TENSOR);
+      shape_tensor_type == HOST_TO_DEVICE_TENSOR);
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input_shapes, syn_device, graph, false, shape_tensor_type, "", host_ptr);
   syn_shape_input.set_intermediate_shape_tensor();
@@ -726,7 +724,7 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     }
     for (size_t i = 0; i < p_context_->syn_inputs_.size(); ++i) {
       auto& tensor = SynInput(i).ref();
-      if (tensor.is_shape_tensor() || tensor.is_input_shape_tensor()) {
+      if (tensor.is_shape_tensor()) {
         syn_inputs.emplace_back(tensor.get());
       }
     }

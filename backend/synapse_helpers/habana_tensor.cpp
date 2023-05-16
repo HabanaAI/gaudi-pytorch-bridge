@@ -60,9 +60,6 @@ std::ostream& operator<<(
     case SHAPE_TENSOR:
       out << "SHAPE_TENSOR";
       break;
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
-      out << "INPUT_DESCRIBING_SHAPE_TENSOR";
-      break;
     case DEVICE_SHAPE_TENSOR:
       out << "DEVICE_SHAPE_TENSOR";
       break;
@@ -264,8 +261,7 @@ synapse_error_o tensor::create_old_synapi() {
         shape_.min_.data(),
         shape_.min_.rank().value,
         std::begin(trdescriptor.m_minSizes));
-    if (tensor_type_ == SHAPE_TENSOR ||
-        tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
+    if (tensor_type_ == SHAPE_TENSOR) {
       HABANA_ASSERT(data_type_ == syn_type_uint32);
       status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
     } else if (!memory_section_ && is_persistent_) {
@@ -442,8 +438,7 @@ synapse_error_o tensor::create() {
         synTensorSetGeometryExt(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "synTensorSetGeometryExt min sizes failed.", status, cleanup());
-    if (tensor_type_ == SHAPE_TENSOR ||
-        tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
+    if (tensor_type_ == SHAPE_TENSOR) {
       HABANA_ASSERT(data_type_ == syn_type_uint32);
     } else if (!memory_section_ && is_persistent_) {
       synSectionHandle section;

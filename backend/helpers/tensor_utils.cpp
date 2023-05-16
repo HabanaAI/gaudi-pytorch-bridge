@@ -708,7 +708,6 @@ bool habana_helpers::is_shape_tensor(synTensorType shape_tensor) {
   switch (shape_tensor) {
     case SHAPE_TENSOR:
     // case OUTPUT_DESCRIBING_SHAPE_TENSOR:
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
     case DEVICE_SHAPE_TENSOR:
     case HOST_SHAPE_TENSOR:
     case HOST_TO_DEVICE_TENSOR:

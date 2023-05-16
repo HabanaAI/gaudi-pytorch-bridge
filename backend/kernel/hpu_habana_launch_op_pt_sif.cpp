@@ -178,7 +178,7 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
     if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
       for (const auto& st : op->GetShapeTensors()) {
         if (st.is_intermediate_shape_tensor()) {
-          HABANA_ASSERT(st.is_shape_tensor() || st.is_input_shape_tensor());
+          HABANA_ASSERT(st.is_shape_tensor());
           int_shape_tensor_count++;
         }
       }
@@ -186,9 +186,7 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
 
     for (synapse_helpers::tensor& in_tensor_syn : syn_inputs) {
       if (in_tensor_syn.is_intermediate_shape_tensor()) {
-        HABANA_ASSERT(
-            in_tensor_syn.is_shape_tensor() ||
-            in_tensor_syn.is_input_shape_tensor());
+        HABANA_ASSERT(in_tensor_syn.is_shape_tensor());
         int_shape_tensor_count++;
       }
     }
@@ -511,8 +509,7 @@ void HabanaLaunchOpPT::RunHybridSif(
           auto tensor = input.toTensor();
           auto tmeta{get_tensor_extra_meta(tensor, true)};
           if (tmeta && tmeta->is_H2D_frontend_shape_tensor() == false &&
-              (tmeta->get_tensor_type() == SHAPE_TENSOR ||
-               tmeta->get_tensor_type() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
+              tmeta->get_tensor_type() == SHAPE_TENSOR) {
             input_shape_tensors_vec.emplace_back(tensor);
           }
         }

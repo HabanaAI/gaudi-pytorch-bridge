@@ -41,9 +41,6 @@ inline std::ostream& operator<<(std::ostream& out, const synTensorType& t) {
     case SHAPE_TENSOR:
       out << "SHAPE_TENSOR";
       break;
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
-      out << "INPUT_DESCRIBING_SHAPE_TENSOR";
-      break;
     case HOST_TO_DEVICE_TENSOR:
       out << "HOST_TO_DEVICE_TENSOR";
       break;
@@ -351,12 +348,11 @@ class tensor final {
   bool is_shape_tensor() const {
     return tensor_type_ == SHAPE_TENSOR;
   }
-  bool is_input_shape_tensor() const {
-    return tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR;
-  }
+
   bool is_device_shape_tensor() const {
     return tensor_type_ == DEVICE_SHAPE_TENSOR;
   }
+
   bool is_host_to_device_tensor() const {
     return tensor_type_ == HOST_TO_DEVICE_TENSOR;
   }

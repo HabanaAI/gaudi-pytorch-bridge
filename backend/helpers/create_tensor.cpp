@@ -463,9 +463,6 @@ synapse_helpers::tensor create_shape_tensor(
         builder.mark_device_shape_tensor();
         builder.mark_persistence(persistent);
         break;
-      case INPUT_DESCRIBING_SHAPE_TENSOR:
-        builder.mark_input_describing_shape_tensor();
-        break;
       case HOST_TO_DEVICE_TENSOR:
         builder.mark_host_to_device_tensor(host_ptr);
         break;
@@ -496,9 +493,6 @@ synapse_helpers::tensor create_shape_tensor(
     case DEVICE_SHAPE_TENSOR:
       builder.mark_device_shape_tensor();
       builder.mark_persistence(persistent);
-      break;
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
-      builder.mark_input_describing_shape_tensor();
       break;
     case HOST_TO_DEVICE_TENSOR:
       builder.mark_host_to_device_tensor(host_ptr);
@@ -570,9 +564,6 @@ synapse_helpers::tensor create_shape_tensor(
         builder.mark_device_shape_tensor();
         builder.mark_persistence(persistent);
         break;
-      case INPUT_DESCRIBING_SHAPE_TENSOR:
-        builder.mark_input_describing_shape_tensor();
-        break;
       case HOST_TO_DEVICE_TENSOR:
         builder.mark_host_to_device_tensor(host_ptr);
         break;
@@ -603,9 +594,6 @@ synapse_helpers::tensor create_shape_tensor(
     case DEVICE_SHAPE_TENSOR:
       builder.mark_device_shape_tensor();
       builder.mark_persistence(persistent);
-      break;
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
-      builder.mark_input_describing_shape_tensor();
       break;
     case HOST_TO_DEVICE_TENSOR:
       builder.mark_host_to_device_tensor(host_ptr);

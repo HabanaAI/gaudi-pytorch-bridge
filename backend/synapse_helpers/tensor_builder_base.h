@@ -251,13 +251,6 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  ConcreteBuilder& mark_input_describing_shape_tensor() {
-    tensor_type_ = INPUT_DESCRIBING_SHAPE_TENSOR;
-    data_type_ = syn_type_uint32;
-    is_persistent_ = true;
-    return static_cast<ConcreteBuilder&>(*this);
-  }
-
   ConcreteBuilder& mark_device_shape_tensor() {
     tensor_type_ = DEVICE_SHAPE_TENSOR;
     data_type_ = syn_type_uint32;

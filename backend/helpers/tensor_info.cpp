@@ -166,7 +166,6 @@ void PtTensorInfo::update_shape_syn() {
     case SHAPE_TENSOR:
     case DATA_TENSOR_DYNAMIC:
     case HOST_TO_DEVICE_TENSOR:
-    case INPUT_DESCRIBING_SHAPE_TENSOR:
       HABANA_ASSERT(SYN_GAUDI_MAX_TENSOR_DIM >= shape_.size());
       for (size_t i = 0; i < shape_.size(); ++i) {
         // Reverse PyTorch shapes for synapse tensor shape patching

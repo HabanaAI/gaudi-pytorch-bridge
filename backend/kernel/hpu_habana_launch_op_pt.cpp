@@ -989,8 +989,7 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
 
   for (synapse_helpers::tensor& maybe_syn_shape_tensor :
        habanaOp->GetSynInputs()) {
-    if (maybe_syn_shape_tensor.is_shape_tensor() ||
-        maybe_syn_shape_tensor.is_input_shape_tensor()) {
+    if (maybe_syn_shape_tensor.is_shape_tensor()) {
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;

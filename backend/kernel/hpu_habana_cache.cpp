@@ -1512,8 +1512,7 @@ void RecipeValueSpec::patch_launch_info(
     }
 
     switch (ti.tensor_type()) {
-      case SHAPE_TENSOR:
-      case INPUT_DESCRIBING_SHAPE_TENSOR: {
+      case SHAPE_TENSOR: {
         const auto& tsv = ti.syn_shape();
         syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
             ti.get_syn_namec_str(),

@@ -1938,7 +1938,7 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyDynamicShapesTest, DS_PadTest_IDST) {
+TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR, false, 1);
   auto pad_test = [](std::vector<int64_t> pad_sizes,
