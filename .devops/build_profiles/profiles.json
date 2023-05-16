@@ -37,7 +37,8 @@
       "extras" : {
           "torchvision": "0.15.1",
           "torchaudio": "2.0.1",
-          "torchtext": "0.15.2"
+          "torchtext": "0.15.2",
+          "torchdata": "0.6.1"
       }
     },
     "previous": {
