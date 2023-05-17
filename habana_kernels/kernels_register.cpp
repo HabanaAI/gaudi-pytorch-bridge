@@ -362,25 +362,6 @@ Tensor& hpu_wrap::scatter_add_(
   return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
 }
 
-at::Tensor& hpu_wrap::_index_put_impl_(
-    at::Tensor& self,
-    const c10::List<c10::optional<at::Tensor>>& indices,
-    const at::Tensor& values,
-    bool accumulate,
-    bool unsafe) {
-  if ((self.scalar_type() != c10::ScalarType::Float) &&
-      (self.scalar_type() != c10::ScalarType::Int) &&
-      (self.scalar_type() != c10::ScalarType::BFloat16) &&
-      !(self.scalar_type() == c10::ScalarType::Half &&
-        synapse_helpers::HPURegistrar::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
-    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
-        OpSupportLevel::Value::unsupported_dtype,
-        PARAMS2(self, indices, values, accumulate, unsafe));
-  }
-  return _index_put_impl_hpu_lazy_(self, indices, values, accumulate, unsafe);
-}
-
 Tensor& hpu_wrap::index_add_out(
     const Tensor& self,
     int64_t dim,

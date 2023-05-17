@@ -544,6 +544,14 @@ _fused_dropout:
   out_ids: [0, 0]
   schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
 
+_index_put_impl_:
+  dtypes:
+    Gaudi: [BFloat16, Float, Char, Int]
+    Gaudi2: [BFloat16, Float, Half, Char, Int]
+    Gaudi3: [BFloat16, Float, Half, Char, Int]
+  fallback_check: [IndexFallbackCheck, indices]
+  override_fn: _index_put_impl_hpu_lazy_
+
 as_strided:
   override_fn: as_strided_hpu
   acc_thread: true
