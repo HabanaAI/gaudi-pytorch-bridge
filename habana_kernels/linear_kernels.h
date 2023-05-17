@@ -189,8 +189,7 @@ class MatmulBackwardOperator : public HabanaOperator {
 class LinearForwardHelperOperator : public HabanaOperator {
  public:
   LinearForwardHelperOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "linear_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("linear_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -218,8 +217,7 @@ class LinearForwardOperator : public HabanaOperator {
 class Linear2DBackwardOperator : public HabanaOperator {
  public:
   Linear2DBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "linear_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("linear_bwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -247,8 +245,7 @@ class LinearBackwardOperator : public HabanaOperator {
 class MatMulBwdOperator : public HabanaOperator {
  public:
   MatMulBwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "matmul_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("matmul_bwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});

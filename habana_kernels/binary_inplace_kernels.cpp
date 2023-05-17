@@ -376,7 +376,7 @@ void process_generic_tensor_inplace_binary_op(
   size_t device_id = pt_inputs[0].device().index();
   at::ScalarType scalar_type = pt_inputs[0].scalar_type();
   std::string node_type =
-      node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+      habana::get_guid_with_precision(node_guid + "_fwd", scalar_type);
 
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   BinaryInplaceOp Op(device_id, scalar_type);

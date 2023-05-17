@@ -77,7 +77,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {MULT_GUID + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("mult", op->ScalarType()),
        std::move(node_inputs),
        {{output_shape, op->ScalarType(), final_idx}}});
 
@@ -115,7 +115,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {MULT_GUID + habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("mult", op->ScalarType()),
          std::move(mul_node_inputs),
          {{output_shape, op->ScalarType(), final_idx}}});
     return alpha_mul_out;
@@ -164,7 +164,7 @@ static std::vector<synapse_helpers::tensor> BaddbMMCommon(
     baddbmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {"add_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("add", op->ScalarType()),
          std::move(add_node_inputs),
          {{output_shape, op->ScalarType(), 0}}});
   }

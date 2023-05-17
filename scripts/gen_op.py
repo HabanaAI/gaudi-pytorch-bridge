@@ -201,7 +201,7 @@ static const auto& kr_gen_{file_idx} = KernelRegistry()
 
 _OPCLASS_HEADER = """struct {cname} : {op_backend_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-      {op_backend_class}(device_id, \"{guid}_\", scalar_type, {{{out_ids}}}, {{{inplace_ids}}}, {{{scalar_ids}}}, {is_out_fn}) {{{ctor_extra_calls}
+      {op_backend_class}(device_id, \"{guid}\", scalar_type, {{{out_ids}}}, {{{inplace_ids}}}, {{{scalar_ids}}}, {is_out_fn}) {{{ctor_extra_calls}
   }}{custom_handler}
 }};
 """

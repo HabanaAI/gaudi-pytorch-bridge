@@ -104,7 +104,7 @@ class ConstantOperator : public habana::HabanaOperator {
  public:
   ConstantOperator(int device_id, c10::ScalarType scalarType)
       : habana::HabanaOperator(
-            "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            habana::get_guid_with_precision("constant", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
@@ -142,7 +142,7 @@ class ConstantOutOperator : public habana::HabanaOperator {
  public:
   ConstantOutOperator(int device_id, c10::ScalarType scalarType)
       : habana::HabanaOperator(
-            "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            habana::get_guid_with_precision("constant", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
     // special case, adding -1 to the tpc order, will not add any inputs

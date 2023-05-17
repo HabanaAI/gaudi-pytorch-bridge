@@ -115,8 +115,8 @@ void LazyBoundsCheckIndices::AddNode(
     inputs.push_back(weights.value().syn_t);
   }
 
-  std::string guid = "bounds_check_indices_fwd_" +
-      habana_helpers::name_suffix_from_type(ScalarType());
+  std::string guid =
+      get_guid_with_precision("bounds_check_indices_fwd", ScalarType());
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {indices.pt_t.sizes(), indices.pt_t.scalar_type(), 0},
@@ -157,8 +157,8 @@ void LazySplitPermuteCat::AddNode(
   auto numFeatures = getNextInput<int>(stackGetter);
   auto dims = getNextInput<int>(stackGetter);
 
-  std::string guid = "split_permute_cat_fwd_" +
-      habana_helpers::name_suffix_from_type(input.pt_t.scalar_type());
+  std::string guid = get_guid_with_precision(
+      "split_permute_cat_fwd", input.pt_t.scalar_type());
 
   ns_SplitPermuteCat::Params params;
   params.batchSize = batchSize;

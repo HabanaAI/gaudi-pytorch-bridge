@@ -190,7 +190,7 @@ void ConvolutionOverrideable::AddNode(
 
     auto addOp = BuildOp(
         graph,
-        "add_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("add_fwd", ScalarType()),
         {convOp[0].get(), biasReshaped.get()},
         {{out_shape, ScalarType(), 0}});
 

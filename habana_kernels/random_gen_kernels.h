@@ -25,8 +25,7 @@ class BernoulliOperator : public HabanaOperator {
  public:
   BernoulliOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "random_bernoulli_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("random_bernoulli_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -42,9 +41,7 @@ class BernoulliOperator : public HabanaOperator {
 class DropoutOperator : public HabanaOperator {
  public:
   DropoutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "dropout_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("dropout_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -75,8 +72,7 @@ class RandomShuffleOperator : public HabanaOperator {
  public:
   RandomShuffleOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "random_shuffle_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("random_shuffle_fwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -93,8 +89,7 @@ class RandomShuffleOperator : public HabanaOperator {
 class RandpermOperator : public HabanaOperator {
  public:
   RandpermOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "randperm_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("randperm", scalarType)) {
     this->CreateSynContext(device_id);
   }
 

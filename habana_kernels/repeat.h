@@ -13,8 +13,7 @@
 namespace habana {
 struct RepeatOperator : public HabanaOperator {
   RepeatOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "tile_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("tile_fwd", scalarType)) {
     CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -53,8 +52,7 @@ struct RepeatOperatorHT : public RepeatOperator {
 class RepeatInlvOperator : public HabanaOperator {
  public:
   RepeatInlvOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "repeat_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("repeat_fwd", scalarType)) {
     CreateSynContext(device_id);
   }
   OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);

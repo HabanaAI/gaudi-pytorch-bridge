@@ -14,9 +14,7 @@ namespace habana {
 class RoiAlignFwdOperator : public HabanaOperator {
  public:
   RoiAlignFwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "roialign_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("roialign_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NHWC,
@@ -46,8 +44,7 @@ class RoiAlignBwdOperator : public HabanaOperator {
  public:
   RoiAlignBwdOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "roialign_backward_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("roialign_backward", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NHWC,
@@ -69,9 +66,7 @@ class RoiAlignBwdOperator : public HabanaOperator {
 class RoiAlignBwdImplOperator : public HabanaOperator {
  public:
   RoiAlignBwdImplOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "roialign_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("roialign_bwd", scalarType)) {
     this->CreateSynContext(device_id);
 
     kernel_meta_data_.synapse_input_layout.assign(
@@ -96,9 +91,7 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
 class QuadTreeFwdImplOperator : public HabanaOperator {
  public:
   QuadTreeFwdImplOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "quad_tree_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("quad_tree_fwd", scalarType)) {
     this->CreateSynContext(device_id);
 
     kernel_meta_data_.synapse_input_layout.assign(

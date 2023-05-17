@@ -22,7 +22,7 @@ static auto BuildFrac(
   auto sign = OpBackend::BuildNode(
       op,
       graph,
-      {"sign_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("sign_fwd", dtype),
        {input},
        {{outshape, dtype}}});
 
@@ -30,7 +30,7 @@ static auto BuildFrac(
   auto abs_val = OpBackend::BuildNode(
       op,
       graph,
-      {"abs_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("abs_fwd", dtype),
        {input},
        {{outshape, dtype}}});
 
@@ -38,7 +38,7 @@ static auto BuildFrac(
   auto floor_val = OpBackend::BuildNode(
       op,
       graph,
-      {"floor_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("floor_fwd", dtype),
        {abs_val[0].get()},
        {{outshape, dtype}}});
 
@@ -46,7 +46,7 @@ static auto BuildFrac(
   auto mul = OpBackend::BuildNode(
       op,
       graph,
-      {MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("mult", dtype),
        {floor_val[0].get(), sign[0].get()},
        {{outshape, dtype}}});
 
@@ -54,7 +54,7 @@ static auto BuildFrac(
   return OpBackend::BuildNode(
       op,
       graph,
-      {"sub_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("sub", dtype),
        {input, mul[0].get()},
        {{outshape, dtype, out_index}}});
 }

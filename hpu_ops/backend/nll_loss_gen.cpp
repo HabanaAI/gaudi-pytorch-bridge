@@ -162,12 +162,13 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
   return OpBackend::BuildNode(
       op,
       graph,
-      {"reduce_sum_fwd_" +
-           habana_helpers::name_suffix_from_type(op->ScalarType()),
-       std::move(input),
-       {{1, op->ScalarType()}},
-       &reduce_params,
-       sizeof(reduce_params)});
+      {
+
+          get_guid_with_precision("reduce_sum_fwd", op->ScalarType()),
+          std::move(input),
+          {{1, op->ScalarType()}},
+          &reduce_params,
+          sizeof(reduce_params)});
 }
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
@@ -238,7 +239,7 @@ void NllLossBwd::AddNode(
   } else { // weight is not none
     auto nll_loss = BuildOp(
         graph,
-        "cnll_loss_bwd_" + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision("cnll_loss_bwd", dtype),
         {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
         {{outshape, dtype, 0}},
         params.get(),

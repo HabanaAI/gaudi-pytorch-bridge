@@ -161,8 +161,8 @@ void Fp8CastTranspose::AddNode(
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = "convert_to_fp8_transpose_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
+  std::string guid =
+      get_guid_with_precision("convert_to_fp8_transpose", self.scalar_type());
 
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -223,8 +223,8 @@ void Fp8CastTransposeBgrad::AddNode(
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = "convert_to_fp8_transpose_bgrad_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
+  std::string guid = get_guid_with_precision(
+      "convert_to_fp8_transpose_bgrad", self.scalar_type());
 
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -289,8 +289,8 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = "convert_to_fp8_transpose_bgrad_dgelu_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
+  std::string guid = get_guid_with_precision(
+      "convert_to_fp8_transpose_bgrad_dgelu", self.scalar_type());
 
   ns_CastKernel::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -386,8 +386,8 @@ void Fp8Dropout::AddNode(
   auto sizes = self.pt_t.sizes().vec();
   std::vector<int64_t> amax_size{1};
 
-  std::string guid = "dropout_fp8_" +
-      habana_helpers::name_suffix_from_type(self.pt_t.scalar_type());
+  std::string guid =
+      get_guid_with_precision("dropout_fp8", self.pt_t.scalar_type());
 
   ns_DropoutFp8::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -491,8 +491,8 @@ void Fp8Layernorm::AddNode(
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = "layer_norm_fp8_fwd_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
+  std::string guid =
+      get_guid_with_precision("layer_norm_fp8_fwd", self.scalar_type());
 
   ns_LayerNormFp8::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -548,8 +548,7 @@ void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   out_shape.push_back(A_shape[A_dim]);
   out_shape.push_back(B_shape[B_dim]);
 
-  std::string guid =
-      "fp8_gemm_" + habana_helpers::name_suffix_from_type(out_type);
+  std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   if (scaleAOpt) {

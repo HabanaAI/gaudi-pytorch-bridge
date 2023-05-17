@@ -86,8 +86,7 @@ void ScatterOperator::AddNode(
         cast_self.get(), syn_in(1), cast_src_or_val.get()};
     auto scatterkernel = BuildOp(
         graph,
-        "scatter_fwd_" +
-            habana_helpers::name_suffix_from_type(c10::ScalarType::Int),
+        get_guid_with_precision("scatter_fwd", c10::ScalarType::Int),
         syn_input_tensors,
         {{outshape, c10::ScalarType::Int}},
         &params,
@@ -106,7 +105,7 @@ void ScatterOperator::AddNode(
         syn_in(0), syn_in(1), src_or_val};
     auto scatterkernel = BuildOp(
         graph,
-        "scatter_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("scatter_fwd", ScalarType()),
         syn_input_tensors,
         {{outshape, ScalarType(), 0}},
         &params,

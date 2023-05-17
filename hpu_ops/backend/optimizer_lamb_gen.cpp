@@ -71,7 +71,6 @@ void OptimizerFusedLambNorm::AddNode(
       "Gradiens list in OptimizerFusedLambNorm cannot be empty");
 
   auto dtype = gradients[0].pt_t.scalar_type();
-  const std::string dtype_suffix = habana_helpers::name_suffix_from_type(dtype);
 
   auto syn_max_grad_norm = ConstantHelper(graph, max_grad_norm, dtype, {1});
 
@@ -95,7 +94,7 @@ void OptimizerFusedLambNorm::AddNode(
     intermediate_reduce.emplace_back(std::move(OpBackend::BuildNode(
         this,
         graph,
-        {"reduce_sum_square_fwd_" + dtype_suffix,
+        {get_guid_with_precision("reduce_sum_square_fwd", dtype),
          {first_reshape.back().get()},
          {{{1}, dtype}},
          &params,
@@ -121,7 +120,7 @@ void OptimizerFusedLambNorm::AddNode(
   auto sum_final = OpBackend::BuildNode(
       this,
       graph,
-      {"reduce_sum_fwd_" + dtype_suffix,
+      {get_guid_with_precision("reduce_sum_fwd", dtype),
        {concated[0].get()},
        {{{1}, dtype}},
        &reduce_params,
@@ -130,19 +129,21 @@ void OptimizerFusedLambNorm::AddNode(
   auto sqrt = OpBackend::BuildNode(
       this,
       graph,
-      {"sqrt_fwd_" + dtype_suffix, {sum_final[0].get()}, {{{1}, dtype}}});
+      {get_guid_with_precision("sqrt_fwd", dtype),
+       {sum_final[0].get()},
+       {{{1}, dtype}}});
 
   auto div = OpBackend::BuildNode(
       this,
       graph,
-      {"div_fwd_" + dtype_suffix,
+      {get_guid_with_precision("div_fwd", dtype),
        {sqrt[0].get(), syn_max_grad_norm.get()},
        {{{1}, dtype}}});
 
   auto less = OpBackend::BuildNode(
       this,
       graph,
-      {"less_equal_fwd_" + dtype_suffix,
+      {get_guid_with_precision("less_equal_fwd", dtype),
        {sqrt[0].get(), syn_max_grad_norm.get()},
        {{{1}, at::kBool}}});
 
@@ -153,7 +154,7 @@ void OptimizerFusedLambNorm::AddNode(
   auto mul1 = OpBackend::BuildNode(
       this,
       graph,
-      {"mult_fwd_" + dtype_suffix,
+      {get_guid_with_precision("mult_fwd", dtype),
        {less_cast.get(), syn_clip_norm.get()},
        {{{1}, dtype}}});
 
@@ -166,14 +167,14 @@ void OptimizerFusedLambNorm::AddNode(
   auto mul2 = OpBackend::BuildNode(
       this,
       graph,
-      {"mult_fwd_" + dtype_suffix,
+      {get_guid_with_precision("mult_fwd", dtype),
        {eq_casted.get(), div[0].get()},
        {{{1}, dtype}}});
 
   auto add = OpBackend::BuildNode(
       this,
       graph,
-      {"add_fwd_" + dtype_suffix,
+      {get_guid_with_precision("add_fwd", dtype),
        {mul1[0].get(), mul2[0].get()},
        {{{1}, dtype, 0}}});
 

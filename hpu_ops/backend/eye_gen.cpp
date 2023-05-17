@@ -28,8 +28,7 @@ void EyeOpOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   eye_out = BuildOp(
       graph,
-      "matrix_diagonal_fwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("matrix_diagonal_fwd", ScalarType()),
       {constant.get()},
       {{outshape, ScalarType(), 0}});
 

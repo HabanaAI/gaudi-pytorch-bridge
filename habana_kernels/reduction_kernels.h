@@ -79,8 +79,7 @@ class MeanOperator : public ReduceOperator {
   MeanOperator(int device_id, c10::ScalarType scalar_type)
       : ReduceOperator(
             device_id,
-            "reduce_mean_fwd_" +
-                habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("reduce_mean_fwd", scalar_type)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
   OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
@@ -99,8 +98,7 @@ class ProdDimOperator : public ReduceOperator {
   ProdDimOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
-            "reduce_prod_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("reduce_prod_fwd", scalarType)) {}
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -117,8 +115,7 @@ class SumDimOutOperator : public ReduceOperator {
   SumDimOutOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
-            "reduce_sum_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
 
   OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
@@ -136,8 +133,7 @@ class SumDimOperator : public ReduceOperator {
   SumDimOperator(int device_id, c10::ScalarType scalarType)
       : ReduceOperator(
             device_id,
-            "reduce_sum_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("reduce_sum_fwd", scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
   OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
@@ -162,8 +158,7 @@ class SumOperator : public ReduceOperator {
   SumOperator(int device_id, c10::ScalarType scalarType)
       : SumOperator(
             device_id,
-            "reduce_sum_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
   OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -180,8 +175,7 @@ class SumSquareOperator : public SumOperator {
   SumSquareOperator(int device_id, c10::ScalarType scalarType)
       : SumOperator(
             device_id,
-            "reduce_sum_square_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("reduce_sum_square_fwd", scalarType)) {}
 };
 
 // _grad_sum_to_size Operator
@@ -189,8 +183,7 @@ class GradSumToSizeOperator : public HabanaOperator {
  public:
   GradSumToSizeOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "grad_sum_to_size_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("grad_sum_to_size", scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -206,9 +199,7 @@ class GradSumToSizeOperator : public HabanaOperator {
 class ReduceSumBwdOperator : public HabanaOperator {
  public:
   ReduceSumBwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_sum_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("reduce_sum_bwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -225,9 +216,7 @@ class ReduceSumBwdOperator : public HabanaOperator {
 class ReduceMeanBwdOperator : public HabanaOperator {
  public:
   ReduceMeanBwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reduce_mean_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("reduce_mean_bwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -248,8 +237,7 @@ class ReduceMultiOutputOperator : public ReduceOperator {
       const std::string variant)
       : ReduceOperator(
             device_id,
-            "reduce_" + variant + "_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("reduce_" + variant + "_fwd", scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
 

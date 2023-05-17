@@ -20,9 +20,7 @@ namespace habana {
 class LogSoftmaxOperator : public HabanaOperator {
  public:
   LogSoftmaxOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "logsoftmax_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("logsoftmax_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -41,9 +39,7 @@ class LogSoftmaxOperator : public HabanaOperator {
 class SoftmaxIntOperator : public HabanaOperator {
  public:
   SoftmaxIntOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "softmax_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("softmax_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

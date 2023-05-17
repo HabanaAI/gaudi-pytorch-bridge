@@ -71,7 +71,7 @@ class MulOperator : public BinaryWrapperOperator {
   MulOperator(int device_id, c10::ScalarType scalarType)
       : BinaryWrapperOperator(
             device_id,
-            MULT_GUID + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("mult", scalarType)) {
     scalarType_ = scalarType;
   }
 };
@@ -81,7 +81,7 @@ class DivOperator : public BinaryWrapperOperator {
   DivOperator(int device_id, c10::ScalarType scalarType)
       : BinaryWrapperOperator(
             device_id,
-            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("div_fwd", scalarType)) {
     scalarType_ = scalarType;
   }
 };
@@ -124,7 +124,7 @@ class AddOperator : public BinaryWrapperOperatorWithAlpha {
   AddOperator(int device_id, c10::ScalarType scalarType)
       : BinaryWrapperOperatorWithAlpha(
             device_id,
-            "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("add_fwd", scalarType)) {
     scalarType_ = scalarType;
   }
 };
@@ -134,7 +134,7 @@ class SubOperator : public BinaryWrapperOperatorWithAlpha {
   SubOperator(int device_id, c10::ScalarType scalarType)
       : BinaryWrapperOperatorWithAlpha(
             device_id,
-            "sub_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("sub_fwd", scalarType)) {
     scalarType_ = scalarType;
   }
 };

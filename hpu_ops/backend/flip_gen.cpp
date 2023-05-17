@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include "generated/backend/flip.h"
-#define GUID "reverse_"
+#define GUID "reverse"
 
 namespace habana {
 
@@ -30,10 +30,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   if (dim_list_size == 0) {
     auto out = OpBackend::BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0)},
-        {{outshape, ScalarType(), 0}});
+        graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(out[0]);
     return;
   }
@@ -53,7 +50,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     intermediate_output = BuildOp(
         graph,
-        GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision(GUID, ScalarType()),
         {intermediate_output_itr[i], const_dim.get()},
         {{outshape, ScalarType()}});
 
@@ -67,7 +64,7 @@ void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto flip_output = BuildOp(
       graph,
-      GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision(GUID, ScalarType()),
       {intermediate_output_itr[dim_list_size - 1], final_const_dim.get()},
       {{outshape, ScalarType(), 0}});
 

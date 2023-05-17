@@ -18,9 +18,9 @@ namespace habana {
 class OptimizerSparseSgdOperator : public HabanaOperator {
  public:
   OptimizerSparseSgdOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "optimizer_sparse_sgd_with_valid_count_2d_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+      : HabanaOperator(get_guid_with_precision(
+            "optimizer_sparse_sgd_with_valid_count_2d",
+            scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -35,9 +35,9 @@ class OptimizerSparseSgdOperator : public HabanaOperator {
 class OptimizerSparseAdagradOperator : public HabanaOperator {
  public:
   OptimizerSparseAdagradOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "optimizer_sparse_adagrad_with_valid_count_2d_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+      : HabanaOperator(get_guid_with_precision(
+            "optimizer_sparse_adagrad_with_valid_count_2d",
+            scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -53,8 +53,7 @@ class OptimizerAdamwOperator : public HabanaOperator {
  public:
   OptimizerAdamwOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_adamw_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_adamw", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -68,8 +67,7 @@ class OptimizerAdagradOperator : public HabanaOperator {
  public:
   OptimizerAdagradOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_adagrad_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_adagrad_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -83,8 +81,7 @@ class OptimizerFusedAdagradOperator : public HabanaOperator {
  public:
   OptimizerFusedAdagradOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_adagrad_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_adagrad_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -98,8 +95,7 @@ class OptimizerSGDOperator : public HabanaOperator {
  public:
   OptimizerSGDOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_sgd_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -112,9 +108,7 @@ class OptimizerSGDOperator : public HabanaOperator {
 class OptimizerFusedEMAOperator : public HabanaOperator {
  public:
   OptimizerFusedEMAOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "dummy_fusedema_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+      : HabanaOperator(get_guid_with_precision("dummy_fusedema", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -128,8 +122,7 @@ class OptimizerFusedSGDOperator : public HabanaOperator {
  public:
   OptimizerFusedSGDOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_sgd_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -143,8 +136,7 @@ class OptimizerSGDMomentumOperator : public HabanaOperator {
  public:
   OptimizerSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_sgd_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 
@@ -158,8 +150,7 @@ class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
  public:
   OptimizerFusedSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
       : HabanaOperator(
-            "optimizer_sgd_bwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
     this->CreateSynContext(device_id);
   }
 

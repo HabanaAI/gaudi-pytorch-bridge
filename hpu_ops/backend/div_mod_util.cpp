@@ -36,8 +36,6 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
   auto inputs = {syn_numerator, syn_denominator};
   size_t size;
   const auto& params = FillDivModParams(size, pyCompatible);
-  const std::string opStringSuffix =
-      habana_helpers::name_suffix_from_type(result_type);
 
   std::vector<NodeAttr::NodeOutputAttr> node_output_attr = {
       {c10::IntArrayRef(shape_out.data(), shape_out.size()),
@@ -51,7 +49,7 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
   auto output = OpBackend::BuildNode(
       op,
       graph,
-      {"div_mod_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("div_mod_fwd", op->ScalarType()),
        std::move(inputs),
        node_output_attr,
        params.get(),

@@ -32,21 +32,21 @@ void Lerp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // subtraction of start and end
   auto sub = BuildOp(
       graph,
-      "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub", ScalarType()),
       {syn_in(1), syn_in(0)},
       {{{sub_outshape}, ScalarType()}});
 
   // multiplication of weight and sub
   auto mult = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(2), sub[0].get()},
       {{outshape, ScalarType()}});
 
   // addition of start and mult
   auto lerp = BuildOp(
       graph,
-      "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("add", ScalarType()),
       {syn_in(0), mult[0].get()},
       {{outshape, ScalarType(), 0}});
 

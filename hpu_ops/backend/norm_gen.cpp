@@ -75,7 +75,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
     if (n_dims <= 1 || self.sizes()[0] == 1) {
       auto mul = BuildOp(
           graph,
-          MULT_GUID + habana_helpers::name_suffix_from_type(dtype),
+          get_guid_with_precision("mult", dtype),
           {input, input},
           {{outshape, dtype}});
 
@@ -93,7 +93,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
       reduce_params.reductionDimension = 0;
       auto sum = BuildOp(
           graph,
-          "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+          get_guid_with_precision("reduce_sum_fwd", dtype),
           reduction_inputs,
           {{1, dtype}},
           &reduce_params,
@@ -101,7 +101,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
 
       auto sqrt = BuildOp(
           graph,
-          "sqrt_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+          get_guid_with_precision("sqrt_fwd", dtype),
           {sum[0].get()},
           {{1, dtype, 0}});
 
@@ -110,7 +110,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
     } else {
       auto norm = BuildOp(
           graph,
-          "frobenius_norm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+          get_guid_with_precision("frobenius_norm_fwd", dtype),
           {input},
           {{1, dtype, 0}});
 
@@ -132,7 +132,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
     lpnorm_params.eps = 0;
     auto norm = BuildOp(
         graph,
-        "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision("lpnorm_fwd", dtype),
         {input},
         {{reshape_outshape, dtype}, {reshape_outshape, dtype}},
         &lpnorm_params,
@@ -140,7 +140,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
 
     auto reciprocal = BuildOp(
         graph,
-        "reciprocal_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision("reciprocal_fwd", dtype),
         {norm[1].get()},
         {{reshape_outshape, dtype}});
 
@@ -151,7 +151,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
     slice_params.steps[0] = 1;
     auto slice = BuildOp(
         graph,
-        "slice_" + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision("slice", dtype),
         {reciprocal[0].get()},
         {{1, dtype, 0}},
         &slice_params,
@@ -171,7 +171,7 @@ static sh::tensor L0NormPreprocess(
   auto compare = OpBackend::BuildNode(
       op,
       graph,
-      {"equal_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("equal_fwd", dtype),
        {input[0], zero.get()},
        {{inputshape, torch::kBool}}});
 
@@ -193,7 +193,7 @@ static sh::tensor NegPosInfNormPreprocess(
   auto abs = OpBackend::BuildNode(
       op,
       graph,
-      {"abs_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("abs_fwd", dtype),
        std::move(input),
        {{inputshape, dtype}}});
 
@@ -277,11 +277,11 @@ static sh::tensor NormCommon(
   }
 
   std::map<float, vec_norm_inputs> mod_inputs = {
-      {0.0, {"reduce_sum_fwd_", L0NormPreprocess}},
-      {1.0, {"reduce_L1_fwd_"}},
-      {2.0, {"reduce_L2_fwd_"}},
-      {INF, {"reduce_max_fwd_", NegPosInfNormPreprocess}},
-      {-INF, {"reduce_min_fwd_", NegPosInfNormPreprocess}}};
+      {0.0, {"reduce_sum_fwd", L0NormPreprocess}},
+      {1.0, {"reduce_L1_fwd"}},
+      {2.0, {"reduce_L2_fwd"}},
+      {INF, {"reduce_max_fwd", NegPosInfNormPreprocess}},
+      {-INF, {"reduce_min_fwd", NegPosInfNormPreprocess}}};
 
   // Using Lp_fwd if the ord value is not present in the map
   if (mod_inputs.find(norm_ord) == mod_inputs.end()) {
@@ -292,7 +292,7 @@ static sh::tensor NormCommon(
         {input_tensor},
         dim,
         keepdim,
-        "reduce_Lp_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision("reduce_Lp_fwd", dtype),
         output_attr,
         FillPFormNormOpParams,
         ord);
@@ -310,7 +310,7 @@ static sh::tensor NormCommon(
                : input_tensor},
           dim,
           keepdim,
-          inputs.guid + habana_helpers::name_suffix_from_type(dtype),
+          get_guid_with_precision(inputs.guid, dtype),
           output_attr);
       return std::move(norm_itr.at(0));
     }
@@ -323,7 +323,7 @@ static sh::tensor NormCommon(
              : input_tensor},
         dim,
         keepdim,
-        inputs.guid + habana_helpers::name_suffix_from_type(dtype),
+        get_guid_with_precision(inputs.guid, dtype),
         {{output_attr[0].sizes, output_attr[0].dtype}});
 
     // Handle Inf values
@@ -331,7 +331,7 @@ static sh::tensor NormCommon(
     auto isinf_output = OpBackend::BuildNode(
         op,
         graph,
-        {"isinf_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {get_guid_with_precision("isinf_fwd", dtype),
          {input_tensor},
          {{self_shape, torch::kInt8}},
          &params,
@@ -353,7 +353,7 @@ static sh::tensor NormCommon(
         {isinf_casted.get()},
         dim,
         keepdim,
-        inputs.guid + "i32",
+        inputs.guid + "_i32",
         {{output_attr[0].sizes, torch::kInt32}});
 
     auto isinf_condition = OpBackend::BuildCast(
@@ -370,7 +370,7 @@ static sh::tensor NormCommon(
     auto intermediate = OpBackend::BuildNode(
         op,
         graph,
-        {"where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {get_guid_with_precision("where_fwd", dtype),
          {isinf_condition.get(), const_inf.get(), norm_itr.at(0).get()},
          {{output_attr[0].sizes, dtype}}});
 
@@ -378,7 +378,7 @@ static sh::tensor NormCommon(
     auto isnan_output = OpBackend::BuildNode(
         op,
         graph,
-        {"isnan_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {get_guid_with_precision("isnan_fwd", dtype),
          {input_tensor},
          {{self_shape, torch::kInt8}}});
 
@@ -414,7 +414,7 @@ static sh::tensor NormCommon(
     auto out = OpBackend::BuildNode(
         op,
         graph,
-        {"where_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+        {get_guid_with_precision("where_fwd", dtype),
          {isnan_condition.get(), const_nan.get(), intermediate.at(0).get()},
          {{output_attr[0].sizes, dtype, 0}}});
 
@@ -888,16 +888,14 @@ void WeightNormOp::AddNode(
   auto reshapeOp =
       ReshapeHelper(graph, normOp[0].get(), g_in.sizes(), ScalarType(), 1);
 
-  const std::string opStringSuffix =
-      "_fwd_" + habana_helpers::name_suffix_from_type(ScalarType());
   auto divOp = BuildOp(
       graph,
-      "div" + opStringSuffix,
+      get_guid_with_precision("div_fwd", ScalarType()),
       {syn_in(1), reshapeOp.get()},
       {{g_in.sizes(), ScalarType()}});
   auto mulOp = BuildOp(
       graph,
-      "mult" + opStringSuffix,
+      get_guid_with_precision("mult_fwd", ScalarType()),
       {syn_in(0), divOp.at(0).get()},
       {{v_in.sizes(), ScalarType(), 0}});
 
@@ -982,7 +980,7 @@ void WeightNormBwdOp::AddNode(
     auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
     auto mulOp11 = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outsize_mulOp11, ScalarType()}});
 
@@ -1006,7 +1004,7 @@ void WeightNormBwdOp::AddNode(
     reduce_params.reductionDimension = reductionDimension;
     per_dim_sums = BuildOp(
         graph,
-        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("reduce_sum_fwd", ScalarType()),
         {reshapeOp12.get()},
         {{bcast_size, ScalarType()}},
         &reduce_params,
@@ -1016,7 +1014,7 @@ void WeightNormBwdOp::AddNode(
     auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
     auto mulOp11 = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outsize_mulOp11, ScalarType()}});
 
@@ -1038,7 +1036,7 @@ void WeightNormBwdOp::AddNode(
 
     per_dim_sums = BuildOp(
         graph,
-        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("reduce_sum_fwd", ScalarType()),
         {reshapeOp12.get()},
         {{bcast_size, ScalarType()}},
         &reduce_params,
@@ -1049,63 +1047,63 @@ void WeightNormBwdOp::AddNode(
   if (saved_norms.scalar_type() != saved_g.scalar_type()) {
     divOp21 = BuildOp(
         graph,
-        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("div_fwd", ScalarType()),
         {syn_in(2), norms_cast[0].get()},
         {{outsize_divOp21, ScalarType()}});
 
     mulOp22 = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {norms_cast[0].get(), norms_cast[0].get()},
         {{saved_norms.sizes(), ScalarType()}});
   } else {
     divOp21 = BuildOp(
         graph,
-        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("div_fwd", ScalarType()),
         {syn_in(2), syn_in(3)},
         {{saved_g.sizes(), ScalarType()}});
     mulOp22 = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {syn_in(3), syn_in(3)},
         {{saved_norms.sizes(), ScalarType()}});
   }
   divOp23 = BuildOp(
       graph,
-      "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("div_fwd", ScalarType()),
       {per_dim_sums[0].get(), mulOp22[0].get()},
       {{bcast_size, ScalarType()}});
 
   auto outsize_mulOp24 = at::infer_size(saved_v.sizes(), bcast_size);
   mulOp24 = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult_fwd", ScalarType()),
       {syn_in(1), divOp23[0].get()},
       {{saved_v.sizes(), ScalarType()}});
 
   auto outsize_subOp25 = at::infer_size(grad_w.sizes(), saved_v.sizes());
   subOp25 = BuildOp(
       graph,
-      "sub_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub_fwd", ScalarType()),
       {syn_in(0), mulOp24[0].get()},
       {{outsize_subOp25, ScalarType()}});
 
   auto outsize_grad_v = at::infer_size(saved_g.sizes(), outsize_subOp25);
   grad_v = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult_fwd", ScalarType()),
       {divOp21[0].get(), subOp25[0].get()},
       {{outsize_grad_v, ScalarType(), 0}});
   if (saved_norms.scalar_type() != saved_g.scalar_type()) {
     grad_g = BuildOp(
         graph,
-        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("div_fwd", ScalarType()),
         {per_dim_sums[0].get(), norms_cast[0].get()},
         {{bcast_size, ScalarType(), 1}});
   } else {
     grad_g = BuildOp(
         graph,
-        "div_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("div_fwd", ScalarType()),
         {per_dim_sums[0].get(), syn_in(3)},
         {{bcast_size, ScalarType(), 1}});
   }

@@ -17,11 +17,8 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   // If input is of integral dtype then copy it into output
   if (c10::isIntegralType(ScalarType(), true)) {
-    auto copy = BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0)},
-        {{outshape, ScalarType(), 0}});
+    auto copy =
+        BuildOp(graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(copy[0]);
   } else {
     auto nan_constant = stack.at(1).isNone() ? 0.0 : stack.at(1).toDouble();
@@ -61,7 +58,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto nan_mask = BuildOp(
         graph,
-        "isnan_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("isnan_fwd", ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}});
 
@@ -70,7 +67,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto posinf_mask = BuildOp(
         graph,
-        "isinf_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("isinf_fwd", ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}},
         &params_pos,
@@ -81,7 +78,7 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto neginf_mask = BuildOp(
         graph,
-        "isinf_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("isinf_fwd", ScalarType()),
         {syn_in(0)},
         {{outshape, result_type}},
         &params_neg,
@@ -89,19 +86,19 @@ void NantoNum::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto where_nan = BuildOp(
         graph,
-        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("where_fwd", ScalarType()),
         {nan_mask[0].get(), const_nan.get(), syn_in(0)},
         {{outshape, ScalarType()}});
 
     auto where_pos = BuildOp(
         graph,
-        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("where_fwd", ScalarType()),
         {posinf_mask[0].get(), const_posinf.get(), where_nan[0].get()},
         {{outshape, ScalarType()}});
 
     auto where_neg = BuildOp(
         graph,
-        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("where_fwd", ScalarType()),
         {neginf_mask[0].get(), const_neginf.get(), where_pos[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(where_neg[0]);

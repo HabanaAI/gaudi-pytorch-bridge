@@ -17,8 +17,7 @@ class EmbeddingBagSumOperator : public HabanaOperator {
  public:
   EmbeddingBagSumOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "embedding_bag_sum_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("embedding_bag_sum_2d_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY,
@@ -40,8 +39,8 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
  public:
   EmbeddingBagSumForwardOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "embedding_bag_sum_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("embedding_bag_sum_2d_fwd", scalarType)),
+        input_idx(0) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY,
@@ -52,7 +51,7 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
          LayoutFormat::ANY,
          LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    input_idx = 0;
+
     for (auto idx = 0; idx < 4; idx++) {
       valid_input_idx.insert(idx);
     }
@@ -89,9 +88,10 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
 class EmbeddingBagSumBackwardOperator : public HabanaOperator {
  public:
   EmbeddingBagSumBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "embedding_bag_sum_small_lengths_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            "embedding_bag_sum_small_lengths_2d_fwd",
+            scalarType)),
+        input_idx(0) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({
         LayoutFormat::ANY,
@@ -100,7 +100,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
         LayoutFormat::ANY,
     });
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    input_idx = 0;
+
     valid_input_idx.insert(1);
     valid_input_idx.insert(2);
     valid_input_idx.insert(3);
@@ -137,8 +137,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
 class PadOperator : public HabanaOperator {
  public:
   PadOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "pad_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("pad_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -177,9 +176,9 @@ class EmbeddingBagSumBwdKernelModeOperator : public HabanaOperator {
   EmbeddingBagSumBwdKernelModeOperator(
       int device_id,
       c10::ScalarType scalarType)
-      : HabanaOperator(
-            "embedding_bag_sum_mid_lengths_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision(
+            "embedding_bag_sum_mid_lengths_2d_fwd",
+            scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY,

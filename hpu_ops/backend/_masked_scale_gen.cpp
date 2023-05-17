@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 
-#include <type_traits>
 #include "generated/backend/_masked_scale.h"
 
 namespace habana {
@@ -30,7 +29,7 @@ void MaskedScale::AddNode(
 
   auto mult = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult_fwd", ScalarType()),
       {syn_in(0), syn_in(1)},
       {{outshape, ScalarType()}});
 
@@ -38,7 +37,7 @@ void MaskedScale::AddNode(
 
   auto output = BuildOp(
       graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult_fwd", ScalarType()),
       {mult[0].get(), scale_tensor.get()},
       {{outshape, ScalarType(), 0}});
 

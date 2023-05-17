@@ -48,7 +48,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto range = BuildOp(
       graph,
-      "range_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("range", ScalarType()),
       {},
       {{outshape, ScalarType()}},
       params.get(),
@@ -58,7 +58,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto pow = BuildOp(
       graph,
-      "pow_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("pow_fwd", ScalarType()),
       {constant.get(), range[0].get()},
       {{outshape, ScalarType(), 0}});
 

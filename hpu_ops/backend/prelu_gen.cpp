@@ -29,7 +29,7 @@ void Prelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       ReshapeHelper(graph, syn_in(1), reshape_shape, self.scalar_type());
   auto prelu = BuildOp(
       graph,
-      "prelu_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("prelu_fwd", ScalarType()),
       {syn_in(0), reshape.get()},
       {{self.sizes(), self.scalar_type(), 0}});
   syn_out(0) = std::move(prelu[0]);

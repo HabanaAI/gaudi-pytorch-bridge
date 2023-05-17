@@ -69,15 +69,13 @@ void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto params = FillDiagParams(stack, size);
   std::string guid;
   if (self.dim() == 1) {
-    guid = "matrix_diagonal_fwd_" +
-        habana_helpers::name_suffix_from_type(ScalarType());
+    guid = "matrix_diagonal_fwd";
   } else {
-    guid = "matrix_diag_part_fwd_" +
-        habana_helpers::name_suffix_from_type(ScalarType());
+    guid = "matrix_diag_part_fwd";
   }
   auto result = BuildOp(
       graph,
-      guid,
+      get_guid_with_precision(guid, ScalarType()),
       {syn_in(0)},
       {{out_shape, ScalarType(), 0}},
       params.get(),

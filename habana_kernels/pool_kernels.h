@@ -19,9 +19,7 @@ namespace habana {
 class MaxPool2dOperator : public HabanaOperator {
  public:
   MaxPool2dOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "maxpool_2d_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("maxpool_2d_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.synapse_input_layout.assign(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});

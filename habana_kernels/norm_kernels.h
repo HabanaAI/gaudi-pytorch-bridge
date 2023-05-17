@@ -35,9 +35,7 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
  public:
   // Used in training mode
   BatchNormForwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("batch_norm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -103,9 +101,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormBackwardOperator node_type differs for training and eval
   BatchNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("batch_norm_bwd", scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -186,9 +182,7 @@ class BatchNormInfOperator : public habana::HabanaOperator {
  public:
   // Used in eval mode
   BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "batch_norm_inf_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("batch_norm_inf", scalarType)) {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     // assign layouts for input and output tensors
@@ -222,9 +216,7 @@ class BatchNormInfOperator : public habana::HabanaOperator {
 class LayerNormOperator : public habana::HabanaOperator {
  public:
   LayerNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "layer_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("layer_norm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     // assign layouts for input and output tensors
     kernel_meta_data_.input_layout.assign(
@@ -284,9 +276,7 @@ class LayerNormOperator : public habana::HabanaOperator {
 class LayerNormBackwardOperator : public habana::HabanaOperator {
  public:
   LayerNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "layer_norm_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("layer_norm_bwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -307,8 +297,7 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
 class NormOperator : public HabanaOperator {
  public:
   NormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "norm_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("norm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -340,8 +329,7 @@ class NormOperator : public HabanaOperator {
 class LpNormOperator : public HabanaOperator {
  public:
   LpNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("lpnorm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
@@ -359,8 +347,7 @@ class LpNormFrobeniusOperator : public HabanaOperator {
  public:
   LpNormFrobeniusOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "frobenius_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("frobenius_norm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -376,8 +363,7 @@ class LpNormFrobeniusOperator : public HabanaOperator {
 class FusedNormOperator : public HabanaOperator {
  public:
   FusedNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "fused_norm_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("fused_norm", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -419,8 +405,7 @@ class InstanceNormOperator : public habana::HabanaOperator {
   // Used in training mode
   InstanceNormOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "instance_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("instance_norm_fwd", scalarType)) {
     this->CreateSynContext(device_id);
 
     // assign layouts for input and output tensors
@@ -449,8 +434,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
   // Used in training mode
   InstanceNormBackwardOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "instance_norm_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("instance_norm_bwd", scalarType)) {
     this->CreateSynContext(device_id);
 
     // assign layouts for input and output tensors
@@ -479,9 +463,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
 class GroupNormForwardOperator : public habana::HabanaOperator {
  public:
   GroupNormForwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "layer_norm_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("layer_norm_fwd", scalarType)) {
     this->CreateSynContext(device_id); // GroupNorm using LayerNorm
     // assign layouts for input and output tensors
     kernel_meta_data_.input_layout.assign(
@@ -521,9 +503,7 @@ class GroupNormForwardOperator : public habana::HabanaOperator {
 class GroupNormBackwardOperator : public habana::HabanaOperator {
  public:
   GroupNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "layer_norm_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("layer_norm_bwd", scalarType)) {
     this->CreateSynContext(device_id); // GroupNorm using LayerNorm
     // assign layouts for input and output tensors
     kernel_meta_data_.input_layout.assign(

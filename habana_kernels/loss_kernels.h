@@ -17,8 +17,7 @@ namespace habana {
 class KlDivOperator : public HabanaOperator {
  public:
   KlDivOperator(const int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "kl_div_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("kl_div", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -41,9 +40,7 @@ class KlDivOperator : public HabanaOperator {
 class KlDivBwdOperator : public HabanaOperator {
  public:
   KlDivBwdOperator(const int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "kl_div_backward_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("kl_div_backward", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

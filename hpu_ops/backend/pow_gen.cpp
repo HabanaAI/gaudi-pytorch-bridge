@@ -20,7 +20,7 @@ void PowOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (other.toFloat() == 2.) {
     auto result = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {syn_in(0), syn_in(0)},
         {{outshape, ScalarType(), 0}});
 
@@ -28,12 +28,12 @@ void PowOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else if (other.toFloat() == 3.) {
     auto temp = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {syn_in(0), syn_in(0)},
         {{outshape, ScalarType()}});
     auto result = BuildOp(
         graph,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult_fwd", ScalarType()),
         {temp[0].get(), syn_in(0)},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(result[0]);

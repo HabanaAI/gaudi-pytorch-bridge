@@ -98,16 +98,15 @@ void OptimizerFusedLarsOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string dtype_suffix =
-      habana_helpers::name_suffix_from_type(ScalarType());
-
-  std::string add_node = "add_fwd_" + dtype_suffix;
-  std::string mul_node = "mult_fwd_" + dtype_suffix;
-  std::string div_node = "div_fwd_" + dtype_suffix;
-  std::string reduce_sum_sq_node = "reduce_sum_square_fwd_" + dtype_suffix;
-  std::string sqrt_node = "sqrt_fwd_" + dtype_suffix;
-  std::string greater_node = "greater_fwd_" + dtype_suffix;
-  std::string where_node = "where_fwd_" + dtype_suffix;
+  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
+  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
+  std::string div_node = get_guid_with_precision("div_fwd", ScalarType());
+  std::string reduce_sum_sq_node =
+      get_guid_with_precision("reduce_sum_square_fwd", ScalarType());
+  std::string sqrt_node = get_guid_with_precision("sqrt_fwd", ScalarType());
+  std::string greater_node =
+      get_guid_with_precision("greater_fwd", ScalarType());
+  std::string where_node = get_guid_with_precision("where_fwd", ScalarType());
 
   double constant_values[] = {lr, eeta, weight_decay, eps, 0.0, 1.0};
   std::array<synTensor, std::size(constant_values)> constant_ts{};

@@ -22,7 +22,7 @@ static auto BuildErfc(
   auto erf = OpBackend::BuildNode(
       op,
       graph,
-      {"erf_fwd_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("erf_fwd", dtype),
        {input},
        {{outshape, dtype}}});
 
@@ -31,7 +31,7 @@ static auto BuildErfc(
   return OpBackend::BuildNode(
       op,
       graph,
-      {"sub_" + habana_helpers::name_suffix_from_type(dtype),
+      {get_guid_with_precision("sub", dtype),
        {constant.get(), erf[0].get()},
        {{outshape, dtype, out_index}}});
 }

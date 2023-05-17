@@ -27,10 +27,13 @@ namespace sh = synapse_helpers;
 namespace {
 auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
   static const std::string prefix = "cast_";
-  const auto srcStr = habana_helpers::name_suffix_from_type(
-      src, habana_helpers::isLongTypeSupported(prefix));
-  const auto dstStr = habana_helpers::name_suffix_from_type(
-      dst, habana_helpers::isLongTypeSupported(prefix));
+  auto get_prec_str = [](const c10::ScalarType& dtype) {
+    return absl::get<std::string>(synapse_helpers::graph::name_suffix_from_type(
+        habana_helpers::pytorch_to_synapse_type(dtype),
+        habana_helpers::isLongTypeSupported(prefix)));
+  };
+  const auto srcStr = get_prec_str(src);
+  const auto dstStr = get_prec_str(dst);
   const auto guid = prefix + srcStr + "_to_" + dstStr;
   HABANA_ASSERT(
       srcStr != dstStr, guid, " cannot be used, from=", src, " to=", dst);
@@ -66,11 +69,10 @@ OpBackend::OpBackend(
     std::vector<int> inplace_ids,
     std::vector<int> scalar_ids,
     bool is_outfn)
-    : HabanaOperator(
-          guid +
-          habana_helpers::name_suffix_from_type(
-              scalar_type,
-              habana_helpers::isLongTypeSupported(guid))),
+    : HabanaOperator(get_guid_with_precision(
+          guid,
+          scalar_type,
+          habana_helpers::isLongTypeSupported(guid))),
       m_res_ids{std::move(res_ids)},
       m_inplace_ids{std::move(inplace_ids)},
       m_scalar_ids{std::move(scalar_ids)},
@@ -337,9 +339,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
   }
 
   // Update the guid to reflect the promoted type
-  SetGuid(
-      guid_.substr(0, guid_.find_last_of('_') + 1) +
-      habana_helpers::name_suffix_from_type(m_scalar_type));
+  update_guid_dtype(guid_, m_scalar_type);
 }
 
 std::vector<sh::tensor> OpBackend::BuildOp(
@@ -762,7 +762,7 @@ sh::tensor OpBackend::BuildCast(
     auto eq = OpBackend::BuildNode(
         op,
         graph,
-        {"equal_fwd_" + habana_helpers::name_suffix_from_type(from),
+        {get_guid_with_precision("equal_fwd", from),
          {syn_in, zero_tensor.get()},
          {{sizes, c10::ScalarType::Bool}}});
 
@@ -870,7 +870,7 @@ sh::tensor OpBackend::BuildConstant(
   auto constant = BuildNode(
       op,
       graph,
-      {"constant_" + habana_helpers::name_suffix_from_type(valtype),
+      {get_guid_with_precision("constant", valtype),
        input,
        {{constant_outshape, valtype, final_result_index}},
        &params,
@@ -903,11 +903,7 @@ sh::tensor OpBackend::BuildBroadcast(
   op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
 
   auto broadcast = BuildNode(
-      op,
-      graph,
-      {"broadcast_" + habana_helpers::name_suffix_from_type(dtype),
-       inputs,
-       {{sizes, dtype, final_result_index}}});
+      op, graph, {"broadcast", inputs, {{sizes, dtype, final_result_index}}});
   return std::move(broadcast.at(0));
 }
 
@@ -1023,7 +1019,7 @@ std::vector<sh::tensor> OpBackend::BuildNonZero(
       " rank was given");
 
   const std::string guid =
-      "non_zero_fwd_" + habana_helpers::name_suffix_from_type(inScalarType);
+      get_guid_with_precision("non_zero_fwd", inScalarType);
 
   return op->BuildOp(
       graph,
@@ -1068,8 +1064,8 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
         "ScatterND ValidCount tensor must have rank 1");
   }
 
-  const std::string guid = "scatter_nd_onnx_fwd_" +
-      habana_helpers::name_suffix_from_type(inScalarType);
+  const std::string guid =
+      get_guid_with_precision("scatter_nd_onnx_fwd", inScalarType);
 
   return std::move(op->BuildOp(
                          graph,

@@ -84,7 +84,7 @@ static std::vector<synapse_helpers::tensor> ComputeBetaSide(
   std::vector<synapse_helpers::tensor> beta_side_out = OpBackend::BuildNode(
       op,
       graph,
-      {MULT_GUID + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("mult", op->ScalarType()),
        std::move(node_inputs),
        {{output_shape, op->ScalarType(), final_idx}}});
 
@@ -122,8 +122,7 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
     auto reduce_out = OpBackend::BuildNode(
         op,
         graph,
-        {"reduce_sum_fwd_" +
-             habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("reduce_sum_fwd", op->ScalarType()),
          std::move(reduce_node_inputs),
          {{{1, gemm_output_shape.at(1), gemm_output_shape.at(2)},
            op->ScalarType()}},
@@ -174,7 +173,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
     std::vector<synapse_helpers::tensor> alpha_mul_out = OpBackend::BuildNode(
         op,
         graph,
-        {MULT_GUID + habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("mult", op->ScalarType()),
          std::move(mul_node_inputs),
          {{output_shape, op->ScalarType(), final_idx}}});
     return alpha_mul_out;
@@ -226,7 +225,7 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
     addmm_out = OpBackend::BuildNode(
         op,
         graph,
-        {"add_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("add", op->ScalarType()),
          std::move(add_node_inputs),
          {{output_shape, op->ScalarType(), 0}}});
   }

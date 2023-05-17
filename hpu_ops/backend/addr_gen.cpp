@@ -63,7 +63,7 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto addr_unsqueezed = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {vecmul[0].get(), alpha.get()},
       {{vecmul_outshape, ScalarType()}});
 
@@ -88,13 +88,13 @@ void AddR::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
       self_reshaped = BuildOp(
           graph,
-          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+          get_guid_with_precision("mult", ScalarType()),
           {self_reshaped[0].get(), beta.get()},
           {{vecmul_outshape, ScalarType()}});
     }
     addr_unsqueezed = BuildOp(
         graph,
-        "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("add", ScalarType()),
         {self_reshaped[0].get(), addr_unsqueezed[0].get()},
         {{vecmul_outshape, ScalarType()}});
   }

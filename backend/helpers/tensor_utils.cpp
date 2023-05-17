@@ -279,19 +279,6 @@ void habana_helpers::copy_scalars_to_device(
   }
 }
 
-std::string habana_helpers::name_suffix_from_type(
-    const c10::ScalarType pt_type,
-    bool use_int64) {
-  auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
-      pytorch_to_synapse_type(pt_type), use_int64);
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
-          string_or_error)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(string_or_error);
-    TORCH_HABANA_CHECK(error.status, error.error);
-  }
-  return absl::get<std::string>(string_or_error);
-}
-
 std::vector<void*> habana_helpers::extract_data_ptrs(
     const std::vector<const at::Tensor*>& vec) {
   std::vector<void*> ptrs;

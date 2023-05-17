@@ -59,7 +59,7 @@ void LinspaceOut::AddNode(
 
     auto range = BuildOp(
         graph,
-        "range_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("range", ScalarType()),
         {},
         {{outshape, ScalarType(), 0}},
         params.get(),

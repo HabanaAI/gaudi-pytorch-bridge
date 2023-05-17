@@ -46,8 +46,7 @@ void ExponentialSeedTensorInput::AddNode(
 
   auto exponential = BuildOp(
       graph,
-      "random_exponential_fwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("random_exponential_fwd", ScalarType()),
       inputs,
       {{outshape, ScalarType(), 0}},
       params.get(),

@@ -72,9 +72,7 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
   if (synapse_helpers::HPURegistrar::get_device().type() ==
       synDeviceType::synDeviceGreco) {
-    SetGuid(
-        "batch_norm_" +
-        habana_helpers::name_suffix_from_type(input.scalar_type()));
+    SetGuid(get_guid_with_precision("batch_norm", input.scalar_type()));
     // Ignore mean and var
     const auto& end = p_context_->syn_inputs_.end();
     p_context_->syn_inputs_.erase(end - 2, end);
@@ -710,8 +708,7 @@ void NormOperator::AddL0NormNode(
   stack.emplace_back(IValue(0.0));
   ne_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
-  std::string node_type =
-      "cast_i8_to_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::string node_type = get_guid_with_precision("cast_i8_to", scalar_type);
   auto cast1 = make_operator<CastOperator>(device_id, node_type);
   cast1->SetSynapseInput(ne_op->GetSynOutputs()[0]);
   stack.emplace_back(IValue(ne_op->GetOutputs()[0]));
@@ -1299,8 +1296,8 @@ void InstanceNormOperator::AllocateAndAddSynapseNode(
        synapse_helpers::layouts::SynapseLayoutFormat::CN,
        synapse_helpers::layouts::SynapseLayoutFormat::CN});
 
-  std::string guid = "instance_norm_fwd_" +
-      habana_helpers::name_suffix_from_type(input.scalar_type());
+  std::string guid =
+      get_guid_with_precision("instance_norm_fwd", input.scalar_type());
   SetGuid(guid);
 
   auto beta = in_stack[1].toTensor();
@@ -1406,8 +1403,8 @@ void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
        synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
        synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
 
-  std::string guid = "instance_norm_bwd_" +
-      habana_helpers::name_suffix_from_type(input.scalar_type());
+  std::string guid =
+      get_guid_with_precision("instance_norm_bwd", input.scalar_type());
   SetGuid(guid);
 
   auto output = habana::createPTTensor(input, output_metadata.at(0).persistent);

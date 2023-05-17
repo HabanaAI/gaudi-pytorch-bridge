@@ -44,7 +44,7 @@ void AddCOpBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (!stack.at(val_idx).isNone()) {
     mul = BuildOp( // other1 * value
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {syn_in(oth1_idx), syn_in(val_idx)},
         {{other1.sizes(), ScalarType()}});
     // variable_op_inputs = {other1 * value, other2}
@@ -62,7 +62,7 @@ void AddCOpBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto add_op = BuildOp(
       graph,
-      "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("add", ScalarType()),
       add_op_inputs,
       {{outshape, ScalarType(), 0}});
 

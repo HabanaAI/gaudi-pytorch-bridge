@@ -22,9 +22,8 @@ class BinaryInplaceOperator : public habana::HabanaOperator {
       int device_id,
       const std::string& guid,
       c10::ScalarType scalarType)
-      : HabanaOperator(guid) {
+      : HabanaOperator(guid), scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
   virtual OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
@@ -60,7 +59,7 @@ class MulInplaceOperator : public BinaryInplaceWrapperOperator {
   MulInplaceOperator(int device_id, c10::ScalarType scalarType)
       : BinaryInplaceWrapperOperator(
             device_id,
-            MULT_GUID + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("mult", scalarType)) {
     scalarType_ = scalarType;
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
@@ -102,7 +101,7 @@ class AddInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
   AddInplaceOperator(int device_id, c10::ScalarType scalarType)
       : BinaryInplaceWrapperOperatorWithAlpha(
             device_id,
-            "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("add_fwd", scalarType)) {
     scalarType_ = scalarType;
   }
 };

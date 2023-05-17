@@ -344,11 +344,13 @@ synapse_error_o graph::add_node(
       &nodeId,
       input_layouts,
       output_layouts);
-  if (status != synStatus::synSuccess) {
-    PT_SYNHELPER_WARN(
-        Logger::formatStatusMsg(status), "Node " + node_type + " add failed.");
-    PT_SYNHELPER_FATAL(Logger::formatStatusMsg(status), "node add failed");
-  }
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "synNodeCreateWithId failed for node: ",
+      node_type,
+      " with ",
+      Logger::formatStatusMsg(status),
+      ".");
 
   graph_is_empty_ = false;
   op_to_node_container_pt_["jit_node"].emplace_back(nodeId);

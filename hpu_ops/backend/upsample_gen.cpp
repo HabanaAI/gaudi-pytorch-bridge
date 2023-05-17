@@ -640,8 +640,7 @@ static std::vector<synapse_helpers::tensor> Resize(
     dtype = c10::ScalarType::Float;
   }
   auto guid = op->GetGuid();
-  guid = guid.substr(0, guid.find_last_of('_') + 1) +
-      habana_helpers::name_suffix_from_type(dtype);
+  update_guid_dtype(guid, dtype);
 
   return OpBackend::BuildNode(
       op,
@@ -994,8 +993,7 @@ void UpSampleNearest2DOperator::AddNode(
   std::vector<synTensor> input{syn_in(0)};
   std::unique_ptr<synapse_helpers::tensor> cast;
   c10::optional<int> final_index = 0;
-  this->CreateShapeTensorInput(
-      graph, ScalarType(), outshape, input, SHAPE_TENSOR);
+  CreateShapeTensorInput(graph, ScalarType(), outshape, input, SHAPE_TENSOR);
   if (self.scalar_type() == c10::ScalarType::Byte) {
     // u8 to f32
     cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
@@ -1005,7 +1003,7 @@ void UpSampleNearest2DOperator::AddNode(
         c10::ScalarType::Byte,
         c10::ScalarType::Float));
     input = {cast->get()};
-    this->SetScalarType(c10::ScalarType::Float);
+    SetScalarType(c10::ScalarType::Float);
     final_index = c10::nullopt;
   }
 

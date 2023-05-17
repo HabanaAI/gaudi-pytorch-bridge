@@ -29,7 +29,7 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (self_size == other_size) {
     auto eq = BuildOp(
         graph,
-        "equal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("equal_fwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{self_size, result_type}});
 

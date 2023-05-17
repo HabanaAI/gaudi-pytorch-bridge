@@ -76,8 +76,6 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
 
     // Computation is always done in float or bfloat16
     at::ScalarType computation_type = GetCommonDtype(stack, !isNotNone);
-    const std::string opStringSuffix =
-        "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 
     // Initialization
     const unsigned cNoOfInputs = 2;
@@ -110,12 +108,10 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     bool bNeedToCastFinalResult = (final_result_type != computation_type);
 
     auto guid = op->GetGuid();
-    guid = guid.substr(0, guid.find_last_of('_') + 1) +
-        habana_helpers::name_suffix_from_type(computation_type);
     divOp = OpBackend::BuildNode(
         op,
         graph,
-        {guid,
+        {update_guid_dtype(guid, computation_type),
          binaryop_inputs,
          {{shape_out,
            computation_type,
@@ -131,7 +127,7 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     makeIntegerOp = OpBackend::BuildNode(
         op,
         graph,
-        {std::string(*rounding_mode) + opStringSuffix,
+        {get_guid_with_precision(std::string(*rounding_mode), computation_type),
          {divOp.at(0).get()},
          {{shape_out,
            computation_type,

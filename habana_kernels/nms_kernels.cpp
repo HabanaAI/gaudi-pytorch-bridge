@@ -432,14 +432,14 @@ static auto& NMSKernelsKernelRegistry =
         .add(
             "hpu::habana_nms",
             [](int device_id, c10::ScalarType scalar_type) {
-              std::string node_type = "habana_nms_" +
-                  habana_helpers::name_suffix_from_type(scalar_type);
+              std::string node_type =
+                  get_guid_with_precision("habana_nms", scalar_type);
               return std::make_shared<HabanaNMSOperator>(device_id, node_type);
             })
         .add(
             "hpu::batched_nms",
             [](int device_id, c10::ScalarType scalar_type) {
-              std::string node_type = "batched_nms_fwd_" +
-                  habana_helpers::name_suffix_from_type(scalar_type);
+              std::string node_type =
+                  get_guid_with_precision("batched_nms_fwd", scalar_type);
               return std::make_shared<BatchedNMSOperator>(device_id, node_type);
             });

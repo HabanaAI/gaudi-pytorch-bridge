@@ -50,11 +50,9 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string dtype_suffix =
-      habana_helpers::name_suffix_from_type(ScalarType());
-  std::string add_node = "add_fwd_" + dtype_suffix;
-  std::string sub_node = "sub_fwd_" + dtype_suffix;
-  std::string mul_node = "mult_fwd_" + dtype_suffix;
+  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
+  std::string sub_node = get_guid_with_precision("sub_fwd", ScalarType());
+  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
 
   int64_t scalar_shape[] = {1};
   auto momentum_t = ConstantHelper(

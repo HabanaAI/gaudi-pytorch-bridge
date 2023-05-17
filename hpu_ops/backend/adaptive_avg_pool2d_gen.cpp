@@ -71,8 +71,7 @@ void AdaptiveAvgPool2dBwd::AddNode(
   this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, grad);
   auto adaptive_avg_pool = BuildOp(
       graph,
-      "adaptive_avg_pool_2d_bwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("adaptive_avg_pool_2d_bwd", ScalarType()),
       grad,
       {{outshape, ScalarType(), 0}},
       params.get(),

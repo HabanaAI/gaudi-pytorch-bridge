@@ -134,9 +134,7 @@ OutputShapeInfRetType NonZeroOperator::ComputeOutputShape(
     return out;
 
   } else {
-    SetGuid(
-        "non_zero_v2_fwd_" +
-        habana_helpers::name_suffix_from_type(self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
     OutputShapeInfRetType out;
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in
@@ -226,9 +224,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
         graph.is_dynamic_graph() ? true : false);
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
-    SetGuid(
-        "non_zero_v2_fwd_" +
-        habana_helpers::name_suffix_from_type(self.scalar_type()));
+    SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
 
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in

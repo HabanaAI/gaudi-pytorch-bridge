@@ -399,7 +399,7 @@ void ConvBackwardOperator::ComputeBiasGrad3d(
 
     at::ScalarType scalar_type = grad_out_nhwc.scalar_type();
     std::string node_type =
-        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+        "reduce_sum_fwd_" + get_guid_with_precision(, scalar_type);
 
     // Create the operator
     auto SumOp = make_operator<SumDimOutOperator>(
@@ -458,7 +458,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
 
     at::ScalarType scalar_type = grad_out_nhwc.scalar_type();
     std::string node_type =
-        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+        get_guid_with_precision("reduce_sum_fwd", scalar_type);
 
     // Create the operator
     auto SumOp = make_operator<SumDimOutOperator>(

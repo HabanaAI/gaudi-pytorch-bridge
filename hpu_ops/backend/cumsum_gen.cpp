@@ -11,8 +11,6 @@
  *******************************************************************************
  */
 
-#include <utility>
-
 #include "generated/backend/cumprod.h"
 #include "generated/backend/cumsum.h"
 
@@ -55,16 +53,10 @@ void CumsumHabanaOperator::AddNode(
 
   size_t size = 0;
   const auto& params = FillCumsumParams(stack, size);
-  const std::string& guid = guid_.substr(0, guid_.find_last_of('_') + 1);
-  const std::string& cast_to = habana_helpers::name_suffix_from_type(dtype);
+  update_guid_dtype(guid_, dtype);
 
   auto op = BuildOp(
-      graph,
-      guid + cast_to,
-      {cast.get()},
-      {{outshape, dtype, 0}},
-      params.get(),
-      size);
+      graph, guid_, {cast.get()}, {{outshape, dtype, 0}}, params.get(), size);
   syn_out(0) = std::move(op.at(0));
 }
 

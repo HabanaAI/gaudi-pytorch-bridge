@@ -31,8 +31,7 @@ void Rrelu_with_noise::AddNode(
     // uniform random tensor
     auto uniform_random = BuildOp(
         graph,
-        "random_uniform_fwd_" +
-            habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("random_uniform_fwd", ScalarType()),
         {},
         {{outshape, ScalarType()}},
         params.get(),
@@ -42,19 +41,19 @@ void Rrelu_with_noise::AddNode(
     // cond: condition tensor
     auto cond = BuildOp(
         graph,
-        "less_equal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("less_equal_fwd", ScalarType()),
         {syn_in(0), zeros.get()},
         {{outshape, c10::ScalarType::Bool}});
     // noise: noise tensor
     auto noise = BuildOp(
         graph,
-        "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("where_fwd", ScalarType()),
         {cond[0].get(), uniform_random[0].get(), ones.get()},
         {{outshape, ScalarType()}});
     // output
     auto output = BuildOp(
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
@@ -64,7 +63,7 @@ void Rrelu_with_noise::AddNode(
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("leakyrelu_fwd", ScalarType()),
         {syn_in(0)},
         {{outshape, ScalarType(), 0}},
         params.get(),
@@ -84,7 +83,7 @@ void Rrelu_with_noise_bwd::AddNode(
     // grad_out * noise
     auto output = BuildOp(
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {syn_in(0), syn_in(2)},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
@@ -95,7 +94,7 @@ void Rrelu_with_noise_bwd::AddNode(
     params->alpha = negative_slope;
     auto output = BuildOp(
         graph,
-        "leakyrelu_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("leakyrelu_bwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}},
         params.get(),

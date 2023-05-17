@@ -11,7 +11,7 @@
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 
-#define guidReducesum "reduce_sum_fwd_"
+#define guidReducesum "reduce_sum_fwd"
 
 namespace habana {
 
@@ -49,13 +49,12 @@ void NansumList::AddNode(
 
   auto new_shape = NanSumIntListOutputShape(stack)[0];
 
-  auto guid =
-      guidReducesum + habana_helpers::name_suffix_from_type(ScalarType());
+  auto guid = get_guid_with_precision(guidReducesum, ScalarType());
 
   // isNan on input
   auto is_nan = BuildOp(
       graph,
-      "isnan_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("isnan_fwd", ScalarType()),
       {input},
       {{outshape, dtype}});
 
@@ -64,7 +63,7 @@ void NansumList::AddNode(
   // where on is_nan
   auto where = BuildOp(
       graph,
-      "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("where_fwd", ScalarType()),
       {is_nan[0].get(), zero_constant.get(), input},
       {{outshape, ScalarType()}});
 

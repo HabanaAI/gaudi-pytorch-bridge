@@ -34,10 +34,7 @@ void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   int seed_index = p_index + 1;
 
   auto bcastOp = BuildOp(
-      graph,
-      "broadcast_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(p_index)},
-      {{outshape, ScalarType()}});
+      graph, "broadcast", {syn_in(p_index)}, {{outshape, ScalarType()}});
   size_t size = 0;
   auto params = FillBernoulliParams(size);
 

@@ -39,7 +39,7 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto num_classes = calculateNumberOfClasses(stack);
   const auto output_shape = OneHotOutputShape(stack)[0];
   auto input = stack_tensor(stack, 0);
-  const std::string guid{"one_hot_fwd_"};
+  const std::string guid{"one_hot_fwd"};
   std::optional<synapse_helpers::tensor> cast{};
 
   ns_OneHotKernel::Params oneHotParams{
@@ -64,7 +64,7 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto input_feature_map = (cast.has_value()) ? cast->get() : syn_in(0);
   auto result = BuildOp(
       graph,
-      guid + habana_helpers::name_suffix_from_type(output_type),
+      get_guid_with_precision(guid, output_type),
       {input_feature_map},
       {{output_shape, output_type}},
       &oneHotParams,

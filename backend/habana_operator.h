@@ -48,12 +48,6 @@ const std::string NO_TPC = "[NoTPCKernel]";
 // For compound Ops, there is not GUID, so null string used
 const std::string NULL_GUID("");
 
-// mul_<dtype> does not support dynamic shapes. So use mult_fwd_<dtype> GUID
-// However, there is a disc on wherther the tpc GUID naming should have "fwd"
-// Use a common constant so that it can be changed at one place based on the
-// decision on naming the guid
-const std::string MULT_GUID = "mult_fwd_";
-
 // Set empty size and strides for 0d Tensor
 #define SET_SIZE_STRIDE_0D(self)                     \
   self.unsafeGetTensorImpl()->set_sizes_and_strides( \
@@ -225,7 +219,7 @@ class PytorchKernelContext {
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
 };
 
-typedef struct KernelMetaData {
+struct KernelMetaData {
   std::vector<LayoutFormat> input_layout;
   std::vector<LayoutFormat> output_layout;
   std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
@@ -234,10 +228,8 @@ typedef struct KernelMetaData {
       synapse_output_layout;
   std::vector<size_t> tpc_input_order;
   bool changes_dims;
-  KernelMetaData() {
-    changes_dims = false;
-  }
-} KernelMetaData;
+  KernelMetaData() : changes_dims(false) {}
+};
 
 class OutputMetaData {
  public:
@@ -270,6 +262,11 @@ std::vector<T> SelectVectorIndices(
   HABANA_ASSERT(result.size() == indices.size());
   return result;
 }
+
+std::string get_guid_with_precision(
+    const std::string& guid,
+    c10::ScalarType dtype,
+    bool use_int64 = false);
 
 //
 // Generic Operator implementation class, holds the operator context

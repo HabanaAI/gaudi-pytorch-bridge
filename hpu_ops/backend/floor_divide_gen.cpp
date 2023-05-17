@@ -41,20 +41,18 @@ void FloorDivideOperator::AddNode(
       (c10::ScalarType::BFloat16 == final_result_type)
       ? c10::ScalarType::BFloat16
       : COMMON_COMPUTATION_TYPE_TPC;
-  const std::string opStringSuffix =
-      "_fwd_" + habana_helpers::name_suffix_from_type(computation_type);
 
   auto shape_out = BinaryOperator::compute_output_shape(self, other);
 
   auto divOp = BuildOp(
       graph,
-      "div" + opStringSuffix,
+      get_guid_with_precision("div_fwd", computation_type),
       {syn_in(0), syn_in(1)},
       {{shape_out, computation_type}});
 
   auto makeIntegerOp = BuildOp(
       graph,
-      rounding_mode + opStringSuffix,
+      get_guid_with_precision(rounding_mode + "_fwd", computation_type),
       {divOp.at(0).get()},
       {{shape_out, computation_type, 0}});
 

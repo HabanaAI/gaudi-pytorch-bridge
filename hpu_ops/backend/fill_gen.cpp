@@ -17,11 +17,8 @@ namespace habana {
 void Fill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
-  auto broadcast = BuildOp(
-      graph,
-      "broadcast_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(1)},
-      {{outshape, ScalarType(), 0}});
+  auto broadcast =
+      BuildOp(graph, "broadcast", {syn_in(1)}, {{outshape, ScalarType(), 0}});
 
   // output of broadcast is the output of this op
   syn_out(0) = std::move(broadcast[0]);
@@ -36,11 +33,8 @@ void FillScalar::AddNode(
   // If self is a ZST then return it as it is since there is nothing to fill
   if (!self.numel()) {
     const auto& outshape = stack_tensor(stack, 0).sizes();
-    auto copy = BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0)},
-        {{outshape, ScalarType(), 0}});
+    auto copy =
+        BuildOp(graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(copy[0]);
   } else {
     const auto& outshape = self.sizes();

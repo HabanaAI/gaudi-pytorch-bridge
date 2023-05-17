@@ -21,9 +21,8 @@ class CompareOutOperator : public habana::HabanaOperator {
       int device_id,
       c10::ScalarType scalarType,
       const std::string& guid)
-      : HabanaOperator(guid) {
+      : HabanaOperator(guid), scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    this->scalarType_ = scalarType;
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -43,9 +42,8 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
       int device_id,
       c10::ScalarType scalarType,
       const std::string& guid)
-      : HabanaOperator(guid) {
+      : HabanaOperator(guid), scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    this->scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -91,8 +89,7 @@ class GtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            "greater_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("greater_fwd", scalarType)) {}
 };
 
 class EqOperator : public CompareWrapperOperator {
@@ -101,7 +98,7 @@ class EqOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("equal_fwd", scalarType)) {}
 };
 
 class LtOperator : public CompareWrapperOperator {
@@ -110,7 +107,7 @@ class LtOperator : public CompareWrapperOperator {
       : CompareWrapperOperator(
             device_id,
             scalarType,
-            "less_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("less_fwd", scalarType)) {}
 };
 
 } // namespace habana

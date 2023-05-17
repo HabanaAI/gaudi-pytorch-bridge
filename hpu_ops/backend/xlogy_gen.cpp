@@ -38,7 +38,7 @@ void XlogYOperator::AddNode(
   auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{other_shape, ScalarType()}});
   auto xlogy = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(0), logy[0].get()},
       {{outshape, ScalarType(), 0}});
 

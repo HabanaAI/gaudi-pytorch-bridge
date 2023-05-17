@@ -101,7 +101,7 @@ void clampTensor::AddNode(
   if (minTensorDefined && maxTensorDefined) {
     auto clampOut = BuildOp(
         graph,
-        "clamp_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("clamp_fwd", ScalarType()),
         {syn_in(0), syn_in(1), syn_in(2)},
         {{outshape, ScalarType(), 0}});
 
@@ -109,7 +109,7 @@ void clampTensor::AddNode(
   } else if (minTensorDefined) {
     auto maxOut = BuildOp(
         graph,
-        "max_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("max_fwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}});
 
@@ -119,7 +119,7 @@ void clampTensor::AddNode(
         maxTensorDefined, "At least one of 'min' or 'max' must not be None")
     auto minOut = BuildOp(
         graph,
-        "min_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("min_fwd", ScalarType()),
         {syn_in(0), syn_in(1)},
         {{outshape, ScalarType(), 0}});
 

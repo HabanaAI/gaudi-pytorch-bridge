@@ -63,7 +63,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
   auto t_diff = BuildOp(
       graph,
-      "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub", ScalarType()),
       {syn_in(1), syn_in(2)},
       {{inputshape, ScalarType()}});
 
@@ -73,20 +73,20 @@ void SmoothL1LossBwdOperator::AddNode(
 
     auto t_mul = BuildOp(
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {syn_in(0), t_norm_factor.get()},
         {{inputshape, ScalarType()}});
 
     auto t_sign = BuildOp(
         graph,
-        "sign_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("sign_fwd", ScalarType()),
         {t_diff.at(0).get()},
         {{inputshape, ScalarType()}});
 
     if (beta == 0) {
       t_l0 = BuildOp(
           graph,
-          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+          get_guid_with_precision("mult", ScalarType()),
           {t_mul.at(0).get(), t_sign.at(0).get()},
           {{inputshape, ScalarType(), 0}});
 
@@ -96,21 +96,21 @@ void SmoothL1LossBwdOperator::AddNode(
 
     t_l0 = BuildOp(
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {t_mul.at(0).get(), t_sign.at(0).get()},
         {{inputshape, ScalarType()}});
 
   } else {
     auto t_sign = BuildOp(
         graph,
-        "sign_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("sign_fwd", ScalarType()),
         {t_diff.at(0).get()},
         {{inputshape, ScalarType()}});
 
     if (beta == 0) {
       t_l0 = BuildOp(
           graph,
-          MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+          get_guid_with_precision("mult", ScalarType()),
           {syn_in(0), t_sign.at(0).get()},
           {{inputshape, ScalarType(), 0}});
 
@@ -120,7 +120,7 @@ void SmoothL1LossBwdOperator::AddNode(
 
     t_l0 = BuildOp(
         graph,
-        MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("mult", ScalarType()),
         {syn_in(0), t_sign.at(0).get()},
         {{inputshape, ScalarType()}});
   }
@@ -130,13 +130,13 @@ void SmoothL1LossBwdOperator::AddNode(
 
   auto t_l2_temp = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(0), t_mulfactor.get()},
       {{inputshape, ScalarType()}});
 
   auto t_l2 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {t_diff.at(0).get(), t_l2_temp.at(0).get()},
       {{inputshape, ScalarType()}});
 
@@ -144,23 +144,22 @@ void SmoothL1LossBwdOperator::AddNode(
 
   auto t_abs = BuildOp(
       graph,
-      "abs_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("abs_fwd", ScalarType()),
       {t_diff.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto mask = BuildOp(
       graph,
-      "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("less_fwd", ScalarType()),
       {t_abs.at(0).get(), t_mask_const.get()},
       {{inputshape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
-      "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("where_fwd", ScalarType()),
       {mask.at(0).get(), t_l2.at(0).get(), t_l0.at(0).get()},
       {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
-  return;
 }
 } // namespace habana

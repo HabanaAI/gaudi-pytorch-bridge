@@ -48,6 +48,38 @@ void EagerLoweringTask(
   }
 }
 
+void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {
+  for (size_t idx = 0; idx < inputs.size(); ++idx) {
+    auto& t = inputs[idx];
+    if (!t.isTensor()) {
+      continue;
+    }
+
+    auto tensor = t.toTensor();
+    if (!tensor.defined()) {
+      continue;
+    }
+
+    if (tensor.device().type() == c10::DeviceType::HPU) {
+      continue;
+    }
+
+    if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
+      continue;
+    }
+
+    HABANA_ASSERT(
+        0,
+        "Expected all tensors to be on the HPU device, but found at least one input[idx=",
+        idx,
+        "] on ",
+        tensor.device(),
+        " (details: ",
+        tensor.toString(),
+        ")");
+  }
+}
+
 torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   auto stack = convert_inputs_to_backend_tensors(m_inputs);
 

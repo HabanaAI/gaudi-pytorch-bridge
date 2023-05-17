@@ -77,8 +77,7 @@ class NarrowOperator : public SliceOperator {
 class GatherOperator : public HabanaOperator {
  public:
   GatherOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "gather_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("gather_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -105,8 +104,7 @@ class GatherElemOperator : public HabanaOperator {
  public:
   GatherElemOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "gather_elements_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("gather_elements_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -138,8 +136,7 @@ class ScatterWrapperOperator : public HabanaOperator {
       c10::ScalarType scalarType,
       const std::string& guid,
       bool is_inplace = false)
-      : HabanaOperator(
-            guid + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision(guid, scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -165,7 +162,7 @@ class ScatterWrapperOperator : public HabanaOperator {
 class ScatterHelperOperator : public ScatterWrapperOperator {
  public:
   ScatterHelperOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd") {}
 };
 
 // ScatterAddOperator Operator
@@ -175,7 +172,7 @@ class ScatterHelperOperator : public ScatterWrapperOperator {
 class ScatterAddOperator : public ScatterWrapperOperator {
  public:
   ScatterAddOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterWrapperOperator(device_id, scalarType, "scatter_add_fwd_") {}
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_add_fwd") {}
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -192,7 +189,7 @@ class UnsortedScatterAddOperator : public ScatterWrapperOperator {
       : ScatterWrapperOperator(
             device_id,
             scalarType,
-            "unsorted_scatter_add_fwd_") {}
+            "unsorted_scatter_add_fwd") {}
 };
 // This operator expects that index and source given to it are such that
 // the index is already sorted and the source rearranged accordingly
@@ -257,8 +254,7 @@ class ScatterNdONNXOperator : public HabanaOperator {
  public:
   ScatterNdONNXOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "scatter_nd_onnx_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("scatter_nd_onnx_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
   }
@@ -282,11 +278,9 @@ class ScatterNdONNXOperator : public HabanaOperator {
 class ScatterNdOperator : public HabanaOperator {
  public:
   ScatterNdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "scatter_nd_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("scatter_nd_fwd", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -305,11 +299,9 @@ class ScatterNdOperator : public HabanaOperator {
 class IndexPutOperator : public HabanaOperator {
  public:
   IndexPutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "index_put_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("index_put_fwd", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -336,11 +328,9 @@ class IndexPutOperator : public HabanaOperator {
 class IndexPutOperator2 : public HabanaOperator {
  public:
   IndexPutOperator2(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "index_put2_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("index_put2_fwd", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -357,10 +347,9 @@ class IndexAddOperator : public HabanaOperator {
  public:
   IndexAddOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "index_add_fwd_filler" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("index_add_fwd_filler", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -377,10 +366,9 @@ class IndexAddV2Operator : public HabanaOperator {
  public:
   IndexAddV2Operator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "index_add_fwd_filler" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("index_add_fwd_filler", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -397,10 +385,9 @@ class IndexCopyOperator : public HabanaOperator {
  public:
   IndexCopyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "index_copy_fwd_filler" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            get_guid_with_precision("index_copy_fwd_filler", scalarType)),
+        scalarType_(scalarType) {
     this->CreateSynContext(device_id);
-    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -417,8 +404,7 @@ class IndexCopyOperator : public HabanaOperator {
 class ArangeOperator : public HabanaOperator {
  public:
   ArangeOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "range_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("range", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -455,8 +441,7 @@ class ArangeOperatorHT : public ArangeOperator {
 class Unique_Operator : public HabanaOperator {
  public:
   Unique_Operator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -470,8 +455,7 @@ class Unique_Operator : public HabanaOperator {
 class UniqueOperator : public HabanaOperator {
  public:
   UniqueOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -490,8 +474,7 @@ class UniqueOperator : public HabanaOperator {
 class UniqueDimOperator : public HabanaOperator {
  public:
   UniqueDimOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("unique_fwd", scalarType)) {
     this->CreateSynContext(device_id);
   }
 
@@ -499,22 +482,6 @@ class UniqueDimOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
-};
-
-// Linspace Operator
-class LinspaceOutOperator : public HabanaOperator {
- public:
-  LinspaceOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(NULL_GUID) {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 // Squeeze operator

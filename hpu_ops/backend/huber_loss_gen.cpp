@@ -67,59 +67,58 @@ void HuberLossBwdOperator::AddNode(
 
   auto t_diff = BuildOp(
       graph,
-      "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub", ScalarType()),
       {syn_in(1), syn_in(2)},
       {{inputshape, ScalarType()}});
 
   auto t_mul = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(0), norm.get()},
       {{inputshape, ScalarType()}});
 
   auto t_sign = BuildOp(
       graph,
-      "sign_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sign_fwd", ScalarType()),
       {t_diff.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto t_0 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {t_mul.at(0).get(), delta_const.get()},
       {{inputshape, ScalarType()}});
 
   auto t_1 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {t_0.at(0).get(), t_sign.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto t_2 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {t_diff.at(0).get(), t_mul.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto t_abs = BuildOp(
       graph,
-      "abs_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("abs_fwd", ScalarType()),
       {t_diff.at(0).get()},
       {{inputshape, ScalarType()}});
 
   auto mask_bwd = BuildOp(
       graph,
-      "less_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("less_fwd", ScalarType()),
       {t_abs.at(0).get(), delta_const.get()},
       {{inputshape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
-      "where_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("where_fwd", ScalarType()),
       {mask_bwd.at(0).get(), t_2.at(0).get(), t_1.at(0).get()},
       {{inputshape, ScalarType(), 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
-  return;
 }
 } // namespace habana

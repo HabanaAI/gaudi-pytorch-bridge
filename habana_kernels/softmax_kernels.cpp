@@ -130,8 +130,7 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_out{synOutput.get()};
 
     at::ScalarType scalar_type = output_float.scalar_type();
-    node_type =
-        "softmax_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    node_type = get_guid_with_precision("softmax_fwd", scalar_type);
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),

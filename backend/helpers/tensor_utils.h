@@ -70,10 +70,6 @@ std::vector<void*> extract_data_ptrs(const std::vector<at::Tensor>& vec);
 std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
     const std::vector<at::Tensor>& vec);
 
-std::string name_suffix_from_type(
-    const c10::ScalarType pt_type,
-    bool use_int64 = false);
-
 void copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,

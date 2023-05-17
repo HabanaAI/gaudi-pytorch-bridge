@@ -129,16 +129,9 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   }
 
   if (adv_indexing_present) {
-    std::vector<int64_t> new_sizes, new_strides;
-    std::tie(new_sizes, new_strides) =
+    std::vector<int64_t> permuted_input_sizes, new_strides;
+    std::tie(permuted_input_sizes, new_strides) =
         PermuteOperator::compute_output_shape(self, self_permute_dims);
-
-    std::vector<int64_t> permuted_input_sizes;
-    if (adv_indexing_present) {
-      permuted_input_sizes = new_sizes;
-    } else {
-      permuted_input_sizes = self.sizes().vec();
-    }
 
     std::vector<int64_t> output_shape;
     std::vector<int64_t> input_shape;
@@ -190,16 +183,10 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
     if (adv_indexing_present) {
       auto adv_index_dims = stack.at(2).toIntList();
       std::vector<int64_t> self_permute_dims = stack[4].toIntList().vec();
-      std::vector<int64_t> new_sizes, new_strides;
-      std::tie(new_sizes, new_strides) =
+      std::vector<int64_t> permuted_input_sizes, new_strides;
+      std::tie(permuted_input_sizes, new_strides) =
           PermuteOperator::compute_output_shape(input, self_permute_dims);
 
-      std::vector<int64_t> permuted_input_sizes;
-      if (adv_indexing_present) {
-        permuted_input_sizes = new_sizes;
-      } else {
-        permuted_input_sizes = input.sizes().vec();
-      }
       sizes_vec shape = std::vector<std::vector<int64_t>>{
           {habana::ComputeOutputShapeWithAdvIndexing(
               permuted_input_sizes, indices, adv_index_dims)}};
@@ -273,7 +260,7 @@ void IndexHabanaOperator::AddNode(
       const auto& gather_params = FillGatherParams(stack_, size);
       auto gatherOp = BuildOp(
           graph,
-          "gather_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+          get_guid_with_precision("gather_fwd", ScalarType()),
           {syn_in(0), syn_in(1)},
           {{outshape, ScalarType(), 0}},
           gather_params.get(),
@@ -331,8 +318,7 @@ void IndexHabanaOperator::AddNode(
     // auto shape = IndexOperator::compute_output_shape(self, tensorlist);
     auto indexOp = BuildOp(
         graph,
-        "gather_nd_mxnet_fwd_" +
-            habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("gather_nd_mxnet_fwd", ScalarType()),
         {syn_in(0), catop.get()},
         {{shape, ScalarType(), 0}});
     syn_out(0) = std::move(indexOp[0]);
@@ -461,7 +447,7 @@ void IndexHabanaOperator::AddNode(
             index_dtype,
             syn_in(0), // TBD: NOTE: This needs to be changed for DS
             syn_in(1), // TBD: NOTE: This needs to be changed for DS
-            "range_" + habana_helpers::name_suffix_from_type(index_dtype),
+            get_guid_with_precision("range", index_dtype),
             outshape,
             params,
             size,
@@ -532,7 +518,7 @@ void IndexHabanaOperator::AddNode(
         tile_params->repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
-            "tile_fwd_" + habana_helpers::name_suffix_from_type(index_dtype),
+            get_guid_with_precision("tile_fwd", index_dtype),
             {reshaped_index.get()},
             {{rpt_outshape, index_dtype}},
             tile_params.get(),
@@ -561,7 +547,7 @@ void IndexHabanaOperator::AddNode(
         tile_params->repeat[0] = repeats_needed[dim];
         auto rpt_op = BuildOp(
             graph,
-            "tile_fwd_" + habana_helpers::name_suffix_from_type(index_dtype),
+            get_guid_with_precision("tile_fwd", index_dtype),
             {((index_all_elems[dim]) ? index_tensor_to_use.back().get()
                                      : syn_in(explicit_index_pos))},
             {{rpt_outshape, index_dtype}},
@@ -605,8 +591,7 @@ void IndexHabanaOperator::AddNode(
     std::vector<int64_t> shape = {cat_out_shape[1]};
     auto indexOp = BuildOp(
         graph,
-        "gather_nd_mxnet_fwd_" +
-            habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("gather_nd_mxnet_fwd", ScalarType()),
         {permuted_self_t, catop.get()},
         {{shape, ScalarType()}});
     auto final_shape = habana::ComputeOutputShapeWithAdvIndexing(

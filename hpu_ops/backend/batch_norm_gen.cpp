@@ -324,7 +324,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     // 2.2.2 Handle RUNNING_HASH... macros
     bn_out = BuildOp(
         graph,
-        "batch_norm_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+        get_guid_with_precision("batch_norm_fwd", ScalarType()),
         {input_4d, bias, weight, running_mean, running_var},
         {NodeAttr::NodeOutputAttr{
              input_4d_shape, ScalarType(), final_result_index_0},
@@ -363,8 +363,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     bn_out.emplace_back(
         std::move(BuildOp(
                       graph,
-                      "batch_norm_inf_" +
-                          habana_helpers::name_suffix_from_type(ScalarType()),
+                      get_guid_with_precision("batch_norm_inf", ScalarType()),
                       {input_4d, bias, weight, running_mean, running_var},
                       {{input_4d_shape, ScalarType(), final_result_index_0}},
                       params.get(),
@@ -471,7 +470,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       : c10::optional<int>{INPUT_GRAD_IDX};
   auto bn_out = BuildOp(
       graph,
-      "batch_norm_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("batch_norm_bwd", ScalarType()),
       {input_4d, grad_out_4d, saved_mean, saved_istd, weight},
       {{input_4d_shape, ScalarType(), final_result_index_0},
        {out_shapes[BIAS_GRAD_IDX], c10::ScalarType::Float, BIAS_GRAD_IDX},

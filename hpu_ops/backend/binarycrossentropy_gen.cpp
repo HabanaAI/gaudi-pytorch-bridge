@@ -101,8 +101,7 @@ void BinaryCrossEntropyFwd::AddNode(
 
   auto bce_logits_fwd = BuildOp(
       graph,
-      "binary_cross_entropy_fwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
       input,
       {{output_shape, ScalarType(), 0}},
       params.get(),
@@ -149,8 +148,7 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
 
   auto bce_logits_fwd = BuildOp(
       graph,
-      "binary_cross_entropy_fwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
       input,
       {{output_shape, ScalarType(), 0}},
       params.get(),
@@ -182,14 +180,13 @@ void BinaryCrossEntropyBwd::AddNode(
 
   auto neg_grad = BuildOp(
       graph,
-      "neg_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("neg_fwd", ScalarType()),
       {syn_in(index_of_grad)},
       {{stack.at(index_of_grad).toTensor().sizes().vec(), ScalarType()}});
 
   auto bce_bwd = BuildOp(
       graph,
-      "binary_cross_entropy_bwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("binary_cross_entropy_bwd", ScalarType()),
       {syn_in(index_of_self), syn_in(index_of_target), neg_grad[0].get()},
       {{bce_output_shape, ScalarType(), 0}},
       params.get(),

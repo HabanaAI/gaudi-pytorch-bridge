@@ -91,11 +91,8 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillMinMaxParams(stack, size);
   if (self.dim() == 0) {
-    auto res = BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(ScalarType()),
-        {syn_in(0)},
-        {{outshape, ScalarType(), 0}});
+    auto res =
+        BuildOp(graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(res[0]);
     syn_out(1) = std::move(res[0]);
   } else {

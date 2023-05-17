@@ -124,6 +124,71 @@ bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
   });
 }
 
+std::string habana::get_guid_with_precision(
+    const std::string& guid,
+    c10::ScalarType dtype,
+    bool use_int64) {
+  static const absl::flat_hash_set<std::string> synapse_guids = {
+      // Matrix operations
+      "batch_gemm",
+      "batch_gemm_dedw",
+      "batch_gemm_dedx",
+      "spatial_convolution",
+      "spatial_convolution3d",
+      "dedw",
+      "dedw3d",
+      "dedx",
+      "dedx3d",
+      "gemm",
+      "gemm_dedw",
+      "gemm_dedx",
+      "masked_batch_gemm",
+      // Data movment guids
+      "broadcast",
+      "concat",
+      "expand_dims",
+      "flatten",
+      "identity",
+      "memcpy",
+      "memset",
+      "reinterpret_cast",
+      "reshape",
+      "slice",
+      "slice_axis",
+      "slice_bwd",
+      "slice_insert",
+      "split",
+      "split_shape",
+      "squeeze",
+      "strided_insert",
+      "strided_slice_grad",
+      "strided_view",
+      "transpose",
+      // Normalization
+      "cud_bn_bwd_ex",
+      "cud_bn_fwd_ex",
+      "frobenius_norm_fwd",
+      "moments_fwd",
+      // Misc
+      "einsum",
+      "topk",
+  };
+  // Synapse guids do not take precision type/suffix
+  if (synapse_guids.count(guid)) {
+    return guid;
+  }
+
+  auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
+      habana_helpers::pytorch_to_synapse_type(dtype), use_int64);
+  HABANA_ASSERT(
+      absl::holds_alternative<std::string>(string_or_error),
+      "Error getting suffix/precision type: ",
+      Logger::synStatusToStr(
+          absl::get<synapse_helpers::synapse_error>(string_or_error).status));
+
+  return guid + '_' + absl::get<std::string>(string_or_error);
+}
+
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
     const at::IntArrayRef sizes,
     c10::MemoryFormat format) {

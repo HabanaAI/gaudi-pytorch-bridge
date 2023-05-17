@@ -37,8 +37,7 @@ void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto geometric = BuildOp(
       graph,
-      "random_negative_binomial_fwd_" +
-          habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("random_negative_binomial_fwd", ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType(), 0}},
       params.get(),

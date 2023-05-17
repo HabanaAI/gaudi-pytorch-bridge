@@ -42,20 +42,10 @@ std::vector<synapse_helpers::tensor> GeluCommonFunc(
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_result_index = c10::nullopt) {
-  if (synapse_helpers::HPURegistrar::get_device().type() ==
-      synDeviceType::synDeviceGreco) {
-    return OpBackend::BuildNode(
-        op,
-        graph,
-        {"gelu_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
-         std::move(input),
-         {{outshape, op->ScalarType(), final_result_index}}});
-  }
-
   return OpBackend::BuildNode(
       op,
       graph,
-      {"gelu_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("gelu_fwd", op->ScalarType()),
        std::move(input),
        {{outshape, op->ScalarType(), final_result_index},
         {outshape, op->ScalarType()}},

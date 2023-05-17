@@ -18,7 +18,7 @@ void NE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto eq = BuildOp(
       graph,
-      "equal_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("equal_fwd", ScalarType()),
       {syn_in(0), syn_in(1)},
       {{outshape, result_type}});
 

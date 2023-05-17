@@ -24,7 +24,7 @@ struct UpsampleNearest1dVec : UpsampleNearest1DFwdOperator {
   UpsampleNearest1dVec(int device_id, c10::ScalarType scalar_type)
       : UpsampleNearest1DFwdOperator(
             device_id,
-            "resize_fwd_",
+            "resize_fwd",
             scalar_type,
             {0},
             {},
@@ -42,7 +42,7 @@ struct UpsampleLinear1dVec : UpsampleLinear1DFwdOperator {
   UpsampleLinear1dVec(int device_id, c10::ScalarType scalar_type)
       : UpsampleLinear1DFwdOperator(
             device_id,
-            "resize_fwd_",
+            "resize_fwd",
             scalar_type,
             {0},
             {},
@@ -58,7 +58,7 @@ struct UpsampleLinear1dVec : UpsampleLinear1DFwdOperator {
 
 struct UpsampleBilinear2dVec : OpBackend {
   UpsampleBilinear2dVec(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(device_id, "resize_fwd_", scalar_type, {0}, {}, {}, false) {
+      : OpBackend(device_id, "resize_fwd", scalar_type, {0}, {}, {}, false) {
     SetSynapseLayouts(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
@@ -70,7 +70,7 @@ struct UpsampleBilinear2dVec : OpBackend {
 
 struct UpsampleBicubic2dVec : OpBackend {
   UpsampleBicubic2dVec(int device_id, c10::ScalarType scalar_type)
-      : OpBackend(device_id, "resize_fwd_", scalar_type, {0}, {}, {}, false) {
+      : OpBackend(device_id, "resize_fwd", scalar_type, {0}, {}, {}, false) {
     SetSynapseLayouts(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
@@ -84,7 +84,7 @@ struct UpsampleNearest2dVec : UpSampleNearest2DOperator {
   UpsampleNearest2dVec(int device_id, c10::ScalarType scalar_type)
       : UpSampleNearest2DOperator(
             device_id,
-            "resize_fwd_",
+            "resize_fwd",
             scalar_type,
             {0},
             {},
@@ -103,7 +103,7 @@ struct UpsampleNearest3dVec : UpSampleNearest3DFwdOperator {
   UpsampleNearest3dVec(int device_id, c10::ScalarType scalar_type)
       : UpSampleNearest3DFwdOperator(
             device_id,
-            "resize_fwd_",
+            "resize_fwd",
             scalar_type,
             {0},
             {},

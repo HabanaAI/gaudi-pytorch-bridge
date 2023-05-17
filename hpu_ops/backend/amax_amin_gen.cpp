@@ -54,8 +54,6 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
     c10::optional<int> final_idx1 = c10::nullopt,
     c10::optional<int> final_idx2 = c10::nullopt) {
   std::vector<synapse_helpers::tensor> amin_max;
-  const auto& dtype_suffix =
-      habana_helpers::name_suffix_from_type(op->ScalarType());
 
   std::vector<NodeAttr::NodeOutputAttr> amin_output_attrs = {
       {output_shape, self.scalar_type(), final_idx1},
@@ -71,7 +69,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       {input_tensor},
       dim,
       keepdim,
-      "reduce_min_fwd_" + dtype_suffix,
+      get_guid_with_precision("reduce_min_fwd", op->ScalarType()),
       amin_output_attrs);
 
   auto amax = HandleReductionDimAndKeepdim(
@@ -81,7 +79,7 @@ static std::vector<synapse_helpers::tensor> AminmaxCommon(
       {input_tensor},
       dim,
       keepdim,
-      "reduce_max_fwd_" + dtype_suffix,
+      get_guid_with_precision("reduce_max_fwd", op->ScalarType()),
       amax_output_attrs);
 
   amin_max.emplace_back(std::move(amin[0]));

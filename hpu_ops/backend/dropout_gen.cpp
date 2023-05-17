@@ -42,8 +42,8 @@ std::vector<synapse_helpers::tensor> BuildDropout(
         "Input/output and mask feature maps tensors must be of same size");
   }
 
-  const std::string guid = "dropout_fwd_" +
-      habana_helpers::name_suffix_from_type(inTensors[0].pt_t.scalar_type());
+  const std::string guid =
+      get_guid_with_precision("dropout_fwd", inTensors[0].pt_t.scalar_type());
 
   std::vector<synTensor> inputTensors;
   inputTensors.reserve(3);

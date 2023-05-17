@@ -101,7 +101,7 @@ static std::vector<synapse_helpers::tensor> Mul(
   return OpBackend::BuildNode(
       op,
       graph,
-      {"mult_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("mult_fwd", op->ScalarType()),
        std::move(inputs),
        {{outshape, op->ScalarType()}}});
 }
@@ -274,7 +274,7 @@ void LinAlgCross::AddNode(
 
   auto sub = BuildOp(
       graph,
-      "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub", ScalarType()),
       {concat1[0].get(), concat2[0].get()},
       {{is_scd ? outshape : transpose_shape,
         ScalarType(),

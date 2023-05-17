@@ -182,8 +182,7 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
 
     std::vector<synTensor> syn_in{synInput1.get(), synInput2.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
-    guid_ =
-        MULT_GUID + habana_helpers::name_suffix_from_type(c10::ScalarType::Int);
+    guid_ = get_guid_with_precision("mult", c10::ScalarType::Int);
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),

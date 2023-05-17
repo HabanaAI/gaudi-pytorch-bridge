@@ -20,8 +20,7 @@ void ForeachLog10::AddNode(
     const auto& tensor = tensors[i];
     auto out = BuildOp(
         graph,
-        "log10_fwd_" +
-            habana_helpers::name_suffix_from_type(tensor.scalar_type()),
+        get_guid_with_precision("log10_fwd", tensor.scalar_type()),
         {syn_in(i)},
         {{{tensor.sizes()}, tensor.scalar_type(), i}});
     syn_out(i) = std::move(out[0]);

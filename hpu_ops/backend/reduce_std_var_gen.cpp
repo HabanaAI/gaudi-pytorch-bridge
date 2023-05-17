@@ -107,14 +107,13 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       input,
       dimsVec,
       true,
-      "reduce_mean_fwd_" +
-          habana_helpers::name_suffix_from_type(op->ScalarType()),
+      get_guid_with_precision("reduce_mean_fwd", op->ScalarType()),
       {output_attr[1]});
 
   auto difference = OpBackend::BuildNode(
       op,
       graph,
-      {"sub_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+      {get_guid_with_precision("sub_fwd", op->ScalarType()),
        {input.front(), mean_out.front().get()},
        {{input_shape, op->ScalarType()}}});
 
@@ -197,7 +196,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     auto sqrt = OpBackend::BuildNode(
         op,
         graph,
-        {"sqrt_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
+        {get_guid_with_precision("sqrt_fwd", op->ScalarType()),
          {sum.back().get()},
          {output_attr[0]}});
 

@@ -50,10 +50,7 @@ void HardShrinkFwd::AddNode(
 
   if (lambda < 0.0) {
     auto out = OpBackend::BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(dtype),
-        {syn_in(0)},
-        {{outshape, dtype, 0}});
+        graph, "memcpy", {syn_in(0)}, {{outshape, dtype, 0}});
     syn_out(0) = std::move(out[0]);
     return;
   }
@@ -81,10 +78,7 @@ void HardShrinkBwd::AddNode(
 
   if (lambda < 0.0) {
     auto out = OpBackend::BuildOp(
-        graph,
-        "memcpy_" + habana_helpers::name_suffix_from_type(dtype),
-        {syn_in(0)},
-        {{outshape, dtype, 0}});
+        graph, "memcpy", {syn_in(0)}, {{outshape, dtype, 0}});
     syn_out(0) = std::move(out[0]);
     return;
   }

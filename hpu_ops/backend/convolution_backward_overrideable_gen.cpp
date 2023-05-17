@@ -178,8 +178,7 @@ static synapse_helpers::tensor ComputeBiasGrad(
     return std::move(ten_output);
   } else {
     at::ScalarType scalar_type = grad_output.scalar_type();
-    std::string guid =
-        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    std::string guid = get_guid_with_precision("reduce_sum_fwd", scalar_type);
 
     std::vector<synapse_helpers::tensor> syn_tmp;
     std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
@@ -351,7 +350,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           }
         }
 
-        guid += "_" + habana_helpers::name_suffix_from_type(ScalarType());
+        guid = get_guid_with_precision(guid, ScalarType());
 
         return std::move(
             BuildOp(

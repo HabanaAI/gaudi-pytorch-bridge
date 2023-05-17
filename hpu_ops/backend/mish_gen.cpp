@@ -17,55 +17,55 @@ void Mishbackward::AddNode(
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto sigmoid_out = BuildOp(
       graph,
-      "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sigmoid_fwd", ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType()}});
 
   auto softplus_out = BuildOp(
       graph,
-      "softplus_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("softplus_fwd", ScalarType()),
       {syn_in(1)},
       {{outshape, ScalarType()}});
 
   auto tanh_out = BuildOp(
       graph,
-      "tanh_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("tanh_fwd", ScalarType()),
       {softplus_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto mul_out1 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(1), sigmoid_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto sq_out = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {tanh_out[0].get(), tanh_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto mul_out2 = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {mul_out1[0].get(), sq_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto sub_out = BuildOp(
       graph,
-      "sub_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("sub", ScalarType()),
       {mul_out1[0].get(), mul_out2[0].get()},
       {{outshape, ScalarType()}});
 
   auto add_out = BuildOp(
       graph,
-      "add_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("add", ScalarType()),
       {tanh_out[0].get(), sub_out[0].get()},
       {{outshape, ScalarType()}});
 
   auto grad_input = BuildOp(
       graph,
-      MULT_GUID + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("mult", ScalarType()),
       {syn_in(0), add_out[0].get()},
       {{outshape, ScalarType(), 0}});
   syn_out(0) = std::move(grad_input[0]);

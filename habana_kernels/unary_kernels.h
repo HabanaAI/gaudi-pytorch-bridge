@@ -38,7 +38,7 @@ class AbsOperator : public UnaryOperator {
   AbsOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("abs_fwd", scalarType)) {}
 };
 
 // Sqrt Operator
@@ -47,7 +47,7 @@ class SqrtOperator : public UnaryOperator {
   SqrtOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("sqrt_fwd", scalarType)) {}
 };
 
 //
@@ -55,9 +55,7 @@ class SqrtOperator : public UnaryOperator {
 class ReciprocalOutOperator : public HabanaOperator {
  public:
   ReciprocalOutOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "reciprocal_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(get_guid_with_precision("reciprocal_fwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -90,7 +88,7 @@ class ExpOperator : public UnaryOperator {
   ExpOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("exp_fwd", scalarType)) {}
 };
 
 class LogOperator : public UnaryOperator {
@@ -98,6 +96,6 @@ class LogOperator : public UnaryOperator {
   LogOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            get_guid_with_precision("log_fwd", scalarType)) {}
 };
 } // namespace habana

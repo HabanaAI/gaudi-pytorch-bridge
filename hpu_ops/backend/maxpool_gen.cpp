@@ -338,7 +338,7 @@ static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
   return OpBackend::BuildNode(
       op,
       graph,
-      {"maxpool_3d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type),
+      {get_guid_with_precision("maxpool_3d_fwd", scalar_type),
        {input.at(0)},
        {{final_out_shape[0], index_type, 1},
         {final_out_shape[0], scalar_type, 0}},
@@ -369,7 +369,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
 
   auto grad_output = BuildOp(
       graph,
-      "maxpool_3d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("maxpool_3d_bwd", ScalarType()),
       grad,
       {{out_shape[0], ScalarType(), 0}},
       params.get(),
@@ -391,7 +391,7 @@ void MaxPool2DWithIndices::AddNode(
 
   auto maxpool2d = BuildOp(
       graph,
-      "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("maxpool_2d_fwd", ScalarType()),
       {syn_in(0)},
       {{out_shape, retain_tensor_type}, {out_shape, ScalarType(), 0}},
       params.get(),
@@ -428,7 +428,7 @@ void MaxPool2DWithIndicesBwd::AddNode(
 
   auto maxpool2d_gradout = BuildOp(
       graph,
-      "maxpool_2d_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("maxpool_2d_bwd", ScalarType()),
       grad,
       {{out_shape[0], ScalarType(), 0}},
       params.get(),

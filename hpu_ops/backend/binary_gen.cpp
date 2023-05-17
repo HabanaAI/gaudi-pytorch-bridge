@@ -95,7 +95,7 @@ static auto BuildBinary(
     mul = OpBackend::BuildNode(
         op,
         graph,
-        {MULT_GUID + habana_helpers::name_suffix_from_type(result_type),
+        {get_guid_with_precision("mult", result_type),
          {inputs[OTHER_INDEX], constant->get()},
          {{sizes[OTHER_INDEX], result_type}}});
     inputs[OTHER_INDEX] = mul[0].get();

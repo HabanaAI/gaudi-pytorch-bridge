@@ -108,37 +108,7 @@ class EagerOpBase {
   bool m_is_pipeline_supported = false;
   bool m_dont_preallocate_outputs = false;
 
-  void validate_inputs(const std::vector<at::IValue>& inputs) {
-    for (size_t idx = 0; idx < inputs.size(); ++idx) {
-      auto& t = inputs[idx];
-      if (!t.isTensor()) {
-        continue;
-      }
-
-      auto tensor = t.toTensor();
-      if (!tensor.defined()) {
-        continue;
-      }
-
-      if (tensor.device().type() == c10::DeviceType::HPU) {
-        continue;
-      }
-
-      if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-        continue;
-      }
-
-      HABANA_ASSERT(
-          0,
-          "Expected all tensors to be on the HPU device, but found at least one input[idx=",
-          idx,
-          "] on ",
-          tensor.device(),
-          " (details: ",
-          tensor.toString(),
-          ")");
-    }
-  }
+  void validate_inputs(const std::vector<at::IValue>& inputs);
 };
 
 template <typename ReturnType>

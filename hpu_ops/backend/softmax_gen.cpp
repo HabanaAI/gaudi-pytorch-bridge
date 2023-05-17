@@ -56,7 +56,7 @@ void SoftmaxBackward::AddNode(
 
   auto softmax_bwd = BuildOp(
       graph,
-      "softmax_bwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
+      get_guid_with_precision("softmax_bwd", ScalarType()),
       {syn_in(1), syn_in(0)},
       {{outshape, ScalarType(), 0}},
       params.get(),

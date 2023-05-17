@@ -17,10 +17,8 @@ namespace habana {
 
 class OptimizerLambPhase1Operator : public HabanaOperator {
  public:
-  OptimizerLambPhase1Operator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "optimizer_lamb_ph1_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+  OptimizerLambPhase1Operator(int device_id, c10::ScalarType)
+      : HabanaOperator({}) {
     this->CreateSynContext(device_id);
   }
 
@@ -32,10 +30,8 @@ class OptimizerLambPhase1Operator : public HabanaOperator {
 
 class OptimizerLambPhase2Operator : public HabanaOperator {
  public:
-  OptimizerLambPhase2Operator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            "optimizer_lamb_ph2_" +
-            habana_helpers::name_suffix_from_type(scalar_type)) {
+  OptimizerLambPhase2Operator(int device_id, c10::ScalarType)
+      : HabanaOperator({}) {
     this->CreateSynContext(device_id);
   }
 
