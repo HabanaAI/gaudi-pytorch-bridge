@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "generated/eager/convolution.h"
+#include "generated/eager/convolution_overrideable.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {

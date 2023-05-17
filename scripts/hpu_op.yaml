@@ -1937,17 +1937,6 @@ convolution_overrideable:
   op_backend: ConvolutionOverrideable
   out_ids: [0]
 
-convolution:
-  force_default: false
-  custom_output_shape: ConvolutionOverrideableOutputShape
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
-    Gaudi3: [BFloat16, Float]
-  op_frontend: ConvolutionOverrideableFE
-  op_backend: ConvolutionOverrideable
-  out_ids: [0]
-
 convolution_backward_overrideable:
   force_default: false
   output_meta: ConvolutionOverrideableMetaBwd
@@ -1957,25 +1946,7 @@ convolution_backward_overrideable:
     Gaudi3: [BFloat16, Float]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
-  # guid is specified here to distinguish between convolution_backward_overrideable
-  # and convolution_backward, which takes additional bias_sizes argument
-  guid: convolution_backward_overrideable
   out_ids: [0, 0, 0]
-
-convolution_backward:
-  force_default: false
-  output_meta: ConvolutionOverrideableMetaBwd
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
-    Gaudi3: [BFloat16, Float]
-  op_frontend: ConvolutionBackwardOverrideableFE
-  op_backend: ConvolutionBackwardOverrideable
-  # guid is specified here to distinguish between convolution_backward_overrideable
-  # and convolution_backward, which takes additional bias_sizes argument
-  guid: convolution_backward
-  out_ids: [0, 0, 0]
-
 
 copysign.out:
   custom_output_shape: BinaryOutputShape

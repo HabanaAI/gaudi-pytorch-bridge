@@ -12,7 +12,7 @@
  */
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_backward.h"
+#include "generated/backend/convolution_backward_overrideable.h"
 
 using namespace synapse_helpers::layouts;
 
@@ -251,28 +251,12 @@ void ConvolutionBackwardOverrideable::AddNode(
   at::Tensor grad_output = stack_tensor(stack, 0); // Result of convolution fwd
   at::Tensor input = stack_tensor(stack, 1);
   at::Tensor weight = stack_tensor(stack, 2);
-
-  // Both convolution_backward_overrideable and convolution_backward ops
-  // are implemented by this backend. The difference in these two is that
-  // the latter takes additional argument at idx 3, which, as pytorch docs
-  // says:
-  //
-  // bias_sizes_opt: if specified, indicates that a bias was used in the forward
-  // pass and contains the shape
-  //   of the bias. While the bias shape can be computed from other inputs, it
-  //   is provided to this function for ease of use. The bias shape is
-  //   (weight.shape[0]) for normal convolution and (weight.shape[1] * groups)
-  //   for transposed convolution.
-  //
-  // Since it's not needed, it's just being ignored below, by shifting the rest
-  // of inputs' indices.
-  const int index_shift = GetGuid() == "convolution_backward" ? 1 : 0;
-  const auto stride = stack[3 + index_shift].toIntList().vec();
-  const auto padding = stack[4 + index_shift].toIntList().vec();
-  const auto dilation = stack[5 + index_shift].toIntList().vec();
-  const bool transposed = stack[6 + index_shift].toBool();
-  const int64_t groups = stack[8 + index_shift].toInt();
-  const auto output_mask_in = stack[9 + index_shift].toBoolList();
+  const auto stride = stack[3].toIntList().vec();
+  const auto padding = stack[4].toIntList().vec();
+  const auto dilation = stack[5].toIntList().vec();
+  const bool transposed = stack[6].toBool();
+  const int64_t groups = stack[8].toInt();
+  const auto output_mask_in = stack[9].toBoolList();
 
   const uint64_t DIM5 = 5;
   const bool is_conv_3d = input.dim() == DIM5;

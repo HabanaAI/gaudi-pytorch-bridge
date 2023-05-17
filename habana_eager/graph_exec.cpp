@@ -80,6 +80,7 @@ void GraphExec::RunGraphPasses() {
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
+  pass::ConvertConvolutions(m_graph);
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);

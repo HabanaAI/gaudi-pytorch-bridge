@@ -409,6 +409,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             # Other
             "max_pool2d_with_indices",
             "max_pool2d_with_indices_backward",
+            "convolution",  # SW-137174
+            "convolution_backward",
             "_native_batch_norm_legit_functional",  # SW-137176
             "native_batch_norm_backward",
             "addcmul",
