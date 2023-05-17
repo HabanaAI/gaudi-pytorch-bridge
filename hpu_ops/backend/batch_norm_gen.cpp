@@ -351,11 +351,11 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
     if (running_mean_opt.has_value()) {
       GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-          3, bn_out[3], std::get<int>(running_mean_sh_t_or_idx)});
+          3, std::move(bn_out[3]), std::get<int>(running_mean_sh_t_or_idx)});
     }
     if (running_var_opt.has_value()) {
       GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
-          4, bn_out[4], std::get<int>(running_var_sh_t_or_idx)});
+          4, std::move(bn_out[4]), std::get<int>(running_var_sh_t_or_idx)});
     }
   } else {
     // 2.3 Handle inference

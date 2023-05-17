@@ -191,7 +191,7 @@ class OutputShapeInfRetType {
 
 struct PtInputIdxAndSynHelpTensor {
   int pt_input_idx;
-  synapse_helpers::tensor& sh_t;
+  synapse_helpers::tensor_or_ref sh_t;
   int syn_input_idx;
 };
 

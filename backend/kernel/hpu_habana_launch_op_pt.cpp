@@ -848,8 +848,10 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
   // updated inplace, but are not returned as outputs, so they can't be
   // treated as _out or common inplace input tensors.
   auto input_nodes = node->inputs();
-  for (const auto& [pt_input_idx, sh_t, syn_input_idx] :
-       habana_op->GetSynImplicitOutputs()) {
+  for (auto& syn_impl_op : habana_op->GetSynImplicitOutputs()) {
+    const auto& pt_input_idx = syn_impl_op.pt_input_idx;
+    const auto& syn_input_idx = syn_impl_op.syn_input_idx;
+    synapse_helpers::tensor& sh_t = syn_impl_op.sh_t;
     IValPtrShared ivpsh = value_to_ivalue[input_nodes[pt_input_idx]];
 
     // For some kernels, like the inplace ones, the kernel output is always
