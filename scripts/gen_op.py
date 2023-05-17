@@ -383,11 +383,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             dtypes = map(lambda x: f"at::ScalarType::{x}", dtypes)
             dtypes = ", ".join(dtypes)
             return "SupportedDtypes({{{{-1, {" + dtypes + "}}}}})"
-            return (
-                "SupportedDtypes(std::unordered_map<int, std::unordered_set<at::ScalarType>>({{-1, {"
-                + dtypes
-                + "}}}))"
-            )
 
         ctxop = self._ctxop
         opname = ctxop.opname
