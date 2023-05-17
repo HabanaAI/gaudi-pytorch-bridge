@@ -2091,8 +2091,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
   m.def("habana_d2d_memcpy_other(Tensor s, Tensor(a!) d) -> Tensor(a!)");
   m.def(
-      "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
-  m.def(
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("diag_out(Tensor self, int diagonal, Tensor(a!) out) -> Tensor(a!)");
   m.def("randperm_out(int n, Tensor seed, Tensor(a!) out) -> Tensor(a!)");

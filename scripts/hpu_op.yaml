@@ -6349,8 +6349,8 @@ sum.dim_IntList:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Half]
-  override_fn: sum_dim_IntList_hpu_lazy
-  acc_thread: true
+  guid: reduce_sum_fwd
+  out_ids: [0]
 
 sum.IntList_out:
   dtypes:
