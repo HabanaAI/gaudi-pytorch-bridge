@@ -64,38 +64,6 @@ static void optimizer_fused_adagrad(
       gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
 }
 
-static void optimizer_fused_sgd(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    at::Tensor& lr,
-    const float wd,
-    const float mom,
-    const float damp,
-    const bool nesterov) {
-  at::TensorList gradients(gradient_vec);
-  at::TensorList weights(weight_vec);
-
-  optimizer_sgd_hpu_wrap(gradients, weights, lr, wd, mom, damp, nesterov);
-}
-
-static void optimizer_fused_sgd_momentum(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& momentum_vec,
-    const at::Tensor& epoch_num,
-    at::Tensor& lr,
-    const float wd,
-    const float mom,
-    const float damp,
-    const bool nesterov) {
-  at::TensorList gradients(gradient_vec);
-  at::TensorList weights(weight_vec);
-  at::TensorList momentum(momentum_vec);
-
-  optimizer_sgd_momentum_hpu_wrap(
-      gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
-}
-
 static std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count(
     const torch::Tensor& gradients,
@@ -179,14 +147,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "fused_adagrad",
       &optimizer_fused_adagrad,
       "Compute and apply gradient update to parameters for Adagrad optimizer");
-  m.def(
-      "fused_sgd",
-      &optimizer_fused_sgd,
-      "Compute and apply gradient update to parameters for SGD optimizer");
-  m.def(
-      "fused_sgd_momentum",
-      &optimizer_fused_sgd_momentum,
-      "Compute and apply gradient update to parameters for SGD with momentum optimizer");
   m.def(
       "sparse_sgd_with_valid_count",
       &optimizer_sparse_sgd_with_valid_count,
