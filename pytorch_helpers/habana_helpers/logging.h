@@ -78,37 +78,10 @@ std::string formatStatusMsg(synStatus statusArg);
 inline bool isTracingForced(
     const HlLogger::LoggerType& mod,
     std::string_view name) {
-  static std::unordered_map<HlLogger::LoggerType, uint64_t> mask_map{
-      {HlLogger::LoggerType::PT_DEVICE, 0x1},
-      {HlLogger::LoggerType::PT_KERNEL, 0x2},
-      {HlLogger::LoggerType::PT_BRIDGE, 0x4},
-      {HlLogger::LoggerType::PT_SYNHELPER, 0x8},
-      {HlLogger::LoggerType::PT_DISTRIBUTED, 0x10},
-      {HlLogger::LoggerType::PT_LAZY, 0x20},
-      {HlLogger::LoggerType::PT_TRACE, 0x40},
-      {HlLogger::LoggerType::PT_FALLBACK, 0x80},
-      {HlLogger::LoggerType::PT_STATS, 0x100},
-      {HlLogger::LoggerType::PT_TEST, 0x200},
-      {HlLogger::LoggerType::PT_DYNAMIC_SHAPE, 0x400},
-      {HlLogger::LoggerType::PT_DEVMEM, 0x800},
-      {HlLogger::LoggerType::PT_HABHELPER, 0x1000},
-      {HlLogger::LoggerType::PT_IRGRAPH, 0x2000},
-      {HlLogger::LoggerType::PT_VIEWTABLE, 0x4000},
-      {HlLogger::LoggerType::PT_REFINEMENT, 0x8000},
-      {HlLogger::LoggerType::PT_HOSTSTAT, 0x10000},
-      {HlLogger::LoggerType::PT_LAYOUTS, 0x20000},
-      {HlLogger::LoggerType::PT_PARALLEL_ACC, 0x40000},
-      {HlLogger::LoggerType::PT_LAZY_EAGER, 0x80000},
-      {HlLogger::LoggerType::PT_MEMLOG, 0x100000},
-      {HlLogger::LoggerType::PT_EXEC_THREAD, 0x200000},
-      {HlLogger::LoggerType::PT_EAGER, 0x400000},
-      {HlLogger::LoggerType::PT_CUSTOM,
-       0x800000}, // Don't use it in checkin code.
-      {HlLogger::LoggerType::PT_RECIPE_STATS, 0x1000000},
-      {HlLogger::LoggerType::LOG_MAX, 0x2000000} // Don't use it
-  };
+  static_assert(static_cast<size_t>(HlLogger::LoggerType::LOG_MAX) <= 64);
 
-  if (GET_ENV_FLAG_NEW(PT_FORCED_TRACING_MASK) & mask_map[mod])
+  if (GET_ENV_FLAG_NEW(PT_FORCED_TRACING_MASK) &
+      (1 << static_cast<size_t>(mod)))
     // forced synapse logger
     return true;
   else
