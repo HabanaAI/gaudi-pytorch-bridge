@@ -87,15 +87,18 @@ void ComputeGraphHashCode(
 
 struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
+
   OptimizedJITGraphAndMetaData(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       uint64_t ug_cntr = 0,
-      std::vector<bool> node_bcast_details = {});
+      std::vector<bool> node_bcast_details = {},
+      const std::string& id = "");
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-      const at::ArrayRef<torch::jit::IValue>& input_refs);
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const std::string& id = "");
 
   std::shared_ptr<torch::jit::Graph> get_cached_graph() const {
     return jit_graph_to_lowering;

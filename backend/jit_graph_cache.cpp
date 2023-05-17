@@ -201,22 +201,24 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     uint64_t ug_cntr,
-    std::vector<bool> bcast_details)
+    std::vector<bool> bcast_details,
+    const std::string& id)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
       node_bcast_details(bcast_details) {
   // Compute the graph hash
-  ComputeGraphHashCode(JitGraphToLowering, input_refs);
+  ComputeGraphHashCode(JitGraphToLowering, input_refs, id);
 }
 
 void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
-    const at::ArrayRef<torch::jit::IValue>& input_refs) {
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const std::string& id) {
   set_cached_graph_key(0);
   set_cached_opstrs(std::string());
   habana::ComputeGraphHashCode(
       JitGraphToLowering,
-      "",
+      id,
       input_refs,
       opstrs,
       graphKey,

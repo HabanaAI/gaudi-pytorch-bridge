@@ -868,22 +868,26 @@ def test_relu_than_maxpool():
         assert torch.allclose(res, res_ver, rtol=1e-06)
 
 
-def test_erfinv():
+def test_simple_view():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
         import habana_frameworks.torch.core as htcore
-        torch.manual_seed(2562825)
-
-        class TestModel(torch.nn.Module):
-            def forward(self, tensor):
-                out = torch.ops.aten.erfinv.default(tensor)
-                return out
-
-        model = TestModel().to("hpu")
 
         def raw_function(x):
-            return model(x)
-        compiled_fnc = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+            return torch.relu(x)
 
-        tensor = torch.rand(64, 128, 128, device="cpu").to("hpu")
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
-        res_ver = raw_function(tensor)
+        input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
+
+        res = compiled_function_inference(input_tensor)
+
+        print(compiled_function_inference.__class__)
+
+        tensor_view = input_tensor.as_strided((2, 2), (1, 2))
+
+        res_view = compiled_function_inference(tensor_view)
+
+        print(input_tensor)
+        print(tensor_view)
+        print(res)
+        print(res_view)

@@ -23,6 +23,11 @@
 namespace habana {
 namespace graph {
 
+size_t generate_graph_index(size_t recipe_id) {
+  static const size_t graph_index_prefix = 100000;
+  return graph_index_prefix + recipe_id;
+}
+
 GraphStorage& GraphStorage::get() {
   static GraphStorage storage;
   return storage;
@@ -59,13 +64,13 @@ GraphExec::GraphExec(
     torch::jit::Stack& example_inputs,
     bool dynamic,
     bool inference)
-    : m_graph_index(recipe_id),
+    : m_graph_index(generate_graph_index(recipe_id)),
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference) {
   PT_EAGER_TRACE;
 
-  m_graph_name = "habana_graph_" + std::to_string(m_graph_index);
+  m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
 
   RunGraphPasses(example_inputs);
 
@@ -76,7 +81,8 @@ GraphExec::GraphExec(
       m_graph,
       input_refs,
       0ull /*unique_cntr*/,
-      std::vector<bool>{} /*node_bcast_map_*/);
+      std::vector<bool>{} /*node_bcast_map_*/,
+      m_graph_name);
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetOpName(m_graph_name);
