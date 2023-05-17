@@ -657,12 +657,8 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
 
   rv.populate_syn_tensor_ids();
 
-  const auto eager_mode =
-      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
-      (refine_ds_enabled_ && current_dbipsh_) ||
-      (eager_mode &&
-       !jit_graph_and_meta_data->get_is_eager_compiler_supported())) {
+      (refine_ds_enabled_ && current_dbipsh_)) {
     TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
     rv.set_key(cur_rargpsh->hashCode());
     rv.set_graph_key(graph_key);
@@ -766,13 +762,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     intermediate_tensors_ptr->push_back(ivpsh);
   }
 
-  const auto eager_mode =
-      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
   // Save cache before calling launch to unblock other ranks who may wait on
   // this cache entry to be flushed to disk
-  if (enable_caching_ ||
-      (eager_mode &&
-       !jit_graph_and_meta_data->get_is_eager_compiler_supported())) {
+  if (enable_caching_) {
     // Add the <key,value> pair to the map
     if (refine_ds_enabled_ && current_dbipsh_) {
       rv.dynamic_graph = syn_graph_ptr->is_dynamic_graph();
@@ -791,7 +783,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     DumpTensors(rv);
   }
 
-  if (enable_caching_ && refine_ds_enabled_ && current_dbipsh_) {
+  if (enable_graph_caching_ && refine_ds_enabled_ && current_dbipsh_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         current_dbipsh_->digest_str(),
         current_dbipsh_->history_str(),

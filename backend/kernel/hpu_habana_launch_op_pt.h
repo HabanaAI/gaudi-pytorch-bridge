@@ -311,7 +311,9 @@ class HabanaLaunchOpPT {
 
   // caching :: end
 
-  bool enable_caching_{true};
+  bool enable_caching_{false};
+  bool enable_graph_caching_{false};
+  bool enable_eager_caching_{false};
   bool enable_shape_agnostic_caching_{false};
   bool watch_tensor_flag_{false};
   bool enable_tensor_dump_{false};

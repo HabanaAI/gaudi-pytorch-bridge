@@ -178,8 +178,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
 
-  enable_caching_ = GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
-
   execution_mode_ = jit_graph_and_meta_data->GetFrontendType();
 
   // To support old lazy eager mode
@@ -188,9 +186,24 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
     execution_mode_ = habana_helpers::HabanaFrontendTypes::EAGER;
   }
 
+  // used for controlling recipe caching in non-eager backends
+  enable_graph_caching_ =
+      (execution_mode_ != habana_helpers::HabanaFrontendTypes::EAGER) &&
+      GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
+
   enable_shape_agnostic_caching_ =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
       GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
+
+  // used for controlling recipe caching in eager backends
+  // combined with PT_HPU_PGM_ENABLE_CACHE to allow debugging
+  enable_eager_caching_ =
+      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
+          (!jit_graph_and_meta_data->get_is_eager_compiler_supported() &&
+           GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_CACHE);
+
+  enable_caching_ = enable_graph_caching_ || enable_eager_caching_;
 
   HABANA_ASSERT(
       !(enable_caching_ && enable_shape_agnostic_caching_),
@@ -3021,7 +3034,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       current_bucket_id_, current_dbipsh_->get_statistics()->GetCurrentStep());
 
   // Check for cached recipe
-  if (enable_caching_) {
+  if (enable_graph_caching_) {
     current_dbipsh_->SetRecipeKeyForBucket(
         graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
@@ -3613,15 +3626,13 @@ void HabanaLaunchOpPT::run(
       graph_key_with_perm);
 
   idx += 1;
-  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
-      (eager_mode &&
-       !jit_graph_and_meta_data->get_is_eager_compiler_supported())) {
+  if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
         false, input_refs, jit_ir_graph, graph_key, op_strs);
   }
 
   // recipe caching :: begin
-  if (enable_caching_) {
+  if (enable_graph_caching_) {
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
@@ -3646,9 +3657,10 @@ void HabanaLaunchOpPT::run(
   }
   // recipe caching :: end
 
+  // currently only eager backend supports pipelining
+  // can be merged once non-eager backends support pipelining
   // eager recipe caching :: begin
-  if (eager_mode &&
-      !jit_graph_and_meta_data->get_is_eager_compiler_supported()) {
+  if (enable_eager_caching_) {
     PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
