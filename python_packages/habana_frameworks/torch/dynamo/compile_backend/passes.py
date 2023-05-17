@@ -741,6 +741,15 @@ def pass_compile_clusters(ctx: OptimizerContext):
             strip_overloads(module)
 
             for node in module.graph.nodes:
+                if (
+                    node.target == torch.ops.aten._to_copy
+                    and len(node.args) == 1
+                    and len(node.kwargs) == 1
+                    and "dtype" in node.kwargs
+                ):
+                    node.target = torch.ops.aten.to
+
+            for node in module.graph.nodes:
                 new_kwargs = {}
                 for k, v in node.kwargs.items():
                     if isinstance(v, torch.device):
