@@ -52,6 +52,7 @@ template struct LazyXlogY<at::Tensor>;
 
 template <typename T>
 T LazyXlogY<T>::get_result_overrideable() {
-  return LazyXlogY<T>::get_result_overrideable();
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return habana_lazy::LazyOp<T>::get_result_overrideable();
 }
 } // namespace habana

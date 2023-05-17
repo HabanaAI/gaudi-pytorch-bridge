@@ -42,11 +42,6 @@ LazyBitwiseScalar<T>::LazyBitwiseScalar(
 template struct LazyBitwiseScalar<at::Tensor&>;
 template struct LazyBitwiseScalar<at::Tensor>;
 
-template <typename T>
-T LazyBitwiseScalar<T>::get_result_overrideable() {
-  return LazyBitwiseScalar<T>::get_result_overrideable();
-}
-
 template <>
 LazyBitwiseScalarTensor<at::Tensor>::LazyBitwiseScalarTensor(
     const std::string& qualstring,
@@ -57,6 +52,12 @@ LazyBitwiseScalarTensor<at::Tensor>::LazyBitwiseScalarTensor(
   bitwise_convert_scalar_to_tensor(
       input, 1 /*tensor_index*/, 0 /*scalar_index*/);
   set_inputs(input);
+}
+
+template <typename T>
+T LazyBitwiseScalar<T>::get_result_overrideable() {
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return habana_lazy::LazyOp<T>::get_result_overrideable();
 }
 
 template <>
