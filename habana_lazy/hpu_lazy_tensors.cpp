@@ -1703,7 +1703,7 @@ void HbLazyTensor::StepMarker(
     return;
   }
 
-  if (!synapse_helpers::HPURegistrar::isInitialized()) {
+  if (!synapse_helpers::HPURegistrar::get_hpu_registrar().is_initialized()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");
     return;

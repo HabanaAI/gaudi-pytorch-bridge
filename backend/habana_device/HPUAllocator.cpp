@@ -23,12 +23,6 @@
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/memlog.h"
 
-bool synapse_helpers::HPURegistrar::initialized_ = false;
-
-// Note the main thread id
-const std::thread::id synapse_helpers::HPURegistrar::main_thread_id_ =
-    std::this_thread::get_id();
-
 namespace habana {
 
 synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
@@ -350,11 +344,4 @@ void HPUDeviceAllocator::dump_memory_reporter() {
 
 } // namespace habana
 
-namespace synapse_helpers {
-
-HPURegistrar& HPURegistrar::get_hpu_registrar() {
-  static HPURegistrar instance;
-  return instance;
-}
-
-} // namespace synapse_helpers
+namespace synapse_helpers {} // namespace synapse_helpers

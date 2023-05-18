@@ -25,73 +25,89 @@
 #include "backend/synapse_helpers/device.h"
 
 namespace synapse_helpers {
-class HPURegistrar {
-  HPURegistrar() = default;
-  std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
-      acquired_devices;
-  static HPURegistrar& get_hpu_registrar();
-  ~HPURegistrar() {
-    deleteDevices();
-    habana::HPUDeviceAllocator::allocator_active_device_id = -1;
-    habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
+
+/** Wrapper of a function that is executed when the wrapper is deleted.
+ * This is used to hold arbitrary resources along with a deleter function.
+ */
+class CallFinally {
+ public:
+  using FinalFunc = std::function<void()>;
+
+  CallFinally() = default;
+  CallFinally(FinalFunc&& final_func) : final_func_{std::move(final_func)} {}
+  CallFinally(CallFinally&& other) {
+    std::swap(other.final_func_, final_func_);
+  }
+  CallFinally& operator=(CallFinally&& other) {
+    std::swap(other.final_func_, final_func_);
+    return *this;
   }
 
- public:
-  HPURegistrar(HPURegistrar const&) = delete;
-  void operator=(HPURegistrar const&) = delete;
+  CallFinally& operator=(const CallFinally&) = delete;
+  CallFinally(const CallFinally&) = delete;
 
-  // This function always return initialized device
+  ~CallFinally() {
+    reset();
+  }
+
+  operator bool() const {
+    return bool(final_func_);
+  }
+
+  void reset(FinalFunc&& new_final_func = nullptr) {
+    if (final_func_) {
+      final_func_();
+    }
+    final_func_ = std::move(new_final_func);
+  }
+
+ private:
+  FinalFunc final_func_;
+};
+
+class HPURegistrar {
+ public:
+  static HPURegistrar& get_hpu_registrar() {
+    std::call_once(initialize_once_flag_, create_instance);
+
+    return *raw_instance_;
+  }
+  virtual ~HPURegistrar();
+  HPURegistrar(HPURegistrar const&) = delete;
+  HPURegistrar& operator=(HPURegistrar const&) = delete;
+  HPURegistrar(HPURegistrar&&) = delete;
+  HPURegistrar& operator=(HPURegistrar&&) = delete;
+
+  // Return acquired device or die if no device is initialized
   static synapse_helpers::device& get_device(int device_id) {
-    auto ret = get_hpu_registrar().acquired_devices.at(device_id).get();
-    TORCH_CHECK(ret != nullptr, "Device ", device_id, "is not initialized");
-    return *ret;
+    auto& instance{get_hpu_registrar()};
+    TORCH_CHECK(device_id == 0, "Device ", device_id, " is not initialized");
+    return instance.get_active_device();
   }
 
   static synapse_helpers::device& get_device() {
-    const auto& end = get_hpu_registrar().acquired_devices.end();
-    auto ret = std::find_if(
-        get_hpu_registrar().acquired_devices.begin(),
-        end,
-        [](auto& device_ptr) { return device_ptr.get() != nullptr; });
-
-    TORCH_CHECK(ret != end, "Habana device not initialized");
-    return *(ret->get());
+    auto& instance{get_hpu_registrar()};
+    return instance.get_active_device();
   }
 
-  static void insert_device(std::shared_ptr<synapse_helpers::device> device) {
-    get_hpu_registrar().acquired_devices[device->id()] = device;
-  }
-
-  static bool empty() {
-    for (auto& x : get_hpu_registrar().acquired_devices)
-      if (x.get() != nullptr)
-        return false;
-
-    return true;
-  }
-
-  static bool isInitialized() {
-    return initialized_;
-  }
-  static void markInitialized() {
-    initialized_ = true;
-  }
-
-  // Delete the acquired device and reset the acquired_devices
-  static void deleteDevices() {
-    if (initialized_) {
-      auto& device = get_hpu_registrar().get_device();
-      // Cleanup the device
-      device.cleanup();
-      // Reset acquired_devices
-      get_hpu_registrar().acquired_devices[0] = nullptr;
-      initialized_ = false;
+  synapse_helpers::device& get_active_device() {
+    TORCH_CHECK(active_device_ != nullptr, "Habana device not initialized");
+    if (is_closing()) {
+      TORCH_WARN("Habana device is accessed while closing");
     }
+
+    return *active_device_;
+  }
+
+  device& get_or_create_device();
+
+  bool is_initialized() {
+    return active_device_ != nullptr;
   }
 
   // Note: Need to finish execution all performed operations till this point
-  // Ensure a synchronous mark_step is invoked before calling this function for
-  // device synchronization
+  // Ensure a synchronous mark_step is invoked before calling this function
+  // for device synchronization
   static void synchronize_device() {
     auto& device = get_hpu_registrar().get_device();
     device.synchronize();
@@ -103,22 +119,48 @@ class HPURegistrar {
   }
 
   static std::string get_device_properties(int id) {
-    auto& device = get_hpu_registrar().get_device();
-    return device.get_device_properties(id);
+    return device::get_device_properties(id);
   }
 
   static int get_total_device_count() {
     return synapse_helpers::device::get_total_device_count();
   }
 
-  static const std::thread::id& getMainThreadId() {
+  static const std::thread::id& get_main_thread_id() {
     return main_thread_id_;
   }
 
+  /**
+   * Tells if the registrar is deleting the device right now.
+   * In this state no additional requests should be arriving, but it may so
+   * happen, that as the device is releasing, there are still some resources
+   * (Tensors) being freed that require the allocator to be opertional.
+   */
+  bool is_closing();
+
  private:
-  static bool initialized_;
-  // Note the main thread id
+  static std::once_flag initialize_once_flag_;
+  static std::unique_ptr<HPURegistrar> instance_;
+  static HPURegistrar* raw_instance_;
+  HPURegistrar() = default;
+
+  /**
+   * Some unusual operations are possible on the registrar for testability.
+   * The mechanism is that a derived test instance of a registrar may
+   * temporarily change resulution of get_hpu_registrar to itself.
+   */
+  friend class HPURegistrarTester;
+
+  static bool finalized_;
+  std::function<void()> test_inject_late_cleanup_{nullptr};
+
+  static void create_instance();
+  static void finalize_instance();
+
   static const std::thread::id main_thread_id_;
+
+  synapse_helpers::device* active_device_{nullptr};
+  std::shared_ptr<synapse_helpers::device> acquired_device_{nullptr};
 };
 
 } // namespace synapse_helpers
