@@ -2197,7 +2197,6 @@ Tensor constant_pad_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(constant_pad_nd, func, out)
 }
 
-
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
     const Tensor& indices,

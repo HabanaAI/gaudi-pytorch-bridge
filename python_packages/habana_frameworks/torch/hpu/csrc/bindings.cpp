@@ -13,10 +13,10 @@
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 //clang-format off
+#include <ATen/autocast_mode.h>
 #include <pybind11/chrono.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
-#include <ATen/autocast_mode.h>
 //clang-format on
 #include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
@@ -25,6 +25,8 @@
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/synapse_helpers/stream.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+
+using namespace c10::hpu;
 
 void hpu_init() {
   habana::HABANAGuardImpl device_guard;

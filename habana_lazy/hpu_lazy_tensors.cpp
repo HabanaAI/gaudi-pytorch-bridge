@@ -15,6 +15,8 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 
+#include "common/utils.h"
+
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -1704,9 +1706,8 @@ void HbLazyTensor::StepMarker(
     std::set<int64_t> bucket_recent_id) {
   PT_LAZY_TRACE;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    PT_BRIDGE_WARN(
-        "StepMarker invoked in PT_HPU_EAGER_FRONTEND=1 mode. Ignoring..");
+  if (!common::IsStepMarkerSupported()) {
+    PT_BRIDGE_WARN("StepMarker is invoked, but not supported. Ignoring..");
     return;
   }
 

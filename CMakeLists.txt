@@ -90,6 +90,7 @@ add_subdirectory(backend)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
+  common/lazy/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/signal_handler.cpp
@@ -199,6 +200,7 @@ install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/li
 
 add_subdirectory(habana_eager)
 add_library(habana_pytorch2_plugin SHARED
+  common/eager/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/frontend_utils.cpp

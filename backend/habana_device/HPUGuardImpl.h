@@ -26,8 +26,6 @@
 #include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
-using namespace c10::hpu;
-
 namespace habana {
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_devType = at::DeviceType::HPU;
@@ -162,21 +160,21 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           " != 0");
   }
   at::Stream getStream(at::Device d) const noexcept override {
-    return getCurrentHPUStream(d.index()).unwrap();
+    return c10::hpu::getCurrentHPUStream(d.index()).unwrap();
   }
 
   at::Stream getDefaultStream(at::Device d) const override {
-    return getDefaultHPUStream(d.index());
+    return c10::hpu::getDefaultHPUStream(d.index());
   }
 
   at::Stream getStreamFromGlobalPool(at::Device d, bool isHighPriority = false)
       const override {
-    return getStreamFromPool(isHighPriority, d.index());
+    return c10::hpu::getStreamFromPool(isHighPriority, d.index());
   }
   at::Stream exchangeStream(at::Stream s) const noexcept override {
-    HPUStream hs(s);
-    auto old_stream = getCurrentHPUStream(s.device().index());
-    setCurrentHPUStream(hs);
+    c10::hpu::HPUStream hs(s);
+    auto old_stream = c10::hpu::getCurrentHPUStream(s.device().index());
+    c10::hpu::setCurrentHPUStream(hs);
     return old_stream.unwrap();
   }
 
@@ -254,7 +252,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         stream.device_index(),
         ".");
     synEventHandle handle = static_cast<synEventHandle>(*event);
-    HPUStream hpu_stream{stream};
+    c10::hpu::HPUStream hpu_stream{stream};
     auto& device = synapse_helpers::HPURegistrar::get_device();
 
     // Creates the event (lazily)
@@ -292,7 +290,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return;
     synEventHandle handle = static_cast<synEventHandle>(event);
-    HPUStream hpu_stream{stream};
+    c10::hpu::HPUStream hpu_stream{stream};
     auto& device = synapse_helpers::HPURegistrar::get_device();
     std::pair<bool, synapse_helpers::hpuStream_t> event_info =
         device.get_user_event_info(handle);
@@ -338,12 +336,12 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
 
   // Stream-related functions
   bool queryStream(const at::Stream& stream) const override {
-    HPUStream hpu_stream{stream};
+    c10::hpu::HPUStream hpu_stream{stream};
     return hpu_stream.query();
   }
 
   void synchronizeStream(const at::Stream& stream) const override {
-    HPUStream hpu_stream{stream};
+    c10::hpu::HPUStream hpu_stream{stream};
     hpu_stream.synchronize();
   }
 };

@@ -10,17 +10,13 @@
  *
  *******************************************************************************
  */
-#include <pybind11/chrono.h>
+#include <ATen/Tensor.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
-#include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/synapse_helpers/stream.h"
-#include "habana_kernels/fallback_helper.h"
-#include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
+#include "common/utils.h"
 
 int GetDeviceType() {
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -28,12 +24,7 @@ int GetDeviceType() {
 }
 
 intptr_t GetDataPtr(const at::Tensor& t) {
-  void* data_ptr;
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND)) {
-    data_ptr = reinterpret_cast<void*>(t.storage().data_ptr().get());
-  } else {
-    data_ptr = habana_lazy::HbLazyTensor::lazyTensorDataPtr(t);
-  }
+  void* data_ptr = common::GetDataPtrFromTensor(t);
 
   if (data_ptr) {
     size_t device_id = t.device().index();
@@ -72,7 +63,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("t"));
   m.def("compute_stream", []() {
     auto& d = synapse_helpers::HPURegistrar::get_device();
-    HPUStream hpu_stream = getDefaultHPUStream(d.id());
+    auto hpu_stream = c10::hpu::getDefaultHPUStream(d.id());
     void* stream = (void*)d.get_stream(hpu_stream.id());
     return reinterpret_cast<intptr_t>(stream);
   });

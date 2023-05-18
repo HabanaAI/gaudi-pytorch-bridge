@@ -3942,8 +3942,7 @@ void HabanaLaunchOpPT::run(
   // Note that this needs to be done before execution of graph, otherwise
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
-  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus() &&
-      GET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND) == 0) {
+  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);
     ProcessDynamicBucketInputShapesWithH2D(input_tshapes);

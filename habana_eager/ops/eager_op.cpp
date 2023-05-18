@@ -18,12 +18,6 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 
-// PT_HPU_EAGER_FRONTEND is used to setup backend to work with Eager Flow
-auto eager_frontend_enabled = []() {
-  SET_ENV_FLAG_NEW(PT_HPU_EAGER_FRONTEND, true, 1);
-  return 0;
-}();
-
 namespace habana {
 namespace eager {
 void EagerLoweringTask(
