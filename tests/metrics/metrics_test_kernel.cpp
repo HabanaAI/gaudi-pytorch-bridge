@@ -37,22 +37,4 @@ void metrics_trigger() {
       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
       habana_helpers::EventDispatcher::EventParams(
           {{"success", true}, {"milliseconds", milliseconds_metric}}));
-  auto recipe_id_1 = "recipe_id_1";
-  auto recipe_id_2 = "recipe_id_2";
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::CACHE_MISS,
-      habana_helpers::EventDispatcher::EventParams(
-          {{"recipe_id", recipe_id_1}}));
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-      habana_helpers::EventDispatcher::EventParams(
-          {{"recipe_id", recipe_id_1}}));
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-      habana_helpers::EventDispatcher::EventParams(
-          {{"recipe_id", recipe_id_2}}));
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-      habana_helpers::EventDispatcher::EventParams(
-          {{"recipe_id", recipe_id_2}}));
 }

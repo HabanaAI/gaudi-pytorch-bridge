@@ -41,7 +41,6 @@
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
 
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging_pt.h"
@@ -3618,10 +3617,6 @@ void HabanaLaunchOpPT::run(
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
-      habana_helpers::EmitEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-          habana_helpers::EventDispatcher::EventParams(
-              {{"recipe_id", cur_rargpsh->hashCode()}}));
       ExecuteSynapseCache(
           hpu_stream,
           graph_key_with_perm,
@@ -3633,10 +3628,6 @@ void HabanaLaunchOpPT::run(
       PT_BRIDGE_END;
       return;
     } else {
-      habana_helpers::EmitEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
-          habana_helpers::EventDispatcher::EventParams(
-              {{"recipe_id", cur_rargpsh->hashCode()}}));
       PT_BRIDGE_DEBUG(
           id_str,
           ": ",
@@ -3654,10 +3645,6 @@ void HabanaLaunchOpPT::run(
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
-      habana_helpers::EmitEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-          habana_helpers::EventDispatcher::EventParams(
-              {{"recipe_id", cur_rargpsh->hashCode()}}));
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
@@ -3695,10 +3682,6 @@ void HabanaLaunchOpPT::run(
       PT_BRIDGE_END;
       return;
     } else {
-      habana_helpers::EmitEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
-          habana_helpers::EventDispatcher::EventParams(
-              {{"recipe_id", cur_rargpsh->hashCode()}}));
       PT_BRIDGE_DEBUG(
           id_str,
           ": ",

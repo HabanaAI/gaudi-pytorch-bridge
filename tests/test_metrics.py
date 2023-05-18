@@ -53,13 +53,7 @@ class TestMetricsAPI:
         m.reset()
         yield m
 
-    @pytest.fixture(scope="function")
-    def rc_metric(self):
-        m = metric_global("recipe_cache")
-        m.reset()
-        yield m
-
-    def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric, rc_metric):
+    def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric):
         shapes = [[10, 20, x] for x in range(1, 11)]
         device = torch.device('hpu')
 
@@ -69,32 +63,25 @@ class TestMetricsAPI:
         for curr_iter, shape in enumerate(shapes):
             compute_single_step(shape, device, curr_iter + 1)
             gc_metric_dict = dict(gc_metric.stats())
-            rc_metric_dict = dict(rc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == (curr_iter + 1)
-            assert rc_metric_dict["TotalMiss"] == (curr_iter + 1)
             assert gc_metric_dict["TotalTime"] > last_total_time
             last_total_time = gc_metric_dict["TotalTime"]
 
             print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
 
-    def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric, rc_metric):
+    def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric):
         device = torch.device('hpu')
         shape = [1, 2, 3]
         torch.random.manual_seed(42)
 
         total_time_of_last_iter = -1
-        total_test_cases = 10
-        for curr_iter in range(total_test_cases):
+        for curr_iter in range(10):
             compute_single_step(shape, device)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == 1
             assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
 
             print(f"Current iteration {curr_iter}. GC metric: {gc_metric.stats()}")
-
-        rc_metric_dict = dict(rc_metric.stats())
-        assert rc_metric_dict["TotalMiss"] == 1
-        assert rc_metric_dict["TotalHit"] == total_test_cases - 1
 
     @staticmethod
     def _worker_metric_zero_at_beginning(q, metric_name):
@@ -106,8 +93,7 @@ class TestMetricsAPI:
     @pytest.mark.parametrize("metric_name",
                              [("graph_compilation"),
                               ("cpu_fallback"),
-                              ("memory_defragmentation"),
-                              ("recipe_cache")])
+                              ("memory_defragmentation")])
     def test_metric_zero_at_beginning(self, metric_name):
         """
         Spawns fresh process and verifies if metric are equal 0 at beginning.
@@ -118,22 +104,14 @@ class TestMetricsAPI:
         metric_dict = q.get(timeout=10)
         p.join()
 
-        if metric_name == "recipe_cache":
-            assert metric_dict["TotalHit"] == 0
-            assert metric_dict["TotalMiss"] == 0
-            assert len(metric_dict["RecipeHit"].items()) == 0
-            assert len(metric_dict["RecipeMiss"].items()) == 0
-            assert len(metric_dict.items()) == 4
+        assert metric_dict["TotalNumber"] == 0
         if metric_name == "cpu_fallback":
-            assert metric_dict["TotalNumber"] == 0
             assert len(metric_dict.items()) == 2
             assert len(metric_dict["FallbackOps"].items()) == 0
         if metric_name == "graph_compilation":
-            assert metric_dict["TotalNumber"] == 0
             assert metric_dict["TotalTime"] == 0
             assert metric_dict["AvgTime"] == 0
         if metric_name == "memory_defragmentation":
-            assert metric_dict["TotalNumber"] == 0
             assert metric_dict["MaxTime"] == 0
             assert metric_dict["TotalSuccessful"] == 0
 
@@ -349,7 +327,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 4
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -371,11 +349,10 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, format)
 
-        assert len(parsed) == 10  # 9 metrics chanages + process exit
+        assert len(parsed) == 6  # 5 metrics chanages + process exit
         prev_total_time = 0
         prev_generated_on = None
-        gc_only = [p for p in parsed if p["metric_name"] == "graph_compilation"]
-        for idx, metric_on_metric_change in enumerate(gc_only[:3]):
+        for idx, metric_on_metric_change in enumerate(parsed[:3]):
             assert metric_on_metric_change["metric_name"] == "graph_compilation"
             assert metric_on_metric_change["triggered_by"] == "metric_change"
             assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
@@ -387,8 +364,8 @@ class TestMetricsDump:
                 assert curr_generated_on > prev_generated_on
             prev_generated_on = curr_generated_on
 
-        metric_on_process_exit = gc_only[-1]
-        last_metric_on_metric_change = gc_only[-2]
+        metric_on_process_exit = parsed[3]
+        last_metric_on_metric_change = parsed[2]
         assert metric_on_process_exit["metric_name"] == "graph_compilation"
         assert metric_on_process_exit["triggered_by"] == "process_exit"
         assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
@@ -404,7 +381,7 @@ class TestMetricsDump:
             payload = f.read()
         parsed = TestMetricsDump._parse_dump(payload, "json")
 
-        assert len(parsed) == 4
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "process_exit"
@@ -466,7 +443,7 @@ class TestMetricsDump:
                 payload = f.read()
             parsed = TestMetricsDump._parse_dump(payload, "json")
 
-            assert len(parsed) == 4
+            assert len(parsed) == 3
             metric = parsed[0]
             assert metric["metric_name"] == "graph_compilation"
             assert metric["triggered_by"] == "process_exit"
@@ -497,7 +474,7 @@ class TestMetricsDump:
             payload = f.read()
 
         parsed = TestMetricsDump._parse_dump(payload, format)
-        assert len(parsed) == 4
+        assert len(parsed) == 3
         metric = parsed[0]
         assert metric["metric_name"] == "graph_compilation"
         assert metric["triggered_by"] == "user"
