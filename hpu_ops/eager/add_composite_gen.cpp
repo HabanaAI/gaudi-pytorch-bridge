@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,35 +10,26 @@
  *
  *******************************************************************************
  */
-
 #include "hpu_ops/common/add_composite_gen.h"
-#include "generated/lazy/addcdiv.h"
-#include "generated/lazy/addcmul.h"
-namespace habana {
+#include "generated/eager/addcdiv.h"
+#include "generated/eager/addcmul.h"
 
-static void convert_scalar_val_to_tensor(at::Stack& inputs) {
+namespace habana {
+static void fill_optionals(at::Stack& inputs) {
   /* According to schema_args in hpu_op.yaml the Tensor "value" should be placed
   in the 4th position and the Tensor "scalar_value" in 5th position Initially,
   the Tensor "scalar_value" is in the 4th position, so we need to add Tensor
   value=None before the Tensor "scalar_value" to move it on the correct position
   */
   inputs.insert(inputs.begin() + val_tensor_idx, c10::nullopt);
-  auto self = inputs[inp_idx].toTensor();
-  auto value = inputs[val_scalar_idx].toScalar().to<float>();
-  at::Tensor valueTensor;
-  if (value != 1.0)
-    valueTensor = habana_lazy::get_tensor_for_scalar(value, self.options());
-
-  c10::optional<at::Tensor> valueTensorOpt = c10::make_optional(valueTensor);
-  inputs[val_tensor_idx] = valueTensorOpt;
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, AddCOpFE, at::Tensor&) {
-  convert_scalar_val_to_tensor(get_inputs());
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, AddCOpFE, at::Tensor&) {
+  fill_optionals(get_inputs());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, AddCOpFE, at::Tensor) {
-  convert_scalar_val_to_tensor(get_inputs());
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, AddCOpFE, at::Tensor) {
+  fill_optionals(get_inputs());
 }
 
 } // namespace habana
