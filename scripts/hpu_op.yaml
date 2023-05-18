@@ -4256,9 +4256,10 @@ mean:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_mean_multi_dim_fwd
-  op_template: reduction_cguid
+  guid: reduce_mean_fwd
+  op_template: reduction
   out_ids: [0]
+  acc_thread: true
 
 mean.dim:
   force_default: false
@@ -4266,8 +4267,8 @@ mean.dim:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_mean_multi_dim_fwd
-  op_template: reduction_cguid
+  guid: reduce_mean_fwd
+  op_template: reduction
   out_ids: [0]
 
 mean.out:
@@ -4275,8 +4276,8 @@ mean.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_mean_multi_dim_fwd
-  op_template: reduction_cguid
+  guid: reduce_mean_fwd
+  op_template: reduction
 
 median:
   custom_output_shape: MedianOutputShape
