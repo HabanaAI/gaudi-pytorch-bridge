@@ -415,6 +415,7 @@ class EagerOp : public EagerOpBase {
 
     auto result = get_result();
     if (!m_dont_preallocate_outputs) {
+      m_is_pipeline_supported = true;
       run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
       return result;
     } else {
@@ -429,6 +430,7 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
     PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
+    m_is_pipeline_supported = true;
     // TODO avoid calling get_result
     auto result = get_result();
 
@@ -448,6 +450,7 @@ class EagerOp : public EagerOpBase {
       call() {
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
+    m_is_pipeline_supported = true;
 
     auto result = get_result();
 
