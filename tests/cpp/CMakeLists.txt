@@ -270,7 +270,6 @@ add_executable(
   ${misc_tests_src}
 )
 
-target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 
 if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
@@ -292,7 +291,6 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     ${hpu_ops_tests_src}
     ${misc_tests_src}
     ${eager_tests_src})
-  target_compile_definitions(test_pt2_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
   target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
 endif()
 

@@ -411,7 +411,7 @@ class device {
 
   std::string get_device_capability();
 
-  std::string get_device_properties(int id);
+  static std::string get_device_properties(int id);
 
   void release();
 
@@ -501,6 +501,8 @@ class device {
   event_handle_cache event_handle_cache_;
   event_handle_cache time_event_handle_cache_;
   memory_mapper memory_mapper_;
+  host_memory host_memory_;
+  device_memory device_memory_;
   std::unordered_map<hpuStream_t, std::unique_ptr<stream>> streams_;
   // Only used with old design of stream assignment
   std::unordered_map<default_stream_type, std::unique_ptr<stream>>
@@ -513,11 +515,9 @@ class device {
   bool is_hcl_same_addr_enabled_;
 
   active_recipe_counter recipe_counter_;
-  host_memory host_memory_;
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
   std::chrono::milliseconds dma_copy_retry_delay_;
-  device_memory device_memory_;
   uint32_t max_recipe_limit_in_queue_;
   bool enable_memory_defragmentation_;
   bool enable_memory_defrag_info_;

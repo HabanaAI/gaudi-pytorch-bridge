@@ -279,9 +279,9 @@ device::device(
       event_handle_cache_{*this, 0},
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
-      recipe_handle_cache_{*this},
       host_memory_{*this},
-      device_memory_{*this} {
+      device_memory_{*this},
+      recipe_handle_cache_{*this} {
   // create default stream
   create_default_stream();
   HABANA_ASSERT(create_allocator != nullptr);

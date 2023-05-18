@@ -82,7 +82,6 @@ target_include_directories(habana_pytorch2_frontend SYSTEM
     $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
     ${PYTHON_INCLUDE_DIRS})
 
-target_compile_definitions(habana_pytorch2_frontend PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch2_frontend PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch2_frontend PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 target_include_directories(habana_pytorch2_frontend PRIVATE ${PROJECT_SOURCE_DIR}/pytorch_helpers)

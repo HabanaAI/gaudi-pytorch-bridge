@@ -34,6 +34,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   habana_device/HPUGraph.cpp
   habana_device/HPUStream.cpp
   habana_device/PinnedMemoryAllocator.cpp
+  habana_device/hpu_cached_devices.cpp
   helpers/collective_kernel_info.cpp
   helpers/dynamic_bucket_info.cpp
   helpers/dynamic_bucket_info_utils.cpp

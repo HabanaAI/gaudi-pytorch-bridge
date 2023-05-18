@@ -137,8 +137,8 @@ void HPUStream::synchronize() const {
     if (id() != getCurrentHPUStream(device_index).id()) {
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
-      bool is_main_thread =
-          habana::HPURegistrar::getMainThreadId() == std::this_thread::get_id();
+      bool is_main_thread = habana::HPURegistrar::get_main_thread_id() ==
+          std::this_thread::get_id();
       // If synchronize is called from userthread, just do wait till the
       // execution is over
       habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
