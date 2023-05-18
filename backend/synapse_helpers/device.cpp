@@ -43,7 +43,7 @@
 #include "backend/synapse_helpers/util.h"
 
 #define PRINT_ENV_FLAG_DEFAULT(name) \
-  std::clog << " #name = " << GET_ENV_FLAG_NEW(name) << "\n";
+  std::clog << " " << #name << " = " << GET_ENV_FLAG_NEW(name) << "\n";
 
 namespace synapse_helpers {
 /**
