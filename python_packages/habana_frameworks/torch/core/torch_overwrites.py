@@ -21,9 +21,10 @@ import habana_frameworks.torch.utils.debug as htdebug
 import torch
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
-
+import threading
 _name_stack = deque()
 _module_dict = dict()
+_lock = threading.Lock()
 
 def _is_inference():
     return environ.get('PT_HPU_INFERENCE_MODE')
@@ -36,19 +37,20 @@ def _names_hook_already_registered(module):
 def _pre_fwd_hook(module, input):
     #handle the naming mismatch issue with a temp fix, till we
     #find a way to get unique module names from the calibration tool
-    if _is_inference() and _name_stack and "relu" in  module.custom_name:
-        ns = str(_name_stack[-1])
-        if ns in _module_dict.keys():
-            _module_dict[ns] += 1
-            new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
+    with _lock:
+        if _is_inference() and _name_stack and "relu" in  module.custom_name:
+            ns = str(_name_stack[-1])
+            if ns in _module_dict.keys():
+                _module_dict[ns] += 1
+                new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
+            else:
+                _module_dict[ns] = 0
+                new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
         else:
-            _module_dict[ns] = 0
             new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
-    else:
-        new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
 
-    _name_stack.append(new_name)
-    htdebug._set_module_name(new_name)
+        _name_stack.append(new_name)
+        htdebug._set_module_name(new_name)
 
 def _gen_grad_hook(name):
     def grad_hook(grad):
@@ -57,25 +59,26 @@ def _gen_grad_hook(name):
     return grad_hook
 
 def _post_fwd_hook(module, input, output):
-    module_name = _name_stack.pop()
-    if _is_inference() and module_name in _module_dict.keys():
-        del _module_dict[module_name]
-    if (_name_stack):
-        name = _name_stack[-1]
-    else:
-        name = ""
-    grad_name = "gradient/" + module_name
-    htdebug._set_module_name(name)
-    try:
-        if isinstance(output, Tensor):
-            if output.requires_grad:
-                output.register_hook(_gen_grad_hook(grad_name))
+    with _lock:
+        module_name = _name_stack.pop()
+        if _is_inference() and module_name in _module_dict.keys():
+            del _module_dict[module_name]
+        if (_name_stack):
+            name = _name_stack[-1]
         else:
-            for o in output:
-                if isinstance(o, Tensor) and o.requires_grad:
-                    o.register_hook(_gen_grad_hook(grad_name))
-    except:
-        pass
+            name = ""
+        grad_name = "gradient/" + module_name
+        htdebug._set_module_name(name)
+        try:
+            if isinstance(output, Tensor):
+                if output.requires_grad:
+                    output.register_hook(_gen_grad_hook(grad_name))
+            else:
+                for o in output:
+                    if isinstance(o, Tensor) and o.requires_grad:
+                        o.register_hook(_gen_grad_hook(grad_name))
+        except:
+            pass
 
 def overwrite_torch_functions():
     # wrap torch.manual_seed
