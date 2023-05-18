@@ -24,6 +24,7 @@ function pytorch_functions_help()
     echo -e "build_lightning_habana_fork    -   Build lightning habana fork"
     echo -e "build_pytorch_data             -   Build habana pytorch data"
     echo -e "build_pytorch_text             -   Build habana pytorch text"
+    echo -e "build_pytorch_audio            -   Build habana pytorch audio"
     echo -e "run_pytorch_qa_tests           -   Run pytorch QA tests"
     echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
     echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
@@ -249,6 +250,21 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --py-version           Python version"
         echo -e "       --pt-text-version      PytorchText version"
+        echo -e "  -h,  --help                 Prints this help"
+    fi
+
+    if [ $1 == "build_pytorch_audio" ]; then
+        echo -e "\n usage: $1 [options]\n"
+
+        echo -e "options:\n"
+        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
+        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
+        echo -e "  -r,  --release              Python only code, option ignored"
+        echo -e "  -d,  --debug                Python only code, option ignored"
+        echo -e "       --install              will install the package"
+        echo -e "       --dist                 create a wheel distribution/default"
+        echo -e "       --py-version           Python version"
+        echo -e "       --pt-audio-version     PytorchAudio version"
         echo -e "  -h,  --help                 Prints this help"
     fi
 }
@@ -2179,6 +2195,94 @@ build_pytorch_data()
         rm -rf $PYTORCH_DATA_BUILD/pkgs
         mkdir -p $PYTORCH_DATA_BUILD/pkgs
         cp -f ${PTD_WHL_PATH}/*.whl $PYTORCH_DATA_BUILD/pkgs
+    fi
+
+    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
+    restore_python_version
+    return $__result
+}
+
+build_pytorch_audio()
+{
+    SECONDS=0
+    local __scriptname=$(__get_func_name)
+    local __env_vars="PATH=/opt/bin:$PATH USE_CUDA=0 BUILD_RNNT=0"
+    local __configure=""
+    local __whl_params=" bdist_wheel"
+    local __result
+    local __set_py_vers="false"
+    local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
+    local __pt_audio_version
+    # parameter while-loop
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -j  | --jobs )
+            __env_vars+=" MAX_JOBS=$2"
+            shift
+            ;;
+        -c  | --configure )
+             __configure="yes"
+            ;;
+        -r  | --release )
+            ;;
+        -d  | --debug )
+            ;;
+        --dist )
+            __whl_params=" bdist_wheel"
+            ;;
+        --install )
+            __whl_params=" install"
+            ;;
+        --py-version )
+            set_python_version $2
+            __set_py_vers="true"
+            shift
+            ;;
+        --pt-audio-version )
+            __pt_audio_version="$2"
+            shift
+            ;;
+        -h  | --help )
+            usage $__scriptname
+            restore_python_version
+            return 0
+            ;;
+        esac
+        shift
+    done
+
+    rm -rf $PYTORCH_AUDIO_ROOT
+    mkdir -p $PYTORCH_AUDIO_ROOT
+    pushd $PYTORCH_AUDIO_ROOT
+
+    # checkout github torchaudio repo
+    if [ -z ${__pt_audio_version} ]; then
+        __pt_audio_version=$($__profile_getter_path --get-extras-version torchaudio current)
+    fi
+    echo "get torchaudio from github (tag: $__pt_audio_version)"
+    git clone https://github.com/pytorch/audio --branch v$__pt_audio_version --single-branch --depth 1 .
+    git submodule update --init --recursive
+
+    if [ -n "$__configure" ]; then
+        $__python_cmd setup.py clean
+        git clean -fd
+    fi
+
+    echo "Build parameters ${__whl_params}"
+
+    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        echo "Pytorch torchaudio build failed!"
+    fi
+    PTA_WHL_PATH="$PYTORCH_AUDIO_ROOT/dist/"
+
+    popd
+    if [[ "$__whl_params" = " bdist_wheel" ]]; then
+        rm -rf $PYTORCH_AUDIO_BUILD/pkgs
+        mkdir -p $PYTORCH_AUDIO_BUILD/pkgs
+        cp -f ${PTA_WHL_PATH}/*.whl $PYTORCH_AUDIO_BUILD/pkgs
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
