@@ -12,10 +12,12 @@
  */
 
 #include "habana_eager/graph_exec.h"
+
 #include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_view.h"
 #include "habana_eager/graph_weight_permute.h"
 
 #include "habana_helpers/logging.h"
@@ -73,6 +75,7 @@ GraphExec::GraphExec(
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
 
   RunGraphPasses(example_inputs);
+  LogRecipeInfo(example_inputs);
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(example_inputs, m_graph->inputs().size());
@@ -107,14 +110,17 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
-  pass::HandleInputViews(m_graph, example_inputs);
+  pass::HandleInputViews(m_graph, example_inputs, m_input_new_base_sizes);
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
 }
 
-torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
+torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
   PT_EAGER_TRACE;
+
+  torch::jit::Stack stack =
+      habana::eager::convert_inputs_to_backend_tensors(original_stack);
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
@@ -122,6 +128,18 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& stack) {
       torch::jit::last(stack, m_graph->inputs().size());
 
   HandleWeightPermutation(stack);
+
+  for (auto& input_base_sizes_pair : m_input_new_base_sizes) {
+    int64_t input_idx{input_base_sizes_pair.first};
+    std::vector<int64_t> base_sizes{input_base_sizes_pair.second};
+
+    HABANA_ASSERT(input_refs.at(input_idx).isTensor());
+    torch::Tensor input_tensor{input_refs.at(input_idx).toTensor()};
+
+    auto* impl = input_tensor.unsafeGetTensorImpl();
+    impl->set_storage_offset(0);
+    impl->set_sizes_contiguous(base_sizes);
+  }
 
   m_graph_and_meta->SetHPUStream(stream);
 

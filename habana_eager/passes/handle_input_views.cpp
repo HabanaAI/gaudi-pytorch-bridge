@@ -34,6 +34,10 @@ struct HandleInputViewsPass {
     return changed;
   }
 
+  std::map<int64_t, std::vector<int64_t>> get_base_sizes_to_set_during_launch() {
+    return m_input_base_sizes_to_set;
+  }
+
  private:
   bool processInputs(
       at::ArrayRef<torch::jit::Value*> inputs,
@@ -50,10 +54,29 @@ struct HandleInputViewsPass {
       if (tensor_meta->is_view_lowering() || !input_tensor.is_contiguous()) {
         auto& first_use{input->uses()[0]};
         torch::jit::Node* user{first_use.user};
+
+        static const std::set<c10::Symbol> view_ops_symbols{
+            c10::Symbol::fromQualString("aten::as_strided"),
+            c10::Symbol::fromQualString("aten::slice_scatter"),
+            c10::Symbol::fromQualString("aten::select_scatter"),
+            c10::Symbol::fromQualString("aten::as_strided_scatter")};
+
+        if (view_ops_symbols.find(user->kind()) != view_ops_symbols.end()) {
+          // Moving for next input as view for this one are already handled in
+          // graph
+          continue;
+        }
+
         auto view_params{std::make_unique<habana::eager::ViewParam>()};
         view_params->setParam(input_tensor);
+        m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
         insert_strided_view_node(
-            input_tensor, tensor_meta, user, input, view_params);
+            input_tensor,
+            tensor_meta,
+            user,
+            input,
+            view_params,
+            m_input_base_sizes_to_set.at(input_idx));
         changed |= true;
       }
     }
@@ -66,7 +89,8 @@ struct HandleInputViewsPass {
       habana::TensorExtraMeta* input_tmeta,
       torch::jit::Node* node,
       torch::jit::Value* value_in,
-      std::unique_ptr<habana::eager::ViewParam>& p) {
+      std::unique_ptr<habana::eager::ViewParam>& p,
+      std::vector<int64_t>& base_sizes_to_set) {
     PT_EAGER_TRACE;
     torch::jit::WithInsertPoint insert_point(node);
 
@@ -86,16 +110,11 @@ struct HandleInputViewsPass {
     jit_node->output(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(), input_tensor.device(), p->getViewSizes()));
 
-    std::vector<int64_t> base_sizes;
     if (input_tmeta->get_memory_permutation().size()) {
-      base_sizes = input_tmeta->get_base_tensor_size();
+      base_sizes_to_set = input_tmeta->get_base_tensor_size();
     } else {
-      base_sizes = {p->getTotalElements()};
+      base_sizes_to_set = {p->getTotalElements()};
     }
-
-    auto* impl = input_tensor.unsafeGetTensorImpl();
-    impl->set_storage_offset(0);
-    impl->set_sizes_contiguous(base_sizes);
 
     jit_node->input(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(),
@@ -109,17 +128,20 @@ struct HandleInputViewsPass {
 
  private:
   std::shared_ptr<torch::jit::Graph> m_graph;
+  std::map<int64_t, std::vector<int64_t>> m_input_base_sizes_to_set;
 };
 
 void HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
-    torch::jit::Stack& example_inputs) {
+    torch::jit::Stack& example_inputs,
+    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map) {
   PT_EAGER_TRACE;
   HandleInputViewsPass pass{graph};
   bool changed{pass.run(example_inputs)};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
+  input_base_sizes_map = pass.get_base_sizes_to_set_during_launch();
 }
 
 } // namespace pass

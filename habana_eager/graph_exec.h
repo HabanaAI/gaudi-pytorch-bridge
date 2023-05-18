@@ -35,7 +35,8 @@ void DetectWeightTensors(
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 void HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
-    torch::jit::Stack& example_inputs);
+    torch::jit::Stack& example_inputs,
+    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);
 } // namespace pass
 
 class GraphExec {
@@ -61,6 +62,7 @@ class GraphExec {
   bool m_inference;
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;
+  std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;
 };
 
 class GraphStorage {
