@@ -342,6 +342,10 @@ struct Value final {
 
   bool IsInplaceOnInput() const;
 
+  bool IsInplace() const;
+
+  int64_t GetHbLazyTensorUniqueId() const;
+
   bool DataPtrValid() const;
 
   bool DataPtrValidAndNotExpired() const;

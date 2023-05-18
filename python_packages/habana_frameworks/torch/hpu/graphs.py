@@ -51,6 +51,31 @@ class HPUGraph(object):
         """
         _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist, asynchronous)
 
+    def replayV3(self, tlist: List[torch.Tensor], asynchronous=False):
+        r"""
+        Replays the HPU work captured by this graph.
+
+        Arguments:
+            tlist: List of output tensors for the graph replay
+
+        .. warning::
+            This API is in beta and may change in future releases.
+        """
+        _hpu_C.replayV3(self.hpu_graph, tlist, asynchronous)
+
+    def mark_user_outputs(self, static_tlist: List[torch.Tensor]):
+        r"""
+        Marks user needed output after graph capture
+
+        Arguments:
+            static_tlist: List of out tensors for the graph capture
+
+        .. warning::
+            This API is in beta and may change in future releases.
+        """
+        _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist)
+
+
 class graph(object):
     r"""
     Context-manager that captures HPU work into a :class:`torch.hpu.HPUGraph`
@@ -281,10 +306,11 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     return tuple(ret)
 
 class CachedParams:
-    def __init__(self, graph_inputs, graph_outputs, graph, asynchronous=False):
+    def __init__(self, graph_inputs, graph_outputs, graph, out_tinfo_list=None, asynchronous=False):
         self.graph_inputs = graph_inputs
         self.graph_outputs = graph_outputs
         self.graph = graph
+        self.out_tinfo_list = out_tinfo_list
         self.asynchronous = asynchronous
 
 
@@ -344,7 +370,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False):
                 graph.capture_end()
                 graph_inputs = inputs
                 graph_outputs = outputs
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
+                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, None, asynchronous)
             return outputs
         if use_replay_v2:
             cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
@@ -354,16 +380,137 @@ def wrap_in_hpu_graph_func(func, asynchronous=False):
         return cached.graph_outputs
     return forward
 
-def wrap_in_hpu_graph(module, asynchronous=False):
+def extract_tensors(data):
+    """
+    Returns a list of all tensors contained within a given data structure.
+    """
+    tensors = []
+    if isinstance(data, torch.Tensor):
+        tensors.append(data)
+    elif isinstance(data, (list, tuple)):
+        for item in data:
+            tensors.extend(extract_tensors(item))
+    elif isinstance(data, dict):
+        for value in data.values():
+            tensors.extend(extract_tensors(value))
+    elif hasattr(data, '__dict__'):
+        for value in data.__dict__.values():
+            tensors.extend(extract_tensors(value))
+    return tensors
+
+def get_tensor_info(tensor):
+    """
+    Returns a dictionary with shape, dtype, and device information for a PyTorch tensor.
+    """
+    return {'shape': tensor.shape, 'dtype': tensor.dtype, 'device': tensor.device}
+
+def replace_tensors_in_object(graph_outputs, out_tinfo_list, zst):
+    """
+    Replaces the tensors in graph_outputs with empty tensors of the same shape, dtype, and device as specified in
+    out_tinfo_list.
+
+    Args:
+    - graph_outputs (Union[Dict[str, Any], torch.Tensor]): The tensor(s) to be replaced with empty tensors.
+    - out_tinfo_list (List[Dict[str, Union[torch.Size, torch.dtype, torch.device]]]): A list of dictionaries
+      containing information about the shape, dtype, and device of the tensors to be replaced.
+    - zst (bool): If True, replaces the tensors in graph_outputs with tensors of shape zero instead of empty tensors.
+    """
+    empty_tensors = []
+    for tinfo in reversed(out_tinfo_list):
+        if zst:
+            t_shape = [0]
+        else:
+            t_shape = tinfo['shape']
+        empty_t = torch.empty(t_shape, dtype=tinfo['dtype'], device=tinfo['device'])
+        empty_tensors.append(empty_t)
+
+    tensors = []
+    stack = [graph_outputs]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, torch.Tensor):
+            item.data = empty_tensors.pop(0)
+            #item = empty_tensors.pop(0)
+        elif isinstance(item, (list, tuple)):
+            stack.extend(item)
+        elif isinstance(item, dict):
+            stack.extend(item.values())
+        elif hasattr(item, "__dict__"):
+            stack.extend(item.__dict__.values())
+
+
+def detach_from_original_tensor(graph_outputs):
+    """
+    Given a tensor or list/dict of tensors, returns a new object with shallow copy of tensors.
+
+    Args:
+        graph_outputs (torch.Tensor or list or dict or tuple): The object containing the out tensors.
+
+    Returns:
+        detached tensor (torch.Tensor or list or dict or tuple): A new object with all tensors in `graph_outputs` detached.
+    """
+    # Currently donot support type class, return error in this case
+    # if hasattr(graph_outputs, "__dict__") and not isinstance(graph_outputs, torch.Tensor):
+    #     # stack.extend(item.__dict__.values())
+    #     raise TypeError(
+    #         f"detach_from_original_tensor() expects input to be a tensor or a list/dict/tuple of tensors, but got {type(graph_outputs)} instead.")
+
+    if isinstance(graph_outputs, torch.Tensor):
+        return graph_outputs.detach()
+    elif isinstance(graph_outputs, dict):
+        return {k: detach_from_original_tensor(v) for k, v in graph_outputs.items()}
+    elif isinstance(graph_outputs, list):
+        return [detach_from_original_tensor(x) for x in graph_outputs]
+    elif isinstance(graph_outputs, tuple):
+        return tuple(detach_from_original_tensor(x) for x in graph_outputs)
+    elif hasattr(graph_outputs, '__dict__'):
+        # Recursively traverse attributes and convert any tensor
+        new_obj = copy.copy(graph_outputs)
+        for attr_name, attr_value in graph_outputs.__dict__.items():
+            setattr(new_obj, attr_name, detach_from_original_tensor(attr_value))
+        return new_obj
+    else:
+        return graph_outputs
+
+def wrap_in_hpu_graph(module, asynchronous=False, use_tensor_cache=True):
+    """
+    Wraps the forward method of a module in an HPU graph capture and replay mechanism.
+
+    Args:
+        module (torch.nn.Module): The module to be wrapped.
+        asynchronous (bool, optional): Specifies whether the graph capture and replay should be asynchronous.
+            Defaults to False.
+        use_tensor_cache (bool, optional): Specifies whether to use tensor cache during graph replay.
+            Defaults to True.
+
+    Returns:
+        torch.nn.Module: The module with the wrapped forward method.
+
+    Raises:
+        TypeError: If the input module is not an instance of torch.nn.Module.
+
+    Notes:
+        - This function modifies the input module by replacing its forward method.
+        - The wrapped forward method captures the graph when it is first called, and replays the captured graph
+          for subsequent calls.
+        - If `use_tensor_cache` is True, the graph replay uses a tensor cache for better performance.
+        - If `use_tensor_cache` is False, the graph replay replaces the tensors in the graph with empty tensors
+          after replaying, saves memory.
+
+    """
     import habana_frameworks.torch as ht
     stream = ht.hpu.Stream()
     cache = {}
     orig_fwd = module.forward
+    if not use_tensor_cache and module.training and torch.is_grad_enabled():
+        print("[WARNING]wrap_in_hpu_graph without use_tensor_cache returns output "
+               "with requires_grad=False, not suggested to use for training.")
+
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
         inputs = (args, kwargs)
-        # V2 can only be used for inputs which can expressed as a list
-        if not asynchronous and not kwargs and is_seq_of_tensor(args):
+        # V2 can only be used for inputs which can be expressed as a list
+        if use_tensor_cache and not asynchronous and not kwargs and is_seq_of_tensor(args):
             use_replay_v2 = True
         else:
             use_replay_v2 = False
@@ -377,15 +524,30 @@ def wrap_in_hpu_graph(module, asynchronous=False):
                 graph.capture_end()
                 graph_inputs = inputs
                 graph_outputs = outputs
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, asynchronous)
+                if use_tensor_cache:
+                    tinfo_list = None
+                else:
+                    tlist = extract_tensors(outputs)
+                    tinfo_list = [get_tensor_info(t) for t in tlist]
+                    graph.mark_user_outputs(tlist)
+                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
             return outputs
 
         if use_replay_v2:
             cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
+            out = cached.graph_outputs
         else:
             copy_to(cached.graph_inputs, inputs)
-            cached.graph.replay(cached.asynchronous)
-        return cached.graph_outputs
+            if use_tensor_cache:
+                cached.graph.replay(cached.asynchronous)
+                out = cached.graph_outputs
+            else:
+                replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, False)
+                out_tlist = extract_tensors(cached.graph_outputs)
+                cached.graph.replayV3(out_tlist, cached.asynchronous)
+                out = detach_from_original_tensor(cached.graph_outputs)
+                replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, True)
+        return out
     module.forward = forward
     return module
 

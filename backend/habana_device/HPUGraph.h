@@ -44,12 +44,17 @@ struct SingleHPUGraph {
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
+  void replayV3(std::vector<at::Tensor>& outputs, bool async = false);
+  void mark_user_outputs(std::vector<at::Tensor>& outputs);
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
 
   std::shared_ptr<torch::jit::Graph> graph_;
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_;
+  std::vector<std::pair<size_t, size_t>> user_out_indices_tlist_;
+  std::set<size_t> hpugraph_dependant_out_t_list_;
+
   std::unordered_map<int64_t, c10::optional<at::Generator>>
       seed_tensors_generator_;
   size_t hash_{0};
@@ -69,6 +74,9 @@ struct HPUGraph {
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
+  void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
+  void mark_user_outputs(std::vector<at::Tensor>& outputs);
+  void find_output_tensors();
 
  protected:
   // Stream on which capture began

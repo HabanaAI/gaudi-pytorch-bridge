@@ -35,8 +35,7 @@ void HPUGraph::capture_begin() {
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
   capture_stream_ = stream;
   /*flush current Accumulated graph, before capture */
-  habana_lazy::HbLazyTensor::StepMarkerBind("");
-  context->JoinPendingLaunchThread();
+  habana_lazy::HbLazyTensor::StepMarker({});
 
   dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
   if (dynamic_env_) {
@@ -70,17 +69,41 @@ void HPUGraph::capture_end() {
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 
   /*flush graph to capture in the end */
-  habana_lazy::HbLazyTensor::StepMarkerBind("");
+  habana_lazy::HbLazyTensor::StepMarker({});
   capturing_ = false;
 
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
-
+  find_output_tensors();
   // Not enabling DS back once HPU graph detected
   /*if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();
   }*/
+}
+
+// Find the output tensors across multiple SingleHpuGraph
+void HPUGraph::find_output_tensors() {
+  std::set<int64_t> input_lazyt_id_set;
+  for (const auto& captured_graph : captured_graphs) {
+    for (const auto& input_val : captured_graph->input_vals_) {
+      input_lazyt_id_set.emplace(input_val.GetHbLazyTensorUniqueId());
+    }
+  }
+
+  for (const auto& captured_graph : captured_graphs) {
+    HABANA_ASSERT(
+        captured_graph->output_vals_.size() ==
+        captured_graph->hblazy_tensors_.size());
+    size_t outIdx = 0;
+    for (const auto& output_val : captured_graph->output_vals_) {
+      if (input_lazyt_id_set.find(output_val.GetHbLazyTensorUniqueId()) !=
+          input_lazyt_id_set.end()) {
+        captured_graph->hpugraph_dependant_out_t_list_.insert(outIdx);
+      }
+      outIdx++;
+    }
+  }
 }
 
 void HPUGraph::mark_step() {
@@ -175,6 +198,47 @@ void HPUGraph::replayV2(
   }
 }
 
+void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
+  PT_LAZY_TRACE;
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (capturing_ == true) {
+    // if capturing is in progress, replay is not allowed.
+    PT_DEVICE_FATAL("GRAPH:: Capture in progress");
+    return;
+  }
+
+  if (captured_graphs.size() == 0) {
+    return;
+  }
+
+  for (size_t i = 0; i < captured_graphs.size(); i++) {
+    captured_graphs[i]->mark_user_outputs(outputs);
+  }
+}
+
+void HPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
+  PT_LAZY_TRACE;
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (capturing_ == true) {
+    // if capturing is in progress, replay is not allowed.
+    PT_DEVICE_FATAL("GRAPH:: Capture in progress");
+    return;
+  }
+
+  if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
+  } else {
+    habana_lazy::HbLazyTensor::StepMarker({});
+  }
+
+  if (captured_graphs.size() == 0) {
+    return;
+  }
+  for (size_t i = 0; i < captured_graphs.size(); i++) {
+    captured_graphs[i]->replayV3(outputs, async);
+  }
+}
+
 HPUGraph::~HPUGraph() {
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
@@ -258,6 +322,80 @@ void SingleHPUGraph::replayGraph(
 
 void SingleHPUGraph::replay(bool async) {
   if (graph_) {
+    return replayGraph(input_vals_, async);
+  }
+}
+
+void SingleHPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
+  if (graph_) {
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    habana_lazy::HbExecutionContext* context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+            device.id());
+
+    auto out_pos = 0;
+    for (auto& t : outputs) {
+      size_t idx = 0;
+      auto& ir_value = habana_lazy::GetHbLazyTensor(t).CurrentIrValue();
+      for (auto& out_tensor : hblazy_tensors_) {
+        auto& stored_ir_value = out_tensor.CurrentIrValue();
+        if (ir_value == stored_ir_value) {
+          user_out_indices_tlist_.emplace_back(std::make_pair(out_pos, idx));
+          hpugraph_dependant_out_t_list_.insert(idx);
+        }
+        idx++;
+      }
+      out_pos++;
+    }
+
+    size_t idx = 0;
+    for (size_t idx = 0; idx < hblazy_tensors_.size(); idx++) {
+      auto& out_tensor = hblazy_tensors_[idx];
+      auto& stored_ir_value = out_tensor.CurrentIrValue();
+      // exclude view tensors
+      {
+        LOCK_VIEW_TABLE_MUTEX(context->viewContext);
+        auto params_ptr = context->viewContext.GetViewTableEntry(
+            out_tensor.getTensorUniqueId());
+        if (params_ptr != nullptr) {
+          hpugraph_dependant_out_t_list_.insert(idx);
+          continue;
+        }
+      }
+      // exclude Inplace tensors
+      if (output_vals_[idx].IsInplace()) {
+        hpugraph_dependant_out_t_list_.insert(idx);
+        continue;
+      }
+
+      // Free nonouttensors memory, which have no dependancy
+      bool is_dependent =
+          (hpugraph_dependant_out_t_list_.find(idx) !=
+           hpugraph_dependant_out_t_list_.end());
+      if (!is_dependent) {
+        out_tensor.SetHpuGraphOutTensor(false);
+        out_tensor.SetTensorData(at::Tensor());
+      }
+    }
+  }
+}
+
+void SingleHPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
+  PT_DEVICE_DEBUG(
+      "In HPUGraph::replayV3 with ", outputs.size(), " output tensors");
+  PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
+  if (graph_) {
+    for (const auto& [userOutputIdx, tensorIdx] : user_out_indices_tlist_) {
+      auto& t = outputs[userOutputIdx];
+      // This index must be an output tensor
+      HABANA_ASSERT(hblazy_tensors_[tensorIdx].IsHpuGraphOutTensor() == true);
+      // This index must present in hpugraph_dependant_out_t_list_
+      auto search = hpugraph_dependant_out_t_list_.find(tensorIdx);
+      HABANA_ASSERT(search != hpugraph_dependant_out_t_list_.end());
+      auto hb_lt = habana_lazy::GetHbLazyTensor(t);
+      hb_lt.SetHpuGraphOutTensor(true);
+      hblazy_tensors_[tensorIdx] = hb_lt;
+    }
     return replayGraph(input_vals_, async);
   }
 }

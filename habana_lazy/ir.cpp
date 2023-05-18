@@ -352,6 +352,22 @@ bool Value::IsInplaceOnInput() const {
   return false;
 }
 
+bool Value::IsInplace() const {
+  if (mp_node && !mp_node->is_control_edge()) {
+    std::string node_name = (std::string)mp_node->op().toQualString();
+    auto len = node_name.length();
+    if (len && node_name.back() == '_') {
+      return true;
+    }
+  }
+  return false;
+}
+
+int64_t Value::GetHbLazyTensorUniqueId() const {
+  std::shared_ptr<habana_lazy::Data> d = m_data_ptr.lock();
+  return habana_lazy::HbLazyTensor(std::move(d)).getTensorUniqueId();
+}
+
 bool Value::DataPtrValid() const {
   // Check the owner_before for an empty weak pointer.
   // As per https://en.cppreference.com/w/cpp/memory/weak_ptr/owner_before,

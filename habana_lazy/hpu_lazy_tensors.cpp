@@ -1603,13 +1603,17 @@ void HbLazyTensor::ExecuteCachedGraph(
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   auto& view_context = context->viewContext;
   for (const torch::IValue& v : stack) {
-    auto st = v.toTensor();
+    // auto st = v.toTensor();
     HbLazyTensor out_tensor = hblazy_tensors[i++];
 
     // clear the orig tensor map entries corresponding to cached graph outputs
     view_context.DelOrigTensorMapEntry(out_tensor.getTensorUniqueId());
-
-    out_tensor.SetTensorData(st);
+    if (out_tensor.IsHpuGraphOutTensor()) {
+      auto st = v.toTensor();
+      out_tensor.SetTensorData(st);
+    } else {
+      out_tensor.SetTensorData(at::Tensor());
+    }
     out_tensor.ResetExecutionInProgress();
   }
 

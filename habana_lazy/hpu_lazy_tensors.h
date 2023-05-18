@@ -343,6 +343,14 @@ class HbLazyTensor {
 
   void ShallowCopyTo(HbLazyTensor* dest) const;
 
+  bool IsHpuGraphOutTensor() {
+    return is_hpugraph_out_tensor;
+  }
+
+  void SetHpuGraphOutTensor(bool flag) {
+    is_hpugraph_out_tensor = flag;
+  }
+
   int64_t getTensorUniqueId() const {
     if (mp_data.get()) {
       return mp_data.get()->unique_id;
@@ -416,6 +424,7 @@ class HbLazyTensor {
       bool async = false,
       bool collect_sync_tensors = true);
 
+  bool is_hpugraph_out_tensor = false;
   static bool switch_dynamic_mode;
   bool is_strided = false;
 };

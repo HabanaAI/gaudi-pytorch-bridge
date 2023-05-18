@@ -133,6 +133,7 @@ void HbExecutionContext::saveInputsAndOutputs(
 
   m_hblazy_tensors.clear();
   for (auto& i : indices) {
+    tensors[i].SetHpuGraphOutTensor(true);
     m_hblazy_tensors.emplace_back((tensors)[i]);
   }
 }
