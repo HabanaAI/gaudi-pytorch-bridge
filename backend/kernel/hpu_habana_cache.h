@@ -285,7 +285,8 @@ struct RecipeValueSpec {
       size_t ridx,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       std::vector<int64_t> new_shape,
-      std::vector<uint8_t> permute_or_empty = {});
+      std::vector<uint8_t> permute_or_empty = {},
+      std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt);
   void update_output_permutation();
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -300,7 +301,8 @@ struct RecipeValueSpec {
       std::vector<std::vector<int64_t>> output_shapes = {},
       synapse_helpers::graph* synapse_graph_ptr = nullptr,
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {},
-      bool is_shape_agnostic_graph = false);
+      bool is_shape_agnostic_graph = false,
+      bool is_eager_mode = false);
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,

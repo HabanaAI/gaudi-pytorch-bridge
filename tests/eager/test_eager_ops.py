@@ -411,3 +411,51 @@ def test_local_scalar_dense(init_val, dtype):
         assert np.allclose([hpu_tensor.item()], [init_val], atol=0.001, rtol=0.001)
     else:
         assert hpu_tensor.item() == init_val
+
+def test_sag_permute_add():
+    cpu_tensor = torch.randn(3, 3, 3, dtype=torch.float32)
+    permute_cpu = torch.permute(cpu_tensor, (2, 0, 1)).contiguous()
+    result_cpu = torch.add(permute_cpu, 2)
+
+    hpu_tensor = cpu_tensor.to("hpu")
+    permute_hpu = torch.permute(hpu_tensor, (2, 0, 1)).contiguous()
+    result_hpu = torch.add(permute_hpu, 2)
+
+    cpu_tensor2 = torch.randn(3, 3, 3, dtype=torch.float32)
+    permute_cpu2 = torch.permute(cpu_tensor2, (2, 0, 1)).contiguous()
+    result_cpu2 = torch.add(permute_cpu2, 3)
+
+    hpu_tensor2 = cpu_tensor2.to("hpu")
+    permute_hpu2 = torch.permute(hpu_tensor2, (2, 0, 1)).contiguous()
+    result_hpu2 = torch.add(permute_hpu2, 3)
+
+    assert torch.allclose(result_hpu.to("cpu"), result_cpu, atol=0.001, rtol=0.001)
+    assert torch.allclose(result_hpu2.to("cpu"), result_cpu2, atol=0.001, rtol=0.001)
+
+def test_sag_conv_relu():
+    input_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
+    input_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(1, 4, 4, 4)
+
+    weight_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(3, 3, 3, 1)
+    weight_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(4, 4, 4, 1)
+
+    #cpu
+    conv_a = torch.nn.functional.conv2d(input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1)
+    out_a = torch.relu(conv_a)
+
+    conv_b = torch.nn.functional.conv2d(input_b, weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1)
+    out_b = torch.relu(conv_b)
+
+    #hpu
+    hpu_input_a = input_a.to("hpu")
+    hpu_weight_a = weight_a.to("hpu")
+    hpu_conv_a = torch.nn.functional.conv2d(hpu_input_a, hpu_weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1)
+    hpu_out_a = torch.relu(hpu_conv_a)
+
+    hpu_input_b = input_b.to("hpu")
+    hpu_weight_b = weight_b.to("hpu")
+    hpu_conv_b = torch.nn.functional.conv2d(hpu_input_b, hpu_weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1)
+    hpu_out_b = torch.relu(hpu_conv_b)
+
+    assert torch.allclose(hpu_out_a.to("cpu"), out_a, atol=0.001, rtol=0.001)
+    assert torch.allclose(hpu_out_b.to("cpu"), out_b, atol=0.001, rtol=0.001)
