@@ -1598,6 +1598,7 @@ def is_tensor_api(fndef):
 non_mandatory_ops_whitelist = [
     "convolution_overrideable",
     "convolution_backward_overrideable",
+    "is_pinned",
 ]
 
 def get_dispatch_property(fields):

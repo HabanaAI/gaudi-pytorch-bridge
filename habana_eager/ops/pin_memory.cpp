@@ -44,6 +44,11 @@ at::Tensor pin_memory_hpu(
   return tensor;
 }
 
+bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device) {
+  ensure_has_index(device);
+  return habana::PinnedMemoryAllocator_is_pinned(self.data_ptr());
+}
+
 } // namespace eager
 } // namespace habana
 
@@ -59,5 +64,16 @@ at::Tensor _pin_memory(
       " device=",
       habana::to_string(device));
   return habana::eager::pin_memory_hpu(self, device);
+}
+
+bool is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "is_pinned :",
+      " self=",
+      habana::to_string(self),
+      " device=",
+      habana::to_string(device));
+  return habana::eager::is_pinned_hpu(self, device);
 }
 } // namespace hpu_wrap
