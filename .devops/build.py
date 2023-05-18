@@ -1708,30 +1708,35 @@ def _fix_venv_dirs_if_manylinux(venv_dirs: Sequence[str]) -> Sequence[str]:
     ]
 
 
+def get_newest_file(files: Sequence[str]) -> str:
+    mtimes = list(map(os.path.getmtime, files))
+    newest_file_index = mtimes.index(max(mtimes))
+    return files[newest_file_index]
+
+
 def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConfig], args):
     log.info("Produced wheels:")
     wheel_manifest = []
     for no, wheel_config in enumerate(selected_wheel_configs):
         wheel_list = glob.glob(wheel_config.file_path_pattern)
-        if len(wheel_list) == 1:
+        if wheel_list:
+            produced_wheel = get_newest_file(wheel_list)
+            if len(wheel_list) > 1:
+                log.debug("More than one file matched wheel file path pattern: %s", ', '.join(wheel_list))
             optional = 'optional ' if wheel_config.optional else ''
             fixed_venv_dirs = ', and in '.join(_fix_venv_dirs_if_manylinux(wheel_config.venv_dirs))
             install_info = f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
             wheel_info = f"wheel {wheel_config.full_wheel_name}" \
                          f"(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
             log.info(
-                f" {no: 2}) Built {optional}{wheel_info} in {wheel_list[0]}{install_info}"
+                f" {no: 2}) Built {optional}{wheel_info} in {produced_wheel}{install_info}"
             )
             wheel_manifest.append(
                 {
                     "package_name": wheel_config.full_wheel_name,
                     "python_ver": "cp" + str(wheel_config.py_ver).replace(".", ""),
-                    "wheel_file": wheel_list[0],
+                    "wheel_file": produced_wheel,
                 }
-            )
-        elif len(wheel_list) > 1:
-            log.error(
-                "More than one file matched wheel file path pattern - something went wrong"
             )
         else:
             log.info(
@@ -1879,7 +1884,7 @@ def print_build_summary(cmake_build_configs, selected_wheel_configs, args):
 def install_wheels_in_venvs(selected_wheel_configs):
     for wheel_config in selected_wheel_configs:
         wheel_list = glob.glob(wheel_config.file_path_pattern)
-        if len(wheel_list) == 1:
+        if wheel_list:
             for venv in wheel_config.venv_dirs:
                 run(
                     "python3",
@@ -1887,10 +1892,10 @@ def install_wheels_in_venvs(selected_wheel_configs):
                     "pip",
                     "install",
                     "--force-reinstall",
-                    wheel_list[0],
+                    get_newest_file(wheel_list),
                     venv=venv
                 )
-        # else: all conditions checked in log_produced_wheels_and_dump_manifest
+        # else: checked in log_produced_wheels_and_dump_manifest
 
 
 def main():
