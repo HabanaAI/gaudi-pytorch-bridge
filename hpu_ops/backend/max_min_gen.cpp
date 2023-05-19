@@ -16,6 +16,12 @@
 #include "generated/backend/min.h"
 #include "hpu_ops/backend/reduction_template.h"
 
+namespace {
+auto indices_type() {
+  return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
+                                                   : c10::ScalarType::Int;
+}
+} // namespace
 namespace habana {
 
 sizes_vec MinMaxOutputShape(const at::Stack& stack) {
@@ -57,7 +63,7 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto shape = MinMaxOutputShape(stack)[0];
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {shape, ScalarType(), 0}, {shape, c10::ScalarType::Int, 1}};
+      {shape, ScalarType(), 0}, {shape, indices_type(), 1}};
 
   auto reduce_max = HandleReductionDimAndKeepdim(
       this, graph, self, {syn_in(0)}, dim, keepdim, guid_, output_attrs);
