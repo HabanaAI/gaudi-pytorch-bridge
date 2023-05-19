@@ -230,7 +230,7 @@ void ProcessGroupHCCL::destroy() {
   // This function is called with GIL lock acquired, but effectively leads to
   // SEM mutexes locks. Meanwhile, event completion handlers are called from
   // within SEM locks, but may free tensors, which requires GIL lock. The
-  // following job deferral prevents that sitaution.
+  // following job deferral prevents that situation.
   JobThreadHCCL::getInstance()->addJob(
       [emulate_distributed = emulate_distributed_,
        device_contexts = std::move(device_contexts_),
@@ -246,8 +246,7 @@ void ProcessGroupHCCL::destroy() {
         comm_streams.clear();
         device_contexts.clear();
 
-        return false; // Notify JobThreadHCCL that this is the last job and it
-                      // should cease to function.
+        return true;
       });
 }
 
