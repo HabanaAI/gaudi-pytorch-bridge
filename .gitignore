@@ -1,8 +1,8 @@
 **/*build*/**
+.*
+!.gitignore
 !.devops/build_profiles/**
 *cache*/
-.idea/
-.vscode/*
 data/
 *.log
 *.so
@@ -15,4 +15,3 @@ data/
 *.egg-info
 test_pt_integration
 test_pt2_integration
-.gdb_history
