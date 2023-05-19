@@ -127,7 +127,7 @@ INSTANTIATE_TEST_CASE_P(
     UniqueDimTest,
     UniqueDimParameterizedTestFixture,
     ::testing::Values(
-        std::make_tuple(
+        std::make_tuple( // 0
             torch::tensor(
                 {{{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}},
                  {{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}}),
@@ -135,37 +135,37 @@ INSTANTIATE_TEST_CASE_P(
             -1,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 1
             torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}),
             torch::kInt32,
             1,
             true,
             true),
-        std::make_tuple(
+        std::make_tuple( // 2
             torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
             torch::kInt32,
             1,
             true,
             true),
-        std::make_tuple(
+        std::make_tuple( // 3
             torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}),
             torch::kInt32,
             1,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 4
             torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
             torch::kInt32,
             1,
             false,
             true),
-        std::make_tuple(
+        std::make_tuple( // 5
             torch::tensor({{1, 2, 3, 2, 1}, {4, 5, 6, 7, 4}, {1, 2, 3, 2, 1}}),
             torch::kInt32,
             1,
             true,
             false),
-        std::make_tuple(
+        std::make_tuple( // 6
             torch::tensor(
                 {{{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}},
                  {{1, 2, 3, 2, 1}, {4, 5, 6, 5, 4}, {1, 2, 3, 2, 1}}}),
@@ -173,123 +173,123 @@ INSTANTIATE_TEST_CASE_P(
             2,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 7
             torch::randint(0, 10, {10}),
             torch::kInt32,
             0,
             false,
             true),
-        std::make_tuple(
+        std::make_tuple( // 8
             torch::randint(0, 10, {20}),
             torch::kFloat,
             0,
             false,
             true),
-        std::make_tuple(
+        std::make_tuple( // 9
             torch::randint(0, 10, {10, 20}),
             torch::kInt32,
             0,
             true,
             false),
-        std::make_tuple(
+        std::make_tuple( // 10
             torch::randint(0, 10, {10, 20}),
             torch::kFloat,
             0,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 11
             torch::randint(0, 10, {10, 20}),
             torch::kInt32,
             1,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 12
             torch::randint(0, 10, {10, 20}),
             torch::kFloat,
             1,
             true,
             true),
-        std::make_tuple(
+        std::make_tuple( // 13
             torch::randint(0, 10, {10, 20, 10}),
             torch::kInt32,
             0,
             false,
             true),
-        std::make_tuple(
+        std::make_tuple( // 14
             torch::randint(0, 10, {15, 12, 13}),
             torch::kFloat,
             0,
             true,
             false),
-        std::make_tuple(
+        std::make_tuple( // 15
             torch::randint(0, 10, {13, 24, 21}),
             torch::kInt32,
             1,
             false,
             false),
-        std::make_tuple(
+        std::make_tuple( // 16
             torch::randint(0, 10, {23, 14, 25}),
             torch::kFloat,
             1,
             true,
             true),
-        std::make_tuple(
-            torch::randint(0, 10, {13, 24, 27}),
+        std::make_tuple( // 17
+            torch::randint(0, 10, {13, 24, 3}),
             torch::kInt32,
             2,
             false,
             true),
-        std::make_tuple(
-            torch::randint(0, 10, {23, 14, 22}),
+        std::make_tuple( // 18
+            torch::randint(0, 10, {4, 14, 11}),
             torch::kFloat,
             2,
             false,
             false),
 
-        std::make_tuple(
-            torch::randint(0, 10, {10, 20, 10, 20}),
+        std::make_tuple( // 19
+            torch::randint(0, 10, {10, 2, 10, 1}),
             torch::kInt32,
             0,
             false,
             false),
-        std::make_tuple(
-            torch::randint(0, 10, {15, 12, 13, 16}),
+        std::make_tuple( // 20
+            torch::randint(0, 10, {7, 12, 13, 7}),
             torch::kFloat,
             0,
             true,
             true),
-        std::make_tuple(
-            torch::randint(0, 10, {13, 24, 21, 12}),
+        std::make_tuple( // 21
+            torch::randint(0, 10, {13, 1, 21, 12}),
             torch::kInt32,
             1,
             false,
             false),
-        std::make_tuple(
-            torch::randint(0, 10, {23, 14, 25, 29}),
+        std::make_tuple( // 22
+            torch::randint(0, 10, {23, 11, 5, 7}),
             torch::kFloat,
             1,
             false,
             true),
-        std::make_tuple(
-            torch::randint(0, 10, {13, 24, 27, 13}),
+        std::make_tuple( // 23
+            torch::randint(0, 10, {13, 24, 7, 13}),
             torch::kInt32,
             2,
             false,
             false),
-        std::make_tuple(
-            torch::randint(0, 10, {23, 14, 22, 14}),
+        std::make_tuple( // 24
+            torch::randint(0, 10, {23, 14, 2, 4}),
             torch::kFloat,
             2,
             true,
             false),
-        std::make_tuple(
-            torch::randint(0, 10, {13, 21, 27, 22}),
+        std::make_tuple( // 25
+            torch::randint(0, 10, {3, 2, 7, 22}),
             torch::kInt32,
             3,
             true,
             true),
-        std::make_tuple(
-            torch::randint(0, 10, {23, 17, 22, 21}),
+        std::make_tuple( // 26
+            torch::randint(0, 10, {1, 13, 2, 21}),
             torch::kFloat,
             3,
             false,
