@@ -35,7 +35,7 @@ OptimizerFusedLambNorm::OptimizerFusedLambNorm(
           {},
           {},
           false) {
-  SetOutputMetaFn(ComputeLambOutputMetadata);
+  SetOutputMeta(ComputeLambOutputMetadata);
 }
 
 void OptimizerFusedLambNorm::CustomHandler(

@@ -66,10 +66,10 @@ class EagerOpBase {
     m_scalar_types = scalar_types;
   }
 
-  void SetOutputMetaFn(
+  void SetOutputMeta(
       std::function<habana::OutputMetaDataVector(const at::Stack&)>
           output_meta) {
-    m_output_meta_fn = std::move(output_meta);
+    m_output_meta = std::move(output_meta);
   }
 
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
@@ -103,8 +103,7 @@ class EagerOpBase {
   const int m_out_index;
   std::vector<at::IValue> m_inputs;
   std::vector<c10::ScalarType> m_scalar_types;
-  std::function<habana::OutputMetaDataVector(const at::Stack&)>
-      m_output_meta_fn;
+  std::function<habana::OutputMetaDataVector(const at::Stack&)> m_output_meta;
   EagerOpMetaData m_eager_op_meta_data;
   bool m_is_pipeline_supported = false;
   bool m_dont_preallocate_outputs = false;
@@ -200,8 +199,8 @@ class EagerOp : public EagerOpBase {
         "Got a non-HPU tensor, expecting an HPU tensor");
 
     std::vector<int64_t> out_shape;
-    if (m_output_meta_fn) {
-      out_shape = m_output_meta_fn(get_inputs())[0].shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
     } else if (m_out_shapes.empty())
       out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
     else {
@@ -238,8 +237,8 @@ class EagerOp : public EagerOpBase {
         "Got a non-HPU tensor, expecting an HPU tensor");
 
     std::vector<int64_t> out_shape;
-    if (m_output_meta_fn) {
-      out_shape = m_output_meta_fn(get_inputs())[0].shape;
+    if (m_output_meta) {
+      out_shape = m_output_meta(get_inputs())[0].shape;
     } else if (m_out_shapes.empty())
       out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
     else {
@@ -266,8 +265,8 @@ class EagerOp : public EagerOpBase {
     m_is_pipeline_supported = true;
 
     std::vector<std::vector<int64_t>> out_shapes;
-    if (m_output_meta_fn) {
-      const auto& meta = m_output_meta_fn(get_inputs());
+    if (m_output_meta) {
+      const auto& meta = m_output_meta(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           meta.size() == std::tuple_size<T>::value);
       for (const auto& output_meta : meta) {
@@ -479,9 +478,9 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
   get_result() {
     PT_EAGER_TRACE;
-    if (m_output_meta_fn) {
+    if (m_output_meta) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
-      auto meta = m_output_meta_fn(get_inputs());
+      auto meta = m_output_meta(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
       auto output_meta = meta[0];
       auto options = at::TensorOptions(at::kHPU).dtype(output_meta.dtype);
@@ -525,9 +524,9 @@ class EagerOp : public EagerOpBase {
       }
     }
 
-    if (m_output_meta_fn) {
+    if (m_output_meta) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
-      const auto& meta = m_output_meta_fn(get_inputs());
+      const auto& meta = m_output_meta(get_inputs());
 
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
           std::tuple_size<T>::value == meta.size());
@@ -581,9 +580,9 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, std::vector<at::Tensor>>::value, T>::
       type
       get_result() {
-    if (m_output_meta_fn) {
+    if (m_output_meta) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
-      const auto& meta = m_output_meta_fn(get_inputs());
+      const auto& meta = m_output_meta(get_inputs());
       auto options = at::TensorOptions(at::kHPU);
       std::vector<at::Tensor> results;
 

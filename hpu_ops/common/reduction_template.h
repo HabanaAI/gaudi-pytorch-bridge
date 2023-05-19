@@ -23,10 +23,6 @@ sizes_vec ReductionOutputShape(
     at::OptionalIntArrayRef dims,
     bool keepdim);
 
-at::optional<at::ScalarType> get_dtype(
-    const at::Stack& stack,
-    at::optional<uint8_t> dtype_index);
-
 std::vector<int64_t> get_dims(
     const at::Stack& stack,
     at::optional<uint8_t> dim_index);

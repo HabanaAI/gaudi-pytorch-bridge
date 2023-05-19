@@ -17,6 +17,21 @@
 #include "hpu_ops/common/reduction_template.h"
 
 namespace habana {
+
+inline at::ScalarType get_dtype_from_self(
+    const at::Tensor& self,
+    const at::optional<at::ScalarType>& dtype,
+    bool promote_integers) {
+  if (dtype.has_value()) {
+    return dtype.value();
+  }
+  at::ScalarType src_type = self.scalar_type();
+  if (promote_integers && at::isIntegralType(src_type, /*includeBool=*/true)) {
+    return at::kLong;
+  }
+  return src_type;
+}
+
 class ReductionBackendTemplate : public OpBackend {
   at::optional<uint8_t> m_dim_index;
   at::optional<uint8_t> m_keepdim_index;
@@ -31,26 +46,12 @@ class ReductionBackendTemplate : public OpBackend {
   void SetReductionVarsIndices(
       at::optional<uint8_t> dim_index,
       at::optional<uint8_t> keepdim_index,
-      at::optional<uint8_t> dtype_index);
+      at::optional<uint8_t> dtype_index) {
+    m_dim_index = dim_index;
+    m_keepdim_index = keepdim_index;
+    m_dtype_index = dtype_index;
+  }
 };
-
-template <int dim_index, int keepdim_index, int dtype_index>
-OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto convert_index = [](int index) {
-    return index < 0 ? c10::nullopt : c10::make_optional<uint8_t>(index);
-  };
-
-  auto dims = get_dims(stack, convert_index(dim_index));
-  bool keepdim = get_keepdim(stack, convert_index(keepdim_index));
-
-  OutputMetaData meta;
-  meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
-  meta.dtype =
-      get_dtype(stack, convert_index(dtype_index)).value_or(self.scalar_type());
-
-  return {meta};
-}
 
 c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,

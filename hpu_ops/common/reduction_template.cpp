@@ -24,14 +24,6 @@ static at::IntArrayRef optional_to_arrayref(
   return opt.has_value() ? opt.value() : at::IntArrayRef{};
 }
 
-at::optional<at::ScalarType> get_dtype(
-    const at::Stack& stack,
-    at::optional<uint8_t> dtype_index) {
-  return dtype_index.has_value()
-      ? stack.at(dtype_index.value()).toOptional<at::ScalarType>()
-      : at::nullopt;
-}
-
 std::vector<int64_t> get_dims(
     const at::Stack& stack,
     at::optional<uint8_t> dim_index) {

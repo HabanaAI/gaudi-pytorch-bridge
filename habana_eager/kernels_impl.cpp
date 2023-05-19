@@ -86,7 +86,7 @@ at::Tensor fused_norm_hpu_wrap(
 
   habana::eager::EagerOp<std::vector<at::Tensor>> hpu_op{
       "hpu::fused_norm_lazy", {grad, max_norm, norm_type}};
-  hpu_op.SetOutputMetaFn(FusedNormMeta);
+  hpu_op.SetOutputMeta(FusedNormMeta);
   auto res = hpu_op.call();
   for (int i = 0; i < grad.size(); ++i) {
     grad[i].copy_(res[i + 1]);

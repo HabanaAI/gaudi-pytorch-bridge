@@ -15,13 +15,13 @@
 #include "hpu_ops/common/reduction_template.h"
 
 namespace habana {
-void ReductionBackendTemplate::SetReductionVarsIndices(
-    at::optional<uint8_t> dim_index,
-    at::optional<uint8_t> keepdim_index,
+
+static at::optional<at::ScalarType> get_dtype(
+    at::Stack stack,
     at::optional<uint8_t> dtype_index) {
-  m_dim_index = dim_index;
-  m_keepdim_index = keepdim_index;
-  m_dtype_index = dtype_index;
+  return dtype_index.has_value()
+      ? stack.at(dtype_index.value()).toOptional<at::ScalarType>()
+      : at::nullopt;
 }
 
 void ReductionBackendTemplate::AddNode(
