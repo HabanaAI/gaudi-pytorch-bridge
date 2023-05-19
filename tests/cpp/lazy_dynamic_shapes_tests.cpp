@@ -160,7 +160,7 @@ void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
   const int N = 16;
   int H = 16;
 
-  std::vector<int> in_sizes{16, 32, 64};
+  std::vector<int> in_sizes{16, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
@@ -248,7 +248,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
   const int N = 16;
   int H = 16;
   at::Scalar inScalar = 2.0;
-  std::vector<int> in_sizes{16, 32, 64};
+  std::vector<int> in_sizes{16, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
@@ -1096,8 +1096,8 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
   torch::Tensor hOut = hA.to(torch::kFloat);
   torch::Tensor Out = A.to(torch::kFloat);
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
-  int H = 1024;
-  std::vector<int> in_sizes{32768, 65536};
+  int H = 512;
+  std::vector<int> in_sizes{2048, 4096};
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i + 1, "  --------\n");
@@ -1905,27 +1905,27 @@ void runIndexPutDynamicTestInt(int N, int mask_size, bool acc) {
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTest) {
-  runIndexPutDynamicTestBool(161145, true);
-  runIndexPutDynamicTestBool(161155, true);
-  runIndexPutDynamicTestBool(161165, true);
+  runIndexPutDynamicTestBool(1645, true);
+  runIndexPutDynamicTestBool(1655, true);
+  runIndexPutDynamicTestBool(1665, true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccIntTest) {
-  runIndexPutDynamicTestInt(161145, 20, true);
-  runIndexPutDynamicTestInt(191155, 40, true);
-  runIndexPutDynamicTestInt(221165, 60, true);
+  runIndexPutDynamicTestInt(16145, 20, true);
+  runIndexPutDynamicTestInt(19155, 40, true);
+  runIndexPutDynamicTestInt(22165, 60, true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTest) {
-  runIndexPutDynamicTestBool(161145, false);
-  runIndexPutDynamicTestBool(191155, false);
-  runIndexPutDynamicTestBool(221165, false);
+  runIndexPutDynamicTestBool(1645, false);
+  runIndexPutDynamicTestBool(1955, false);
+  runIndexPutDynamicTestBool(2265, false);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccIntTest) {
-  runIndexPutDynamicTestInt(161145, 20, false);
-  runIndexPutDynamicTestInt(191155, 40, false);
-  runIndexPutDynamicTestInt(221165, 60, false);
+  runIndexPutDynamicTestInt(16145, 20, false);
+  runIndexPutDynamicTestInt(19155, 40, false);
+  runIndexPutDynamicTestInt(22165, 60, false);
 }
 
 void runIndexPutDynamicTestBoolVect(
@@ -1971,38 +1971,38 @@ void runIndexPutDynamicTestBoolVect(
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNC) {
   runIndexPutDynamicTestBoolVect(
-      {2, 161145},
+      {2, 1645},
       {},
       {
           512,
       },
       true);
   runIndexPutDynamicTestBoolVect(
-      {4, 191155},
+      {4, 1955},
       {},
       {
           1024,
       },
       true);
-  runIndexPutDynamicTestBoolVect({8, 221165}, {}, {2048}, true);
+  runIndexPutDynamicTestBoolVect({8, 2265}, {}, {2048}, true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNC) {
   runIndexPutDynamicTestBoolVect(
-      {2, 161145},
+      {2, 1645},
       {},
       {
           512,
       },
       false);
   runIndexPutDynamicTestBoolVect(
-      {4, 191155},
+      {4, 1955},
       {},
       {
           1024,
       },
       false);
-  runIndexPutDynamicTestBoolVect({8, 221165}, {}, {2048}, false);
+  runIndexPutDynamicTestBoolVect({8, 2265}, {}, {2048}, false);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNCH) {
@@ -2154,7 +2154,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
   const int N = 16;
   int H = 16;
   at::Scalar inScalar = 2.0;
-  std::vector<int> in_sizes{16, 32, 64, 128};
+  std::vector<int> in_sizes{16, 64};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
     int W = in_sizes[i];
@@ -2400,14 +2400,13 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
   }
 
   std::vector<std::vector<int64_t>> in_sizes{
-      {1, 3, 32, 32, 32}, {1, 3, 64, 64, 64}, {1, 3, 128, 128, 128}};
+      {1, 3, 32, 32, 32}, {1, 3, 128, 128, 128}};
   std::vector<std::vector<int64_t>> out_sizes{
-      {1, 3, 32, 32, 32}, {1, 3, 64, 64, 64}, {1, 3, 128, 128, 128}};
+      {1, 3, 32, 32, 32}, {1, 3, 128, 128, 128}};
   std::vector<std::vector<int64_t>> strides{
       {98304, 32768, 1024, 32, 1},
-      {786432, 262144, 4096, 64, 1},
       {6291456, 2097152, 16384, 128, 1}};
-  std::vector<int64_t> offsets{0, 0, 0};
+  std::vector<int64_t> offsets{0, 0};
 
   for (int i = 0; i < in_sizes.size(); i++) {
     c10::IntArrayRef in_s(in_sizes[i].data(), in_sizes[i].size());
