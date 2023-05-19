@@ -16,6 +16,7 @@
 #include "habana_eager/ops/as_strided.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/empty.h"
+#include "habana_eager/ops/index_put.h"
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -92,4 +93,26 @@ at::Tensor fused_norm_hpu_wrap(
     grad[i].copy_(res[i + 1]);
   }
   return res[0];
+}
+
+at::Tensor& hpu_wrap::_index_put_impl_(
+    at::Tensor& self,
+    const c10::List<c10::optional<at::Tensor>>& indices,
+    const at::Tensor& values,
+    bool accumulate,
+    bool unsafe) {
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::Long) &&
+      (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        synapse_helpers::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
+    return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+        OpSupportLevel::Value::unsupported_dtype,
+        PARAMS2(self, indices, values, accumulate, unsafe));
+  }
+  return habana::eager::_index_put_impl_eager(
+      self, indices, values, accumulate, unsafe);
 }

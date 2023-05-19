@@ -394,6 +394,12 @@ def test_where_variants():
     torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu)
     assert torch.equal(where_out_hpu.to("cpu"), where_out_cpu)
 
+def test_index_put():
+    cpu_tensor = torch.arange(24).to(torch.float).view(3, 2, 4)
+    hpu_tensor = cpu_tensor.to("hpu")
+    hpu_tensor[torch.tensor([0, 2]).to("hpu"), torch.tensor([0, 1]).to("hpu"), torch.tensor([0, 1]).to("hpu")] = -100
+    cpu_tensor[torch.tensor([0, 2]), torch.tensor([0, 1]), torch.tensor([0, 1])] = -100
+    assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
 # For Scalars to() operator and item() are going with different paths for scalars
 # copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
