@@ -197,7 +197,7 @@ void habana_helpers::copy_scalar_to_device(
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     const at::Tensor dstRef = dst;
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -205,10 +205,9 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -216,7 +215,6 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -260,18 +258,16 @@ void habana_helpers::copy_scalars_to_device(
     // src list and dst list keeps a reference to the tensors it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         manifest,
         [src_list, dst_list]() { return; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         manifest,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -369,7 +365,7 @@ void habana_helpers::copy_data_to_host(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    auto syn_error = device.copy_data_to_host(
+    device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -378,10 +374,9 @@ void habana_helpers::copy_data_to_host(
         [srcRef, dstRef]() { return; },
         is_pinned,
         hpu_stream);
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_host(
+    device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -390,7 +385,6 @@ void habana_helpers::copy_data_to_host(
         [&copyDone]() { copyDone = true; },
         is_pinned,
         hpu_stream);
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -431,7 +425,7 @@ void habana_helpers::copy_data_to_device(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -441,10 +435,9 @@ void habana_helpers::copy_data_to_device(
         non_blocking,
         is_pinned,
         hpu_stream);
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_device(
+    device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -454,7 +447,6 @@ void habana_helpers::copy_data_to_device(
         false,
         is_pinned,
         hpu_stream);
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -480,7 +472,7 @@ void habana_helpers::copy_data_within_device(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    auto syn_error = device.copy_data_within_device(
+    device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -490,10 +482,9 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_within_device(
+    device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -503,7 +494,6 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

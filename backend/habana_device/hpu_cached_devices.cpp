@@ -58,65 +58,58 @@ void HPURegistrar::finalize_instance() {
 const std::thread::id HPURegistrar::main_thread_id_ =
     std::this_thread::get_id();
 
-HPURegistrar::HPURegistrar() {
-  PT_BRIDGE_DEBUG("Creating HPURegistrar");
+HPURegistrar::HPURegistrar()
+    : acquired_device_{nullptr, &HPURegistrar::device_deleter} {
+  PT_BRIDGE_DEBUG("Creating hpu registrar ", acquired_device_.get());
 }
 
 HPURegistrar::~HPURegistrar() {
-  if (is_initialized()) {
-    auto& device = get_active_device();
-    // Cleanup the device
-    device.cleanup();
+  PT_BRIDGE_DEBUG("Releasing hpu registrar ", acquired_device_.get());
+}
 
-    // Theoretically another refernce can be kept elsewhere.
-    if (acquired_device_.use_count() != 1) {
-      TORCH_WARN(
-          "when deleting HPURegistar, device is kept alive by another references ",
-          acquired_device_.use_count());
-    }
-
-    // Run late-cleanup test hook if armed.
-    if (test_inject_late_cleanup_) {
-      test_inject_late_cleanup_();
-      test_inject_late_cleanup_ = nullptr;
-    }
-
-    acquired_device_ =
-        nullptr; // destroy the device. while deleting it is still accessible
-                 // by get_device() via active_device_, albeit with a warning.
-                 // Notably Tensor deallocations due to streams being flushed
-                 // are expected to still work.
-    active_device_ = nullptr; // stop resolving get_device()
+void HPURegistrar::device_deleter(HPUDevice* device) {
+  if (device != nullptr) {
+    get_hpu_registrar().device_deleter_internal(device);
   }
+}
+
+void HPURegistrar::device_deleter_internal(HPUDevice* device) {
+  PT_BRIDGE_DEBUG("Releasing hpu device ", acquired_device_.get());
+  // Cleanup the device
+  device->cleanup();
+
+  // Run late-cleanup test hook if armed.
+  if (test_inject_late_cleanup_) {
+    test_inject_late_cleanup_();
+    test_inject_late_cleanup_ = nullptr;
+  }
+
+  // while deleting, the device is still accessible
+  // by get_device() via active_device_, albeit with a warning.
+  // Notably Tensor deallocations due to streams being flushed
+  // are expected to still work.
+  delete device;
+
+  // stop resolving get_device()
+  active_device_ = nullptr;
 
   habana::HPUDeviceAllocator::allocator_active_device_id = -1;
   habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
 }
 
-synapse_helpers::device& HPURegistrar::get_or_create_device() {
+HPUDevice& HPURegistrar::get_or_create_device() {
   PT_BRIDGE_BEGIN;
   if (is_initialized()) {
     return get_active_device();
   }
 
-  auto device_ptr_or_error = synapse_helpers::device::get_or_create(
-      synapse_helpers::device::get_supported_devices());
-
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
-          device_ptr_or_error)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(device_ptr_or_error);
-    TORCH_HABANA_CHECK(error.status, error.error);
-  } else {
-    auto device_ptr = absl::get<std::shared_ptr<synapse_helpers::device>>(
-        device_ptr_or_error);
-    acquired_device_ = std::move(device_ptr);
-    active_device_ = acquired_device_.get();
-    PT_BRIDGE_DEBUG("Created hpu device ", acquired_device_.get());
-  }
-  habana::HPUDeviceAllocator::allocator_active_device_id =
-      acquired_device_->id();
+  acquired_device_ =
+      device_holder(new HPUDevice(), HPURegistrar::device_deleter);
+  active_device_ = acquired_device_.get();
+  PT_BRIDGE_DEBUG("Created hpu device ", acquired_device_.get());
+  habana::HPUDeviceAllocator::allocator_active_device_id = active_device_->id();
   habana::PinnedMemoryAllocator::allocator_active_device_id =
-      acquired_device_->id();
+      active_device_->id();
 
   TORCH_CHECK(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,

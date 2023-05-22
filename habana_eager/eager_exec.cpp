@@ -185,8 +185,7 @@ std::vector<at::IValue> convert_inputs_to_backend_tensors(
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
     const std::vector<at::IValue>& inputs) {
-  auto& global_context = HPURegistrar::get_device().get_global_context();
-  auto& scalar_cache = global_context.GetScalarCache();
+  auto& scalar_cache = HPURegistrar::get_device().GetScalarCache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
     auto& value = stack[i];

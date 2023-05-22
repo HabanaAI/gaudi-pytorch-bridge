@@ -146,11 +146,6 @@ class device {
   void cleanup();
   void flush_stream_events();
 
-  // temporary getter. to be replaced by HPUDevice::syn_device [SW-145757]
-  device& syn_device() {
-    return *this;
-  }
-
   // Function passed here will be called at the begining od device dtor.
   void register_framework_specific_cleanup(
       framework_specific_cleanup_fnc cleanup) {

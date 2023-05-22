@@ -73,7 +73,7 @@ inline void THStorage_resizeBytes(
         copyDone = true;
         cv.notify_all();
       };
-      auto syn_error = device.copy_data_within_device(
+      device.copy_data_within_device(
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
@@ -82,7 +82,6 @@ inline void THStorage_resizeBytes(
               habana_helpers::GetNBytes(self, dtype),
               (unsigned long)size_bytes),
           [&copyDone]() { copyDone = true; });
-      TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
       while (!copyDone) {
         std::this_thread::yield();

@@ -113,9 +113,8 @@ void sync_threads() {
 }
 
 void clear_global_context() {
-  auto& d = habana::HPURegistrar::get_device();
-  auto& global_context = d.get_global_context();
-  global_context.Clear();
+  auto& d = habana::HPURegistrar::get_device().GetScalarCache();
+  d.ClearCache();
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

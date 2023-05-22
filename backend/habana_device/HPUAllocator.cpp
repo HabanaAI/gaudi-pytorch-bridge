@@ -127,10 +127,6 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
   allocator_active_device_id = -1;
 }
 
-HPUDeviceAllocator::~HPUDeviceAllocator() {
-  flush_stream_events();
-}
-
 void HPUDeviceAllocator::deleter(void* ptr) {
   synStatus status;
   auto& device =
@@ -245,24 +241,6 @@ void HPUDeviceAllocator::recordStream(
     device.get_device_memory().recordStream(
         alloc_ctx->data_ptr, stream.stream());
   }
-}
-
-void HPUDeviceAllocator::flush_stream_events() const {
-  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
-    PT_DEVICE_DEBUG(
-        "Invalid Device::",
-        habana::HPUDeviceAllocator::allocator_active_device_id);
-    return;
-  }
-
-  TORCH_CHECK(
-      habana::HPUDeviceAllocator::allocator_active_device_id == 0,
-      "habana active device: ",
-      habana::HPUDeviceAllocator::allocator_active_device_id,
-      " != 0");
-
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
-  device.flush_stream_events();
 }
 
 void HPUDeviceAllocator::print_memory_stats(const char* msg) {

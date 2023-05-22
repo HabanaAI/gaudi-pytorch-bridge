@@ -561,11 +561,6 @@ class HbContextArena {
   std::recursive_mutex m_mtx;
 };
 
-inline c10::Device SynapseDeviceToAtenDevice(
-    const synapse_helpers::device& device) {
-  return {at::kHPU, static_cast<at::DeviceIndex>(device.id())};
-}
-
 // check to be performed in main thread before
 // scheduling ShallowCopy to acc thread
 void MaybeSyncLaunchBeforeShallowCopy(

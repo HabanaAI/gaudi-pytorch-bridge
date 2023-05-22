@@ -91,7 +91,7 @@ void log_dev_mem_stats(
         context->m_launch_thread_handle.valid() == false &&
         context->m_launch_thread_context == false &&
         !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-      auto aten_device = SynapseDeviceToAtenDevice(device);
+      auto aten_device = device.aten_device();
 
       uint32_t future = 0;
       uint64_t future_bytes = 0;

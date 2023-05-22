@@ -13,18 +13,19 @@
 
 #include "recalculate_batchnorm_params.h"
 #include <torch/script.h>
-#include "backend/helpers/get_n_bytes.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
-
 #include <cmath>
 #include <iterator>
+
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/get_n_bytes.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_helpers/logging.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "pass_utils.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace {
 size_t getValuePosInStack(
@@ -191,7 +192,7 @@ void* GetDataInHostBuffer(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
             std::atomic<bool> copyDone{false};
-            auto syn_error = device.copy_data_to_host(
+            device.copy_data_to_host(
                 reinterpret_cast<synapse_helpers::device_ptr>(
                     tensor.data_ptr()),
                 (void*)host_ptr,
@@ -200,7 +201,6 @@ void* GetDataInHostBuffer(
                 size_in_bytes,
                 [&copyDone]() { copyDone = true; },
                 true);
-            TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
             // wait for copy completion
             while (!copyDone) {
               std::this_thread::yield();
@@ -231,7 +231,7 @@ void* GetDataInHostBuffer(
           HABANA_ASSERT(
               status == synStatus::synSuccess, Logger::synStatusToStr(status));
           std::atomic<bool> copyDone{false};
-          auto syn_error = device.copy_data_to_host(
+          device.copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
               (void*)host_ptr,
               reinterpret_cast<synapse_helpers::device_ptr>(
@@ -239,7 +239,6 @@ void* GetDataInHostBuffer(
               size_in_bytes,
               [&copyDone]() { copyDone = true; },
               true);
-          TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
           // wait for copy completion
           while (!copyDone) {
             std::this_thread::yield();
@@ -276,7 +275,7 @@ void UpdateDataInDeviceMem(
 
   torch::jit::WithInsertPoint guard(node);
   std::atomic<bool> copyDone{false};
-  auto syn_error = device.copy_data_to_device(
+  device.copy_data_to_device(
       (void*)host_ptr,
       reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
       reinterpret_cast<synapse_helpers::device_ptr>(
@@ -285,7 +284,6 @@ void UpdateDataInDeviceMem(
       [&copyDone]() { copyDone = true; },
       false,
       true);
-  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   // wait for copy completion
   while (!copyDone) {
     std::this_thread::yield();

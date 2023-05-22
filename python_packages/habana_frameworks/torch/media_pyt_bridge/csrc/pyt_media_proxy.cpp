@@ -38,8 +38,8 @@ uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
   void* address{nullptr};
   auto& device = habana::HPURegistrar::get_device(device_id_);
   device.get_device_memory().malloc(&address, size);
-  auto real_address =
-      reinterpret_cast<uintptr_t>(device.get_fixed_address(address));
+  auto real_address = reinterpret_cast<uintptr_t>(
+      device.syn_device().get_fixed_address(address));
   auto iterator_emplaced_pair =
       buffer_to_address_.emplace(real_address, address);
   HABANA_ASSERT(iterator_emplaced_pair.second);
@@ -73,8 +73,8 @@ uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
     torch::ScalarType dtype) {
   torch::Tensor tensor = torch::empty(shape.get_dims(), dtype).to(torch::kHPU);
   auto& device = habana::HPURegistrar::get_device(device_id_);
-  auto tensor_data_ptr =
-      reinterpret_cast<uintptr_t>(device.get_fixed_address(tensor.data_ptr()));
+  auto tensor_data_ptr = reinterpret_cast<uintptr_t>(
+      device.syn_device().get_fixed_address(tensor.data_ptr()));
   HABANA_ASSERT(tensor_data_ptr != synapse_helpers::device_nullptr);
   auto iterator_emplaced_pair =
       buffer_to_output_tensor_.emplace(tensor_data_ptr, tensor);
@@ -101,7 +101,7 @@ synStreamHandle PytMediaProxy::getComputeStream() {
   auto& device = habana::HPURegistrar::get_device(device_id_);
   auto hpu_stream = c10::hpu::getDefaultHPUStream(device.id());
   return static_cast<synStreamHandle>(
-      (void*)device.get_stream(hpu_stream.id()));
+      (void*)device.syn_device().get_stream(hpu_stream.id()));
 }
 
 torch::Tensor PytMediaProxy::getFrameworkOutputTensor(uintptr_t addr) {

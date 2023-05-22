@@ -50,8 +50,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   at::Device getDevice() const override {
-    auto& device = HPURegistrar::get_hpu_registrar().get_or_create_device();
-    return at::Device(at::DeviceType::HPU, device.id());
+    return hpu_registrar().get_or_create_device().aten_device();
   }
 
   void setDevice(at::Device d) const override {

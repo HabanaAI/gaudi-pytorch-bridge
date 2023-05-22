@@ -105,18 +105,16 @@ void habana_helpers::copy_scalar_to_host(
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
-  auto syn_error =
-      habana::HPURegistrar::get_device(src.device().index())
-          .copy_data_to_host(
-              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-              dst_ptr,
-              reinterpret_cast<synapse_helpers::device_ptr>(
-                  src.storage().data_ptr().get()),
-              size,
-              [&copyDone]() { copyDone = true; },
-              is_pinned,
-              c10::hpu::getCurrentHPUStream());
-  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
+  habana::HPURegistrar::get_device(src.device().index())
+      .copy_data_to_host(
+          reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+          dst_ptr,
+          reinterpret_cast<synapse_helpers::device_ptr>(
+              src.storage().data_ptr().get()),
+          size,
+          [&copyDone]() { copyDone = true; },
+          is_pinned,
+          c10::hpu::getCurrentHPUStream());
 
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting

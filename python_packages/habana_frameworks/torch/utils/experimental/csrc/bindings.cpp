@@ -49,8 +49,8 @@ void SetProfilerTracerMemory(const int device_id) {
       void* data_ptr{nullptr};
       auto& device = habana::HPURegistrar::get_device(device_id);
       device.get_device_memory().malloc(&data_ptr, bytes_req);
-      auto user_buff =
-          reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
+      auto user_buff = reinterpret_cast<void*>(
+          device.syn_device().get_fixed_address(data_ptr));
       status = synProfilerSetUserBuffer(0, user_buff);
       if (status != synSuccess) {
         std::cerr << "synProfilerSetUserBuffer failed" << std::endl;

@@ -2759,21 +2759,9 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   PT_BRIDGE_BEGIN;
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-    auto& syn_device = HPURegistrar::get_device();
-    auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
-    if (time_event_handle_cache.get_total_events_count() <
-        synapse_helpers::event_handle_cache::get_num_events_high_watermark()) {
-      rv.time_slot_ = std::make_shared<synapse_helpers::TimeSlot>(
-          syn_device.get_cached_time_event_handle(),
-          syn_device.get_cached_time_event_handle(),
-          static_cast<synStreamHandle>(syn_device.get_stream(hpu_stream)));
+    rv.time_slot_ = HPURegistrar::get_device().create_time_slot(hpu_stream);
+    if (rv.time_slot_) {
       current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
-    } else {
-      PT_BRIDGE_WARN(
-          "High water mark for synapse events ",
-          synapse_helpers::event_handle_cache::get_num_events_high_watermark(),
-          " reached, will not create any time event");
-      rv.time_slot_ = nullptr;
     }
   }
   PT_BRIDGE_END;

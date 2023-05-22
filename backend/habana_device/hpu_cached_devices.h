@@ -22,6 +22,7 @@
 #include "backend/synapse_helpers/session.h"
 
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/synapse_helpers/device.h"
@@ -111,18 +112,18 @@ class HPURegistrar {
   }
 
   // Return acquired device or die if no device is initialized
-  static synapse_helpers::device& get_device(int device_id) {
+  static HPUDevice& get_device(int device_id) {
     auto& instance{get_hpu_registrar()};
     TORCH_CHECK(device_id == 0, "Device ", device_id, " is not initialized");
     return instance.get_active_device();
   }
 
-  static synapse_helpers::device& get_device() {
+  static HPUDevice& get_device() {
     auto& instance{get_hpu_registrar()};
     return instance.get_active_device();
   }
 
-  synapse_helpers::device& get_active_device() {
+  HPUDevice& get_active_device() {
     TORCH_CHECK(active_device_ != nullptr, "Habana device not initialized");
     if (is_closing()) {
       TORCH_WARN("Habana device is accessed while closing");
@@ -131,7 +132,7 @@ class HPURegistrar {
     return *active_device_;
   }
 
-  synapse_helpers::device& get_or_create_device();
+  HPUDevice& get_or_create_device();
 
   bool is_initialized() {
     return active_device_ != nullptr;
@@ -147,7 +148,7 @@ class HPURegistrar {
 
   static std::string get_device_capability() {
     auto& device = get_hpu_registrar().get_device();
-    return device.get_device_capability();
+    return device.syn_device().get_device_capability();
   }
 
   static std::string get_device_properties(int id) {
@@ -191,7 +192,17 @@ class HPURegistrar {
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
   static HPURegistrar* raw_instance_;
+  static bool finalized_;
   HPURegistrar();
+
+  static void create_instance();
+  static void finalize_instance();
+
+  static const std::thread::id main_thread_id_;
+
+  HPUDevice* active_device_{nullptr};
+  using device_holder = std::unique_ptr<HPUDevice, void (*)(HPUDevice*)>;
+  device_holder acquired_device_;
 
   /**
    * Some unusual operations are possible on the registrar for testability.
@@ -199,18 +210,11 @@ class HPURegistrar {
    * temporarily change resolution of get_hpu_registrar to itself.
    */
   friend class HPURegistrarTester;
-
-  static bool finalized_;
   std::function<void()> test_inject_late_cleanup_{nullptr};
 
-  static void create_instance();
-  static void finalize_instance();
-
-  static const std::thread::id main_thread_id_;
-
-  synapse_helpers::device* active_device_{nullptr};
-  std::shared_ptr<synapse_helpers::device> acquired_device_{nullptr};
   CallFinally media_proxy_finalizer_;
+  static void device_deleter(HPUDevice* device);
+  void device_deleter_internal(HPUDevice* device);
 };
 
 inline HPURegistrar& hpu_registrar() {
