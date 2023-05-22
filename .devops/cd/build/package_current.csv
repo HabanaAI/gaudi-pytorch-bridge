@@ -1,0 +1,14 @@
+COMMENT,FILE,SOURCE_DIR,TARGET_DIR,NEW_NAME,RECURSIVE,PRESERVE_LINKS,CREATE_LINKS,NO_FAIL,OS_TYPES
+,test_pt_integration,${PYTORCH_MODULES_RELEASE_BUILD},${TARGET_DIR}/extras,,,,,,
+,libtpcsim_shared.so,${TPCSIM_RELEASE_BUILD},${TARGET_DIR}/extras,,,,,,
+,*.whl,${PYTORCH_FORK_RELEASE_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_MODULES_RELEASE_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_VISION_FORK_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_TB_PLUGIN_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${GPU_MIGRATION_RELEASE_BUILD},${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_AUDIO_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_TEXT_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${PYTORCH_DATA_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,requirements-pytorch-python3.8_base.txt,${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements,${TARGET_DIR},requirements-pytorch.txt,,,,,ubuntu20.04|amzn2|rhel8.6|debian10.10
+,requirements-pytorch-python3.10_base.txt,${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements,${TARGET_DIR},requirements-pytorch.txt,,,,,ubuntu22.04
+# END OF FILE

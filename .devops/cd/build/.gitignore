@@ -1,0 +1,6 @@
+output*
+builds*
+habana_logs*
+venv*
+cache*
+packages
