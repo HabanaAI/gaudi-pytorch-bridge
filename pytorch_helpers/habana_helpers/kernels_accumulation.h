@@ -58,6 +58,7 @@ class AccThread {
   void SyncManualOpIfNeeded(const std::string& op);
 
   static thread_local bool acc_thread_allowed;
+  static bool isInitialized;
 
  private:
   AccThread();
