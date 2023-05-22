@@ -296,13 +296,10 @@ class EagerOp : public EagerOpBase {
     auto result = at::empty(
         1,
         get_inputs().at(0).toTensor().options().dtype(
-            c10::CppTypeToScalarType<T>::value));
-    auto out_spec =
-        OutputSpec{result.scalar_type(), result.device(), result.sizes()};
-    auto stack = run({out_spec});
-    HABANA_ASSERT(stack.size() == 1); // single output only
-    auto out = stack.at(0).toTensor();
-    return out.item().template to<T>();
+            c10::CppTypeToScalarType<T>::value),
+        at::MemoryFormat::Contiguous);
+    run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
+    return result.item().template to<T>();
   }
 
   template <typename T = ReturnType>
