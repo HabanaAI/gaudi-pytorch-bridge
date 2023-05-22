@@ -154,3 +154,28 @@ TEST_F(VarStd, std_meankfal) {
   Compare(std::get<0>(exp), std::get<0>(res));
   Compare(std::get<1>(exp), std::get<1>(res));
 }
+
+class VarStdWithParametrizedDim : public VarStd,
+                                  public testing::WithParamInterface<int> {
+ public:
+  void RunSingleDimensionTest(const int dimSize) {
+    GenerateInputs(1, {{dimSize}});
+    torch::ScalarType dtype = torch::kFloat;
+    std::vector<int64_t> dim = {0};
+
+    auto expected = torch::var(GetCpuInput(0), dim, 1, false);
+    auto result = torch::var(GetHpuInput(0), dim, 1, false);
+
+    Compare(expected, result);
+  }
+};
+
+TEST_P(VarStdWithParametrizedDim, var_kfal1dWithDifferentDimSizes) {
+  const auto dimSize = GetParam();
+  RunSingleDimensionTest(dimSize);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    VarStdWithParametrizedDim,
+    VarStdWithParametrizedDim,
+    ::testing::Values<int>(1, 2, 4, 8));

@@ -35,6 +35,34 @@ sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack) {
   return {outshape, outshape};
 }
 
+static int prepareDivisor(
+    const at::Tensor& self,
+    const at::IntArrayRef dims,
+    const int correction) {
+  const auto input_shape = self.sizes().vec();
+  const auto dimsVec = dims.vec();
+  const auto num_dim = dimsVec.size();
+
+  int divisor{1};
+  switch (num_dim) {
+    case 0:
+      divisor = self.numel();
+      break;
+    case 1:
+      divisor = input_shape[dims.front()];
+      break;
+    default:
+      for (unsigned i = 0; i < dimsVec.size() && i < dims.size() &&
+           dims[i] < input_shape.size();
+           i++) {
+        divisor *= input_shape[dims[i]];
+      }
+      break;
+  }
+
+  return divisor - correction;
+}
+
 std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -48,30 +76,25 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     const bool mean_op) {
   auto input_shape = self.sizes().vec();
   int ndims = input_shape.size();
-  auto dim = dims.vec();
+  auto dimsVec = dims.vec();
 
   // checking dim is continuous to avoid reduce_sum
-  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndims);
-  auto num_dim = dim.size();
+  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
+  auto num_dim = dimsVec.size();
   const bool is_arrdim = num_dim > 1;
-  int divisor = num_dim == 0 ? self.numel() : 1;
   bool dim_continuous = false;
   for (auto i = 0u; i < num_dim && is_arrdim; i++) {
-    if (dim[i] == i) {
+    if (dimsVec[i] == i) {
       dim_continuous = true;
     } else {
       dim_continuous = false;
       break;
     }
   }
+
   const bool enable_reduce_sum = is_arrdim && !dim_continuous;
   const bool is_bf16 = op->ScalarType() == torch::kBFloat16;
-  int min_dim = num_dim == 0 ? 0 : dim[0];
-
-  for (unsigned i = 0; i < dim.size(); i++)
-    divisor *= input_shape[dims[i]];
-
-  divisor = divisor - correction;
+  int min_dim = num_dim == 0 ? 0 : dimsVec.front();
   std::vector<synapse_helpers::tensor> sum;
   std::vector<synapse_helpers::tensor> outputs;
 
@@ -82,7 +105,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       graph,
       self,
       input,
-      dim,
+      dimsVec,
       true,
       "reduce_mean_fwd_" +
           habana_helpers::name_suffix_from_type(op->ScalarType()),
@@ -92,7 +115,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       op,
       graph,
       {"sub_fwd_" + habana_helpers::name_suffix_from_type(op->ScalarType()),
-       {input[0], mean_out[0].get()},
+       {input.front(), mean_out.front().get()},
        {{input_shape, op->ScalarType()}}});
 
   input_shape[min_dim] = 1;
@@ -142,7 +165,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       sum.emplace_back(std::move(reshape_tensor));
     }
   }
-
+  const int divisor = prepareDivisor(self, dims, correction);
   auto divisor_tensor =
       OpBackend::BuildConstant(op, graph, divisor, at::kFloat);
 
@@ -183,8 +206,9 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     outputs.emplace_back(std::move(sum.back()));
   }
 
-  if (mean_op)
+  if (mean_op) {
     outputs.emplace_back(std::move(mean_out[0]));
+  }
 
   return outputs;
 }
