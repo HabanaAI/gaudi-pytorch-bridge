@@ -49,8 +49,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   at::Device getDevice() const override {
-    auto& device = HPURegistrar::get_hpu_registrar().get_or_create_device();
-    return at::Device(at::DeviceType::HPU, device.id());
+    return hpu_registrar().get_or_create_device().aten_device();
   }
 
   void setDevice(at::Device d) const override {
@@ -127,7 +126,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       synEventHandle& handle,
       const at::EventFlag flag,
       synapse_helpers::hpuStream_t stream) const {
-    auto& dev = HPURegistrar::get_device();
+    auto& dev = HPURegistrar::get_device().syn_device();
     unsigned int hpu_flag = get_hpu_flag(flag);
     if (hpu_flag) {
       handle = dev.get_time_event_handle_cache().get_free_handle();
@@ -146,7 +145,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     synEventHandle handle = static_cast<synEventHandle>(event);
     if (handle) {
       PT_DEVICE_DEBUG("Event:: removing the handle", handle);
-      auto& dev = HPURegistrar::get_device();
+      auto& dev = HPURegistrar::get_device().syn_device();
       std::pair<bool, synapse_helpers::hpuStream_t> event_info =
           dev.get_user_event_info(handle);
       if (event_info.second == 0 &&
@@ -177,7 +176,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         ".");
     synEventHandle handle = static_cast<synEventHandle>(*event);
     c10::hpu::HPUStream hpu_stream{stream};
-    auto& device = HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device().syn_device();
 
     // Creates the event (lazily)
     if (!handle) {
@@ -215,7 +214,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       return;
     synEventHandle handle = static_cast<synEventHandle>(event);
     c10::hpu::HPUStream hpu_stream{stream};
-    auto& device = HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device().syn_device();
     std::pair<bool, synapse_helpers::hpuStream_t> event_info =
         device.get_user_event_info(handle);
     if (event_info.second == hpu_stream.stream())
@@ -239,7 +238,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!event)
       return true;
     synEventHandle handle = static_cast<synEventHandle>(event);
-    auto& device = HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device().syn_device();
     std::pair<bool, synapse_helpers::hpuStream_t> event_info =
         device.get_user_event_info(handle);
     if (event_info.second == 0 &&

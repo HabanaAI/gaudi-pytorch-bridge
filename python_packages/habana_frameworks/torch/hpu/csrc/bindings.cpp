@@ -40,8 +40,7 @@ const std::string get_device_name(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
-  return device.name();
+  return habana::HPURegistrar::get_device().name();
 }
 
 const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
@@ -112,9 +111,8 @@ void sync_threads() {
 }
 
 void clear_global_context() {
-  auto& d = habana::HPURegistrar::get_device();
-  auto& global_context = d.get_global_context();
-  global_context.Clear();
+  auto& d = habana::HPURegistrar::get_device().GetScalarCache();
+  d.ClearCache();
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

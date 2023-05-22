@@ -766,7 +766,7 @@ void HbLazyTensor::applyPendingGraph() {
 namespace {
 inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
   if (device_str.empty()) {
-    return SynapseDeviceToAtenDevice(habana::HPURegistrar::get_device());
+    return habana::HPURegistrar::get_device().aten_device();
   }
 
   return c10::Device(device_str);

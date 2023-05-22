@@ -37,10 +37,17 @@ class HPUAllocator : public synapse_helpers::device_allocator {
   synDeviceId device_id{synapse_helpers::device::INVALID_ID};
 };
 
+/** Device memory allocator for pytorch.
+ * Note that static singleton instance of the allocator is registered in
+ * torch. This means that lifetime of the allocator is until static
+ * finalizers, which is after the synapse device has been already disposed.
+ * For this reason ~HPUDeviceAllocator cannot reliably refer to HPURegistrar
+ * resources. Conversely, destruction of the HPUDevice to park allocator in
+ * a proper state.
+ */
 class HPUDeviceAllocator final : public at::Allocator {
  public:
   HPUDeviceAllocator();
-  ~HPUDeviceAllocator();
 
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
@@ -52,9 +59,6 @@ class HPUDeviceAllocator final : public at::Allocator {
   static synDeviceId allocator_active_device_id;
   static pgmDropCachedRecipe drop_cached_recipe_cb;
 
-  // At the time of destruction, enture that the stream manager is not in
-  // the middle of releasing tensors
-  void flush_stream_events() const;
   static void print_memory_stats(const char* msg);
   static void memstat_devmem_start_collect(
       const char* msg,

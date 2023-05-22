@@ -85,7 +85,7 @@ HPUStream HPUStreamForId(DeviceIndex device_index, StreamId stream_id) {
 
 bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -124,7 +124,7 @@ bool HPUStream::query() const {
 
 void HPUStream::synchronize() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -163,14 +163,14 @@ HPUStream getStreamFromPool(
     DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
     device_index = device.id();
   }
 
   // create stream
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   synapse_helpers::hpuStream_t stream;
   PT_DEVICE_DEBUG("STREAM:: create a new stream::");
   device.create_stream(stream, isHighPriority);

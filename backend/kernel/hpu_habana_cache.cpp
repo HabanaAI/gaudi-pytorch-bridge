@@ -385,13 +385,12 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
 
   auto& device = HPURegistrar::get_device();
   std::atomic<bool> copyDone{false};
-  auto syn_error = device.copy_data_to_host(
+  device.copy_data_to_host(
       (uint64_t)dtensorinfos->at(buf_idx)->get_buffer(),
       (void*)htensor_wbuff,
       dtensorinfos->at(buf_idx)->get_buffer_start_syn(),
       buf_size,
       [&copyDone]() { copyDone = true; });
-  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
   // wait for copy completion
   while (!copyDone) {
@@ -424,11 +423,12 @@ std::string RecipeValueSpec::build_header_str() const {
 
 std::string RecipeValueSpec::digest_str() {
   std::ostringstream O;
-  auto& device = HPURegistrar::get_device();
+  auto& recipe_cache =
+      HPURegistrar::get_device().syn_device().get_recipe_handle_cache();
   O << "Recipe digest : total size of graph recipes "
     << synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes)
     << '\n';
-  auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
+  auto rv_hit_count = recipe_cache.getHitCount(key);
   if (-1 != rv_hit_count) {
     // Hit count needs to be enabled with
     // PT_HABANA_MAX_RECIPE_HIT_COUNT=<positive number>
@@ -437,7 +437,7 @@ std::string RecipeValueSpec::digest_str() {
   O << " #graph_recipes " << recipe_count << " (#static "
     << (recipe_count - dynamic_recipe_count) << ", #dynamic "
     << dynamic_recipe_count << ')' << '\n'
-    << " #eager_recipes " << device.get_recipe_handle_cache().getCount();
+    << " #eager_recipes " << recipe_cache.getCount();
 
   return O.str();
 }
@@ -1539,7 +1539,7 @@ void RecipeValueSpec::launch(
 
   MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device().syn_device();
   auto& stream_handle = device.get_stream(hpu_stream);
 
   std::vector<at::Tensor> ptRefs;

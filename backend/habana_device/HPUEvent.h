@@ -44,7 +44,7 @@ struct HPUEvent {
   // Note: event destruction done on creating device to avoid creating a
   // HPU context on other devices.
   ~HPUEvent() {
-    auto& dev = habana::HPURegistrar::get_device();
+    auto& dev = habana::HPURegistrar::get_device().syn_device();
     if (is_created_) {
       if (created_with_stream_ == 0 &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
@@ -99,7 +99,7 @@ struct HPUEvent {
     if (!is_created_) {
       return true;
     }
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
 
     if (created_with_stream_ == 0 &&
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
@@ -128,7 +128,7 @@ struct HPUEvent {
 
   // Note: hpuEventRecord must be called on the same device as the event.
   void record(const c10::hpu::HPUStream& stream) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
     if (!is_created_) {
       createEvent(stream.device_index());
       created_with_stream_ = stream.stream();
@@ -183,7 +183,7 @@ struct HPUEvent {
       if (stream.stream() == recorded_stream_) {
         return;
       }
-      auto& device = habana::HPURegistrar::get_device();
+      auto& device = habana::HPURegistrar::get_device().syn_device();
       if (stream.stream() == 0 &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
         device.wait_event_default_stream(handle_);
@@ -203,7 +203,7 @@ struct HPUEvent {
     TORCH_CHECK(
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
     uint64_t time_ms = 0;
     if (created_with_stream_ == 0 &&
         GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
@@ -221,7 +221,7 @@ struct HPUEvent {
   // Note: hpuEventSynchronize can be safely called from any device
   void synchronize() const {
     if (is_created_) {
-      auto& device = habana::HPURegistrar::get_device();
+      auto& device = habana::HPURegistrar::get_device().syn_device();
       if (created_with_stream_ == 0 &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
         device.synchronize_event_default_stream(handle_);
@@ -249,7 +249,7 @@ struct HPUEvent {
 
   void createEvent([[maybe_unused]] DeviceIndex device_index) {
     // get device
-    auto& dev = habana::HPURegistrar::get_device();
+    auto& dev = habana::HPURegistrar::get_device().syn_device();
     device_index_ = dev.id();
     if (flags_) {
       handle_ = dev.get_time_event_handle_cache().get_free_handle();

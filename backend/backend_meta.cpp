@@ -82,7 +82,7 @@ void TensorExtraMeta::set_const_tensor(
     HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
     tmeta->set_host_ptr(host_ptr);
     std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_host(
+    device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
         tmeta->get_host_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -90,7 +90,6 @@ void TensorExtraMeta::set_const_tensor(
         habana_helpers::GetNBytes(tensor),
         [&copyDone]() { copyDone = true; },
         true);
-    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

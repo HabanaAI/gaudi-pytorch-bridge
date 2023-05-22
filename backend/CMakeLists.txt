@@ -31,6 +31,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   passes/remove_inplace_ops.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
   habana_device/HPUAllocator.cpp
+  habana_device/HPUDevice.cpp
   habana_device/HPUGraph.cpp
   habana_device/HPUStream.cpp
   habana_device/PinnedMemoryAllocator.cpp

@@ -62,7 +62,7 @@ void HPUAllocator::release() {
 }
 
 static void waitTillRecipeExecutionDone(synDeviceId device_id) {
-  auto& device = HPURegistrar::get_device(device_id);
+  auto& device = HPURegistrar::get_device(device_id).syn_device();
   bool status = device.get_device_memory().is_mem_threshold_hit();
   auto& recipe_counter = device.get_active_recipe_counter();
   uint32_t counter_state = recipe_counter.get_count();
@@ -82,7 +82,7 @@ static synStatus waitTillRecipeExecution(
     size_t num_bytes,
     void*& v_ptr) {
   synStatus status{synStatus::synFail};
-  auto& device = HPURegistrar::get_device(device_id);
+  auto& device = HPURegistrar::get_device(device_id).syn_device();
   // Allocation has failed, if there are still recipies in queue to execute,
   // there is a chance to recover. Wait for next recipe to finish and try to
   // allocate again, continue until malloc succeeds, or there are no more
@@ -171,14 +171,15 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
   allocator_active_device_id = -1;
 }
 
-HPUDeviceAllocator::~HPUDeviceAllocator() {
-  flush_stream_events();
-}
-
 void HPUDeviceAllocator::deleter(void* ptr) {
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
-  auto status{device.get_device_memory().free(ptr)};
-  TORCH_HABANA_CHECK(status, "Device Free failed");
+  // anticipate that the device might be gone at the time of memory release.
+  // this may happen for tensors that are kept by python reference and freed
+  // during PyFinalize.
+  auto device = HPURegistrar::try_get_syn_device(allocator_active_device_id);
+  if (device) {
+    auto status{device->get_device_memory().free(ptr)};
+    TORCH_HABANA_CHECK(status, "Device Free failed");
+  }
 }
 
 at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
@@ -252,24 +253,6 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
   return &HPUDeviceAllocator::deleter;
 }
 
-void HPUDeviceAllocator::flush_stream_events() const {
-  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
-    PT_DEVICE_DEBUG(
-        "Invalid Device::",
-        habana::HPUDeviceAllocator::allocator_active_device_id);
-    return;
-  }
-
-  TORCH_CHECK(
-      habana::HPUDeviceAllocator::allocator_active_device_id == 0,
-      "habana active device: ",
-      habana::HPUDeviceAllocator::allocator_active_device_id,
-      " != 0");
-
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
-  device.flush_stream_events();
-}
-
 void HPUDeviceAllocator::print_memory_stats(const char* msg) {
   if (!GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL)) {
     if (unsigned(-1) ==
@@ -297,7 +280,8 @@ void HPUDeviceAllocator::memstat_devmem_start_collect(
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
+  auto& device =
+      HPURegistrar::get_device(allocator_active_device_id).syn_device();
   if (device.IsStreamASyncEnabled()) {
     PT_DEVICE_WARN(
         "Warning: Set PT_ENABLE_HABANA_STREAMASYNC=0 for device memory "
@@ -319,7 +303,8 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
+  auto& device =
+      HPURegistrar::get_device(allocator_active_device_id).syn_device();
   if (device.get_device_memory().get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {
     std::string updated_msg = msg;
@@ -331,7 +316,7 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
 }
 
 void HPUDeviceAllocator::dump_memory_reporter() {
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device().syn_device();
   synapse_helpers::memory_reporter_event_create(
       device, synapse_helpers::mem_reporter_type::MEM_REPORTER_USER_CALL);
 }

@@ -467,9 +467,10 @@ class device {
     return user_event_flag_map_[handle];
   }
 
-  bool getDeterministic() {
+  bool getDeterministic() const {
     return deterministic_;
   }
+
   void setDeterministic(bool val) {
     deterministic_ = val;
   }

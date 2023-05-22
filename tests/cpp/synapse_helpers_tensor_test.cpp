@@ -28,13 +28,13 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto type = habana_helpers::pytorch_to_synapse_type(c10::ScalarType::Float);
   auto build_result =
-      tensor_builder(input_shape, type).build(synapse_device_, h);
+      tensor_builder(input_shape, type).build(synapse_device, h);
   ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   EXPECT_EQ(tensor.num_elements(), 120);
@@ -52,12 +52,12 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_shape(input_shape)
-                          .build(synapse_device_, h);
+                          .build(synapse_device, h);
   ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   ASSERT_EQ(tensor.num_elements(), 120);
@@ -73,12 +73,12 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto input_shape = tensor::shape_t{3_D, {1, 2, 3}};
   auto build_result = tensor_builder(input_shape)
                           .with_rank_at_least(5)
-                          .build(synapse_device_, h);
+                          .build(synapse_device, h);
   ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   ASSERT_EQ(tensor.num_elements(), 6);
@@ -96,14 +96,14 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_dynamic_shape(dynamic_shape)
-                          .build(synapse_device_, h);
+                          .build(synapse_device, h);
   ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   ASSERT_EQ(tensor.num_elements(), 480);
@@ -130,14 +130,14 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_dynamic_shape(dynamic_shape)
-                          .build(synapse_device_, h);
+                          .build(synapse_device, h);
   ASSERT_EQ(absl::holds_alternative<synapse_error>(build_result), false);
   auto tensor = get_value(std::move(build_result));
   ASSERT_EQ(tensor.num_elements(), 480);
@@ -155,8 +155,8 @@ TEST(SynapseHelpersTest, DynamicShape) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  auto& synapse_device_ = habana::HPURegistrar::get_device();
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
+  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto min = tensor::shape_t{2_D, {5, 4}};
   auto max = tensor::shape_t{2_D, {10, 4}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};

@@ -372,7 +372,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   (void*)(dst.storage().data_ptr().get()));
             }
             std::atomic<bool> copyDone{false};
-            auto syn_error = device.copy_data_to_device(
+            device.copy_data_to_device(
                 host_ptr,
                 reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
                 reinterpret_cast<synapse_helpers::device_ptr>(
@@ -381,7 +381,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 [&copyDone]() { copyDone = true; },
                 false,
                 true);
-            TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
             // wait for copy completion
             while (!copyDone) {
               std::this_thread::yield();

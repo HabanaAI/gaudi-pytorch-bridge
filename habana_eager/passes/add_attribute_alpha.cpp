@@ -34,19 +34,19 @@ struct AddAttributeAlphaPass {
  private:
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
-    synapse_helpers::device& device{HPURegistrar::get_device()};
+    auto& device{HPURegistrar::get_device()};
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
-        changed |= processNode(node, device);
+        changed |= processNode(node, device.getDeterministic());
       }
     }
     return changed;
   }
 
-  bool processNode(torch::jit::Node* node, synapse_helpers::device& device) {
+  bool processNode(torch::jit::Node* node, bool deterministic) {
     auto one = torch::jit::attr::alpha;
-    node->i_(one, device.getDeterministic());
+    node->i_(one, deterministic);
     return true;
   }
 

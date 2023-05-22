@@ -20,6 +20,7 @@
 #include <thread>
 
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/synapse_helpers/device.h"
@@ -78,19 +79,26 @@ class HPURegistrar {
   HPURegistrar(HPURegistrar&&) = delete;
   HPURegistrar& operator=(HPURegistrar&&) = delete;
 
+  static std::shared_ptr<synapse_helpers::device> try_get_syn_device(
+      int device_id) {
+    if (device_id == 0)
+      return synapse_helpers::device::device_in_use.lock();
+    return {};
+  }
+
   // Return acquired device or die if no device is initialized
-  static synapse_helpers::device& get_device(int device_id) {
+  static HPUDevice& get_device(int device_id) {
     auto& instance{get_hpu_registrar()};
     TORCH_CHECK(device_id == 0, "Device ", device_id, " is not initialized");
     return instance.get_active_device();
   }
 
-  static synapse_helpers::device& get_device() {
+  static HPUDevice& get_device() {
     auto& instance{get_hpu_registrar()};
     return instance.get_active_device();
   }
 
-  synapse_helpers::device& get_active_device() {
+  HPUDevice& get_active_device() {
     TORCH_CHECK(active_device_ != nullptr, "Habana device not initialized");
     if (is_closing()) {
       TORCH_WARN("Habana device is accessed while closing");
@@ -99,7 +107,7 @@ class HPURegistrar {
     return *active_device_;
   }
 
-  synapse_helpers::device& get_or_create_device();
+  HPUDevice& get_or_create_device();
 
   bool is_initialized() {
     return active_device_ != nullptr;
@@ -115,7 +123,7 @@ class HPURegistrar {
 
   static std::string get_device_capability() {
     auto& device = get_hpu_registrar().get_device();
-    return device.get_device_capability();
+    return device.syn_device().get_device_capability();
   }
 
   static std::string get_device_properties(int id) {
@@ -159,8 +167,8 @@ class HPURegistrar {
 
   static const std::thread::id main_thread_id_;
 
-  synapse_helpers::device* active_device_{nullptr};
-  std::shared_ptr<synapse_helpers::device> acquired_device_{nullptr};
+  HPUDevice* active_device_{nullptr};
+  std::unique_ptr<HPUDevice> acquired_device_{nullptr};
 };
 
 inline HPURegistrar& hpu_registrar() {

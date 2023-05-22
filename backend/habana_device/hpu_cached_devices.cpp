@@ -62,13 +62,6 @@ HPURegistrar::~HPURegistrar() {
     // Cleanup the device
     device.cleanup();
 
-    // Theoretically another refernce can be kept elsewhere.
-    if (acquired_device_.use_count() != 1) {
-      TORCH_WARN(
-          "when deleting HPURegistar, device is kept alive by another references ",
-          acquired_device_.use_count());
-    }
-
     // Run late-cleanup test hook if armed.
     if (test_inject_late_cleanup_) {
       test_inject_late_cleanup_();
@@ -91,35 +84,18 @@ bool HPURegistrar::is_closing() {
   return active_device_ && !acquired_device_;
 }
 
-synapse_helpers::device& HPURegistrar::get_or_create_device() {
+HPUDevice& HPURegistrar::get_or_create_device() {
   PT_BRIDGE_BEGIN;
   if (is_initialized()) {
     return get_active_device();
   }
 
-  auto allocatorVar =
-      [](synDeviceId id) -> std::unique_ptr<synapse_helpers::device_allocator> {
-    return std::make_unique<habana::HPUAllocator>(id);
-  };
-  // Create the synapse_helpers::device, which will create the OSAL object.
-  auto device_ptr_or_error = synapse_helpers::device::get_or_create(
-      synapse_helpers::device::get_supported_devices(), allocatorVar);
-
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(
-          device_ptr_or_error)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(device_ptr_or_error);
-    TORCH_HABANA_CHECK(error.status, error.error);
-  } else {
-    auto device_ptr = absl::get<std::shared_ptr<synapse_helpers::device>>(
-        device_ptr_or_error);
-    acquired_device_ = std::move(device_ptr);
-    active_device_ = acquired_device_.get();
-    PT_BRIDGE_DEBUG("Created hpu device ", acquired_device_.get());
-  }
-  habana::HPUDeviceAllocator::allocator_active_device_id =
-      acquired_device_->id();
+  acquired_device_ = std::make_unique<HPUDevice>();
+  active_device_ = acquired_device_.get();
+  PT_BRIDGE_DEBUG("Created hpu device ", acquired_device_.get());
+  habana::HPUDeviceAllocator::allocator_active_device_id = active_device_->id();
   habana::PinnedMemoryAllocator::allocator_active_device_id =
-      acquired_device_->id();
+      active_device_->id();
 
   TORCH_CHECK(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
