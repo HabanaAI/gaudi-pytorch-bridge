@@ -179,6 +179,7 @@ void Sort::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       params.bottomK = !largest;
       params.bsw = k;
       params.kType = K_TENSOR_NONE;
+      params.isVcData = false;
       params.isStable = stable;
 
       // Add topk op
