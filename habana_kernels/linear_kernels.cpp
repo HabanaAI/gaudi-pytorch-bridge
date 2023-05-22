@@ -1252,8 +1252,7 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
     auto is_valid_case = [&]() {
       for (int i = 0; i < self.dim() - 2; i++)
         valid &= (self.sizes().vec()[i] == other.sizes().vec()[i]);
-      if (synapse_helpers::HPURegistrar::get_device().type() !=
-          synDeviceType::synDeviceGaudi) {
+      if (HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi) {
         valid &=
             ((self.scalar_type() == c10::ScalarType::BFloat16) ||
              (self.scalar_type() == c10::ScalarType::Float) ||

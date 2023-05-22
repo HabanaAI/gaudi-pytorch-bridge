@@ -378,7 +378,7 @@ void process_generic_tensor_inplace_binary_op(
   std::string node_type =
       habana::get_guid_with_precision(node_guid + "_fwd", scalar_type);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   BinaryInplaceOp Op(device_id, scalar_type);
 
   size_t key = Op.GetRecipeKey(node_type, stack, true);

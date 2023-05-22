@@ -440,7 +440,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
-  auto& device = sh::HPURegistrar::get_device(0);
+  auto& device = habana::HPURegistrar::get_device(0);
   auto graph = absl::get<sh::graph>(sh::graph::create(device, {}, true));
 
   HandleScalarToTensor(graph, stack);

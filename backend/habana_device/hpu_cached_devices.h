@@ -24,7 +24,7 @@
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/synapse_helpers/device.h"
 
-namespace synapse_helpers {
+namespace habana {
 
 /** Wrapper of a function that is executed when the wrapper is deleted.
  * This is used to hold arbitrary resources along with a deleter function.
@@ -99,7 +99,7 @@ class HPURegistrar {
     return *active_device_;
   }
 
-  device& get_or_create_device();
+  synapse_helpers::device& get_or_create_device();
 
   bool is_initialized() {
     return active_device_ != nullptr;
@@ -119,7 +119,7 @@ class HPURegistrar {
   }
 
   static std::string get_device_properties(int id) {
-    return device::get_device_properties(id);
+    return synapse_helpers::device::get_device_properties(id);
   }
 
   static int get_total_device_count() {
@@ -163,4 +163,8 @@ class HPURegistrar {
   std::shared_ptr<synapse_helpers::device> acquired_device_{nullptr};
 };
 
-} // namespace synapse_helpers
+inline HPURegistrar& hpu_registrar() {
+  return HPURegistrar::get_hpu_registrar();
+}
+
+} // namespace habana

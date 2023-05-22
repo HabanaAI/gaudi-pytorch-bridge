@@ -329,8 +329,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        synapse_helpers::HPURegistrar::get_device().type() !=
-            synDeviceType::synDeviceGaudi)) {
+        HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
@@ -346,7 +345,7 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        synapse_helpers::HPURegistrar::get_device().type() !=
+        habana::HPURegistrar::get_device().type() !=
             synDeviceType::synDeviceGaudi &&
         self.dim() >
             4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
@@ -1263,8 +1262,7 @@ Tensor habana_cast_to_fp8_wrap(
       to_string(stochastic_rounding),
       ", seed=",
       to_string(seed));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return habana_cast_to_fp8_lazy(input, stochastic_rounding, seed);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1288,8 +1286,7 @@ std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1314,7 +1311,7 @@ std::tuple<Tensor, Tensor> cast_to_fp8_v2_wrap(
       ", is_amax=",
       to_string(is_amax));
   if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+          habana::HPURegistrar::get_device().type())) {
     return cast_to_fp8_v2_lazy(input, scale, stochastic_rounding, is_amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1338,8 +1335,7 @@ std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_cast_transpose_lazy(
         input, scale, stochastic_rounding, out, transposed, amax);
   } else {
@@ -1364,8 +1360,7 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_cast_transpose_bgrad_lazy(
         input, scale, stochastic_rounding, out, transposed, bgrad, amax);
   } else {
@@ -1393,8 +1388,7 @@ fp8_cast_transpose_bgrad_dgelu_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_cast_transpose_bgrad_dgelu_lazy(
         grad,
         input,
@@ -1423,8 +1417,7 @@ Tensor cast_from_fp8_wrap(
       to_string(scale),
       " out_dtype=",
       to_string(out_dtype));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return cast_from_fp8_lazy(input, scale, out_dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1450,8 +1443,7 @@ std::tuple<Tensor, Tensor, Tensor> fp8_dropout_wrap(
       to_string(stochastic_rounding),
       ", is_amax=",
       to_string(is_amax));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_dropout_lazy(input, p, scale, stochastic_rounding, is_amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1474,8 +1466,7 @@ std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_gelu_lazy(input, scale, stochastic_rounding, out, retain, amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1491,7 +1482,7 @@ std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
   PT_OP_INFO(
       " fp8_gelu_v2:", DUMP_4ARGS(input, scale, stochastic_rounding, is_amax));
   if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+          habana::HPURegistrar::get_device().type())) {
     return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1515,7 +1506,7 @@ std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
   if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+          habana::HPURegistrar::get_device().type())) {
     return fp8_bgrad_dgelu_lazy(
         grad, input, scale, retain, stochastic_rounding, is_amax);
   } else {
@@ -1549,8 +1540,7 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_layernorm_lazy(
         input,
         weight,
@@ -1600,8 +1590,7 @@ Tensor& fp8_gemm_wrap(
       to_string(bias),
       " accumulate=",
       to_string(accumulate));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_gemm_lazy(
         A,
         trans_A,
@@ -1651,8 +1640,7 @@ Tensor fp8_gemm_v2_wrap(
       to_string(bias),
       " accumulate=",
       to_string(accumulate));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_gemm_v2_lazy(
         A,
         trans_A,
@@ -1672,8 +1660,7 @@ at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(" fp8_transpose:", " input=", to_string(input));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_transpose_lazy(input, out);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1687,8 +1674,7 @@ at::Tensor& fp8_permute_wrap(
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " fp8_permute:", " input=", to_string(input), " dims=", to_string(dims));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_permute_lazy(input, dims, out);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
@@ -1698,8 +1684,7 @@ at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(" fp8_reshape:", " input=", to_string(input));
-  if (synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type())) {
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
     return fp8_reshape_lazy(input, shape);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")

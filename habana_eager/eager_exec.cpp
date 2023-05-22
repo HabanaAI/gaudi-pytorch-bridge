@@ -159,8 +159,7 @@ std::vector<at::IValue> convert_inputs_to_backend_tensors(
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
     const std::vector<at::IValue>& inputs) {
-  auto& global_context =
-      synapse_helpers::HPURegistrar::get_device().get_global_context();
+  auto& global_context = HPURegistrar::get_device().get_global_context();
   auto& scalar_cache = global_context.GetScalarCache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
@@ -196,7 +195,7 @@ torch::jit::Stack EagerExec::launch() {
   synEventHandle event_handle{};
   synapse_helpers::hpuStream_t event_stream{0};
   bool event_flag{0};
-  // auto& device = synapse_helpers::HPURegistrar::get_device();
+  // auto& device = HPURegistrar::get_device();
 
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
@@ -348,7 +347,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     auto one = torch::jit::attr::alpha;
     /*Need to set this node if the deterministic mode is ON*/
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     jit_node->i_(one, device.getDeterministic());
     PT_BRIDGE_DEBUG(
         "Deterministic val during Jit Node creation: ", jit_node->i(one));
@@ -377,7 +376,7 @@ size_t EagerExec::calculate_operator_key(
   size_t optimized_key = static_cast<uint32_t>(m_symbol);
   optimized_key = at::hash_combine(optimized_key, m_outputs.size());
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     optimized_key = at::hash_combine(optimized_key, device.getDeterministic());
   }
   for (size_t i = 0; i < parent_vec.size(); ++i)

@@ -59,7 +59,7 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
   context->RegisterTensor(data);
   if (synapse_helpers::memory_reporter_enable()) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     synapse_helpers::MemoryReporter* reporter =
         device.get_device_memory().get_memory_reporter();
     reporter->getTensorStats()->createTensor(data->unique_id);
@@ -95,7 +95,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
     devctx->tensors_data_opt.erase(unique_id);
 
     if (synapse_helpers::memory_reporter_enable()) {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
+      auto& device = habana::HPURegistrar::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getTensorStats()->removeTensor(unique_id);
@@ -365,7 +365,7 @@ void HbLazyTensor::SetTensorDataNullOpt() {
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
   if (synapse_helpers::memory_reporter_enable()) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     synapse_helpers::MemoryReporter* reporter =
         device.get_device_memory().get_memory_reporter();
     reporter->getTensorStats()->setTensorAddressData(
@@ -766,8 +766,7 @@ void HbLazyTensor::applyPendingGraph() {
 namespace {
 inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
   if (device_str.empty()) {
-    return SynapseDeviceToAtenDevice(
-        synapse_helpers::HPURegistrar::get_device());
+    return SynapseDeviceToAtenDevice(habana::HPURegistrar::get_device());
   }
 
   return c10::Device(device_str);
@@ -1706,7 +1705,7 @@ void HbLazyTensor::StepMarker(
     return;
   }
 
-  if (!synapse_helpers::HPURegistrar::get_hpu_registrar().is_initialized()) {
+  if (!habana::HPURegistrar::get_hpu_registrar().is_initialized()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");
     return;

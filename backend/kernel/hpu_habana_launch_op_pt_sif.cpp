@@ -426,7 +426,7 @@ void HabanaLaunchOpPT::RunHybridSif(
   }
 
   // Figure out the right device id
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
 
   static thread_local auto syn_graph =

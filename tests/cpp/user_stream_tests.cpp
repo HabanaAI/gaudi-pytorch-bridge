@@ -52,7 +52,7 @@ class TestStream : public habana_lazy_test::LazyTest {};
 TEST(TestStream, CopyAndMoveTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -96,7 +96,7 @@ TEST(TestStream, CopyAndMoveTest) {
 TEST(TestStream, GetAndSetTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -130,7 +130,7 @@ void thread_fun(at::optional<c10::hpu::HPUStream>& cur_thread_stream) {
 TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -160,7 +160,7 @@ TEST(TestStream, DISABLED_MultithreadGetAndSetTest) {
 TEST(TestStream, StreamPoolTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -187,7 +187,7 @@ TEST(TestStream, StreamPoolTest) {
 TEST(TestStream, DISABLED_Use2StreamForadd) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -226,7 +226,7 @@ TEST(TestStream, DISABLED_Use2StreamForadd) {
 TEST(TestStream, ForceUseDefaultStream) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -278,7 +278,7 @@ void thread_fun_add(bool& result) {
 TEST(TestStream, DISABLED_MultithreadStreamAddOP) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -304,7 +304,7 @@ void kernel_add(torch::Tensor in_tensor, torch::Tensor& outtensor) {
 TEST(TestStream, DISABLED_MultithreadStreamKernelAdd) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -330,7 +330,7 @@ TEST(TestStream, DISABLED_MultithreadStreamKernelAdd) {
 TEST(TestStream, TestStreamQuery) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -362,7 +362,7 @@ TEST(TestStream, TestStreamQuery) {
 TEST(TestStream, TestStreamSynchronize) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -398,7 +398,7 @@ TEST(TestStream, TestStreamSynchronize) {
 TEST(TestStream, HPUEventSyncTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   device.synchronize();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
@@ -425,7 +425,7 @@ TEST(TestStream, HPUEventSyncTest) {
 TEST(TestStream, TestEventblockandwait) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -457,7 +457,7 @@ TEST(TestStream, TestEventblockandwait) {
 TEST(TestStream, TestEventblockandwait_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -486,7 +486,7 @@ TEST(TestStream, TestEventblockandwait_1) {
 TEST(TestStream, TestEventblockOnDifferentStream) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -515,7 +515,7 @@ TEST(TestStream, TestEventblockOnDifferentStream) {
 TEST(TestStream, TestMultipleRecordEvent) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -553,7 +553,7 @@ TEST(TestStream, TestMultipleRecordEvent) {
 TEST(TestStream, TestTimerEvents) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -582,7 +582,7 @@ TEST(TestStream, TestTimerEvents) {
 TEST(TestStream, TestTimerEventsDifferentStream) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -614,7 +614,7 @@ TEST(TestStream, TestTimerEventsDifferentStream) {
 TEST(TestStream, TestEventsEmptyOPS) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -632,7 +632,7 @@ TEST(TestStream, TestEventsEmptyOPS) {
 TEST(TestStream, TestEventsTimerEmptyOPS) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -649,7 +649,7 @@ TEST(TestStream, TestEventsTimerEmptyOPS) {
 TEST(TestStream, TestEventsTimerWithDifferentStream) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -666,7 +666,7 @@ TEST(TestStream, TestEventsTimerWithDifferentStream) {
 TEST(TestStream, TestEventWaitBlock_WAR) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -695,7 +695,7 @@ TEST(TestStream, TestEventWaitBlock_WAR) {
 TEST(TestStream, TestEventWaitBlock_11) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -729,7 +729,7 @@ TEST(TestStream, TestEventWaitBlock_11) {
 TEST(TestStream, HPUGuardEventSyncTest) {
   habana::HABANAGuardImpl guard;
   guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -763,7 +763,7 @@ TEST(TestStream, TestWAR_defaultstream) {
 
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
@@ -801,7 +801,7 @@ TEST(TestStream, TestWAR_defaultstream) {
 TEST(TestStream, TestWAR_multistream) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;

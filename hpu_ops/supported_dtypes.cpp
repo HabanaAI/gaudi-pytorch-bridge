@@ -26,7 +26,7 @@ SupportedDtypes::SupportedDtypes(
   }
 
   auto get_curr_dev_type = []() {
-    auto dev = synapse_helpers::HPURegistrar::get_device().type();
+    auto dev = HPURegistrar::get_device().type();
     return dev;
   };
 

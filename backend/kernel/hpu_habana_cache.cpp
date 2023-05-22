@@ -256,7 +256,7 @@ RecipeValueSpec::~RecipeValueSpec() {
 
   if (htensor_wbuff) {
     synStatus status;
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     auto device_id = device.id();
     status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
     if (status != synSuccess)
@@ -383,7 +383,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   }
   PT_BRIDGE_DEBUG("tensor dump will write ", htensor_wbuff_size, " bytes");
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   std::atomic<bool> copyDone{false};
   auto syn_error = device.copy_data_to_host(
       (uint64_t)dtensorinfos->at(buf_idx)->get_buffer(),
@@ -424,7 +424,7 @@ std::string RecipeValueSpec::build_header_str() const {
 
 std::string RecipeValueSpec::digest_str() {
   std::ostringstream O;
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   O << "Recipe digest : total size of graph recipes "
     << synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes)
     << '\n';
@@ -443,7 +443,7 @@ std::string RecipeValueSpec::digest_str() {
 }
 
 int RecipeValueSpec::update_hit_count() {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   device.get_recipe_handle_cache().increaseHitCount(key);
   auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
 
@@ -1409,7 +1409,7 @@ void RecipeValueSpec::patch_launch_info(
 
     if (synapse_helpers::memory_reporter_enable() &&
         ti.tensor_type() != HOST_TO_DEVICE_TENSOR) {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
+      auto& device = HPURegistrar::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getTensorStats()->updateTensorAddressData(
@@ -1539,7 +1539,7 @@ void RecipeValueSpec::launch(
 
   MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   auto& stream_handle = device.get_stream(hpu_stream);
 
   std::vector<at::Tensor> ptRefs;
@@ -1696,7 +1696,7 @@ void RecipeValueSpec::launch(
           recipe_counter_ptr->decrease_and_notify();
           if (synapse_helpers::memory_reporter_enable() &&
               resource_holder->active_graph_key_ > 0) {
-            auto& device = synapse_helpers::HPURegistrar::get_device();
+            auto& device = HPURegistrar::get_device();
             synapse_helpers::MemoryReporter* reporter =
                 device.get_device_memory().get_memory_reporter();
             reporter->getGraphStats()->removeLiveGraph(
@@ -1799,7 +1799,7 @@ void RecipeValueSpec::launch(
     }
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
+      auto& device = HPURegistrar::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getGraphStats()->removeLiveGraph(active_graph_key_);

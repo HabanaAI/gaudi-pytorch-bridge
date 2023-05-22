@@ -15,7 +15,7 @@
 #include "backend/synapse_helpers/session.h"
 #include "habana_helpers/logging.h"
 
-namespace synapse_helpers {
+namespace habana {
 
 std::unique_ptr<HPURegistrar> HPURegistrar::instance_{nullptr};
 HPURegistrar* HPURegistrar::raw_instance_{nullptr};
@@ -53,7 +53,7 @@ void HPURegistrar::finalize_instance() {
   finalized_ = true;
 }
 
-const std::thread::id synapse_helpers::HPURegistrar::main_thread_id_ =
+const std::thread::id HPURegistrar::main_thread_id_ =
     std::this_thread::get_id();
 
 HPURegistrar::~HPURegistrar() {
@@ -91,7 +91,7 @@ bool HPURegistrar::is_closing() {
   return active_device_ && !acquired_device_;
 }
 
-device& HPURegistrar::get_or_create_device() {
+synapse_helpers::device& HPURegistrar::get_or_create_device() {
   PT_BRIDGE_BEGIN;
   if (is_initialized()) {
     return get_active_device();
@@ -128,4 +128,4 @@ device& HPURegistrar::get_or_create_device() {
       " != 0");
   return *acquired_device_;
 }
-} // namespace synapse_helpers
+} // namespace habana

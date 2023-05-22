@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <sstream>
 
@@ -63,7 +66,7 @@ void log_dev_mem_stats(
     ss << ", size " << size / GB << "gb";
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto& device_memory = device.get_device_memory();
   if (device_memory.get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {

@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -935,7 +947,7 @@ TEST_F(LazyBasicKernelTest, DISABLED_noncontigD2H_nonblocking) {
 
   auto fut = std::async(std::launch::async, []() {
     HbLazyTensor::StepMarkerFinish();
-    synapse_helpers::HPURegistrar::synchronize_device();
+    habana::HPURegistrar::synchronize_device();
   });
   fut.get();
   EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);
