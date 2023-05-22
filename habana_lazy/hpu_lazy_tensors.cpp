@@ -1534,7 +1534,6 @@ void HbLazyTensor::ExecuteCachedGraph(
     size_t graphKey,
     std::string opStrs,
     ir::ValueList& input_vals,
-    ir::ValueList& output_vals,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
     std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
@@ -1556,7 +1555,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   // and output size.
   HABANA_ASSERT(is_cached == true);
 
-  stack.reserve(std::max(input_vals.size(), output_vals.size()));
+  stack.reserve(std::max(input_vals.size(), hblazy_tensors.size()));
 
   for (const auto& in : input_vals) {
     PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());

@@ -32,7 +32,7 @@ struct SingleHPUGraph {
       : graph_{graph},
         input_vals_{input_vals},
         output_vals_{output_vals},
-        hblazy_tensors_{hblazy_tensors},
+        hblazy_tensors_out_{hblazy_tensors},
         seed_tensors_generator_{seed_tensors_generator},
         hash_{hash},
         graphKey_{graphKey},
@@ -51,7 +51,8 @@ struct SingleHPUGraph {
   std::shared_ptr<torch::jit::Graph> graph_;
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
-  std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_;
+  std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_;
+  std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out_;
   std::vector<std::pair<size_t, size_t>> user_out_indices_tlist_;
   std::set<size_t> hpugraph_dependant_out_t_list_;
 

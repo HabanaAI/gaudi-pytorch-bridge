@@ -92,12 +92,9 @@ void HPUGraph::find_output_tensors() {
   }
 
   for (const auto& captured_graph : captured_graphs) {
-    HABANA_ASSERT(
-        captured_graph->output_vals_.size() ==
-        captured_graph->hblazy_tensors_.size());
     size_t outIdx = 0;
-    for (const auto& output_val : captured_graph->output_vals_) {
-      if (input_lazyt_id_set.find(output_val.GetHbLazyTensorUniqueId()) !=
+    for (const auto& t : captured_graph->hblazy_tensors_out_) {
+      if (input_lazyt_id_set.find(t.getTensorUniqueId()) !=
           input_lazyt_id_set.end()) {
         captured_graph->hpugraph_dependant_out_t_list_.insert(outIdx);
       }
@@ -144,8 +141,8 @@ void HPUGraph::mark_step() {
   PT_DEVICE_DEBUG(
       "GRAPH:: captured output size ", captured_graph->output_vals_.size());
   PT_DEVICE_DEBUG(
-      "GRAPH:: captured hblazy_tensors_ size ",
-      captured_graph->hblazy_tensors_.size());
+      "GRAPH:: captured hblazy_tensors_out_ size ",
+      captured_graph->hblazy_tensors_out_.size());
   context->getSeedTensorMap().clear();
   context->resetGraph();
 }
@@ -253,7 +250,7 @@ SingleHPUGraph::~SingleHPUGraph() {
   graph_.reset();
   input_vals_.clear();
   output_vals_.clear();
-  hblazy_tensors_.clear();
+  hblazy_tensors_out_.clear();
   seed_tensors_generator_.clear();
 }
 
@@ -279,9 +276,8 @@ void SingleHPUGraph::replayGraph(
     d->is_executing = true;
   }
 
-  for (const auto& out : output_vals_) {
-    std::shared_ptr<habana_lazy::Data> d = out.m_data_ptr.lock();
-    d->is_executing = true;
+  for (const auto& t : hblazy_tensors_out_) {
+    t.SetExecutionInProgress();
   }
 
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
@@ -295,8 +291,7 @@ void SingleHPUGraph::replayGraph(
             graphKey_,
             opStrs_,
             input_vals,
-            output_vals_,
-            hblazy_tensors_,
+            hblazy_tensors_out_,
             seed_tensors_generator_,
             true /*is_cached*/,
             launch_jobid);
@@ -307,8 +302,7 @@ void SingleHPUGraph::replayGraph(
         graphKey_,
         opStrs_,
         input_vals,
-        output_vals_,
-        hblazy_tensors_,
+        hblazy_tensors_out_,
         seed_tensors_generator_,
         true /*is_cached*/,
         launch_jobid);
@@ -337,9 +331,9 @@ void SingleHPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
     for (auto& t : outputs) {
       size_t idx = 0;
       auto& ir_value = habana_lazy::GetHbLazyTensor(t).CurrentIrValue();
-      for (auto& out_tensor : hblazy_tensors_) {
-        auto& stored_ir_value = out_tensor.CurrentIrValue();
-        if (ir_value == stored_ir_value) {
+      for (auto& out_tensor : hblazy_tensors_out_) {
+        if (out_tensor.getTensorUniqueId() ==
+            habana_lazy::GetHbLazyTensor(t).getTensorUniqueId()) {
           user_out_indices_tlist_.emplace_back(std::make_pair(out_pos, idx));
           hpugraph_dependant_out_t_list_.insert(idx);
         }
@@ -349,9 +343,8 @@ void SingleHPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
     }
 
     size_t idx = 0;
-    for (size_t idx = 0; idx < hblazy_tensors_.size(); idx++) {
-      auto& out_tensor = hblazy_tensors_[idx];
-      auto& stored_ir_value = out_tensor.CurrentIrValue();
+    for (size_t idx = 0; idx < hblazy_tensors_out_.size(); idx++) {
+      auto& out_tensor = hblazy_tensors_out_[idx];
       // exclude view tensors
       {
         LOCK_VIEW_TABLE_MUTEX(context->viewContext);
@@ -377,6 +370,12 @@ void SingleHPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         out_tensor.SetTensorData(at::Tensor());
       }
     }
+    // Save all input lazy tensors and free the output IR values
+    for (auto& in : input_vals_) {
+      std::shared_ptr<habana_lazy::Data> d = in.m_data_ptr.lock();
+      hblazy_tensors_in_.emplace_back(habana_lazy::HbLazyTensor(std::move(d)));
+    }
+    output_vals_.clear();
   }
 }
 
@@ -388,13 +387,14 @@ void SingleHPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
     for (const auto& [userOutputIdx, tensorIdx] : user_out_indices_tlist_) {
       auto& t = outputs[userOutputIdx];
       // This index must be an output tensor
-      HABANA_ASSERT(hblazy_tensors_[tensorIdx].IsHpuGraphOutTensor() == true);
+      HABANA_ASSERT(
+          hblazy_tensors_out_[tensorIdx].IsHpuGraphOutTensor() == true);
       // This index must present in hpugraph_dependant_out_t_list_
       auto search = hpugraph_dependant_out_t_list_.find(tensorIdx);
       HABANA_ASSERT(search != hpugraph_dependant_out_t_list_.end());
       auto hb_lt = habana_lazy::GetHbLazyTensor(t);
       hb_lt.SetHpuGraphOutTensor(true);
-      hblazy_tensors_[tensorIdx] = hb_lt;
+      hblazy_tensors_out_[tensorIdx] = hb_lt;
     }
     return replayGraph(input_vals_, async);
   }

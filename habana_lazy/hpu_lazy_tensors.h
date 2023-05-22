@@ -332,7 +332,6 @@ class HbLazyTensor {
       size_t graphKey,
       std::string opStrs,
       ir::ValueList& input_vals,
-      ir::ValueList& output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
       std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
