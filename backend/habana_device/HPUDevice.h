@@ -12,6 +12,7 @@
  */
 #pragma once
 #include "backend/synapse_helpers/device.h"
+#include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
 class TimeSlot;

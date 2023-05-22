@@ -186,6 +186,11 @@ class HPURegistrar {
     process_group_finalizer_ = std::move(callf);
   }
 
+  void register_acc_thread(CallFinally::FinalFunc&& acc_thread_cleanup) {
+    TORCH_CHECK(!accumulation_thread_cleanup_);
+    accumulation_thread_cleanup_.reset(std::move(acc_thread_cleanup));
+  }
+
  private:
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
@@ -201,6 +206,7 @@ class HPURegistrar {
   HPUDevice* active_device_{nullptr};
   using device_holder = std::unique_ptr<HPUDevice, void (*)(HPUDevice*)>;
   device_holder acquired_device_;
+  CallFinally accumulation_thread_cleanup_{};
   CallFinally process_group_finalizer_;
   CallFinally media_proxy_finalizer_;
 
