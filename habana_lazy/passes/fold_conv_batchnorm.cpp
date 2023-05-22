@@ -191,7 +191,7 @@ bool FuseConvBatchnorm(
   for (auto node : graph->nodes()) {
     auto node_name = node->kind().toQualString();
     PT_LAZY_DEBUG("Node Name: ", node_name);
-    if ((strcmp(node_name, "aten::native_batch_norm") == 0) &&
+    if ((strcmp(node_name, "hpu::native_batch_norm_inf") == 0) &&
         (node->inputs().at(0)->node()->kind() ==
          torch::jit::aten::convolution_overrideable)) {
       auto conv = node->inputs().at(0)->node();
@@ -238,7 +238,7 @@ bool FuseConvBatchnorm(
       //     continue;
       // }
 
-      int idx_bias = 2;
+      int idx_bias = 1;
       auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] BN without bias not yet supported");
@@ -253,7 +253,7 @@ bool FuseConvBatchnorm(
             bn->input(idx_bias)->debugName());
       }
 
-      int idx_weight = 1;
+      int idx_weight = 2;
       auto bn_w =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_weight);
       if (!bn_w) {
@@ -330,10 +330,7 @@ bool FuseConvBatchnorm(
       habana_lazy::UpdateDataInDeviceMem(
           graph, stack, bn, idx_running_var, bn_rv);
 
-      HABANA_ASSERT(
-          !bn->output(1)->hasUses() && !bn->output(2)->hasUses(),
-          "Only the first tensor should be used");
-      bn->output(0)->replaceAllUsesWith(conv->output(0));
+      bn->output()->replaceAllUsesWith(conv->output());
 
       if (!conv_b_tmeta_ptr) {
         PT_LAZY_DEBUG("[FuseConvBatchnorm] Use batchnorm bias as conv bias");

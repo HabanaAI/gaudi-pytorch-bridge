@@ -4852,7 +4852,6 @@ _native_batch_norm_legit_functional:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
-
 native_batch_norm:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta
@@ -4880,6 +4879,9 @@ native_batch_norm:
   synapse_layouts:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  lazy:
+    acc_thread: true
+    override_fn: batch_norm_hpu_lazy
 
 native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
@@ -4894,7 +4896,9 @@ native_batch_norm_backward:
   synapse_layouts:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE]
-
+  lazy:
+    acc_thread: true
+    override_fn: batch_norm_bwd_hpu_lazy
 
 native_layer_norm:
   force_default: false

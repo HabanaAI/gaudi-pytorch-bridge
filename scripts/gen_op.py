@@ -340,7 +340,7 @@ class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
 
     def get_validator_inline_data_def(self):
         dtypes = self._ctxop.get_dtypes()
-        return generate_dtype_macro(dtypes)
+        return generate_dtype_macro(dtypes, self._ctxop.get_lazy() == {})
 
     def get_inputs_to_generate_macro(self, xs):
         return xs
@@ -438,10 +438,31 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         return xs[0:1]
 
 
+allowed_lazy_keys = set()
+
+def lazy_support(default):
+    def decorate(func):
+        lazy_property = func.__name__[4:]
+
+        print(f"Adding {lazy_property} to allowed_lazy_keys")
+        allowed_lazy_keys.add(lazy_property)
+
+        def wrapper(self):
+            if self.mode == "lazy":
+                return self.get_lazy().get(lazy_property, default)
+
+            return func(self)
+
+        return wrapper
+
+    return decorate
+
+
 class Op(object):
-    def __init__(self, opname, op):
+    def __init__(self, opname, op, mode=None):
         self.op = op
         self.opname = opname
+        self.mode = mode
 
     def get_guid(self):
         return self.op.get("guid", None)
@@ -523,9 +544,18 @@ class Op(object):
     def get_fallback_check(self):
         return self.op.get("fallback_check", [])
 
+    @lazy_support(default=None)
     def get_override_fn(self):
         return self.op.get("override_fn", None)
 
+    def get_lazy(self):
+        lazy_desc = self.op.get("lazy", {})
+        assert all(key in allowed_lazy_keys for key in lazy_desc.keys()), \
+            f"Only {allowed_lazy_keys} are supported for lazy, but {lazy_desc.keys()} are provided for {self.opname}. In order to support another property, please add proper handling in Op class in {os.path.realpath(__file__)}"
+
+        return lazy_desc
+
+    @lazy_support(default=False)
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
 
@@ -564,8 +594,8 @@ class Context(object):
         if self.functions_data.find(" {}(".format(name)) >= 0:
             return "at::{}".format(name + "f" if is_out_fn(name) else name)
 
-    def get_op(self, opname):
-        return Op(opname, self.op_data[opname])
+    def get_op(self, opname, mode=None):
+        return Op(opname, self.op_data[opname], mode=mode)
 
 
 class StringEmit(object):
@@ -1331,9 +1361,9 @@ inplace_params_blacklist = [
     "_native_batch_norm_legit",
 ]
 
-def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend):
+def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, params, is_eager_frontend, mode=None):
     opname = get_aten_opname(aten_sig)
-    ctxop = ctx.get_op(opname)
+    ctxop = ctx.get_op(opname, mode=mode)
     op_frontend = "{} {{\n".format(sig)
     op_frontend += generate_entry_debug_code(tree, fname, params, is_eager_frontend)
 
@@ -1433,6 +1463,10 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, funsig, param
             ctxop.get_op_template() is not None
             and ctxop.get_op_template() == "reduction"
         )
+
+        skip_check |= (
+            ctxop.get_lazy() != {}
+        )
         assert (
             skip_check
         ), "{} has defined override_fn, it cannot take op_frontend or op_backend".format(
@@ -1457,6 +1491,8 @@ def get_op_group(opname):
         opgroup = opgroup[:-1]
     return opgroup
 
+# This is the dict of ops that have separate lazy frontend handling
+ops_lazy_ctx = {}
 
 def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False):
     tree = _PARSER.parse(fndef.cpp_sig)
@@ -1496,6 +1532,24 @@ def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False):
             params,
             is_eager_frontend,
         )
+
+        lazy = ctxop.get_lazy()
+        if lazy != {}:
+            lazy_op_frontend, _, _, _, _ = generate_code(
+                ctx,
+                tree,
+                rwxtree,
+                fname,
+                aten_sig,
+                sig,
+                rwsig,
+                funsig,
+                params,
+                False, # is_eager_frontend
+                "lazy",
+            )
+            ops_lazy_ctx[fname] = {'op_frontend': lazy_op_frontend}
+            print(f"Added separate op_frontend for lazy {fname}")
 
         # Use default flag from pytorch when force_default is not defined or in eager flow
         if ctxop.force_default() is None or is_eager_frontend:
@@ -1647,7 +1701,7 @@ def generate_impl(aten_sig, overload, override_fn):
     return code
 
 
-def generate_dtype_macro(dtypes):
+def generate_dtype_macro(dtypes, check_implicit_types=True):
     def generate_line(dd_pairs, suffix=""):
         code = []
         for dd_pair in dd_pairs:
@@ -1656,18 +1710,19 @@ def generate_dtype_macro(dtypes):
             dtypes_set = set(dtypes)
             assert len(dtypes) == len(dtypes_set), "Found same dtype defined more than once!"
 
-            assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
-                "Double and Bool are not natively supported, they are treated as "
-                "Float and Char respectively. For instance if Float is a supported "
-                "dtype, Double is added as a supported dtype by the script."
-            )
+            if check_implicit_types:
+                assert not any(x in dtypes_set for x in ["Double", "Bool"]), (
+                    "Double and Bool are not natively supported, they are treated as "
+                    "Float and Char respectively. For instance if Float is a supported "
+                    "dtype, Double is added as a supported dtype by the script."
+                )
 
             # TODO: Workaround for Fp8r152 in upstream. Needs to be fixed elsewhere.
             if Version(torch.__version__) > Version("1.13") and "Fp8r152" in dtypes:
                 dtypes.remove("Fp8r152")
-            if "Float" in dtypes:
+            if "Float" in dtypes and "Double" not in dtypes:
                 dtypes.append("Double")
-            if "Char" in dtypes:
+            if "Char" in dtypes and "Bool" not in dtypes:
                 dtypes.append("Bool")
             code.append(
                 "{{{}, {{{}}}}}".format(
@@ -1700,7 +1755,7 @@ def generate_dtype_macro(dtypes):
         return lines
 
 
-def generate_all(fgen):
+def generate_all(fgen, mode=None):
     dtype_defs = ""
     op_frontend_functions = ""
     op_backend = ""
@@ -1721,7 +1776,11 @@ def generate_all(fgen):
     if op_validator_generator is not None:
         dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
 
-    if fgen.op_frontend:
+    if mode == "lazy" and fgen.func in ops_lazy_ctx.keys():
+        op_frontend_functions += "{}\n\n".format(
+            ops_lazy_ctx[fgen.func]['op_frontend']
+        )
+    elif fgen.op_frontend:
         # Lazy functions
         op_frontend_functions += "{}\n\n".format(fgen.op_frontend)
 
@@ -2206,7 +2265,7 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
             _op_backend,
             _kr_regs,
             _custom_schema_regs,
-        ) = generate_all(fgen)
+        ) = generate_all(fgen, mode=out_dir)
         dtype_defs += _dtype_defs
         functions += _functions
         torch_regs += _torch_regs
