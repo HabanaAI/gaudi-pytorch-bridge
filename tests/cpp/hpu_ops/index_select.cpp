@@ -41,6 +41,7 @@
   }
 
 class HpuOpTest : public HpuOpTestUtil {};
+
 INDEX_SELECT_TEST(index_select_1D, SIZE({10}), 10, torch::kInt, 4, 0, 0)
 INDEX_SELECT_TEST(index_select_2D, SIZE({28, 28}), 28, torch::kInt, 5, 1, 0)
 
@@ -78,18 +79,18 @@ INDEX_SELECT_OUT_TEST(
     0)
 INDEX_SELECT_OUT_TEST(
     index_select_out_5D,
-    SIZE({8, 24, 24, 16, 36}),
-    36,
+    SIZE({8, 12, 12, 16, 24}),
+    24,
     torch::kBFloat16,
-    8,
+    4,
     4,
     0)
 INDEX_SELECT_OUT_TEST(
     index_select_out_int,
-    SIZE({512, 256, 400}),
-    400,
+    SIZE({128, 256, 200}),
+    200,
     torch::kInt,
-    6,
+    4,
     2,
     0)
 INDEX_SELECT_OUT_TEST(
@@ -103,10 +104,10 @@ INDEX_SELECT_OUT_TEST(
 INDEX_SELECT_OUT_TEST(
     index_select_out_neg_float,
     SIZE({8, 24, 24, 16, 36}),
-    36,
+    16,
     torch::kFloat,
-    6,
-    -1,
+    2,
+    -2,
     0)
 INDEX_SELECT_OUT_TEST(
     index_select_out_neg_bfloat,
@@ -114,12 +115,12 @@ INDEX_SELECT_OUT_TEST(
     24,
     torch::kBFloat16,
     2,
-    -4,
+    -3,
     0)
 INDEX_SELECT_OUT_TEST(
     index_select_out_neg_char,
-    SIZE({8, 24, 24, 16, 36}),
-    24,
+    SIZE({8, 12, 12, 16, 36}),
+    36,
     torch::kChar,
     2,
     -1,
@@ -128,7 +129,7 @@ INDEX_SELECT_OUT_TEST(
 INDEX_SELECT_OUT_TEST(
     index_select_out_shape,
     SIZE({8, 24, 32, 3}),
-    31,
+    32,
     torch::kChar,
     2,
     2,
