@@ -15,6 +15,16 @@
 #include "generated/backend/argmin.h"
 #include "hpu_ops/backend/reduction_template.h"
 
+namespace {
+auto output_type(const at::Stack& stack) {
+  if (stack.size() > 3) {
+    return stack[3].toTensor().scalar_type();
+  }
+
+  return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
+                                                   : c10::ScalarType::Int;
+}
+} // namespace
 namespace habana {
 
 sizes_vec ArgMinMaxOutputShape(const at::Stack& stack) {
@@ -36,7 +46,7 @@ void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const bool keepdim = stack.at(2).toBool();
 
   auto shape = ArgMinMaxOutputShape(stack)[0];
-  auto dtype = torch::kInt;
+  auto dtype = output_type(stack);
   auto dim = stack.at(1);
   auto is_dim_none = dim.isNone();
 
