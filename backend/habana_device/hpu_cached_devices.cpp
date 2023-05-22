@@ -104,4 +104,5 @@ HPUDevice& HPURegistrar::get_or_create_device() {
       " != 0");
   return *acquired_device_;
 }
+
 } // namespace habana

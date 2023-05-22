@@ -12,6 +12,7 @@
  */
 #pragma once
 #include "backend/synapse_helpers/device.h"
+#include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
 class TimeSlot;
@@ -157,7 +158,6 @@ class HPUDevice {
   }
 
  private:
-  bool is_stream_async_enabled_;
   std::shared_ptr<synapse_helpers::device> device_{nullptr};
 };
 

@@ -146,6 +146,11 @@ class HPURegistrar {
    */
   bool is_closing();
 
+  void register_acc_thread(CallFinally::FinalFunc&& acc_thread_cleanup) {
+    TORCH_CHECK(!accumulation_thread_cleanup_);
+    accumulation_thread_cleanup_.reset(std::move(acc_thread_cleanup));
+  }
+
  private:
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
@@ -167,6 +172,7 @@ class HPURegistrar {
 
   static const std::thread::id main_thread_id_;
 
+  CallFinally accumulation_thread_cleanup_{};
   HPUDevice* active_device_{nullptr};
   std::unique_ptr<HPUDevice> acquired_device_{nullptr};
 };
