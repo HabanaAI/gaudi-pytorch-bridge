@@ -555,6 +555,15 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     kernel_info->kernel = collective_kernel;
     collective_kernels_info.emplace_back(kernel_info);
   }
+  if (dynamic_graph) {
+    std::vector<int64_t> sif_tensor_indices;
+    deserialize(is, sif_tensor_indices);
+
+    for (int idx = 0; idx < sif_tensor_indices.size(); idx++) {
+      sif_tidx_to_tinfo_map.insert(
+          {sif_tensor_indices[idx], dtensorinfos->at(idx)});
+    }
+  }
 }
 
 void RecipeValueSpec::Serialize(std::ostream& os) const {
@@ -617,6 +626,17 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, collective_kernel->kernel->GetDeviceId());
     serialize(os, collective_kernel->kernel->GetScalarType());
     collective_kernel->kernel->Serialize(os);
+  }
+  if (dynamic_graph) {
+    std::unordered_map<PtTensorInfoShared, int64_t> tinfo_to_sif_tidx_map;
+    std::vector<int64_t> sif_tensor_indices;
+    for (auto const& ele : sif_tidx_to_tinfo_map) {
+      tinfo_to_sif_tidx_map[ele.second] = ele.first;
+    }
+    for (PtTensorInfoShared& tinfo : *dtensorinfos) {
+      sif_tensor_indices.push_back(tinfo_to_sif_tidx_map[tinfo]);
+    }
+    serialize(os, sif_tensor_indices);
   }
 }
 
