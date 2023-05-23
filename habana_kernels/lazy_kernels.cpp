@@ -7037,9 +7037,10 @@ at::Tensor optimizer_lamb_fused_norm_hpu_lazy(
       to_string(grad),
       "max_grad_norm=",
       to_string(max_grad_norm));
+  auto grad_update = HbLazyTensorViews::HandleViewsTensorList(grad);
 
   LazyOptimizerLambFusedNorm<at::Tensor> op{
-      "hpu::optimizer_lamb_fused_norm", {grad, max_grad_norm}};
+      "hpu::optimizer_lamb_fused_norm", {grad_update, max_grad_norm}};
   RUN_MAYBE_WITH_ACC_THREAD(optimizer_lamb_fused_norm, op)
 }
 

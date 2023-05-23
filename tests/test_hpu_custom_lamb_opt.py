@@ -60,6 +60,17 @@ def test_optimizer_lamb_fused_norm(dtypes, shapes, max_grad_norm):
     compare_tensors(result, reference, atol=1e-08, rtol=1e-05)
 
 
+def test_optimizer_lamb_fused_norm_view():
+    tensor = torch.zeros(4).to("hpu")
+    tensor[:2] = 2.
+    tensor[2:] = 1.
+
+    grad_denom = torch.ops.hpu.optimizer_lamb_fused_norm([tensor], 1.0)
+    grad_denom_cpu = reference_lamb_fused_norm([tensor.cpu()], 1.0)
+
+    compare_tensors(grad_denom, grad_denom_cpu, atol=1e-08, rtol=1e-05)
+
+
 def test_lamb0():
     from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
