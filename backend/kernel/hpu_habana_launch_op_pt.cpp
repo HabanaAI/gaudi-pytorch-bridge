@@ -2753,6 +2753,31 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
   }
 }
 
+void HabanaLaunchOpPT::CreateStaticComplationDBI(size_t graph_key_with_perm) {
+  std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
+
+  if (!ref_input_shape_map.count(graph_key_with_perm)) {
+    habana_helpers::InpTensorShapes input_tshapes;
+    CreateDynamicBucketInputShapes(input_tshapes);
+    ProcessDynamicBucketInputShapesWithH2D(input_tshapes);
+    PT_BRIDGE_DEBUG(
+        "JIT IR graph_hash_code : ",
+        graph_key,
+        ", hash_code with data layout : ",
+        graph_key_with_perm,
+        "\nRecording the reference input shapes::",
+        input_tshapes,
+        "\n--------------------");
+    ref_input_shape_map.emplace(graph_key_with_perm, input_tshapes);
+    if (path != "") {
+      CreateFirstDynamicBucket();
+      DumpStaticCompilationStatistics(graph_key_with_perm, true);
+    }
+  } else if (path != "") {
+    DumpStaticCompilationStatistics(graph_key_with_perm);
+  }
+}
+
 void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
   PT_BRIDGE_BEGIN;
   for (size_t j = 0; j < pt_stack_sh.size(); j++) {
@@ -2949,7 +2974,7 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
 
   current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
   if (nullptr == current_dbipsh_) {
-    PT_TEST_DEBUG(
+    PT_BRIDGE_DEBUG(
         "====================\n",
         "Creating first dynamic bucket info \n",
         "JIT IR graph_hash_code : ",
@@ -2997,7 +3022,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
       std::make_shared<RecipeArgumentSpec>(input_refs, graph_key, op_strs);
 
-  PT_TEST_DEBUG(
+  PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
       "Processing with dynamic shape enabled\n",
       "JIT IR graph_hash_code : ",
@@ -3508,10 +3533,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     hbLaunchOp->DumpTensors(rv);
   }
 
-  std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
-  if (path != "") {
-    hbLaunchOp->DumpStaticCompilationStatistics(graph_key_with_perm);
-  }
+  hbLaunchOp->CreateStaticComplationDBI(graph_key_with_perm);
 
   // Update the stack from the recipe itself
   hbLaunchOp->UpdateOutputs(rv);
@@ -3999,7 +4021,7 @@ void HabanaLaunchOpPT::run(
   // shape agnostic caching :: end
   if (!eager_mode && ref_input_shape_map.count(graph_key_with_perm) &&
       habana_helpers::GetRefineDynamicShapeStatus()) {
-    PT_TEST_DEBUG(
+    PT_DYNAMIC_SHAPE_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key,
         ", hash_code with data layout : ",
@@ -4019,24 +4041,7 @@ void HabanaLaunchOpPT::run(
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
   if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
-    habana_helpers::InpTensorShapes input_tshapes;
-    CreateDynamicBucketInputShapes(input_tshapes);
-    ProcessDynamicBucketInputShapesWithH2D(input_tshapes);
-    PT_TEST_DEBUG(
-        "JIT IR graph_hash_code : ",
-        graph_key,
-        ", hash_code with data layout : ",
-        graph_key_with_perm,
-        "\nRecording the reference input shapes::",
-        input_tshapes,
-        "\n--------------------");
-    ref_input_shape_map.emplace(graph_key_with_perm, input_tshapes);
-    std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
-    if (path != "") {
-      CreateFirstDynamicBucket();
-      DumpStaticCompilationStatistics(
-          graph_key_with_perm, /*compilation*/ true);
-    }
+    CreateStaticComplationDBI(graph_key_with_perm);
   }
 
   constexpr bool dry_run = false;

@@ -566,6 +566,8 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
+  void CreateStaticComplationDBI(size_t graph_key_with_perm);
+
   void CreateDynamicBucketInputShapes(
       habana_helpers::InpTensorShapes& shape_map);
 
