@@ -130,10 +130,13 @@ class EagerOpBase {
 
       HABANA_ASSERT(
           0,
-          "Got unexpected tensor as input at index ",
+          "Expected all tensors to be on the HPU device, but found at least one input[idx=",
           idx,
-          " to HPU Op. Tensor: ",
-          tensor.toString());
+          "] on ",
+          tensor.device(),
+          " (details: ",
+          tensor.toString(),
+          ")");
     }
   }
 };
