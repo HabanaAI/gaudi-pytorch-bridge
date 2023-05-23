@@ -24,6 +24,29 @@ void ReductionBackendTemplate::SetReductionVarsIndices(
   m_dtype_index = dtype_index;
 }
 
+static std::shared_ptr<void> FillReductionParams(
+    int ndims,
+    std::vector<int64_t>& dims,
+    bool keepdim,
+    size_t& size) {
+  PARAMS_STUB(ns_Reduction::ParamsV2);
+  // When dim=[], reduce all dimensions based on keepdim value
+  if (0 == dims.size()) {
+    for (int i = 0; i < ndims; ++i) {
+      dims.push_back(i);
+    }
+  }
+  unsigned maskval = 0;
+  for (int i = 0; i < dims.size(); ++i) {
+    auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
+    maskval = maskval | (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
+  }
+
+  params->reductionDimensionMask = maskval;
+  params->keepDim = keepdim;
+  return params;
+}
+
 void ReductionBackendTemplate::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -43,15 +66,39 @@ void ReductionBackendTemplate::AddNode(
   // Extract keepdim
   bool keepdim = get_keepdim(stack, m_keepdim_index);
 
-  auto shape = ComputeOutputShapes(stack).empty()
-      ? ReductionOutputShape(self, dims, keepdim)[0]
-      : ComputeOutputShapes(stack)[0];
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs{{shape, ScalarType(), 0}};
+  auto guid_name = GetGuid();
 
-  auto result = HandleReductionDimAndKeepdim(
-      this, graph, self, {input}, dims, keepdim, GetGuid(), output_attrs);
+  if ((guid_name.find("reduce_") != std::string::npos) &&
+      (guid_name.find("_multi_dim") != std::string::npos)) {
+    // "========= Multi dim CGUID case ===================="
+    auto shape = ReductionOutputShape(self, dims, keepdim)[0];
+    int ndims = self.dim();
 
-  syn_out(0) = std::move(result[0]);
+    NodeAttr::NodeOutputAttr reduction_node_output_attr = {
+        shape, ScalarType(), 0};
+
+    size_t size = 0;
+    auto params = FillReductionParams(ndims, dims, keepdim, size);
+    auto result = OpBackend::BuildNode(
+        this,
+        graph,
+        {guid_name,
+         {std::move(input)},
+         {reduction_node_output_attr},
+         params.get(),
+         size});
+    syn_out(0) = std::move(result[0]);
+  } else {
+    auto shape = ComputeOutputShapes(stack).empty()
+        ? ReductionOutputShape(self, dims, keepdim)[0]
+        : ComputeOutputShapes(stack)[0];
+    std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+        {shape, ScalarType(), 0}};
+
+    auto result = HandleReductionDimAndKeepdim(
+        this, graph, self, {input}, dims, keepdim, GetGuid(), output_attrs);
+    syn_out(0) = std::move(result[0]);
+  }
 }
 
 // Returns the input after cast to the supplied dtype. If dtype is none or if
