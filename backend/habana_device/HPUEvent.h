@@ -31,7 +31,7 @@ namespace hpu {
  *
  * HPUEvents are constructed lazily when first recorded. The event has
  * a device, and this device is acquired from the first recording stream.
- * However, if reconstructed from a handle, the device should be explicitly
+ * However, if reconstructed from a id, the device should be explicitly
  * specified; it will use the current device. Later streams that record the
  * event must match this device.
  */
@@ -46,16 +46,7 @@ struct HPUEvent {
   ~HPUEvent() {
     auto& dev = habana::HPURegistrar::get_device().syn_device();
     if (is_created_) {
-      if (created_with_stream_ == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-        dev.delete_event_default_stream(handle_, flags_);
-      } else {
-        if (flags_) {
-          dev.get_time_event_handle_cache().release_handle(handle_);
-        } else {
-          dev.get_event_handle_cache().release_handle(handle_);
-        }
-      }
+      dev.delete_event(id_, flags_);
     }
   }
 
@@ -70,13 +61,13 @@ struct HPUEvent {
     return *this;
   }
 
-  operator synEventHandle() const {
-    return handle();
+  operator synapse_helpers::hpuEvent_t() const {
+    return id();
   }
 
   // Less than operator (to allow use in sets)
   friend bool operator<(const HPUEvent& left, const HPUEvent& right) {
-    return left.handle_ < right.handle_;
+    return left.id_ < right.id_;
   }
 
   bool isCreated() const {
@@ -90,8 +81,9 @@ struct HPUEvent {
   DeviceIndex device_index() const {
     return device_index_;
   }
-  synEventHandle handle() const {
-    return handle_;
+
+  synapse_helpers::hpuEvent_t id() const {
+    return id_;
   }
 
   // Note: hpuEventQuery can be safely called from any device
@@ -101,20 +93,7 @@ struct HPUEvent {
     }
     auto& device = habana::HPURegistrar::get_device().syn_device();
 
-    if (created_with_stream_ == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      return device.query_event_default_stream(handle_);
-    } else {
-      auto status = synEventQuery(handle_);
-      if (status == synSuccess) {
-        return true;
-      } else {
-        PT_DEVICE_DEBUG(
-            Logger::formatStatusMsg(status), "STREAM:: synEventQuery");
-      }
-    }
-
-    return false;
+    return device.query_event(id_);
   }
 
   void record() {
@@ -132,11 +111,7 @@ struct HPUEvent {
     if (!is_created_) {
       createEvent(stream.device_index());
       created_with_stream_ = stream.stream();
-      if (created_with_stream_ == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-        device.create_default_stream_event(handle_, flags_);
-      }
-      PT_DEVICE_DEBUG("reusing event handle::", handle_);
+      PT_DEVICE_DEBUG("event id::", id_);
     }
 
     TORCH_CHECK(
@@ -162,16 +137,8 @@ struct HPUEvent {
         habana_lazy::HbLazyTensor::StepMarker({});
       }
     }
-    if (created_with_stream_ == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      device.record_event_default_stream(handle_);
-    } else {
-      auto status = synEventRecord(handle_, device.get_stream(stream.stream()));
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL(
-            Logger::formatStatusMsg(status), "synEventRecord failed");
-      }
-    }
+
+    device.record_event(id_, stream.stream());
     recorded_stream_ = stream.stream();
     was_recorded_ = true;
   }
@@ -184,17 +151,7 @@ struct HPUEvent {
         return;
       }
       auto& device = habana::HPURegistrar::get_device().syn_device();
-      if (stream.stream() == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-        device.wait_event_default_stream(handle_);
-      } else {
-        auto status =
-            synStreamWaitEvent(device.get_stream(stream.stream()), handle_, 0);
-        if (synStatus::synSuccess != status) {
-          PT_DEVICE_FATAL(
-              Logger::formatStatusMsg(status), "synStreamWaitEvent failed");
-        }
-      }
+      device.wait_event(id_, stream.stream());
     }
   }
 
@@ -204,34 +161,14 @@ struct HPUEvent {
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
     auto& device = habana::HPURegistrar::get_device().syn_device();
-    uint64_t time_ms = 0;
-    if (created_with_stream_ == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      time_ms = device.eplased_time_default_stream(handle_, other.handle_);
-    } else {
-      auto status = synEventElapsedTime(&time_ms, handle_, other.handle_);
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_DEBUG(
-            Logger::formatStatusMsg(status), "synEventElapsedTime failed");
-      }
-    }
-    return time_ms;
+    return device.eplased_time(id_, other.id_);
   }
 
   // Note: hpuEventSynchronize can be safely called from any device
   void synchronize() const {
     if (is_created_) {
       auto& device = habana::HPURegistrar::get_device().syn_device();
-      if (created_with_stream_ == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-        device.synchronize_event_default_stream(handle_);
-      } else {
-        auto status = synEventSynchronize(handle_);
-        if (synStatus::synSuccess != status) {
-          PT_DEVICE_FATAL(
-              Logger::formatStatusMsg(status), "synEventSynchronize failed");
-        }
-      }
+      device.synchronize_event(id_);
     }
   }
 
@@ -243,7 +180,7 @@ struct HPUEvent {
   bool is_created_ = false;
   bool was_recorded_ = false;
   DeviceIndex device_index_ = -1;
-  synEventHandle handle_ = {nullptr};
+  synapse_helpers::hpuEvent_t id_ = 0;
   synapse_helpers::hpuStream_t recorded_stream_;
   synapse_helpers::hpuStream_t created_with_stream_;
 
@@ -251,12 +188,10 @@ struct HPUEvent {
     // get device
     auto& dev = habana::HPURegistrar::get_device().syn_device();
     device_index_ = dev.id();
-    if (flags_) {
-      handle_ = dev.get_time_event_handle_cache().get_free_handle();
-    } else {
-      handle_ = dev.get_event_handle_cache().get_free_handle();
-    }
+    id_ = dev.get_event_index();
+    dev.create_event(id_, flags_);
     is_created_ = true;
+    PT_DEVICE_DEBUG("created event with ::", id_);
   }
 
   void moveHelper(HPUEvent&& other) {
@@ -264,7 +199,7 @@ struct HPUEvent {
     std::swap(is_created_, other.is_created_);
     std::swap(was_recorded_, other.was_recorded_);
     std::swap(device_index_, other.device_index_);
-    std::swap(handle_, other.handle_);
+    std::swap(id_, other.id_);
     std::swap(recorded_stream_, other.recorded_stream_);
   }
 }; // namespace hpu

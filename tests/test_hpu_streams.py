@@ -404,18 +404,26 @@ def testStreamWaitEventWAR():
     e1 = ht.hpu.Event()
 
     in_shape = (4,2)
-    tA_h = torch.zeros(in_shape).to('hpu')
-    tB_h = torch.ones(in_shape).to('hpu')
+    tA = torch.zeros(in_shape)
+    tB = torch.ones(in_shape)
+    tC = torch.empty_like(tA)
+    tD = torch.empty_like(tA)
+
+    tA_h = tA.to('hpu')
+    tB_h = tB.to('hpu')
     tC_h = torch.empty_like(tA_h)
     tD_h = torch.empty_like(tA_h)
 
+    tC = tA + tB
+    tD = tC
     with ht.hpu.stream(s0):
         tC_h = tA_h + tB_h
         # e1.record()
     s0.record_event(e1)
     d0.wait_event(e1)
-    tD_h = tC_h.to(dtype=torch.bfloat16)
-    htcore.mark_step()
+    tD_h = tC_h.to("cpu")
+    np.testing.assert_allclose(tD.detach().numpy(),
+                                tD_h.detach().numpy(), atol=0, rtol=0)
 
     print('Starting testStreamWaitEventWAR TEST - Finished')
 

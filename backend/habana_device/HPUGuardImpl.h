@@ -21,6 +21,7 @@
 #include <unordered_set>
 
 #include "HPUAllocator.h"
+#include "HPUEvent.h"
 #include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
 #include "habana_helpers/logging.h"
@@ -122,44 +123,15 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     return hpu_flag;
   }
 
-  void createEvent(
-      synEventHandle& handle,
-      const at::EventFlag flag,
-      synapse_helpers::hpuStream_t stream) const {
-    auto& dev = HPURegistrar::get_device().syn_device();
-    unsigned int hpu_flag = get_hpu_flag(flag);
-    if (hpu_flag) {
-      handle = dev.get_time_event_handle_cache().get_free_handle();
-    } else {
-      handle = dev.get_event_handle_cache().get_free_handle();
-    }
-    dev.add_user_event_info(handle, hpu_flag, stream);
-  }
-
   void destroyEvent(
       void* event,
       [[maybe_unused]] const at::DeviceIndex device_index)
       const noexcept override {
     if (!event)
       return;
-    synEventHandle handle = static_cast<synEventHandle>(event);
-    if (handle) {
-      PT_DEVICE_DEBUG("Event:: removing the handle", handle);
-      auto& dev = HPURegistrar::get_device().syn_device();
-      std::pair<bool, synapse_helpers::hpuStream_t> event_info =
-          dev.get_user_event_info(handle);
-      if (event_info.second == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-        dev.delete_event_default_stream(handle, event_info.first);
-      } else {
-        if (event_info.first) {
-          dev.get_time_event_handle_cache().release_handle(handle);
-        } else {
-          dev.get_event_handle_cache().release_handle(handle);
-        }
-      }
-      dev.remove_user_event_info(handle);
-    }
+
+    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    delete hpu_event;
   }
 
   void record(
@@ -174,87 +146,30 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         " does not match recording stream's device index ",
         stream.device_index(),
         ".");
-    synEventHandle handle = static_cast<synEventHandle>(*event);
+    at::hpu::HPUEvent* hpu_event = (static_cast<at::hpu::HPUEvent*>(*event));
     c10::hpu::HPUStream hpu_stream{stream};
-    auto& device = HPURegistrar::get_device().syn_device();
-
-    // Creates the event (lazily)
-    if (!handle) {
-      synEventHandle syn_handle{};
-      createEvent(syn_handle, flag, hpu_stream.stream());
-      if (hpu_stream.stream() == 0 &&
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-        unsigned int hpu_flag = get_hpu_flag(flag);
-        device.create_default_stream_event(handle, hpu_flag);
-      }
-      handle = syn_handle;
+    if (!hpu_event) {
+      unsigned int hpu_flag = get_hpu_flag(flag);
+      hpu_event = new at::hpu::HPUEvent(hpu_flag);
     }
-
-    *event = handle;
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1 &&
-        stream == c10::hpu::getCurrentHPUStream()) {
-      habana_lazy::HbLazyTensor::StepMarker({});
-    }
-
-    if (hpu_stream.stream() == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      device.record_event_default_stream(handle);
-    } else {
-      auto status =
-          synEventRecord(handle, device.get_stream(hpu_stream.stream()));
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL(
-            Logger::formatStatusMsg(status), "synEventRecord failed");
-      }
-    }
+    hpu_event->record(hpu_stream);
+    *event = (void*)hpu_event;
   }
 
   void block(void* event, const at::Stream& stream) const override {
     if (!event)
       return;
-    synEventHandle handle = static_cast<synEventHandle>(event);
+    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
     c10::hpu::HPUStream hpu_stream{stream};
-    auto& device = HPURegistrar::get_device().syn_device();
-    std::pair<bool, synapse_helpers::hpuStream_t> event_info =
-        device.get_user_event_info(handle);
-    if (event_info.second == hpu_stream.stream())
-      return;
-
-    if (hpu_stream.stream() == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      device.wait_event_default_stream(handle);
-    } else {
-      auto status =
-          synStreamWaitEvent(device.get_stream(hpu_stream.stream()), handle, 0);
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL(
-            Logger::formatStatusMsg(status), "synStreamWaitEvent failed");
-      }
-    }
+    hpu_event->block(hpu_stream);
   }
 
   // May be called from any device
   bool queryEvent(void* event) const override {
     if (!event)
       return true;
-    synEventHandle handle = static_cast<synEventHandle>(event);
-    auto& device = HPURegistrar::get_device().syn_device();
-    std::pair<bool, synapse_helpers::hpuStream_t> event_info =
-        device.get_user_event_info(handle);
-    if (event_info.second == 0 &&
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) { // default stream
-      return device.query_event_default_stream(handle);
-    } else {
-      auto status = synEventQuery(handle);
-      if (status == synSuccess) {
-        return true;
-      } else {
-        PT_DEVICE_DEBUG(
-            Logger::formatStatusMsg(status), "STREAM:: synEventQuery");
-      }
-    }
-
-    return false;
+    at::hpu::HPUEvent* hpu_event = static_cast<at::hpu::HPUEvent*>(event);
+    return hpu_event->query();
   }
 
   // Stream-related functions

@@ -44,6 +44,7 @@
 namespace synapse_helpers {
 std::string get_mem_str(size_t nbytes);
 typedef uint64_t hpuStream_t;
+typedef uint64_t hpuEvent_t;
 
 // this enum is used only for the case where non generic stream is used
 enum default_stream_type {
@@ -423,47 +424,22 @@ class device {
 
   void delete_stream(hpuStream_t id);
 
-  void create_default_stream_event(synEventHandle keyHandle, bool flags);
+  void create_event(hpuEvent_t id, bool flags);
 
-  void record_event_default_stream(synEventHandle keyHandle);
+  void record_event(hpuEvent_t id, hpuStream_t record_stream);
 
-  void wait_event_default_stream(synEventHandle handle);
+  void wait_event(hpuEvent_t id, hpuStream_t block_stream);
 
-  void synchronize_event_default_stream(synEventHandle keyHandle);
+  void synchronize_event(hpuEvent_t id);
 
-  bool query_event_default_stream(synEventHandle keyHandle);
+  bool query_event(hpuEvent_t id);
 
-  uint64_t eplased_time_default_stream(
-      synEventHandle keyHandle1,
-      synEventHandle keyHandle2);
+  uint64_t eplased_time(hpuEvent_t id1, hpuEvent_t id2);
 
-  void delete_event_default_stream(synEventHandle keyHandle, bool flags);
+  void delete_event(hpuEvent_t id, bool flags);
 
   size_t get_real_workspace_size() const {
     return real_workspace_size_;
-  }
-
-  // since we have 2 cache for event this is required
-  void add_user_event_info(
-      synEventHandle handle,
-      bool flag,
-      hpuStream_t stream) {
-    std::unique_lock<std::mutex> lock(event_mutex_);
-    user_event_flag_map_[handle] = std::make_pair(flag, stream);
-  }
-
-  void remove_user_event_info(synEventHandle handle) {
-    std::unique_lock<std::mutex> lock(event_mutex_);
-    auto it = user_event_flag_map_.find(handle);
-    if (it != user_event_flag_map_.end())
-      user_event_flag_map_.erase(it);
-  }
-
-  std::pair<bool, hpuStream_t> get_user_event_info(synEventHandle handle) {
-    std::unique_lock<std::mutex> lock(event_mutex_);
-    auto it = user_event_flag_map_.find(handle);
-    HABANA_ASSERT(it != user_event_flag_map_.end());
-    return user_event_flag_map_[handle];
   }
 
   bool getDeterministic() const {
@@ -477,6 +453,12 @@ class device {
   size_t get_workspace_size() {
     return workspace_size_;
   }
+
+  hpuEvent_t get_event_index() {
+    event_index_++;
+    return event_index_.load();
+  }
+
   size_t get_least_workspace_size(
       size_t persistent_size,
       size_t req_workspace_size);
@@ -546,9 +528,8 @@ class device {
 
   // stream counter
   std::atomic<uint64_t> stream_index_{0};
-
-  std::unordered_map<synEventHandle, std::pair<bool, hpuStream_t>>
-      user_event_flag_map_;
+  // event counter
+  std::atomic<uint64_t> event_index_{0};
   std::mutex event_mutex_;
   bool deterministic_ = 0;
 
@@ -567,8 +548,8 @@ class device {
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
   std::map<size_t, uint32_t> workspace_usage_;
-  std::unordered_map<synEventHandle, std::array<synEventHandle, _END_TYPE>>
-      user_event_handle_map_;
+  std::unordered_map<hpuEvent_t, std::array<synEventHandle, _END_TYPE>>
+      user_event_map_;
   std::mutex usr_event_mutex_;
   std::unordered_map<uint64_t, std::shared_ptr<host_event>>
       addr_host_event_map_;
