@@ -224,7 +224,8 @@ Tensor& copy_hpu_(
     src_contiguous = src.to(dst.scalar_type());
 
     TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
-    habana_helpers::copy_data_to_device(src_contiguous, dst, non_blocking);
+    habana_helpers::copy_data_to_device(
+        src_contiguous, dst, non_blocking, hpu_stream);
     print_stride_warning(src_contiguous, dst);
   } else if (
       src_device == c10::DeviceType::HPU &&
@@ -253,7 +254,7 @@ Tensor& copy_hpu_(
       // Is there any reason why this check cannot be strict equality?
       TORCH_CHECK(dst_intermediate.nbytes() >= src_contiguous.nbytes());
       habana_helpers::copy_data_to_host(
-          src_contiguous, dst_intermediate, non_blocking, hpu_stream);
+          src_contiguous, dst_intermediate, false, hpu_stream);
       dst.copy_(dst_intermediate.to(dst.scalar_type()));
     } else {
       // Is there any reason why this check cannot be strict equality?

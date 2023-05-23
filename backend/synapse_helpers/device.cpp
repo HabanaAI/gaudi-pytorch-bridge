@@ -529,6 +529,7 @@ void device::cleanup() {
   synapse_helpers::memstats_dump(*this, "Stats after cleanup.");
   streams_.clear();
   user_event_flag_map_.clear();
+  addr_host_event_map_.clear();
 }
 
 device::~device() {
@@ -928,6 +929,42 @@ void device::free(device_ptr ptr) {
   return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
+void device::register_host_event(uint64_t addr) {
+  std::unique_lock<std::mutex> lock(host_event_mutex_);
+  auto it = addr_host_event_map_.find(addr);
+  if (it != addr_host_event_map_.end()) {
+    lock.unlock();
+    wait_for_host_event(addr);
+    lock.lock();
+  }
+  std::shared_ptr<host_event> event = std::make_shared<host_event>();
+  addr_host_event_map_[addr] = event;
+}
+
+void device::mark_host_event_complete(uint64_t addr) {
+  std::unique_lock<std::mutex> lock(host_event_mutex_);
+  PT_SYNHELPER_DEBUG("mark host event completed addr::", addr);
+  auto it = addr_host_event_map_.find(addr);
+  if (it != addr_host_event_map_.end()) {
+    auto& event = *addr_host_event_map_[addr];
+    event.complete();
+  }
+}
+
+void device::wait_for_host_event(uint64_t addr) {
+  PT_SYNHELPER_DEBUG("wait for host event addr::", addr);
+  std::unique_lock<std::mutex> lock(host_event_mutex_);
+  auto it = addr_host_event_map_.find(addr);
+  if (it == addr_host_event_map_.end())
+    return;
+  auto& event = *addr_host_event_map_[addr];
+  lock.unlock();
+  event.wait_for_event_complete();
+
+  lock.lock();
+  addr_host_event_map_.erase(addr);
+}
+
 inline bool device::copy_data_to_device_(
     void* cpu_data,
     device_ptr destination,
@@ -1028,6 +1065,17 @@ synapse_error device::copy_data_to_device(
    * before copy, so wait */
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   sem_.enqueue_wait_event(event_addr, stream_handle);
+
+  /* to handle case where cpy from device to host and then copying
+   * the same tensor back to device again, need to wait for the previous
+   * copy D2H to finsh to start the H2D
+   * t1 = torch.arange(1, 5, dtype=torch.bfloat16, device='hpu:0')
+   * t2 = torch.zeros(4)
+   * t2.copy_(t1, non_blocking=True)
+   * t2 = t2.to(t1.device)
+   */
+  sem_.enqueue_wait_event(reinterpret_cast<uint64_t>(cpu_data), stream_handle);
+  wait_for_host_event(reinterpret_cast<uint64_t>(cpu_data));
 
   /*
    * If non-blocking copy and non pinned memory and tensor size >= 1 MB
@@ -1229,8 +1277,15 @@ synapse_error device::copy_data_to_host(
     }
   } while (++attempt < max_dma_copy_retry_count_);
 
+  // register host event
+  if (!is_pinned) {
+    PT_SYNHELPER_DEBUG(
+        "register host event for addr",
+        reinterpret_cast<uint64_t>(destination));
+    register_host_event(reinterpret_cast<uint64_t>(destination));
+  }
   sem_.add_producer(
-      {},
+      {reinterpret_cast<uint64_t>(destination)},
       stream_handle,
       [this,
        done_cb,
@@ -1244,6 +1299,7 @@ synapse_error device::copy_data_to_host(
               dst_ptr,
               dst_ptr + total_bytes,
               reinterpret_cast<uint8_t*>(destination));
+          mark_host_event_complete(reinterpret_cast<uint64_t>(destination));
           host_memory_.free((void*)dst_ptr);
         }
         done_cb();

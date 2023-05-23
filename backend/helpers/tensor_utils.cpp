@@ -397,6 +397,14 @@ void habana_helpers::copy_data_to_host(
   }
 }
 
+void habana_helpers::copy_data_to_device(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  return copy_data_to_device(
+      src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
+}
+
 /******************************************************************************
  * @brief helper function for copying data from host to device
  * @param[in] src_ptr - source memory address in cpu
@@ -406,7 +414,8 @@ void habana_helpers::copy_data_to_host(
 void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
-    bool non_blocking) {
+    bool non_blocking,
+    synapse_helpers::hpuStream_t hpu_stream) {
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
@@ -430,7 +439,7 @@ void habana_helpers::copy_data_to_device(
         [srcRef, dstRef]() { return; },
         non_blocking,
         is_pinned,
-        c10::hpu::getCurrentHPUStream());
+        hpu_stream);
     TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -443,7 +452,7 @@ void habana_helpers::copy_data_to_device(
         [&copyDone]() { copyDone = true; },
         false,
         is_pinned,
-        c10::hpu::getCurrentHPUStream());
+        hpu_stream);
     TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

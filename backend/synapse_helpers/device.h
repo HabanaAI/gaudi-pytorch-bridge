@@ -92,6 +92,29 @@ class active_recipe_counter {
   std::mutex counter_mutex_;
 };
 
+class host_event {
+ public:
+  void wait_for_event_complete() {
+    std::unique_lock<std::mutex> lck(mutex_);
+    cv_.wait(lck, [this]() -> bool { return done(); });
+  }
+
+  void complete() {
+    std::unique_lock<std::mutex> lck(mutex_);
+    done_ = true;
+    cv_.notify_all();
+  }
+
+  bool done() {
+    return done_.load();
+  }
+
+ private:
+  std::condition_variable cv_;
+  std::mutex mutex_;
+  std::atomic<bool> done_{false};
+};
+
 class device {
  public:
   struct transfer_desc {
@@ -460,6 +483,12 @@ class device {
 
   habana::backend::GlobalContext& get_global_context();
 
+  void register_host_event(uint64_t addr);
+
+  void wait_for_host_event(uint64_t addr);
+
+  void mark_host_event_complete(uint64_t addr);
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -545,6 +574,9 @@ class device {
   std::unordered_map<synEventHandle, std::array<synEventHandle, _END_TYPE>>
       user_event_handle_map_;
   std::mutex usr_event_mutex_;
+  std::unordered_map<uint64_t, std::shared_ptr<host_event>>
+      addr_host_event_map_;
+  std::mutex host_event_mutex_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);

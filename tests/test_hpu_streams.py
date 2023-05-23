@@ -665,6 +665,28 @@ def test_events():
     assert event.query() == True
     print("elaped time value", start_event.elapsed_time(event))
 
+def test_d2h_h2d_default_stream():
+    in_shape = (1, 5)
+    for iter in range(50):
+        print(f"------------------- {iter=} -------------------")
+        t1 = torch.arange(1, 5, dtype=torch.bfloat16, device='hpu:0')
+        t2 = torch.zeros(4)
+        t2.copy_(t1, non_blocking=True)
+        t2 = t2.to(t1.device)
+        assert t2.equal(t1), f"t1 and t2 are not equal! \n{t1=} \n{t2=}"
+
+def test_d2h_h2d_user_stream():
+    s0 = ht.hpu.Stream()
+    in_shape = (1, 5)
+    for iter in range(50):
+        with ht.hpu.stream(s0):
+            print(f"------------------- {iter=} -------------------")
+            t1 = torch.arange(1, 5, dtype=torch.bfloat16, device='hpu:0')
+            t2 = torch.zeros(4)
+            t2.copy_(t1, non_blocking=True)
+            t2 = t2.to(t1.device)
+            assert t2.equal(t1), f"t1 and t2 are not equal! \n{t1=} \n{t2=}"
+
 if __name__ == "__main__":
     test_stream_none()
     test_stream_event_uninit()
@@ -693,3 +715,5 @@ if __name__ == "__main__":
     testCopyNonBlocking()
     testProfiling_default_stream()
     test_events()
+    test_d2h_h2d_default_stream()
+    test_d2h_h2d_user_stream()
