@@ -112,6 +112,11 @@ at::Tensor _copy_from_and_resize(
   return dst.copy_(self);
 }
 
+bool is_view_op_needed(const at::Tensor& t) {
+  auto tmeta{habana::get_tensor_extra_meta(t)};
+  return (tmeta->is_view_lowering() || (!t.is_contiguous()));
+}
+
 at::Tensor _copy_from_d2h(
     const at::Tensor& self,
     const at::Tensor& dst,
@@ -119,11 +124,10 @@ at::Tensor _copy_from_d2h(
   auto self_ = self;
   // To Do - join pending not required here once copy d2h
   // also comes through pipeline SW-126657
+  // we also need Thread join before invoking is_view_op_needed()
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
-  auto self_tmeta{habana::get_tensor_extra_meta(self)};
-
-  if (self_tmeta->is_view_lowering()) {
+  if (is_view_op_needed(self)) {
     auto base = habana::eager::create_base(self);
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "aten::as_strided",
@@ -182,9 +186,6 @@ at::Tensor _copy_from_h2d(
   }
 
   if (!dst.is_contiguous()) {
-    auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
-    dst_tmeta->set_view_lowering(true);
-
     // This is done in two steps. First copy the contiguous Host tensor to
     // device. Then invoke strided_insert
     auto insert_t = at::empty(
@@ -203,15 +204,20 @@ at::Tensor _copy_from_h2d(
 at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
   if (!dst.is_contiguous()) {
     auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
-    dst_tmeta->set_view_lowering(true);
   }
 
   at::Tensor result;
+
+  // view lowering flag is set in lowering thread. Thread join is needed before
+  // checking/setting the flag
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
+
   auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
-  if (dst_tmeta->is_view_lowering()) {
+  if (is_view_op_needed(dst)) {
     auto self_ = self;
     auto self_tmeta{habana::get_tensor_extra_meta(self)};
-    if (self_tmeta->is_view_lowering()) {
+    if (is_view_op_needed(self)) {
       bool same_data_type = (dst.scalar_type() == self.scalar_type());
       // If dtype is same, post_process_eager_graph() will take care
       // of strided-view node insertion when source is non-contiguous.
@@ -248,17 +254,6 @@ at::Tensor _copy_from(
     bool non_blocking) {
   const auto src_device = self.device().type();
   const auto dst_device = dst.device().type();
-
-  // Note: copy operations can have strided tensors without going through any
-  // view operations
-  // examples: 1. H2d copy of strided tensors 2.  usage of
-  // torch.empty_strided 3. channels last memory format
-  if (src_device == at::kHPU) {
-    if (!self.is_contiguous()) {
-      auto self_tmeta{habana::get_tensor_extra_meta(self)};
-      self_tmeta->set_view_lowering(true);
-    }
-  }
 
   PT_EAGER_DEBUG(
       "_copy_from: src_sizes: ",

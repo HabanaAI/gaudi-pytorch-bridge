@@ -501,12 +501,7 @@ class EagerOp : public EagerOpBase {
       HABANA_ASSERT(m_scalar_types.size() == 1);
       options = options.dtype(m_scalar_types[0]);
     }
-    auto mem_format{
-        out_shape.size() < 4 ||
-                habana::get_tensor_extra_meta(t)->is_view_lowering() ||
-                !t.is_contiguous()
-            ? at::MemoryFormat::Contiguous
-            : t.suggest_memory_format()};
+    auto mem_format{at::MemoryFormat::Contiguous};
 
     return at::empty(out_shape, options, mem_format);
   }
@@ -516,17 +511,6 @@ class EagerOp : public EagerOpBase {
     PT_EAGER_TRACE;
 
     bool is_view_input = false;
-    for (auto& el : get_inputs()) {
-      if (el.isTensor()) {
-        const auto& t = el.toTensor();
-        if (habana::get_tensor_extra_meta(t)->is_view_lowering() ||
-            !t.is_contiguous()) {
-          is_view_input = true;
-          break;
-        }
-      }
-    }
-
     if (m_output_meta) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta(get_inputs());
@@ -541,8 +525,7 @@ class EagerOp : public EagerOpBase {
             result = at::empty(
                 output_meta.shape,
                 options.dtype(output_meta.dtype),
-                is_view_input ? at::MemoryFormat::Contiguous
-                              : output_meta.mem_format);
+                at::MemoryFormat::Contiguous);
           });
       return results;
     }
@@ -560,10 +543,7 @@ class EagerOp : public EagerOpBase {
       habana::for_each_in_tuple_with_index(
           results, [&](auto& result, size_t index) {
             result = at::empty(
-                m_out_shapes[index],
-                t.options(),
-                is_view_input ? at::MemoryFormat::Contiguous
-                              : t.suggest_memory_format());
+                m_out_shapes[index], t.options(), at::MemoryFormat::Contiguous);
           });
     } else {
       HABANA_ASSERT(m_scalar_types.size() == std::tuple_size<T>::value);
@@ -572,8 +552,7 @@ class EagerOp : public EagerOpBase {
             result = at::empty(
                 m_out_shapes[index],
                 t.options().dtype(m_scalar_types[index]),
-                is_view_input ? at::MemoryFormat::Contiguous
-                              : t.suggest_memory_format());
+                at::MemoryFormat::Contiguous);
           });
     }
     return results;

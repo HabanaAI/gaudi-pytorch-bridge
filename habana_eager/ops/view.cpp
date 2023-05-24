@@ -15,7 +15,10 @@
 #include <ATen/InferSize.h>
 #include <ATen/TensorUtils.h>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/get_n_bytes.h"
+#include "habana_eager/eager_context.h"
 #include "habana_kernels/kernel_utils.h"
 
 namespace habana {
@@ -31,13 +34,33 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
       "not compatible with input tensor's size and stride (at least one dimension"
       " spans across two contiguous subspaces). Use .reshape(...) instead.");
   auto out = alias_with_sizes_and_strides(self, inferred_size, *stride);
+
   view_propagate_permutation(self, out);
   return out;
 }
 
-void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
+void view_propagate_permutation_task(
+    const at::Tensor& base_t,
+    at::Tensor& view_t) {
   PT_EAGER_TRACE;
 
+  auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
+  auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
+
+  // once we set view tensor, JIT IR pass will get invoked.
+  // We need JIT IT pass under the following cases
+  // base has permutation or the view is non-contiguous
+  auto base_permute = input_tmeta->get_memory_permutation();
+  if (base_permute.size() != 0) {
+    output_tmeta->set_memory_permutation(base_permute);
+  }
+
+  output_tmeta->set_view_lowering(
+      (base_permute.size() != 0) || (!view_t.is_contiguous()));
+}
+
+void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
+  PT_EAGER_TRACE;
   auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
 
@@ -49,17 +72,13 @@ void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
       : base_t.sizes();
   output_tmeta->set_base_tensor_size(base_sizes.vec());
 
-  // once we set view tensor, JIT IR pass will get invoked.
-  // We need JIT IT pass under the following cases
-  // base has permutation or the view is non-contiguous
-  auto base_permute = input_tmeta->get_memory_permutation();
-  if (base_permute.size() != 0) {
-    output_tmeta->set_memory_permutation(base_permute);
-  }
-
   output_tmeta->set_view_tensor();
-  output_tmeta->set_view_lowering(
-      (base_permute.size() != 0) || (!view_t.is_contiguous()));
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
+    SingleTonEagerContext::getInstance().m_lowering_thread_handle =
+        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
+            view_propagate_permutation_task, base_t, view_t);
+  }
 }
 
 at::Tensor alias(const at::Tensor& self) {
