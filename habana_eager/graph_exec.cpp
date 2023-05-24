@@ -89,6 +89,7 @@ GraphExec::GraphExec(
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetOpName(m_graph_name);
+  m_graph_and_meta->set_is_eager_compiler_supported(false);
 };
 
 void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
