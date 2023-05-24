@@ -174,10 +174,11 @@ bool FuseConvBatchnorm(
   std::vector<int32_t> indices_for_deletion;
   bool graph_modified = false;
   PtTensorInferenceData::get_instance().print_map();
+
   for (auto node : graph->nodes()) {
     auto node_name = node->kind().toQualString();
     PT_LAZY_DEBUG("Node Name: ", node_name);
-    if ((strcmp(node_name, "hpu::native_batch_norm_inf") == 0) &&
+    if ((strcmp(node_name, "aten::native_batch_norm") == 0) &&
         (node->inputs().at(0)->node()->kind() ==
          torch::jit::aten::convolution_overrideable)) {
       auto conv = node->inputs().at(0)->node();
@@ -223,7 +224,7 @@ bool FuseConvBatchnorm(
       //     continue;
       // }
 
-      int idx_bias = 1;
+      int idx_bias = 2;
       auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b) {
         continue;
@@ -233,7 +234,7 @@ bool FuseConvBatchnorm(
           "[FuseConvBatchnorm] redundant_input: ",
           bn->input(idx_bias)->debugName());
 
-      int idx_weight = 2;
+      int idx_weight = 1;
       auto bn_w =
           habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_weight);
       if (!bn_w) {
@@ -307,7 +308,10 @@ bool FuseConvBatchnorm(
       habana_lazy::UpdateDataInDeviceMem(
           graph, stack, bn, idx_running_var, bn_rv);
 
-      bn->output()->replaceAllUsesWith(conv->output());
+      HABANA_ASSERT(
+          !bn->output(1)->hasUses() && !bn->output(2)->hasUses(),
+          "Only the first tensor should be used");
+      bn->output(0)->replaceAllUsesWith(conv->output(0));
       nodes_for_deletion.emplace_back(bn);
 
       graph_modified = true;

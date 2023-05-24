@@ -40,18 +40,22 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
         rm_size = weight_hpu.sizes()[0];
       }
 
-      auto options =
-          torch::TensorOptions()
-              .dtype(
-                  weight_hpu.scalar_type() == c10::ScalarType::BFloat16
-                      ? c10::ScalarType::BFloat16
-                      : c10::ScalarType::Float)
-              .device(torch::kCPU)
-              .requires_grad(false);
+      auto options = torch::TensorOptions()
+                         .dtype(c10::ScalarType::Float)
+                         .device(torch::kCPU)
+                         .requires_grad(false);
       at::Tensor bias_temp = torch::zeros(rm_size, options);
-      bias_temp = bias_temp.to(c10::kHPU, true);
+      at::Tensor bias_dummy = bias_temp.to(c10::kHPU, true);
+      if (weight_hpu.scalar_type() == c10::ScalarType::BFloat16) {
+        LazyOp<at::Tensor> k_{
+            "hpu::cast",
+            {bias_temp, c10::ScalarType::BFloat16},
+            {bias_temp.sizes().vec()}};
+        k_.set_scalar_types({c10::ScalarType::BFloat16});
+        bias_dummy = k_.call();
+      }
 
-      get_inputs()[2] = bias_temp;
+      get_inputs()[2] = bias_dummy;
     }
   }
 }
