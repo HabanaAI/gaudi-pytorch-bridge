@@ -11,6 +11,8 @@
  *******************************************************************************
  */
 #pragma once
+#include <c10/core/Device.h>
+#include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
@@ -19,9 +21,6 @@ class TimeSlot;
 }
 
 namespace habana {
-namespace backend {
-class ScalarCache;
-}
 
 class HPUDevice {
  public:
@@ -54,10 +53,6 @@ class HPUDevice {
 
   bool IsStreamASyncEnabled() const {
     return device_->IsStreamASyncEnabled();
-  }
-
-  backend::ScalarCache& GetScalarCache() {
-    return device_->get_global_context().GetScalarCache();
   }
 
   synDeviceId id() const {
@@ -158,9 +153,15 @@ class HPUDevice {
     return device_->get_count_by_current_type();
   }
 
+  backend::ScalarCache& get_scalar_cache() {
+    TORCH_CHECK(scalar_cache_);
+    return *scalar_cache_;
+  }
+
  private:
   bool is_stream_async_enabled_;
   synapse_helpers::device_handle device_{nullptr};
+  std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
 };
 
 } // namespace habana

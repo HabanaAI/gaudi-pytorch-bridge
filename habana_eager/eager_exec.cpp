@@ -21,6 +21,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/scalar_cache.h"
 #include "habana_eager/eager_view.h"
 #include "habana_eager/ops/eager_op.h"
 #include "passes/handle_views_insert_permute.h"
@@ -186,7 +187,7 @@ std::vector<at::IValue> convert_inputs_to_backend_tensors(
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
     const std::vector<at::IValue>& inputs) {
-  auto& scalar_cache = HPURegistrar::get_device().GetScalarCache();
+  auto& scalar_cache = HPURegistrar::get_device().get_scalar_cache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
     auto& value = stack[i];

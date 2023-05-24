@@ -12,12 +12,15 @@
  */
 
 #include "backend/habana_device/HPUDevice.h"
+#include <memory>
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
 
 namespace habana {
 
-HPUDevice::HPUDevice() {
+HPUDevice::HPUDevice()
+    : scalar_cache_{std::make_unique<backend::ScalarCache>()} {
   auto device_ptr_or_error = synapse_helpers::device::get_or_create(
       synapse_helpers::device::get_supported_devices());
 
