@@ -261,41 +261,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   }
 }
 
-void habana::HabanaLaunchOpPT::PreCompilationStepForConstTensors() {
-  for (auto iter = pt_to_synapse_tensors.begin();
-       iter != pt_to_synapse_tensors.end();
-       ++iter) {
-    auto& src = iter->first->toTensor();
-    PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
-    if (src.has_storage()) {
-      auto tmeta{get_tensor_extra_meta(src)};
-      PT_BRIDGE_DEBUG("tensor IsConstTensor:  ", tmeta->is_const_tensor());
-      for (synapse_helpers::tensor& tensor : *(iter->second)) {
-        if (tmeta->is_const_tensor() && (!tmeta->is_data_in_host_memory())) {
-          PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
-          auto device_id = tensor.device_id();
-          auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-          std::atomic<bool> copyDone{false};
-          auto syn_error = device.copy_data_to_host(
-              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-              (void*)tensor.get_host_ptr(),
-              reinterpret_cast<synapse_helpers::device_ptr>(
-                  src.storage().data_ptr().get()),
-              habana_helpers::GetNBytes(src),
-              [&copyDone]() { copyDone = true; },
-              true);
-          TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
-          // wait for copy completion
-          while (!copyDone) {
-            std::this_thread::yield();
-          }
-          tmeta->set_data_in_host_memory(true);
-        }
-      }
-    }
-  }
-}
-
 // Based on:
 // synapse/tests/gaudi_tests/gaudi_test_infra.cpp
 static void getTensorSectionId(
@@ -453,10 +418,6 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
       cur_rvalpsh->jit_graph_ = jit_ir_graph;
     }
     return;
-  }
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
-    HabanaLaunchOpPT::PreCompilationStepForConstTensors();
   }
 
   std::chrono::steady_clock::time_point t_start;

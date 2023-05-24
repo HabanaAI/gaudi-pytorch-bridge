@@ -12,6 +12,7 @@
  */
 #include "backend/backend_meta.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/get_n_bytes.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
 // c10::BackendMeta in the TensorImpl and we don't have to rely on
@@ -80,6 +81,21 @@ void TensorExtraMeta::set_const_tensor(
         &host_ptr, tensor.numel() * tensor.itemsize());
     HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
     tmeta->set_host_ptr(host_ptr);
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_host(
+        reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
+        tmeta->get_host_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            tensor.storage().data_ptr().get()),
+        habana_helpers::GetNBytes(tensor),
+        [&copyDone]() { copyDone = true; },
+        true);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
+    tmeta->set_data_in_host_memory(true);
     PT_LAZY_DEBUG(
         "constant section host_ptr : ",
         tmeta->get_host_ptr(),

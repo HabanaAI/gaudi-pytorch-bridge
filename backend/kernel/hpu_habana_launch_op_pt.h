@@ -529,7 +529,6 @@ class HabanaLaunchOpPT {
   }
 
   // No need to allocate for lazy eager shape agnostic cache hit scenario
-  void PreCompilationStepForConstTensors();
   void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
   void DumpTensors_pre(RecipeValueSpec& rv);
