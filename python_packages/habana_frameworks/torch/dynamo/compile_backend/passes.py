@@ -406,8 +406,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "multinomial",
             "normal",
             # Other
-            "convolution",  # SW-137174
-            "convolution_backward",
             "_native_batch_norm_legit_functional",  # SW-137176
             "addcmul",
             "_to_copy",  # SW-137099

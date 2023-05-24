@@ -110,6 +110,7 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
+  pass::ConvertConvolutions(m_graph);
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
   pass::HandleInputViews(m_graph, example_inputs, m_input_new_base_sizes);
   pass::ReplaceGetItemWithListUnpack(m_graph);
