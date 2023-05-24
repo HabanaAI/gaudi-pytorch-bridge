@@ -618,8 +618,7 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool accumulate = getNextInput<bool>(stackGetter);
 
-  std::string guid =
-      "fp8_gemm_" + habana_helpers::name_suffix_from_type(out_type);
+  std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
   if (scaleAOpt) {
