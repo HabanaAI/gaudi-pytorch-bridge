@@ -30,7 +30,6 @@
 #include <vector>
 
 #include "absl/types/variant.h"
-#include "backend/global_context.h"
 #include "backend/synapse_helpers/device_memory.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/event.h"
@@ -482,8 +481,6 @@ class device {
       size_t persistent_size,
       size_t req_workspace_size);
 
-  habana::backend::GlobalContext& get_global_context();
-
   void register_host_event(uint64_t addr);
 
   void wait_for_host_event(uint64_t addr);
@@ -554,8 +551,6 @@ class device {
       user_event_flag_map_;
   std::mutex event_mutex_;
   bool deterministic_ = 0;
-
-  habana::backend::GlobalContext global_context_;
 
   // private inline method
   inline bool copy_data_to_device_(

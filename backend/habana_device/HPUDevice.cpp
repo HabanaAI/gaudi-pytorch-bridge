@@ -12,12 +12,15 @@
  */
 
 #include "backend/habana_device/HPUDevice.h"
+#include <memory>
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
 
 namespace habana {
 
-HPUDevice::HPUDevice() {
+HPUDevice::HPUDevice()
+    : scalar_cache_{std::make_unique<backend::ScalarCache>()} {
   auto allocatorVar =
       [](synDeviceId id) -> std::unique_ptr<synapse_helpers::device_allocator> {
     return std::make_unique<habana::HPUAllocator>(id);

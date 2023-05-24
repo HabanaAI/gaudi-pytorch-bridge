@@ -18,7 +18,6 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   backend_meta.cpp
   habana_operator.cpp
   scalar_cache.cpp
-  global_context.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp
   kernel/hpu_habana_launch_op_pt_lowering.cpp

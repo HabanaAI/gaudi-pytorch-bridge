@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "backend/scalar_cache.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 //clang-format off
@@ -111,7 +112,7 @@ void sync_threads() {
 }
 
 void clear_global_context() {
-  auto& d = habana::HPURegistrar::get_device().GetScalarCache();
+  auto& d = habana::HPURegistrar::get_device().get_scalar_cache();
   d.ClearCache();
 }
 
