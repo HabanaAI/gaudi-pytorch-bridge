@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <sstream>
+#include <utility>
 
 #include "absl/types/optional.h"
 
@@ -45,6 +46,44 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 }
 
 } // namespace
+
+// Live tensor collection is not allowed if the launch thread execution is
+// in progress.
+const std::pair<uint64_t, uint32_t> get_future_memory() {
+  auto& device = habana::HPURegistrar::get_device();
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+
+  if (context == nullptr || context->m_launch_thread_handle.valid() == true ||
+      context->m_launch_thread_context == true ||
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
+    return std::make_pair<uint64_t, uint32_t>(0, 0);
+  }
+
+  auto aten_device = device.aten_device();
+
+  uint32_t future = 0;
+  uint64_t future_bytes = 0;
+  habana_lazy::HbContext* devctx =
+      habana_lazy::HbContextArena::Get()->GetHbContext(aten_device);
+
+  for (auto& uid_wptr : devctx->tensors_data) {
+    std::shared_ptr<Data> data = uid_wptr.second.lock();
+
+    if (data == nullptr)
+      continue;
+
+    auto t = HbLazyTensor(std::move(data));
+    auto device_ptr =
+        reinterpret_cast<synapse_helpers::device_ptr>(get_hb_lazy_data_ptr(t));
+
+    if (!device_ptr || device.get_device_memory().is_allocated(device_ptr))
+      continue;
+
+    ++future;
+    future_bytes += compute_size(t);
+  }
+  return std::make_pair(future_bytes, future);
+}
 
 void log_dev_mem_stats(
     std::string_view msg,
@@ -83,49 +122,13 @@ void log_dev_mem_stats(
        << "gb, persistent " << persistent / GB << "gb, max cntgs chunk "
        << max_cntgs_chunk / GB << "gb";
 
-    // Live tensor collection is not allowed if the launch thread execution is
-    // in progress.
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
-    if (context != nullptr &&
-        context->m_launch_thread_handle.valid() == false &&
-        context->m_launch_thread_context == false &&
-        !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-      auto aten_device = device.aten_device();
-
-      uint32_t future = 0;
-      uint64_t future_bytes = 0;
-      HbContext* devctx =
-          habana_lazy::HbContextArena::Get()->GetHbContext(aten_device);
-
-      for (auto& uid_wptr : devctx->tensors_data) {
-        std::shared_ptr<Data> data = uid_wptr.second.lock();
-
-        if (data != nullptr) {
-          auto t = HbLazyTensor(std::move(data));
-          auto device_ptr = reinterpret_cast<synapse_helpers::device_ptr>(
-              get_hb_lazy_data_ptr(t));
-          bool is_allocated = false;
-
-          if (device_ptr) {
-            is_allocated = device_memory.is_allocated(device_ptr);
-          }
-
-          if (not is_allocated) {
-            // Future, not yet allocated tensors
-            ++future;
-            future_bytes += compute_size(t);
-          }
-        }
-      }
-      ss << " future " << future_bytes / GB << "gb (" << future << ")";
-    }
-
-    ss << ", last workspace "
-       << device.syn_device().get_real_workspace_size() / GB << "gb";
+    auto future = get_future_memory();
+    ss << " future " << future.first / GB << "gb (" << future.second << ")";
   }
+
+  ss << ", last workspace "
+     << device.syn_device().get_real_workspace_size() / GB << "gb";
 
   PT_MEMLOG_DEBUG(ss.str());
 }
-
 } // namespace habana_lazy

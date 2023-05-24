@@ -68,6 +68,26 @@ def memory_stats(device: Optional[_device_t] = None) -> Dict[str, Any]:
         raise AssertionError("Invalid device id")
     return _hpu_C.get_mem_stats(device)
 
+def _format_memory_summary(summary:dict) -> str:
+    NON_MEMORY_KEYS = ['num_allocs', 'num_free', 'active_allocs']
+    GB = 1024*1024*1024
+    LINE_LENGTH = 50
+    tbl = []
+    tbl.append("=" * 52)
+    tbl.append(" {_:5} PyTorch HPU memory summary, device ID {device:<6d} ")
+    tbl.append("-" * 52)
+    fmt_tbl = {"_": "", "device": 0}
+    header = "|" + "|\n|".join(tbl).format(**fmt_tbl) + "|\n"
+    formatted_summary = ""
+    for k, v in summary.items():
+        line = "  "
+        label = str(k) + ":"
+        value = str(v) + " ({:.2f}) GB".format(v/GB) if k not in NON_MEMORY_KEYS else ""
+        line += label + " " * (LINE_LENGTH - (len(label) + len(value))) + value + "  \n"
+        formatted_summary += line
+
+    return header + formatted_summary
+
 def memory_summary(device: Optional[_device_t] = None) -> str:
     r"""This API (TORCH.HPU.RESET_ACCUMULATED_MEMORY_STATS) returns
     human readable printout of current memory stats.
@@ -85,6 +105,14 @@ def memory_summary(device: Optional[_device_t] = None) -> str:
     str1 = _hpu_C.get_memory_summary(device)
     char1 = str1.split("\n")
     return(str +str1)
+
+def _extended_memory_summary_dict(device: Optional[_device_t] = None)->dict:
+    hpu.init()
+    return _hpu_C.get_extended_memory_summary()
+
+def _extended_memory_summary(device: Optional[_device_t] = None)->str:
+    return _format_memory_summary(_extended_memory_summary_dict)
+
 
 def memory_reserved(device: Optional[_device_t] = None) -> int:
     r"""Returns the current HPU memory managed by caching allocator in bytes for a given device."""

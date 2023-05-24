@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "habana_lazy/memlog.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 //clang-format off
@@ -101,6 +102,31 @@ const std::string get_mem_stat_summary(int device_id) {
   return summary;
 }
 
+const py::dict get_extended_mem_stat_summary() {
+  using namespace pybind11::literals;
+  auto stats = get_mem_stat(0);
+  auto& device = habana::HPURegistrar::get_device();
+
+  auto persistent =
+      (int64_t)stats.bytes_in_use - (int64_t)stats.scratch_mem_in_use;
+  auto max_cntgs_chunk = device.get_device_memory().get_max_cntgs_chunk_size();
+  auto future_bytes = habana_lazy::get_future_memory().first;
+
+  return py::dict(
+      "limit"_a = stats.memory_limit,
+      "in_use"_a = stats.bytes_in_use,
+      "persistent"_a = persistent,
+      "workspace"_a = stats.scratch_mem_in_use,
+      "last_workspace"_a = device.syn_device().get_real_workspace_size(),
+      "future"_a = future_bytes,
+      "max_cntgs_chunk"_a = max_cntgs_chunk,
+      "max_in_use"_a = stats.peak_bytes_in_use,
+      "num_allocs"_a = stats.num_allocs,
+      "num_free"_a = stats.num_frees,
+      "max_alloc_size"_a = stats.largest_alloc_size,
+      "active_allocs"_a = (int64_t)stats.num_allocs - (int64_t)stats.num_frees);
+}
+
 // In parallel accumulation, it is possible to have a case when program
 // is finishing and some workload is still pending in accumulation/cleanup
 // threads (i.e. user called ops, but never requested the output values).
@@ -167,6 +193,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_memory_summary", [](int id) {
     auto mem_stat_str = get_mem_stat_summary(id);
     return mem_stat_str;
+  });
+  m.def("get_extended_memory_summary", []() {
+    return get_extended_mem_stat_summary();
   });
   m.def("setDeterministic", [](bool val) {
     auto& gconfig = habana::HPURegistrar::get_hpu_global_config();
