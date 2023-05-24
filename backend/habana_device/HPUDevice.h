@@ -15,6 +15,10 @@
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
+namespace habana_helpers {
+class ThreadPool;
+}
+
 namespace synapse_helpers {
 class TimeSlot;
 }
@@ -23,6 +27,11 @@ namespace habana {
 namespace backend {
 class ScalarCache;
 }
+
+class DeviceResource {
+ public:
+  virtual ~DeviceResource() {}
+};
 
 class HPUDevice {
  public:
@@ -159,9 +168,24 @@ class HPUDevice {
     return *scalar_cache_;
   }
 
+  habana_helpers::ThreadPool& get_lowering_thread() {
+    std::call_once(lowering_thread_initialize_once_flag_, [this]() {
+      create_lowering_thread();
+    });
+    return *raw_lowering_thread_;
+  }
+
  private:
   std::shared_ptr<synapse_helpers::device> device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
+
+  std::once_flag lowering_thread_initialize_once_flag_{};
+  std::unique_ptr<DeviceResource> lowering_thread_{nullptr};
+  habana_helpers::ThreadPool* raw_lowering_thread_{nullptr};
+
+  habana_helpers::ThreadPool& create_lowering_thread();
+
+  static constexpr size_t num_threads = 1;
 };
 
 } // namespace habana

@@ -11,12 +11,13 @@
  *******************************************************************************
  */
 #include "habana_eager/ops/eager_op.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_eager/eager_context.h"
 
 #include <torch/csrc/jit/ir/ir.h>
+
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "habana_eager/eager_context.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 namespace eager {
@@ -86,7 +87,7 @@ torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       m_is_pipeline_supported) {
     SingleTonEagerContext::getInstance().m_lowering_thread_handle =
-        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
+        hpu_registrar().get_device().get_lowering_thread().enqueue(
             EagerLoweringTask,
             m_symbol,
             std::move(stack),

@@ -13,11 +13,22 @@
 
 #include "eager_context.h"
 #include <c10/macros/Macros.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace habana {
 namespace eager {
+
+std::once_flag SingleTonEagerContext::initialize_once_flag_{};
+std::unique_ptr<SingleTonEagerContext> SingleTonEagerContext::instance_{
+    nullptr};
+
+void SingleTonEagerContext::CreateInstance() {
+  instance_.reset(new SingleTonEagerContext());
+  habana::hpu_registrar().register_eager_context(
+      []() { instance_.reset(nullptr); });
+}
 
 void SingleTonEagerContext::JoinPendingLoweringThread() {
   PT_EAGER_TRACE;

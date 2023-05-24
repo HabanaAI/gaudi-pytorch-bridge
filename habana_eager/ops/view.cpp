@@ -16,10 +16,10 @@
 #include <ATen/TensorUtils.h>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_eager/eager_context.h"
 #include "habana_kernels/kernel_utils.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 namespace eager {
@@ -74,7 +74,7 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     SingleTonEagerContext::getInstance().m_lowering_thread_handle =
-        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
+        hpu_registrar().get_device().get_lowering_thread().enqueue(
             view_propagate_permutation_task,
             std::move(base_t),
             std::move(view_t));

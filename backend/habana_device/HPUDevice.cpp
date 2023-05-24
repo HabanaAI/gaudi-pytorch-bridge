@@ -14,8 +14,10 @@
 #include "backend/habana_device/HPUDevice.h"
 #include <memory>
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 
@@ -65,6 +67,19 @@ std::shared_ptr<synapse_helpers::TimeSlot> HPUDevice::create_time_slot(
         " reached, will not create any time event");
     return nullptr;
   }
+}
+
+habana_helpers::ThreadPool& HPUDevice::create_lowering_thread() {
+  class ThreadPoolHolder final : public DeviceResource {
+   public:
+    ThreadPoolHolder()
+        : thread_pool_{num_threads, habana_helpers::QT_LockFree} {}
+    habana_helpers::ThreadPool thread_pool_;
+  };
+  auto lowering_thread{std::make_unique<ThreadPoolHolder>()};
+  raw_lowering_thread_ = &lowering_thread->thread_pool_;
+  lowering_thread_.reset(lowering_thread.release());
+  return *raw_lowering_thread_;
 }
 
 } // namespace habana

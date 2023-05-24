@@ -13,6 +13,8 @@
 #pragma once
 
 #include <future>
+#include <mutex>
+#include "backend/habana_device/HPUDevice.h"
 
 namespace habana {
 namespace eager {
@@ -26,8 +28,8 @@ namespace eager {
 class SingleTonEagerContext {
  public:
   static SingleTonEagerContext& getInstance() {
-    static SingleTonEagerContext eager_context_obj;
-    return eager_context_obj;
+    std::call_once(initialize_once_flag_, CreateInstance);
+    return *instance_;
   }
 
   void JoinPendingLoweringThread();
@@ -42,6 +44,10 @@ class SingleTonEagerContext {
   SingleTonEagerContext(const SingleTonEagerContext&) = delete;
   SingleTonEagerContext& operator=(const SingleTonEagerContext&) = delete;
   std::exception_ptr m_lowering_thread_exception = nullptr;
+
+  static std::once_flag initialize_once_flag_;
+  static std::unique_ptr<SingleTonEagerContext> instance_;
+  static void CreateInstance();
 };
 
 } // namespace eager
