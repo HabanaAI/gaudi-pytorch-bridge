@@ -85,8 +85,7 @@ void log_dev_mem_stats(
 
     // Live tensor collection is not allowed if the launch thread execution is
     // in progress.
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    auto context = habana_lazy::get_device_lazy_execution_context();
     if (context != nullptr &&
         context->m_launch_thread_handle.valid() == false &&
         context->m_launch_thread_context == false &&

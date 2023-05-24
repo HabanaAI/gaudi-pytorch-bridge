@@ -39,7 +39,7 @@ void HPUGraph::capture_begin() {
   auto stream = c10::hpu::getCurrentHPUStream();
   auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
   capture_stream_ = stream;
   /*flush current Accumulated graph, before capture */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -73,7 +73,7 @@ void HPUGraph::capture_end() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   /*flush graph to capture in the end */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -114,7 +114,7 @@ void HPUGraph::mark_step() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   context->JoinPendingLaunchThread();
   auto captured_graph = std::make_shared<SingleHPUGraph>(
@@ -348,7 +348,7 @@ HPUGraph::~HPUGraph() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
@@ -375,7 +375,7 @@ void SingleHPUGraph::replayGraph(
 
   auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   size_t launch_jobid = context->GetUniqueJobId();
   context->AddToJobidStreamidMap(

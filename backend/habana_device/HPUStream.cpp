@@ -101,8 +101,7 @@ bool HPUStream::query() const {
     } else {
       // If there are current jobs in stream. return false
       auto context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-              device_index);
+          habana_lazy::get_device_lazy_execution_context(device_index);
       if (context->HaveJobsInStream(hpu_stream_id)) {
         return false;
       }

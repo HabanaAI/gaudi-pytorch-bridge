@@ -450,7 +450,7 @@ Tensor HbLazyTensorViews::add_strided_view_node(
 
   // when we get a call from lowering, we create a storage based backend
   // tensor
-  auto exec_mode = habana_lazy_executor.getExecutionMode();
+  auto exec_mode = get_habana_lazy_executor().getExecutionMode();
   if (exec_mode == kLOWERING) {
     auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
     if (is_0d_tensor) {
@@ -631,7 +631,7 @@ std::vector<at::Tensor> HbLazyTensorViews::UpdateViewDistributed(
     auto hl_t = GetHbLazyTensor(t);
 
     /* special handling for deep speed where all reduce happens on a view*/
-    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+    auto context = get_device_lazy_execution_context();
     auto t_updated = t;
 
     if (hl_t.getDataPtr()->stride_params.has_value()) {
@@ -1075,7 +1075,7 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
     HbContext* devctx,
     bool is_allreduce,
     std::set<int64_t>& bucket_recent_id) {
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto context = get_device_lazy_execution_context();
   size_t view_out_sizes = 0;
   size_t bucket_sizes = 0;
 

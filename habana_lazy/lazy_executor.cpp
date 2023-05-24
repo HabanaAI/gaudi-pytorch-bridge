@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "lazy_executor.h"
 #include "habana_helpers/python_utils.h"
@@ -19,12 +22,22 @@ thread_local bool HbExecutionContext::m_launch_thread_context{false};
 thread_local bool HbExecutionContext::m_async_d2h_context{false};
 std::atomic_uint64_t habana_lazy::HbExecutionContext::m_unique_jobid_count(0);
 
-HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
-
 bool isDeviceInLoweringMode() {
   return (
-      habana_lazy_executor.getExecutionMode() == LazyExecutionMode::kLOWERING);
+      get_habana_lazy_executor().getExecutionMode() ==
+      LazyExecutionMode::kLOWERING);
 }
+
+std::unique_ptr<SingleTonExecThreadPool> SingleTonExecThreadPool::instance_{
+    nullptr};
+std::once_flag SingleTonExecThreadPool::initialize_once_flag_{};
+
+void SingleTonExecThreadPool::CreateInstance() {
+  instance_.reset(new SingleTonExecThreadPool());
+  habana::hpu_registrar().register_lazy_exec_thread_pool(
+      []() { instance_.reset(nullptr); });
+}
+
 ////////////////////////////////////////////////////////////////////////////CONTEXT////////////////////////////////////////////////////////////////////////////////////////
 
 void HbExecutionContext::RegisterTensor(std::shared_ptr<Data> data) {
@@ -150,6 +163,8 @@ void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
 }
 
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
+std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_{};
+std::once_flag HbExecutionContextArena::initialize_once_flag_{};
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
@@ -181,8 +196,10 @@ void HbExecutionContextArena::removeExecutionContext(int index) {
   m_execution_context_list.erase(index);
 }
 
-HbExecutionContextArena HbExecutionContextArena::Get() {
-  return HbExecutionContextArena();
+void HbExecutionContextArena::CreateInstance() {
+  instance_.reset(new HbExecutionContextArena());
+  habana::hpu_registrar().register_lazy_execution_arena(
+      []() { instance_.reset(nullptr); });
 }
 
 const LazyExecutionMode& HbExecutionContextArena::getExecutionMode() {
