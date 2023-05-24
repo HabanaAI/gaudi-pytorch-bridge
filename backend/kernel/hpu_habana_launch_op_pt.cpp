@@ -3542,7 +3542,10 @@ void habana::HabanaLaunchOpPT::ExecuteSynapse(
       hbLaunchOp->ExecuteSynapseGraph(hpu_stream);
     } else {
       RecipeValueSpec& rv = *cur_rvalpsh;
-      rv.update_output_permutation();
+      if (jit_graph_and_meta_data->GetFrontendType() !=
+          habana_helpers::HabanaFrontendTypes::EAGER) {
+        rv.update_output_permutation();
+      }
       rv.launch(
           hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
 
@@ -3963,7 +3966,10 @@ void HabanaLaunchOpPT::run(
           DumpTensors_pre(rv);
         }
 
-        rv.update_output_permutation();
+        if (jit_graph_and_meta_data->GetFrontendType() !=
+            habana_helpers::HabanaFrontendTypes::EAGER) {
+          rv.update_output_permutation();
+        }
 
         rv.launch(
             hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);

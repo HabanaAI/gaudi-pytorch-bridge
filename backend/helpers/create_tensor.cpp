@@ -964,10 +964,10 @@ void set_tensor_memory_permutations(
   tmeta->set_memory_permutation(permutation);
 }
 
-at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
-  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+void update_tensor_layout_and_permutation(
+    const at::Tensor& pt_tensor,
+    const PtTensorInfo& ti) {
   auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
-
   auto internal_lf = tmeta->get_tensor_layout();
   auto internal_lf_new = ti.getHbInternalLayoutFormat();
   if (internal_lf != internal_lf_new) {
@@ -986,6 +986,11 @@ at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
       " permutation: ",
       VecToString(ti.getHbInternalPermute()));
   tmeta->set_memory_permutation(ti.getHbInternalPermute());
+}
+
+at::Tensor create_empty_tensor(const PtTensorInfo& ti) {
+  auto pt_tensor = at::empty(ti.get_shape(), ti.get_topts(), ti.get_mf());
+  update_tensor_layout_and_permutation(pt_tensor, ti);
   return pt_tensor;
 }
 } // namespace habana_helpers

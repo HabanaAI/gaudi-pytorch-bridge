@@ -432,12 +432,17 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
       key, static_cast<size_t>(input_tmeta->is_view_lowering()));
   key = at::hash_combine(key, static_cast<size_t>(t.is_contiguous()));
 
-  if (input_tmeta->is_view_lowering() || !t.is_contiguous()) {
-    // base tensor size used in JIT IR pass varies w.r.t. permutation
-    for (auto s : input_tmeta->get_memory_permutation()) {
-      key = at::hash_combine(key, s);
-    }
+  // for views - base tensor size used in JIT IR pass varies w.r.t. permutation
+  // for views as well as non views - we need to incorporate permute information
+  // of inputs in the key so that no need to set and get the permute information
+  // from bridge to synapse during the cache hit. during cache miss case bridge
+  // needs to set the permute information for the inputs while need to read the
+  // permute information of the outputs.
+  for (auto s : input_tmeta->get_memory_permutation()) {
+    key = at::hash_combine(key, s);
+  }
 
+  if (input_tmeta->is_view_lowering() || !t.is_contiguous()) {
     // TODO: remove the below code block once the node params are patched.
     for (auto s : t.strides())
       key = at::hash_combine(key, s);

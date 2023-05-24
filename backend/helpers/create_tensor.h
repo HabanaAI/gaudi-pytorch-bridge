@@ -141,5 +141,8 @@ void set_tensor_memory_permutations(
     at::Tensor& tensor,
     synapse_helpers::layouts::MemoryPermutation permutation,
     const synRetrievedLaunchTensorInfoExt* info = nullptr);
+void update_tensor_layout_and_permutation(
+    const at::Tensor& pt_tensor,
+    const PtTensorInfo& ti);
 at::Tensor create_empty_tensor(const PtTensorInfo& ti);
 } // namespace habana_helpers

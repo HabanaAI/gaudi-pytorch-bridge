@@ -285,6 +285,7 @@ struct RecipeValueSpec {
       size_t ridx,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       std::vector<int64_t> new_shape,
+      bool is_eager_mode,
       std::vector<uint8_t> permute_or_empty = {},
       std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt);
   void update_output_permutation();

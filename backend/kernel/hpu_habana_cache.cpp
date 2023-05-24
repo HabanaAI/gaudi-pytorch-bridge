@@ -673,6 +673,7 @@ inline void RecipeValueSpec::update_new_tensor(
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
+    bool is_eager_mode,
     std::vector<uint8_t> permute_or_empty,
     std::optional<PtTensorInfoShared> tinfo_opt) {
   PtTensorInfoShared tinfo;
@@ -723,7 +724,8 @@ inline void RecipeValueSpec::update_new_tensor(
       " perm : ",
       VecToString(permute_or_empty));
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
+      !is_eager_mode) {
     if (tinfo->is_output() && !tinfo->is_duplicate() && !tinfo->is_ZST()) {
       if (tinfo->get_allow_permutation()) {
         synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
@@ -937,6 +939,7 @@ void RecipeValueSpec::update_patching_table(
               ridx,
               synapse_orig_to_new_handle,
               input.toTensor().sizes().vec(),
+              is_eager_mode,
               permutation);
           dtinfos_patched_count++;
         }
@@ -958,6 +961,7 @@ void RecipeValueSpec::update_patching_table(
               ridx,
               synapse_orig_to_new_handle,
               t.sizes().vec(),
+              is_eager_mode,
               permutation);
           dtinfos_patched_count++;
         }
@@ -1008,6 +1012,7 @@ void RecipeValueSpec::update_patching_table(
             ridx,
             synapse_orig_to_new_handle,
             tshape,
+            is_eager_mode,
             permutation);
         dtinfos_patched_count++;
       }
@@ -1172,8 +1177,11 @@ void RecipeValueSpec::update_patching_table(
               return habana_helpers::create_empty_tensor(ti);
             })
       : std::function<at::Tensor(const PtTensorInfo&)>(
-            [this, it = allocated_outputs->begin()](
-                const PtTensorInfo&) mutable { return *it++; });
+            [this,
+             it = allocated_outputs->begin()](const PtTensorInfo& ti) mutable {
+              habana_helpers::update_tensor_layout_and_permutation(*it, ti);
+              return *it++;
+            });
 
   HABANA_ASSERT(
       !allocated_outputs.has_value() ||
@@ -1192,7 +1200,8 @@ void RecipeValueSpec::update_patching_table(
           synapse_graph_ptr,
           ridx,
           synapse_orig_to_new_handle,
-          output_shapes.at(output_idx));
+          output_shapes.at(output_idx),
+          is_eager_mode);
       dtinfos_patched_count++;
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
@@ -1271,7 +1280,8 @@ void RecipeValueSpec::update_patching_table(
             synapse_graph_ptr,
             ridx,
             synapse_orig_to_new_handle,
-            output_shapes.at(output_idx));
+            output_shapes.at(output_idx),
+            is_eager_mode);
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1336,7 +1346,8 @@ void RecipeValueSpec::update_patching_table(
             synapse_graph_ptr,
             ridx,
             synapse_orig_to_new_handle,
-            output_shapes.at(output_idx));
+            output_shapes.at(output_idx),
+            is_eager_mode);
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1425,6 +1436,7 @@ void RecipeValueSpec::update_patching_table(
           ++ridx, // dummy value
           synapse_orig_to_new_handle,
           new_sizes,
+          is_eager_mode,
           {},
           t.second);
     }

@@ -323,8 +323,12 @@ class OptimizedJitGraphCache {
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> val);
   void RemoveGraph(size_t key);
   bool IsCached(size_t key);
+  size_t CacheSize();
   bool Empty();
   void Clear();
+  void BackupCache();
+  void RestoreCache();
+  void ClearBackupCache();
 
  private:
   explicit OptimizedJitGraphCache();
@@ -336,6 +340,11 @@ class OptimizedJitGraphCache {
       size_t,
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
       m_cache_map;
+
+  std::unordered_map<
+      size_t,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
+      m_cache_map_backup;
 };
 
 } // namespace habana
