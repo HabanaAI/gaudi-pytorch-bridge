@@ -14,7 +14,6 @@
 #include "habana_eager/graph_exec.h"
 
 #include "backend/habana_device/HPUStream.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -214,9 +213,8 @@ torch::jit::Stack GraphExec::launch(
             [this,
              backend_inputs = std::move(backend_inputs),
              backend_outputs = std::move(backend_outputs)]() mutable {
-              return habana_helpers::SingleTonLoweringThreadPool::getInstance()
-                  .enqueue(
-                      LaunchRecipeTask, *this, backend_inputs, backend_outputs);
+              return hpu_registrar().get_device().get_lowering_thread().enqueue(
+                  LaunchRecipeTask, *this, backend_inputs, backend_outputs);
             });
     return {};
   } else {

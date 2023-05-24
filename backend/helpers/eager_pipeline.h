@@ -18,24 +18,6 @@
 
 namespace habana_helpers {
 
-// singleton containing threadpool with only 1 thread. this represents one
-// pipeline stage which is 'lowering' here. for any new pipeline stage we
-// need to have separate singleton like this.
-class SingleTonLoweringThreadPool {
- public:
-  static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(num_threads, QT_LockFree);
-    return thread_pool_obj;
-  }
-
- private:
-  static constexpr size_t num_threads = 1;
-  SingleTonLoweringThreadPool() = default;
-  SingleTonLoweringThreadPool(const SingleTonLoweringThreadPool&) = delete;
-  SingleTonLoweringThreadPool& operator=(const SingleTonLoweringThreadPool&) =
-      delete;
-};
-
 /**
  * Controls underlying thread pool execution.
  * Thread safe.

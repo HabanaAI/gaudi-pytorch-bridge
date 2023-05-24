@@ -16,7 +16,6 @@
 #include <ATen/TensorUtils.h>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_eager/eager_context.h"
 #include "habana_kernels/kernel_utils.h"

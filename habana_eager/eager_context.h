@@ -13,7 +13,8 @@
 #pragma once
 
 #include <future>
-#include "backend/helpers/eager_pipeline.h"
+#include <mutex>
+#include "backend/habana_device/HPUDevice.h"
 
 namespace habana {
 namespace eager {
@@ -30,8 +31,8 @@ class SingleTonEagerContext {
    * Thread safe.
    */
   static SingleTonEagerContext& getInstance() {
-    static SingleTonEagerContext eager_context_obj;
-    return eager_context_obj;
+    std::call_once(initialize_once_flag_, CreateInstance);
+    return *instance_;
   }
 
   /**
@@ -83,6 +84,10 @@ class SingleTonEagerContext {
    * Mutex to ensure thread safety of storing and restoring task handles.
    */
   std::mutex m_lowering_thread_handle_mutex;
+
+  static std::once_flag initialize_once_flag_;
+  static std::unique_ptr<SingleTonEagerContext> instance_;
+  static void CreateInstance();
 };
 
 void JoinPendingPipelineThreads();
