@@ -134,7 +134,7 @@ void HlExec::Launch(
     bool dry_run) {
   PT_LAZY_TRACE;
   auto& device = habana::HPURegistrar::get_device();
-  auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
+  auto context = get_device_lazy_execution_context(device.id());
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
   // mode kernel registration We will move to using shape utilities instead and
@@ -175,7 +175,7 @@ void HlExec::Launch(
     launcher->Run(stack, dry_run);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
-    habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);
+    get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);
     throw;
   }
 }
@@ -405,7 +405,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
   }
 
   auto& device = habana::HPURegistrar::get_device();
-  auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
+  auto context = get_device_lazy_execution_context(device.id());
   // Save po_data input and output to context for perf mode
   if (context->getCapturing() &&
       context->updateInputsRequired(po_data_input_indices_for_deletion)) {
@@ -474,7 +474,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
                     parent_vec,
                     node_bcast_map_)
                     .hashCode();
-    unique_cntr = habana_lazy_executor.getGraphindexCntr(m_g_hash_);
+    unique_cntr = get_habana_lazy_executor().getGraphindexCntr(m_g_hash_);
     m_g_hash_ = at::hash_combine(m_g_hash_, unique_cntr);
   }
 

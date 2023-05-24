@@ -97,7 +97,7 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   auto& device = HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   HABANA_ASSERT(
       context->getCapturing() == false,

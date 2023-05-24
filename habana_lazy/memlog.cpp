@@ -51,7 +51,7 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 // in progress.
 const std::pair<uint64_t, uint32_t> get_future_memory() {
   auto& device = habana::HPURegistrar::get_device();
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  auto context = habana_lazy::get_device_lazy_execution_context();
 
   if (context == nullptr || context->m_launch_thread_handle.valid() == true ||
       context->m_launch_thread_context == true ||

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -38,7 +38,7 @@ void habana::RefinementEngine::Initialize() {
 
 void habana::RefinementEngine::Refine() {
   PT_BRIDGE_BEGIN;
-  habana_lazy::habana_lazy_executor.setExecutionMode(
+  habana_lazy::get_habana_lazy_executor().setExecutionMode(
       LazyExecutionMode::kLOWERING);
   while (m_refineFlag) {
     std::unique_lock<std::mutex> mutex_lock(m_mutex);

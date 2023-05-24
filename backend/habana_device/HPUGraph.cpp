@@ -41,7 +41,7 @@ void HPUGraph::capture_begin(bool dry_run) {
   auto stream = c10::hpu::getCurrentHPUStream();
   auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
   capture_stream_ = stream;
   /*flush current Accumulated graph, before capture */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -76,7 +76,7 @@ void HPUGraph::capture_end() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   /*flush graph to capture in the end */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -121,7 +121,7 @@ void HPUGraph::destroy() {
 
   auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
@@ -143,7 +143,7 @@ void HPUGraph::mark_step() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   context->JoinPendingLaunchThread();
   auto captured_graph = std::make_shared<SingleHPUGraph>(
@@ -422,7 +422,8 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_habana_lazy_executor().getDeviceExecutionContext(
+          device.id());
   context->setMarkedInputs(static_inputs);
   for (const auto& t : static_inputs) {
     user_input_sizes_.push_back(t.sizes().vec());
@@ -433,7 +434,7 @@ HPUGraph::~HPUGraph() {
   auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
@@ -460,7 +461,7 @@ void SingleHPUGraph::replayGraph(
 
   auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+      habana_lazy::get_device_lazy_execution_context(device.id());
 
   size_t launch_jobid = context->GetUniqueJobId();
   context->AddToJobidStreamidMap(

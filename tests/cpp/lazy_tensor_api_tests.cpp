@@ -78,8 +78,8 @@ TEST_F(LazyTensorAPITest, DataPtr) {
 }
 
 TEST_F(LazyTensorAPITest, ShapeTensorTest) {
-  LazyExecutionMode exec_mode{habana_lazy_executor.getExecutionMode()};
-  habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLOWERING);
+  LazyExecutionMode exec_mode{get_habana_lazy_executor().getExecutionMode()};
+  get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLOWERING);
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -89,5 +89,5 @@ TEST_F(LazyTensorAPITest, ShapeTensorTest) {
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input, syn_graph, false, SHAPE_TENSOR);
   ASSERT_TRUE(syn_shape_input.is_persistent());
-  habana_lazy_executor.setExecutionMode(exec_mode);
+  get_habana_lazy_executor().setExecutionMode(exec_mode);
 }

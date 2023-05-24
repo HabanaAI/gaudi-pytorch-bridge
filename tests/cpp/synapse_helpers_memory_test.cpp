@@ -38,8 +38,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
     // clear cache scalar tensors map
     setenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP", "1", 1);
     habana_lazy::HbExecutionContext* context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-            device.id());
+        habana_lazy::get_device_lazy_execution_context(device.id());
     context->clear();
     // set up defragment, pool and 3gb pool for testing
     setenv("PT_HABANA_POOL_SIZE", "3", 1);

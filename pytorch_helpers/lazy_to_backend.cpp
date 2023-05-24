@@ -116,7 +116,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
 
     at::Tensor at_tensor;
     bool is_in_lowering_mode = false;
-    if (habana_lazy_executor.getExecutionMode() ==
+    if (get_habana_lazy_executor().getExecutionMode() ==
         LazyExecutionMode::kLOWERING) {
       is_in_lowering_mode = true;
     }
@@ -152,7 +152,7 @@ at::Tensor habana_lazy::empty_hpu_lazy(
       // we want to wind back status of this tensor to registered
       // so that when post order is created, we actually execute it
       // auto context =
-      //    habana_lazy_executor.getDeviceExecutionContext(
+      //    get_device_lazy_execution_context(
       //        options.device().index());
       // context->MarkTensorStatus(
       //    hb_tensor.getDataPtr(),

@@ -110,8 +110,8 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   // As its an inplace op and we want this op to execute
   // we want to wind back status of this tensor to registered
   // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      dst.device().index());
+  auto context =
+      habana_lazy::get_device_lazy_execution_context(dst.device().index());
   context->RegisterTensor(hl_dst.getDataPtr());
   hl_dst.IrSetNode(copy_node);
   std::vector<at::Tensor> input_pt_vec;
@@ -494,7 +494,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
   t.unsafeGetTensorImpl()->set_wrapped_number(true);
 
   auto func = [scalar_tensor, t]() {
-    const auto& context = habana_lazy_executor.getDeviceExecutionContext(0);
+    const auto& context = get_device_lazy_execution_context();
 
     bool processed = false;
     const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
@@ -529,7 +529,7 @@ at::Tensor get_tensor_for_scalar(
     const at::TensorOptions& options) {
   at::Tensor alpha_tensor;
 
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  auto context = get_device_lazy_execution_context();
   static uint64_t hit_count, miss_count;
   auto dtype = options.dtype().toScalarType();
 
@@ -595,8 +595,7 @@ Tensor& copy_hpu_lazy_D2D(
   bool no_conversion = (src.scalar_type() == self.scalar_type());
 
   if (no_conversion && hb_tensor.IsExecutionInProgress()) {
-    auto context =
-        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+    auto context = habana_lazy::get_device_lazy_execution_context();
     context->JoinPendingLaunchThread();
   }
   RUNNING_HASH_COMBINE_OPERATOR(hpu::copy_D2D, {self, src, no_conversion});
@@ -866,7 +865,7 @@ void copy_hpu_lazy_D2H_async(
         "D2H src tensor expired in non_blocking scenario. Ensure the src cpu tensor is held until data is copied.");
     return;
   }
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  auto context = habana_lazy::get_device_lazy_execution_context();
   context->m_async_d2h_context = true;
   context->m_launch_thread_context = true;
   copy_hpu_lazy_D2H_internal(self, _src, true, hpu_stream);
@@ -892,7 +891,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     PT_LAZY_DEBUG(
         "WARNING: NonBlocking D2H async is supported only with pinned destination tensor.");
   }
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+  auto context = habana_lazy::get_device_lazy_execution_context();
 
   // if non_blocking then handle seperately as we dont want wait to finish
   // Launch thread execution.
@@ -1018,7 +1017,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
       self.sizes(),
       c10::nullopt,
       self.suggest_memory_format());
-  auto exec_mode = habana_lazy_executor.getExecutionMode();
+  auto exec_mode = get_habana_lazy_executor().getExecutionMode();
   if (exec_mode != kLOWERING) {
     auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     // WE need to add storage if it wasnt created
@@ -1060,8 +1059,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
   auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(self.device().index());
+  auto context = get_device_lazy_execution_context(self.device().index());
   if (self_hb_tensor.IsExecutionInProgress()) {
     context->JoinPendingLaunchThread();
   }
@@ -1478,7 +1476,7 @@ Tensor as_strided_hpu(
         storage_offset_val,
         true /*is_update_view*/,
         c10::nullopt);
-    if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
+    if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
       flush_op(1);
     }
     return out;
@@ -1515,7 +1513,7 @@ Tensor as_strided_hpu_lazy(
         c10::nullopt);
 
     habana::get_and_set_tensor_const(self, out);
-    if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
+    if (get_habana_lazy_executor().getExecutionMode() != kLOWERING) {
       flush_op(1);
     }
     return out;
@@ -1541,7 +1539,7 @@ void as_strided_hpu_lazy_inplace_parralel_impl(
     hb_result.setTensorSize(size);
     hb_result.IrSetNode(node);
 
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    auto context = get_device_lazy_execution_context();
     context->MarkTensorStatus(
         hb_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
     flush_op(1);
