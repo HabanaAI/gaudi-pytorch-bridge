@@ -4656,6 +4656,36 @@ _native_batch_norm_legit:
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
+_native_batch_norm_legit_functional:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFunctionalFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+  guid: _native_batch_norm_legit_functional
+  op_backend: BatchNormOpBackend
+  out_ids: [0, 0, 0, 0, 0]
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
+
 native_batch_norm:
   custom_fill_params: FillBatchNormFwdParams
   output_meta: BatchNormFwdMeta

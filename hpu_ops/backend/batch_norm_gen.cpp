@@ -100,6 +100,18 @@ OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
   return {out_meta, saved_mean_meta, saved_istd_meta};
 }
 
+OutputMetaDataVector BatchNormFunctionalFwdMeta(const at::Stack& stack) {
+  OutputMetaDataVector v = BatchNormFwdMeta(stack);
+
+  OutputMetaData running_mean_meta = v[2];
+  v.push_back(running_mean_meta);
+
+  OutputMetaData running_var_meta = v[2];
+  v.push_back(running_var_meta);
+
+  return v;
+}
+
 std::shared_ptr<void> FillBatchNormFwdParams(
     const at::Stack& stack,
     size_t& size) {
@@ -293,6 +305,9 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto running_var_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool training = getNextInput<bool>(stackGetter);
 
+  bool is_functional = GetGuid().find("_native_batch_norm_legit_functional") !=
+      std::string::npos;
+
   /* 2. Perform frontend operations */
   // In case of batch norm:
   // 2.1 Preprocess inputs
@@ -332,28 +347,24 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
              out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 1},
          NodeAttr::NodeOutputAttr{
              out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2},
-         NodeAttr::NodeOutputAttr{
-             out_shapes[SAVED_MEAN_IDX],
-             c10::ScalarType::Float,
-             c10::nullopt,
-             DATA_TENSOR,
-             syn_type_na,
-             running_mean_sh_t_or_idx},
-         NodeAttr::NodeOutputAttr{
-             out_shapes[SAVED_ISTD_IDX],
-             c10::ScalarType::Float,
-             c10::nullopt,
-             DATA_TENSOR,
-             syn_type_na,
-             running_var_sh_t_or_idx}},
+         is_functional
+             ? NodeAttr::
+                   NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
+             : NodeAttr::
+                   NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_sh_t_or_idx},
+         is_functional
+             ? NodeAttr::
+                   NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
+             : NodeAttr::
+                   NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_sh_t_or_idx}},
         params.get(),
         size);
 
-    if (running_mean_opt.has_value()) {
+    if (running_mean_opt.has_value() && !is_functional) {
       GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
           3, std::move(bn_out[3]), std::get<int>(running_mean_sh_t_or_idx)});
     }
-    if (running_var_opt.has_value()) {
+    if (running_var_opt.has_value() && !is_functional) {
       GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
           4, std::move(bn_out[4]), std::get<int>(running_var_sh_t_or_idx)});
     }
@@ -401,6 +412,10 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(*postprocess_out);
   syn_out(1) = std::move(bn_out[1]);
   syn_out(2) = std::move(bn_out[2]);
+  if (is_functional) {
+    syn_out(3) = std::move(bn_out[3]);
+    syn_out(4) = std::move(bn_out[4]);
+  }
 }
 
 void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
