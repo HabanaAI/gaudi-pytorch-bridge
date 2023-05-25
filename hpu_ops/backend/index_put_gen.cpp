@@ -137,7 +137,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto mulOp = OpBackend::BuildNode(
       op,
       graph,
-      {"mult_fwd_" + habana_helpers::name_suffix_from_type(indices_scalar_type),
+      {get_guid_with_precision("mult_fwd", indices_scalar_type),
        {catop.get(), reshape_ind_op.get()},
        {{catop.pt_shape(), indices_scalar_type}}});
 
@@ -151,8 +151,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
-      {"reduce_sum_fwd_" +
-           habana_helpers::name_suffix_from_type(indices_scalar_type),
+      {get_guid_with_precision("reduce_sum_fwd", indices_scalar_type),
        {mulOp.at(0).get()},
        {{red_output_shape, indices_scalar_type}},
        &red_params,
@@ -201,8 +200,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto gatherOp = OpBackend::BuildNode(
       op,
       graph,
-      {"gather_fwd_" +
-           habana_helpers::name_suffix_from_type(indices_scalar_type),
+      {get_guid_with_precision("gather_fwd", indices_scalar_type),
        {catop.get(), sort_res1.get()},
        {{outshape, indices_scalar_type}},
        &gather_params,
@@ -218,8 +216,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto scatter_op = OpBackend::BuildNode(
       op,
       graph,
-      {"scatter_nd_fwd_" +
-           habana_helpers::name_suffix_from_type(self_scalar_type),
+      {get_guid_with_precision("scatter_nd_fwd", self_scalar_type),
        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
        {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type}},
        &scatter_params,
@@ -227,7 +224,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto addOp = OpBackend::BuildNode(
       op,
       graph,
-      {"add_fwd_" + habana_helpers::name_suffix_from_type(self_scalar_type),
+      {get_guid_with_precision("add_fwd", self_scalar_type),
        {syn_in_0, scatter_op.at(0).get()},
        {{self.sizes().vec(), self_scalar_type, 0}}});
   return std::move(addOp[0]);
@@ -310,8 +307,7 @@ void IndexPutEager::AddNode(
     if (!accumulate) {
       auto scatter_op = BuildOp(
           graph,
-          "scatter_nd_onnx_fwd_" +
-              habana_helpers::name_suffix_from_type(self_scalar_type),
+          get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
           {syn_in(0), catop.get(), reshape_val_op.get()},
           {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type, 0}});
       syn_out(0) = std::move(scatter_op[0]);
@@ -330,8 +326,7 @@ void IndexPutEager::AddNode(
     if (!accumulate) {
       auto scatter_op = BuildOp(
           graph,
-          "scatter_nd_onnx_fwd_" +
-              habana_helpers::name_suffix_from_type(self_scalar_type),
+          get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
           {syn_in(0), catop.get(), bcastOp.get()},
           {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type, 0}});
       syn_out(0) = std::move(scatter_op[0]);
