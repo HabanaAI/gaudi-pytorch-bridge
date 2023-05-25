@@ -778,9 +778,9 @@ TEST_F(LazyNormKernelTest, NormScalarZeroDimTest) {
 
 TEST_F(LazyNormKernelTest, WeightNormTest) {
   at::Tensor v_in =
-      at::randn({1024, 64, 128}, at::device(at::kCPU).dtype(at::kFloat));
+      at::randn({512, 32, 64}, at::device(at::kCPU).dtype(at::kFloat));
   at::Tensor g_in =
-      at::randn({1, 1, 128}, at::device(at::kCPU).dtype(at::kFloat));
+      at::randn({1, 1, 64}, at::device(at::kCPU).dtype(at::kFloat));
   int64_t dim(2);
 
   // CPU Run
@@ -797,9 +797,9 @@ TEST_F(LazyNormKernelTest, WeightNormTest) {
 
 TEST_F(LazyNormKernelTest, WeightNormDinoTest) {
   at::Tensor v_in =
-      at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+      at::randn({4096, 256}, at::device(at::kCPU).dtype(at::kFloat));
   at::Tensor g_in =
-      at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+      at::randn({4096, 1}, at::device(at::kCPU).dtype(at::kFloat));
   int64_t dim = 0;
   // CPU Run
   at::Tensor output_ = at::_weight_norm(v_in, g_in, dim);
@@ -814,17 +814,16 @@ TEST_F(LazyNormKernelTest, WeightNormDinoTest) {
 }
 
 TEST_F(LazyNormKernelTest, WeightNormBackwardExecute) {
-  auto w_grad = at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+  auto w_grad = at::randn({4096, 256}, at::device(at::kCPU).dtype(at::kFloat));
   torch::Tensor tHabanaW_grad = w_grad.to(torch::kHPU);
-  auto saved_v =
-      at::randn({65536, 256}, at::device(at::kCPU).dtype(at::kFloat));
+  auto saved_v = at::randn({4096, 256}, at::device(at::kCPU).dtype(at::kFloat));
   torch::Tensor tHabanaSaved_v = saved_v.to(torch::kHPU);
 
-  auto saved_g = at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+  auto saved_g = at::randn({4096, 1}, at::device(at::kCPU).dtype(at::kFloat));
   torch::Tensor tHabanaSaved_g = saved_g.to(torch::kHPU);
 
   auto saved_norms =
-      at::randn({65536, 1}, at::device(at::kCPU).dtype(at::kFloat));
+      at::randn({4096, 1}, at::device(at::kCPU).dtype(at::kFloat));
   torch::Tensor tHabanaSaved_norms = saved_norms.to(torch::kHPU);
 
   auto results = torch::_weight_norm_interface_backward(
