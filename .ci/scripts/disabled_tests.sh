@@ -956,6 +956,5 @@ LING_EAGER_TESTS = (
     "TypePromotionTests.OutClampMin"
     "TypePromotionTests.OutGreaterThan"
     "TypePromotionTests.OutMean"
-    "ViewUtilsTest.IsAliasNonZeroOpViews"
     "TypePromotion/TensorListPromotion.cat/ShortxBoolxByte"
 )
