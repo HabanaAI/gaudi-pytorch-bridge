@@ -415,9 +415,10 @@ class LazyOp {
     return result.item().template to<T>();
   }
 
-  template <typename T = ReturnType>
-  typename std::enable_if<std::is_void<T>::value, T>::type call(
-      at::TensorList tensors) {
+ private:
+  template <typename T = ReturnType, class U>
+  typename std::enable_if<std::is_void<T>::value, T>::type call_internal(
+      U tensors) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
@@ -436,23 +437,40 @@ class LazyOp {
     flush_op(tensors.size());
   }
 
+ public:
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      at::TensorList tensors) {
+    return call_internal<T>(tensors);
+  }
+
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::Tensor>& tensors) {
+    return call_internal<T, const std::vector<at::Tensor>&>(tensors);
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      const std::vector<at::TensorList>& tensorlists) {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     habana_lazy::ir::setCurrentModuleName(module_name);
     const auto& node = create_node();
     int i = 0;
 
-    for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
-      updateDstDependencies(tensor);
-      hl_result.IrSetNode(node, i++);
-      context->MarkTensorStatus(
-          hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+    for (auto&& tensors : tensorlists) {
+      for (const auto& tensor : tensors) {
+        auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
+        updateDstDependencies(tensor);
+        hl_result.IrSetNode(node, i++);
+        context->MarkTensorStatus(
+            hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+      }
+      runSBS(tensors);
     }
-    runSBS(tensors);
-    flush_op(tensors.size());
+
+    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
+    flush_op(i);
   }
 
   template <typename T = ReturnType>
