@@ -1615,6 +1615,7 @@ non_mandatory_ops_whitelist = [
     "convolution_overrideable",
     "convolution_backward_overrideable",
     "is_pinned",
+    "native_layer_norm",
 ]
 
 def get_dispatch_property(fields):
