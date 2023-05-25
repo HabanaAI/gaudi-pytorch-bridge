@@ -58,4 +58,10 @@ at::Tensor slice(
     const at::Tensor& self,
     c10::SymIntArrayRef split_sizes,
     int64_t dim);
+at::Tensor& _index_put_impl_(
+    at::Tensor& self,
+    const c10::List<c10::optional<at::Tensor>>& indices,
+    const at::Tensor& values,
+    bool accumulate,
+    bool unsafe);
 } // namespace hpu_wrap
