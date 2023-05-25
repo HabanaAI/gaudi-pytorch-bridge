@@ -98,7 +98,8 @@ synapse_helpers::tensor ArangeCommon(
   if (can_use_dynamic_shapes(start, end, step)) {
     inputs.emplace_back(syn_in1);
     inputs.emplace_back(syn_in0);
-    const bool is_cast_not_required = out_dtype == c10::ScalarType::Int;
+    const bool is_cast_not_required =
+        habana_helpers::getInternalDtype(out_dtype) == c10::ScalarType::Int;
     NodeAttr::NodeOutputAttr out_attr = {outshape, c10::ScalarType::Int};
     if (is_cast_not_required)
       out_attr.final_result_index = 0;
@@ -121,9 +122,10 @@ synapse_helpers::tensor ArangeCommon(
     }
   } else {
     op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
-    const bool is_cast_not_required = c10::isFloatingType(out_dtype) ||
-        out_dtype == c10::ScalarType::Int ||
-        (out_dtype == c10::ScalarType::Long &&
+    auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
+    const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
+        internal_out_dtype == c10::ScalarType::Int ||
+        (internal_out_dtype == c10::ScalarType::Long &&
          GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT));
     auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
     auto range_guid = is_cast_not_required ? guid : "range_i32";
