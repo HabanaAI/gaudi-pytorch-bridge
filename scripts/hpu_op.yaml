@@ -4266,12 +4266,11 @@ max_pool2d_with_indices_backward.grad_input:
 
 max_pool3d_with_indices:
   custom_fill_params: FillSpatialReduction3DParamsFwd
-  custom_output_shape: MaxPool3DIndicesOutputShape
   dtypes:
     self: [BFloat16, Float]
     indices: [Int]
   op_backend: MaxPool3DWithIndicesOut
-  op_frontend: LazyMaxPool
+  output_meta: Maxpool3dWithIndicesMeta
   synapse_layouts:
   - [WHDCN]
   - [WHDCN, WHDCN]

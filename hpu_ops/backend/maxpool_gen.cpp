@@ -39,68 +39,6 @@ static int OutputShapeComputation(
       1);
 }
 
-sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
-  std::vector<long int> pad = {0, 0, 0};
-  std::vector<long int> dil = {1, 1, 1};
-  auto self = stack.at(0).toTensor();
-  auto kernel = stack.at(1).toIntVector();
-  auto stride = stack.at(2).toIntVector().size() == 0
-      ? kernel
-      : stack.at(2).toIntVector();
-  auto padding =
-      stack.at(3).toIntVector().size() == 0 ? pad : stack.at(3).toIntVector();
-  auto dilation =
-      stack.at(4).toIntVector().size() == 0 ? dil : stack.at(4).toIntVector();
-  const bool ceil_mode = stack.at(5).toBool();
-
-  TORCH_CHECK(
-      self.dim() == 5 || self.dim() == 4,
-      "Maxpool3d expects Input size must be 5 or 4, but got ",
-      self.dim());
-  TORCH_CHECK(
-      padding.size() == 3,
-      "Maxpool3d expects padding size is 3 but got ",
-      padding.size());
-  TORCH_CHECK(
-      kernel.size() == 3,
-      "Maxpool3d expects kernel size is 3 but got ",
-      kernel.size());
-  TORCH_CHECK(
-      stride.size() == 3,
-      "Maxpool3d expects stride size is 3 but got ",
-      stride.size());
-  TORCH_CHECK(
-      dilation.size() == 3,
-      "Maxpool3d expects dilation size is 3 but got ",
-      dilation.size());
-
-  std::vector<int64_t> input_shape = self.sizes().vec();
-  std::vector<int64_t> output_shape = self.sizes().vec();
-
-  int n = kernel.size();
-  // updating the width, height, & depth dimension
-  for (int i = 0; i < n; i++) {
-    output_shape.rbegin()[i] = OutputShapeComputation(
-        input_shape.rbegin()[i],
-        kernel[n - i - 1],
-        stride[n - i - 1],
-        padding[n - i - 1],
-        dilation[n - i - 1],
-        ceil_mode);
-  }
-
-  // ensure that the last pooling starts inside the image
-  // needed to avoid problems in ceil mode
-  if (ceil_mode) {
-    for (int i = 0; i < n; i++) {
-      if ((output_shape.rbegin()[i] - 1) * stride[n - i - 1] >=
-          input_shape.rbegin()[i] + padding[n - i - 1])
-        --output_shape.rbegin()[i];
-    }
-  }
-  return {output_shape, output_shape};
-}
-
 sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
@@ -173,7 +111,7 @@ sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
     indices = MaxPool2DOutputShape(stack_fwd)[0];
   }
   if (kernel.size() == 3) {
-    indices = MaxPool3DIndicesOutputShape(stack_fwd)[0];
+    indices = Maxpool3dWithIndicesMeta(stack_fwd)[0].shape;
   }
   HABANA_ASSERT(
       (grad.sizes() == indices), "Grad and Indices sizes don't match");
@@ -319,43 +257,33 @@ static c10::ScalarType FindRetainTensorType(c10::ScalarType input_tensor_type) {
   return c10::ScalarType::Byte;
 }
 
-static std::vector<synapse_helpers::tensor> Maxpool3dWithIndicesFwdCommonFunc(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Stack& stack,
-    std::vector<synTensor> input,
-    const c10::ScalarType& scalar_type) {
-  const torch::Tensor& self = stack.at(0).toTensor();
-  const auto& final_out_shape = MaxPool3DIndicesOutputShape(stack);
-  size_t size = 0;
-  const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
-  auto index_type = FindRetainTensorType(self.scalar_type());
-  std::vector<synapse_helpers::tensor> output;
-  // TODO: SW-86955 move build op to code gen
-
-  // maxpool3d guid will return tuple of tensors (indices tensor, output
-  // tensor)
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("maxpool_3d_fwd", scalar_type),
-       {input.at(0)},
-       {{final_out_shape[0], index_type, 1},
-        {final_out_shape[0], scalar_type, 0}},
-       params.get(),
-       size});
-}
-
 // Since the out varriant intices tensor has some issue
 // (https://jira.habana-labs.com/browse/SW-74263)
 void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output = Maxpool3dWithIndicesFwdCommonFunc(
-      this, graph, stack, {syn_in(0)}, ScalarType());
+  const auto& output_meta = Maxpool3dWithIndicesMeta(stack);
+  size_t size = 0;
+  auto index_type = FindRetainTensorType(ScalarType());
+  const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
+  const auto& output_meta_shape = output_meta[0].shape;
 
-  syn_out(0) = std::move(output.at(1));
-  syn_out(1) = std::move(output.at(0));
+  auto maxpool3d = BuildOp(
+      graph,
+      get_guid_with_precision("maxpool_3d_fwd", ScalarType()),
+      {syn_in(0)},
+      {{output_meta_shape, index_type}, {output_meta_shape, ScalarType(), 0}},
+      params.get(),
+      size);
+
+  syn_out(0) = std::move(maxpool3d.at(1));
+  syn_out(1) = CastHelper(
+      graph,
+      maxpool3d.at(0).get(),
+      output_meta_shape,
+      index_type,
+      at::kLong,
+      1);
 }
 
 void MaxPool3DWithIndicesBwd::AddNode(
@@ -363,9 +291,17 @@ void MaxPool3DWithIndicesBwd::AddNode(
     const at::Stack& stack) {
   const auto& out_shape = ComputeOutputShapes(stack);
   size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  std::vector<synTensor> grad = {syn_in(0), syn_in(2)};
-  this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape[0], grad);
+  const auto params = FillParams(stack, size);
+
+  auto cast_input = CastHelper(
+      graph,
+      syn_in(2),
+      stack.back().toTensor().sizes(),
+      at::kLong,
+      FindRetainTensorType(ScalarType()));
+
+  std::vector<synTensor> grad = {syn_in(0), cast_input.get()};
+  CreateShapeTensorInput(graph, ScalarType(), out_shape[0], grad);
 
   auto grad_output = BuildOp(
       graph,
