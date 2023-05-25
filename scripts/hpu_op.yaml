@@ -649,9 +649,9 @@ acosh_:
 add.Tensor:
   force_default: false
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   override_fn: add_tensor_hpu_lazy
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -679,9 +679,9 @@ add_.Scalar:
 add_.Tensor:
   force_default: false
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   override_fn: add_tensor_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -689,9 +689,9 @@ add_.Tensor:
 add.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   guid: add_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
@@ -3452,9 +3452,9 @@ index_select:
   out_ids: [0]
   custom_output_shape: IndexSelectOutShape
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
