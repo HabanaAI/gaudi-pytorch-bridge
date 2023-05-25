@@ -417,6 +417,8 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GENERIC_STREAM, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_EAGER_TENSOR_POOL_SIZE, unsigned, 1000);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_SORT_INDEX_IN_SCATTER_ADD, bool, false);
+// Determine number of files for logging rotation
+ENV_STRUCT_DEFINITION(PT_LOG_FILE_AMOUNT, unsigned, 5);
 
 // clang-format off
 // This is temporary variable, just to find out best solution for accumulation

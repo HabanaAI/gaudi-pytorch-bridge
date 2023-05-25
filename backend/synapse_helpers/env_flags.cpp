@@ -605,6 +605,8 @@ ENV_STRUCT_STATIC_DEFINITION(PT_HPU_EAGER_TENSOR_POOL_SIZE, unsigned);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP, bool);
 ENV_STRUCT_STATIC_DEFINITION(PT_HPU_SORT_INDEX_IN_SCATTER_ADD, bool);
 
+ENV_STRUCT_STATIC_DEFINITION(PT_LOG_FILE_AMOUNT, unsigned);
+
 } // namespace new_style
 
 // ****************************************************************************

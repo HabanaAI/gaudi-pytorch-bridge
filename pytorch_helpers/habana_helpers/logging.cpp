@@ -16,6 +16,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/debug_utils.h"
 
 // -------------- HL LOG ----------------
@@ -32,6 +33,7 @@ static void createModuleLoggers(LoggerType) {}
 static void createModuleLoggersOnDemand(LoggerType) {
   hl_logger::LoggerCreateParams default_params, trace_params;
   default_params.logFileName = "pytorch_log.txt";
+  default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
   hl_logger::createLoggersOnDemand(
       {
           LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
