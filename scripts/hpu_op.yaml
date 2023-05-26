@@ -953,7 +953,7 @@ amax:
   out_ids: [0]
 
 amax.out:
-  dtypes: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int, Long]
   guid: reduce_max_fwd
   op_template: reduction
 
@@ -966,7 +966,7 @@ amin:
   out_ids: [0]
 
 amin.out:
-  dtypes: [Float, BFloat16, Int]
+  dtypes: [Float, BFloat16, Int, Long]
   guid: reduce_min_fwd
   op_template: reduction
 
@@ -1483,9 +1483,9 @@ bitwise_and.Tensor:
 bitwise_and.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
+    Gaudi: [Int, Long, Short, Byte, Char]
+    Gaudi2: [Int, Long, Short, Byte, Char]
+    Gaudi3: [Int, Long, Short, Byte, Char]
   guid: bitwise_and_fwd
 
 bitwise_and_.Tensor:
@@ -1617,9 +1617,9 @@ bitwise_or.Tensor:
 bitwise_or.Tensor_out:
   custom_output_shape: BinaryOutputShape
   dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
+    Gaudi: [Int, Long, Short, Byte, Char]
+    Gaudi2: [Int, Long, Short, Byte, Char]
+    Gaudi3: [Int, Long, Short, Byte, Char]
   guid: bitwise_or_fwd
 
 bitwise_or_.Tensor:
@@ -2440,7 +2440,7 @@ equal:
   out_ids: [0]
 
 eq.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes: [BFloat16, Float, Int, Long, Char, Byte]
   guid: equal_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -4991,7 +4991,7 @@ nll_loss_backward.grad_input:
   dtypes:
     grad_output: [BFloat16, Float]
     self: [BFloat16, Float]
-    target: [Int]
+    target: [Int, Long]
     weight: [BFloat16, Float]
     total_weight: [BFloat16, Float]
   guid: nll_loss_bwd
@@ -5002,7 +5002,7 @@ nll_loss_forward.output:
   custom_output_shape: NllLossFwdOutputShape
   dtypes:
     self: [BFloat16, Float]
-    target: [Int]
+    target: [Int, Long]
     weight: [BFloat16, Float]
     output: [BFloat16, Float]
   guid: cnll_loss_fwd
@@ -6461,9 +6461,9 @@ sum.dim_IntList:
 
 sum.IntList_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
   guid: reduce_sum_fwd
   op_template: reduction
 
@@ -6476,7 +6476,7 @@ take:
   custom_output_shape: TakeOutputShape
   dtypes:
     self: [BFloat16, Float]
-    index: [Int]
+    index: [Int, Long]
   guid: take_fwd
   out_ids: [0]
 
@@ -6484,7 +6484,7 @@ take.out:
   custom_output_shape: TakeOutputShape
   dtypes:
     self: [BFloat16, Float]
-    index: [Int]
+    index: [Int, Long]
   guid: take_fwd
 
 tan.out:
