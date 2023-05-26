@@ -38,19 +38,22 @@ def _pre_fwd_hook(module, input):
     #handle the naming mismatch issue with a temp fix, till we
     #find a way to get unique module names from the calibration tool
     with _lock:
-        if _is_inference() and _name_stack and "relu" in  module.custom_name:
-            ns = str(_name_stack[-1])
-            if ns in _module_dict.keys():
-                _module_dict[ns] += 1
-                new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
+        try:
+            if _is_inference() and _name_stack and "relu" in  module.custom_name:
+                ns = str(_name_stack[-1])
+                if ns in _module_dict.keys():
+                    _module_dict[ns] += 1
+                    new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
+                else:
+                    _module_dict[ns] = 0
+                    new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
             else:
-                _module_dict[ns] = 0
                 new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
-        else:
-            new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
 
-        _name_stack.append(new_name)
-        htdebug._set_module_name(new_name)
+            _name_stack.append(new_name)
+            htdebug._set_module_name(new_name)
+        except:
+            new_name =  module.custom_name
 
 def _gen_grad_hook(name):
     def grad_hook(grad):
@@ -63,7 +66,7 @@ def _post_fwd_hook(module, input, output):
         module_name = _name_stack.pop()
         if _is_inference() and module_name in _module_dict.keys():
             del _module_dict[module_name]
-        if (_name_stack):
+        if (_name_stack) and len(_name_stack):
             name = _name_stack[-1]
         else:
             name = ""
