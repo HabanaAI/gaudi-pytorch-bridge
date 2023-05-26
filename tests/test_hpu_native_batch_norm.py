@@ -33,7 +33,16 @@ from test_utils import evaluate_fwd_kernel
             "momentum": 0.999,
             "eps": 1e-5,
         }
-    )
+    ),
+    (
+        torch.ops.aten._native_batch_norm_legit_functional,
+        {
+            "dims": (2, 3, 4, 5),
+            "training": False,
+            "momentum": 0.999,
+            "eps": 1e-5,
+        }
+    ),
 ])
 def test_hpu_native_batch_norm(bn_op, fwd_params_desc):
     def prepare_fwd_inputs(fwd_params_desc):

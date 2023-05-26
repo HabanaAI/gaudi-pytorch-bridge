@@ -396,6 +396,24 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
                       {running_var},
                       {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 2}})
                       .at(0)));
+
+    if (is_functional) {
+      bn_out.emplace_back(std::move(
+          BuildOp(
+              graph,
+              "identity",
+              {running_mean},
+              {{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}})
+              .at(0)));
+
+      bn_out.emplace_back(std::move(
+          BuildOp(
+              graph,
+              "identity",
+              {running_var},
+              {{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, 4}})
+              .at(0)));
+    }
   }
 
   // 2.4 Postprocess outputs
