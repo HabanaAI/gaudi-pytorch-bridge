@@ -3481,9 +3481,9 @@ index_select:
 index_select.out:
   custom_output_shape: IndexSelectOutShape
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
