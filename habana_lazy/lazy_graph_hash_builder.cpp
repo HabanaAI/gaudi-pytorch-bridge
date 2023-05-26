@@ -247,9 +247,9 @@ void GraphHashBuilder::addInputTensors(const at::Tensor& tensor) {
 
     // shallow copy tensor map
     {
-      auto t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
+      auto& t_shallow_copy_opt = hbo1.getDataPtr()->tensor_shallow_copy;
       if (t_shallow_copy_opt.has_value()) {
-        auto t = t_shallow_copy_opt.value().back();
+        auto& t = t_shallow_copy_opt.value().back();
         impl = GetHbLazyTensorImpl(t);
         hl_t = impl->tensor();
         PT_LAZY_DEBUG("addInputTensors also shallow copy uid ", id);

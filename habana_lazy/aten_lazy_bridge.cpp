@@ -207,7 +207,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
   // always fetch most recent version of the tensor
   // TODO currently we assert if view handle is missing in any of the kernel.
   // Try bringing it here
-  auto t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
+  auto& t_shallow_copy_opt = hl_t.getDataPtr()->tensor_shallow_copy;
   if (t_shallow_copy_opt.has_value()) {
     impl = GetHbLazyTensorImpl(t_shallow_copy_opt.value().back());
     hl_t = impl->tensor();

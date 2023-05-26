@@ -150,7 +150,7 @@ struct Data {
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
   c10::optional<at::Tensor> cpu_tensor_data;
-  c10::optional<std::vector<at::Tensor>> tensor_shallow_copy;
+  c10::optional<c10::SmallVector<at::Tensor, 3>> tensor_shallow_copy;
   c10::optional<StrideParams> stride_params;
   c10::optional<at::Tensor> recent_base;
   bool sbs_live_tensor = false;

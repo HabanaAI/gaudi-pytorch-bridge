@@ -1613,6 +1613,13 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   PT_LAZY_TRACE;
+
+  // the original dest data is now stale. Release it if not in op accmulation
+  // phase
+  if (!dest->IsOpAccumulationInProgress()) {
+    dest->data()->tensor_data = c10::nullopt;
+  }
+
   // check for shallow copy in src
   auto hl_src_updated = *this;
   auto src_tensor_opt = hl_src_updated.getDataPtr()->tensor_shallow_copy;
@@ -1624,9 +1631,10 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
       hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
 
   // loop over the shallow copy vectors to collect the ones that are in use
-  std::vector<at::Tensor> tensors_in_use;
-  auto hl_dest_updated = *dest;
-  auto dst_tensor_opt = dest->getDataPtr()->tensor_shallow_copy;
+  // all non deep speed systems need vector length of 1. Deep speed zero
+  // needs 2. Keeping an additional buffer to initialize vector of length 3
+  c10::SmallVector<at::Tensor, 3> tensors_in_use;
+  auto& dst_tensor_opt = dest->getDataPtr()->tensor_shallow_copy;
   if (dst_tensor_opt.has_value()) {
     auto& t_vec = dest->getDataPtr()->tensor_shallow_copy.value();
     for (auto& t : t_vec) {
@@ -1642,15 +1650,6 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   } else {
     // Shallow copy field is being created for the first time
     dest->getDataPtr()->tensor_shallow_copy = {aten_t};
-  }
-
-  if (!dest->IsOpAccumulationInProgress()) {
-    // Memory optimization
-    auto data_tensor = hl_src_updated.CurrentTensorData();
-    if (data_tensor.has_value()) {
-      // Note: this is just a memory optimization to free up unused data
-      dest->SetTensorData(*data_tensor);
-    }
   }
 }
 
