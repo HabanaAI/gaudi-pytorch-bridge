@@ -57,3 +57,7 @@ add_library(npu::tpc_kernels ALIAS tpc_kernels)
 set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_ROOT}/include")
 target_link_libraries(SynapseUtils INTERFACE npu::tpc_kernels npu::Synapse)
 add_library(npu::SynapseUtils ALIAS SynapseUtils)
+
+add_library(Media INTERFACE IMPORTED)
+list(APPEND MEDIA_INCLUDE_DIRS "$ENV{MEDIA_ROOT}/include")
+set_target_properties(Media PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${MEDIA_INCLUDE_DIRS}")
