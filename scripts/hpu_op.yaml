@@ -2467,9 +2467,9 @@ eq.Scalar_out:
   safe_cast_check: false
 
 eq.Tensor_out:
-  broadcast: true
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -2497,23 +2497,21 @@ eq.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: equal_fwd
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
   scalar_ids: [1]
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 eq.Tensor:
   force_default: false
-  broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: equal_fwd
-  op_frontend: LazyCmp
+  output_meta: CompareMeta
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 erf:
@@ -2901,12 +2899,12 @@ ge.Scalar_out:
   safe_cast_check: false
 
 ge.Tensor_out:
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_equal_fwd
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -2940,23 +2938,21 @@ ge.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_equal_fwd
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
   scalar_ids: [1]
   out_ids: [0]
-  op_backend: CompareOp
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
 
 ge.Tensor:
   force_default: false
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_equal_fwd
-  op_frontend: LazyCmp
+  output_meta: CompareMeta
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 gelu:
@@ -3076,12 +3072,12 @@ gt.Scalar_out:
   safe_cast_check: false
 
 gt.Tensor_out:
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_fwd
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -3115,23 +3111,21 @@ gt.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_fwd
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
   scalar_ids: [1]
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 gt.Tensor:
   force_default: false
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: greater_fwd
-  op_frontend: LazyCmp
+  output_meta: CompareMeta
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 hardshrink:
@@ -3505,12 +3499,12 @@ le.Scalar_out:
   safe_cast_check: false
 
 le.Tensor_out:
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_equal_fwd
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -3544,23 +3538,21 @@ le.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_equal_fwd
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
   scalar_ids: [1]
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 le.Tensor:
   force_default: false
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_equal_fwd
-  op_frontend: LazyCmp
+  output_meta: CompareMeta
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 leaky_relu_backward.grad_input:
@@ -4041,12 +4033,12 @@ lt.Scalar_out:
   safe_cast_check: false
 
 lt.Tensor_out:
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_fwd
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -4080,23 +4072,21 @@ lt.Scalar:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_fwd
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
   scalar_ids: [1]
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 lt.Tensor:
   force_default: false
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: less_fwd
-  op_frontend: LazyCmp
+  output_meta: CompareMeta
   out_ids: [0]
-  op_backend: CompareOp
   promote_to_common_type: [self, other]
 
 _masked_scale:
@@ -4777,12 +4767,12 @@ native_layer_norm_backward:
   out_ids: [0, 0, 0]
 
 ne.Tensor_out:
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
   op_backend: NE
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
@@ -4825,7 +4815,8 @@ ne.Scalar:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
-  op_frontend: LazyCmp
+  op_frontend: CompareScalarToTensor
+  output_meta: CompareMeta
   op_backend: NE
   scalar_ids: [1]
   out_ids: [0]
@@ -4833,13 +4824,12 @@ ne.Scalar:
 
 ne.Tensor:
   force_default: false
-  custom_output_shape: BinaryOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
-  op_frontend: LazyCmp
   op_backend: NE
+  output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
 

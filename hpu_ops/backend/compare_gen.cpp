@@ -19,12 +19,13 @@
 #include "generated/backend/ne.h"
 
 namespace habana {
-
-void CompareOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = BinaryOutputShape(stack)[0];
-  auto result =
-      BuildOp(graph, guid_, {syn_in(0), syn_in(1)}, {{outshape, at::kBool, 0}});
-
-  syn_out(0) = std::move(result[0]);
+OutputMetaDataVector CompareMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  const at::Tensor self = stack_tensor(stack, 0);
+  meta.shape = stack[1].isScalar()
+      ? self.sizes().vec()
+      : at::infer_size(self.sizes(), stack_tensor(stack, 1).sizes());
+  meta.dtype = at::kBool;
+  return {meta};
 }
 } // namespace habana

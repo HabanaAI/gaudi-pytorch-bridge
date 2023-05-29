@@ -460,23 +460,35 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         }
       }
     } else { // normal fn
-      const auto& outshapes = ComputeOutputShapes(stack);
-      for (int res_id : m_res_ids) {
-        // Index can vary in syn_inputs_ and in stack
-        const auto& ival = stack.at(res_id);
-        const auto& tensors = ival.isTensor()
-            ? static_cast<at::List<at::Tensor>>(ival.toTensor())
-            : ival.toTensorList();
-        for (auto i = 0u; i < tensors.size(); ++i) {
-          const auto& outshape =
-              outshapes.empty() ? tensors[i].sizes() : outshapes[i];
-          const auto& strides = HabanaOperator::CalculateStrides(
-              outshape.vec(), at::MemoryFormat::Contiguous);
+      if (UsesOutputMeta()) {
+        auto meta = OutputMeta(stack);
+        for (const auto& metadata : meta) {
           m_meta.AddOutputTensor(TensorMetaData(
-              outshape.vec(),
-              strides,
-              tensors[i].scalar_type(),
-              tensors[i].suggest_memory_format()));
+              metadata.shape,
+              HabanaOperator::CalculateStrides(
+                  metadata.shape, at::MemoryFormat::Contiguous),
+              metadata.dtype,
+              at::MemoryFormat::Contiguous));
+        }
+      } else {
+        const auto& outshapes = ComputeOutputShapes(stack);
+        for (int res_id : m_res_ids) {
+          // Index can vary in syn_inputs_ and in stack
+          const auto& ival = stack.at(res_id);
+          const auto& tensors = ival.isTensor()
+              ? static_cast<at::List<at::Tensor>>(ival.toTensor())
+              : ival.toTensorList();
+          for (auto i = 0u; i < tensors.size(); ++i) {
+            const auto& outshape =
+                outshapes.empty() ? tensors[i].sizes() : outshapes[i];
+            const auto& strides = HabanaOperator::CalculateStrides(
+                outshape.vec(), at::MemoryFormat::Contiguous);
+            m_meta.AddOutputTensor(TensorMetaData(
+                outshape.vec(),
+                strides,
+                tensors[i].scalar_type(),
+                tensors[i].suggest_memory_format()));
+          }
         }
       }
     }

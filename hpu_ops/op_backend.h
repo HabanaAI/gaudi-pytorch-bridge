@@ -449,6 +449,7 @@ class OpBackend : public HabanaOperator {
       isIntList,
       toIntList().vec,
       "int list")
+#undef GET_NEXT_INPUT_INTERNAL
 
  private:
   const std::vector<int> m_res_ids;

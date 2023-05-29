@@ -19,34 +19,17 @@
 #include "generated/lazy/ne.h"
 
 namespace habana {
-template <>
-LazyCmp<at::Tensor>::LazyCmp(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  auto x = get_inputs();
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    habana_lazy::LazyOp,
+    CompareScalarToTensor,
+    at::Tensor) {
   // convert scalar input to tensor to avoid cache misses in cases where scalar
   // value changes across iterations
-  // for lazy eager Skip scalar handling at FE
-  if (x[1].isScalar() && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
-    auto self = x[0].toTensor();
-    auto other = x[1].toScalar();
-    auto dtype = at::result_type(self, other);
-    auto other_tensor = habana_lazy::get_tensor_for_scalar(
-        other.toDouble(), self.options().dtype(dtype));
-    x[1] = c10::IValue(other_tensor);
-    set_inputs(x);
-  }
+  auto& x = get_inputs();
+  auto self = x[0].toTensor();
+  auto other = x[1].toScalar();
+  auto dtype = at::result_type(self, other);
+  x[1] = habana_lazy::get_tensor_for_scalar(
+      other.toDouble(), self.options().dtype(dtype));
 }
-
-template <>
-at::Tensor LazyCmp<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  const auto& t = inputs.at(0).toTensor();
-  auto shape = BinaryOutputShape(inputs)[0];
-  return habana_lazy::empty_hpu_lazy(
-      shape, t.options().dtype(at::kBool), t.suggest_memory_format(), false);
-}
-
 } // namespace habana
