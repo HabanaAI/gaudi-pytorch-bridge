@@ -13,6 +13,7 @@ import torch
 import pytest
 import numpy as np
 from torch._dynamo.backends.common import aot_autograd
+
 import habana_frameworks.torch.core
 
 # Initial autocast test in PT2.0
@@ -38,3 +39,31 @@ def test_autocast():
 
     compiled_fn = torch.compile(fn, backend=training_backend)
     result = compiled_fn(f_float32, g_float32)
+
+def test_convolution_autocast():
+    torch.manual_seed(2562825)
+
+    class Net(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Sequential(
+                torch.nn.Conv2d(1, 6, kernel_size=3, stride=1, padding=0),
+            )
+
+        def forward(self, x):
+            with torch.autocast("hpu", dtype=torch.bfloat16):
+                out = self.layer(x)
+            return out
+
+    torch.manual_seed(2562825)
+    model = Net().to("hpu")
+    compiled_model = torch.compile(model, backend="aot_hpu_inference_backend")
+
+    torch.manual_seed(2562825)
+    raw_model = Net().to("hpu")
+
+    tensor = torch.rand(8, 1, 32, 32).to("hpu")
+
+    res_graph = compiled_model(tensor)
+    res_eager = raw_model(tensor)
+    assert torch.allclose(res_eager, res_graph, rtol=1e-03)

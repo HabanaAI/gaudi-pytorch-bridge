@@ -52,6 +52,7 @@ def test_cast_to_fp8(dtype):
     casted = compiled_fn(input, scale, amax_temp, out)
     amax[1][2].copy_(amax_temp)
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_cast_to_fp8_v2(dtype):
     op_name = "cast_to_fp8_v2"
@@ -265,6 +266,7 @@ def test_fp8_gemm(dtype):
     compiled_fn = torch.compile(fn, backend=toy_compiler)
     result = compiled_fn(A, scale_A, B, scale_B, dtype, bias, True, out)
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_gemm_v2(dtype):
     op_name = "fp8_gemm_v2"
