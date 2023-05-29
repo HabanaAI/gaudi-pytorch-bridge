@@ -352,7 +352,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
 
   auto in =
-      torch::randn({64, 3, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
+      torch::randn({32, 3, 4, 14, 14}, torch::dtype(torch::kFloat)); // ncdhw
   auto wt = torch::randn({3, 5, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
   auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
   auto exp = torch::conv_transpose3d(in, wt, {}, 1, 0, 0, 1, 1);
@@ -372,9 +372,8 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
 
   auto in =
-      torch::randn({64, 16, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
-  auto wt =
-      torch::randn({16, 4, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
+      torch::randn({32, 8, 4, 14, 14}, torch::dtype(torch::kFloat)); // ncdhw
+  auto wt = torch::randn({8, 4, 3, 3, 3}, torch::dtype(torch::kFloat)); // cktrs
   auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
   auto exp = torch::conv_transpose3d(in, wt, {}, 2, 0, 0, 2, 1);
 
