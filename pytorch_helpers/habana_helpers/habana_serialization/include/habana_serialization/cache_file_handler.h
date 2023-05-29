@@ -17,6 +17,14 @@
 #include <optional>
 #include <string>
 
+#if !defined __GNUC__ || __GNUC__ >= 8
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 namespace serialization {
 
 constexpr const char* RECIPE_SUFFIX = ".recipe";

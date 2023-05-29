@@ -13,14 +13,6 @@
 #include <sys/file.h>
 #include <unistd.h>
 
-#if !defined __GNUC__ || __GNUC__ >= 8
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
-
 #include "habana_helpers/logging.h"
 
 namespace serialization {

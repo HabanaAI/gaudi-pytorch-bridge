@@ -219,6 +219,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
           metadata_path);
       cfHandler->fileUnLock(fd);
       cfHandler->fileClose(fd);
+      fs::remove(metadata_path);
       return {};
     } else {
       PT_HABHELPER_DEBUG(

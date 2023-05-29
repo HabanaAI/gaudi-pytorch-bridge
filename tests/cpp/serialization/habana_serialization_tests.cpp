@@ -17,7 +17,6 @@
 #include <iostream>
 #include <memory>
 
-#include <experimental/filesystem>
 #include <fstream>
 #include "backend/helpers/create_tensor.h"
 #include "backend/kernel/hpu_habana_cache.h"
@@ -29,7 +28,6 @@
 
 using namespace std;
 using namespace habana;
-namespace fs = std::experimental::filesystem;
 
 TEST(HabanaSerializationTest, TensorOptionsTest) {
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;

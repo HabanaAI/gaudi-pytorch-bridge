@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "compilation_statistics.h"
-#include <experimental/filesystem>
 #include <fstream>
 #include <sstream>
 #include <utility>
@@ -24,7 +23,6 @@
 
 using namespace habana_helpers;
 using json = nlohmannV340::json;
-namespace fs = std::experimental::filesystem;
 namespace {
 std::string stringify(DynamicDimsPolicy policy) {
   switch (policy) {
@@ -124,7 +122,7 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
     if (fs::exists(fs::path(path)) == false) {
       try {
         fs::create_directories(path);
-      } catch (std::experimental::filesystem::filesystem_error const& ex) {
+      } catch (fs::filesystem_error const& ex) {
         std::cerr << ex.what() << std::endl;
         UNSET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
       }
