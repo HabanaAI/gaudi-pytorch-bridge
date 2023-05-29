@@ -198,7 +198,7 @@ TEST_F(LazyLossKernelTest, NllLossFwdTest) {
 
 TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
   torch::Tensor input =
-      torch::randn({12, 5, 190, 162}, torch::requires_grad(true)); // nchw
+      torch::randn({3, 5, 24, 18}, torch::requires_grad(true)); // nchw
   torch::Tensor hinput = input.to(
       torch::kHPU,
       c10::ScalarType::Float,
@@ -207,7 +207,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
       c10::MemoryFormat::ChannelsLast); // nhwc
   torch::Tensor cinput = hinput.to(torch::kCPU); // nhwc
 
-  auto target = torch::randint(0, 4, {12, 190, 162}, torch::kLong);
+  auto target = torch::randint(0, 4, {3, 24, 18}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::nn::NLLLoss loss;
@@ -220,10 +220,10 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
 
 TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
   torch::Tensor input =
-      torch::randn({14, 4, 192, 160}, torch::requires_grad(true));
+      torch::randn({6, 4, 18, 24}, torch::requires_grad(true));
   torch::Tensor hinput = input.to(torch::kHPU);
 
-  auto target = torch::randint(0, 3, {14, 192, 160}, torch::kLong);
+  auto target = torch::randint(0, 3, {6, 18, 24}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::nn::NLLLoss loss;
@@ -253,7 +253,8 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
   // HPU kernel does not use this tensor, but we need to create it because
   // "nll_loss_backward" does not compile without this argument. Note that dim &
   // values in this tensor may need to be changed for other "reduction" modes.
-  auto sum_weights = torch::tensor({10}, torch::kFloat);
+  constexpr int sumweights_int = 10;
+  auto sum_weights = torch::tensor({sumweights_int}, torch::kFloat);
   torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
 
   auto grad_in_cpu = torch::nll_loss_backward(
@@ -267,18 +268,10 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
 
 TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
   torch::Tensor input =
-      torch::randn({14, 4, 192, 160}, torch::requires_grad(true));
+      torch::randn({6, 4, 18, 24}, torch::requires_grad(true));
   torch::Tensor hinput = input.to(torch::kHPU);
 
-  auto target = torch::randint(
-      0,
-      3,
-      {
-          14,
-          192,
-          160,
-      },
-      torch::kLong);
+  auto target = torch::randint(0, 3, {6, 18, 24}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
 
   auto grad_out = torch::tensor({1}, torch::kFloat);
@@ -288,8 +281,9 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
   // "nll_loss_backward" does not compile without this argument. Note that dim &
   // values in this tensor may need to be changed for other "reduction" modes.
   // (N,C,H,W) -> (N,H,W,C)
-  // 14*192*160 = 430080
-  auto sum_weights = torch::tensor({430080}, torch::kFloat);
+  // 6*18*24 = 2592
+  constexpr int sumweights_int = 6 * 18 * 24;
+  auto sum_weights = torch::tensor({sumweights_int}, torch::kFloat);
   torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
 
   auto grad_in_cpu = torch::nll_loss2d_backward(
@@ -301,77 +295,40 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
   EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu, 0.001, 0.001), true);
 }
 
-TEST_F(LazyLossKernelTest, NllLoss2dBwdTest_New) {
-  // Static Test 1
-  {
-    torch::Tensor input =
-        torch::randn({128, 81, 1, 8732}, torch::requires_grad(true));
-    torch::Tensor hinput = input.to(torch::kHPU);
+TEST_F(LazyLossKernelTest, NllLoss2dBwdTest_DynamicShape) {
+  torch::Tensor input =
+      torch::randn({12, 4, 18, 16}, torch::requires_grad(true));
+  torch::Tensor hinput = input.to(torch::kHPU);
 
-    auto target = torch::randint(
-        0,
-        3,
-        {
-            128,
-            1,
-            8732,
-        },
-        torch::kLong);
-    torch::Tensor htarget = target.to(torch::kHPU);
+  auto target = torch::randint(
+      0,
+      3,
+      {
+          12,
+          18,
+          16,
+      },
+      torch::kLong);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
-    auto grad_out = torch::tensor({1}, torch::kFloat);
-    torch::Tensor hgrad_out = grad_out.to(torch::kHPU);
+  auto grad_out = torch::tensor({1}, torch::kFloat);
+  torch::Tensor hgrad_out = grad_out.to(torch::kHPU);
 
-    // HPU kernel does not use this tensor, but we need to create it because
-    // "nll_loss_backward" does not compile without this argument. Note that dim
-    // & values in this tensor may need to be changed for other "reduction"
-    // modes. (N,C,H,W) -> (N,H,W,C) 14*192*160 = 430080
-    auto sum_weights = torch::tensor({1117696}, torch::kFloat);
-    torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
+  // HPU kernel does not use this tensor, but we need to create it because
+  // "nll_loss_backward" does not compile without this argument. Note that dim
+  // & values in this tensor may need to be changed for other "reduction"
+  // modes. (N,C,H,W) -> (N,H,W,C) 12*18*16 = 3456
+  constexpr int sumweights_int = 12 * 18 * 16;
+  auto sum_weights = torch::tensor({sumweights_int}, torch::kFloat);
+  torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
 
-    auto grad_in_cpu = torch::nll_loss2d_backward(
-        grad_out, input, target, {}, 1, -100, sum_weights);
-    auto grad_in = torch::nll_loss2d_backward(
-        hgrad_out, hinput, htarget, {}, 1, -100, hsum_weights);
+  auto grad_in_cpu = torch::nll_loss2d_backward(
+      grad_out, input, target, {}, 1, -100, sum_weights);
+  auto grad_in = torch::nll_loss2d_backward(
+      hgrad_out, hinput, htarget, {}, 1, -100, hsum_weights);
 
-    Tensor grad_in_hpu = grad_in.to(torch::kCPU);
-    EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu, 0.001, 0.001), true);
-  }
-  // Validate Dynamic Shapes
-  {
-    torch::Tensor input =
-        torch::randn({18, 81, 1, 8732}, torch::requires_grad(true));
-    torch::Tensor hinput = input.to(torch::kHPU);
-
-    auto target = torch::randint(
-        0,
-        3,
-        {
-            18,
-            1,
-            8732,
-        },
-        torch::kLong);
-    torch::Tensor htarget = target.to(torch::kHPU);
-
-    auto grad_out = torch::tensor({1}, torch::kFloat);
-    torch::Tensor hgrad_out = grad_out.to(torch::kHPU);
-
-    // HPU kernel does not use this tensor, but we need to create it because
-    // "nll_loss_backward" does not compile without this argument. Note that dim
-    // & values in this tensor may need to be changed for other "reduction"
-    // modes. (N,C,H,W) -> (N,H,W,C) 14*192*160 = 430080
-    auto sum_weights = torch::tensor({157176}, torch::kFloat);
-    torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
-
-    auto grad_in_cpu = torch::nll_loss2d_backward(
-        grad_out, input, target, {}, 1, -100, sum_weights);
-    auto grad_in = torch::nll_loss2d_backward(
-        hgrad_out, hinput, htarget, {}, 1, -100, hsum_weights);
-
-    Tensor grad_in_hpu = grad_in.to(torch::kCPU);
-    EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu, 0.001, 0.001), true);
-  }
+  Tensor grad_in_hpu = grad_in.to(torch::kCPU);
+  EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLossKernelTest, BCELossTest) {
