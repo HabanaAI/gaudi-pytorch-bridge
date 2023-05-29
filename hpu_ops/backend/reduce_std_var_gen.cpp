@@ -22,12 +22,12 @@ namespace habana {
 
 sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim =
+  auto dims =
       stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
   int ndims = self.sizes().vec().size();
-  LoweringUtil::SortAndRemoveDuplicateDims(dim, ndims);
+  LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
   const bool keepdim = stack.at(3).toBool();
-  return ReductionOutputShape(self, dim, keepdim);
+  return ReductionOutputShape(self, dims, keepdim);
 }
 
 sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack) {
@@ -63,38 +63,43 @@ static int prepareDivisor(
   return divisor - correction;
 }
 
+// checking dim is continuous to avoid reduce_sum
+static bool needsReduceSum(std::vector<int64_t> dimsVec) {
+  const auto num_dim = dimsVec.size();
+
+  for (auto i = 0u; i < num_dim; i++) {
+    if (dimsVec[i] != i) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static at::IntArrayRef prepareDims(std::vector<int64_t>& dimsVec, int ndims) {
+  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
+  return at::IntArrayRef(dimsVec.data(), dimsVec.size());
+}
+
 std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
     const bool keepdim,
-    const at::IntArrayRef dims,
+    at::IntArrayRef dims,
     std::vector<synTensor> input,
     const int correction,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     const bool take_sqrt,
     const bool mean_op) {
   auto input_shape = self.sizes().vec();
-  int ndims = input_shape.size();
+  const int ndims = input_shape.size();
   auto dimsVec = dims.vec();
 
-  // checking dim is continuous to avoid reduce_sum
-  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
-  auto num_dim = dimsVec.size();
-  const bool is_arrdim = num_dim > 1;
-  bool dim_continuous = false;
-  for (auto i = 0u; i < num_dim && is_arrdim; i++) {
-    if (dimsVec[i] == i) {
-      dim_continuous = true;
-    } else {
-      dim_continuous = false;
-      break;
-    }
-  }
-
-  const bool enable_reduce_sum = is_arrdim && !dim_continuous;
+  dims = prepareDims(dimsVec, ndims);
+  const bool enable_reduce_sum = needsReduceSum(dimsVec);
   const bool is_bf16 = op->ScalarType() == torch::kBFloat16;
-  int min_dim = num_dim == 0 ? 0 : dimsVec.front();
+  const int min_dim = (dimsVec.size() == 0) ? 0 : dimsVec.front();
   std::vector<synapse_helpers::tensor> sum;
   std::vector<synapse_helpers::tensor> outputs;
 

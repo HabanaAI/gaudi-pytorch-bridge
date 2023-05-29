@@ -158,21 +158,39 @@ TEST_F(VarStd, std_meankfal) {
 class VarStdWithParametrizedDim : public VarStd,
                                   public testing::WithParamInterface<int> {
  public:
-  void RunSingleDimensionTest(const int dimSize) {
-    GenerateInputs(1, {{dimSize}});
-    torch::ScalarType dtype = torch::kFloat;
-    std::vector<int64_t> dim = {0};
+  void RunDimensionsTest(
+      const torch::ArrayRef<torch::IntArrayRef> dimSizes,
+      const std::vector<int64_t>& selectedDims,
+      bool keepdim = false) {
+    GenerateInputs(dimSizes.size(), dimSizes);
+    constexpr auto correction = 1;
 
-    auto expected = torch::var(GetCpuInput(0), dim, 1, false);
-    auto result = torch::var(GetHpuInput(0), dim, 1, false);
+    auto expected =
+        torch::var(GetCpuInput(0), selectedDims, correction, keepdim);
+    auto result = torch::var(GetHpuInput(0), selectedDims, correction, keepdim);
 
     Compare(expected, result);
   }
 };
 
-TEST_P(VarStdWithParametrizedDim, var_kfal1dWithDifferentDimSizes) {
+TEST_P(VarStdWithParametrizedDim, var_1dWithDifferentDimSizes) {
   const auto dimSize = GetParam();
-  RunSingleDimensionTest(dimSize);
+  RunDimensionsTest({{dimSize}}, {0});
+  RunDimensionsTest({{dimSize}}, {0}, true);
+}
+
+TEST_P(VarStdWithParametrizedDim, var_2dWithDifferentDimSizes) {
+  const auto dimSize = GetParam();
+  RunDimensionsTest({{dimSize, dimSize * 2}}, {0, -1});
+  RunDimensionsTest({{dimSize, dimSize * 2}}, {0, -1}, true);
+  RunDimensionsTest({{dimSize, dimSize * 3}}, {0, 1});
+  RunDimensionsTest({{dimSize, dimSize * 3}}, {0, 1}, true);
+}
+
+TEST_P(VarStdWithParametrizedDim, var_3dWithDifferentDimSizes) {
+  const auto dimSize = GetParam();
+  RunDimensionsTest({{dimSize, dimSize, dimSize * 2}}, {-1, 0, 1});
+  RunDimensionsTest({{dimSize, dimSize, dimSize * 2}}, {-1, 0, 1}, true);
 }
 
 INSTANTIATE_TEST_SUITE_P(
