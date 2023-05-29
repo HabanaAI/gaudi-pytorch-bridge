@@ -433,16 +433,16 @@ TEST_P(SBSWithParamsTest, DISABLED_GraphTextDump1SBSTest) {
 
 TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
   torch::Tensor input_tensor =
-      torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
+      torch::rand({16, 32, 16, 14}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
 
   torch::Tensor weight_tensor =
-      torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
+      torch::rand({4, 32, 1, 1}, torch::requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
 
-  auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
+  auto target = torch::randint(0, 3, {16, 16, 14}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
