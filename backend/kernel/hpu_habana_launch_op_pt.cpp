@@ -2181,10 +2181,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0))
         module_name = std::string(node->scope()->name().toUnqualString()) +
             ".placeholder";
-      auto string_pos = module_name.find('/');
-      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
-      module_name =
-          module_name.substr(string_pos, module_name.length() - string_pos);
       std::replace(module_name.begin(), module_name.end(), '/', '.');
       outputs_metadata.at(0).module_name = module_name;
     }
