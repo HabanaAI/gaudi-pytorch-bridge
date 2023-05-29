@@ -71,15 +71,15 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_compile
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_compile
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_compile
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager
