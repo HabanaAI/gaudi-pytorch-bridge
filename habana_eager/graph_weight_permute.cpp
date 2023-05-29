@@ -38,7 +38,8 @@ void PermuteWeightTensor::PermuteIfNeeded() {
     torch::Tensor weight_cpu{m_weight.to(c10::kCPU)};
     c10::ScalarType dtype{weight_cpu.scalar_type()};
     HABANA_ASSERT(
-        dtype == c10::ScalarType::BFloat16 || dtype == c10::ScalarType::Float,
+        dtype == c10::ScalarType::BFloat16 || dtype == c10::ScalarType::Float ||
+            dtype == c10::ScalarType::Half,
         "Unsupported dtype for weight permutation.");
 
     if (m_tensor_dim == 4) {
@@ -49,6 +50,10 @@ void PermuteWeightTensor::PermuteIfNeeded() {
       if (dtype == c10::ScalarType::Float) {
         PermuteDataToRSCK<float>(weight_cpu);
       }
+      if (dtype == c10::ScalarType::Half) {
+        PermuteDataToRSCK<c10::Half>(weight_cpu);
+      }
+
       new_permutation = weight_rsck_in_memory;
     }
 
