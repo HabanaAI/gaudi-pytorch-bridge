@@ -39,9 +39,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   return out;
 }
 
-void view_propagate_permutation_task(
-    const at::Tensor& base_t,
-    at::Tensor& view_t) {
+void view_propagate_permutation_task(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
 
   auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
@@ -59,7 +57,7 @@ void view_propagate_permutation_task(
       (base_permute.size() != 0) || (!view_t.is_contiguous()));
 }
 
-void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
+void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
   auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
@@ -77,7 +75,11 @@ void view_propagate_permutation(const at::Tensor& base_t, at::Tensor& view_t) {
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     SingleTonEagerContext::getInstance().m_lowering_thread_handle =
         habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
-            view_propagate_permutation_task, base_t, view_t);
+            view_propagate_permutation_task,
+            std::move(base_t),
+            std::move(view_t));
+  } else {
+    view_propagate_permutation_task(std::move(base_t), std::move(view_t));
   }
 }
 
