@@ -2250,6 +2250,7 @@ div.Scalar:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: div
+  op_frontend: BinaryScalarToTensor_Int2Float
   out_ids: [0]
   scalar_ids: [1]
   promote_int_to_float: [self, other]
