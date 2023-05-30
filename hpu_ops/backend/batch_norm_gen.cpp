@@ -162,8 +162,12 @@ sizes_vec BatchNormFwdOutputShape(const at::Stack& stack) {
 sizes_vec BatchNormBwdOutputShape(const at::Stack& stack) {
   using namespace BNBwd;
   auto input_grad_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  auto weight_grad_sv = stack[WEIGHT_IDX].toTensor().sizes().vec();
-  auto bias_grad_sv = stack[WEIGHT_IDX].toTensor().sizes().vec();
+  auto weight_grad_sv = stack[WEIGHT_IDX].isTensor()
+      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
+      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
+  auto bias_grad_sv = stack[WEIGHT_IDX].isTensor()
+      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
+      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
   return {input_grad_sv, weight_grad_sv, bias_grad_sv};
 }
 
