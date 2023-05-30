@@ -1,6 +1,5 @@
 import os
 import torch
-import logging
 from typing import Tuple
 
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR

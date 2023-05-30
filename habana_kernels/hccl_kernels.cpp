@@ -12,6 +12,7 @@
  */
 #include "habana_kernels/hccl_kernels.h"
 #include <ATen/ATen.h>
+#include <c10/util/Exception.h>
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include "backend/helpers/create_tensor.h"
@@ -156,9 +157,12 @@ void collective(
     synapse_helpers::event_done_callback done_cb,
     Fn fn) {
   for (size_t i = 0; i < inputs.size(); ++i) {
+    TORCH_CHECK(
+        devices.at(i) == 0,
+        "All tensors are expected to be assigned to device with id 0");
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
-    auto deviceCtxt = comm->getDeviceCtxt(devices.at(i));
-    synStreamHandle collective_stream = comm->getCommStream(devices.at(i));
+    auto deviceCtxt = comm->getDeviceCtxt();
+    synStreamHandle collective_stream = comm->getCommStream();
 
     synapse_helpers::device_ptr input_storage_ptr =
         (synapse_helpers::device_ptr)inputs.at(i)->get_buffer_start();
@@ -272,9 +276,12 @@ void pointToPoint(
     Fn fn,
     int peerRank) {
   for (size_t i = 0; i < tensors.size(); ++i) {
+    TORCH_CHECK(
+        devices.at(i) == 0,
+        "All tensors are expected to be assigned to device with id 0");
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
-    auto deviceCtxt = comm->getDeviceCtxt(devices.at(i));
-    synStreamHandle collective_stream = comm->getCommStream(devices.at(i));
+    auto deviceCtxt = comm->getDeviceCtxt();
+    synStreamHandle collective_stream = comm->getCommStream();
 
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors.at(i)->get_buffer_start();

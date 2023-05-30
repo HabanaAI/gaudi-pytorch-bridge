@@ -19,7 +19,9 @@
 #include <utility>
 #include <vector>
 
+#include <unistd.h>
 #include "backend/helpers/collective_utils.h"
+#include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
@@ -183,9 +185,11 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
 
   for (auto& input_output : collective_ctx.tensors()) {
     at::Tensor& tensor = input_output.first;
-    auto device = tensor.get_device();
-    auto deviceCtxt = comm_->getDeviceCtxt(device);
-    synStreamHandle collective_stream = comm_->getCommStream(device);
+    TORCH_CHECK(
+        tensor.get_device() == 0,
+        "All tensors are expected to be assigned to device with id 0");
+    auto deviceCtxt = comm_->getDeviceCtxt();
+    synStreamHandle collective_stream = comm_->getCommStream();
 
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensor.storage().data_ptr().get();
@@ -252,9 +256,11 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
       continue;
     }
 
-    auto device = input.get_device();
-    auto deviceCtxt = comm_->getDeviceCtxt(device);
-    synStreamHandle collective_stream = comm_->getCommStream(device);
+    TORCH_CHECK(
+        input.get_device() == 0 && output.get_device() == 0,
+        "All tensors are expected to be assigned to device with id 0");
+    auto deviceCtxt = comm_->getDeviceCtxt();
+    synStreamHandle collective_stream = comm_->getCommStream();
 
     synapse_helpers::device_ptr input_storage_ptr =
         (synapse_helpers::device_ptr)input.storage().data_ptr().get();
@@ -315,11 +321,8 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
   PT_DISTRIBUTED_BEGIN;
   hostBarrier();
 
-  auto comm = habana::HcclCommunicator::Get(comm_->GetId());
-  std::vector<synStreamHandle> collective_streams = comm->getCommStreams();
-  for (size_t i = 0; i < collective_streams.size(); i++) {
-    hcclBarrier(*comm->GetHcclHandle(), collective_streams.at(i));
-  }
+  synStreamHandle collective_stream = comm_->getCommStream();
+  hcclBarrier(*comm_->GetHcclHandle(), collective_stream);
 
   PT_DISTRIBUTED_END;
   return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>();
@@ -374,4 +377,20 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
                        int,
                        int,
                        std::chrono::milliseconds>());
+
+  // This cleanup is performed in order to ensure that all events have been
+  // handled (all tensors connected with pending events are deallocated) before
+  // Python interpreter finalization. If tensor is deallocated when interpreter
+  // is down or is going down (finalizing) then cPython may issue std::terminate
+  // (abort), what will be observed in DFA report.
+  py::cpp_function cleanup = []() {
+    int hccl_comms_num = habana::HcclCommunicator::Count();
+    auto gil_release = pybind11::gil_scoped_release();
+    for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num; hccl_comm_id++) {
+      std::shared_ptr<habana::HcclCommunicator> hccl_comm =
+          habana::HcclCommunicator::Get(hccl_comm_id);
+      hccl_comm->flush_stream();
+    }
+  };
+  py::module::import("atexit").attr("register")(cleanup);
 };

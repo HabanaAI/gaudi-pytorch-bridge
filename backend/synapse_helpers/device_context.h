@@ -90,6 +90,12 @@ class device_context : std::enable_shared_from_this<device_context> {
   hcclResult_t synchronize_output(synapse_helpers::device_ptr output_address);
   hcclResult_t barrier();
 
+  void flush_stream_events() {
+    if (device_) {
+      device_->flush_stream_events();
+    }
+  }
+
  private:
   uint32_t get_sync_tag() const {
     sync_tag_++;
