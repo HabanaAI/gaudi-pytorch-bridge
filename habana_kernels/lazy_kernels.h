@@ -650,12 +650,18 @@ class LazyOp {
         is_view = viewUpdateInputsProcessSingleTensor(t, idx);
       } else if (ival.isTensorList()) {
         auto tl = ival.toTensorVector();
+        std::vector<at::Tensor> updated_t_list;
         for (size_t i = 0; i < tl.size(); ++i) {
           auto& t = tl[i];
           if (viewUpdateInputsProcessSingleTensor(t, idx)) {
             is_view = true;
+            updated_t_list.push_back(t);
+          } else {
+            auto t_updated = HbLazyTensorViews::get_recent_base_tensor(t);
+            updated_t_list.push_back(t_updated);
           }
         } // for( size_t
+        ival = updated_t_list;
       }
 
       idx++;
