@@ -499,8 +499,6 @@ class tensor final {
   synDeviceId device_id_;
   synDataType data_type_;
   synQuantDynamicRange dynamic_range_{0, 0};
-  synQuantZPScale zp_scale_{0, 1.0};
-  synQuantZPScale zpScales_[1] = {zp_scale_};
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
   dynamic_shape_t shape_;

@@ -365,27 +365,6 @@ synapse_error_o tensor::create() {
         dynamic_range_.max);
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && !have_quantization_data_ &&
-      tensor_type_ == DATA_TENSOR &&
-      (data_type_ == syn_type_uint8 || data_type_ == syn_type_int8)) {
-    auto numZPScales = sizeof(zpScales_) / sizeof(zpScales_[0]);
-    synQuantMetadata quantMD_;
-    quantMD_.dataType = data_type_;
-    quantMD_.zpScales = zpScales_;
-    quantMD_.numZPScales = numZPScales;
-    status = synTensorSetQuantizationData(
-        tensor_, SYN_QUANT_METADATA, &quantMD_, sizeof(quantMD_));
-    SYNAPSE_SUCCESS_CHECK_WITH_OP(
-        "synTensorSetQuantizationData failed.", status, cleanup());
-    PT_SYNHELPER_DEBUG(
-        "syn Tensor Quantization metadata set ",
-        tensor_name_,
-        " ",
-        zp_scale_.zp,
-        " ",
-        zp_scale_.scale);
-  }
-
   synTensorGeometryExt maxGeometry;
   // Add tensor dimension via synTensorGeometryExt
   // Max geometry is also used as the actual geometry. In synapse side,
