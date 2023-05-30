@@ -77,11 +77,26 @@ at::Tensor fused_norm_hpu_wrap(
     float norm_type) {
   auto FusedNormMeta = [](const at::Stack& stack) {
     OutputMetaDataVector meta_vec;
-    OutputMetaData meta;
-    const Tensor& grad = stack[0].toTensorList()[0];
-    meta.dtype = grad.scalar_type();
-    meta.shape = grad.sizes().vec();
-    meta_vec.resize(stack[0].toTensorList().size() + 1, meta);
+
+    auto grads = stack[0].toTensorList();
+    meta_vec.reserve(grads.size() + 1);
+
+    {
+      // First and second element in the meta_vec vector should be the same
+      OutputMetaData meta;
+      const at::Tensor& grad = grads[0];
+      meta.dtype = grad.scalar_type();
+      meta.shape = grad.sizes().vec();
+      meta_vec.push_back(meta);
+    }
+
+    for (const at::Tensor& grad : grads) {
+      OutputMetaData meta;
+      meta.dtype = grad.scalar_type();
+      meta.shape = grad.sizes().vec();
+      meta_vec.push_back(meta);
+    }
+
     return meta_vec;
   };
 
