@@ -399,6 +399,7 @@ TEST(TestStream, HPUEventSyncTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
+  device.synchronize();
   auto num_hpus = device.get_count_by_current_type();
   if (num_hpus == 0)
     return;
