@@ -150,3 +150,23 @@ def test_to_copy_dtype(mode):
         result_cpu = raw_function(cpu_tensor, dtype)
         result_hpu = raw_function(hpu_tensor, dtype).to("cpu")
         assert torch.equal(result_cpu, result_hpu)
+
+@pytest.mark.parametrize("dim", [0, 1, 2, [0, 1], [0, 2], [1, 2], [0, 1, 2]])
+@pytest.mark.parametrize("unbiased", [True, False])
+@pytest.mark.parametrize("keepdim", [False, True])
+def test_var_dim(mode, dim, unbiased, keepdim):
+    def raw_function(x):
+        return torch.var(x, dim=dim, unbiased=unbiased, keepdim=keepdim)
+
+    cpu_tensor = torch.randn(2, 3, 4)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    if mode == "graph":
+        result_nocompile = raw_function(hpu_tensor).to("cpu")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        result_compile = compiled_function_training(hpu_tensor).to("cpu")
+        assert torch.allclose(result_nocompile, result_compile, rtol=1e-3, atol=1e-3)
+    else:
+        result_cpu = raw_function(cpu_tensor)
+        result_hpu = raw_function(hpu_tensor).to("cpu")
+        assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
