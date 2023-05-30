@@ -195,6 +195,12 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
             layouts = [None]
 
             node.type = int
+        elif type(result) is torch.SymFloat:
+            device = torch.device("cpu")
+            dtypes = [None]
+            layouts = [None]
+
+            node.type = float
         else:
             devices = []
             for res in result:
