@@ -32,7 +32,6 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   int elements = self.numel();
   at::TensorOptions hb_options = self.options();
   hb_options = hb_options.dtype(c10::ScalarType::Long);
-
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {
     auto shape = c10::DimVector({dimensions}); // DimVector{0, dimensions};
@@ -51,7 +50,6 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
     meta.at(1).dtype = at::ScalarType::Int;
     return meta;
   };
-
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::nonzero_eager",
       {self},
@@ -61,20 +59,18 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   auto result_nonzero = hpu_op.call();
   auto where_tensor = std::get<0>(result_nonzero);
   auto shape_tensor = std::get<1>(result_nonzero);
-
   // Select second element from shape tensor
   // auto end_tensor = slice_shape_tensor(shape_tensor);
   auto end_tensor = at::select(shape_tensor, 0, 1);
   // .item() internally triggers a mark_step
   auto end = end_tensor.item<int64_t>();
-
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
-    auto shape = c10::DimVector({0, dimensions});
+    // auto shape = c10::DimVector({0, dimensions});
+    auto shape = c10::DimVector({});
     auto output = at::empty(shape, hb_options, c10::nullopt);
     return output;
   }
-
   // Add a slice node to capture relevent elements from nonzero node
   // in case we have relevant elements
   auto result = at::slice(where_tensor, 0, 0, end, 1);

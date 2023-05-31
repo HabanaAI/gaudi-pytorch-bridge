@@ -302,6 +302,7 @@ at::Tensor& _index_put_impl_eager(
     bool unsafe) {
   c10::List<c10::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
+
   if (advanced_indexing) {
     // if we have boolean mask tensors, convert them to long int indices
     indices = check_for_boolean_advanced_indexing(indices_in);
@@ -350,7 +351,6 @@ at::Tensor& _index_put_impl_eager(
       }
     }
   }
-
   std::vector<c10::optional<at::Tensor>> indices_out_opt_vec;
   for (auto ind : indices_vec) {
     if (ind.defined()) {
@@ -365,7 +365,10 @@ at::Tensor& _index_put_impl_eager(
     indices_vec.push_back(input.value());
   }
 
-  auto isIndicesBool = indices_vec[0].scalar_type() == c10::ScalarType::Bool;
+  const bool areAllIndicesBool =
+      std::all_of(indices_vec.cbegin(), indices_vec.cend(), [](const auto& i) {
+        return i.scalar_type() == c10::ScalarType::Bool;
+      });
   auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
@@ -381,19 +384,31 @@ at::Tensor& _index_put_impl_eager(
       return self;
     }
   }
-  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
-    // Fallback to CPU for the time being for PT2.0
-    FALLBACK_UNSUPPORTED_OP2(
-        _index_put_impl_, PARAMS2(self, indices_in, value, accumulate, unsafe));
+  std::vector<at::Tensor> indices_vec_out{};
+  at::Tensor nzt;
+
+  if (areAllIndicesBool) {
+    for (size_t i = 0; i < indices_vec.size(); i++) {
+      auto ind = indices_vec.at(i);
+      at::Tensor nz = ind.nonzero();
+      std::vector<at::Tensor> list;
+      if (!nz.dim()) { // bool mask has all False entries
+        return self;
+      } else
+        nzt = at::nonzero(indices_vec.at(i));
+      indices_vec_out.emplace_back(nzt);
+    }
   }
+
+  at::TensorList indices_final =
+      areAllIndicesBool ? indices_vec_out : indices_vec;
   if (habana_helpers::GetRefineDynamicShapeStatus() ||
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     TORCH_WARN(
         "index_put: PT2.0: Dynamic shape handling - not expected to hit this condition?");
   }
-
   habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::_index_put_impl_eager", {self, indices_vec, value, accumulate}};
+      "hpu::_index_put_impl_eager", {self, indices_final, value, accumulate}};
   auto result = hpu_op.call();
   self.copy_(result);
   return self;
