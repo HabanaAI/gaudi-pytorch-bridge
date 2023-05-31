@@ -22,6 +22,7 @@
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/run_maybe_with_acc_thread.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
@@ -1218,7 +1219,7 @@ void optimizer_lars_hpu_wrap(
       [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
       -1};
 
-  hpu_op.call(grads);
+  runInplaceMaybeWithAccThread("hpu::optimizer_lars", std::move(hpu_op), grads);
 }
 
 void optimizer_resource_apply_momentum_hpu_wrap(
@@ -1237,7 +1238,10 @@ void optimizer_resource_apply_momentum_hpu_wrap(
       [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
       -1};
 
-  hpu_op.call(params_momentum_buf_list);
+  runInplaceMaybeWithAccThread(
+      "hpu::optimizer_resource_apply_momentum",
+      std::move(hpu_op),
+      params_momentum_buf_list);
 }
 
 Tensor torchvision_nms_hpu_wrap(
