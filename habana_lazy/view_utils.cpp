@@ -365,7 +365,7 @@ HbLazyTensor HbLazyTensorViews::HandleViewsOrUpdate(
 }
 
 std::vector<Tensor> HbLazyTensorViews::HandleViewsTensorList(
-    const TensorList& in_list) {
+    const TensorList in_list) {
   std::vector<Tensor> updated_t_list;
 
   for (auto t : in_list) {

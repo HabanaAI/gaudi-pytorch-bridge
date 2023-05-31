@@ -20,36 +20,40 @@ void runResourceApplyMomentumOptTest(
     int num_params,
     int M,
     int N,
-    double momentum) {
+    double momentum,
+    bool enable_views) {
   const bool verbose = false;
 
   torch::manual_seed(0);
 
   struct Data {
-    std::vector<torch::Tensor> params_momentum_buf_list;
-    std::vector<torch::Tensor> dp_list;
+    std::vector<TensorAndView> params_momentum_buf_list;
+    std::vector<TensorAndView> dp_list;
   } cpu, hpu;
 
   for (auto i = 0; i < num_params; ++i) {
+    bool use_views = enable_views && (i == num_params / 2);
+
     auto params_in = torch::randn({M, N});
     dump_tensor<float>(
         "params_in[" + std::to_string(i) + "]", params_in, verbose);
     PushBackHpuAndCpuTensors(
-        params_in, hpu, cpu, &Data::params_momentum_buf_list);
+        params_in, hpu, cpu, &Data::params_momentum_buf_list, use_views);
 
     auto momentum_in = torch::randn({M, N});
     dump_tensor<float>(
         "momentum_in[" + std::to_string(i) + "]", momentum_in, verbose);
     PushBackHpuAndCpuTensors(
-        momentum_in, hpu, cpu, &Data::params_momentum_buf_list);
+        momentum_in, hpu, cpu, &Data::params_momentum_buf_list, use_views);
 
     auto dp_in = torch::randn({M, N});
     dump_tensor<float>("dp_in[" + std::to_string(i) + "]", dp_in, verbose);
-    PushBackHpuAndCpuTensors(dp_in, hpu, cpu, &Data::dp_list);
+    PushBackHpuAndCpuTensors(dp_in, hpu, cpu, &Data::dp_list, use_views);
   }
 
-  torch::TensorList params_momentum_buf_list(hpu.params_momentum_buf_list);
-  torch::TensorList dp_list(hpu.dp_list);
+  auto params_momentum_buf_list =
+      TensorAndViewVecToViewVec(hpu.params_momentum_buf_list);
+  auto dp_list = TensorAndViewVecToViewVec(hpu.dp_list);
 
   optimizer_resource_apply_momentum_hpu_wrap(
       params_momentum_buf_list, dp_list, momentum);
@@ -59,8 +63,9 @@ void runResourceApplyMomentumOptTest(
     const auto i2 = 2 * i;
     const auto i2p1 = i2 + 1;
 
-    cpu.params_momentum_buf_list[i2p1].mul_(momentum).sub_(cpu.dp_list[i]);
-    cpu.params_momentum_buf_list[i2].add_(cpu.params_momentum_buf_list[i2p1]);
+    cpu.params_momentum_buf_list[i2p1].t.mul_(momentum).sub_(cpu.dp_list[i].t);
+    cpu.params_momentum_buf_list[i2].t.add_(
+        cpu.params_momentum_buf_list[i2p1].t);
   }
 
   bool equal = true;
@@ -96,33 +101,36 @@ void runLarsOptTest(
     double eps,
     double lr,
     bool params_zero,
-    bool grads_zero) {
+    bool grads_zero,
+    bool enable_views) {
   const bool verbose = false;
 
   torch::manual_seed(0);
 
   struct Data {
-    std::vector<torch::Tensor> params;
-    std::vector<torch::Tensor> grads;
+    std::vector<TensorAndView> params;
+    std::vector<TensorAndView> grads;
   } cpu, hpu;
 
   std::vector<long> shape =
       (N > 1) ? std::vector<long>{M, N} : std::vector<long>{M};
 
   for (auto i = 0; i < num_params; ++i) {
+    bool use_views = enable_views && (i == num_params / 2);
+
     auto params_in = params_zero ? torch::zeros(shape) : torch::randn(shape);
     dump_tensor<float>(
         "params_in[" + std::to_string(i) + "]", params_in, verbose);
-    PushBackHpuAndCpuTensors(params_in, hpu, cpu, &Data::params);
+    PushBackHpuAndCpuTensors(params_in, hpu, cpu, &Data::params, use_views);
 
     auto grads_in = grads_zero ? torch::zeros(shape) : torch::randn(shape);
     dump_tensor<float>(
         "grads_in[" + std::to_string(i) + "]", grads_in, verbose);
-    PushBackHpuAndCpuTensors(grads_in, hpu, cpu, &Data::grads);
+    PushBackHpuAndCpuTensors(grads_in, hpu, cpu, &Data::grads, use_views);
   }
 
-  torch::TensorList params(hpu.params);
-  torch::TensorList grads(hpu.grads);
+  auto params = TensorAndViewVecToViewVec(hpu.params);
+  auto grads = TensorAndViewVecToViewVec(hpu.grads);
 
   optimizer_lars_hpu_wrap(
       params, grads, skip_masks, eeta, weight_decay, eps, lr);
@@ -130,10 +138,10 @@ void runLarsOptTest(
   // CPU calculations
   for (auto i = 0; i < num_params; i++) {
     if (!skip_masks[i]) {
-      cpu.grads[i].mul_(lr);
+      cpu.grads[i].t.mul_(lr);
     } else {
-      auto params_norm = cpu.params[i].square().sum().sqrt();
-      auto grads_norm = cpu.grads[i].square().sum().sqrt();
+      auto params_norm = cpu.params[i].t.square().sum().sqrt();
+      auto grads_norm = cpu.grads[i].t.square().sum().sqrt();
       auto params_norm_positive = params_norm.greater(0.0);
       auto grads_norm_positive = grads_norm.greater(0.0);
       auto nominator = params_norm.mul(eeta);
@@ -143,10 +151,10 @@ void runLarsOptTest(
           grads_norm_positive,
           torch::where(params_norm_positive, division, 1.0),
           1.0);
-      cpu.grads[i] = cpu.params[i]
-                         .mul(weight_decay)
-                         .add(cpu.grads[i])
-                         .mul(selection.mul(lr));
+      cpu.grads[i].t = cpu.params[i]
+                           .t.mul(weight_decay)
+                           .add(cpu.grads[i].t)
+                           .mul(selection.mul(lr));
     }
   }
 
@@ -183,41 +191,39 @@ void runLambPhase2OptimizerTest(
   float step = 0.1;
 
   struct Data {
-    std::vector<torch::Tensor> weights_vec;
-    std::vector<torch::Tensor> adam_norms_vec;
-    std::vector<torch::Tensor> weight_norms_vec;
-    std::vector<torch::Tensor> adam_steps_vec;
+    std::vector<TensorAndView> weights_vec;
+    std::vector<TensorAndView> adam_norms_vec;
+    std::vector<TensorAndView> weight_norms_vec;
+    std::vector<TensorAndView> adam_steps_vec;
   } cpu, hpu;
 
   for (auto i = 0; i < num_params; ++i) {
-    auto weight = with_view ? torch::randn({M * N}) : torch::randn({M, N});
+    auto weight = torch::randn({M, N});
     dump_tensor<float>("weight_in[" + std::to_string(i) + "]", weight, verbose);
-    PushBackHpuAndCpuTensors(weight, hpu, cpu, &Data::weights_vec);
-    if (with_view) {
-      cpu.weights_vec[i] = cpu.weights_vec[i].view({M, N});
-      hpu.weights_vec[i] = hpu.weights_vec[i].view({M, N});
-    }
+    PushBackHpuAndCpuTensors(weight, hpu, cpu, &Data::weights_vec, with_view);
 
     auto adam_norm = torch::rand({1});
     dump_tensor<float>(
         "adam_norm_in[" + std::to_string(i) + "]", adam_norm, verbose);
-    PushBackHpuAndCpuTensors(adam_norm, hpu, cpu, &Data::adam_norms_vec);
+    PushBackHpuAndCpuTensors(adam_norm, hpu, cpu, &Data::adam_norms_vec, false);
 
     auto weight_norm = torch::rand({1});
     dump_tensor<float>(
         "weight_norm_in[" + std::to_string(i) + "]", weight_norm, verbose);
-    PushBackHpuAndCpuTensors(weight_norm, hpu, cpu, &Data::weight_norms_vec);
+    PushBackHpuAndCpuTensors(
+        weight_norm, hpu, cpu, &Data::weight_norms_vec, false);
 
     auto adam_step = torch::randn({M, N});
     dump_tensor<float>(
         "adam_step_in[" + std::to_string(i) + "]", adam_step, verbose);
-    PushBackHpuAndCpuTensors(adam_step, hpu, cpu, &Data::adam_steps_vec);
+    PushBackHpuAndCpuTensors(
+        adam_step, hpu, cpu, &Data::adam_steps_vec, with_view);
   }
 
-  torch::TensorList weights(hpu.weights_vec);
-  torch::TensorList adam_norms(hpu.adam_norms_vec);
-  torch::TensorList weight_norms(hpu.weight_norms_vec);
-  torch::TensorList adam_steps(hpu.adam_steps_vec);
+  auto weights = TensorAndViewVecToViewVec(hpu.weights_vec);
+  auto adam_norms = TensorAndViewVecToViewVec(hpu.adam_norms_vec);
+  auto weight_norms = TensorAndViewVecToViewVec(hpu.weight_norms_vec);
+  auto adam_steps = TensorAndViewVecToViewVec(hpu.adam_steps_vec);
 
   habana_lazy::optimizer_lamb_fused_phase2(
       weights,
@@ -232,13 +238,13 @@ void runLambPhase2OptimizerTest(
   for (int i = 0; i < num_params; i++) {
     torch::Tensor trust_ratio = torch::ones(1);
     if ((weight_decay != 0 || use_lamb) &&
-        (cpu.adam_norms_vec[i][0].item<float>() > 0) &&
-        (cpu.weight_norms_vec[i][0].item<float>() > 0)) {
-      trust_ratio = cpu.weight_norms_vec[i] / cpu.adam_norms_vec[i];
+        (cpu.adam_norms_vec[i].t[0].item<float>() > 0) &&
+        (cpu.weight_norms_vec[i].t[0].item<float>() > 0)) {
+      trust_ratio = cpu.weight_norms_vec[i].t / cpu.adam_norms_vec[i].t;
     }
-    cpu.adam_steps_vec[i] *= -step * trust_ratio;
-    cpu.weights_vec[i] =
-        torch::add(cpu.weights_vec[i], cpu.adam_steps_vec[i], 1.0);
+    cpu.adam_steps_vec[i].t *= -step * trust_ratio;
+    cpu.weights_vec[i].t =
+        torch::add(cpu.weights_vec[i].t, cpu.adam_steps_vec[i].t, 1.0);
   }
 
   bool equal = true;

@@ -70,31 +70,39 @@ void dump_tensors(
   }
 }
 
+struct TensorAndView {
+  torch::Tensor t;
+  torch::Tensor view;
+};
+
+std::vector<torch::Tensor> TensorAndViewVecToViewVec(
+    const std::vector<TensorAndView>&);
+
 template <class T>
 bool CompareTensors(
     const std::string& label,
     int id,
-    torch::Tensor hpu,
-    torch::Tensor cpu,
+    const TensorAndView& hpu,
+    const TensorAndView& cpu,
     bool verbose,
     float atol,
     float rtol) {
-  auto hpu_on_cpu = hpu.to(torch::kCPU);
+  auto hpu_on_cpu = hpu.t.to(torch::kCPU);
   dump_tensors<T>(
-      label + "[" + std::to_string(id) + "]", hpu_on_cpu, cpu, verbose);
-  return cpu.allclose(hpu_on_cpu, atol, rtol);
+      label + "[" + std::to_string(id) + "]", hpu_on_cpu, cpu.t, verbose);
+  return cpu.t.allclose(hpu_on_cpu, atol, rtol);
 };
 
 template <class U>
-torch::Tensor AccessTensorForCompareFewTensors(
+const TensorAndView& AccessTensorForCompareFewTensors(
     const U& v,
-    std::vector<torch::Tensor> U::*pmTensorVec,
+    std::vector<TensorAndView> U::*pmTensorAndViewVec,
     int idInVec) {
-  return (v.*pmTensorVec)[idInVec];
+  return (v.*pmTensorAndViewVec)[idInVec];
 }
 
 template <class U, class V>
-torch::Tensor AccessTensorForCompareFewTensors(
+const TensorAndView& AccessTensorForCompareFewTensors(
     const U& v,
     const std::pair<V, int>& pair,
     int) {
@@ -158,8 +166,17 @@ void PushBackHpuAndCpuTensors(
     torch::Tensor src,
     T& hpu,
     T& cpu,
-    std::vector<torch::Tensor> T::*pmTensorVec) {
-  (cpu.*pmTensorVec).push_back(src);
-  auto src_on_hpu = src.to(torch::kHPU);
-  (hpu.*pmTensorVec).push_back(src_on_hpu);
+    std::vector<TensorAndView> T::*pmTensorAndViewVec,
+    bool onHpuMakeView) {
+  if (onHpuMakeView) {
+    auto src_flat = src.flatten();
+    (cpu.*pmTensorAndViewVec).push_back({src_flat, src_flat});
+    auto src_flat_on_hpu = src_flat.to(torch::kHPU);
+    auto src_on_hpu = src_flat_on_hpu.view(src.sizes());
+    (hpu.*pmTensorAndViewVec).push_back({src_flat_on_hpu, src_on_hpu});
+  } else {
+    (cpu.*pmTensorAndViewVec).push_back({src, src});
+    auto src_on_hpu = src.to(torch::kHPU);
+    (hpu.*pmTensorAndViewVec).push_back({src_on_hpu, src_on_hpu});
+  }
 }

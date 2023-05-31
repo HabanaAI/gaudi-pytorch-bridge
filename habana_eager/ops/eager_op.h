@@ -21,6 +21,7 @@
 
 #include "backend/habana_device/HPUStream.h"
 #include "backend/jit_graph_cache.h"
+#include "common/list_of_lists_custom_iterator.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_helpers/dtype_helpers.h"
@@ -331,62 +332,53 @@ class EagerOp : public EagerOpBase {
   }
 
   template <typename T = ReturnType, class U>
-  typename std::enable_if<std::is_void<T>::value, T>::type call_internal(
-      U tensors,
+  typename std::enable_if<std::is_void<T>::value, T>::type call_internal_lists(
+      U list,
       const char* label) {
     PT_EAGER_DEBUG(
         "Eager call void ( ", label, " ) :: ", m_symbol.toQualString());
 
     std::vector<OutputSpec> out_spec;
-    for (const auto& tensor : tensors) {
-      HABANA_ASSERT(
-          tensor.device().type() == at::kHPU,
-          "Got a non-HPU tensor, expecting an HPU tensor");
+    size_t tensors_size = 0;
+    common::ListOfListsCustomIterator<U> customIt(list);
+    if (!customIt.empty()) {
+      do {
+        auto tensors = customIt.get_next_item();
+        tensors_size += tensors.size();
+        for (const auto& tensor : tensors) {
+          HABANA_ASSERT(
+              tensor.device().type() == at::kHPU,
+              "Got a non-HPU tensor, expecting an HPU tensor");
 
-      out_spec.emplace_back(
-          OutputSpec{tensor.scalar_type(), tensor.device(), tensor.sizes()});
+          out_spec.emplace_back(OutputSpec{
+              tensor.scalar_type(), tensor.device(), tensor.sizes()});
+        }
+      } while (customIt.has_more_items());
     }
 
     auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == tensors.size());
+    HABANA_ASSERT(stack.size() == tensors_size);
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList tensors) {
-    return call_internal<T>(tensors, "1x TensorList");
+    return call_internal_lists<T>(tensors, "1x TensorList");
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::Tensor>& tensors) {
-    return call_internal<T, const std::vector<at::Tensor>&>(
-        tensors, "const ref std::vector<at::Tensor>");
+    return call_internal_lists<T>(
+        at::TensorList{tensors}, "const ref std::vector<at::Tensor>");
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::TensorList>& tensorlists) {
-    PT_EAGER_DEBUG(
-        "Eager call void ( const ref std::vector<at::TensorList> ) :: ",
-        m_symbol.toQualString());
-
-    std::vector<OutputSpec> out_spec;
-    size_t tensors_size = 0;
-    for (auto&& tensors : tensorlists) {
-      tensors_size += tensors.size();
-      for (const auto& tensor : tensors) {
-        HABANA_ASSERT(
-            tensor.device().type() == at::kHPU,
-            "Got a non-HPU tensor, expecting an HPU tensor");
-
-        out_spec.emplace_back(
-            OutputSpec{tensor.scalar_type(), tensor.device(), tensor.sizes()});
-      }
-    }
-
-    auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == tensors_size);
+    return call_internal_lists<T>(
+        c10::ArrayRef<at::TensorList>{tensorlists},
+        "const ref std::vector<at::TensorList>");
   }
 
   template <typename T = ReturnType>

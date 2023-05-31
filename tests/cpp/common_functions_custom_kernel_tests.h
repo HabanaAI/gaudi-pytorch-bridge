@@ -19,11 +19,12 @@ void runResourceApplyMomentumOptTest(
     int num_params,
     int M,
     int N,
-    double momentum);
+    double momentum,
+    bool enable_views);
 
-#define RESOURCE_APPLY_MOMENTUM_OPT_TEST(BASE)     \
-  TEST_F(BASE, ResourceApplyMomentumOptTest) {     \
-    runResourceApplyMomentumOptTest(2, 4, 4, 0.9); \
+#define RESOURCE_APPLY_MOMENTUM_OPT_TEST(BASE, ENA_VW)     \
+  TEST_F(BASE, ResourceApplyMomentumOptTest) {             \
+    runResourceApplyMomentumOptTest(2, 4, 4, 0.9, ENA_VW); \
   }
 
 void runLarsOptTest(
@@ -36,20 +37,29 @@ void runLarsOptTest(
     double eps,
     double lr,
     bool params_zero,
-    bool grads_zero);
+    bool grads_zero,
+    bool enable_views);
 
-#define LARS_OPT_TEST(BASE)                                               \
-  TEST_F(BASE, LarsOptTest) {                                             \
-    runLarsOptTest(3, 4, 4, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, false, false); \
-  }                                                                       \
-  TEST_F(BASE, LarsOptTestParamsZero) {                                   \
-    runLarsOptTest(3, 4, 4, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, true, false);  \
-  }                                                                       \
-  TEST_F(BASE, LarsOptTestGradsZero) {                                    \
-    runLarsOptTest(3, 4, 4, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, false, true);  \
-  }                                                                       \
-  TEST_F(BASE, LarsOptTest1D) {                                           \
-    runLarsOptTest(3, 8, 1, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, false, false); \
+#define LARS_OPT_TEST(BASE, ENA_VW)                                    \
+  TEST_F(BASE, LarsOptTest) {                                          \
+    runLarsOptTest(                                                    \
+        3, 4, 4, {1, 1, 0}, 0.9, 0.8, 0.1, 0.7, false, false, ENA_VW); \
+  }                                                                    \
+  TEST_F(BASE, LarsOptTestViewOnMasked) {                              \
+    runLarsOptTest(                                                    \
+        3, 4, 4, {1, 0, 1}, 0.9, 0.8, 0.1, 0.7, false, false, ENA_VW); \
+  }                                                                    \
+  TEST_F(BASE, LarsOptTestParamsZero) {                                \
+    runLarsOptTest(                                                    \
+        3, 4, 4, {1, 1, 0}, 0.9, 0.8, 0.1, 0.7, true, false, ENA_VW);  \
+  }                                                                    \
+  TEST_F(BASE, LarsOptTestGradsZero) {                                 \
+    runLarsOptTest(                                                    \
+        3, 4, 4, {1, 1, 0}, 0.9, 0.8, 0.1, 0.7, false, true, ENA_VW);  \
+  }                                                                    \
+  TEST_F(BASE, LarsOptTest1D) {                                        \
+    runLarsOptTest(                                                    \
+        3, 8, 1, {1, 1, 0}, 0.9, 0.8, 0.1, 0.7, false, false, ENA_VW); \
   }
 
 void runLambPhase2OptimizerTest(
@@ -64,15 +74,12 @@ void runLambPhase2OptimizerTest(
   TEST_F(BASE, LambPhase2Test) {                            \
     runLambPhase2OptimizerTest(2, 4, 3, 0.9, true, false);  \
   }                                                         \
-                                                            \
   TEST_F(BASE, LambPhase2TestNoWd) {                        \
     runLambPhase2OptimizerTest(2, 4, 3, 0.0, true, false);  \
   }                                                         \
-                                                            \
   TEST_F(BASE, LambPhase2TestNoLamb) {                      \
     runLambPhase2OptimizerTest(2, 4, 3, 0.9, false, false); \
   }                                                         \
-                                                            \
   TEST_F(BASE, LambPhase2TestWithView) {                    \
     runLambPhase2OptimizerTest(2, 4, 3, 0.9, true, true);   \
   }

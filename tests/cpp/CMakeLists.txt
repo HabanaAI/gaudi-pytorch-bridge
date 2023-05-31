@@ -219,6 +219,7 @@ set(hpu_ops_tests_src
 list(APPEND misc_tests_src
   acc_thread_pool_tests.cpp
   common_functions_custom_kernel_tests.cpp
+  common_functions_helpers.cpp
   common_functions_norm_kernel_tests.cpp
   compute_shapes.cpp
   debug_utils_tests.cpp

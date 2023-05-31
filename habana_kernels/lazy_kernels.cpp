@@ -1615,9 +1615,8 @@ Tensor view_hpu(const Tensor& self_, SymIntArrayRef size) {
   auto out = as_strided_hpu_lazy(
       self_, inferred_size, stride_value, self_.storage_offset());
 
-  // lazy eager optimized view handling (no need to create view table)
-  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+  // no need to create view table
+  if (lazyEagerOptimizedViewHandling()) {
     return out;
   }
 

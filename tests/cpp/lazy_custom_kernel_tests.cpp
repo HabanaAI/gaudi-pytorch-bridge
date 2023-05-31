@@ -351,9 +351,8 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
   }
 }
 
-RESOURCE_APPLY_MOMENTUM_OPT_TEST(LazyCustomKernelTest)
-
-LARS_OPT_TEST(LazyCustomKernelTest)
+LARS_OPT_TEST(LazyCustomKernelTest, true)
+RESOURCE_APPLY_MOMENTUM_OPT_TEST(LazyCustomKernelTest, true)
 
 TEST_F(LazyCustomKernelTest, EMATest) {
   torch::manual_seed(0);

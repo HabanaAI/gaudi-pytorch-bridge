@@ -12,13 +12,14 @@
  */
 #pragma once
 
+#include <c10_ver/core/SymIntArrayRef.h>
 #include <tuple>
 #include <utility>
 
-#include <c10_ver/core/SymIntArrayRef.h>
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "common/list_of_lists_custom_iterator.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/template_helpers.h"
@@ -98,6 +99,11 @@ void handle_collective(const at::Tensor& tensor);
 void handle_collective(const at::TensorList& list);
 void handle_collective(const std::vector<at::Tensor>& vec);
 void handle_collective(const at::ITensorListRef& list);
+
+inline bool lazyEagerOptimizedViewHandling() {
+  return (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING);
+}
 
 template <typename ReturnType, typename NodeConstruct = void>
 class LazyOp {
@@ -417,60 +423,61 @@ class LazyOp {
 
  private:
   template <typename T = ReturnType, class U>
-  typename std::enable_if<std::is_void<T>::value, T>::type call_internal(
-      U tensors) {
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
+  typename std::enable_if<std::is_void<T>::value, T>::type call_internal_lists(
+      U list) {
     habana_lazy::ir::setCurrentModuleName(module_name);
-    const auto& node = create_node();
-    int i = 0;
 
-    for (const auto& tensor : tensors) {
-      auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
-      updateDstDependencies(tensor);
-      hl_result.IrSetNode(node, i++);
-      context->MarkTensorStatus(
-          hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+    if (!lazyEagerOptimizedViewHandling()) {
+      viewUpdateInputs();
+    }
+
+    const auto& node = create_node();
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    int64_t out_index = 0;
+    common::ListOfListsCustomIterator<U> customIt(list);
+    if (!customIt.empty()) {
+      do {
+        auto tensors = customIt.get_next_item();
+        for (const auto& tensor : tensors) {
+          HbLazyTensorViews::CustomKernelAddNodeInplace(
+              tensor, node, out_index);
+          auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
+          updateDstDependencies(tensor);
+          context->MarkTensorStatus(
+              hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
+        }
+        runSBS(tensors);
+      } while (customIt.has_more_items());
     }
 
     log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    runSBS(tensors);
-    flush_op(tensors.size());
+    flush_op(out_index);
   }
 
  public:
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       at::TensorList tensors) {
-    return call_internal<T>(tensors);
+    return call_internal_lists<T>(tensors);
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::Tensor>& tensors) {
-    return call_internal<T, const std::vector<at::Tensor>&>(tensors);
+    return call<T>(at::TensorList{tensors});
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_void<T>::value, T>::type call(
+      c10::ArrayRef<at::TensorList> tensorlists) {
+    return call_internal_lists<T>(tensorlists);
   }
 
   template <typename T = ReturnType>
   typename std::enable_if<std::is_void<T>::value, T>::type call(
       const std::vector<at::TensorList>& tensorlists) {
-    auto context = habana_lazy_executor.getDeviceExecutionContext();
-    habana_lazy::ir::setCurrentModuleName(module_name);
-    const auto& node = create_node();
-    int i = 0;
-
-    for (auto&& tensors : tensorlists) {
-      for (const auto& tensor : tensors) {
-        auto hl_result = GetHbLazyTensor(tensor, true, !m_collective_op);
-        updateDstDependencies(tensor);
-        hl_result.IrSetNode(node, i++);
-        context->MarkTensorStatus(
-            hl_result.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
-      }
-      runSBS(tensors);
-    }
-
-    log_dev_mem_stats("Post-Accumulation", m_symbol.toQualString());
-    flush_op(i);
+    return call<T>(c10::ArrayRef<at::TensorList>{tensorlists});
   }
 
   template <typename T = ReturnType>
@@ -781,8 +788,7 @@ class LazyOp {
 
     bool is_self_view = false;
 
-    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING)) {
+    if (lazyEagerOptimizedViewHandling()) {
       // Checking if any of the inputs is a strided tensor
       for (size_t idx = 0; idx < m_inputs.size(); idx++) {
         auto& t = m_inputs[idx];
