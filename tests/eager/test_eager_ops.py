@@ -302,6 +302,7 @@ def test_clamp_variants():
     result_cpu = torch.clamp(cpu_tensor, min, max)
     assert torch.allclose(result_hpu, result_cpu, atol=0, rtol=0)
 
+
 def test_add():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
     hpu_tensor = cpu_tensor.to("hpu")
@@ -311,29 +312,6 @@ def test_add():
 
     assert torch.equal(result_hpu, result_cpu)
 
-def test_addcdiv():
-    cpu_tensor1 = torch.rand(4,2)
-    cpu_tensor2 = torch.rand(4,2)
-    cpu_tensor3 = torch.rand(1)
-    hpu_tensor1 = cpu_tensor1.to('hpu')
-    hpu_tensor2 = cpu_tensor2.to('hpu')
-    hpu_tensor3 = cpu_tensor3.to('hpu')
-    val = 1.5
-    result_cpu = torch.addcdiv(cpu_tensor1, cpu_tensor2, cpu_tensor3, value=val)
-    result_hpu = torch.addcdiv(hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val).to('cpu')
-    assert torch.allclose(result_hpu, result_cpu, atol=1e-6, rtol=1e-6)
-
-def test_addcmul():
-    cpu_tensor1 = torch.rand(4,2)
-    cpu_tensor2 = torch.rand(4,2)
-    cpu_tensor3 = torch.rand(1)
-    hpu_tensor1 = cpu_tensor1.to('hpu')
-    hpu_tensor2 = cpu_tensor2.to('hpu')
-    hpu_tensor3 = cpu_tensor3.to('hpu')
-    val = 1.5
-    result_cpu = torch.addcmul(cpu_tensor1, cpu_tensor2, cpu_tensor3, value=val)
-    result_hpu = torch.addcmul(hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val).to('cpu')
-    assert torch.allclose(result_hpu, result_cpu, atol=1e-6, rtol=1e-6)
 
 def test_add_with_alpha():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)

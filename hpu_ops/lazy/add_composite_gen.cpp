@@ -14,31 +14,45 @@
 #include "hpu_ops/common/add_composite_gen.h"
 #include "generated/lazy/addcdiv.h"
 #include "generated/lazy/addcmul.h"
+
 namespace habana {
 
-static void convert_scalar_val_to_tensor(at::Stack& inputs) {
-  /* According to schema_args in hpu_op.yaml the Tensor "value" should be placed
-  in the 4th position and the Tensor "scalar_value" in 5th position Initially,
-  the Tensor "scalar_value" is in the 4th position, so we need to add Tensor
-  value=None before the Tensor "scalar_value" to move it on the correct position
-  */
-  inputs.insert(inputs.begin() + val_tensor_idx, c10::nullopt);
+static void convert_scalar_val_to_tensor(std::vector<at::IValue>& inputs) {
   auto self = inputs[inp_idx].toTensor();
-  auto value = inputs[val_scalar_idx].toScalar().to<float>();
-  at::Tensor valueTensor;
-  if (value != 1.0)
-    valueTensor = habana_lazy::get_tensor_for_scalar(value, self.options());
-
-  c10::optional<at::Tensor> valueTensorOpt = c10::make_optional(valueTensor);
-  inputs[val_tensor_idx] = valueTensorOpt;
+  auto s = inputs[val_idx].toScalar();
+  double val = s.to<double>();
+  at::Tensor val_t;
+  if (val != 1.0)
+    val_t = habana_lazy::get_tensor_for_scalar(val, self.options());
+  c10::optional<at::Tensor> val_t_opt = c10::make_optional(val_t);
+  inputs[val_idx] = val_t_opt;
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, AddCOpFE, at::Tensor&) {
+template <>
+AddCOpFE<at::Tensor&>::AddCOpFE(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
+  // convert "value" scalar to tensor to avoid cache misses
   convert_scalar_val_to_tensor(get_inputs());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, AddCOpFE, at::Tensor) {
+template <>
+AddCOpFE<at::Tensor>::AddCOpFE(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
+  // convert "value" scalar to tensor to avoid cache misses
   convert_scalar_val_to_tensor(get_inputs());
 }
-
+template <>
+at::Tensor& AddCOpFE<at::Tensor&>::get_result_overrideable() {
+  return LazyOp<at::Tensor&>::get_result_overrideable();
+}
+template <>
+at::Tensor AddCOpFE<at::Tensor>::get_result_overrideable() {
+  return LazyOp<at::Tensor>::get_result_overrideable();
+}
 } // namespace habana

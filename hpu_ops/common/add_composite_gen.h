@@ -16,7 +16,6 @@ namespace habana {
 constexpr int inp_idx = 0; // index of input(self)
 constexpr int oth1_idx = 1; // index of other1
 constexpr int oth2_idx = 2; // index of other2
-constexpr int val_tensor_idx = 3; // index of tensor value
-constexpr int val_scalar_idx = 4; // index of scalar value
-enum modes { mul, div };
+constexpr int val_idx = 3; // index of value
+
 } // namespace habana

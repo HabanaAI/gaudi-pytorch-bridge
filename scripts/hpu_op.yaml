@@ -739,77 +739,71 @@ addbmm.out:
 
 addcdiv:
   force_default: false
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  guid: div
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcdivParams
-  guid: addcdiv_fwd
   out_ids: [0]
-  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None) -> Tensor"
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
 
 addcdiv_:
   force_default: false
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  guid: div
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcdivParams
-  guid: addcdiv_fwd
   inplace_ids: [0]
-  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
 
 addcdiv.out:
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float]
+  guid: div
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcdivParams
-  guid: addcdiv_fwd
-  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
 
 addcmul:
   force_default: false
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
+  guid: mult_fwd
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcmulParams
-  guid: addcmul_fwd
   out_ids: [0]
-  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None) -> Tensor"
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
 
 addcmul_:
   force_default: false
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
+  guid: mult_fwd
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcmulParams
-  guid: addcmul_fwd
   inplace_ids: [0]
-  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
 
 addcmul.out:
-  output_meta: AddCOpsMeta
+  custom_output_shape: AddCOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
+  guid: mult_fwd
   op_frontend: AddCOpFE
   op_backend: AddCOpBE
-  custom_fill_params: FillAddcmulParams
-  guid: addcmul_fwd
-  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Scalar? value_scalar=None, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
 
 addmm:
   force_default: false
