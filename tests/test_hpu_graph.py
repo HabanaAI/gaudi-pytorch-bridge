@@ -112,7 +112,7 @@ def test_multiple_graph_capture():
 
 def test_multiple_graph_capture_memoptimization(asynchronous=False):
     #N, D_in, H, D_out = 640, 4096, 2048, 1024
-    N, D_in, H, D_out, inner = 2, 2, 2, 2, 4
+    N, D_in, H, D_out, inner = 200, 200, 200, 200, 400
     module1_cpu = Model(D_in, H, inner).to('cpu')
     module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
     loss_fn = torch.nn.MSELoss()
@@ -126,10 +126,14 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False):
     loss_hpu_vec = []
     loss_cpu_vec = []
 
+    import habana_frameworks.torch as htx
+    count = 0
     for data, target in zip(real_inputs_hpu, real_targets_hpu):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
+        # print("count: ", count, htx.hpu.memory.memory_stats())
+        count = count+1
 
     for data, target in zip(real_inputs_cpu, real_targets_cpu):
         loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)

@@ -299,6 +299,7 @@ class HbLazyTensor {
   ir::Value createIrValueFromData() const {
     return {data_ptr()};
   }
+  void SetTensorDataNullOpt();
   void SetTensorData(at::Tensor tensor_data);
   c10::optional<at::Tensor> GetTensorData();
   void SetCPUTensorData(at::Tensor tensor_data);
@@ -404,8 +405,9 @@ class HbLazyTensor {
       size_t hash,
       size_t graphKey,
       std::string opStrs,
-      ir::ValueList& input_vals,
-      std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+      std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
+      std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
+      std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
       std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
       bool is_cached,

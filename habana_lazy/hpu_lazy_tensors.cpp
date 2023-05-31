@@ -358,6 +358,10 @@ bool HbLazyTensor::isStorageAttached() {
     return false;
   }
 }
+void HbLazyTensor::SetTensorDataNullOpt() {
+  data()->tensor_data = c10::nullopt;
+}
+
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
   if (synapse_helpers::memory_reporter_enable()) {
@@ -1524,8 +1528,9 @@ void HbLazyTensor::ExecuteCachedGraph(
     size_t hash,
     size_t graphKey,
     std::string opStrs,
-    ir::ValueList& input_vals,
-    std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
+    std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
+    std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
+    std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
     std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
     bool is_cached,
@@ -1546,15 +1551,11 @@ void HbLazyTensor::ExecuteCachedGraph(
   // and output size.
   HABANA_ASSERT(is_cached == true);
 
-  stack.reserve(std::max(input_vals.size(), hblazy_tensors.size()));
+  stack.reserve(std::max(hblazy_tensors_in.size(), hblazy_tensors_out.size()));
 
-  for (const auto& in : input_vals) {
-    PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
-    HABANA_ASSERT(in.DataPtrValidAndNotExpired());
-    if (in.mp_node) {
-      PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
-    }
-    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+  for (const auto& in : hblazy_tensors_in) {
+    auto d = in.getDataPtr();
+    // TODO: test randomseed
     if (d->is_random_seed_tensor) {
       auto seed_map = seed_tensors_generator_map.find(d->unique_id);
       if (seed_map == seed_tensors_generator_map.end()) {
@@ -1582,18 +1583,16 @@ void HbLazyTensor::ExecuteCachedGraph(
   // Launch the execution
   hlexec.Launch(stack, c10::hpu::getCurrentHPUStream());
 
-  HABANA_ASSERT(stack.size() == hblazy_tensors.size());
-
-  for (const auto& in : input_vals) {
-    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+  HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
+  for (const auto& in : hblazy_tensors_in) {
+    auto d = in.getDataPtr();
     d->is_executing = false;
   }
 
   size_t i = 0;
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (const torch::IValue& v : stack) {
-    // auto st = v.toTensor();
-    HbLazyTensor out_tensor = hblazy_tensors[i++];
+    HbLazyTensor out_tensor = hblazy_tensors_out[i++];
 
     // clear the orig tensor map entries corresponding to cached graph outputs
     out_tensor.getDataPtr()->recent_base = c10::nullopt;
@@ -1601,9 +1600,13 @@ void HbLazyTensor::ExecuteCachedGraph(
       auto st = v.toTensor();
       out_tensor.SetTensorData(st);
     } else {
-      out_tensor.SetTensorData(at::Tensor());
+      out_tensor.SetTensorDataNullOpt();
     }
     out_tensor.ResetExecutionInProgress();
+  }
+
+  for (auto& hl_t : hbt_last_out_used_as_inputs) {
+    hl_t.SetTensorDataNullOpt();
   }
 
   habana_helpers::SetRefineDynamicShape(dynamic_env_);
