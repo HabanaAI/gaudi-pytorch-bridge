@@ -117,8 +117,6 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         DeviceType = htexp._get_device_type()
         if isGaudi2(DeviceType):
             media_device_type = "gaudi2"
-        elif isGreco(DeviceType):
-            media_device_type = "greco"
         else:
             raise ValueError("Unsupported device")
 
@@ -291,7 +289,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                 self.aeon_fallback_activated = os.getenv('PT_HPU_MEDIA_PIPE').lower() in ('false', '0', 'f')
 
             # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and (isGaudi2(self.DeviceType) or isGreco(self.DeviceType)):
+            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 try:
                     from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
 
@@ -321,7 +319,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                                                                         )
                 print("Running with Habana aeon DataLoader")
 
-            elif isGaudi2(self.DeviceType) or isGreco(self.DeviceType):
+            elif isGaudi2(self.DeviceType):
 
                 self._media_dl_handle_vars(keyword_args)
                 root = self.dataset.root
@@ -352,8 +350,6 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
             return len(self.aeon)
         elif isGaudi2(self.DeviceType):
             return len(self.iterator)
-        elif isGreco(self.DeviceType):
-            return len(self.iterator)
         else:
             assert False, "Invalid device type"
 
@@ -363,8 +359,6 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
         elif isGaudi(self.DeviceType) or (self.aeon_fallback_activated == True):
             return iter(self.aeon)
         elif isGaudi2(self.DeviceType):
-            return iter(self.iterator)
-        elif isGreco(self.DeviceType):
             return iter(self.iterator)
         else:
             assert False, "Invalid device type"
@@ -504,7 +498,7 @@ class HabanaDataLoader:
                     media_multi = os.getenv('PT_HPU_ENABLE_MEDIA_PIPE_SSD_MULTI_CARD').lower() in ('true', '1', 't')
 
             # Try aeon when HPUMediaPipe is not available
-            if (not self.aeon_fallback_activated) and (isGaudi2(self.DeviceType) or isGreco(self.DeviceType)):
+            if (not self.aeon_fallback_activated) and isGaudi2(self.DeviceType):
                 num_instances = _get_world_size()
                 if _is_hpumediapipe_available() == False:
                     print("Fallback to aeon dataloader")
@@ -516,8 +510,6 @@ class HabanaDataLoader:
             if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
                 dataloader_type = SSDDataLoader
             elif isGaudi2(self.DeviceType):
-                dataloader_type = SSDMediaDataLoader
-            elif isGreco(self.DeviceType):
                 dataloader_type = SSDMediaDataLoader
 
         try:
