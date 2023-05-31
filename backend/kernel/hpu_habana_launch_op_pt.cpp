@@ -191,10 +191,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       (execution_mode_ != habana_helpers::HabanaFrontendTypes::EAGER) &&
       GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE);
 
-  enable_shape_agnostic_caching_ =
-      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
-
   // used for controlling recipe caching in eager backends
   // combined with PT_HPU_PGM_ENABLE_CACHE to allow debugging
   enable_eager_caching_ =
@@ -204,6 +200,11 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_CACHE);
 
   enable_caching_ = enable_graph_caching_ || enable_eager_caching_;
+
+  enable_shape_agnostic_caching_ =
+      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
+      !enable_caching_;
 
   HABANA_ASSERT(
       !(enable_caching_ && enable_shape_agnostic_caching_),

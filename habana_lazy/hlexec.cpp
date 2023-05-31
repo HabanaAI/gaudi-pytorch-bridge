@@ -654,8 +654,10 @@ void HlExec::CreateNodeBcastMap(const ir::NodePtrList& nodes) {
 
 void HlExec::IdentifyAndSetGraphNodes(const ir::NodePtrList& nodes) {
   for (const auto& node : nodes) {
-    if (std::string(node->op().toQualString()).find("hpu::habanaOptimizer") !=
-        std::string::npos) {
+    if ((std::string(node->op().toQualString()).find("hpu::habanaOptimizer") !=
+         std::string::npos) ||
+        (std::string(node->op().toQualString()).find("hpu::optimizer") !=
+         std::string::npos)) {
       mp_g_and_meta_data_->set_is_eager_compiler_supported(false);
       mp_g_and_meta_data_->set_is_shape_agnostic_supported(false);
       break;
