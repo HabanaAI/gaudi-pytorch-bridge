@@ -216,6 +216,23 @@ def test_fp8_bgrad_dgelu(dtype):
     result = compiled_fn(grad, input, scale, True)
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_fp8_gelu_v2(dtype):
+    op_name = "fp8_gelu_v2"
+    input_shape = (64, 48)
+    input = (torch.rand(input_shape, dtype=dtype)*30 + 10).to("hpu")
+    scale = torch.tensor(0.75, dtype=torch.float).to("hpu")
+
+    def fn(input, scale, is_amax):
+        return torch.ops.hpu.fp8_gelu_v2(input, scale, False, is_amax)
+
+    def toy_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+        verify_jit(fx_module, op_name)
+        return fx_module
+
+    compiled_fn = torch.compile(fn, backend=toy_compiler)
+    result = compiled_fn(input, scale, True)
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_fp8_layernorm(dtype):
     op_name = "fp8_layernorm"
     input_shape = (64, 48)

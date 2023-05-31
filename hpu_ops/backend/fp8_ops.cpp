@@ -465,6 +465,67 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 }
 
+sizes_vec Fp8GeluV2OutputShape(const at::Stack& stack) {
+  std::vector<int64_t> amax_size{1};
+  auto size = stack_tensor(stack, 0).sizes().vec();
+  return {size, size, amax_size};
+}
+
+Fp8GeluV2::Fp8GeluV2(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_gelu_v2",
+          scalar_type,
+          {0, 0, 0},
+          {},
+          {},
+          false) {
+  SetComputeOutputShapes(Fp8GeluV2OutputShape);
+}
+
+void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "Fp8GeluV2 must have 4 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8GeluV2::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  bool stochastic_rounding = getNextInput<bool>(stackGetter);
+  bool is_amax = getNextInput<bool>(stackGetter);
+
+  auto src_dtype = self.pt_t.scalar_type();
+
+  std::string guid = get_guid_with_precision("fp8_gelu", src_dtype);
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  auto output_shapes = Fp8GeluV2OutputShape(stack);
+
+  std::vector<synTensor> syn_inputs{self.syn_t};
+  if (scaleOpt) {
+    syn_inputs.push_back(scaleOpt->syn_t);
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {output_shapes[0],
+       at::ScalarType::Char,
+       0,
+       DATA_TENSOR,
+       syn_type_fp8_152},
+      {output_shapes[1], src_dtype, 1}};
+  if (is_amax) {
+    output_attrs.push_back({output_shapes[2], at::ScalarType::Float, 2});
+  }
+
+  auto gelu = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
+
+  syn_out(0) = std::move(gelu[0]);
+  syn_out(1) = std::move(gelu[1]);
+  if (is_amax) {
+    syn_out(2) = std::move(gelu[2]);
+  }
+}
+
 sizes_vec Fp8BgradDgeluOutputShape(const at::Stack& stack) {
   std::vector<int64_t> amax_size{1};
   auto out_size = stack_tensor(stack, 0).sizes().vec();
@@ -821,6 +882,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
         .add("hpu::fp8_dropout", KERNEL_FN_GLOBAL(habana::Fp8Dropout))
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
+        .add("hpu::fp8_gelu_v2", KERNEL_FN_GLOBAL(habana::Fp8GeluV2))
         .add("hpu::fp8_bgrad_dgelu", KERNEL_FN_GLOBAL(habana::Fp8BgradDgelu))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))

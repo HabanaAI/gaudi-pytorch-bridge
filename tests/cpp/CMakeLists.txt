@@ -109,6 +109,7 @@ set(hpu_ops_tests_src
   hpu_ops/fmod.cpp
   hpu_ops/foreach_binary.cpp
   hpu_ops/foreach.cpp
+  hpu_ops/fp8_ops.cpp
   hpu_ops/frac.cpp
   hpu_ops/frexp.cpp
   hpu_ops/fused_dropout.cpp

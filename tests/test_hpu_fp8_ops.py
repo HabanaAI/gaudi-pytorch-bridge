@@ -21,7 +21,7 @@ ht.disable_dynamic_shape()
 MASK_FLOAT32 = torch.tensor(2145386496, dtype=torch.int) # 0 11111111 11000000000000000000000b
 MASK_ROUND_FLOAT32 = torch.tensor(1048575, dtype=torch.int) # 0 00000000 00011111111111111111111b
 MASK_BFLOAT16 = torch.tensor(32736, dtype=torch.short) # 0 11111111 1100000b
-MASK_ROUND_BFLOAT16 = torch.tensor(15, dtype=torch.int) # 0 00000000 0001111b
+MASK_ROUND_BFLOAT16 = torch.tensor(15, dtype=torch.short) # 0 00000000 0001111b
 FP8_MAX = torch.tensor(57344*0.9, dtype=torch.float)
 
 def simulateFp8Precision(input):
@@ -364,6 +364,43 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax):
         assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.0, atol=0.01)
     if is_amax:
         assert amax.cpu()[1][2] == torch.max(input.abs())
+    assert torch.equal(retain.cpu(), retain_cpu)
+
+@pytest.mark.parametrize("shape", [(64, 48), (3, 4)])
+@pytest.mark.parametrize("scale", [0.75, 1.6])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype)*30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+
+    scale_val = scale if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    gelu = torch.nn.GELU(approximate='tanh')
+    gelu_res = gelu(input)
+    scaled_gelu_low_precision = simulateFp8Precision(gelu_res * scale)
+    result_cpu = scaled_gelu_low_precision * scale_inv
+    retain_cpu = torch.tanh(torch.sqrt(torch.tensor(2/np.pi, dtype=dtype))*(input +  0.044715*torch.pow(input, 3))).to(dtype)
+
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    gelu_scaled, retain, amax = torch.ops.hpu.fp8_gelu_v2(input.to(hpu), scale_hpu, stochastic, is_amax)
+    gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv_hpu, dtype).cpu()
+
+    print(gelu_unscaled.dtype)
+    print(result_cpu.dtype)
+
+    if stochastic:
+        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.26, atol=0.01)
+    else:
+        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.0, atol=0.01)
+    if is_amax:
+        assert amax.cpu() == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
 
 @pytest.mark.parametrize("shape", [(64, 48)])

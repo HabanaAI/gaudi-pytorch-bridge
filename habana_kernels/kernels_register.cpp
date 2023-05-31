@@ -1511,6 +1511,22 @@ std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
+std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_gelu_v2:", DUMP_4ARGS(input, scale, stochastic_rounding, is_amax));
+  if (synapse_helpers::device_supports_fp8(
+          synapse_helpers::HPURegistrar::get_device().type())) {
+    return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
     const at::Tensor& grad,
     const at::Tensor& input,
@@ -2334,6 +2350,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_gelu(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
+      "hpu::fp8_gelu_v2(Tensor input, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
@@ -2380,6 +2398,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_from_fp8", cast_from_fp8_wrap);
   m.impl("hpu::fp8_dropout", fp8_dropout_wrap);
   m.impl("hpu::fp8_gelu", fp8_gelu_wrap);
+  m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2_wrap);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu_wrap);
   m.impl("hpu::fp8_layernorm", fp8_layernorm_wrap);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);

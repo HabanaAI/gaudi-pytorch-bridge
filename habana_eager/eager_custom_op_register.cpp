@@ -101,6 +101,14 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu(
   TORCH_CHECK(false, "hpu::fp8_gelu is not available in Eager mode.");
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
+    const at::Tensor&,
+    const at::Tensor&,
+    bool,
+    bool) {
+  TORCH_CHECK(false, "hpu::fp8_gelu_v2 is not available in Eager mode.");
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&> fp8_layernorm(
     const at::Tensor&,
     const at::Tensor&,
@@ -273,6 +281,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_gelu(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
+      "hpu::fp8_gelu_v2(Tensor input, Tensor scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
@@ -303,6 +313,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_from_fp8", cast_from_fp8);
   m.impl("hpu::fp8_dropout", fp8_dropout);
   m.impl("hpu::fp8_gelu", fp8_gelu);
+  m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu);
   m.impl("hpu::fp8_layernorm", fp8_layernorm);
   m.impl("hpu::fp8_gemm", fp8_gemm);

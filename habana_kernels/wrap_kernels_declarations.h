@@ -317,6 +317,11 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_wrap(
     at::Tensor& out,
     at::Tensor& retain,
     at::Tensor& amax);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_wrap(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_wrap(
     const at::Tensor& grad,
     const at::Tensor& input,

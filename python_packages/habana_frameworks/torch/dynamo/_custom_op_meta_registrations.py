@@ -63,6 +63,13 @@ def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax):
     amax = input.new_empty((), dtype=torch.float32)
     return out, bgrad, amax
 
+@register_meta([torch.ops.hpu.fp8_gelu_v2.default])
+def meta_fp8_gelu_v2(input, scale, stochastic, is_amax):
+    out = input.new_empty(input.shape, dtype=torch.int8)
+    retain = input.new_empty(input.shape)
+    amax = input.new_empty((), dtype=torch.float32)
+    return out, retain, amax
+
 @register_meta([torch.ops.hpu.fp8_layernorm.default])
 def meta_fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, mean, istd, amax):
     return out, mean, istd, amax
