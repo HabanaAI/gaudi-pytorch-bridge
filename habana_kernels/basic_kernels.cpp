@@ -655,7 +655,7 @@ void SliceInsertOperator::ReuseMemoryAndAddSynapseNode(
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     auto paramsList = inputs[2].toIntList();
-    synSliceParamsNDims params;
+    synSliceParamsV2 params;
     ComputeParams(params, self, paramsList, graph);
 
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -701,7 +701,7 @@ void SliceInsertOperator::FixSliceParams(
 }
 
 void SliceInsertOperator::ComputeParams(
-    synSliceParamsNDims& params,
+    synSliceParamsV2& params,
     at::Tensor self,
     c10::List<int64_t> paramsList,
     const synapse_helpers::graph& graph) {
@@ -732,7 +732,7 @@ void SliceInsertOperator::ComputeParams(
       auto tensor_id = syn_input_tensor.id();
       std::vector<int64_t> min, max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-      params.ends[i] = static_cast<int>(max[dim]);
+      params.ends[i] = max[dim];
     }
   }
 }
@@ -814,7 +814,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     }
     auto paramsList = inputs[2].toIntList();
 
-    synSliceParamsNDims params;
+    synSliceParamsV2 params;
     ComputeParams(params, self, paramsList, graph);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }

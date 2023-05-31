@@ -22,10 +22,10 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType dtype,
-    int nelements,
-    int ndimension,
-    int reduction_axis,
-    int median_variant,
+    int64_t nelements,
+    int64_t ndimension,
+    int64_t reduction_axis,
+    int64_t median_variant,
     bool final_node,
     c10::optional<int> node_index = c10::nullopt);
 

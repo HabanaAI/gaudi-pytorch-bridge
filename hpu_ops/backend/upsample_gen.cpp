@@ -655,7 +655,7 @@ static std::vector<synapse_helpers::tensor> Resize(
 static std::vector<synapse_helpers::tensor> Slice(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    int input_size,
+    int64_t input_size,
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     c10::optional<int> final_index = c10::nullopt) {
@@ -663,8 +663,8 @@ static std::vector<synapse_helpers::tensor> Slice(
     // 3D inputs are reshaped to 4D inputs
     input_size = 4;
   }
-  synSliceParamsNDims slice_params{};
-  for (int i = input_size - 1; i >= 0; --i) {
+  synSliceParamsV2 slice_params{};
+  for (int64_t i = input_size - 1; i >= 0; --i) {
     slice_params.axes[i] = i;
     slice_params.starts[i] = 0;
     slice_params.ends[i] = outshape[(input_size - i - 1)];

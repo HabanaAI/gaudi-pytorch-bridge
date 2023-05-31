@@ -1989,7 +1989,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, output);
     }
-    synSliceParamsNDims params;
+    synSliceParamsV2 params;
     // set defaults
     std::fill_n(params.axes, HABANA_DIM_MAX, 0);
     std::fill_n(params.starts, HABANA_DIM_MAX, 0);
@@ -2012,7 +2012,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       auto tensor_id = syn_input_tensor.id();
       std::vector<int64_t> min, max;
       std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
-      params.ends[0] = static_cast<int>(max[dim]);
+      params.ends[0] = max[dim];
     }
 
     AddNodeToSynapseGraph(graph, &params, sizeof(params));

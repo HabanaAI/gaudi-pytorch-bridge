@@ -20,23 +20,23 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
     const at::ScalarType dtype,
-    int nelements,
-    int ndimension,
-    int reduction_axis,
-    int median_variant,
+    int64_t nelements,
+    int64_t ndimension,
+    int64_t reduction_axis,
+    int64_t median_variant,
     bool final_node,
     c10::optional<int> node_index) {
   if (!final_node)
     node_index = c10::nullopt;
 
-  synSliceParams slice_params{};
+  synSliceParamsV2 slice_params{};
   if (median_variant == 0) {
     slice_params.axes[0] = reduction_axis;
     slice_params.starts[0] = nelements / 2;
     slice_params.ends[0] = nelements / 2;
     slice_params.steps[0] = 1;
   } else {
-    for (int idx = 0; idx < ndimension; ++idx) {
+    for (int64_t idx = 0; idx < ndimension; ++idx) {
       slice_params.axes[idx] = idx;
       slice_params.steps[idx] = 1;
       if (idx == (get_dim_in_tpc_order(reduction_axis, ndimension))) {

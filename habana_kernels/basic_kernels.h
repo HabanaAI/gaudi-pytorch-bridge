@@ -154,7 +154,7 @@ class SliceInsertOperator : public habana::HabanaOperator {
       int64_t& step);
 
   void ComputeParams(
-      synSliceParamsNDims& params,
+      synSliceParamsV2& params,
       at::Tensor self,
       c10::List<int64_t> paramsList,
       const synapse_helpers::graph& graph);

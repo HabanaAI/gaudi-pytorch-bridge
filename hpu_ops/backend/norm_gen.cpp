@@ -144,7 +144,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
         {norm[1].get()},
         {{reshape_outshape, dtype}});
 
-    synSliceParamsNDims slice_params{};
+    synSliceParamsV2 slice_params{};
     slice_params.axes[0] = 0;
     slice_params.starts[0] = 0;
     slice_params.ends[0] = 1;
