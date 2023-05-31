@@ -263,7 +263,6 @@ add_library(habana_pytorch2_plugin SHARED
   habana_lazy/tensor_impl.cpp
   habana_lazy/view_utils.cpp
   habana_lazy/visualize.cpp
-  hpu_ops/lazy/add_composite_gen.cpp
   hpu_ops/lazy/binarycrossentropy_gen.cpp
   hpu_ops/lazy/binaryscalar2tensor.cpp
   hpu_ops/lazy/bitwise_gen.cpp

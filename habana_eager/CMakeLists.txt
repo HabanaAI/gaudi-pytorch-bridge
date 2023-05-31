@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD 17)
 add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/cpu_fallback.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_validator.cpp
+          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/add_composite_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/arange_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/bernoulli_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/index_gen.cpp
