@@ -269,8 +269,9 @@ torch::jit::Stack EagerExec::launch() {
     graph_and_meta->SetOpName(m_symbol.toQualString());
     graph_and_meta->SetHPUStream(stream);
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
-    graph_and_meta->set_is_eager_compiler_supported(
-        is_eager_compiler_supported_for_graph(graph));
+    auto isEagerCompilerGraph = is_eager_compiler_supported_for_graph(graph);
+    graph_and_meta->set_is_eager_compiler_supported(isEagerCompilerGraph);
+    graph_and_meta->set_is_shape_agnostic_supported(isEagerCompilerGraph);
     cache.Add(key, graph_and_meta);
   }
 
