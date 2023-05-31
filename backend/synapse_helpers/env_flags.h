@@ -300,6 +300,9 @@ ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_NMS_USING_BNMS_CGUID, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT, unsigned, 0);
 ENV_STRUCT_DEFINITION(PT_HPU_USE_BN_FWD_IN_GN_BWD, bool, true);
 ENV_STRUCT_DEFINITION(PT_HPU_USE_UNSORTED_SCATTER_ADD, bool, true);
+// enables fp8_143 variant instead of default fp8_152
+// for simulation purposes in algo team
+ENV_STRUCT_DEFINITION(PT_USE_FP8_143, bool, false);
 
 // Dynamic shape related env variables
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK, bool, true);

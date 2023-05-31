@@ -493,12 +493,15 @@ class tensor final {
   synapse_error_o create_old_synapi();
   synapse_error_o create();
   void cleanup();
+  synapse_error_o set_quantization_data(synQuantDynamicRange* range);
 
   std::string tensor_name_;
   uint64_t tensor_id_{INVALID_SYN_TENSOR_ID};
   synDeviceId device_id_;
   synDataType data_type_;
   synQuantDynamicRange dynamic_range_{0, 0};
+  // dynamic range needed to set exponent bias in fp8_143 variant to 7
+  synQuantDynamicRange dynamic_range_fp8_143_{240, 240};
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
   dynamic_shape_t shape_;

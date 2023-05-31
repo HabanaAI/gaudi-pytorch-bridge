@@ -49,7 +49,7 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152}};
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 1});
   }
@@ -112,7 +112,7 @@ void CastToFp8V2::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shapes[0], dst_type, 0, DATA_TENSOR, syn_type_fp8_152}};
+      {out_shapes[0], dst_type, 0, DATA_TENSOR, fp8_syn_type}};
   if (is_amax) {
     output_attrs.push_back({out_shapes[1], at::ScalarType::Float, 1});
   }
@@ -172,8 +172,8 @@ void Fp8CastTranspose::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152}};
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
   }
@@ -234,8 +234,8 @@ void Fp8CastTransposeBgrad::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152},
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type},
       {bgrad.sizes(), self.scalar_type(), 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
@@ -307,8 +307,8 @@ void Fp8CastTransposeBgradDgelu::AddNode(
     syn_inputs.push_back(syn_in(retain_id));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, syn_type_fp8_152},
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type},
       {bgrad.sizes(), self.scalar_type(), 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
@@ -399,8 +399,7 @@ void Fp8Dropout::AddNode(
     syn_inputs.push_back(scaleOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
-      {sizes, dst_type, 1}};
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type}, {sizes, dst_type, 1}};
   if (is_amax) {
     output_attrs.push_back({amax_size, at::ScalarType::Float, 2});
   }
@@ -449,7 +448,7 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
       {retain.sizes(), src_type, 1}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
@@ -506,11 +505,7 @@ void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(scaleOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {output_shapes[0],
-       at::ScalarType::Char,
-       0,
-       DATA_TENSOR,
-       syn_type_fp8_152},
+      {output_shapes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type},
       {output_shapes[1], src_dtype, 1}};
   if (is_amax) {
     output_attrs.push_back({output_shapes[2], at::ScalarType::Float, 2});
@@ -573,7 +568,7 @@ void Fp8BgradDgelu::AddNode(
     syn_inputs.push_back(retainOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152},
+      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type},
       {out_sizes[1], ScalarType(), 1}};
   if (is_amax) {
     output_attrs.push_back({out_sizes[2], at::ScalarType::Float, 2});
@@ -632,7 +627,7 @@ void Fp8FastSoftmax::AddNode(
     syn_inputs.push_back(scale_opt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}};
+      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}};
   if (is_amax) {
     output_attrs.push_back({out_sizes[1], at::ScalarType::Float, 1});
   }
@@ -684,7 +679,7 @@ void Fp8Layernorm::AddNode(
     syn_inputs.push_back(syn_in(3));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, syn_type_fp8_152},
+      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
       {mean.sizes(), at::ScalarType::Float, 1},
       {istd.sizes(), at::ScalarType::Float, 2}};
   if (is_amax) {
@@ -858,7 +853,7 @@ void Fp8Transpose::AddNode(
       graph,
       {"transpose",
        {syn_in(0)},
-       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}},
+       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}},
        &params,
        sizeof(params)});
 
@@ -887,7 +882,7 @@ void Fp8Permute::AddNode(
       graph,
       {"transpose",
        {syn_in(0)},
-       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}},
+       {{out.sizes(), at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}},
        &params,
        sizeof(params)});
 
@@ -916,7 +911,7 @@ void Fp8Reshape::AddNode(
       graph,
       {"reshape",
        inputs,
-       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}}});
+       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}}});
 
   syn_out(0) = std::move(reshape[0]);
 }

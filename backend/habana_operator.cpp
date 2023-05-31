@@ -93,6 +93,9 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
   return permuteOrder.find(target_layout)->second;
 }
 
+static const synDataType fp8_syn_type =
+    GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
+
 bool habana::HabanaOperator::isFp8Op(const std::string_view guid) {
   using namespace std::literals;
   // Note: For 26 items, benchmark shown 6% improvement using constexpr array
@@ -490,10 +493,10 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
 
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else if (input.scalar_type() == c10::ScalarType::Char && isFp8Op(guid_)) {
-      // fp8 tensors are exposed to Pytorch viatorch.uint8 type, therefor for
-      // fp8 ops synTensors must have manually set syn_type_fp8_152 data type
+      // fp8 tensors are exposed to Pytorch via torch.int8 type, therefor for
+      // fp8 ops synTensors must have manually set syn_type_fp8_152/143 type
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, syn_type_fp8_152));
+          input, graph, is_persistent, false, fp8_syn_type));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, c10::nullopt, idx, idx));
