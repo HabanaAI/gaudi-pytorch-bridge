@@ -414,6 +414,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             # Other
             "addcmul",
             "_to_copy",  # SW-137099
+            "arange", # SW-146681
+            "index"   # SW-146773
         ]
 
         return node_target in unsupported_ops
