@@ -784,7 +784,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
-  throw std::runtime_error("ProcessGroupHcclBase does not support scatter");
+  throw std::runtime_error("ProcessGroupHcclBase does not support gather");
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
