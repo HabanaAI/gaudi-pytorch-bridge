@@ -455,13 +455,13 @@ def detach_from_original_tensor(graph_outputs):
     #     raise TypeError(
     #         f"detach_from_original_tensor() expects input to be a tensor or a list/dict/tuple of tensors, but got {type(graph_outputs)} instead.")
 
-    if isinstance(graph_outputs, torch.Tensor):
+    if type(graph_outputs) == torch.Tensor:
         return graph_outputs.detach()
-    elif isinstance(graph_outputs, dict):
+    elif type(graph_outputs) == dict:
         return {k: detach_from_original_tensor(v) for k, v in graph_outputs.items()}
-    elif isinstance(graph_outputs, list):
+    elif type(graph_outputs) == list:
         return [detach_from_original_tensor(x) for x in graph_outputs]
-    elif isinstance(graph_outputs, tuple):
+    elif type(graph_outputs) == tuple:
         return tuple(detach_from_original_tensor(x) for x in graph_outputs)
     elif hasattr(graph_outputs, '__dict__'):
         # Recursively traverse attributes and convert any tensor
