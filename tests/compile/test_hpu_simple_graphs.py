@@ -150,3 +150,17 @@ def test_relu_than_maxpool():
     res = compiled_fnc(tensor)
 
     assert torch.allclose(res, res_ver, rtol=1e-06)
+
+
+def test_remove_detach():
+    import torch.nn.functional as F
+    def raw_function(x):
+        x = x * 2 + 1
+        x = x.detach()
+        x = x / 3
+        return F.relu(x)
+    compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    input_tensor = torch.rand(2, 2).to("hpu")
+    tensor_raw = raw_function(input_tensor)
+    tensor_compiled = compiled_function(input_tensor)
+    assert torch.allclose(tensor_raw, tensor_compiled, rtol=1e-06)

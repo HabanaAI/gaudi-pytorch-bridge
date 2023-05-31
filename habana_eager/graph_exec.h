@@ -32,6 +32,7 @@ void DetectWeightTensors(
     std::shared_ptr<torch::jit::Graph> graph,
     std::set<int>& graph_inputs_to_permute);
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
+void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
 void HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,

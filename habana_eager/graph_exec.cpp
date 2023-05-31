@@ -122,6 +122,7 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
+  pass::RemoveDetachOp(m_graph);
 }
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {

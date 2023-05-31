@@ -43,6 +43,7 @@ add_library(habana_pytorch2_frontend OBJECT
           passes/detect_weights_tensors.cpp
           passes/handle_input_views.cpp
           passes/handle_tupple_on_output.cpp
+	  passes/remove_detach_op.cpp
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
           eager_custom_op_register.cpp
