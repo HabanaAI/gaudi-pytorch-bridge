@@ -203,8 +203,11 @@ int64_t Data::GetNextTensorId() {
   static auto id_generator = std::atomic<int64_t>(1);
   static auto acc_id_generator =
       std::atomic<int64_t>(std::numeric_limits<int64_t>::max() / 2);
-  return AccThread::Get().inAccThreadContext() ? acc_id_generator.fetch_add(1)
-                                               : id_generator.fetch_add(1);
+  auto id = AccThread::Get().inAccThreadContext()
+      ? acc_id_generator.fetch_add(1)
+      : id_generator.fetch_add(1);
+  PT_LAZY_DEBUG("Creating Data with unique_id: ", id);
+  return id;
 }
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
@@ -506,7 +509,7 @@ c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
 }
 
 void HbLazyTensor::IrInitAsInputNode() const {
-  TORCH_CHECK(
+  HABANA_ASSERT(
       (!CurrentIrValue()),
       " Habana Lazy Trying to set a tensor as leaf input node but IR value"
       " is set already");
@@ -651,10 +654,15 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
 
 void HbLazyTensor::ValidateTensorData() const {
   auto tensor_data{data()->tensor_data};
-  TORCH_CHECK(
-      tensor_data, "Habana Lazy: no storage tensor attached to lazy tensor");
-  TORCH_CHECK(
+  HABANA_ASSERT(
+      tensor_data,
+      "data_ptr()->unique_id: ",
+      data_ptr()->unique_id,
+      " Habana Lazy: no storage tensor attached to lazy tensor");
+  HABANA_ASSERT(
       tensor_data->has_storage(),
+      "data_ptr()->unique_id: ",
+      data_ptr()->unique_id,
       "Habana Lazy: lazy tensor doesn't has a storage");
 }
 
@@ -853,7 +861,7 @@ std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
 }
 
 at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
-  TORCH_CHECK(d->tensor_data.has_value(), "Empty tensor optional");
+  HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
   at::Tensor pt_tensor = d->tensor_data.value();
 
   // Make regular 0D tensors 1D
@@ -861,7 +869,7 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   bool is_shape_tensor = impl && impl->isShapeTensor();
   if (pt_tensor.dim() == 0 &&
       !pt_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    TORCH_CHECK(is_shape_tensor == false, "0D shape tensor encountered");
+    HABANA_ASSERT(is_shape_tensor == false, "0D shape tensor encountered");
     pt_tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
   }
 

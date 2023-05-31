@@ -225,7 +225,7 @@ void dumpEnvSettings() {
       std::clog << " HB_BUILD_VER = " << env_p << '\n';
     }
     std::clog
-        << "=============================HABANA PT BRIDGE CONFIGURATION =========================== \n";
+        << "============================= HABANA PT BRIDGE CONFIGURATION =========================== \n";
 
     // Below should be logged only flags documented in
     // https://docs.habana.ai/en/latest/PyTorch/Runtime_Flags.html
