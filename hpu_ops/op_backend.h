@@ -339,12 +339,6 @@ class OpBackend : public HabanaOperator {
                       // we hold also syn_idx
   };
 
- private:
-  at::ScalarType HandleDtypePropagation(
-      const at::Stack& stack,
-      const at::Tensor& t,
-      at::ScalarType metadata_dtype);
-
  protected:
   // The class StackGetter and this::getNextInputInternal() overloads are
   // separate as we have to call SynInput() base class member. It is not

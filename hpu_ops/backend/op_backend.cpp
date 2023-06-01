@@ -114,40 +114,6 @@ OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   return {};
 }
 
-at::ScalarType OpBackend::HandleDtypePropagation(
-    const at::Stack& stack,
-    const at::Tensor& t,
-    at::ScalarType metadata_dtype) {
-  if (c10::ScalarType::Undefined != metadata_dtype) {
-    return metadata_dtype;
-  }
-
-  auto propagated_dtype = c10::ScalarType::Undefined;
-
-  if (m_promote_type || m_promote_int_to_float) {
-    propagated_dtype = habana_helpers::DTypeHelper::get_compute_dtype(
-        stack,
-        c10::nullopt,
-        m_promote_int_to_float ? habana_helpers::DTypeHelper::
-                                     DtypePromoteVariant::kPromoteIntToFloat
-                               : habana_helpers::DTypeHelper::
-                                     DtypePromoteVariant::kPromoteToCommon,
-        false,
-        c10::nullopt,
-        false,
-        false);
-  }
-
-  if (c10::ScalarType::Undefined == propagated_dtype) {
-    propagated_dtype = t.scalar_type();
-  }
-
-  HABANA_ASSERT(
-      c10::ScalarType::Undefined != propagated_dtype,
-      "Unable to find promoted dtype");
-  return propagated_dtype;
-}
-
 void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
   if (m_scalar_ids.empty()) {
     return;
@@ -179,40 +145,14 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
     return;
   }
 
-  std::vector<at::Tensor> tensors;
-  tensors.reserve(m_output_metadata.size());
-
-  for (int res_id : m_res_ids) {
-    at::IValue ival = stack.at(res_id);
-    if (ival.isTensor()) {
-      tensors.emplace_back(ival.toTensor());
-    } else if (ival.isTensorList()) {
-      const auto& list = ival.toTensorList();
-      tensors.insert(tensors.end(), list.begin(), list.end());
-    } else {
-      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-          false,
-          "Result type can be only tensor or a list of tensors but got ",
-          ival.tagKind());
-    }
-  }
-
-  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      tensors.size() == m_output_metadata.size(),
-      "Num outputs defined (",
-      m_res_ids.size(),
-      ") as out_ids is not matching with actual num outputs (",
-      m_output_metadata.size());
-
-  int i = 0;
-  for (const at::Tensor& t : tensors) {
-    const auto& metadata = m_output_metadata.at(i);
-    const auto& dtype = HandleDtypePropagation(stack, t, metadata.dtype);
-
+  for (const auto& metadata : m_output_metadata) {
+    const auto t = GetProxyTensor(metadata.dtype, metadata.shape);
     const auto& output = habana::createPTTensor(
-        t, metadata.shape, t.options().dtype(dtype), metadata.persistent);
+        t,
+        metadata.shape,
+        t.options().dtype(t.scalar_type()),
+        metadata.persistent);
     AllocateSynapseOutput(graph, output, metadata);
-    i++;
   }
 }
 
@@ -541,6 +481,27 @@ void OpBackend::PopulateMetadata(
     }
     for (int i = 0; i < m_output_metadata.size(); ++i) {
       m_output_metadata[i].shape = outshapes[i];
+
+      auto& dtype = m_output_metadata[i].dtype;
+      if (c10::ScalarType::Undefined == dtype) {
+        if (m_promote_type || m_promote_int_to_float) {
+          dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+              stack,
+              c10::nullopt,
+              m_promote_int_to_float
+                  ? habana_helpers::DTypeHelper::DtypePromoteVariant::
+                        kPromoteIntToFloat
+                  : habana_helpers::DTypeHelper::DtypePromoteVariant::
+                        kPromoteToCommon,
+              false,
+              c10::nullopt,
+              false,
+              false);
+        } else {
+          // Use self's dtype if dtype is not propagated from frontend
+          dtype = stack_tensor(stack, 0).scalar_type();
+        }
+      }
     }
   }
 }
