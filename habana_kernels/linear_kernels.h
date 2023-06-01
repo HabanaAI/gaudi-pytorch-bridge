@@ -214,14 +214,15 @@ class LinearForwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-class Linear2DBackwardOperator : public HabanaOperator {
+class LinearBackward2Operator : public HabanaOperator {
  public:
-  Linear2DBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("linear_bwd", scalarType)) {
+  LinearBackward2Operator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(get_guid_with_precision("linear_temp_bwd", scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
   }
 
   void AllocateAndAddSynapseNode(

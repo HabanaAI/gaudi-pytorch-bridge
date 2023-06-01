@@ -6275,7 +6275,7 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   c10::ScalarType out_dtype =
       dtype.has_value() ? dtype.value() : input.dtype().toScalarType();
   auto bias_elem_count =
-      bias_opt.value_or(Tensor()).defined() ? weight.sizes().vec()[0] : 0;
+      bias_opt.value_or(Tensor()).defined() ? weight.sizes().vec()[0] : 1;
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
       "hpu::linear_ex_bwd",
@@ -6663,7 +6663,7 @@ at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
   PT_LAZY_TRACE;
   PT_OP_TRACE;
   c10::optional<at::Tensor> bias_opt;
-  auto bias_elem_count = weight.sizes().vec()[0];
+  auto bias_elem_count = output_mask[2] ? weight.sizes().vec()[0] : 1;
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
       "hpu::linear_bwd",
