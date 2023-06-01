@@ -121,6 +121,7 @@ class EagerExec {
       std::vector<at::IValue>&& inputs,
       OutputSpecsOrTensors&& outputs)
       : m_symbol{symbol},
+        m_graph_name{symbol.toQualString()},
         m_inputs(std::move(inputs)),
         m_outputs(std::move(outputs)) {}
 
@@ -131,6 +132,7 @@ class EagerExec {
  private:
   size_t m_key;
   const at::Symbol m_symbol;
+  std::string m_graph_name;
   std::vector<at::IValue> m_inputs;
   OutputSpecsOrTensors m_outputs;
   MetaDataMap m_metadata;

@@ -118,8 +118,7 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
 }
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
-  PT_EAGER_TRACE;
-
+  PT_EAGER_TRACE_WITH_NAME(m_graph_name);
   torch::jit::Stack stack =
       habana::eager::convert_inputs_to_backend_tensors(original_stack);
 

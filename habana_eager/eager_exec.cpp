@@ -191,7 +191,7 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
 }
 
 torch::jit::Stack EagerExec::launch() {
-  PT_EAGER_TRACE;
+  PT_EAGER_TRACE_WITH_NAME(m_graph_name);
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
   synEventHandle event_handle{};
   synapse_helpers::hpuStream_t event_stream{0};
@@ -266,7 +266,7 @@ torch::jit::Stack EagerExec::launch() {
     ++graphIndex;
 
     graph_and_meta->SetGraphIndex(graphIndex);
-    graph_and_meta->SetOpName(m_symbol.toQualString());
+    graph_and_meta->SetOpName(m_graph_name);
     graph_and_meta->SetHPUStream(stream);
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
     auto isEagerCompilerGraph = is_eager_compiler_supported_for_graph(graph);
