@@ -5307,7 +5307,7 @@ prod:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_prod_fwd
+  guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
 
@@ -5317,7 +5317,7 @@ prod.dim_int:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_prod_fwd
+  guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
 
@@ -5326,7 +5326,7 @@ prod.int_out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: reduce_prod_fwd
+  guid: reduce_prod_multi_dim_fwd
   op_template: reduction
 
 random_:
