@@ -38,8 +38,9 @@ bool computeUpdatedConvWeightAndBias(
     float* b,
     double bn_eps,
     bool cw_permutation_in_hpu) {
-  if ((cw == nullptr) || (cb == nullptr) || (v == nullptr) || (m == nullptr) ||
-      (w == nullptr) || (b == nullptr)) {
+  // conv bias is optional
+  if ((cw == nullptr) || (v == nullptr) || (m == nullptr) || (w == nullptr) ||
+      (b == nullptr)) {
     PT_LAZY_DEBUG("[computeUpdatedConvWeightAndBias] Null Ptr!");
     return false;
   }
@@ -63,9 +64,21 @@ bool computeUpdatedConvWeightAndBias(
   }
 
   bool all_bias_zero = true;
-  for (auto i = 0; i < co; i++) {
-    if (cb[i] != 0) {
-      all_bias_zero = false;
+  if (cb == nullptr) {
+    void* cb_host_ptr{nullptr};
+    auto status = synHostMalloc(device_id, bytes * 2, 0, &cb_host_ptr);
+    HABANA_ASSERT(
+        status == synStatus::synSuccess, Logger::synStatusToStr(status));
+    cb = (float*)cb_host_ptr;
+    for (auto i = 0; i < co; i++) {
+      cb[i] = 0;
+    }
+  } else {
+    for (auto i = 0; i < co; i++) {
+      if (cb[i] != 0) {
+        all_bias_zero = false;
+        break;
+      }
     }
   }
 
@@ -187,27 +200,28 @@ bool FuseConvBatchnorm(
       std::vector<torch::jit::Node*> w_auto_cast;
       std::vector<torch::jit::Node*> b_auto_cast;
       CheckIfAutoCastNodePresent(graph, conv, w_auto_cast, b_auto_cast);
-      auto auto_cast = (w_auto_cast.size() > 0) && (b_auto_cast.size() > 0);
+      auto w_auto_cast_en = (w_auto_cast.size() > 0);
+      auto b_auto_cast_en = (b_auto_cast.size() > 0);
 
-      auto ib = auto_cast ? -1 : 2;
-      auto nb = auto_cast ? b_auto_cast.at(0) : conv;
+      auto ib = b_auto_cast_en ? -1 : 2;
+      auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;
 
       auto conv_b_tmeta_ptr =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nb, ib);
       auto conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
       if (!conv_b_tmeta_ptr || !conv_b) {
-        PT_LAZY_DEBUG(
-            "[FuseConvBatchnorm] Convolution without bias not yet supported");
-        continue;
+        PT_LAZY_DEBUG("[FuseConvBatchnorm] Convolution bias not found");
       }
 
-      auto iw = auto_cast ? -1 : 1;
-      auto nw = auto_cast ? w_auto_cast.at(0) : conv;
+      auto iw = w_auto_cast_en ? -1 : 1;
+      auto nw = w_auto_cast_en ? w_auto_cast.at(0) : conv;
 
       auto conv_w_tmeta_ptr =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nw, iw);
       auto conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
       if (!conv_w_tmeta_ptr || !conv_w) {
+        PT_LAZY_DEBUG(
+            "[FuseConvBatchnorm] Convolution without weight not yet supported");
         continue;
       }
 
@@ -227,12 +241,17 @@ bool FuseConvBatchnorm(
       int idx_bias = 2;
       auto bn_b = habana_lazy::GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b) {
+        PT_LAZY_DEBUG("[FuseConvBatchnorm] BN without bias not yet supported");
         continue;
       }
-      redundant_inputs.emplace_back(bn->input(idx_bias));
-      PT_LAZY_DEBUG(
-          "[FuseConvBatchnorm] redundant_input: ",
-          bn->input(idx_bias)->debugName());
+      // If convolution doesn't have a bias, we will re-use bn bias as
+      // convolution bias in the graph
+      if (conv_b_tmeta_ptr && conv_b) {
+        redundant_inputs.emplace_back(bn->input(idx_bias));
+        PT_LAZY_DEBUG(
+            "[FuseConvBatchnorm] redundant_input: ",
+            bn->input(idx_bias)->debugName());
+      }
 
       int idx_weight = 1;
       auto bn_w =
@@ -298,7 +317,10 @@ bool FuseConvBatchnorm(
 
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update conv parameters");
       habana_lazy::UpdateDataInDeviceMem(graph, stack, nw, iw, conv_w);
-      habana_lazy::UpdateDataInDeviceMem(graph, stack, nb, ib, conv_b);
+
+      if (conv_b_tmeta_ptr) {
+        habana_lazy::UpdateDataInDeviceMem(graph, stack, nb, ib, conv_b);
+      }
 
       PT_LAZY_DEBUG("[FuseConvBatchnorm] Update batch-norm parameters");
       habana_lazy::UpdateDataInDeviceMem(graph, stack, bn, idx_bias, bn_b);
@@ -312,6 +334,24 @@ bool FuseConvBatchnorm(
           !bn->output(1)->hasUses() && !bn->output(2)->hasUses(),
           "Only the first tensor should be used");
       bn->output(0)->replaceAllUsesWith(conv->output(0));
+
+      if (!conv_b_tmeta_ptr) {
+        PT_LAZY_DEBUG("[FuseConvBatchnorm] Use batchnorm bias as conv bias");
+        if (w_auto_cast_en) {
+          torch::jit::WithInsertPoint insert_point(conv);
+          auto to_cast_type = graph->insertConstant(c10::ScalarType::BFloat16);
+          auto bn_bias_cast_node =
+              graph->create(nw->kind(), {bn->input(idx_bias), to_cast_type}, 1);
+          bn_bias_cast_node->setScope(nw->scope());
+          bn_bias_cast_node->copyAttributes(*nw);
+          conv->replaceInput(ib, bn_bias_cast_node->output(0));
+          stack.emplace_back(conv->input(2));
+          graph->insertNode(bn_bias_cast_node);
+        } else {
+          conv->replaceInput(ib, bn->input(idx_bias));
+        }
+      }
+
       nodes_for_deletion.emplace_back(bn);
 
       graph_modified = true;

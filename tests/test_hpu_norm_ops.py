@@ -103,9 +103,11 @@ def test_hpu_layer_norm_withcache_fwd_bwd(N, H, W, C, split_dim):
         )
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
-def test_hpu_conv_and_batch_norm_2d_fwd_only(N, H, W, C):
+def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
+    import habana_frameworks.torch.utils.debug as htdebug
+    htdebug._enable_fuse_conv_bn_optimization(True)
     class bn(torch.nn.Module):
         def __init__(self):
             super(bn, self).__init__()
@@ -137,9 +139,60 @@ def test_hpu_conv_and_batch_norm_2d_fwd_only(N, H, W, C):
     model_hpu.eval()
     x_hpu = x.to(hpu)
     print("Infer on HPU....................................", flush=True)
+    def raw_function(tensor):
+        model_hpu(tensor)
+    
+    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
     with torch.inference_mode():
-        output_hpu = model_hpu(x_hpu)
+        output_hpu = compiled_function(x_hpu)
 
+    output_hpu_cpu = output_hpu.to(cpu)
+    numpy.testing.assert_allclose(
+        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
+    )
+
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_conv_and_batch_norm_2d_fwd_only(N, H, W, C):
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+    import habana_frameworks.torch.utils.debug as htdebug
+    htdebug._enable_fuse_conv_bn_optimization(True)
+    class bn(torch.nn.Module):
+        def __init__(self):
+            super(bn, self).__init__()
+            self.conv2 = torch.nn.Conv2d(C, C, kernel_size=3, stride=1, bias=False)
+            self.conv2.weight = torch.nn.Parameter(0.2 * torch.ones_like(self.conv2.weight))
+            #self.conv2.bias = torch.nn.Parameter(0.5 * torch.ones_like(self.conv2.bias))
+            self.bn2 = torch.nn.BatchNorm2d(C)
+            self.bn2.weight = torch.nn.Parameter(0.12 * torch.ones_like(self.bn2.weight))
+            self.bn2.bias = torch.nn.Parameter(0.15 * torch.ones_like(self.bn2.bias))
+            self.bn2.running_mean = torch.nn.Parameter(0.01 * torch.ones_like(self.bn2.running_mean))
+            self.bn2.running_var = torch.nn.Parameter(0.9 * torch.ones_like(self.bn2.running_var))
+            self.train(False)
+            self.eval()
+        def _forward_impl(self, x):
+            y = self.conv2(x)
+            z = self.bn2(y)
+            return z
+        def forward(self, x):
+            return self._forward_impl(x)
+
+    model = bn()
+    model.eval()
+    x = torch.randn(N, C, H, W, dtype=torch.float32, requires_grad=False)
+    print("Infer on CPU....................................", flush=True)
+    with torch.inference_mode():
+        output = model(x)
+
+    model_hpu = model.to(hpu)
+    model_hpu.eval()
+    x_hpu = x.to(hpu)
+    x_hpu = x_hpu.to(torch.bfloat16)
+    print("Infer on HPU....................................", flush=True)
+    with torch.inference_mode():
+        with torch.autocast(device_type="hpu", dtype=torch.bfloat16):
+            output_hpu = model_hpu(x_hpu)
+    output_hpu = output_hpu.to(torch.float32)
     output_hpu_cpu = output_hpu.to(cpu)
     numpy.testing.assert_allclose(
         output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
