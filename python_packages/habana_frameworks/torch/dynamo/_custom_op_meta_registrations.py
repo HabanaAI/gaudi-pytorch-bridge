@@ -115,6 +115,10 @@ def meta_optimizer_optimizer_lars(params, grads, skip_masks, eeta, weight_decay,
 def meta_optimizer_lamb_fused_phase2(weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb):
     return
 
+@register_meta([torch.ops.hpu.optimizer_ema.default])
+def meta_optimizer_optimizer_ema(model_inputs, updated_ema, decay):
+    return
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

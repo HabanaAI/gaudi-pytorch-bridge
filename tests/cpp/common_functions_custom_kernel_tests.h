@@ -83,3 +83,15 @@ void runLambPhase2OptimizerTest(
   TEST_F(BASE, LambPhase2TestWithView) {                    \
     runLambPhase2OptimizerTest(2, 4, 3, 0.9, true, true);   \
   }
+
+void runEmaOptTest(
+    int num_params,
+    int M,
+    int N,
+    double decay_val,
+    bool enable_views);
+
+#define EMA_OPT_TEST(BASE, ENA_VW)       \
+  TEST_F(BASE, EmaOptTest) {             \
+    runEmaOptTest(2, 4, 4, 0.9, ENA_VW); \
+  }

@@ -1005,20 +1005,21 @@ void optimizer_adagrad_hpu_wrap(
 }
 
 void optimizer_ema_hpu_wrap(
-    const TensorList& model_inputs,
-    TensorList& updated_ema,
+    const TensorList model_inputs,
+    TensorList updated_ema,
     const at::Tensor& decay) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_ema:",
-      " model_inputs=",
-      to_string(model_inputs),
-      " updated_ema=",
-      to_string(updated_ema),
-      " decay=",
-      to_string(decay));
-  optimizer_ema_hpu_lazy(model_inputs, updated_ema, decay);
+  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
+
+  LazyOp<void> hpu_op{
+      "hpu::optimizer_ema",
+      {model_inputs, updated_ema, decay},
+      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
+      -1};
+
+  runInplaceMaybeWithAccThread(
+      "hpu::optimizer_ema", std::move(hpu_op), updated_ema);
 }
 
 void optimizer_sgd_hpu_wrap(
@@ -2173,7 +2174,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, Tensor(f!) weight_decay, bool is_wd_modified) -> ()");
   m.def(
-      "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
+      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
@@ -2371,6 +2372,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       optimizer_resource_apply_momentum_hpu_wrap);
   m.impl("hpu::optimizer_lars", optimizer_lars_hpu_wrap);
   m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
+  m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

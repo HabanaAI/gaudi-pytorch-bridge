@@ -80,31 +80,6 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   return k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
 }
 
-void optimizer_ema_hpu_lazy(
-    const at::TensorList& model_inputs,
-    at::TensorList& updated_ema,
-    const at::Tensor& decay) {
-  PT_LAZY_TRACE;
-  habana_lazy::NoAccThread no_acc_thread;
-
-  ir::NodePtr node =
-      std::make_shared<ir::OptimizerFusedEMA>(model_inputs, updated_ema, decay);
-
-  int64_t out_index = 0;
-
-  auto hl_ema = GetHbLazyTensor(updated_ema[0]);
-  node->set_as_output_tensor_list();
-  ir::Value& out = hl_ema.IrSetNode(node);
-  ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
-
-  for (size_t i = 0; i < updated_ema.size(); i++) {
-    HbLazyTensorViews::CustomKernelAddNodeInplace(
-        updated_ema[i], node_unpack, out_index);
-  }
-
-  flush_op();
-}
-
 void optimizer_adamw_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,
@@ -345,7 +320,6 @@ optimizer_lamb_phase1_hpu_lazy(
   flush_op();
   return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
 }
-
 
 void optimizer_adagrad_hpu_lazy(
     const TensorList& gradients,

@@ -263,6 +263,22 @@ void optimizer_lamb_fused_phase2(
   return hpu_op.call(weights);
 }
 
+void optimizer_ema(
+    const at::TensorList model_inputs,
+    at::TensorList updated_ema,
+    const at::Tensor& decay) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(" optimizer_ema :", DUMP_3ARGS(model_inputs, updated_ema, decay));
+
+  eager::EagerOp<void> hpu_op{
+      "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::optimizer_ema", {1}});
+
+  hpu_op.call(updated_ema);
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -297,11 +313,13 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
-      "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
+      "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
-      "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
+      "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
   m.def(
       "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
+  m.def(
+      "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -327,6 +345,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       optimizer_resource_apply_momentum);
   m.impl("hpu::optimizer_lars", optimizer_lars);
   m.impl("hpu::optimizer_lamb_fused_phase2", optimizer_lamb_fused_phase2);
+  m.impl("hpu::optimizer_ema", optimizer_ema);
 }
 
 } // namespace eager

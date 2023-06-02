@@ -39,7 +39,7 @@ hpu::cat
 hpu::control_edge_
 hpu::expand
 hpu::habana_d2d_memcpy_other
-#hpu::habanaOptimizerFusedEMA
+#hpu::optimizer_ema
 #hpu::habanaOptimizerFusedSGDMomentum
 hpu::index
 hpu::native_batch_norm_rmv

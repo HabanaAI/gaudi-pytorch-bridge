@@ -169,8 +169,8 @@ void optimizer_adagrad_hpu_wrap(
     const float lrd,
     const float epsilon);
 void optimizer_ema_hpu_wrap(
-    const at::TensorList& model_inputs,
-    at::TensorList& updated_ema,
+    const at::TensorList model_inputs,
+    at::TensorList updated_ema,
     const at::Tensor& decay);
 void optimizer_sgd_hpu_wrap(
     const at::TensorList& gradients,

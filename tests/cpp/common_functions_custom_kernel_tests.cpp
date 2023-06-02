@@ -258,3 +258,73 @@ void runLambPhase2OptimizerTest(
   }
   EXPECT_TRUE(equal);
 }
+
+void runEmaOptTest(
+    int num_params,
+    int M,
+    int N,
+    double decay_val,
+    bool enable_views) {
+  const bool verbose = false;
+
+  torch::manual_seed(0);
+
+  struct Data {
+    std::vector<TensorAndView> model_inputs;
+    std::vector<TensorAndView> updated_ema;
+    std::vector<TensorAndView> decay;
+  } cpu, hpu;
+
+  auto decay_in = torch::full({1}, decay_val);
+  dump_tensor<float>("decay_in", decay_in, verbose);
+  PushBackHpuAndCpuTensors(decay_in, hpu, cpu, &Data::decay, false);
+
+  for (auto i = 0; i < num_params; ++i) {
+    bool use_views = enable_views && (i == num_params / 2);
+
+    auto model_inputs_in = torch::randn({M, N});
+    dump_tensor<float>(
+        "model_inputs_in[" + std::to_string(i) + "]", model_inputs_in, verbose);
+    PushBackHpuAndCpuTensors(
+        model_inputs_in, hpu, cpu, &Data::model_inputs, use_views);
+
+    auto updated_ema_in = torch::randn({M, N});
+    dump_tensor<float>(
+        "updated_ema_in[" + std::to_string(i) + "]", updated_ema_in, verbose);
+    PushBackHpuAndCpuTensors(
+        updated_ema_in, hpu, cpu, &Data::updated_ema, use_views);
+  }
+
+  auto model_inputs = TensorAndViewVecToViewVec(hpu.model_inputs);
+  auto updated_ema = TensorAndViewVecToViewVec(hpu.updated_ema);
+  auto decay = TensorAndViewVecToViewVec(hpu.decay)[0];
+
+  optimizer_ema_hpu_wrap(model_inputs, updated_ema, decay);
+
+  // CPU calculations
+  auto one_minus_decay = 1.0 - cpu.decay[0].t;
+  for (auto i = 0; i < num_params; i++) {
+    cpu.updated_ema[i].t.mul_(cpu.decay[0].t);
+    cpu.updated_ema[i].t.add_(cpu.model_inputs[i].t.mul(one_minus_decay));
+  }
+
+  bool equal = true;
+  for (auto i = 0; i < num_params; i++) {
+    bool equal1 = CompareFewTensors<float>(
+        i,
+        hpu,
+        cpu,
+        verbose,
+        0.001,
+        0.001,
+        "model_inputs",
+        &Data::model_inputs,
+        "updated_ema",
+        &Data::updated_ema);
+    // Don't shorten to equal = equal && CompareFewTensors(...) as we want
+    // CompareFewTensors() is executed even if equal is false beforehand, for
+    // logging purpose.
+    equal = equal && equal1;
+  }
+  EXPECT_TRUE(equal);
+}
