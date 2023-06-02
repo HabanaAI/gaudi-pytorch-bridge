@@ -7130,4 +7130,20 @@ void optimizer_lamb_phase2(
   flush_op(weights.size());
 }
 
+at::Tensor rotary_embedding_lazy(
+    const at::Tensor& input,
+    const at::Tensor& sin,
+    const at::Tensor& cos,
+    const int64_t offset) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::rotary_embedding",
+      {input, sin, cos, offset},
+      {{input.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(rotary_embedding, op)
+}
+
 } // namespace habana_lazy

@@ -889,6 +889,7 @@ RegisterKernel::add op = hpu::repeat_inlv_ht
 RegisterKernel::add op = hpu::reshape
 RegisterKernel::add op = hpu::roi_align_bwd
 RegisterKernel::add op = hpu::roi_align_fwd
+RegisterKernel::add op = hpu::rotary_embedding
 RegisterKernel::add op = hpu::rrelu_with_noise
 RegisterKernel::add op = hpu::rrelu_with_noise_
 RegisterKernel::add op = hpu::rrelu_with_noise.out

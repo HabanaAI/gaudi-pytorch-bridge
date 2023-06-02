@@ -412,6 +412,11 @@ habana_bounds_check_indices_wrap(
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
     const c10::optional<at::Tensor>& weights);
+at::Tensor rotary_embedding_wrap(
+    const at::Tensor& input,
+    const at::Tensor& sin,
+    const at::Tensor& cos,
+    const int64_t offset);
 namespace vision {
 namespace ops {
 

@@ -343,6 +343,24 @@ void optimizer_ema(
   hpu_op.call(updated_ema);
 }
 
+at::Tensor rotary_embedding(
+    const at::Tensor& input,
+    const at::Tensor& sin,
+    const at::Tensor& cos,
+    const int64_t offset) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO("rotary_embedding :", DUMP_4ARGS(input, sin, cos, offset));
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::rotary_embedding",
+      {input, sin, cos, offset},
+      {input.sizes().vec()},
+      0};
+
+  return hpu_op.call();
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -388,6 +406,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
+  m.def(
+      "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -416,6 +436,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema);
+  m.impl("hpu::rotary_embedding", rotary_embedding);
 }
 
 } // namespace eager

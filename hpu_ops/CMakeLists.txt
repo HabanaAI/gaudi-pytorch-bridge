@@ -182,6 +182,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/resize_gen.cpp
           backend/roll_gen.cpp
           backend/round_gen.cpp
+          backend/rotary_embedding.cpp
           backend/rrelu_with_noise_gen.cpp
           backend/scaled_masked_softmax.cpp
           backend/scatter_gen.cpp
