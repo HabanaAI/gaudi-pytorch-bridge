@@ -29,6 +29,7 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 #include <limits>
@@ -72,7 +73,7 @@
 #define UNSET_ENV_FLAG_NEW(e) \
   (env_flags::new_style::unset_env_flag_new<env_flags::new_style::e>(#e))
 #define IS_ENV_FLAG_DEFINED_NEW(e) \
-  (env_flags::new_style::is_defined_new<env_flags::new_style::e>())
+  (env_flags::new_style::is_defined_new<env_flags::new_style::e>(#e))
 
 // ****************************************************************************
 
@@ -548,7 +549,15 @@ void unset_env_flag_new(const char* name) {
 }
 
 template <class E>
-bool is_defined_new() {
+void update_is_defined(const char* name) {
+  const char* envstrp = getenv(name);
+  E::is_defined = envstrp && *envstrp;
+}
+
+template <class E>
+bool is_defined_new(const char* name) {
+  static std::once_flag flag;
+  std::call_once(flag, update_is_defined<E>, name);
   return E::is_defined;
 }
 
