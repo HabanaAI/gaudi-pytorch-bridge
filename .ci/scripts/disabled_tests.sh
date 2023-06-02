@@ -110,8 +110,6 @@ LING_EAGER_TESTS = (
     "HpuOpTest.maxpool_2d_with_indices_backward"
     "HpuOpTest.maxpool_2d_with_indices_out"
     "HpuOpTest.maxpool_2d_with_indices"
-    "HpuOpTest.maxpool_3d_with_indices_backward"
-    "HpuOpTest.maxpool_3d_with_indices"
     "HpuOpTest.mse_loss_bwd"
     "HpuOpTest.multinomial_out_with_replacement"
     "HpuOpTest.multinomial_out"
