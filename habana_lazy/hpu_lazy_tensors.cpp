@@ -1594,8 +1594,7 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {
-    auto d = in.getDataPtr();
-    d->is_executing = false;
+    in.ResetExecutionInProgress();
   }
 
   size_t i = 0;

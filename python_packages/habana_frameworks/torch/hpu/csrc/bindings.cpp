@@ -24,6 +24,8 @@
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/synapse_helpers/stream.h"
+#include "habana_lazy/tensor_impl.h"
+#include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 using namespace c10::hpu;
@@ -243,6 +245,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
   m.def("capture_begin", [](at::hpu::HPUGraph& graph, bool dry_run) {
     graph.capture_begin(dry_run);
+  });
+  m.def("get_user_input_match_indices", [](at::hpu::HPUGraph& graph) {
+    return graph.get_user_input_match_indices();
   });
   m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });
   m.def("replay", [](at::hpu::HPUGraph& graph, bool async = false) {

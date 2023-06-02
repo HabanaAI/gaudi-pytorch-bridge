@@ -187,7 +187,7 @@ class Net(torch.nn.Module):
             y = self.fc4(z)
         return {'x' : x, 'y' : y}, z
 
-def test_cached_module_training():
+def test_cached_module_training(disable_tensor_cache=False):
     model = Net().to('hpu')
     state_dict = copy.deepcopy(model.state_dict())
     optimizer = torch.optim.SGD(model.parameters(),lr=0.1)
@@ -199,11 +199,13 @@ def test_cached_module_training():
     for i in range(2):
         for item in meta_args:
             x = torch.randn(item[0]).to('hpu')
+            x.requires_grad_()
             y = torch.randn(item[0]).to('hpu')
             net_input.append({'x' : x, 'y' : y, 'boolean_var' : item[1]})
             net_output.append(torch.randn(item[0][0]).to('hpu'))
 
     def train_model():
+        m = 0
         for inp, y in zip(net_input, net_output):
             output = model(**inp)
             y_pred = torch.mean(output[1], 1)
@@ -212,13 +214,155 @@ def test_cached_module_training():
             loss.backward()
             optimizer.step()
             ht.core.mark_step()
-        return loss.cpu()
+            inp['x'].grad.add_(1.0)
+            m = m + inp['x'].grad.sum()
+            inp['x'].grad.zero_()
+        return loss.cpu(), m.cpu()
 
-    loss_original = train_model()
+    loss_original, m_original = train_model()
     model.load_state_dict(state_dict)
-    ht.hpu.ModuleCacher()(model=model, inplace=True)
-    loss_cached = train_model()
+    ht.hpu.ModuleCacher()(model=model, inplace=True, disable_tensor_cache=disable_tensor_cache)
+    loss_cached, m_cached = train_model()
     assert loss_original == loss_cached
+    assert m_original == m_cached
+
+class ModelHpu(torch.nn.Module):
+    def __init__(self, inp_size, out_size):
+        super(ModelHpu, self).__init__()
+        self.Linear1 = torch.nn.Linear(inp_size, out_size)
+
+    def forward(self, inp, m):
+        res = self.Linear1(inp)
+        return res - m
+
+def test_graph_capture_scalar(asynchronous=False, disable_tensor_cache=False):
+    N, D_in, H, D_out = 2, 2, 2, 2
+    module1_cpu = ModelHpu(D_in, H).to('cpu')
+    module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
+    loss_fn = torch.nn.MSELoss()
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, asynchronous=asynchronous, disable_tensor_cache=disable_tensor_cache)
+    x_cpu = torch.randn(N, D_in, device='cpu')
+    ITERATION=5
+    real_inputs_cpu = [torch.rand_like(x_cpu) for _ in range(ITERATION)]
+    real_inputs_cpu_scalar = [torch.tensor(i) for i in range(ITERATION)]
+
+    real_inputs_hpu = [input.to('hpu') for input in real_inputs_cpu]
+    real_inputs_hpu_scalar = [input.to('hpu') for input in real_inputs_cpu_scalar]
+
+    real_targets_cpu = [torch.randn(N, D_out, device="cpu") for _ in range(ITERATION)]
+    real_targets_hpu = [target.to('hpu') for target in real_targets_cpu]
+    loss_hpu_vec = []
+    loss_cpu_vec = []
+
+    for data, data2, target in zip(real_inputs_hpu, real_inputs_hpu_scalar, real_targets_hpu):
+        loss_hpu = wrapped_func_scalar(data, data2, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        ht.core.mark_step()
+
+    for data, data2, target in zip(real_inputs_cpu, real_inputs_cpu_scalar, real_targets_cpu):
+        loss_cpu = wrapped_func_scalar(data, data2, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+
+    compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
+
+def wrapped_func_scalar(data, data2, target, module1, loss_fn):
+    tmp = module1(data, data2)
+    loss = loss_fn(tmp[:], target)
+    return loss
+
+def test_multiple_graph_capture_with_views():
+    N, D_in, H, D_out, inner = 2, 2, 2, 2, 2
+    module1_cpu = Model(D_in, H, inner).to('cpu')
+    module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
+    loss_fn = torch.nn.MSELoss()
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, disable_tensor_cache=True)
+    x_cpu = torch.randn(N, D_in, device='cpu')
+    real_inputs_cpu = [torch.rand_like(x_cpu) for _ in range(2)]
+    real_inputs_hpu = [input.to('hpu') for input in real_inputs_cpu]
+    real_inputs_cpu1 = [torch.rand_like(x_cpu) for _ in range(2)]
+    real_inputs_hpu1 = [input.to('hpu') for input in real_inputs_cpu1]
+    real_targets_cpu = [torch.ones(N, D_out, device="cpu") for _ in range(2)]
+    real_targets_hpu = [target.to('hpu') for target in real_targets_cpu]
+    loss_hpu_vec = []
+    loss_cpu_vec = []
+
+    #Input as view first time while capture, second time not view
+    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+        data = torch.transpose(data, 0, 1)
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        loss_hpu = wrapped_func(data1, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        ht.core.mark_step()
+
+    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+        data = torch.transpose(data, 0, 1)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        ht.core.mark_step()
+
+    compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
+    loss_hpu_vec = []
+    loss_cpu_vec = []
+
+    #Input as not view first time while capture, view on second turn
+    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        data = torch.transpose(data, 0, 1)
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        ht.core.mark_step()
+
+    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+        data = torch.transpose(data, 0, 1)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        ht.core.mark_step()
+
+    compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
+    loss_hpu_vec = []
+    loss_cpu_vec = []
+
+    #Input as not view first time while capture, view on second turn
+    for data, data1, target in zip(real_inputs_hpu, real_inputs_hpu1, real_targets_hpu):
+        data = torch.transpose(data, 0, 1)
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        data[:] = data1[:]
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        data[0:1] = data1.sum()
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        data = torch.t(data)
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        ht.core.mark_step()
+
+
+    for data, data1, target in zip(real_inputs_cpu, real_inputs_cpu1, real_targets_cpu):
+        data = torch.transpose(data, 0, 1)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        data[:] = data1[:]
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        data[0:1] = data1.sum()
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        data = torch.t(data)
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+        ht.core.mark_step()
+
+    compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
+    loss_hpu_vec = []
+    loss_cpu_vec = []
 
 if __name__ == "__main__":
     test_multiple_graph_capture()
@@ -230,3 +374,6 @@ if __name__ == "__main__":
     test_graph_training()
     test_tensor_packer()
     test_cached_module_training()
+    test_cached_module_training(disable_tensor_cache=True)
+    test_graph_capture_scalar(disable_tensor_cache=True)
+    test_multiple_graph_capture_with_views()

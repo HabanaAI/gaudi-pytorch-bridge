@@ -12,8 +12,10 @@
  */
 #include "HPUGraph.h"
 
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
-
+#include "habana_lazy/view_utils.h"
 namespace at {
 namespace hpu {
 
@@ -88,9 +90,7 @@ void HPUGraph::capture_end() {
   // Save all input lazy tensors and free the output IR values
   for (size_t i = 0; i < captured_graphs.size(); i++) {
     auto single_graph = captured_graphs[i];
-    auto num_inputs = single_graph->input_vals_.size() +
-        single_graph->user_input_indices_.size();
-    size_t saved_input_idx = 0;
+    auto num_inputs = single_graph->input_vals_.size();
     single_graph->hblazy_tensors_in_.clear();
     for (size_t inp = 0; inp < num_inputs; ++inp) {
       if (single_graph->user_input_indices_.count(inp) > 0) {
@@ -98,7 +98,7 @@ void HPUGraph::capture_end() {
             habana_lazy::HbLazyTensor());
       } else {
         std::shared_ptr<habana_lazy::Data> d =
-            single_graph->input_vals_[saved_input_idx++].m_data_ptr.lock();
+            single_graph->input_vals_[inp].m_data_ptr.lock();
         single_graph->hblazy_tensors_in_.emplace_back(
             habana_lazy::HbLazyTensor(std::move(d)));
       }
@@ -157,6 +157,9 @@ void HPUGraph::mark_step() {
       context->getGraphKey(),
       context->getOpStrs());
   captured_graphs.push_back(captured_graph);
+  auto user_inp_match = context->getUserInputMatchIndices();
+  user_input_match_indices_.insert(
+      user_inp_match.begin(), user_inp_match.end());
   PT_IRGRAPH_DEBUG("GRAPH:: captured graph");
   PT_IRGRAPH_DEBUG(
       (captured_graph->graph_ ? (captured_graph->graph_->dump(), "")
@@ -386,6 +389,15 @@ void HPUGraph::replayV3(
     return;
   }
 
+  size_t index = 0;
+  // If user called mark_user_inputs, then check if sizes in replay are same.
+  for (const auto& user_input_size : user_input_sizes_) {
+    if (user_input_size != inputs.at(index++).sizes().vec()) {
+      PT_DEVICE_FATAL(
+          "HPU GRAPH:: Mark User Input Sizes is not same Replay Input Sizes");
+    }
+  }
+
   for (size_t i = 0; i < captured_graphs.size(); i++) {
     captured_graphs[i]->replayV3(inputs, async);
   }
@@ -406,6 +418,9 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
   context->setMarkedInputs(static_inputs);
+  for (const auto& t : static_inputs) {
+    user_input_sizes_.push_back(t.sizes().vec());
+  }
 }
 
 HPUGraph::~HPUGraph() {
@@ -483,6 +498,14 @@ void SingleHPUGraph::replayGraph(
         launch_jobid);
   }
 
+  auto num_inputs = input_vals.size();
+  for (size_t i = 0; i < num_inputs; ++i) {
+    if (user_input_indices_.count(i) > 0) {
+      hblazy_tensors_in_[i] = habana_lazy::HbLazyTensor();
+      input_vals_[i] = habana_lazy::ir::Value();
+    }
+  }
+
   // Not enabling DS back once HPU graph detected
   /*if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();
@@ -502,22 +525,25 @@ void SingleHPUGraph::replayV3(
       "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
   if (graph_) {
-    auto num_inputs = input_vals_.size() + user_input_indices_.size();
-    habana_lazy::ir::ValueList input_val_list;
-    size_t saved_input_idx = 0;
+    auto num_inputs = input_vals_.size();
     for (size_t i = 0; i < num_inputs; ++i) {
       if (user_input_indices_.count(i) > 0) {
-        input_val_list.emplace_back(
-            habana_lazy::GetHbLazyTensor(inputs[user_input_indices_[i]])
-                .CurrentIrValue());
-        hblazy_tensors_in_[i] =
-            habana_lazy::GetHbLazyTensor(inputs[user_input_indices_[i]]);
-      } else {
-        input_val_list.emplace_back(input_vals_[saved_input_idx]);
-        ++saved_input_idx;
+        auto t = inputs[user_input_indices_[i]];
+        auto hbl = habana_lazy::GetHbLazyTensor(t);
+        if (!hbl.getDataPtr()->tensor_data) {
+          auto& stride_params_opt = hbl.getDataPtr()->stride_params;
+          if (stride_params_opt.has_value()) {
+            habana_lazy::HbLazyTensorViews::AttachStorageToViews(t, hbl);
+          } else {
+            TORCH_CHECK(
+                0, "Neither storage attached to input tensor, not its view.")
+          }
+        }
+        hblazy_tensors_in_[i] = hbl;
+        input_vals_[i] = hbl.CurrentIrValue();
       }
     }
-    return replayGraph(input_val_list, async);
+    return replayGraph(input_vals_, async);
   }
 }
 

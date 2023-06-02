@@ -102,6 +102,7 @@ struct SingleHPUGraph {
    */
   // user_input_indices_ : JIT graph input idx -> user provided input idx
   std::unordered_map<size_t, size_t> user_input_indices_;
+  std::unordered_map<size_t, size_t> user_input_view_indices_;
   std::unordered_map<int64_t, c10::optional<at::Generator>>
       seed_tensors_generator_;
   size_t hash_{0};
@@ -125,6 +126,9 @@ struct HPUGraph {
   void mark_user_outputs(std::vector<at::Tensor>& outputs);
   void mark_user_inputs(std::vector<at::Tensor>& static_inputs);
   void destroy();
+  std::unordered_set<size_t> get_user_input_match_indices() {
+    return user_input_match_indices_;
+  }
 
  protected:
   // Stream on which capture began
@@ -133,6 +137,8 @@ struct HPUGraph {
   bool dynamic_env_ = false;
   bool capturing_ = false;
   std::vector<std::shared_ptr<SingleHPUGraph>> captured_graphs;
+  std::vector<std::vector<int64_t>> user_input_sizes_ = {};
+  std::unordered_set<size_t> user_input_match_indices_;
 };
 
 } // namespace hpu
