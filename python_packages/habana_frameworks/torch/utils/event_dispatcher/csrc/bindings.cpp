@@ -20,6 +20,7 @@
 namespace py = pybind11;
 
 void cleanup_callback() {
+  py::gil_scoped_release nogil{};
   habana_helpers::EventDispatcher::Instance().unsubscribe_all();
 };
 
@@ -59,8 +60,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED)
       .value(
           "CUSTOM_EVENT", habana_helpers::EventDispatcher::Topic::CUSTOM_EVENT);
-  m.add_object("_cleanup", py::capsule(cleanup_callback));
-
+  py::module::import("atexit").attr("register")(
+      py::cpp_function{cleanup_callback});
   m.doc() =
       "Exposes API for subscribing and publishing events from Habana Pytorch plugin.";
-}
+};
