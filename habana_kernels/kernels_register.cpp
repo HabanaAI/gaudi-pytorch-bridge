@@ -1806,6 +1806,17 @@ at::Tensor rotary_embedding_wrap(
   return rotary_embedding_lazy(input, sin, cos, offset);
 }
 
+std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
+    const at::Tensor& input,
+    const at::Tensor& gamma,
+    double epsilon) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(" rms_norm :", DUMP_3ARGS(input, gamma, epsilon));
+
+  return rms_norm_lazy(input, gamma, epsilon);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2264,6 +2275,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
       "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
+  m.def(
+      "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2298,6 +2311,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);
   m.impl("hpu::rotary_embedding", rotary_embedding_wrap);
+  m.impl("hpu::rms_norm", rms_norm_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

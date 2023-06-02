@@ -761,4 +761,8 @@ at::Tensor rotary_embedding_lazy(
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset);
+std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
+    const at::Tensor& input,
+    const at::Tensor& gamma,
+    double epsilon);
 } // namespace habana_lazy

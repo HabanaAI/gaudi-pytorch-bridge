@@ -357,6 +357,22 @@ at::Tensor rotary_embedding(
       {input, sin, cos, offset},
       {input.sizes().vec()},
       0};
+}
+
+std::tuple<at::Tensor, at::Tensor> rms_norm(
+    const at::Tensor& input,
+    const at::Tensor& gamma,
+    double epsilon) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO("rms_norm :", DUMP_3ARGS(input, gamma, epsilon));
+
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::rms_norm",
+      {input, gamma, epsilon},
+      {input.sizes().vec(), input.sizes().vec()},
+      0};
+  hpu_op.set_scalar_types({input.scalar_type(), c10::ScalarType::Float});
 
   return hpu_op.call();
 }
@@ -408,6 +424,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
   m.def(
       "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
+  m.def(
+      "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -437,6 +455,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema);
   m.impl("hpu::rotary_embedding", rotary_embedding);
+  m.impl("hpu::rms_norm", rms_norm);
 }
 
 } // namespace eager

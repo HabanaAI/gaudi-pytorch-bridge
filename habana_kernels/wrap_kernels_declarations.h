@@ -417,6 +417,10 @@ at::Tensor rotary_embedding_wrap(
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset);
+std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
+    const at::Tensor& input,
+    const at::Tensor& gamma,
+    double epsilon);
 namespace vision {
 namespace ops {
 

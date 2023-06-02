@@ -7146,4 +7146,21 @@ at::Tensor rotary_embedding_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(rotary_embedding, op)
 }
 
+std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
+    const at::Tensor& input,
+    const at::Tensor& gamma,
+    double epsilon) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
+      "hpu::rms_norm",
+      {input, gamma, epsilon},
+      {{input.sizes().vec(), input.sizes().vec()}}};
+
+  op.set_scalar_types({input.scalar_type(), c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(rms_norm, op)
+}
+
 } // namespace habana_lazy
