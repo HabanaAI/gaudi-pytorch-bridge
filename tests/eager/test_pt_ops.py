@@ -131,3 +131,22 @@ def test_empty_memory_format(mode, size, memory_format):
         result_hpu = test(size, hpu_device, memory_format)
         assert (result_hpu.size() == result_cpu.size() \
             and result_hpu.dtype == result_cpu.dtype)
+
+def test_to_copy_dtype(mode):
+    def raw_function(x, dtype):
+        return torch.ops.aten._to_copy(x, dtype=dtype)
+
+    input_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
+    dtype = input_tensor.dtype
+    cpu_tensor = input_tensor.ge(0)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    if mode == "graph":
+        result_nocompile = raw_function(hpu_tensor, dtype).to("cpu")
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+        result_compile = compiled_function_training(hpu_tensor, dtype).to("cpu")
+        assert torch.equal(result_nocompile, result_compile)
+    else:
+        result_cpu = raw_function(cpu_tensor, dtype)
+        result_hpu = raw_function(hpu_tensor, dtype).to("cpu")
+        assert torch.equal(result_cpu, result_hpu)

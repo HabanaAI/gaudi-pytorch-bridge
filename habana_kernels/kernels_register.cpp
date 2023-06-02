@@ -32,54 +32,6 @@ using namespace at;
 using namespace habana;
 using namespace habana_lazy;
 
-Tensor hpu_wrap::_to_copy(
-    const Tensor& self,
-    c10::optional<ScalarType> dtype,
-    c10::optional<Layout> layout,
-    c10::optional<Device> device,
-    c10::optional<bool> pin_memory,
-    bool non_blocking,
-    c10::optional<MemoryFormat> optional_memory_format) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "_to_copy :",
-      " self=",
-      to_string(self),
-      " dtype=",
-      to_string(dtype),
-      " layout=",
-      to_string(layout),
-      " device=",
-      to_string(device),
-      " pin_memory=",
-      to_string(pin_memory),
-      " non_blocking=",
-      to_string(non_blocking),
-      " optional_memory_format=",
-      to_string(optional_memory_format));
-  auto memory_format = optional_memory_format.value_or(MemoryFormat::Preserve);
-  auto options =
-      TensorOptions().dtype(dtype).layout(layout).device(device).pinned_memory(
-          pin_memory);
-  options = self.options().merge_in(options);
-  if (memory_format == MemoryFormat::Preserve) {
-    if (self.is_non_overlapping_and_dense()) {
-      // Copy all strides
-      auto r = at::empty_strided(
-          self.sizes(), self.strides(), options.memory_format(c10::nullopt));
-      r.copy_(self, non_blocking);
-      return r;
-    } else {
-      memory_format = self.suggest_memory_format();
-    }
-  }
-
-  auto r = at::empty(
-      self.sizes(), options.memory_format(memory_format), c10::nullopt);
-  r.copy_(self, non_blocking);
-  return r;
-}
-
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
