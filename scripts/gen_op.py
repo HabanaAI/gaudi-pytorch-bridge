@@ -1221,7 +1221,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
             )
         )
         ctor_extra_calls.append(
-            "SetOutputMetaFn(ReductionMeta<{}>);".format(
+            "if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) SetOutputMetaFn(ReductionMeta<{}>);".format(
                 ", ".join(extract_reduction_vars_indices(param_vars, True))
             )
         )
