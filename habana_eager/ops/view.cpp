@@ -90,6 +90,15 @@ at::Tensor alias(const at::Tensor& self) {
   return out;
 }
 
+at::Tensor unfold(
+    const at::Tensor& self,
+    int64_t d,
+    int64_t size,
+    int64_t step) {
+  PT_EAGER_TRACE;
+  return at::native::unfold(self, d, size, step);
+}
+
 at::Tensor create_base(const at::Tensor& self) {
   auto self_impl = self.unsafeGetTensorImpl();
   auto self_tmeta{habana::get_tensor_extra_meta(self)};
@@ -121,4 +130,9 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl(
       "alias",
       static_cast<at::Tensor (*)(const at::Tensor&)>(&habana::eager::alias));
+  m.impl(
+      "unfold",
+      static_cast<at::Tensor (*)(
+          const at::Tensor& self, int64_t d, int64_t size, int64_t step)>(
+          &habana::eager::unfold));
 }
