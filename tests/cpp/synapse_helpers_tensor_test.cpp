@@ -30,7 +30,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   torch::Tensor hA = A.to(torch::kHPU);
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto type = habana_helpers::pytorch_to_synapse_type(c10::ScalarType::Float);
   auto build_result =
@@ -52,8 +52,8 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_shape(input_shape)
@@ -73,8 +73,8 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto input_shape = tensor::shape_t{3_D, {1, 2, 3}};
   auto build_result = tensor_builder(input_shape)
                           .with_rank_at_least(5)
@@ -96,8 +96,8 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
@@ -130,8 +130,8 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
@@ -151,9 +151,12 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
 
 TEST(SynapseHelpersTest, DynamicShape) {
   using namespace synapse_helpers;
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
-  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
+  auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device_.type()));
   auto min = tensor::shape_t{2_D, {5, 4}};
   auto max = tensor::shape_t{2_D, {10, 4}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
