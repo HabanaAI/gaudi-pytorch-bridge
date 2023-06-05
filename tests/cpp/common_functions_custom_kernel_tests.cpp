@@ -132,8 +132,10 @@ void runLarsOptTest(
   auto params = TensorAndViewVecToViewVec(hpu.params);
   auto grads = TensorAndViewVecToViewVec(hpu.grads);
 
+  auto lr_t = torch::full({1}, lr).to("hpu");
+
   optimizer_lars_hpu_wrap(
-      params, grads, skip_masks, eeta, weight_decay, eps, lr);
+      params, grads, skip_masks, eeta, weight_decay, eps, lr_t);
 
   // CPU calculations
   for (auto i = 0; i < num_params; i++) {

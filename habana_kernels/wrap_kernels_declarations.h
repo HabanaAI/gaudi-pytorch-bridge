@@ -232,7 +232,7 @@ void optimizer_lars_hpu_wrap(
     const double eeta,
     const double weight_decay,
     const double eps,
-    const double lr);
+    const at::Tensor& lr);
 void optimizer_resource_apply_momentum_hpu_wrap(
     at::TensorList params_momentum_buf_list,
     const at::TensorList dp_list,

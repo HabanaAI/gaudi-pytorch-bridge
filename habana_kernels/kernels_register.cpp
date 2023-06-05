@@ -1172,7 +1172,7 @@ void optimizer_lars_hpu_wrap(
     const double eeta,
     const double weight_decay,
     const double eps,
-    const double lr) {
+    const at::Tensor& lr) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
@@ -2195,7 +2195,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_fused_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
   m.def(
-      "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, float lr) -> ()");
+      "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor(b!) lr) -> ()");
   m.def(
       "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(

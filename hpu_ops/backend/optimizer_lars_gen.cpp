@@ -89,7 +89,7 @@ void OptimizerFusedLarsOperator::AddNode(
   auto eeta = getNextInput<double>(stackGetter);
   auto weight_decay = getNextInput<double>(stackGetter);
   auto eps = getNextInput<double>(stackGetter);
-  auto lr = getNextInput<double>(stackGetter);
+  auto lr = getNextInput<TensorsPair>(stackGetter);
 
   if ((params.size() != grads.size()) || (params.size() != skip_masks.size())) {
     std::stringstream ss;
@@ -108,14 +108,13 @@ void OptimizerFusedLarsOperator::AddNode(
       get_guid_with_precision("greater_fwd", ScalarType());
   std::string where_node = get_guid_with_precision("where_fwd", ScalarType());
 
-  double constant_values[] = {lr, eeta, weight_decay, eps, 0.0, 1.0};
+  double constant_values[] = {eeta, weight_decay, eps, 0.0, 1.0};
   std::array<synTensor, std::size(constant_values)> constant_ts{};
-  const auto& lr_t = constant_ts[0];
-  const auto& eeta_t = constant_ts[1];
-  const auto& weight_decay_t = constant_ts[2];
-  const auto& eps_t = constant_ts[3];
-  const auto& zero_t = constant_ts[4];
-  const auto& one_t = constant_ts[5];
+  const auto& eeta_t = constant_ts[0];
+  const auto& weight_decay_t = constant_ts[1];
+  const auto& eps_t = constant_ts[2];
+  const auto& zero_t = constant_ts[3];
+  const auto& one_t = constant_ts[4];
 
   int64_t skip_mask_ored = std::accumulate(
       skip_masks.begin(), skip_masks.end(), 0, std::bit_or<int64_t>());
@@ -146,8 +145,8 @@ void OptimizerFusedLarsOperator::AddNode(
     std::vector<NodeAttr::NodeOutputAttr> scalar_attr = {{scalar_shape, dtype}};
 
     if (!skip_mask) {
-      auto mul =
-          BuildOp(graph, mul_node, {grad.syn_t, lr_t}, {{outshape, dtype, i}});
+      auto mul = BuildOp(
+          graph, mul_node, {grad.syn_t, lr.syn_t}, {{outshape, dtype, i}});
       syn_out(i) = std::move(mul[0]);
     } else {
       std::vector<sh::tensor> local_storage;
@@ -198,8 +197,8 @@ void OptimizerFusedLarsOperator::AddNode(
           {param_greater_t, selected_div_part[0].get(), one_t},
           scalar_attr);
 
-      auto scaled_lr =
-          BuildOp(graph, mul_node, {selected_div[0].get(), lr_t}, scalar_attr);
+      auto scaled_lr = BuildOp(
+          graph, mul_node, {selected_div[0].get(), lr.syn_t}, scalar_attr);
 
       auto param_times_wd =
           BuildOp(graph, mul_node, {param.syn_t, weight_decay_t}, out_attr);
