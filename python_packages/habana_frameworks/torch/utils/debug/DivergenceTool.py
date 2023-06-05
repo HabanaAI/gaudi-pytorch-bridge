@@ -36,13 +36,16 @@ def compare_databases(db_file1, db_file2):
         if len(rows1) != len(rows2):
             print(table_name[0] + " has different tensor numbers in static and dynamic not comparing")
         else :
-            row1_data = [lis[9] for lis in rows1]
-            row2_data = [lis[9] for lis in rows2]
+            row1_data = [lis[-1] for lis in rows1]
+            row2_data = [lis[-1] for lis in rows2]
             if row1_data != row2_data:
                 differing_tables[table_name] = []
+                #TODO : Add tolerance for comparision
+                # may need to use db_parser to serialize the data and compare
+                # perhaps use db_parser find maximum difference and dump in csv
                 for i in range(len(rows1)):
-                    if(rows1[i][9] != rows2[i][9]):
-                       differing_tables[table_name].append(rows1[i][3])
+                    if(rows1[i][-1] != rows2[i][-1]):
+                       differing_tables[table_name].append(rows1[i][4])
 
     if differing_tables:
         print("The following tables have different data:")
