@@ -280,10 +280,6 @@ class HabanaLaunchOpPT {
   // tinfos corresponding to shape tensor.
   std::vector<PtTensorInfoShared> shape_tensor_tinfos;
 
-  // tinfos corresponding to non-persistent intermediates tensors.
-  // for eager shape agnostic patching for synapse graph.
-  std::vector<PtTensorInfoShared> non_persistent_intermediate_tinfos;
-
   // caching :: begin
 
   size_t num_inputs{0};

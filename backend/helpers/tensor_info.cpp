@@ -148,18 +148,6 @@ PtTensorInfo::PtTensorInfo(
   populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
 }
 
-PtTensorInfo::PtTensorInfo(
-    const std::string& sn,
-    const bool wflag,
-    const uint64_t tensor_id,
-    const synTensor handle,
-    const synTensorType stt)
-    : orig_syn_handle_(handle),
-      syn_name_(sn),
-      watch_(wflag),
-      tensor_id_(tensor_id),
-      tensor_type_(stt) {}
-
 void PtTensorInfo::update_shape_syn() {
   switch (tensor_type_) {
     case DATA_TENSOR:

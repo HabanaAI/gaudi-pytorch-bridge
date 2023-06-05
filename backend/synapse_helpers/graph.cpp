@@ -227,7 +227,6 @@ graph::graph(graph&& other) noexcept
       in_execution_phase_(other.in_execution_phase_),
       graph_handle_(other.graph_handle_),
       dry_run_(other.dry_run_),
-      numInterTensors(other.numInterTensors),
       is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
       eager_mode_(other.eager_mode_) {
   other.is_valid_ = false;
@@ -390,8 +389,8 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
         duplicate_graph_handle_,
         name.c_str(),
         nullptr);
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] duplicate graph name : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] duplicate graph name : ",
         name.c_str(),
         " graph handle : ",
         duplicate_graph_handle_,

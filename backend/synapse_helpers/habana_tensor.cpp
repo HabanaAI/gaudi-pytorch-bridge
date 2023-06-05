@@ -281,7 +281,8 @@ synapse_error_o tensor::create_old_synapi() {
           " new section created with offset ",
           offset_);
       memory_section_->set_sa_on(is_shape_agnostic_);
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic : ", is_shape_agnostic_);
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic : ", is_shape_agnostic_);
       status =
           synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else if (memory_section_ && is_persistent_) {
@@ -451,7 +452,8 @@ synapse_error_o tensor::create() {
           " new mem section created with offset ",
           offset_);
       memory_section_->set_sa_on(is_shape_agnostic_);
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic : ", is_shape_agnostic_);
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic : ", is_shape_agnostic_);
       if (is_const_section_) {
         status = synSectionSetConst(*memory_section_, true);
         SYNAPSE_SUCCESS_CHECK_WITH_OP(

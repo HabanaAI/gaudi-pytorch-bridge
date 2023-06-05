@@ -65,6 +65,7 @@
 
 using namespace torch::jit;
 using namespace jitgraph_utils;
+
 namespace habana {
 
 std::future<void> Singleton_CompileThreadPool::m_compile_thread_handle;
@@ -212,11 +213,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       ", enable_shape_agnostic_caching_ : ",
       enable_shape_agnostic_caching_);
 
-  // For new eager, Try shape inference for patching outputs
-  // For lazy eager, output info is passed from frontend itself.
-  if (enable_shape_agnostic_caching_ &&
-      jit_graph_and_meta_data->GetFrontendType() !=
-          habana_helpers::HabanaFrontendTypes::EAGER) {
+  if (enable_shape_agnostic_caching_) {
     out_shapes = optimized_jit_graph_and_meta_data->get_output_shapes();
     HABANA_ASSERT(
         out_shapes.size() == jit_ir_graph->outputs().size(),
@@ -710,8 +707,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
         m_map_shape.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
 
-  if ((shape_inf_flag || enable_shape_agnostic_caching_) &&
-      !op_output_shape.empty()) {
+  if (shape_inf_flag && !op_output_shape.empty()) {
     HABANA_ASSERT(
         habana_op->GetSynOutputs().size() ==
             op_output_shape.GetOutputTensor().size(),
@@ -769,10 +765,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
     }
   };
 
-  auto handle_shape_inf = [&](PtTensorInfoShared ti,
-                              bool use_output_shape,
-                              bool shape_agn_flag) {
-    if (shape_inf_flag || shape_agn_flag) {
+  auto handle_shape_inf = [&](PtTensorInfoShared ti, bool use_output_shape) {
+    if (shape_inf_flag) {
       if (use_output_shape && !op_output_shape.empty()) {
         auto output = op_output_shape.GetOutputTensor().at(output_tensor_idx);
         auto output_sif_tidx{std::get<0>(output)};
@@ -851,24 +845,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
             ivpsh, output_nodes[output_nodes_idx], out_tensor_syn);
 
         handle_permutes(ti, out_tensor_syn, ivpsh);
-
-        constexpr bool use_output_shape = true;
-        const bool shape_agn_flag = enable_shape_agnostic_caching_ &&
-            jit_graph_and_meta_data->GetFrontendType() ==
-                habana_helpers::HabanaFrontendTypes::EAGER;
-        handle_shape_inf(ti, use_output_shape, shape_agn_flag);
-      } else if (enable_shape_agnostic_caching_) {
-        // For shape agnostic flow for eager we need non-persistent info as well
-        // Try maintaing it in another struct other than dtensor info struct
-        PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-            out_tensor_syn.name(),
-            watch_tensor_flag_,
-            out_tensor_syn.id(),
-            out_tensor_syn.get(),
-            out_tensor_syn.tensor_type());
-        constexpr bool use_output_shape = true;
-        handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
-        non_persistent_intermediate_tinfos.emplace_back(ti);
+        handle_shape_inf(ti, true);
       }
 
       handle_postprocess(
@@ -910,9 +887,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
 
       handle_permutes(ti, sh_t, ivpsh);
-      constexpr bool use_output_shape = false;
-      constexpr bool shape_agn_flag = false;
-      handle_shape_inf(ti, use_output_shape, shape_agn_flag);
+      handle_shape_inf(ti, false);
     }
 
     handle_postprocess(input_nodes, syn_input_idx, syn_input_idx, sh_t);
@@ -2309,11 +2284,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     habana::OutputShapeInfRetType kernel_output_cs(true);
     if (!disabled_jit_ir_ops_.count(node_qual_str)) {
       // Either the ComputeOutputShape flow is getting validated or
-      // fast shape inference is running for dynamic shapes or
-      // shape agnostic flow is enabled for eager.
+      // fast shape inference is running.
       if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
-          (enable_fast_shape_inf_ && syn_graph_ptr->is_dynamic_graph()) ||
-          enable_shape_agnostic_caching_) {
+          (enable_fast_shape_inf_ && syn_graph_ptr->is_dynamic_graph())) {
         PT_DYNAMIC_SHAPE_DEBUG(
             "Current sif tensor id = ",
             habana::ShapeInference::GetSifTensorId());
@@ -2348,7 +2321,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               cs_jit_ir_ops_.insert(node_qual_str);
             }
           } catch (std::exception& e) {
-            kernel_output_cs.set_empty();
             if (disabled_jit_ir_ops_.count(node_qual_str) == 0) {
               PT_DYNAMIC_SHAPE_DEBUG(
                   "DISABLED_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
@@ -2432,10 +2404,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         ProcessSynapseOutputs(HabanaKernel, node, kernel_output_cs);
 
     // HybridSif specific
-    const auto dynamic_compile_graph = refine_ds_enabled_ &&
-        enable_fast_shape_inf_ && syn_graph.is_dynamic_graph() &&
-        !is_shape_inference;
-    if ((dynamic_compile_graph || enable_shape_agnostic_caching_) &&
+    if (refine_ds_enabled_ && enable_fast_shape_inf_ &&
+        syn_graph.is_dynamic_graph() && !is_shape_inference &&
         kernel_output_cs.empty()) {
       // Increment the sif tensor id
       auto output_count = get_output_tensors_count(HabanaKernel, syn_graph);
@@ -2533,8 +2503,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   }
 
   // Generate patching info for graph inputs during fast sif
-  if ((refine_ds_enabled_ && enable_fast_shape_inf_ &&
-       syn_graph.is_dynamic_graph() && !is_shape_inference)) {
+  if (refine_ds_enabled_ && enable_fast_shape_inf_ &&
+      syn_graph.is_dynamic_graph() && !is_shape_inference) {
     for (size_t i = 0; i < jit_ir_graph->inputs().size(); ++i) {
       auto input = jit_ir_graph->inputs().at(i);
       HABANA_ASSERT(value_to_ivalue.count(input));
@@ -3369,8 +3339,8 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
     for (auto size : shape) {
       if (size == 0) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
-        PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
             " output shapes not ok!");
         break;
       }
@@ -3385,8 +3355,8 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
       bool is_shape_tensor = tmeta && tmeta->is_shape_tensor();
       if (is_shape_tensor) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
-        PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
             " input is a shape tensor ! ",
             " tmeta : ",
             tmeta);
@@ -3402,12 +3372,12 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
     std::vector<synTensorHandleMap>& tensors_map,
     std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
     std::string cache_hit_or_miss) {
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] === ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] === ",
       cache_hit_or_miss,
       " duplicate graph information ====");
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] original graph handle : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] original graph handle : ",
       graph_ptr->get_graph_handle(),
       " duplicate graph handle : ",
       graph_ptr->get_duplicate_graph_handle(),
@@ -3417,8 +3387,8 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
       graph_ptr->get_num_of_nodes());
 
   for (size_t i = 0; i < tensors_map.size(); i++) {
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] org handle : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] org handle : ",
         tensors_map.at(i).origHandle,
         " new handle : ",
         tensors_map.at(i).newHandle);
@@ -3759,7 +3729,8 @@ void HabanaLaunchOpPT::run(
       jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
     cur_rvalpsh = jit_graph_and_meta_data->get_shape_agnostic_recipe();
     if (cur_rvalpsh == nullptr) {
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (begin)");
       HABANA_ASSERT(
           eager_mode == true,
           "eager_mode is expected true for supporting shape agnostic graph");
@@ -3779,20 +3750,24 @@ void HabanaLaunchOpPT::run(
 
       DuplicateSynapseGraph();
 
-      if (habana_kernels.size() != syn_graph_ptr->get_num_of_nodes()) {
+      if (((syn_graph_ptr->get_num_of_tensors() -
+            syn_graph_ptr->get_num_of_const_tensors()) !=
+           pt_to_synapse_tensors.size()) ||
+          (habana_kernels.size() > 1)) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
-        PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] Shape agnostic not supported for compound Op(s)",
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic not supported for this Op",
+            " total number of tensors : ",
+            syn_graph_ptr->get_num_of_tensors(),
+            " number of const tensors : ",
+            syn_graph_ptr->get_num_of_const_tensors(),
+            " number of persistent tensors : ",
+            pt_to_synapse_tensors.size(),
             " number of kernels : ",
             habana_kernels.size(),
-            " number of synapse nodes : ",
+            "number of nodes : ",
             syn_graph_ptr->get_num_of_nodes());
       }
-
-      PT_EAGER_DEBUG(
-          "[SHAPE AGNOSTIC] Shape agnostic SIF tinfo map size : ",
-          sif_tidx_to_tinfo_map.size());
-      syn_graph_ptr->set_num_of_inter_tensors(sif_tidx_to_tinfo_map.size());
 
       if (eager_mode &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
@@ -3832,9 +3807,11 @@ void HabanaLaunchOpPT::run(
       }
 
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache miss (end)");
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache miss (end)");
     } else {
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       syn_graph_ptr = cur_rvalpsh->shape_agnostic_synapse_graph_.get();
 
       std::vector<synTensorHandleMap> tensorsMap(
@@ -3848,7 +3825,7 @@ void HabanaLaunchOpPT::run(
 
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
-      PT_EAGER_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           id_str,
           ": ",
           "HabanaOp shape agnostic graph cache hit :: key ",
@@ -3857,7 +3834,7 @@ void HabanaLaunchOpPT::run(
           rv.header_str(),
           "\n",
           rv.digest_str());
-      PT_EAGER_DEBUG(
+      PT_LAZY_EAGER_DEBUG(
           "HabanaOp shape agnostic graph cache hit :: static shapes");
 
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
@@ -3874,39 +3851,18 @@ void HabanaLaunchOpPT::run(
             {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
       }
 
-      auto new_eager_mode =
-          (jit_graph_and_meta_data->GetFrontendType() ==
-           habana_helpers::HabanaFrontendTypes::EAGER);
-
-      /*
-       * Hybrid SIF for shape inference
-       * For new eager, Hybrid SIF is used for output and intermediate tensors
-       *                shape inference.
-       * For old lazy eager, Hybrid SIF is used for only intermediate tensors
-       *                     shape inference, if any. Since ouptut shape info
-       *                     is passed from the frontend.
-       * ToDo: Use same control flow for both above mode i.e.
-       * Add support for passing output shapes from the frontend for new eager.
-       */
-      std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map;
-      if (new_eager_mode || syn_graph_ptr->get_num_of_inter_tensors() > 0) {
-        habana::ShapeInference::ResetSifTensorId();
-        RunHybridSif(local_tidx_to_tensor_map);
-      }
-
       constexpr bool is_shape_agnostic_graph = true;
       rv.update_patching_table(
           input_refs,
           intermediate_tensors_ptr,
           dma_inputs_ptr,
           m_map_shape.m_actual_shapes,
-          local_tidx_to_tensor_map,
+          std::nullopt,
           allocated_outputs_,
           out_shapes,
           syn_graph_ptr,
           synapse_orig_to_new_handle,
-          is_shape_agnostic_graph,
-          new_eager_mode);
+          is_shape_agnostic_graph);
 
       // To check if any other members just like ntensorbytes also need to be
       // updated
@@ -3970,7 +3926,8 @@ void HabanaLaunchOpPT::run(
 
       synGraphDestroy(syn_graph_ptr->get_duplicate_graph_handle());
 
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (end)");
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] shape agnostic cache hit (end)");
     }
 
     is_jit_cached_graph_info_available =

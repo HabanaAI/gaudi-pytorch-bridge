@@ -138,7 +138,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
         if (info->get_allow_permutation()) {
           synRetrievedLaunchTensorInfoExt record = {};
           record.tensorId = cur_rvalpsh->tensor_ids[i];
-          info->set_syn_tensor_id(record.tensorId);
           PT_BRIDGE_DEBUG(
               "preparing to query tensor: ",
               info->get_tensor_id(),
@@ -452,8 +451,8 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   } else {
     cur_rvalpsh->recipe = cur_recipe;
   }
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
       cur_rvalpsh->recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
 
@@ -626,11 +625,11 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
     rv.set_graph_key(graph_key);
     rv.set_graph_name(GetSynapseGraphName());
     rv.set_op_strs(cur_rargpsh->get_op_strs());
+    rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
   } else if (enable_shape_agnostic_caching_) {
     rv.set_graph_key(graph_key);
     rv.set_graph_name(GetSynapseGraphName());
   }
-  rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
 }
 
 void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
@@ -1195,7 +1194,8 @@ void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
 
 void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {
   num_inputs = jit_ir_graph->inputs().size();
-  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] #graph_inputs : ", num_inputs);
   TORCH_CHECK(
       num_inputs == input_st.size(),
       "Input stack size=",

@@ -599,8 +599,6 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   // For all Graph inputs create a sif mapping
   for (size_t i = 0; i < graph_inputs.size(); ++i) {
-    if (input_refs[i].isScalar())
-      continue;
     HABANA_ASSERT(input_refs[i].isTensor());
     auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
     tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});

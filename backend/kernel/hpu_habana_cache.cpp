@@ -631,21 +631,27 @@ synTensor RecipeValueSpec::get_syn_new_handle(
       ridx,
       " not present in the tensor id to orig handle map");
   synTensor orig_handle = synapse_tensor_id_to_tensor_handle.find(ridx)->second;
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] Tensor ridx : ", ridx, " origHandle : ", orig_handle);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " origHandle : ",
+      orig_handle);
   if (synapse_orig_to_new_handle.find(orig_handle) ==
       synapse_orig_to_new_handle.end()) {
     // This could be changed assert if it is gauranteed that synapse
     // duplicate API returns orig/new handle for each persistent tensor
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] origHandle : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] origHandle : ",
         orig_handle,
         " not present in the synapse_orig_to_new_handle map");
     return nullptr;
   }
   synTensor new_handle = synapse_orig_to_new_handle.find(orig_handle)->second;
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] Tensor ridx : ", ridx, " newHandle : ", new_handle);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " newHandle : ",
+      new_handle);
   return new_handle;
 }
 
@@ -654,17 +660,20 @@ void RecipeValueSpec::update_tensor_shape(
     synTensor tensor_handle,
     PtTensorInfoShared tinfo,
     std::vector<int64_t> shape) {
-  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape used for patching : ", shape);
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] tensor shape before patching : ", tinfo->get_shape());
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] shape used for patching : ", shape);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] tensor shape before patching : ",
+      tinfo->get_shape());
   if (shape.size() == 0 && !tinfo->is_ZST()) {
     shape = {1};
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] settting the tensor shape to {1} for scalar");
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] settting the tensor shape to {1} for scalar");
   }
   tinfo->set_shape(shape);
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] tensor shape after patching : ", tinfo->get_shape());
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] tensor shape after patching : ",
+      tinfo->get_shape());
   synapse_graph_ptr->setTensorGeometry(tensor_handle, shape);
 }
 
@@ -673,42 +682,42 @@ inline void RecipeValueSpec::update_new_tensor(
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
-    std::vector<uint8_t> permute_or_empty,
-    std::optional<PtTensorInfoShared> tinfo_opt) {
-  PtTensorInfoShared tinfo;
-  // tinfo_opt is for passing sif info instead of dtensor info
-  if (tinfo_opt.has_value()) {
-    tinfo = tinfo_opt.value();
-  } else {
-    tinfo = dtensorinfos->at(ridx);
-  }
+    std::vector<uint8_t> permute_or_empty) {
+  auto tinfo = dtensorinfos->at(ridx);
 
   auto orig_handle = tinfo->get_orig_syn_handle();
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] Tensor ridx : ", ridx, " orig_handle : ", orig_handle);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " orig_handle : ",
+      orig_handle);
 
   synTensor new_handle = nullptr;
   if (synapse_orig_to_new_handle.find(orig_handle) ==
       synapse_orig_to_new_handle.end()) {
     // This could be changed assert if it is gauranteed that synapse
     // duplicate API returns orig/new handle for each persistent tensor
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] origHandle : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] origHandle : ",
         orig_handle,
         " not present in the synapse_orig_to_new_handle map");
   } else {
     new_handle = synapse_orig_to_new_handle.find(orig_handle)->second;
   }
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] Tensor ridx : ", ridx, " newHandle : ", new_handle);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] Tensor ridx : ",
+      ridx,
+      " newHandle : ",
+      new_handle);
 
   size_t tensorId = tinfo->get_tensor_id();
-  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] ridx : ", ridx, " tensor id : ", tensorId);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ", ridx, " tensor id : ", tensorId);
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] new handle : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] new handle : ",
       new_handle,
       " is_output : ",
       tinfo->is_output(),
@@ -729,9 +738,7 @@ inline void RecipeValueSpec::update_new_tensor(
         synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
         tinfo->setHbInternalPermute(permute_or_empty);
       }
-      const auto& syn_tensor_id = tinfo->get_syn_tensor_id();
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output syn tensor id : ", syn_tensor_id);
-      output_tensor_ids.at(tinfo->get_output_index()) = syn_tensor_id;
+      output_tensor_ids.at(tinfo->get_output_index()) = tensorId;
       output_tensor_alllow_permutations.at(tinfo->get_output_index()) =
           tinfo->get_allow_permutation();
     } else if (!tinfo->is_output()) {
@@ -758,8 +765,9 @@ void RecipeValueSpec::update_output_permutation() {
       if (output_tensor_alllow_permutations.at(i)) {
         synRetrievedLaunchTensorInfoExt record = {};
         record.tensorId = output_tensor_ids.at(i);
-        PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] preparing to query tensor: ", record.tensorId);
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER SHAPE AGNOSTIC] preparing to query tensor: ",
+            record.tensorId);
         tensor_info_vec.push_back(record);
         outputs.emplace_back(aten_outputs->at(i));
       }
@@ -798,8 +806,8 @@ void RecipeValueSpec::update_output_permutation() {
       bool is_identity_perm = true;
       for (size_t i = 0; i < permute_vec.size() - 1; ++i) {
         if (permute_vec[i] + 1 != permute_vec[i + 1]) {
-          PT_EAGER_DEBUG(
-              "[SHAPE AGNOSTIC] Detected a real permutation (not identity)");
+          PT_LAZY_EAGER_DEBUG(
+              "[LAZY EAGER SHAPE AGNOSTIC] Detected a real permutation (not identity)");
           is_identity_perm = false;
           break;
         }
@@ -809,7 +817,7 @@ void RecipeValueSpec::update_output_permutation() {
       at::Tensor& tensor{outputs.at(count)->toTensor()};
       PT_BACKEND_DEBUG_TENSOR(
           tensor,
-          "[SHAPE AGNOSTIC] Synapse returned persistent tensorId=%d"
+          "[LAZY EAGER SHAPE AGNOSTIC] Synapse returned persistent tensorId=%d"
           " HbInternal address: %s"
           " HbInternal storage address: %s"
           "; info.tensorPermutation = {%s}",
@@ -837,10 +845,10 @@ void RecipeValueSpec::update_patching_table(
     std::vector<std::vector<int64_t>> output_shapes,
     synapse_helpers::graph* synapse_graph_ptr,
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
-    bool is_shape_agnostic_graph,
-    bool is_eager_mode) {
+    bool is_shape_agnostic_graph) {
   PT_BRIDGE_BEGIN;
-  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos->size());
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos->size());
   bool enable_fast_shape_inf =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
   if (dynamic_graph) {
@@ -917,8 +925,11 @@ void RecipeValueSpec::update_patching_table(
   // Patch the input buffers
   // Running index on dtensorinfos
   size_t ridx = 0;
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ", ridx, " num_inputs : ", num_inputs);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
+      ridx,
+      " num_inputs : ",
+      num_inputs);
   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
@@ -976,41 +987,18 @@ void RecipeValueSpec::update_patching_table(
   // Patch the duplicates if there are any
   if (num_induplicates) {
     size_t induplicates_index_end = num_inputs + num_induplicates;
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] ridx : ",
-        ridx,
-        " num_induplicates : ",
-        num_induplicates);
     for (; ridx < induplicates_index_end; ridx++) {
       size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
-      auto parent_ti = dtensorinfos->at(parent_idx);
-      dtensorinfos->at(ridx)->patch(*parent_ti);
+      dtensorinfos->at(ridx)->patch(*(dtensorinfos->at(parent_idx)));
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] induplicates ridx : ",
+          ridx,
+          " shape patching not done!");
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
           parent_idx,
           ", parent buffer ptr ",
           dtensorinfos->at(parent_idx)->get_buffer());
-      if (is_shape_agnostic_graph) {
-        auto tshape{parent_ti->get_shape()};
-        std::vector<uint8_t> permutation = {};
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
-          if (parent_ti->is_output() && !parent_ti->is_duplicate() &&
-              !parent_ti->is_ZST()) {
-            if (parent_ti->get_allow_permutation()) {
-              permutation = parent_ti->getHbInternalPermute();
-            }
-          } else if (!parent_ti->is_output()) {
-            permutation = parent_ti->getHbInternalPermute();
-          }
-        }
-        update_new_tensor(
-            synapse_graph_ptr,
-            ridx,
-            synapse_orig_to_new_handle,
-            tshape,
-            permutation);
-        dtinfos_patched_count++;
-      }
     }
   }
 
@@ -1023,8 +1011,8 @@ void RecipeValueSpec::update_patching_table(
     size_t dma_inputs_index_end =
         num_inputs + num_induplicates + num_dma_inputs;
     for (; ridx < dma_inputs_index_end; ridx++) {
-      PT_EAGER_DEBUG(
-          "[SHAPE AGNOSTIC] dma_inputs ridx : ",
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] dma_inputs ridx : ",
           ridx,
           " shape patching not done!");
       auto& ti = *(dtensorinfos->at(ridx));
@@ -1070,8 +1058,8 @@ void RecipeValueSpec::update_patching_table(
   std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
   std::vector<at::Tensor> intermediate_tensors;
   for (; ridx < intermediates_end; ridx++) {
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] intermediates ridx : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] intermediates ridx : ",
         ridx,
         " shape patching not done!");
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
@@ -1140,20 +1128,10 @@ void RecipeValueSpec::update_patching_table(
   aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
       std::vector<IValPtrShared>(aten_output_num));
 
-  output_tensor_ids = std::vector<uint64_t>(aten_output_num);
-  output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
-
-  /* Patch outputs, is_shape_agnostic_lazy_eager to distinguish
-   * between old lazy eager mode and new eager mode
-   * For new eager, Use shape inference for patching outputs
-   * For old lazy eager, ouptut info is passed from frontend.
-   *
-   * Todo: Add support for shape info from front end for new eager
-   *       Remove this flag once lazy eager mode is deprecated.
-   */
-  const auto is_shape_agnostic_lazy_eager =
-      is_shape_agnostic_graph && !is_eager_mode;
-  if (is_shape_agnostic_lazy_eager) {
+  // Patch outputs
+  if (is_shape_agnostic_graph) {
+    output_tensor_ids = std::vector<uint64_t>(aten_output_num);
+    output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
     TORCH_CHECK(
         aten_output_num == output_shapes.size(),
         "number of output shapes for patching ",
@@ -1163,8 +1141,11 @@ void RecipeValueSpec::update_patching_table(
   }
   std::unordered_map<size_t, IValPtrShared> outputIVpshMap;
   size_t outputs_end = intermediates_end + num_outputs;
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ", ridx, " num_outputs : ", num_outputs);
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
+      ridx,
+      " num_outputs : ",
+      num_outputs);
 
   auto create_or_use_output_tensor = !allocated_outputs.has_value()
       ? std::function<at::Tensor(const PtTensorInfo&)>(
@@ -1187,7 +1168,7 @@ void RecipeValueSpec::update_patching_table(
         output_idx,
         " is greater than #outputs ",
         aten_output_num);
-    if (is_shape_agnostic_lazy_eager) {
+    if (is_shape_agnostic_graph) {
       update_new_tensor(
           synapse_graph_ptr,
           ridx,
@@ -1197,7 +1178,7 @@ void RecipeValueSpec::update_patching_table(
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto pt_output = create_or_use_output_tensor(ti);
-    if (is_shape_agnostic_lazy_eager) {
+    if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,
           "output HbInternal address: %s"
@@ -1216,16 +1197,16 @@ void RecipeValueSpec::update_patching_table(
     outputIVpshMap.emplace(ridx, ivpsh);
 
     // Patch the buffer for the output
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] ridx : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
         ridx,
         " output tensor storage data pointer : ",
         pt_output.storage().data_ptr().get());
     ti.patch(pt_output);
   }
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
       ridx,
       " num_outduplicates : ",
       num_outduplicates);
@@ -1233,8 +1214,8 @@ void RecipeValueSpec::update_patching_table(
   size_t outduplicates_end = outputs_end + num_outduplicates;
   if (num_outduplicates) {
     for (; ridx < outduplicates_end; ridx++) {
-      PT_EAGER_DEBUG(
-          "[SHAPE AGNOSTIC] outduplicates ridx : ",
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] outduplicates ridx : ",
           ridx,
           " shape patching not done!");
       size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
@@ -1249,8 +1230,8 @@ void RecipeValueSpec::update_patching_table(
       " mismatch with outduplicates_end",
       outduplicates_end);
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
       ridx,
       " num_input_to_outduplicates : ",
       num_input_to_outduplicates);
@@ -1259,7 +1240,7 @@ void RecipeValueSpec::update_patching_table(
       outduplicates_end + num_input_to_outduplicates;
   if (num_input_to_outduplicates) {
     for (; ridx < input_to_outduplicates_end; ridx++) {
-      if (is_shape_agnostic_lazy_eager) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1286,8 +1267,8 @@ void RecipeValueSpec::update_patching_table(
       " mismatch with input_to_outduplicates_end ",
       input_to_outduplicates_end);
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
       ridx,
       " num_intermediate_to_outduplicates : ",
       num_intermediate_to_outduplicates);
@@ -1298,8 +1279,8 @@ void RecipeValueSpec::update_patching_table(
   if (num_intermediate_to_outduplicates) {
     constexpr bool shape_agnostic = false;
     for (; ridx < interim_to_outduplicates_end; ridx++) {
-      PT_EAGER_DEBUG(
-          "[SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
+      PT_LAZY_EAGER_DEBUG(
+          "[LAZY EAGER SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
           ridx,
           " shape patching not done!");
       create_outdup(
@@ -1314,8 +1295,8 @@ void RecipeValueSpec::update_patching_table(
       " mismatch with interim_to_outduplicates_end ",
       interim_to_outduplicates_end);
 
-  PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] ridx : ",
+  PT_LAZY_EAGER_DEBUG(
+      "[LAZY EAGER SHAPE AGNOSTIC] ridx : ",
       ridx,
       " num_output_to_outduplicates : ",
       num_output_to_outduplicates);
@@ -1324,7 +1305,7 @@ void RecipeValueSpec::update_patching_table(
       interim_to_outduplicates_end + num_output_to_outduplicates;
   if (num_output_to_outduplicates) {
     for (; ridx < output_to_outduplicates_end; ridx++) {
-      if (is_shape_agnostic_lazy_eager) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1358,76 +1339,22 @@ void RecipeValueSpec::update_patching_table(
       ", mismatch with num_tinfos",
       num_tinfos);
 
-  if (is_shape_agnostic_lazy_eager) {
-    // These tinfos not patched
-    auto tinfos_not_patched = num_dma_inputs + num_intermediates +
-        num_outduplicates + num_intermediate_to_outduplicates;
-
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] number of dtinfos patched count : ",
+  if (is_shape_agnostic_graph) {
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] number of dtinfos patched count : ",
         dtinfos_patched_count);
     TORCH_CHECK(
-        dtinfos_patched_count == num_tinfos - tinfos_not_patched,
+        dtinfos_patched_count == num_tinfos,
         "number of dtinfos patched : ",
         dtinfos_patched_count,
         ", mismatch with num_tinfos : ",
         num_tinfos);
 
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] output_tensor_ids size : ",
+    PT_LAZY_EAGER_DEBUG(
+        "[LAZY EAGER SHAPE AGNOSTIC] output_tensor_ids size : ",
         output_tensor_ids.size(),
         " output_tensor_alllow_permutations size : ",
         output_tensor_alllow_permutations.size());
-  }
-
-  // For new eager mode
-  // Patch non-persistent and outputs info for shape agnostic flow
-  // For old lazy eager mode
-  // Patch non-persistent info for shape agnostic flow
-  //       outputs and inputs are patched separately
-  //
-  // Logic
-  // Read sif_tidx_to_tinfo_map
-  // Map of sif_tidx -> tensor info [to get original syn tensor]
-  //
-  // Get new shapes from tidx_to_tensor_map
-  // Map of sif_tidx -> tensor shapes
-  //
-  // Now patch the shape information to duplicate synapse tensors
-  //
-  // ToDo: Patch all non-persistents + outputs + inputs
-  //       at one common place for both lazy eager and new eager
-  if (is_shape_agnostic_graph) {
-    HABANA_ASSERT(
-        tidx_to_tensor_map_opt != std::nullopt,
-        "nullopt passed as tidx_to_tensor_map_opt");
-
-    const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map =
-        tidx_to_tensor_map_opt->get();
-
-    for (auto& t : sif_tidx_to_tinfo_map) {
-      auto sif_tensor_idx = t.first;
-      HABANA_ASSERT(
-          tidx_to_tensor_map.count(sif_tensor_idx),
-          "Tensor index ",
-          sif_tensor_idx,
-          " is missing from the computed tidx_to_tensor_map");
-
-      auto new_sizes = tidx_to_tensor_map.at(sif_tensor_idx).sizes().vec();
-      PT_EAGER_DEBUG(
-          "SAG Patching tensor index:",
-          sif_tensor_idx,
-          " new shape: ",
-          new_sizes);
-
-      update_new_tensor(
-          synapse_graph_ptr,
-          ++ridx, // dummy value
-          synapse_orig_to_new_handle,
-          new_sizes,
-          {},
-          t.second);
-    }
   }
   PT_BRIDGE_END;
 }
