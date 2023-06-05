@@ -87,7 +87,8 @@ void CatOutHabanaOperator::AddNode(
   auto out_tensor_type = in_tensors[0].scalar_type();
 
   for (unsigned i = 0; i < in_tensors.size(); i++) {
-    if (in_tensors[i].scalar_type() != out_tensor_type) {
+    if (habana_helpers::pytorch_to_synapse_type(in_tensors[i].scalar_type()) !=
+        habana_helpers::pytorch_to_synapse_type(out_tensor_type)) {
       cat_input_shTensor.emplace_back(CastHelper(
           graph,
           syn_in(i),
