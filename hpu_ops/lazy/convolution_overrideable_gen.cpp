@@ -12,6 +12,7 @@
  */
 #include "generated/lazy/convolution_overrideable.h"
 #include "habana_lazy/permute_tensors.h"
+#include "habana_lazy/view_utils.h"
 
 namespace habana {
 
@@ -20,7 +21,8 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     ConvolutionOverrideableFE,
     at::Tensor) {
   auto weight = inputs[1].toTensor();
-  at::Tensor weight_hpu = weight;
+  at::Tensor weight_hpu =
+      habana_lazy::HbLazyTensorViews::HandleViewsD2H(weight);
 
   habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
 
