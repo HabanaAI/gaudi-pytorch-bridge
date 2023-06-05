@@ -107,7 +107,7 @@ class EagerOpBase {
   std::function<habana::OutputMetaDataVector(const at::Stack&)>
       m_output_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
-  bool m_is_pipeline_supported = false;
+  bool m_is_pipeline_supported = true;
   bool m_dont_preallocate_outputs = false;
 
   void validate_inputs(const std::vector<at::IValue>& inputs);
@@ -167,7 +167,6 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call inplace/out :: ", m_symbol.toQualString());
-    m_is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -205,7 +204,6 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
   call(const at::Tensor& self) {
     PT_EAGER_DEBUG("Eager Call const inplace :: ", m_symbol.toQualString());
-    m_is_pipeline_supported = true;
 
     HABANA_ASSERT(
         self.device().type() == at::kHPU,
@@ -237,7 +235,6 @@ class EagerOp : public EagerOpBase {
       T self) {
     PT_EAGER_DEBUG(
         "Eager Call tuple_of_tensor_ref :: ", m_symbol.toQualString());
-    m_is_pipeline_supported = true;
 
     std::vector<std::vector<int64_t>> out_shapes;
     if (m_output_meta_fn) {
@@ -404,10 +401,10 @@ class EagerOp : public EagerOpBase {
 
     auto result = get_result();
     if (!m_dont_preallocate_outputs) {
-      m_is_pipeline_supported = true;
       run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
       return result;
     } else {
+      m_is_pipeline_supported = false;
       auto out_spec =
           OutputSpec{result.scalar_type(), result.device(), result.sizes()};
       auto stack = run({out_spec});
@@ -419,7 +416,6 @@ class EagerOp : public EagerOpBase {
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type call() {
     PT_EAGER_DEBUG("Eager Call tuple_of_tensors :: ", m_symbol.toQualString());
-    m_is_pipeline_supported = true;
     // TODO avoid calling get_result
     auto result = get_result();
 
@@ -439,7 +435,6 @@ class EagerOp : public EagerOpBase {
       call() {
     PT_EAGER_DEBUG(
         "Eager Call std::vector<at::Tensor> :: ", m_symbol.toQualString());
-    m_is_pipeline_supported = true;
 
     auto result = get_result();
 
