@@ -325,7 +325,6 @@ class EagerOp : public EagerOpBase {
     }
 
     auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == tensors1.size());
   }
 
   template <typename T = ReturnType, class U>
@@ -354,7 +353,6 @@ class EagerOp : public EagerOpBase {
     }
 
     auto stack = run(std::move(out_spec));
-    HABANA_ASSERT(stack.size() == tensors_size);
   }
 
   template <typename T = ReturnType>
@@ -391,7 +389,6 @@ class EagerOp : public EagerOpBase {
 
     auto stack = run(
         {OutputSpec{tensor.scalar_type(), tensor.device(), tensor.sizes()}});
-    HABANA_ASSERT(stack.size() == 1); // single output only
   }
 
   // For regular variants
