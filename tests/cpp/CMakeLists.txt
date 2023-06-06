@@ -236,6 +236,7 @@ list(APPEND misc_tests_src
   linear_2d_bwd.cpp
   linear_test.cpp
   main.cpp
+  matmul_bwd.cpp
   misc_utils_tests.cpp
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
@@ -265,6 +266,7 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     graph_optimize_passes.cpp
     # Doesn't compile
     linear_2d_bwd.cpp
+    matmul_bwd.cpp
     linear_test.cpp
     nms_tests.cpp
     sif_tests.cpp
