@@ -25,6 +25,7 @@ import torch
 from collections import defaultdict
 from yaml import Loader
 from packaging.version import Version
+import pkgutil
 
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
@@ -2382,23 +2383,35 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
 
 
 if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
+    dirname = os.path.dirname
+    join = os.path.join
+    realpath = os.path.realpath
+
+    torch_pkg_path = dirname(pkgutil.get_loader("torch").path)
+    pytorch_integration_path = dirname(dirname(realpath(__file__)))
+    minor_pt_ver = '.'.join(sys.modules['torch'].__version__.split('.')[:2])
+
+    arg_parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     arg_parser.add_argument("--output_dir", metavar="OUTPUT_DIR", type=str)
     arg_parser.add_argument(
         "--yaml",
-        default=os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "hpu_op.yaml"
-        ),
+        default=join(pytorch_integration_path, "scripts/hpu_op.yaml"),
         help="The path to the Hpu Op yaml file",
     )
     arg_parser.add_argument(
         "hputype",
+        nargs="?",
+        default=join(pytorch_integration_path, "habana_kernels/wrap_kernels_declarations.h"),
         type=str,
         metavar="HPU_TYPE_FILE",
         help="The path to the HPU manual overrides file",
     )
     arg_parser.add_argument(
         "pt_ver_hputype",
+        nargs="?",
+        default=join(pytorch_integration_path, f"pt_ver/{minor_pt_ver}/habana_kernels_ver/wrap_kernels_declarations.h"),
         type=str,
         metavar="PT_VER_HPU_TYPE_FILE",
         help="The path to the HPU manual overrides file with functions specific"
@@ -2406,18 +2419,24 @@ if __name__ == "__main__":
     )
     arg_parser.add_argument(
         "typedef",
+        nargs="?",
+        default=join(torch_pkg_path, "include/ATen/RegistrationDeclarations.h"),
         type=str,
         metavar="TYPE_DEFAULT_FILE",
         help="The path to the TypeDefault.h file",
     )
     arg_parser.add_argument(
         "functions",
+        nargs="?",
+        default=join(torch_pkg_path, "include/ATen/RedispatchFunctions.h"),
         type=str,
         metavar="FUNCTIONS_FILE",
         help="The path to the Functions.h file",
     )
     arg_parser.add_argument(
         "native_functions",
+        nargs="?",
+        default=join(torch_pkg_path, "../torchgen/packaged/ATen/native/native_functions.yaml"),
         type=str,
         metavar="NATIVE_FUNCTIONS_FILE",
         help="The path to the native_functions.yaml file",
