@@ -348,38 +348,6 @@ def is_seq_of_tensor(obj):
     else:
         return False
 
-def wrap_in_hpu_graph_func(func, asynchronous=False):
-    import habana_frameworks.torch as ht
-    stream = ht.hpu.Stream()
-    cache = {}
-    orig_fwd = func
-    def forward(*args, **kwargs):
-        inputs = (args, kwargs)
-        # V2 can only be used for inputs which can expressed as a list
-        if not asynchronous and not kwargs and is_seq_of_tensor(args):
-            use_replay_v2 = True
-        else:
-            use_replay_v2 = False
-        h = input_hash(inputs)
-        cached = cache.get(h)
-        if cached is None:
-            with ht.hpu.stream(stream):
-                graph = ht.hpu.HPUGraph()
-                graph.capture_begin()
-                outputs = orig_fwd(*args, **kwargs)
-                graph.capture_end()
-                graph_inputs = inputs
-                graph_outputs = outputs
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, None, asynchronous)
-            return outputs
-        if use_replay_v2:
-            cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
-        else:
-            copy_to(cached.graph_inputs, inputs)
-            cached.graph.replay(cached.asynchronous)
-        return cached.graph_outputs
-    return forward
-
 def extract_tensors(data):
     """
     Returns a list of all tensors contained within a given data structure.
@@ -472,7 +440,77 @@ def detach_from_original_tensor(graph_outputs):
     else:
         return graph_outputs
 
-def wrap_in_hpu_graph(module, asynchronous=False, use_tensor_cache=True):
+
+def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, use_tensor_cache, asynchronous):
+    """
+    Wrapped forward method that captures and replays the HPU graph.
+
+    Args:
+        cache (dict): Cache to store captured graphs for reuse.
+        stream (habana_frameworks.torch.hpu.Stream): HPU stream for graph capture and replay.
+        orig_fwd (function): The original forward method of the module.
+        args: Positional arguments passed to the forward method.
+        kwargs: Keyword arguments passed to the forward method.
+        use_tensor_cache (bool): Specifies whether to use tensor cache during graph replay.
+        asynchronous (bool): Specifies whether the graph replay should be asynchronous.
+
+    Returns:
+        The output of the original forward method.
+
+    Notes:
+        - The graph is captured during the first call to forward and replayed for subsequent calls.
+        - The replay can be synchronous or asynchronous based on the `asynchronous` argument.
+        - The tensor cache is used during graph replay if `use_tensor_cache` is True.
+        - The tensors in the graph can be replaced with empty tensors after replaying to save memory
+          if `use_tensor_cache` is False.
+    """
+    inputs = (args, kwargs)
+
+    h = input_hash(inputs)
+    cached = cache.get(h)
+
+    # Read from env variable.
+    env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
+    use_tensor_cache =  use_tensor_cache if env_tensor_cache is None else env_tensor_cache == "0"
+
+    if cached is None:
+        with htorch.hpu.stream(stream):
+            graph = htorch.hpu.HPUGraph()
+            graph.capture_begin()
+            outputs = orig_fwd(*args, **kwargs)
+            graph.capture_end()
+            graph_inputs = inputs
+            graph_outputs = outputs
+
+            if use_tensor_cache:
+                tinfo_list = None
+            else:
+                tlist = extract_tensors(outputs)
+                tinfo_list = [get_tensor_info(t) for t in tlist]
+                graph.mark_user_outputs(tlist)
+
+            cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
+
+        return outputs
+
+    # Copy the user inputs
+    copy_to(cached.graph_inputs, inputs)
+
+    # use replayv1 here
+    if use_tensor_cache:
+        cached.graph.replay(cached.asynchronous)
+        out = cached.graph_outputs
+    else:
+        replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, False)
+        out_tlist = extract_tensors(cached.graph_outputs)
+        cached.graph.replayV3(out_tlist, cached.asynchronous)
+        out = detach_from_original_tensor(cached.graph_outputs)
+        replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, True)
+
+    return out
+
+
+def wrap_in_hpu_graph_func(func, asynchronous=False, use_tensor_cache=True):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -498,8 +536,41 @@ def wrap_in_hpu_graph(module, asynchronous=False, use_tensor_cache=True):
           after replaying, saves memory.
 
     """
-    import habana_frameworks.torch as ht
-    stream = ht.hpu.Stream()
+    stream = htorch.hpu.Stream()
+    cache = {}
+    orig_fwd = func
+
+    def forward(*args, **kwargs):
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, use_tensor_cache, asynchronous)
+    return forward
+
+def wrap_in_hpu_graph(module, asynchronous=False, use_tensor_cache=True):
+    """
+    Wraps the forward method of a module in an HPU graph capture and replay mechanism.
+
+    Args:
+        module (torch.nn.Module): The module to be wrapped.
+        asynchronous (bool, optional): Specifies whether the graph capture and replay should be asynchronous.
+            Defaults to False.
+        use_tensor_cache (bool, optional): Specifies whether to cache tensors during graph replay.
+            Defaults to True.
+
+    Returns:
+        torch.nn.Module: The module with the wrapped forward method.
+
+    Raises:
+        TypeError: If the input module is not an instance of torch.nn.Module.
+
+    Notes:
+        - This function modifies the input module by replacing its forward method.
+        - The wrapped forward method captures the graph when it is first called, and replays the captured graph
+          for subsequent calls.
+        - If `use_tensor_cache` is True, the graph replay uses a tensor cache for better performance.
+        - If `use_tensor_cache` is False, the graph replay replaces the tensors in the graph with empty tensors
+          after replaying, saves memory.
+
+    """
+    stream = htorch.hpu.Stream()
     cache = {}
     orig_fwd = module.forward
     if not use_tensor_cache and module.training and torch.is_grad_enabled():
@@ -508,46 +579,8 @@ def wrap_in_hpu_graph(module, asynchronous=False, use_tensor_cache=True):
 
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
-        inputs = (args, kwargs)
-        # V2 can only be used for inputs which can be expressed as a list
-        if use_tensor_cache and not asynchronous and not kwargs and is_seq_of_tensor(args):
-            use_replay_v2 = True
-        else:
-            use_replay_v2 = False
-        h = input_hash(inputs)
-        cached = cache.get(h)
-        if cached is None:
-            with ht.hpu.stream(stream):
-                graph = ht.hpu.HPUGraph()
-                graph.capture_begin()
-                outputs = orig_fwd(*args, **kwargs)
-                graph.capture_end()
-                graph_inputs = inputs
-                graph_outputs = outputs
-                if use_tensor_cache:
-                    tinfo_list = None
-                else:
-                    tlist = extract_tensors(outputs)
-                    tinfo_list = [get_tensor_info(t) for t in tlist]
-                    graph.mark_user_outputs(tlist)
-                cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
-            return outputs
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, use_tensor_cache, asynchronous)
 
-        if use_replay_v2:
-            cached.graph.replayV2(cached.graph_inputs[0], inputs[0], cached.asynchronous)
-            out = cached.graph_outputs
-        else:
-            copy_to(cached.graph_inputs, inputs)
-            if use_tensor_cache:
-                cached.graph.replay(cached.asynchronous)
-                out = cached.graph_outputs
-            else:
-                replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, False)
-                out_tlist = extract_tensors(cached.graph_outputs)
-                cached.graph.replayV3(out_tlist, cached.asynchronous)
-                out = detach_from_original_tensor(cached.graph_outputs)
-                replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, True)
-        return out
     module.forward = forward
     return module
 

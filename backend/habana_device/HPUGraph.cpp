@@ -325,10 +325,8 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
 
   for (size_t i = 0; i < captured_graphs.size(); i++) {
     if (captured_graphs[i]->graph_) {
-      std::unordered_set<size_t> tensor_idx_set;
       for (const auto& [userOutputIdx, tensorIdx] :
            captured_graphs[i]->user_out_indices_tlist_) {
-        tensor_idx_set.insert(tensorIdx);
         auto& t = outputs[userOutputIdx];
         // This index must be an output tensor
         HABANA_ASSERT(
