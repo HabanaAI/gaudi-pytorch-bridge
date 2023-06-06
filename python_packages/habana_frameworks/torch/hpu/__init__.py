@@ -21,9 +21,13 @@ import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.internal import is_lazy
 
-from ._utils import (HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR,
-                     _get_available_modules_from_environ, _get_device_index,
-                     _get_module_id_from_environ)
+from ._utils import (
+    HABANA_VISIBLE_MODULES_VAR,
+    HLS_MODULE_ID_VAR,
+    _get_available_modules_from_environ,
+    _get_device_index,
+    _get_module_id_from_environ,
+)
 from .events import *
 from .memory import *
 from .metrics import *
@@ -49,7 +53,7 @@ def init() -> None:
     Does nothing if the HPU state is already initialized.
     """
     global _initialized
-    if is_initialized() or hasattr(_tls, 'is_initializing'):
+    if is_initialized() or hasattr(_tls, "is_initializing"):
         return
     with _initialization_lock:
         # We be double-checked locking. This is OK because
@@ -75,7 +79,7 @@ def is_initialized() -> bool:
 
 def is_available() -> bool:
     r"""Returns a bool indicating if HPU is currently available."""
-    if not hasattr(_hpu_C, 'device_count'):
+    if not hasattr(_hpu_C, "device_count"):
         return False
     # This function never throws and returns 0 if driver is missing or can't
     # be initialized
@@ -131,14 +135,15 @@ def set_sync_debug_mode(debug_mode) -> None:
      Args:
         debug_mode: True/False
     ."""
-    os.environ['PT_ENABLE_HABANA_STREAMASYNC'] = str(debug_mode)
+    os.environ["PT_ENABLE_HABANA_STREAMASYNC"] = str(debug_mode)
 
 
 def get_sync_debug_mode() -> int:
     r"""Returns current value of debug mode for Asynchronous Streams."""
 
     import os
-    return int(os.environ['PT_ENABLE_HABANA_STREAMASYNC'])
+
+    return int(os.environ["PT_ENABLE_HABANA_STREAMASYNC"])
 
 
 def setDeterministic(val: bool) -> None:
@@ -215,21 +220,21 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
         raise AssertionError("Invalid device id : {}".format(device))
     if peer_device < 0 or peer_device >= count:
         raise AssertionError("Invalid device id : {}".format(peer_device))
-    if (device == peer_device):
+    if device == peer_device:
         raise AssertionError("Both the ids are same.")
-    if (device <= count and peer_device <= count):
+    if device <= count and peer_device <= count:
         return True
     else:
         return False
 
 
 def get_gencode_flags() -> str:
-    r""" Returns the gencode flags the library is compiled with."""
+    r"""Returns the gencode flags the library is compiled with."""
     return ""
 
 
 def get_arch_list() -> List[str]:
-    r""" Returns the architecture the library is compiled with"""
+    r"""Returns the architecture the library is compiled with"""
     arch_list = []
     device = current_device()
     device_name = get_device_name(device)
@@ -244,15 +249,18 @@ def set_device(device: _device_t) -> None:
     available_modules = _get_available_modules_from_environ()
     if device_idx > len(available_modules):
         raise AssertionError(
-            f"Trying to open device with idx={device_idx} when only {len(available_modules)} are avaliable)")
+            f"Trying to open device with idx={device_idx} when only {len(available_modules)} are avaliable)"
+        )
 
     requested_module_id = available_modules[device_idx]
     current_module_id = _get_module_id_from_environ()
 
     if current_module_id >= 0:
         if int(current_module_id) != int(requested_module_id):
-            raise AssertionError(f"Requested module_id={requested_module_id} is different from current_module_id={current_module_id}"
-                                 f" which was previously set.")
+            raise AssertionError(
+                f"Requested module_id={requested_module_id} is different from current_module_id={current_module_id}"
+                f" which was previously set."
+            )
 
     os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
     set_device.current_device_idx = device_idx
@@ -289,6 +297,7 @@ class device_of(device):
         idx = obj.get_device() if obj.is_hpu else -1
         super(device_of, self).__init__(idx)
 
+
 def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     r"""Returns the memory used. as given by `hl-smi`.
 
@@ -302,6 +311,7 @@ def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     if device_idx < 0 or device_idx >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_mem_stats(device_idx)["InUse"]
+
 
 def utilization(device: Optional[Union[Device, int]] = None) -> int:
     r"""Returns the usage as given by `hl-smi`.
@@ -324,3 +334,28 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
     usage = pyhlml.hlmlDeviceGetUtilizationRates(pyhlml_device)
     pyhlml.hlmlShutdown()
     return usage
+
+
+def _create_tensor_alias(name, dtype):
+    def tensor_alias(*args, **kwargs):
+        if "device" in kwargs:
+            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'device'")
+        if "dtype" in kwargs:
+            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'dtype'")
+        kwargs["device"] = "hpu"
+        kwargs["dtype"] = dtype
+        return torch.tensor(*args, **kwargs)
+
+    return tensor_alias
+
+
+BFloat16Tensor = _create_tensor_alias("BFloat16Tensor", torch.bfloat16)
+BoolTensor = _create_tensor_alias("BoolTensor", torch.bool)
+ByteTensor = _create_tensor_alias("ByteTensor", torch.uint8)
+CharTensor = _create_tensor_alias("CharTensor", torch.int8)
+DoubleTensor = _create_tensor_alias("DoubleTensor", torch.float64)
+FloatTensor = _create_tensor_alias("FloatTensor", torch.float32)
+HalfTensor = _create_tensor_alias("HalfTensor", torch.float16)
+IntTensor = _create_tensor_alias("IntTensor", torch.int32)
+LongTensor = _create_tensor_alias("LongTensor", torch.int64)
+ShortTensor = _create_tensor_alias("ShortTensor", torch.int16)
