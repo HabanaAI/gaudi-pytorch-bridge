@@ -40,6 +40,7 @@ size_t GraphStorage::add_new_recipe(
     torch::jit::Stack& example_inputs,
     bool dynamic,
     bool inference) {
+  PT_EAGER_TRACE;
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
 
@@ -53,6 +54,7 @@ size_t GraphStorage::add_new_recipe(
 torch::jit::Stack GraphStorage::launch_recipe(
     size_t recipe_id,
     torch::jit::Stack& inputs) {
+  PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Launching recipe_id: ", recipe_id);
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
@@ -115,6 +117,7 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
 }
 
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
+  PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
@@ -161,6 +164,7 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
 } // namespace graph
 
 void GraphExec::HandleWeightPermutation(torch::jit::Stack& stack) {
+  PT_EAGER_TRACE;
   for (auto input : m_graph_inputs_to_permute) {
     c10::IValue input_value{stack[input]};
     HABANA_ASSERT(input_value.isTensor());
