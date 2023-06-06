@@ -31,6 +31,7 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace c10d {
 
@@ -132,8 +133,12 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
 };
 
 ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
-  PT_LAZY_DEBUG("Destroy ProcessGroupEagerHCCL");
+  PT_DISTRIBUTED_BEGIN;
+  hostBarrier();
+  habana_helpers::AutoNoGIL gil_release;
+  comm_->flush_stream();
   comm_.reset();
+  PT_DISTRIBUTED_END;
 };
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(
@@ -378,18 +383,19 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
                        int,
                        std::chrono::milliseconds>());
 
-  // This cleanup is performed in order to ensure that all events have been
-  // handled (all tensors connected with pending events are deallocated) before
-  // Python interpreter finalization. If tensor is deallocated when interpreter
-  // is down or is going down (finalizing) then cPython may issue std::terminate
-  // (abort), what will be observed in DFA report.
+  // Destroying all process groups in order to ensure that all events
+  // have been handled (all tensors connected with pending events are
+  // deallocated) before Python interpreter finalization. If tensor is
+  // deallocated when interpreter is down or is going down (finalizing) then
+  // cPython may issue std::terminate (abort), what will be observed in DFA
+  // report.
   py::cpp_function cleanup = []() {
-    int hccl_comms_num = habana::HcclCommunicator::Count();
-    auto gil_release = pybind11::gil_scoped_release();
-    for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num; hccl_comm_id++) {
-      std::shared_ptr<habana::HcclCommunicator> hccl_comm =
-          habana::HcclCommunicator::Get(hccl_comm_id);
-      hccl_comm->flush_stream();
+    py::object dist = py::module_::import("torch.distributed");
+    py::object destroy_process_group = dist.attr("destroy_process_group");
+    py::object default_pg = dist.attr("GroupMember").attr("WORLD");
+    if (default_pg != py::none()) {
+      PT_DISTRIBUTED_DEBUG("Destroying process groups at exit")
+      destroy_process_group();
     }
   };
   py::module::import("atexit").attr("register")(cleanup);

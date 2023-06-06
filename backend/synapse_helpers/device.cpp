@@ -130,7 +130,7 @@ uint32_t active_recipe_counter::wait_for_next_decrease_call() {
     // Hence it is essential here that we release the GIL lock
     // before entering to wait state, so that other threads can
     // acquire GIL lock and proceed.
-    AutoNoGIL gil_release;
+    habana_helpers::AutoNoGIL gil_release;
     cv_.wait_for(cond_lock, std::chrono::milliseconds(100));
   }
   return counter_state_;

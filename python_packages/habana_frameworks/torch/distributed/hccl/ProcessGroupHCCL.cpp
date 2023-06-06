@@ -34,6 +34,7 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 using namespace synapse_helpers;
 namespace c10d {
@@ -209,6 +210,7 @@ ProcessGroupHCCL::ProcessGroupHCCL(
       stop_(false) {}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
+  habana_helpers::AutoNoGIL gil_release;
   destroy();
 }
 
@@ -659,4 +661,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
                        int,
                        int,
                        std::chrono::milliseconds>());
+
+  py::cpp_function cleanup = []() {
+    py::object dist = py::module_::import("torch.distributed");
+    py::object destroy_process_group = dist.attr("destroy_process_group");
+    py::object default_pg = dist.attr("GroupMember").attr("WORLD");
+    if (default_pg != py::none()) {
+      PT_DISTRIBUTED_DEBUG("Destroying process groups at exit")
+      destroy_process_group();
+    }
+  };
+  py::module::import("atexit").attr("register")(cleanup);
 };

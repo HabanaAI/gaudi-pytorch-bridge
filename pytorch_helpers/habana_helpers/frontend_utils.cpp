@@ -119,7 +119,7 @@ void habana_helpers::copy_scalar_to_host(
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
   {
-    AutoNoGIL gil_release;
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

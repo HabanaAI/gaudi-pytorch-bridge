@@ -14,6 +14,7 @@
 
 #include "Python.h"
 
+namespace habana_helpers {
 // RAII structs to acquire/release Python's global interpreter lock (GIL)
 // Releases the GIL on construction, if this thread already have the GIL
 // acquired
@@ -30,3 +31,4 @@ struct AutoNoGIL {
   }
   PyThreadState* save_state = nullptr;
 };
+} // namespace habana_helpers

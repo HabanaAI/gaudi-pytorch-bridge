@@ -45,7 +45,7 @@ void stream_event_manager::add_future(
     HABANA_ASSERT(found->second.valid());
     // Release GIL if going to wait. This thread might already acquired GIL and
     // the second thread will be waiting
-    AutoNoGIL gil_release;
+    habana_helpers::AutoNoGIL gil_release;
     found->second.wait();
   }
   future_by_addr_[device_address] = std::move(fut);
@@ -67,7 +67,7 @@ void stream_event_manager::wait_for_future(device_ptr device_address) {
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
   {
-    AutoNoGIL gil_release;
+    habana_helpers::AutoNoGIL gil_release;
     fut.wait();
   }
   {

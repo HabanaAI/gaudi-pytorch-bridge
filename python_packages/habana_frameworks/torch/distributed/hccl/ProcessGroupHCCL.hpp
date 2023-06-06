@@ -16,7 +16,6 @@
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-#include <torch/extension.h>
 #include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch_ver/csrc/distributed/c10d/Store.hpp>
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
