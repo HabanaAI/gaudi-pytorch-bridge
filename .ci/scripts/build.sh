@@ -1433,6 +1433,9 @@ run_pytorch_qa_tests()
     topology_ci)
         #set the default habanaqa path; the path is set in the code
         ;;
+    rn50_eager_1c)
+        __pytorch_qa_test_path="${PYTORCH_TESTS_ROOT}/tests/gdn_tests/topologies_tests"
+        ;;
     subgraph)
         _not_set_testpath=1
         __pytorch_qa_test_path+="/../torch_feature_val/subgraph/"
@@ -1498,6 +1501,11 @@ run_pytorch_qa_tests()
             (set -x; LOCK_GAUDI_SYNAPSE_API=1 $opts ${__pytorch_qa_test_path}/dist_operations "--junit-xml=${__xml}_"distributed_ci.xml"")
             __test_status=$?
             return ${__test_status}
+       elif [ "$__suite_type" == "rn50_eager_1c" ]; then
+            install_requirements_event_plugin
+            (set -x; python3 -m pytest -sv ${__pytorch_qa_test_path}/test_resnet.py -k resnet_lars_1epoch_1xcard_bf16_eager_mode_gaudi2 "--junit-xml=${__xml}_"rn50_eager_ci_functional.xml"")
+            __test_status=$?
+            return ${__test_status}
        fi
 
        # Add support for pytest's record_property
@@ -1532,6 +1540,17 @@ install_requirements_pytorch()
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-${__python_cmd}_base.txt)
+    if ! __running_in_venv; then
+        cmd+=(--user)
+        install_cmd+=(--user)
+    fi
+    "${install_cmd[@]}"
+    "${cmd[@]}"
+}
+
+install_requirements_event_plugin()
+{
+    cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements-prod.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
         install_cmd+=(--user)
