@@ -413,7 +413,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "normal",
             # Other
             "addcmul",
-            "_to_copy",  # SW-137099
             "arange", # SW-146681
             "index"   # SW-146773
         ]
