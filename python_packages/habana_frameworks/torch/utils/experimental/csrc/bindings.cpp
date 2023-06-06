@@ -65,7 +65,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto& d = habana::HPURegistrar::get_device().syn_device();
     auto hpu_stream = c10::hpu::getDefaultHPUStream(d.id());
     void* stream = (void*)d.get_stream(hpu_stream.id());
-    return reinterpret_cast<intptr_t>(stream);
+    return reinterpret_cast<uintptr_t>(stream);
   });
   m.def(
       "record_quant_param",
