@@ -59,13 +59,15 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
 @pytest.mark.parametrize("scale", [1., 16.])
 @pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
 def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, value, rounded_value):
+    if dtype == torch.float32:
+        pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
     input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
 
     meta = tex.FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
     meta.scale_inv = torch.full((1,), 0., dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    gelu_out = fp8_gelu(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
+    gelu_out, retain = fp8_gelu(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
 
     upcasted = cast_from_fp8(gelu_out, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, tex.DType.kFloat32)
     mean = torch.mean(upcasted).cpu()

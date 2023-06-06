@@ -19,7 +19,7 @@
 from __future__ import annotations
 from enum import Enum
 from typing import Literal, Optional, Union, Callable, NamedTuple
-from pydantic.dataclasses import dataclass
+from dataclasses import dataclass
 
 
 class _FormatHelper(NamedTuple):

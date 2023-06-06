@@ -41,35 +41,33 @@ def fp8_gemm(
 ) -> torch.Tensor:
     """TN layout GEMM with fp8 inputs."""
 
-    return_output = False
     if out is None:
-        rank = len(B.shape)
-        dimb = B.shape[-2] if not transb else B.shape[-1]
-        dima = A.shape[-1] if not transa else A.shape[-2]
-        out_shape = B.shape[0:(rank-2)] + (dimb,) + (dima,)
-        out = torch.empty(
-            out_shape,
-            dtype=torch.float32 if fp32_output else out_dtype,
-            device="hpu",
-        )
-        return_output = True
+        out = torch.ops.hpu.fp8_gemm_v2(
+            B,
+            transb,
+            A,
+            transa,
+            None,
+            out_dtype,
+            B_scale_inv,
+            A_scale_inv,
+            bias if use_bias else None,
+            accumulate)
+    else:
+        torch.ops.hpu.fp8_gemm(
+            B,
+            transb,
+            A,
+            transa,
+            out,
+            out_dtype,
+            B_scale_inv,
+            A_scale_inv,
+            bias if use_bias else None,
+            accumulate,
+            out)
 
-    torch.ops.hpu.fp8_gemm(
-        B,
-        transb,
-        A,
-        transa,
-        out,
-        out_dtype,
-        B_scale_inv,
-        A_scale_inv,
-        bias if use_bias else None,
-        accumulate,
-        out)
-
-    if return_output:
-        return out
-    return None
+    return out
 
 
 def fp8_cast_transpose_fused(
@@ -79,37 +77,41 @@ def fp8_cast_transpose_fused(
     otype: tex.DType,
     cast_out: Optional[torch.Tensor] = None,
     transpose_out: Optional[torch.Tensor] = None,
-    stochastic_rounding = False
+    stochastic_rounding = False,
+    measure_amax = True
 ) -> Union[Tuple[torch.Tensor, torch.Tensor], None]:
     """Cast + Transpose with FP8 output"""
 
-    return_outputs = False
-    if cast_out is None or transpose_out is None:
-        cast_out = torch.empty_like(inp, dtype=torch.int8)
+    if transpose_out is None:
         transpose_out = torch.empty(
             inp.shape[1], inp.shape[0], device="hpu", dtype=torch.int8
         )
-        return_outputs = True
 
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
     #TODO SW-124456 replace with native fp8_cast_transpose_fused call
-    def operator(amax_tmp : torch.Tensor):
-        torch.ops.hpu.cast_to_fp8(
-            inp,
-            fp8_meta_tensor.scale[fp8_tensor],
-            stochastic_rounding,
-            cast_out,
-            amax_tmp)
-    _select_amax_and_exec(
-        fp8_meta_tensor,
-        fp8_tensor,
-        operator
+    if cast_out is None:
+        def operator():
+            return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+    else:
+        def operator():
+            amax_tmp = torch.tensor(0, dtype=torch.float).to("hpu")
+            torch.ops.hpu.cast_to_fp8(
+                inp,
+                fp8_meta_tensor.scale[fp8_tensor],
+                stochastic_rounding,
+                cast_out,
+                amax_tmp)
+            return cast_out, amax_tmp
+    cast_out, amax = _select_amax_and_exec(
+            fp8_meta_tensor,
+            fp8_tensor,
+            operator,
+            measure_amax=measure_amax
         )
     torch.ops.hpu.fp8_transpose(cast_out, transpose_out)
 
-    if return_outputs:
-        return cast_out, transpose_out
-    return None
+    return cast_out, transpose_out
+
 
 
 def fp8_cast_transpose_bgrad_fused(
@@ -117,24 +119,20 @@ def fp8_cast_transpose_bgrad_fused(
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
-    stochastic_rounding = False
+    stochastic_rounding = False,
+    measure_amax = True
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Cast + Transpose + BGRAD with FP8 output"""
-    cast_out = torch.empty_like(inp, dtype=torch.int8)
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
     transpose_out = torch.empty(inp.shape[1], inp.shape[0], dtype=torch.int8, device="hpu")
     #TODO SW-124458 replace with native fp8_cast_transpose_bgrad_fused call
     def operator(amax_tmp : torch.Tensor):
-        torch.ops.hpu.cast_to_fp8(
-            inp,
-            fp8_meta_tensor.scale[fp8_tensor],
-            stochastic_rounding,
-            cast_out,
-            amax_tmp)
-    _select_amax_and_exec(
-        fp8_meta_tensor,
-        fp8_tensor,
-        operator
+               return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+    cast_out, amax = _select_amax_and_exec(
+            fp8_meta_tensor,
+            fp8_tensor,
+            operator,
+            measure_amax=measure_amax
         )
     torch.ops.hpu.fp8_transpose(cast_out, transpose_out)
     bgrad_out = inp.sum(dim=0)
@@ -166,37 +164,22 @@ def fp8_gelu(
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
     retain: torch.Tensor = None,
-    stochastic_rounding = False
+    stochastic_rounding = False,
+    measure_amax = True
 ) -> torch.Tensor:
     """GeLU with FP8 output"""
-    out = torch.empty(
-            inp.shape,
-            dtype=torch.int8,
-            device="hpu",
-        )
-    if retain == None:
-        retain = torch.empty(
-                inp.shape,
-                dtype=inp.dtype,
-                device="hpu",
-            )
 
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
-    def operator(amax_tmp : torch.Tensor):
-        torch.ops.hpu.fp8_gelu(
-            inp,
-            fp8_meta_tensor.scale[fp8_tensor],
-            stochastic_rounding,
-            out,
-            retain,
-            amax_tmp)
-    _select_amax_and_exec(
+    def operator():
+        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+    out, retain, amax = _select_amax_and_exec(
         fp8_meta_tensor,
         fp8_tensor,
-        operator
+        operator,
+        measure_amax=measure_amax
         )
 
-    return out
+    return out, retain
 
 
 #TODO SW-124462 implement using native layernorm_fwd_fp8 call
@@ -227,23 +210,19 @@ def cast_to_fp8(
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
-    stochastic_rounding = False
+    stochastic_rounding = False,
+    measure_amax=True
 ) -> torch.Tensor:
     """Cast input to FP8"""
-    cast_out = torch.empty_like(inp, dtype=torch.int8)
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
 
-    def operator(amax_tmp : torch.Tensor):
-        torch.ops.hpu.cast_to_fp8(
-            inp,
-            fp8_meta_tensor.scale[fp8_tensor],
-            stochastic_rounding,
-            cast_out,
-            amax_tmp)
-    _select_amax_and_exec(
+    def operator():
+        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+    cast_out, amax = _select_amax_and_exec(
         fp8_meta_tensor,
         fp8_tensor,
-        operator
+        operator,
+        measure_amax=measure_amax
         )
 
     return cast_out
@@ -266,18 +245,17 @@ def cast_from_fp8(
 def _select_amax_and_exec(
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    operator
+    operator,
+    measure_amax=True
     ):
-    if fp8_meta_tensor.amax_history.shape[0] > 1:
+    outputs = operator()
+    if measure_amax and fp8_meta_tensor.amax_history.shape[0] > 1:
         # amax_history length > 1
         # NOTE: This path is functional, but performance could be improved by removing the temporary tensor
         tmp = torch.index_select(fp8_meta_tensor.amax_history, dim=0, index=fp8_meta_tensor.amax_history_index)
-        amax_tmp = torch.empty_like(tmp[0][fp8_tensor])
-        operator(amax_tmp)
-        tmp[0][fp8_tensor].copy_(amax_tmp)
+        tmp[0][fp8_tensor].copy_(outputs[-1])
         fp8_meta_tensor.amax_history[fp8_meta_tensor.amax_history_index] = tmp
-    else:
+    elif measure_amax:
         # In case amax_history length = 1, we don't need to use amax_history_index - it simplifies the graph
-        amax_tmp = torch.empty_like(fp8_meta_tensor.amax_history[0][fp8_tensor])
-        operator(amax_tmp)
-        fp8_meta_tensor.amax_history[0][fp8_tensor].copy_(amax_tmp)
+        fp8_meta_tensor.amax_history[0][fp8_tensor].copy_(outputs[-1])
+    return outputs
