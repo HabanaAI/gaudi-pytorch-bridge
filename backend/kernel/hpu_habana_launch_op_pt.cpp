@@ -41,6 +41,7 @@
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
 
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_helpers/logging_pt.h"
@@ -93,6 +94,17 @@ bool dropCachedRecipe_LRU(size_t& recipe_count) {
   bool dropped{false};
   dropped = RecipeCacheLRU::get_cache().drop_lru(recipe_count);
   return dropped;
+}
+
+void emitCacheEvent(
+    habana_helpers::EventDispatcher::EventDispatcher::Topic topic,
+    std::string cache_name) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_CACHE_METRICS, true)) {
+    habana_helpers::EmitEvent(
+        topic,
+        habana_helpers::EventDispatcher::EventParams(
+            {{"recipe_id", cache_name}}));
+  }
 }
 
 std::string makeIdStr(const std::string& name, size_t graph_index) {
@@ -3707,6 +3719,9 @@ void HabanaLaunchOpPT::run(
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
+      emitCacheEvent(
+          habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+          std::to_string(cur_rargpsh->hashCode()));
       ExecuteSynapseCache(
           hpu_stream,
           graph_key_with_perm,
@@ -3718,6 +3733,9 @@ void HabanaLaunchOpPT::run(
       PT_BRIDGE_END;
       return;
     } else {
+      emitCacheEvent(
+          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
+          std::to_string(cur_rargpsh->hashCode()));
       PT_BRIDGE_DEBUG(
           id_str,
           ": ",
@@ -3736,6 +3754,9 @@ void HabanaLaunchOpPT::run(
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
     if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
+      emitCacheEvent(
+          habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+          std::to_string(cur_rargpsh->hashCode()));
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
@@ -3773,6 +3794,9 @@ void HabanaLaunchOpPT::run(
       PT_BRIDGE_END;
       return;
     } else {
+      emitCacheEvent(
+          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
+          std::to_string(cur_rargpsh->hashCode()));
       PT_BRIDGE_DEBUG(
           id_str,
           ": ",

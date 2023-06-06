@@ -500,3 +500,64 @@ def test_simple_view():
         print(tensor_view)
         print(res)
         print(res_view)
+
+
+def test_cache_metrics_enabled_and_graph_compilaton():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
+        from habana_frameworks.torch.hpu.metrics import metric_global
+        gc_metric = metric_global("graph_compilation")
+        gc_metric.reset()
+        rc_metric = metric_global("recipe_cache")
+        rc_metric.reset()
+
+        import habana_frameworks.torch.core as htcore
+        def raw_function(x):
+            return torch.relu(x)
+
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+        input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
+        last_total_time = 0
+        for curr_iter in range(5):
+            res = compiled_function_inference(input_tensor)
+            gc_metric_dict = dict(gc_metric.stats())
+            rc_metric_dict = dict(rc_metric.stats())
+            assert gc_metric_dict["TotalNumber"] == 1
+            assert rc_metric_dict["TotalMiss"] == 1
+            assert gc_metric_dict["TotalTime"] >= last_total_time
+            last_total_time = gc_metric_dict["TotalTime"]
+
+
+def test_metrics_eager_mode():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
+        from habana_frameworks.torch.hpu.metrics import metric_global
+        rc_metric = metric_global("recipe_cache")
+        rc_metric.reset()
+        gc_metric = metric_global("graph_compilation")
+        gc_metric.reset()
+
+        import habana_frameworks.torch.core as htcore
+        import habana_frameworks.torch.utils.experimental as htexp
+        class Net(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.layer = torch.nn.Sequential(
+                    torch.nn.Conv2d(1, 6, kernel_size=9, stride=2, padding=1),
+                    torch.nn.Conv2d(6, 3, kernel_size=1, stride=1, padding=0)
+                )
+
+            def forward(self, x):
+                out = self.layer(x)
+                return out
+
+        tensor = torch.rand(1, 1, 16, 16).to("hpu")
+        for curr_iter in range(2):
+            model = Net().to("hpu")
+            # print for the sake of consuming the output, so that it's not pruned
+            print(model(tensor))
+            gc_metric_dict = dict(gc_metric.stats())
+            rc_metric_dict = dict(rc_metric.stats())
+            # eager compilation not supported on Gaudi1
+            assert gc_metric_dict["TotalNumber"] == 0 or htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
+            assert rc_metric_dict["TotalMiss"] == 0
+            assert rc_metric_dict["TotalHit"] == 0
+

@@ -416,11 +416,13 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
       std::chrono::duration_cast<std::chrono::duration<int64_t, std::micro>>(
           end_time - start_time)
           .count();
-  habana_helpers::EmitEvent(
-      habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE,
-      habana_helpers::EventDispatcher::EventParams(
-          {{"duration", syn_compile_duration_us},
-           {"recipe", recipe_handle->recipe_name_}}));
+  if (!eager_mode_) {
+    habana_helpers::EmitEvent(
+        habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE,
+        habana_helpers::EventDispatcher::EventParams(
+            {{"duration", std::to_string(syn_compile_duration_us)},
+             {"recipe", recipe_handle->recipe_name_}}));
+  }
 
   STAT_ADD_ATTRIBUTE(
       globalStatPtsEnum::recipe_compile,

@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include <thread>
-#include "backend/helpers/event_dispatcher.h"
+#include "event_dispatcher.h"
 
 void metrics_trigger() {
   auto timestamp_init = std::chrono::high_resolution_clock::now();
@@ -27,7 +27,8 @@ void metrics_trigger() {
 
   habana_helpers::EmitEvent(
       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-      habana_helpers::EventDispatcher::EventParams({{"success", false}}));
+      habana_helpers::EventDispatcher::EventParams(
+          {{"success", std::to_string(false)}}));
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   auto milliseconds_metric =
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -36,5 +37,25 @@ void metrics_trigger() {
   habana_helpers::EmitEvent(
       habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
       habana_helpers::EventDispatcher::EventParams(
-          {{"success", true}, {"milliseconds", milliseconds_metric}}));
+          {{"success", std::to_string(true)},
+           {"milliseconds", std::to_string(milliseconds_metric)}}));
+
+  size_t recipe_id_1 = 123;
+  size_t recipe_id_2 = 456;
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CACHE_MISS,
+      habana_helpers::EventDispatcher::EventParams(
+          {{"recipe_id", std::to_string(recipe_id_1)}}));
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+      habana_helpers::EventDispatcher::EventParams(
+          {{"recipe_id", std::to_string(recipe_id_1)}}));
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+      habana_helpers::EventDispatcher::EventParams(
+          {{"recipe_id", std::to_string(recipe_id_2)}}));
+  habana_helpers::EmitEvent(
+      habana_helpers::EventDispatcher::Topic::CACHE_HIT,
+      habana_helpers::EventDispatcher::EventParams(
+          {{"recipe_id", std::to_string(recipe_id_2)}}));
 }

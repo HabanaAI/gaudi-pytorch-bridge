@@ -10,6 +10,8 @@
 #
 ###############################################################################
 
+import os
+os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
 import torch
 import pytest
 from habana_frameworks.torch.hpu.metrics import metric_global
@@ -42,6 +44,26 @@ class TestMemoryDefragmentationMetrics:
         assert md_stats['TotalSuccessful'] == 2
 
 
+class TestCacheMetrics:
+    @pytest.fixture(scope="function")
+    def rc_metric(self):
+        m = metric_global("recipe_cache")
+        m.reset()
+        yield m
+
+    def test_cache_metrics(self, rc_metric):
+        assert len(dict(rc_metric.stats()).items()) == 4
+        torch.ops.test_ops.trigger_test_metrics()
+        rc_stats = dict(rc_metric.stats())
+        print(rc_stats)
+        assert len(rc_metric.stats()) == 4
+        assert rc_stats['TotalHit'] == 3
+        assert rc_stats['TotalMiss'] == 1
+        assert rc_stats['RecipeHit']['123'] == 1
+        assert rc_stats['RecipeMiss']['123'] == 1
+        assert rc_stats['RecipeHit']['456'] == 2
+
+
 class TestCpuFallbackMetrics:
     @pytest.fixture(scope="function")
     def cf_metric(self):
@@ -51,7 +73,7 @@ class TestCpuFallbackMetrics:
 
     def test_cpu_fallback_metrics(self, cf_metric):
         assert len(dict(cf_metric.stats()).items()) == 2
-        torch.ops.my_ops.trigger_test_metrics()
+        torch.ops.test_ops.trigger_test_metrics()
         cf_stats = dict(cf_metric.stats())
         print(cf_stats)
         assert len(cf_metric.stats()) == 2
@@ -59,7 +81,7 @@ class TestCpuFallbackMetrics:
         assert len(cf_stats['FallbackOps'].items()) == 2
         assert cf_stats['FallbackOps']['metrics_trigger_fallback_op'] == 1
         assert cf_stats['FallbackOps']['metrics_trigger_fallback_op_2'] == 1
-        torch.ops.my_ops.trigger_test_metrics()
+        torch.ops.test_ops.trigger_test_metrics()
         cf_stats = dict(cf_metric.stats())
         print(cf_stats)
         assert len(cf_metric.stats()) == 2

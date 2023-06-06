@@ -73,8 +73,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
               const habana_helpers::EventDispatcher::EventParams& params) {
             for (const habana_helpers::EventDispatcher::EventParam& param :
                  params) {
-              if (param.first == "success" &&
-                  std::get<int64_t>(param.second) == true) {
+              if (param.first == "success" && param.second == "1") {
                 defragmentationCount++;
               }
             }

@@ -115,12 +115,7 @@ void EventDispatcher::log_publish_request(
   for (auto& entry : params) {
     auto param_name = entry.first;
     auto param_data = entry.second;
-    std::visit(
-        [param_name](auto&& param_data_unpacked) {
-          PT_HABHELPER_DEBUG(
-              "param | [", param_name, "]=", param_data_unpacked, " |");
-        },
-        param_data);
+    PT_HABHELPER_DEBUG("param | [", param_name, "]=", param_data, " |");
   }
 }
 }; // namespace habana_helpers

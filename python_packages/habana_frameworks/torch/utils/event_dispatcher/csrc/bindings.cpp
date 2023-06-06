@@ -49,6 +49,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           habana_helpers::EventDispatcher::Topic::GRAPH_COMPILE)
       .value(
           "CPU_FALLBACK", habana_helpers::EventDispatcher::Topic::CPU_FALLBACK)
+      .value("CACHE_HIT", habana_helpers::EventDispatcher::Topic::CACHE_HIT)
+      .value("CACHE_MISS", habana_helpers::EventDispatcher::Topic::CACHE_MISS)
       .value(
           "MEMORY_DEFRAGMENTATION",
           habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION)

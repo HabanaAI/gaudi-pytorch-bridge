@@ -662,7 +662,8 @@ bool device_memory::defragment_memory(
         "Defragmentation cannot be started. There is not enough free memory.");
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
-        habana_helpers::EventDispatcher::EventParams({{"success", false}}));
+        habana_helpers::EventDispatcher::EventParams(
+            {{"success", std::to_string(0)}}));
     return false;
   }
 
@@ -750,7 +751,8 @@ bool device_memory::defragment_memory(
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
         habana_helpers::EventDispatcher::EventParams(
-            {{"success", true}, {"milliseconds", milliseconds_metric}}));
+            {{"success", std::to_string(1)},
+             {"milliseconds", std::to_string(milliseconds_metric)}}));
   }
   PT_DEVMEM_DEBUG("defragmentation Done");
   if (device_.IsMemorydefragmentationInfoEnabled()) {
