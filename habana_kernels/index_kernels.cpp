@@ -2819,7 +2819,6 @@ static auto& IndexKernelsKernelRegistry =
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))
         .add("aten::index_put.hacked_twin", KERNEL_FN(IndexPutOperator))
         .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
-        .add("aten::arange", KERNEL_FN(ArangeOperator))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))
         .add("aten::index_add", KERNEL_FN(IndexAddOperator))

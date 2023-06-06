@@ -509,7 +509,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             # Other
             "slice_backward", # SW-146680
             "addcmul",
-            "arange", # SW-146681
             "index",  # SW-146773
             "split"   # SW-149515
         ]
