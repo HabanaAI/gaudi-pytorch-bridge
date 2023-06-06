@@ -38,6 +38,7 @@ set(lazy_tests_src
     lazy_execution_test.cpp
     lazy_fill_kernel_tests.cpp
     lazy_forward_running_hash_tests.cpp
+    lazy_fp8_ops.cpp
     lazy_index_kernel_tests.cpp
     lazy_jit_graph_tests.cpp
     lazy_linear_kernel_tests.cpp
@@ -109,7 +110,6 @@ set(hpu_ops_tests_src
   hpu_ops/fmod.cpp
   hpu_ops/foreach_binary.cpp
   hpu_ops/foreach.cpp
-  hpu_ops/fp8_ops.cpp
   hpu_ops/frac.cpp
   hpu_ops/frexp.cpp
   hpu_ops/fused_dropout.cpp

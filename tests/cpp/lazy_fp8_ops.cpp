@@ -14,7 +14,7 @@
 #include <cmath>
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "util.h"
+#include "hpu_ops/util.h"
 
 bool IsUnsupported() {
   habana::HABANAGuardImpl device_guard;
