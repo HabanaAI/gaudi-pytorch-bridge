@@ -105,7 +105,6 @@ LING_EAGER_TESTS = (
     "HpuOpTest.masked_select_usual_all_false"
     "HpuOpTest.masked_select_usual_all_true"
     "HpuOpTest.masked_select_usual_mix"
-    "HpuOpTest.matmul_5dx1d"
     "HpuOpTest.maxpool_2d_with_indices_backward_out"
     "HpuOpTest.maxpool_2d_with_indices_backward"
     "HpuOpTest.maxpool_2d_with_indices_out"
