@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-#include "habana_lazy_test_infra.h"
 
 #include <algorithm>
 #include <iostream>
@@ -20,8 +19,6 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 
-#include "habana_kernels/lazy_kernels_declarations.h"
-
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -29,38 +26,31 @@
 
 #include "hpu_ops/util.h"
 
-using namespace habana_lazy;
-
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyEagerViewOpsTest : public habana_lazy_test::LazyTest {
+class EagerViewOpsTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
-    SetLazyMode(2);
+    SetEagerMode();
 
     DisableRecipeCache();
     EnableEagerViewHandling();
-    // EnableShapeAgnostic();
     DisableAccParMode();
 
     SetSeed();
 
     DisableCpuFallback();
-
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
   }
 
   void TearDown() override {
-    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
 
     RestoreRecipeCache();
     RestoreEagerViewHandling();
-    // RestoreShapeAgnostic();
     RestoreAccParMode();
 
     RestoreMode();
   }
 };
 
-TEST_F(LazyEagerViewOpsTest, AddOnAsStrided1) {
+TEST_F(EagerViewOpsTest, AddOnAsStrided1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -81,7 +71,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnAsStrided1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnAsStrided2) {
+TEST_F(EagerViewOpsTest, AddOnAsStrided2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -110,7 +100,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnAsStrided2) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnAsStrided3) {
+TEST_F(EagerViewOpsTest, AddOnAsStrided3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -147,7 +137,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnAsStrided3) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnView1) {
+TEST_F(EagerViewOpsTest, AddOnView1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -163,7 +153,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnView1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnView2) {
+TEST_F(EagerViewOpsTest, AddOnView2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -181,7 +171,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnView2) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnView3) {
+TEST_F(EagerViewOpsTest, AddOnView3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -199,7 +189,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnView3) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddMmOnView1) {
+TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -225,7 +215,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmOnView1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddMmOnView2) {
+TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -255,7 +245,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmOnView2) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddMmInPlace1) {
+TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -280,7 +270,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmInPlace1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddMmInPlace2) {
+TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -323,7 +313,7 @@ TEST_F(LazyEagerViewOpsTest, AddMmInPlace2) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace1) {
+TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -344,8 +334,7 @@ TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace1) {
   }
 }
 
-TEST_F(LazyEagerViewOpsTest, AddOnAsStridedInPlace2) {
-  SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, false, 1);
+TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();

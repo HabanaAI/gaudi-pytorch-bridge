@@ -61,6 +61,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   value_to_ivalue.clear();
   syn_graph_ptr_ = nullptr;
   cur_rvalpsh = nullptr;
+  intermediate_tensors_ptr_sh_ = nullptr;
 
   habana_kernels.clear();
 
@@ -723,12 +724,17 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
       "HabanaOp recipe cache :: launching new recipe", rv.header_str());
 
   std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
-      std::make_shared<std::vector<IValPtrShared>>(
-          std::vector<IValPtrShared>());
+      nullptr;
 
-  for (auto& tensor : aten_intermediates) {
-    IValPtrShared ivpsh = std::make_shared<IVal>(tensor);
-    intermediate_tensors_ptr->push_back(ivpsh);
+  if (get_intermediate_tensors_ptrsh()) {
+    intermediate_tensors_ptr = get_intermediate_tensors_ptrsh();
+  } else {
+    intermediate_tensors_ptr = std::make_shared<std::vector<IValPtrShared>>(
+        std::vector<IValPtrShared>());
+    for (auto& tensor : aten_intermediates) {
+      IValPtrShared ivpsh = std::make_shared<IVal>(tensor);
+      intermediate_tensors_ptr->push_back(ivpsh);
+    }
   }
 
   // Save cache before calling launch to unblock other ranks who may wait on
@@ -768,7 +774,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     PT_BRIDGE_DEBUG(rv.digest_str());
   }
 
-  UpdateOutputs(rv);
+  if (!jit_graph_and_meta_data_->get_is_pipeline_supported()) {
+    UpdateOutputs(rv);
+  }
 }
 
 void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {

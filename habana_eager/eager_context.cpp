@@ -67,5 +67,13 @@ void SingleTonEagerContext::HandleException() {
   }
 }
 
+void JoinPendingPipelineThreads() {
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
+  habana_helpers::Singleton_CompileThreadPool::getInstance()
+      .JoinPendingThread();
+  habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+}
+
 } // namespace eager
 } // namespace habana

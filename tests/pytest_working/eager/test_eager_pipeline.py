@@ -10,9 +10,10 @@
 #
 ###############################################################################
 
-
+import os
 import torch
 import numpy as np
+import habana_frameworks.torch.core as ht_core
 
 
 def test_pipeline_ops_out():
@@ -64,3 +65,53 @@ def test_pipeline_ops_out():
     assert torch.allclose(result_hpu1, result_cpu1, atol=0.001, rtol=0.001)
     assert torch.allclose(result_hpu2, result_cpu2, atol=0.001, rtol=0.001)
     assert torch.allclose(result_hpu3, result_cpu3, atol=0.001, rtol=0.001)
+
+def test_pipeline_four_stage():
+    sag_flag_backup = os.environ.get("PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH", "1")
+    pipeline_flag_backup = os.environ.get("PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD", "0")
+    os.environ['PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH'] = "false"
+    os.environ['PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD'] = "true"
+    def my_func(x1, x2, x3):
+        y = x1.add(x2)
+
+        z = y.add(x3)
+        z = z.mul(x3)
+        z = z.mul(x3)
+        z = z.mul(x3)
+        z = z.mul(x3)
+        z = z.mul(x3)
+        z = z.mul(x3)
+
+        w = y.add(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+        w = w.mul(x3)
+
+        res = z + w
+        res = res.t()
+
+        return res
+
+    cpu_tensor = torch.rand(256, 256)
+    hpu_tensor = cpu_tensor.to("hpu")
+    cpu_tensor1 = torch.tensor([1.0])
+    hpu_tensor1 = cpu_tensor1.to("hpu")
+    cpu_tensor2 = torch.tensor([2.0])
+    hpu_tensor2 = cpu_tensor2.to("hpu")
+    result_cpu = torch.zeros(256, 256)
+    result_hpu = result_cpu.to("hpu")
+
+    for _ in range(50):
+        result_cpu = result_cpu + my_func(cpu_tensor, cpu_tensor1, cpu_tensor2)
+
+    for _ in range(50):
+        result_hpu = result_hpu + my_func(hpu_tensor, hpu_tensor1, hpu_tensor2)
+
+    result_hpu = result_hpu.to("cpu")
+    assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+    os.environ['PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH'] = sag_flag_backup
+    os.environ['PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD'] = pipeline_flag_backup

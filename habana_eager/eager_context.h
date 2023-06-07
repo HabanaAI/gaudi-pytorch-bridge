@@ -13,6 +13,7 @@
 #pragma once
 
 #include <future>
+#include "backend/helpers/eager_pipeline.h"
 
 namespace habana {
 namespace eager {
@@ -83,6 +84,8 @@ class SingleTonEagerContext {
    */
   std::mutex m_lowering_thread_handle_mutex;
 };
+
+void JoinPendingPipelineThreads();
 
 } // namespace eager
 } // namespace habana

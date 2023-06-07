@@ -671,7 +671,7 @@ synTensor RecipeValueSpec::get_syn_new_handle(
 }
 
 void RecipeValueSpec::update_tensor_shape(
-    synapse_helpers::graph* synapse_graph_ptr,
+    const synapse_helpers::graph& synapse_graph,
     synTensor tensor_handle,
     PtTensorInfoShared tinfo,
     std::vector<int64_t> shape) {
@@ -686,11 +686,11 @@ void RecipeValueSpec::update_tensor_shape(
   tinfo->set_shape(shape);
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] tensor shape after patching : ", tinfo->get_shape());
-  synapse_graph_ptr->setTensorGeometry(tensor_handle, shape);
+  synapse_graph.setTensorGeometry(tensor_handle, shape);
 }
 
 inline void RecipeValueSpec::update_new_tensor(
-    synapse_helpers::graph* synapse_graph_ptr,
+    const synapse_helpers::graph& synapse_graph,
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
@@ -742,7 +742,7 @@ inline void RecipeValueSpec::update_new_tensor(
       tinfo->get_output_index());
 
   if (new_handle) {
-    update_tensor_shape(synapse_graph_ptr, new_handle, tinfo, new_shape);
+    update_tensor_shape(synapse_graph, new_handle, tinfo, new_shape);
   }
 }
 
@@ -815,12 +815,12 @@ void RecipeValueSpec::update_patching_table(
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
     std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
     const habana::IdShapeMap& m_actual_shapes,
+    const synapse_helpers::graph& synapse_graph,
     std::optional<
         std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
         tidx_to_tensor_map_opt,
     const std::optional<std::vector<at::Tensor>>& allocated_outputs,
     std::vector<std::vector<int64_t>> output_shapes,
-    synapse_helpers::graph* synapse_graph_ptr,
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
     bool is_shape_agnostic_graph) {
   PT_BRIDGE_BEGIN;
@@ -916,7 +916,7 @@ void RecipeValueSpec::update_patching_table(
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
           update_new_tensor(
-              synapse_graph_ptr,
+              synapse_graph,
               ridx,
               synapse_orig_to_new_handle,
               input.toTensor().sizes().vec());
@@ -933,10 +933,7 @@ void RecipeValueSpec::update_patching_table(
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
           update_new_tensor(
-              synapse_graph_ptr,
-              ridx,
-              synapse_orig_to_new_handle,
-              t.sizes().vec());
+              synapse_graph, ridx, synapse_orig_to_new_handle, t.sizes().vec());
           dtinfos_patched_count++;
         }
         ridx++;
@@ -971,7 +968,7 @@ void RecipeValueSpec::update_patching_table(
       if (is_shape_agnostic_graph) {
         auto tshape{parent_ti->get_shape()};
         update_new_tensor(
-            synapse_graph_ptr, ridx, synapse_orig_to_new_handle, tshape);
+            synapse_graph, ridx, synapse_orig_to_new_handle, tshape);
         dtinfos_patched_count++;
       }
     }
@@ -1145,7 +1142,7 @@ void RecipeValueSpec::update_patching_table(
         aten_output_num);
     if (is_shape_agnostic_graph) {
       update_new_tensor(
-          synapse_graph_ptr,
+          synapse_graph,
           ridx,
           synapse_orig_to_new_handle,
           output_shapes.at(output_idx));
@@ -1224,7 +1221,7 @@ void RecipeValueSpec::update_patching_table(
             " is greater than #outputs ",
             aten_output_num);
         update_new_tensor(
-            synapse_graph_ptr,
+            synapse_graph,
             ridx,
             synapse_orig_to_new_handle,
             output_shapes.at(output_idx));
@@ -1289,7 +1286,7 @@ void RecipeValueSpec::update_patching_table(
             " is greater than #outputs ",
             aten_output_num);
         update_new_tensor(
-            synapse_graph_ptr,
+            synapse_graph,
             ridx,
             synapse_orig_to_new_handle,
             output_shapes.at(output_idx));
@@ -1374,7 +1371,7 @@ void RecipeValueSpec::update_patching_table(
           new_sizes);
 
       update_new_tensor(
-          synapse_graph_ptr,
+          synapse_graph,
           ++ridx, // dummy value
           synapse_orig_to_new_handle,
           new_sizes,
@@ -1499,6 +1496,7 @@ void RecipeValueSpec::patch_launch_info(
 void RecipeValueSpec::MaybePrintDebugInfo(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr) {
+  PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
           HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {
     PT_BRIDGE_DEBUG(
@@ -1544,6 +1542,7 @@ void RecipeValueSpec::MaybePrintDebugInfo(
     }
     PT_BRIDGE_DEBUG(*this);
   }
+  PT_BRIDGE_END;
 }
 
 size_t get_active_graph_unique_key(const std::string& name) {
@@ -1560,7 +1559,6 @@ void RecipeValueSpec::launch(
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
   PT_BRIDGE_BEGIN;
   SelfCheck();
-
   MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
 
   auto& device = HPURegistrar::get_device().syn_device();

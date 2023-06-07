@@ -276,12 +276,12 @@ struct RecipeValueSpec {
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       size_t ridx);
   void update_tensor_shape(
-      synapse_helpers::graph* synapse_graph_ptr,
+      const synapse_helpers::graph& synapse_graph,
       synTensor tensor_handle,
       PtTensorInfoShared tinfo,
       std::vector<int64_t> shape);
   inline void update_new_tensor(
-      synapse_helpers::graph* synapse_graph_ptr,
+      const synapse_helpers::graph& synapse_graph,
       size_t ridx,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       std::vector<int64_t> new_shape,
@@ -292,13 +292,13 @@ struct RecipeValueSpec {
       std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
       const habana::IdShapeMap& m_actual_shapes,
+      const synapse_helpers::graph& synapse_graph,
       std::optional<
           std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
           tidx_to_tensor_map_opt = std::nullopt,
       const std::optional<std::vector<at::Tensor>>& allocated_outputs =
           std::nullopt,
       std::vector<std::vector<int64_t>> output_shapes = {},
-      synapse_helpers::graph* synapse_graph_ptr = nullptr,
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {},
       bool is_shape_agnostic_graph = false);
   void populate_syn_tensor_ids();

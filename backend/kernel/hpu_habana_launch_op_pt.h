@@ -122,7 +122,7 @@ class PassException : public std::exception {
 // Forward declaration
 class PersistenceMarkerPassData;
 
-class HabanaLaunchOpPT {
+class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
  public:
   explicit HabanaLaunchOpPT(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
@@ -157,26 +157,10 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapseGraph(bool allocate_rval = true);
-  static void CompileSynapse(
-      HabanaLaunchOpPT* hbLaunchOp,
-      synapse_helpers::graph* syn_graph,
-      synapse_helpers::graph* syn_graph_ptr,
-      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-      bool is_shape_agnostic_cache_miss);
   void ConstructPatchingTable();
   void UpdateSynapsePermutations();
+  void StoreShapeAgnosticGraph();
   void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
-  static void ExecuteSynapse(
-      synapse_helpers::hpuStream_t hpu_stream,
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
-          jit_graph_and_meta_data_,
-      at::ArrayRef<torch::jit::IValue> input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
-      HabanaLaunchOpPT* hbLaunchOp,
-      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-      bool is_shape_agnostic_cache_miss,
-      bool dry_run = false);
   static void ExecuteSynapseCache(
       synapse_helpers::hpuStream_t hpu_stream,
       size_t graph_key_with_perm,
@@ -186,13 +170,167 @@ class HabanaLaunchOpPT {
       std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
       std::optional<std::vector<at::Tensor>> allocated_outputs,
       bool dry_run = false);
+  static void ExecuteSynapseCacheTask(
+      size_t graph_key_with_perm,
+      std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp,
+      bool dry_run = false);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
+  void DumpTensors(RecipeValueSpec& rv);
+  void DumpTensors_pre(RecipeValueSpec& rv);
+  bool get_enable_shape_agnostic_caching_() {
+    return enable_shape_agnostic_caching_;
+  }
+
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+  get_jit_graph_and_meta_data() const {
+    return jit_graph_and_meta_data_;
+  }
+  bool get_enable_tensor_dump_() const {
+    return enable_tensor_dump_;
+  }
+
+  at::ArrayRef<torch::jit::IValue> get_input_refs_() const {
+    return input_refs;
+  }
+
+  std::shared_ptr<RecipeValueSpec> get_cur_rvalpsh() const {
+    return cur_rvalpsh;
+  }
+
+  std::shared_ptr<RecipeArgumentSpec> get_cur_rargpsh() const {
+    return cur_rargpsh;
+  }
+
+  std::optional<std::vector<at::Tensor>> get_allocated_outputs_() const {
+    return allocated_outputs_;
+  }
+
+  torch::jit::Stack& get_input_stack_() {
+    return input_st_copy;
+  }
+
+  void set_input_stack_(torch::jit::Stack stack) {
+    input_st_copy = stack;
+  }
+
+  void copy_input_stack_(torch::jit::Stack& stack) {
+    stack = input_st_copy;
+  }
+
+  std::shared_ptr<std::vector<IValPtrShared>> get_intermediate_tensors_ptrsh()
+      const {
+    return intermediate_tensors_ptr_sh_;
+  }
 
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
+  /// Property---------------------------------///-------------Comments--------------///---Read/Write-in-Lowering-Thread---///---Read/Write-in-Compile-Thread----///--Read/Write-in-Execute-Thread
+  /// hpu_stream-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// input_refs-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// cur_rvalpsh------------------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///-----------Read
+  /// jit_graph_and_meta_data_-----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// input_st_copy----------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// enable_tensor_dump_----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// refine_ds_enabled_-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// htensor_wbuff_size-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// htensor_wbuff----------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// num_inputs-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// syn_graph_ptr_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// current_dbipsh_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Write-for-dynamic-shapes
+  /// cur_rargpsh------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // duplicate_intermediate_to_outtinfo_map----///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // persistence_marker_pass_data_ptr_---------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // lazy_info---------------------------------///----------------LAZY---------------///----------------NA-----------------///-----------------NA----------------///------------NA
+  // dry_run_----------------------------------///-----------------------------------///---------------Write---------------///------Read-for-Dynamic-Shapes------///-----------Read
+  // node_bcast_map_---------------------------///----------------LAZY---------------///----------------NA-----------------///----------------NA-----------------///------------NA
+  // op_name-----------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // graph_index_------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // jit_ir_graph------------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
+  // id_str------------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // op_strs-----------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // graph_key---------------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
+  // out_shapes--------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // prim_nodes_ival_counter-------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // restride_node_swap_counter----------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // restride_node_out_val_counter-------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // input_tms---------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // habana_kernels----------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // meta_syn_tensors--------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // pt_stack_sh-------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // value_to_ivalue---------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
+  // pt_to_synapse_tensors---------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
+  // ivalue_to_tensor_info_map-----------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
+  // m_const_checksum_map----------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // checksum_map_mtx--------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // input_tivs--------------------------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
+  // output_tensorinfos------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // input_tiv_map-----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // duplicate_input_tivs----------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // buff_to_input_ivpsh_map-------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_intermediate_ivpsh_map------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_output_ivpsh_map------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_syn_tensor_map--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // duplicate_outtinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // dma_input_idx-----------------------------///-----------------------------------///-----------------NA----------------///-----------------NA----------------///------------NA
+  // appended_index----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // intermediate_index------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // shape_index-------------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
+  // aten_intermediates------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // intermediate_tinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // aten_dma_inputs---------------------------///-----------------------------------///-----------------NA----------------///-----------------NA----------------///------------NA
+  // dma_input_tensorinfos---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // shape_tensor_tinfos-----------------------///----------Dynamic-Shapes-----------///---------------Write---------------///----------------Read---------------///------------NA
+  // non_persistent_intermediate_tinfos--------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // num_tensor_inputs-------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // use_persistent_tensors--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // pt_stack----------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Write
+  // output_tensorinfo_map---------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // duplicate_input_to_outtinfo_map-----------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // duplicate_output_to_outtinfo_map----------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // sif_tidx_to_tinfo_map---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // enable_caching_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_graph_caching_---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_eager_caching_---------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // enable_shape_agnostic_caching_------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // watch_tensor_flag_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // tensor_dump_numel_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
+  // tdmp_dir_name_----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // tdmp_file_name_pre_-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // tdmp_file_name_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // iteration_count_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // jit_to_synapse_node_idx_map---------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // blocking_nodes_vec------------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
+  // blocking_syn_nodes_vec--------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
+  // blocked_syn_nodes_vec---------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
+  // memory_reuse_pairs------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // collective_kernels_info-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // dfs_time_in_out_map-----------------------///----------Dynamic-Shapes-----------///----------------NA-----------------///----------------Write--------------///------------NA
+  // dfs_cnt-----------------------------------///----------Dynamic-Shapes-----------///----------------NA-----------------///----------------Write--------------///------------NA
+  // execution_mode_---------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // allocated_outputs_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // intermediate_syn_tensors_count------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // intermediate_tensors_ptr_sh_--------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
+
  private:
+  // user stream info
+  synapse_helpers::hpuStream_t hpu_stream;
+  at::ArrayRef<torch::jit::IValue> input_refs;
+  std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
+  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
+      jit_graph_and_meta_data_ = nullptr;
+  torch::jit::Stack input_st_copy;
+  bool enable_tensor_dump_{false};
+  bool refine_ds_enabled_{false};
+  unsigned htensor_wbuff_size{0};
+  uint64_t htensor_wbuff{0};
+  size_t num_inputs{0};
+  std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
+  std::shared_ptr<RecipeArgumentSpec> cur_rargpsh{nullptr};
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info_ =
       nullptr;
@@ -206,9 +344,6 @@ class HabanaLaunchOpPT {
   std::string id_str_ = std::string();
   std::string op_strs_ = std::string();
   size_t graph_key_ = 0;
-  std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
-      jit_graph_and_meta_data_ = nullptr;
-  synapse_helpers::graph* syn_graph_ptr_ = nullptr;
   std::vector<std::vector<int64_t>> out_shapes{};
 
   size_t prim_nodes_ival_counter{0};
@@ -292,7 +427,6 @@ class HabanaLaunchOpPT {
 
   // caching :: begin
 
-  size_t num_inputs{0};
   // The inputs holding data usually are of type tensor and tensorList.
   // The following member keeps track of total number of tensor and tensorList
   // inputs
@@ -301,13 +435,9 @@ class HabanaLaunchOpPT {
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
   const bool use_persistent_tensors;
 
-  at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack{nullptr};
   uint64_t t_compile_ns{0};
-  std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
 
-  // user stream info
-  synapse_helpers::hpuStream_t hpu_stream;
 
   // Making the cache eviction policy as lru as default
 
@@ -315,7 +445,6 @@ class HabanaLaunchOpPT {
   IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map;
-  std::shared_ptr<RecipeArgumentSpec> cur_rargpsh{nullptr};
 
   // Output shape inference map
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
@@ -327,8 +456,6 @@ class HabanaLaunchOpPT {
   bool enable_eager_caching_{false};
   bool enable_shape_agnostic_caching_{false};
   bool watch_tensor_flag_{false};
-  bool enable_tensor_dump_{false};
-  bool refine_ds_enabled_{false};
   bool enable_fast_shape_inf_{false};
   int tensor_dump_numel_{0};
 
@@ -337,9 +464,6 @@ class HabanaLaunchOpPT {
   std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
   std::string tdmp_file_name_;
-
-  uint64_t htensor_wbuff{0};
-  unsigned htensor_wbuff_size{0};
 
   size_t iteration_count_ = 0;
 
@@ -372,12 +496,15 @@ class HabanaLaunchOpPT {
   // and are persistent and not present in pt_to_synapse_tensors map
   int64_t implicit_syn_tensors_count_{0};
 
+  std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr_sh_{
+      nullptr};
+
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
   // 2. Input Stack
   // Currently this funciton is used for shape inference as well
   void BuildSynapseGraph(
-      synapse_helpers::graph& syn_graph,
+      std::shared_ptr<synapse_helpers::graph>& syn_graph,
       bool is_shape_inference = false);
 
   void setSynapsePermuteFlag(
@@ -473,11 +600,10 @@ class HabanaLaunchOpPT {
   }
   void ReturnCachedRecipe(RecipeValueSpec& rv);
   void DuplicateSynapseGraph();
-  void StoreShapeAgnosticGraph();
   void ValidateInputsAndOutputsAndDisableSA(
       at::ArrayRef<torch::jit::IValue>& input_refs);
   void MaybePrintDuplicateGraphInformation(
-      synapse_helpers::graph* graph_ptr,
+      const std::shared_ptr<synapse_helpers::graph>& graph_ptr,
       std::vector<synTensorHandleMap>& tensors_map,
       std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
       std::string cache_hit_or_miss);
@@ -529,8 +655,6 @@ class HabanaLaunchOpPT {
   // to find constant section ID for Synapse graph inputs only
   void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
-  void DumpTensors_pre(RecipeValueSpec& rv);
-  void DumpTensors(RecipeValueSpec& rv);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
@@ -571,7 +695,6 @@ class HabanaLaunchOpPT {
 
   void UpdatePTStack(DynamicShapeInfo& graph_input_info);
 
-  std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
   void CreateStaticCompilationDBI(size_t graph_key_with_perm);
@@ -650,138 +773,4 @@ class HabanaLaunchOpPT {
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
   // --------------------
 };
-
-/**
- * Controls underlying thread pool execution.
- * Thread safe.
- */
-class ThreadPoolControl {
- public:
-  /**
-   * @param num_threads Number of available threads in underlying pool
-   */
-  explicit ThreadPoolControl(const size_t num_threads)
-      : m_num_threads{num_threads},
-        m_thread_pool_obj{m_num_threads, habana_helpers::QT_LockFree} {};
-
-  ThreadPoolControl(const ThreadPoolControl&) = delete;
-  ThreadPoolControl& operator=(const ThreadPoolControl&) = delete;
-  ThreadPoolControl(ThreadPoolControl&&) = delete;
-  ThreadPoolControl& operator=(ThreadPoolControl&&) = delete;
-  ~ThreadPoolControl() = default;
-
-  /**
-   * Wait until thread pool is done.
-   * Thread safe.
-   */
-  void JoinPendingThread() {
-    std::shared_future<void> shared_thread_handle;
-    {
-      std::unique_lock lock{m_thread_handle_mutex};
-      shared_thread_handle = m_thread_handle;
-    }
-    if (shared_thread_handle.valid()) {
-      PT_LAZY_EXEC_THREAD("Waiting for thread to finish");
-      try {
-        WaitUntilThreadPoolIsDone();
-        shared_thread_handle.get();
-      } catch (std::exception&) {
-      }
-    }
-  }
-
-  /**
-   * Schedules work to thread pool and stores handle to scheduled work.
-   * Thread safe.
-   *
-   * @param f Function with work
-   * @param args Arguments to work
-   */
-  template <class F, class... Args>
-  void ScheduleWorkAndUpdateThreadHandle(F&& f, Args&&... args) {
-    auto handle = m_thread_pool_obj.enqueue<F, Args...>(
-        std::forward<F>(f), std::forward<Args>(args)...);
-    std::unique_lock lock{m_thread_handle_mutex};
-    m_thread_handle = std::move(handle);
-  }
-
- private:
-  /**
-   * Size of underlying thread pool.
-   */
-  const size_t
-      m_num_threads; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-
-  /**
-   * Underlying thread pool.
-   */
-  habana_helpers::ThreadPool m_thread_pool_obj;
-
-  /**
-   * Handle to last scheduled work in thread pool.
-   */
-  std::shared_future<void> m_thread_handle GUARDED_BY(m_thread_handle_mutex);
-
-  /**
-   * Guarding accesses to thread handle.
-   */
-  std::mutex m_thread_handle_mutex;
-
-  /**
-   * Busy waits until underlying thread pool is stopped or still has items.
-   */
-  void WaitUntilThreadPoolIsDone() {
-    while (m_thread_pool_obj.has_queued_items.load()) {
-      if (m_thread_pool_obj.m_stop ||
-          !m_thread_pool_obj.has_queued_items.load()) {
-        break;
-      }
-    }
-    return;
-  }
-};
-
-/**
- * Exposed thread pool that is used for graph compilation.
- */
-class Singleton_CompileThreadPool {
- public:
-  /**
-   * Returns reference to ThreadPoolControl that is controlling graph
-   * compilation thread pool.
-   */
-  static ThreadPoolControl& getInstance() {
-    static ThreadPoolControl thread_pool_control_obj{num_threads};
-    return thread_pool_control_obj;
-  }
-
- private:
-  static constexpr size_t num_threads = 1;
-  Singleton_CompileThreadPool() = default;
-  Singleton_CompileThreadPool(const Singleton_CompileThreadPool&) = delete;
-  Singleton_CompileThreadPool& operator=(const Singleton_CompileThreadPool&) =
-      delete;
-};
-
-/**
- * Exposes thread pool that is used for graph execution.
- */
-class Singleton_ExecThreadPool {
- public:
-  /**
-   * Returns reference to ThreadPoolControl that is controlling graph execution
-   * thread pool.
-   */
-  static ThreadPoolControl& getInstance() {
-    static ThreadPoolControl thread_pool_control_obj{num_threads};
-    return thread_pool_control_obj;
-  }
-
- private:
-  static constexpr size_t num_threads = 1;
-  Singleton_ExecThreadPool() = default;
-  Singleton_ExecThreadPool(const Singleton_ExecThreadPool&) = delete;
-  Singleton_ExecThreadPool& operator=(const Singleton_ExecThreadPool&) = delete;
-};
-
 } // namespace habana

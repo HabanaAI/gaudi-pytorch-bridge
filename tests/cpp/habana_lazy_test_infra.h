@@ -162,16 +162,15 @@ class EnvHelper {
   }
 
   void EnableEagerViewHandling() {
-    m_eager_view_handling_enable =
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING);
+    m_eager_view_handling_enable = GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING);
     if (!m_eager_view_handling_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, true, 1);
+      SET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING, true, 1);
     }
   }
 
   void RestoreEagerViewHandling() {
     if (!m_eager_view_handling_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING, false, 1);
+      SET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING, false, 1);
     }
   }
 

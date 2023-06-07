@@ -124,11 +124,13 @@ class EagerExec {
   EagerExec(
       at::Symbol symbol,
       std::vector<at::IValue>&& inputs,
-      OutputSpecsOrTensors&& outputs)
+      OutputSpecsOrTensors&& outputs,
+      bool is_pipeline_supported)
       : m_symbol{symbol},
         m_graph_name{symbol.toQualString()},
         m_inputs(std::move(inputs)),
-        m_outputs(std::move(outputs)) {}
+        m_outputs(std::move(outputs)),
+        m_is_pipeline_supported(is_pipeline_supported) {}
 
   torch::jit::Stack launch();
 
@@ -163,6 +165,7 @@ class EagerExec {
   bool is_eager_compiler_supported_for_graph(
       std::shared_ptr<torch::jit::Graph>& graph);
   void mark_maybe_grad_view();
+  bool m_is_pipeline_supported = true;
 };
 
 std::vector<at::IValue> convert_ivalues_to_backend_tensors(

@@ -25,8 +25,7 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
   c10::Scalar r;
   // To Do - join pending not required here once copy d2h
   // also comes through pipeline SW-126657
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
   // Note:
   // 1. This macro expands to more types than HPU supports,
   //   but that should not be an issue issue.

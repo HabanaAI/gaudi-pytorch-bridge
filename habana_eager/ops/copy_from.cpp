@@ -162,8 +162,7 @@ at::Tensor _copy_from_d2h(
   // To Do - join pending not required here once copy d2h
   // also comes through pipeline SW-126657
   // we also need Thread join before invoking is_view_op_needed()
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
   if (is_view_op_needed(self)) {
     auto base = habana::eager::create_base(self);
     constexpr int out_index = 0;

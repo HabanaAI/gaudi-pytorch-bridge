@@ -24,9 +24,13 @@ void EagerLoweringTask(
     at::Symbol symbol,
     std::vector<at::IValue> inputs,
     OutputSpecsOrTensors out_spec_or_tensors,
-    EagerOpMetaData eager_op_meta_data) {
+    EagerOpMetaData eager_op_meta_data,
+    bool is_pipeline_supported) {
   habana::eager::EagerExec hlexec{
-      std::move(symbol), std::move(inputs), std::move(out_spec_or_tensors)};
+      std::move(symbol),
+      std::move(inputs),
+      std::move(out_spec_or_tensors),
+      is_pipeline_supported};
 
   hlexec.set_eager_op_info(std::move(eager_op_meta_data));
 
@@ -96,7 +100,8 @@ torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
                       m_symbol,
                       std::move(stack),
                       std::move(out_spec_or_tensors),
-                      std::move(m_eager_op_meta_data));
+                      std::move(m_eager_op_meta_data),
+                      m_is_pipeline_supported);
             });
 
     return {torch::jit::IValue()};
@@ -104,10 +109,13 @@ torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   } else {
     // To maintain the order for launch, ensure that all pending tasks in
     // pipeline are completed
-    SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
+    habana::eager::JoinPendingPipelineThreads();
 
     habana::eager::EagerExec hlexec{
-        m_symbol, std::move(stack), std::move(out_spec_or_tensors)};
+        m_symbol,
+        std::move(stack),
+        std::move(out_spec_or_tensors),
+        m_is_pipeline_supported};
 
     hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
 

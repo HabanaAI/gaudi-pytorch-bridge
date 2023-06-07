@@ -20,6 +20,8 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   scalar_cache.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp
+  kernel/hpu_habana_compile_op_pt.cpp
+  kernel/hpu_habana_execute_op_pt.cpp
   kernel/hpu_habana_launch_op_pt_lowering.cpp
   kernel/hpu_habana_launch_op_pt_sif.cpp
   kernel/hpu_habana_cache.cpp
@@ -109,7 +111,8 @@ target_include_directories(
   habana_pytorch_backend SYSTEM
   PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
+  $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
+  ${PYTHON_INCLUDE_DIRS})
 
 target_compile_definitions(habana_pytorch_backend PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)

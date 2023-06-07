@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,16 +10,23 @@
  *
  *******************************************************************************
  */
-#include <torch/extension.h>
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_eager/eager_context.h"
+#pragma once
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("bridge_cleanup", []() {
-    try {
-      habana::eager::JoinPendingPipelineThreads();
-    } catch (const c10::Error& e) {
-    }
-    habana::HabanaLaunchOpPT::cleanUp();
-  });
-}
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
+
+namespace habana {
+
+class HabanaExecute {
+ public:
+  explicit HabanaExecute() {}
+  virtual ~HabanaExecute() {}
+
+  static void ExecuteSynapse(
+      synapse_helpers::hpuStream_t hpu_stream,
+      bool is_shape_agnostic_cache_miss,
+      std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
+      bool do_nothing_execute,
+      bool dry_run);
+};
+
+} // namespace habana

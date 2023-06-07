@@ -275,6 +275,7 @@ torch::jit::Stack EagerExec::launch() {
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
     graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
     graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);
+    graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
     cache.Add(key, graph_and_meta);
   }
   graph_and_meta->set_output_shapes(m_outputs.get_shapes());
@@ -300,8 +301,12 @@ torch::jit::Stack EagerExec::launch() {
   }
 
   try {
-    habana::HabanaLaunchOpPT habana_launch_op_{graph_and_meta};
-    habana_launch_op_.run(stack, m_outputs.get_tensors());
+    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op_ =
+        std::make_shared<habana::HabanaLaunchOpPT>(graph_and_meta);
+    habana_launch_op_->set_input_stack_(stack);
+    habana_launch_op_->run(
+        habana_launch_op_->get_input_stack_(), m_outputs.get_tensors());
+    habana_launch_op_->copy_input_stack_(stack);
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());

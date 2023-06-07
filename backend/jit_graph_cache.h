@@ -239,6 +239,14 @@ struct OptimizedJITGraphAndMetaData {
     return dynamic_graph;
   }
 
+  bool get_is_pipeline_supported() const {
+    return is_pipeline_supported_;
+  }
+
+  void set_is_pipeline_supported(bool is_pipeline_supported) {
+    is_pipeline_supported_ = is_pipeline_supported;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -268,6 +276,7 @@ struct OptimizedJITGraphAndMetaData {
   habana_helpers::HabanaFrontendTypes frontend_type =
       habana_helpers::HabanaFrontendTypes::INVALID;
   bool is_eager_compiler_supported = true;
+  bool is_pipeline_supported_ = false;
 };
 
 /**

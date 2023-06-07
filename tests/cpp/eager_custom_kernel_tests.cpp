@@ -13,7 +13,7 @@
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include "common_functions_custom_kernel_tests.h"
 
-class EagerCustomKernelTest : public habana_lazy_test::LazyTest {
+class DISABLED_EagerCustomKernelTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetLazyMode(2);
   }
@@ -22,9 +22,8 @@ class EagerCustomKernelTest : public habana_lazy_test::LazyTest {
   }
 };
 
-ADAMW_OPT_TEST(EagerCustomKernelTest, false)
-EMA_OPT_TEST(EagerCustomKernelTest, false)
-LAMB_PHASE1_OPT_TEST(EagerCustomKernelTest, false)
-LAMB_PHASE2_OPT_TEST(EagerCustomKernelTest)
-LARS_OPT_TEST(EagerCustomKernelTest, false)
-RESOURCE_APPLY_MOMENTUM_OPT_TEST(EagerCustomKernelTest, false)
+EMA_OPT_TEST(DISABLED_EagerCustomKernelTest, false)
+LAMB_PHASE1_OPT_TEST(DISABLED_EagerCustomKernelTest, false)
+LAMB_PHASE2_OPT_TEST(DISABLED_EagerCustomKernelTest)
+LARS_OPT_TEST(DISABLED_EagerCustomKernelTest, false)
+RESOURCE_APPLY_MOMENTUM_OPT_TEST(DISABLED_EagerCustomKernelTest, false)

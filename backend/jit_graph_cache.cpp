@@ -298,7 +298,12 @@ void OptimizedJITGraphAndMetaData::set_outputs_metadata(
 
 habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
     get_outputs_metadata(size_t index) {
-  HABANA_ASSERT(index < outputs_metadata.size());
+  HABANA_ASSERT(
+      index < outputs_metadata.size(),
+      " index = ",
+      index,
+      " outputs_metadata.size() = ",
+      outputs_metadata.size());
   return outputs_metadata[index];
 }
 

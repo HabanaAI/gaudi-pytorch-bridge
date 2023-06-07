@@ -191,8 +191,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
     int peerRank) {
   CollectiveContext collective_ctx(tensors);
 
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
 
   for (auto& input_output : collective_ctx.tensors()) {
     at::Tensor& tensor = input_output.first;
@@ -252,8 +251,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
 
   CollectiveContext collective_ctx(inputs, outputs);
 
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
 
   for (auto& input_output : collective_ctx.tensors()) {
     at::Tensor& input = input_output.first;

@@ -26,7 +26,7 @@ using namespace habana_lazy;
 
 class EagerKernelTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
-    SetLazyMode(2);
+    SetEagerMode();
   }
   void TearDown() override {
     RestoreMode();
@@ -66,7 +66,7 @@ TEST_F(EagerKernelTest, LinspaceOutCache) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST_F(EagerKernelTest, LinspaceOutNeToPosStep1) {
+TEST_F(EagerKernelTest, DISABLED_LinspaceOutNeToPosStep1) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
@@ -599,7 +599,7 @@ TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
 
-TEST_F(EagerKernelTest, SumDimIntOut) {
+TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }

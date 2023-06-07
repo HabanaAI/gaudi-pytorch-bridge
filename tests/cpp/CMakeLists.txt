@@ -34,7 +34,6 @@ set(lazy_tests_src
     lazy_dynamic_shapes_tests.cpp
     lazy_dynamic_shapes_tests2.cpp
     lazy_eager_tests.cpp
-    lazy_eager_view_tests.cpp
     lazy_embedding_kernel_tests.cpp
     lazy_execution_test.cpp
     lazy_fill_kernel_tests.cpp
@@ -50,7 +49,6 @@ set(lazy_tests_src
     lazy_pool_kernel_tests.cpp
     lazy_random_gen_kernel_tests.cpp
     lazy_reduction_kernel_tests.cpp
-    lazy_shape_agnostic_tests.cpp
     lazy_softmax_kernel_tests.cpp
     lazy_special_kernel_tests.cpp
     lazy_stride_tests.cpp
@@ -234,7 +232,6 @@ list(APPEND misc_tests_src
   ds_bucket_tests.cpp
   ds_cache_tests.cpp
   eager_custom_kernel_tests.cpp
-  eager_kernel_tests.cpp
   env_flags_test.cpp
   fallback_tests.cpp
   gen_ops.cpp
@@ -267,6 +264,8 @@ list(APPEND misc_tests_src
 list(APPEND eager_tests_src
   shape_agnostic_tests.cpp
   eager_pipeline_tests.cpp
+  eager_view_tests.cpp
+  eager_kernel_tests.cpp
 )
 
 add_executable(

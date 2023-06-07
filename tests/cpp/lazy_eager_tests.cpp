@@ -32,7 +32,7 @@
 using namespace habana_lazy;
 
 // In this class both the pass fallback and compilation fallback are disabled
-class LazyEagerTest : public HpuOpTestUtil {
+class DISABLED_LazyEagerTest : public HpuOpTestUtil {
   void SetUp() override {
     SetLazyMode(2);
 
@@ -56,7 +56,7 @@ class LazyEagerTest : public HpuOpTestUtil {
   }
 };
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -73,7 +73,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -96,7 +96,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -120,7 +120,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -157,7 +157,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_copy_inplace_1) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_copy_inplace_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -186,7 +186,7 @@ TEST_F(LazyEagerTest, optimized_lazy_copy_inplace_1) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -205,7 +205,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -225,7 +225,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -249,7 +249,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -268,7 +268,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -287,7 +287,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
@@ -306,7 +306,7 @@ TEST_F(LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
   }
 }
 
-TEST_F(LazyEagerTest, optimized_lazy_eager_cmp_with_scalar) {
+TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_cmp_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();

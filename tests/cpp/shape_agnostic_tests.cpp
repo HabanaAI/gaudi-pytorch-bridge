@@ -18,6 +18,8 @@ using namespace at;
 class ShapeAgnosticTest : public habana_lazy_test::LazyTest {
  protected:
   void SetUp() override {
+    habana::HABANAGuardImpl device_guard;
+    device_guard.getDevice();
     SetEagerMode();
     DisableRecipeCache();
     EnableShapeAgnostic();
@@ -32,8 +34,6 @@ class ShapeAgnosticTest : public habana_lazy_test::LazyTest {
 };
 
 TEST_F(ShapeAgnosticTest, PermuteAdd) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3, 3});
@@ -57,8 +57,6 @@ TEST_F(ShapeAgnosticTest, PermuteAdd) {
 }
 
 TEST_F(ShapeAgnosticTest, ConvRelu) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
@@ -113,8 +111,6 @@ TEST_F(ShapeAgnosticTest, ConvRelu) {
 // have any permute on the input so 3rd relu should cause a JIT/SAG cache
 // miss.
 TEST_F(ShapeAgnosticTest, ConvReluRelu) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     // Disabling the number of cache entries check for now as the same
@@ -189,8 +185,6 @@ TEST_F(ShapeAgnosticTest, ConvReluRelu) {
 }
 
 TEST_F(ShapeAgnosticTest, ScalarAdd) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3, 3}, torch::dtype(torch::kFloat))
