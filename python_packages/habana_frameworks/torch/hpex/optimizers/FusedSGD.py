@@ -107,7 +107,7 @@ class FusedSGD(Optimizer):
                     grad_list.append(grad)
                     d_p_list.append(weight)
 
-                torch.ops.hpu.optimizer_sgd(
+                _hpex_C.fused_sgd(
                     grad_list,
                     d_p_list,
                     self.lr_t,
@@ -136,14 +136,14 @@ class FusedSGD(Optimizer):
                         state["momentum_buffer"] = torch.zeros(grad.shape).to('hpu')
                     momentum_buffer_list.append(state["momentum_buffer"])
 
-                torch.ops.hpu.optimizer_sgd_momentum(
+                _hpex_C.fused_sgd_momentum(
                     grad_list,
                     d_p_list,
                     momentum_buffer_list,
                     self.step_t,
                     self.lr_t,
-                    torch.tensor(group["momentum"]).to("hpu"),
                     group["weight_decay"],
+                    group["momentum"],
                     group["dampening"],
                     group["nesterov"],
                 )

@@ -109,13 +109,6 @@ def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, mo
 
 @register_meta([torch.ops.hpu.optimizer_lars.default])
 def meta_optimizer_optimizer_lars(params, grads, skip_masks, eeta, weight_decay, eps, lr):
-
-@register_meta([torch.ops.hpu.optimizer_sgd.default])
-def meta_optimizer_sgd(gradients, weights, lr, wd, mom, damp, nesterov):
-    return
-
-@register_meta([torch.ops.hpu.optimizer_sgd_momentum.default])
-def meta_optimizer_sgd_momentum(gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov):
     return
 
 @register_meta([torch.ops.hpu.optimizer_lamb_fused_phase2.default])

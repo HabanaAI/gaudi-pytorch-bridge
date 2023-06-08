@@ -173,22 +173,22 @@ void optimizer_ema_hpu_wrap(
     at::TensorList updated_ema,
     const at::Tensor& decay);
 void optimizer_sgd_hpu_wrap(
-    const at::TensorList gradients,
-    at::TensorList weights,
+    const at::TensorList& gradients,
+    at::TensorList& weights,
     at::Tensor& lr,
-    const double wd,
-    const double mom,
-    const double damp,
+    const float wd,
+    const float mom,
+    const float damp,
     const bool nesterov);
 void optimizer_sgd_momentum_hpu_wrap(
-    const at::TensorList gradients,
-    at::TensorList weights,
-    at::TensorList momentum,
+    const at::TensorList& gradients,
+    at::TensorList& weights,
+    at::TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
-    at::Tensor& mom,
-    const double wd,
-    const double damp,
+    const float wd,
+    const float mom,
+    const float damp,
     const bool nesterov);
 at::Tensor embedding_bag_sum_hpu_wrap(
     const at::Tensor& input,

@@ -344,7 +344,7 @@ class HabanaLaunchOpPT {
 
   // TODO add all the optimizers
   std::vector<std::string> custom_optimizer_nodestr_vec = {
-      "hpu::optimizer_sgd_momentum",
+      "hpu::habanaOptimizerFusedSGDMomentum",
       "hpu::habanaOptimizerFusedAdagrad",
       "hpu::habanaOptimizerAdamW",
       "hpu::optimizer_lamb_phase1",

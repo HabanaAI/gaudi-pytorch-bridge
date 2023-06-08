@@ -21,11 +21,9 @@
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
-#include "habana_lazy/ops/optimizer.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/run_maybe_with_acc_thread.h"
 #include "kernel_input_checks.h"
-#include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
@@ -1042,62 +1040,69 @@ void optimizer_ema_hpu_wrap(
 }
 
 void optimizer_sgd_hpu_wrap(
-    const at::TensorList gradients,
-    at::TensorList weights,
+    const TensorList& gradients,
+    TensorList& weights,
     at::Tensor& lr,
-    const double wd,
-    const double mom,
-    const double damp,
+    const float wd,
+    const float mom,
+    const float damp,
     const bool nesterov) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd:",
-      DUMP_7ARGS(gradients, weights, lr, wd, mom, damp, nesterov));
-  LazyOp<void> hpu_op{
-      "hpu::optimizer_sgd",
-      {gradients, weights, lr, wd, mom, damp, nesterov},
-      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
-      -1};
-
-  runInplaceMaybeWithAccThread(
-      "hpu::optimizer_sgd", std::move(hpu_op), weights);
+      " gradients=",
+      to_string(gradients),
+      " weights=",
+      to_string(weights),
+      " lr=",
+      to_string(lr),
+      " wd=",
+      to_string(wd),
+      " mom=",
+      to_string(mom),
+      " damp=",
+      to_string(damp),
+      " nesterov=",
+      to_string(nesterov));
+  optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
 }
 
 void optimizer_sgd_momentum_hpu_wrap(
-    const at::TensorList gradients,
-    at::TensorList weights,
-    at::TensorList momentum,
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
-    at::Tensor& mom,
-    const double wd,
-    const double damp,
+    const float wd,
+    const float mom,
+    const float damp,
     const bool nesterov) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd_momentum:",
-      DUMP_9ARGS(
-          gradients,
-          weights,
-          momentum,
-          epoch_num,
-          lr,
-          mom,
-          wd,
-          damp,
-          nesterov));
-  LazyOp<void> hpu_op{
-      "hpu::optimizer_sgd_momentum",
-      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov},
-      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
-      -1};
-
-  runInplaceMaybeWithAccThread(
-      "hpu::optimizer_sgd_momentum",
-      std::move(hpu_op),
-      ArrayRef<TensorList>{weights, momentum});
+      " gradients=",
+      to_string(gradients),
+      " weights=",
+      to_string(weights),
+      " momentum=",
+      to_string(momentum),
+      " epoch_num=",
+      to_string(epoch_num),
+      " lr=",
+      to_string(lr),
+      " wd=",
+      to_string(wd),
+      " mom=",
+      to_string(mom),
+      " damp=",
+      to_string(damp),
+      " nesterov=",
+      to_string(nesterov));
+  auto mom_t = get_tensor_for_scalar(mom);
+  optimizer_sgd_momentum_hpu_lazy(
+      gradients, weights, momentum, epoch_num, lr, mom_t, wd, damp, nesterov);
 }
 
 void optimizer_lars_hpu_wrap(
@@ -2102,9 +2107,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] variances_in, Tensor epoch_num, Tensor(c!) learning_rate, float wd, float lrd, float eps) -> ()");
   m.def(
-      "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
+      "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
   m.def(
-      "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
+      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, Tensor(f!) weight_decay, bool is_wd_modified) -> ()");
   m.def(
@@ -2308,8 +2313,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);
-  m.impl("hpu::optimizer_sgd", optimizer_sgd_hpu_wrap);
-  m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum_hpu_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

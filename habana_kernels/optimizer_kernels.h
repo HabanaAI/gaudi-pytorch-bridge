@@ -91,4 +91,60 @@ class OptimizerFusedAdagradOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+class OptimizerSGDOperator : public HabanaOperator {
+ public:
+  OptimizerSGDOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+class OptimizerFusedSGDOperator : public HabanaOperator {
+ public:
+  OptimizerFusedSGDOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+class OptimizerSGDMomentumOperator : public HabanaOperator {
+ public:
+  OptimizerSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
+class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
+ public:
+  OptimizerFusedSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            get_guid_with_precision("optimizer_sgd_bwd", scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 } // namespace habana

@@ -88,8 +88,6 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
   auto moments = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
   auto epoch_num = torch::tensor({1});
   auto lr = torch::tensor({0.01});
-  auto mom = torch::tensor({0.1});
-  auto hmom = mom.to(torch::kHPU);
 
   auto hgrad = grad.to(torch::kHPU);
   auto hwts = wts.to(torch::kHPU);
@@ -103,15 +101,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
 
   torch::Tensor out1, out2;
   optimizer_sgd_momentum_hpu_wrap(
-      hlgradients,
-      hlweights,
-      hlmoments,
-      hepoch_num,
-      hlr,
-      hmom,
-      0.1,
-      0.1,
-      false);
+      hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
   auto h_in = in.to(torch::kHPU);
@@ -129,8 +119,6 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
   auto moments = torch::randn({5, 4, 3, 3}, torch::requires_grad(false));
   auto epoch_num = torch::tensor({1});
   auto lr = torch::tensor({0.01});
-  auto mom = torch::tensor({0.1});
-  auto hmom = mom.to(torch::kHPU);
 
   auto hgrad = grad.to(torch::kHPU);
   auto hwts = wts.to(torch::kHPU).view({5, 4, 3, 3});
@@ -145,15 +133,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
 
   torch::Tensor out1, out2;
   optimizer_sgd_momentum_hpu_wrap(
-      hlgradients,
-      hlweights,
-      hlmoments,
-      hepoch_num,
-      hlr,
-      hmom,
-      0.1,
-      0.1,
-      false);
+      hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
   auto h_in = in.to(torch::kHPU);
@@ -184,8 +164,6 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_Wt_Grad_View) {
   auto hmoments = moments.to(torch::kHPU);
   auto hepoch_num = epoch_num.to(torch::kHPU);
   auto hlr = lr.to(torch::kHPU);
-  auto mom = torch::tensor({0.1});
-  auto hmom = mom.to(torch::kHPU);
 
   TensorList hlgradients(hgrad);
   TensorList hlweights(hwts);
@@ -194,15 +172,7 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_Wt_Grad_View) {
 
   torch::Tensor out1, out2;
   optimizer_sgd_momentum_hpu_wrap(
-      hlgradients,
-      hlweights,
-      hlmoments,
-      hepoch_num,
-      hlr,
-      hmom,
-      0.1,
-      0.1,
-      false);
+      hlgradients, hlweights, hlmoments, hepoch_num, hlr, 0.1, 0.1, 0.1, false);
 
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad());
   auto h_in = in.to(torch::kHPU);
