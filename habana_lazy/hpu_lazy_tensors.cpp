@@ -1381,7 +1381,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // JoinPendingLaunchThread. if the mode is sync/threadpool/eager is not
     // enabled, then JoinPendingLaunchThread must be done
     if (!GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) ||
-        !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
         (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) ||
         !context->copy_scalar_to_hpu_tensor_list.empty() || !async) {
       PT_LAZY_EXEC_THREAD(
@@ -1481,23 +1480,12 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       isOptimizedLazyEager};
 
   if (async) {
-    // Use threadpool if the hosttracing is enabled or if its eager mode
-    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL) ||
-        (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-      context->m_launch_thread_handle =
-          SingleTonExecThreadPool::getInstance().enqueue(
-              LaunchSyncTensorsGraph,
-              std::move(launch_info),
-              std::move(lazy_eager_info),
-              std::move(stream_info));
-    } else {
-      context->m_launch_thread_handle = std::async(
-          std::launch::async,
-          LaunchSyncTensorsGraph,
-          std::move(launch_info),
-          std::move(lazy_eager_info),
-          std::move(stream_info));
-    }
+    context->m_launch_thread_handle =
+        SingleTonExecThreadPool::getInstance().enqueue(
+            LaunchSyncTensorsGraph,
+            std::move(launch_info),
+            std::move(lazy_eager_info),
+            std::move(stream_info));
   } else {
     LaunchSyncTensorsGraph(
         std::move(launch_info),

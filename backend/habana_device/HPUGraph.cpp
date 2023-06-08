@@ -389,8 +389,7 @@ void SingleHPUGraph::replayGraph(
   }
 
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
-      GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES) &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAUNCHTHREAD_USE_THREADPOOL)) {
+      GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES)) {
     context->m_launch_thread_handle =
         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
