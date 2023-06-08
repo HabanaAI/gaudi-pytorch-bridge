@@ -28,6 +28,20 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+- testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed_ci
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_ci
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-fork
+  - repository: pytorch-lightning-fork
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_distributed
   silentMode: false
   gerritTriggerMap:
