@@ -257,6 +257,22 @@ class graph {
     return numConstTensors;
   }
 
+  void set_num_of_inter_tensors(uint32_t num_tensors) {
+    numInterTensors = num_tensors;
+  }
+
+  uint32_t get_num_of_inter_tensors() {
+    return numInterTensors;
+  }
+
+  void increment_shape_tensors(uint32_t count = 1) {
+    numShapeTensors += count;
+  }
+
+  uint32_t get_num_of_shape_tensors() {
+    return numShapeTensors;
+  }
+
   uint32_t get_num_of_nodes() const {
     return numNodes;
   }
@@ -317,6 +333,8 @@ class graph {
   synGraphHandle duplicate_graph_handle_{};
   uint32_t numTensors = 0;
   uint32_t numConstTensors = 0;
+  uint32_t numInterTensors = 0;
+  uint32_t numShapeTensors = 0;
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
   bool eager_mode_{false};

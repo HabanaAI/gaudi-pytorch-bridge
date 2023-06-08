@@ -124,6 +124,12 @@ class PtTensorInfo {
       const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR,
       DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
+  PtTensorInfo(
+      const std::string& sn,
+      const bool wflag,
+      const uint64_t tensor_id,
+      const synTensor handle = nullptr,
+      const synTensorType stt = DATA_TENSOR);
 
   PtTensorInfo(std::istream& is);
   // access functions for read write data members
@@ -345,6 +351,14 @@ class PtTensorInfo {
     return orig_syn_handle_;
   }
 
+  uint64_t get_syn_tensor_id() const {
+    return syn_tensor_id_;
+  }
+
+  void set_syn_tensor_id(const uint64_t syn_tensor_id) {
+    syn_tensor_id_ = syn_tensor_id;
+  }
+
  private:
   bool is_ZST_{false};
   bool is_view_tensor_{false};
@@ -389,6 +403,8 @@ class PtTensorInfo {
   DMAInputGeneratorType dma_gen_id_ = DMAInputGeneratorType::INVALID;
 
   synTensor orig_syn_handle_{nullptr};
+
+  uint64_t syn_tensor_id_{synapse_helpers::INVALID_SYN_TENSOR_ID};
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,

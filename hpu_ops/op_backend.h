@@ -87,6 +87,10 @@ class OpBackend : public HabanaOperator {
 
   OutputMetaDataVector OutputMeta(const at::Stack& stack) const;
 
+  void SetOutputMetadata(OutputMetaDataVector meta_vec) {
+    m_output_metadata = std::move(meta_vec);
+  }
+
  protected:
   const std::unordered_map<int, at::Scalar>& ScalarInputs() const {
     return m_scalar_inputs;
@@ -153,15 +157,11 @@ class OpBackend : public HabanaOperator {
     m_output_meta_fn = std::move(fn);
   }
 
-  void SetOutputMetadata(OutputMetaDataVector meta_vec) {
-    m_output_metadata = std::move(meta_vec);
+  const OutputMetaDataVector& GetOutputMetaData() const {
+    return m_output_metadata;
   }
 
   const OutputMetaData& GetOutputMetaData(int i) const {
-    if (m_meta_mode) {
-      static auto output_meta_data = OutputMetaData();
-      return output_meta_data;
-    }
     return m_output_metadata.at(i);
   }
 

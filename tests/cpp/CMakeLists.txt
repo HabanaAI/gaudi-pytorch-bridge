@@ -243,6 +243,7 @@ list(APPEND misc_tests_src
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
   sif_tests.cpp
+  shape_agnostic_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp
   tensor_usage.cpp

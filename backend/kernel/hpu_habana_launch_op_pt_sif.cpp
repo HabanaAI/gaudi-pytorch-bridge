@@ -508,6 +508,9 @@ void HabanaLaunchOpPT::RunHybridSif(
       }
     }
 
+    // Setup the config params for the kernels
+    auto outputs_metadata = populate_node_output_metadata(node);
+
     auto propagate_shape{[&]() -> void {
       PT_BRIDGE_BEGIN;
       // Non ComputeOutputShape based path, adjust SifTensrorId
@@ -519,9 +522,6 @@ void HabanaLaunchOpPT::RunHybridSif(
 
       // Create the synapse inputs from aten tensors
       create_synapse_inputs(node, habana_op, syn_graph, val_to_ival_map);
-
-      // Setup the config params for the kernels
-      auto outputs_metadata = populate_node_output_metadata(node);
 
       habana_op->AllocateAndAddSynapseNode(
           syn_graph, op_input_stack, outputs_metadata);
@@ -537,6 +537,10 @@ void HabanaLaunchOpPT::RunHybridSif(
     }};
 
     if (!disabled_jit_ir_ops_.count(op_name)) {
+      // Set output meta data if auto-gen op
+      if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+        op->SetOutputMetadata(outputs_metadata);
+      }
       auto output_shape_info = habana_op->ComputeOutputShape(op_input_stack);
       if (output_shape_info.empty()) {
         PT_DYNAMIC_SHAPE_DEBUG(
@@ -599,6 +603,8 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   // For all Graph inputs create a sif mapping
   for (size_t i = 0; i < graph_inputs.size(); ++i) {
+    if (input_refs[i].isScalar())
+      continue;
     HABANA_ASSERT(input_refs[i].isTensor());
     auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
     tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});

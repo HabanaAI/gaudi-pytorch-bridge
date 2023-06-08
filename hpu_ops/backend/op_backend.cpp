@@ -440,6 +440,8 @@ OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   auto& device = sh::HPURegistrar::get_device(0);
   auto graph = absl::get<sh::graph>(sh::graph::create(device, {}, true));
 
+  PopulateMetadata(stack, GetOutputMetaData());
+
   HandleScalarToTensor(graph, stack);
 
   if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
@@ -1030,7 +1032,7 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
       " tensors was given");
   if (nrOfInTensors == allowedNrOfInTensors + 1) {
     HABANA_ASSERT(
-        validCountTensorRank == allowedValidCountTensorRank,
+        op->isMetaMode() || validCountTensorRank == allowedValidCountTensorRank,
         "ScatterND ValidCount tensor must have rank 1");
   }
 
