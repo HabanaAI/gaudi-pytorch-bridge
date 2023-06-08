@@ -147,10 +147,7 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
   for (const auto& metadata : m_output_metadata) {
     const auto t = GetProxyTensor(metadata.dtype, metadata.shape);
     const auto& output = habana::createPTTensor(
-        t,
-        metadata.shape,
-        t.options().dtype(t.scalar_type()),
-        metadata.persistent);
+        t, metadata.shape, t.options(), metadata.persistent);
     AllocateSynapseOutput(graph, output, metadata);
   }
 }

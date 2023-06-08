@@ -391,7 +391,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         # This is list of OPs that need to be ran eagerly at this point of time.
         unsupported_ops = [
             # Tensor creation OPs.
-            "empty_like",
             "zeros",
             "ones",
             # Random OPs.

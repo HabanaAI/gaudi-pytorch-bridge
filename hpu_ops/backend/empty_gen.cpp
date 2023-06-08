@@ -39,11 +39,6 @@ OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
   return {meta};
 }
 
-EmptyStrided::EmptyStrided(int device_id, c10::ScalarType scalar_type)
-    : Empty(device_id, scalar_type) {
-  SetOutputMetaFn(EmptyStridedMeta);
-}
-
 OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
   OutputMetaData meta;
   const auto size = stack.at(0).toIntList().vec();
@@ -91,6 +86,19 @@ void Empty::CustomHandler(synapse_helpers::graph& graph, at::Stack& stack) {
   AllocateSynapseOutput(graph, output, metadata);
 }
 
+static auto empty_impl(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Stack& stack,
+    const OutputMetaData& md) {
+  return std::move(OpBackend::BuildNode(
+      op, graph, {"memset", {}, {{md.shape, md.dtype, 0}}})[0]);
+}
+
+void EmptyLike::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
+}
+
 void Empty::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& metadata = GetOutputMetaData(0);
   at::Scalar val = 0;
@@ -113,10 +121,39 @@ Empty::Empty(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "None_", scalar_type, {}, {}, {}, false) {
   SetOutputMetaFn(EmptyMeta);
 }
+
+EmptyLike::EmptyLike(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn([](const at::Stack& stack) {
+    OutputMetaData meta;
+    const at::Tensor& self = stack_tensor(stack, 0);
+    meta.shape = self.sizes().vec();
+    meta.dtype =
+        stack[1].toOptional<at::ScalarType>().value_or(self.scalar_type());
+    meta.layout = stack[2].toOptional<at::Layout>().value_or(self.layout());
+
+    auto device = stack.at(3).toOptional<at::Device>().value_or(at::kHPU);
+    TORCH_INTERNAL_ASSERT(device.is_hpu());
+
+    auto pin_memory = stack.at(4).toOptional<bool>().value_or(false);
+    TORCH_CHECK(!pin_memory, "Only dense CPU tensors can be pinned");
+
+    meta.mem_format = stack[5].toOptional<at::MemoryFormat>().value_or(
+        self.suggest_memory_format());
+
+    return OutputMetaDataVector{meta};
+  });
+}
+
+EmptyStrided::EmptyStrided(int device_id, c10::ScalarType scalar_type)
+    : Empty(device_id, scalar_type) {
+  SetOutputMetaFn(EmptyStridedMeta);
+}
+
 } // namespace habana
 
 static const auto& EmptyKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::empty", KERNEL_FN_GLOBAL(habana::Empty))
+        .add("aten::empty_like", KERNEL_FN_GLOBAL(habana::EmptyLike))
         .add("aten::empty.memory_format", KERNEL_FN_GLOBAL(habana::Empty))
         .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided));
