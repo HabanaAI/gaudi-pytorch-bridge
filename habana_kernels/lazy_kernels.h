@@ -207,7 +207,6 @@ class LazyOp {
         });
 
     if (isOptimizedLazyEager == false) {
-      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
 
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
@@ -350,7 +349,6 @@ class LazyOp {
         });
 
     if (isOptimizedLazyEager == false) {
-      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
 
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
@@ -531,7 +529,6 @@ class LazyOp {
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
-      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
 
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
@@ -569,7 +566,6 @@ class LazyOp {
 
     auto hl_result = GetHbLazyTensor(self, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
-      PT_LAZY_DEBUG("Normal Lazy Eager Path Chosen");
 
       // lazy eager - preparing the input tensor uids
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
