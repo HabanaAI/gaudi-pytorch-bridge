@@ -12,6 +12,7 @@
  */
 #pragma once
 #include <c10/core/Device.h>
+#include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
@@ -24,10 +25,6 @@ class TimeSlot;
 }
 
 namespace habana {
-namespace backend {
-class ScalarCache;
-}
-
 class DeviceResource {
  public:
   virtual ~DeviceResource() {}
