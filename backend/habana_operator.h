@@ -246,6 +246,17 @@ class OutputMetaData {
   at::MemoryFormat mem_format;
   std::optional<at::Tensor> allocated_tensor;
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
+  OutputMetaData(
+      at::ScalarType dtype,
+      std::vector<int64_t> shape,
+      std::vector<int64_t> strides,
+      at::Layout layout,
+      at::MemoryFormat mem_format)
+      : dtype(dtype),
+        shape(std::move(shape)),
+        strides(std::move(strides)),
+        layout(layout),
+        mem_format(mem_format) {}
   OutputMetaData() = default;
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;

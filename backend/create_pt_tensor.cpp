@@ -95,18 +95,24 @@ at::Tensor habana::nonPersistentTensor(
     const at::TensorOptions& options,
     at::optional<c10::MemoryFormat> optional_memory_format,
     at::optional<caffe2::TypeMeta> data_type) {
-  static_cast<void>(options);
   auto t = at::detail::make_tensor<habana::StorageLessWrapperTensorImpl>(
       input, data_type);
   t.unsafeGetTensorImpl()->set_sizes_and_strides(size, strides);
+
+  at::MemoryFormat memory_format = at::MemoryFormat::Contiguous;
   if (optional_memory_format.has_value()) {
-    t.unsafeGetTensorImpl()->empty_tensor_restride(
-        optional_memory_format.value_or(c10::MemoryFormat::Contiguous));
-  } else {
-    auto memory_format = input.options().memory_format_opt().value_or(
-        c10::MemoryFormat::Contiguous);
-    t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
+    switch (*optional_memory_format) {
+      case at::MemoryFormat::ChannelsLast:
+      case at::MemoryFormat::ChannelsLast3d:
+        memory_format = *optional_memory_format;
+        break;
+      default:
+        memory_format =
+            options.memory_format_opt().value_or(at::MemoryFormat::Contiguous);
+        break;
+    }
   }
+  t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
 
   PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
   return t;
