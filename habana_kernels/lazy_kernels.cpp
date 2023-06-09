@@ -7078,7 +7078,7 @@ void optimizer_lamb_phase2(
     const at::TensorList adam_norms,
     const at::TensorList weight_norms,
     const at::TensorList adam_steps,
-    const double step,
+    const at::Tensor& neg_step,
     const double weight_decay,
     const bool use_lamb) {
   PT_OP_TRACE
@@ -7091,7 +7091,7 @@ void optimizer_lamb_phase2(
           adam_norms,
           weight_norms,
           adam_steps,
-          step,
+          neg_step,
           weight_decay,
           use_lamb));
 
@@ -7101,7 +7101,7 @@ void optimizer_lamb_phase2(
        adam_norms,
        weight_norms,
        adam_steps,
-       step,
+       neg_step,
        weight_decay,
        use_lamb});
   loo.call(weights);

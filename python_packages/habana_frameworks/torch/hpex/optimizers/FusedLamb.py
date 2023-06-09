@@ -146,8 +146,6 @@ class FusedLamb(Optimizer):
             else:
                 group["step"] = 1
 
-            step_size = group["lr"]
-
             (
                 grad_list,
                 wt_list,
@@ -208,7 +206,7 @@ class FusedLamb(Optimizer):
                 adam_norm_list,
                 wt_norm_list,
                 adam_step_list,
-                step_size,
+                torch.tensor(-group["lr"], device="hpu"),
                 group["weight_decay"],
                 self.use_lamb,
             )

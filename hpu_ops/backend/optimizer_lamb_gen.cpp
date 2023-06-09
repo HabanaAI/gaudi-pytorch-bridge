@@ -480,11 +480,10 @@ void OptimizerLambPhase2::AddNode(
   auto adam_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto weight_norms = getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto adam_steps = getNextInput<std::vector<TensorsPair>>(stackGetter);
-  float step = static_cast<float>(getNextInput<double>(stackGetter));
+  auto neg_step = getNextInput<TensorsPair>(stackGetter);
   auto weight_decay = static_cast<float>(getNextInput<double>(stackGetter));
   bool use_lamb = getNextInput<bool>(stackGetter);
 
-  auto syn_negative_step = ConstantHelper(graph, -step, torch::kFloat, {1});
   auto dtype = weights[0].pt_t.scalar_type();
 
   std::optional<synapse_helpers::tensor> zero;
@@ -507,13 +506,6 @@ void OptimizerLambPhase2::AddNode(
            {weight_norms[i].syn_t, adam_norms[i].syn_t},
            {{{1}, dtype}}});
 
-      auto weight_mask = OpBackend::BuildNode(
-          this,
-          graph,
-          {get_guid_with_precision("greater_fwd", dtype),
-           {weight_norms[i].syn_t, zero->get()},
-           {{{1}, at::kBool}}});
-
       auto adam_mask = OpBackend::BuildNode(
           this,
           graph,
@@ -521,18 +513,11 @@ void OptimizerLambPhase2::AddNode(
            {adam_norms[i].syn_t, zero->get()},
            {{{1}, at::kBool}}});
 
-      auto mask = OpBackend::BuildNode(
-          this,
-          graph,
-          {get_guid_with_precision("and_fwd", at::kBool),
-           {weight_mask[0].get(), adam_mask[0].get()},
-           {{{1}, at::kBool}}});
-
       auto where = OpBackend::BuildNode(
           this,
           graph,
           {get_guid_with_precision("where_fwd", dtype),
-           {mask[0].get(), div[0].get(), one->get()},
+           {adam_mask[0].get(), div[0].get(), one->get()},
            {{{1}, dtype}}});
 
       trust_ratio = std::move(where[0]);
@@ -542,7 +527,7 @@ void OptimizerLambPhase2::AddNode(
         this,
         graph,
         {get_guid_with_precision("mult_fwd", dtype),
-         {adam_steps[i].syn_t, syn_negative_step.get()},
+         {adam_steps[i].syn_t, neg_step.syn_t},
          {{adam_steps[i].pt_t.sizes(), dtype}}});
 
     if (trust_ratio.has_value()) {

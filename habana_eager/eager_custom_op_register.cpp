@@ -290,7 +290,7 @@ void optimizer_lamb_phase2(
     const at::TensorList adam_norms,
     const at::TensorList weight_norms,
     const at::TensorList adam_steps,
-    const double step,
+    const at::Tensor& neg_step,
     const double weight_decay,
     const bool use_lamb) {
   PT_EAGER_TRACE;
@@ -301,7 +301,7 @@ void optimizer_lamb_phase2(
           adam_norms,
           weight_norms,
           adam_steps,
-          step,
+          neg_step,
           weight_decay,
           use_lamb));
 
@@ -311,7 +311,7 @@ void optimizer_lamb_phase2(
        adam_norms,
        weight_norms,
        adam_steps,
-       step,
+       neg_step,
        weight_decay,
        use_lamb}};
   return hpu_op.call(weights);
@@ -432,7 +432,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, int step, int bias_correction, float weight_decay) -> ()");
   m.def(
-      "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, float step, float wd, bool use_lamb) -> ()");
+      "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor(b!) decay) -> ()");
   m.def(

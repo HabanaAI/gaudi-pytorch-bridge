@@ -87,7 +87,7 @@ def test_optimizer_lamb_norm_views():
 
 
 def reference_optimizer_lamb_phase2(
-    weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb
+    weights, adam_norms, weight_norms, adam_steps, neg_step, weight_decay, use_lamb
 ):
     for weight, adam_norm, weight_norm, adam_step in zip(
         weights, adam_norms, weight_norms, adam_steps
@@ -96,7 +96,7 @@ def reference_optimizer_lamb_phase2(
             trust_ratio = weight_norm / adam_norm
         else:
             trust_ratio = 1
-        adam_step = adam_step * -step * trust_ratio
+        adam_step = adam_step * neg_step * trust_ratio
         weight.add_(adam_step)
 
 
@@ -122,7 +122,7 @@ def test_optimizer_lamb_phase2(
         hpu_adam_norm,
         hpu_weight_norm,
         hpu_adam_step,
-        0.1,
+        torch.tensor(-0.1, device=hpu),
         weight_decay,
         use_lamb,
     )
@@ -131,7 +131,7 @@ def test_optimizer_lamb_phase2(
         cpu_adam_norm,
         cpu_weight_norm,
         cpu_adam_step,
-        0.1,
+        -0.1,
         weight_decay,
         use_lamb,
     )

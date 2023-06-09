@@ -331,7 +331,7 @@ void runLambPhase2OptimizerTest(
     const bool with_view) {
   torch::manual_seed(0);
   const bool verbose = false;
-  float step = 0.1;
+  float neg_step = -0.1;
 
   struct Data {
     std::vector<TensorAndView> weights_vec;
@@ -368,12 +368,13 @@ void runLambPhase2OptimizerTest(
   auto weight_norms = TensorAndViewVecToViewVec(hpu.weight_norms_vec);
   auto adam_steps = TensorAndViewVecToViewVec(hpu.adam_steps_vec);
 
+  auto tensor_step = torch::tensor(neg_step).to(torch::kHPU);
   habana_lazy::optimizer_lamb_phase2(
       weights,
       adam_norms,
       weight_norms,
       adam_steps,
-      step,
+      tensor_step,
       weight_decay,
       use_lamb);
 
@@ -385,7 +386,7 @@ void runLambPhase2OptimizerTest(
         (cpu.weight_norms_vec[i].t[0].item<float>() > 0)) {
       trust_ratio = cpu.weight_norms_vec[i].t / cpu.adam_norms_vec[i].t;
     }
-    cpu.adam_steps_vec[i].t *= -step * trust_ratio;
+    cpu.adam_steps_vec[i].t *= neg_step * trust_ratio;
     cpu.weights_vec[i].t =
         torch::add(cpu.weights_vec[i].t, cpu.adam_steps_vec[i].t, 1.0);
   }
