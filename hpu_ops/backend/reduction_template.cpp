@@ -30,12 +30,6 @@ static std::shared_ptr<void> FillReductionParams(
     bool keepdim,
     size_t& size) {
   PARAMS_STUB(ns_Reduction::ParamsV2);
-  // When dim=[], reduce all dimensions based on keepdim value
-  if (0 == dims.size()) {
-    for (int i = 0; i < ndims; ++i) {
-      dims.push_back(i);
-    }
-  }
   unsigned maskval = 0;
   for (int i = 0; i < dims.size(); ++i) {
     auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
