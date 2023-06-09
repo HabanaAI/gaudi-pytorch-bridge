@@ -60,8 +60,14 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto out = AllCommon(
-      this, graph, self, syn_in(0), {}, false, ComputeOutputShapes(stack)[0]);
-  syn_out(0) = std::move(out);
+  auto final_shape = ComputeOutputShapes(stack)[0];
+  if (self.numel() == 0) {
+    auto false_tensor =
+        ConstantHelper(graph, true, c10::ScalarType::Bool, 1, 0);
+    syn_out(0) = std::move(false_tensor);
+  } else {
+    auto out = AllCommon(this, graph, self, syn_in(0), {}, false, final_shape);
+    syn_out(0) = std::move(out);
+  }
 }
 } // namespace habana

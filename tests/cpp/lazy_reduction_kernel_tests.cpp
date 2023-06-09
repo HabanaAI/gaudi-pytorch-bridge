@@ -179,6 +179,17 @@ TEST_F(LazyReductionKernelTest, AllTensorTest) {
       true);
 }
 
+TEST_F(LazyReductionKernelTest, AllEmptyTest) {
+  torch::Tensor A = torch::empty({0}, torch::kInt8);
+
+  auto expected = torch::all(A);
+  auto hA = A.to(torch::kHPU);
+  auto result = torch::all(hA);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(expected, habanaGenerated), true);
+}
+
 TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
   const std::vector<int64_t> dimensions{5, 3, 4};
 
