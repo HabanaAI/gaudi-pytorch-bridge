@@ -31,9 +31,6 @@ TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
   torch::Tensor htensor_in1 = tensor_in1.to(torch::kHPU);
   auto out = htensor_in1.fill_(1.0);
 
-  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(out)};
-  HbLazyTensor::SyncTensorsGraph(&tensors);
-
   auto exp = tensor_in1.fill_(1.0);
   auto out_cpu = htensor_in1.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, exp), true);
