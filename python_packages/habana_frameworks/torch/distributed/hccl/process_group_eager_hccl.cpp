@@ -326,8 +326,10 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
   PT_DISTRIBUTED_BEGIN;
   hostBarrier();
 
-  synStreamHandle collective_stream = comm_->getCommStream();
-  hcclBarrier(*comm_->GetHcclHandle(), collective_stream);
+  if (comm_->GetHcclHandle() != nullptr) {
+    synStreamHandle collective_stream = comm_->getCommStream();
+    hcclBarrier(*comm_->GetHcclHandle(), collective_stream);
+  }
 
   PT_DISTRIBUTED_END;
   return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>();
