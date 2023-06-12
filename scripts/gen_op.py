@@ -1552,8 +1552,7 @@ def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False):
                 False, # is_eager_frontend
                 "lazy",
             )
-            ops_lazy_ctx[fname] = {'op_frontend': lazy_op_frontend}
-            print(f"Added separate op_frontend for lazy {fname}")
+            ops_lazy_ctx[opname] = {'op_frontend': lazy_op_frontend}
 
         # Use default flag from pytorch when force_default is not defined or in eager flow
         if ctxop.force_default() is None or is_eager_frontend:
@@ -1780,9 +1779,10 @@ def generate_all(fgen, mode=None):
     if op_validator_generator is not None:
         dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
 
-    if mode == "lazy" and fgen.func in ops_lazy_ctx.keys():
+    opname = get_aten_opname(fgen.aten_sig)
+    if mode == "lazy" and opname in ops_lazy_ctx.keys():
         op_frontend_functions += "{}\n\n".format(
-            ops_lazy_ctx[fgen.func]['op_frontend']
+            ops_lazy_ctx[opname]['op_frontend']
         )
     elif fgen.op_frontend:
         # Lazy functions
