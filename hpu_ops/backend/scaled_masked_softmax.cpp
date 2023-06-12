@@ -28,7 +28,7 @@ ScaledMaskedSoftmax::ScaledMaskedSoftmax(
     c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "scaled_masked_softmax_fwd_",
+          "scaled_masked_softmax_fwd",
           scalar_type,
           {0},
           {},

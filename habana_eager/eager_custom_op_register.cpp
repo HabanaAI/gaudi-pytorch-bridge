@@ -162,6 +162,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
   TORCH_CHECK(false, "hpu::fp8_bgrad_dgelu is not available in Eager mode.");
 }
 
+std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    const c10::optional<at::Tensor>& scale,
+    double softmax_scale,
+    bool stochastic_rounding,
+    bool is_amax) {
+  TORCH_CHECK(false, "hpu::fp8_fast_softmax is not available in Eager mode.");
+}
+
 at::Tensor fp8_reshape(const at::Tensor& input, at::IntArrayRef shape) {
   TORCH_CHECK(false, "hpu::fp8_reshape is not available in Eager mode.");
 }
@@ -355,6 +365,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+  m.def(
       "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
@@ -389,6 +401,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gelu", fp8_gelu);
   m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu);
+  m.impl("hpu::fp8_fast_softmax", fp8_fast_softmax);
   m.impl("hpu::fp8_layernorm", fp8_layernorm);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2);

@@ -303,6 +303,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_wrap(
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
     bool is_amax);
+std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_wrap(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    const c10::optional<at::Tensor>& scale,
+    double softmax_scale,
+    bool stochastic_rounding,
+    bool is_amax);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_layernorm_wrap(
     const at::Tensor& input,

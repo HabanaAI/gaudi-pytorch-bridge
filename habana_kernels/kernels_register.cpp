@@ -1463,6 +1463,27 @@ std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
 }
+std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    const c10::optional<at::Tensor>& scale,
+    double softmax_scale,
+    bool stochastic_rounding,
+    bool is_amax) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " fp8_fast_softmax:",
+      DUMP_6ARGS(
+          input, mask, scale, softmax_scale, stochastic_rounding, is_amax));
+  if (synapse_helpers::device_supports_fp8(
+          habana::HPURegistrar::get_device().type())) {
+    return fp8_fast_softmax_lazy(
+        input, mask, scale, softmax_scale, stochastic_rounding, is_amax);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
 std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
     const at::Tensor& input,
     const at::Tensor& weight,
@@ -2265,6 +2286,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+  m.def(
       "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
@@ -2311,6 +2334,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gelu", fp8_gelu_wrap);
   m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2_wrap);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu_wrap);
+  m.impl("hpu::fp8_fast_softmax", fp8_fast_softmax_wrap);
   m.impl("hpu::fp8_layernorm", fp8_layernorm_wrap);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2_wrap);

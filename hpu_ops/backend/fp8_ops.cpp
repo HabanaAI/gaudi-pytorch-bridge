@@ -589,6 +589,63 @@ void Fp8BgradDgelu::AddNode(
   }
 }
 
+sizes_vec Fp8FastSoftmaxOutputShape(const at::Stack& stack) {
+  std::vector<int64_t> amax_size{1};
+  auto out_size = stack_tensor(stack, 0).sizes().vec();
+  return {out_size, amax_size};
+}
+
+Fp8FastSoftmax::Fp8FastSoftmax(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_fast_softmax",
+          scalar_type,
+          {0, 0},
+          {},
+          {},
+          false) {}
+
+void Fp8FastSoftmax::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 6, "Fp8FastSoftmax must have 6 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8FastSoftmax::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto mask = getNextInput<TensorsPair>(stackGetter);
+  auto scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto softmax_scale = static_cast<float>(getNextInput<double>(stackGetter));
+  auto stochastic_rounding = getNextInput<bool>(stackGetter);
+  auto is_amax = getNextInput<bool>(stackGetter);
+
+  auto out_sizes = Fp8FastSoftmaxOutputShape(stack);
+
+  std::string guid = get_guid_with_precision("fp8_fast_softmax", ScalarType());
+
+  // reuse params structure from LayerNormFp8
+  ns_LayerNormFp8::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  params.eps = softmax_scale;
+
+  std::vector<synTensor> syn_inputs{input.syn_t, mask.syn_t};
+  if (scale_opt) {
+    syn_inputs.push_back(scale_opt->syn_t);
+  }
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, syn_type_fp8_152}};
+  if (is_amax) {
+    output_attrs.push_back({out_sizes[1], at::ScalarType::Float, 1});
+  }
+
+  auto result = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+  if (is_amax) {
+    syn_out(1) = std::move(result[1]);
+  }
+}
+
 Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_layernorm", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(4);
@@ -884,6 +941,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
         .add("hpu::fp8_gelu_v2", KERNEL_FN_GLOBAL(habana::Fp8GeluV2))
         .add("hpu::fp8_bgrad_dgelu", KERNEL_FN_GLOBAL(habana::Fp8BgradDgelu))
+        .add("hpu::fp8_fast_softmax", KERNEL_FN_GLOBAL(habana::Fp8FastSoftmax))
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
         .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))

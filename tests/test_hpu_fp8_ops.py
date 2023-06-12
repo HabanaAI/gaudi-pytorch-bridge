@@ -403,6 +403,39 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax):
         assert amax.cpu() == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
 
+@pytest.mark.parametrize("shape", [(96, 128), (3, 4)])
+@pytest.mark.parametrize("scale", [0.75, 1.6])
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+@pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_fp8_fast_softmax(shape, scale, dtype, stochastic, is_scale, is_amax):
+    hpu = torch.device("hpu")
+    input = ((torch.rand(shape, dtype=dtype) - 0.5) * 5).to("hpu")
+    mask = torch.randint(0, 2, shape, dtype=torch.int).to(torch.bfloat16).to("hpu")
+    scale_softmax = 0.17
+
+    scale_val = scale if is_scale else 1.0
+    scale = torch.tensor(scale_val, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+
+    softmax_ref = torch.ops.hpu.scaled_masked_softmax(input, mask, scale_softmax).cpu()
+    softmax_ref_low_precision = simulateFp8Precision(softmax_ref * scale)
+    result_cpu = softmax_ref_low_precision * scale_inv
+
+    scale_hpu = scale.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+
+    softmax, amax = torch.ops.hpu.fp8_fast_softmax(input, mask, scale_hpu, scale_softmax, stochastic, is_amax)
+    softmax_unscaled = cast_from_fp8(softmax, scale_inv_hpu, dtype).cpu()
+
+    if stochastic:
+        assert torch.allclose(softmax_unscaled, result_cpu, rtol=0.26, atol=0.01)
+    else:
+        assert torch.allclose(softmax_unscaled, result_cpu, rtol=0.0, atol=0.01)
+    if is_amax:
+        assert amax.cpu() == torch.max(softmax_ref.abs())
+
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("retain", [True, False])
@@ -427,7 +460,6 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
         retain_tensor = torch.tanh(torch.sqrt(torch.tensor(2/np.pi, dtype=dtype))*(input +  0.044715*torch.pow(input, 3))).to(dtype).to(hpu)
     scale_hpu = scale.to(hpu) if is_scale else None
     scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
-    # amax_tensor = amax[1][2] if is_amax else None
     casted, bgrad, amax = torch.ops.hpu.fp8_bgrad_dgelu(grad_hpu, input_hpu, scale_hpu, retain_tensor, False, is_amax)
 
     gelu = torch.nn.GELU(approximate='tanh')
