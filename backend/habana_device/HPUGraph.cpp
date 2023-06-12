@@ -37,9 +37,9 @@ void HPUGraph::capture_begin() {
     return;
   }
   auto stream = c10::hpu::getCurrentHPUStream();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
   capture_stream_ = stream;
   /*flush current Accumulated graph, before capture */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -70,10 +70,10 @@ void HPUGraph::capture_end() {
     PT_DEVICE_FATAL("GRAPH:: Capture must end on the same stream it began on.");
     return;
   }
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 
   /*flush graph to capture in the end */
   habana_lazy::HbLazyTensor::StepMarker({});
@@ -111,10 +111,10 @@ void HPUGraph::mark_step() {
     PT_DEVICE_FATAL("GRAPH:: Capture must end on the same stream it began on.");
     return;
   }
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 
   context->JoinPendingLaunchThread();
   auto captured_graph = std::make_shared<SingleHPUGraph>(
@@ -343,10 +343,10 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
 }
 
 HPUGraph::~HPUGraph() {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
@@ -371,9 +371,9 @@ void SingleHPUGraph::replayGraph(
     habana_helpers::DisableRefineDynamicShape();
   }
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 
   size_t launch_jobid = context->GetUniqueJobId();
   context->AddToJobidStreamidMap(

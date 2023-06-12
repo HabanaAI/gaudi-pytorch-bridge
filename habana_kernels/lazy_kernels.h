@@ -247,7 +247,7 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
             isView, context->viewContext.isLazyViewPresent)) {
@@ -277,7 +277,7 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
             isView, context->viewContext.isLazyViewPresent)) {
@@ -310,7 +310,7 @@ class LazyOp {
     std::vector<at::Tensor> tensors;
     std::vector<HbLazyTensor> hl_results = {};
     tensors.reserve(std::tuple_size<T>::value);
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
 
     std::vector<std::vector<int64_t>> out_shapes;
     if (m_output_meta_fn) {
@@ -390,7 +390,7 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
             isView, context->viewContext.isLazyViewPresent)) {
@@ -433,7 +433,7 @@ class LazyOp {
 
     const auto& node = create_node();
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     int64_t out_index = 0;
     common::ListOfListsCustomIterator<U> customIt(list);
     if (!customIt.empty()) {
@@ -603,7 +603,7 @@ class LazyOp {
     std::shared_ptr<HbLazyFrontEndInfoToBackend> infoToBackEnd =
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(m_symbol.toQualString());
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
             isView, context->viewContext.isLazyViewPresent)) {
@@ -783,7 +783,7 @@ class LazyOp {
       isOptimizedLazyEager =
           info_to_lazy_backend->get_is_optimized_lazy_eager();
     }
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
 
     bool is_self_view = false;
@@ -937,7 +937,7 @@ class LazyOp {
         std::make_shared<HbLazyFrontEndInfoToBackend>();
     infoToBackEnd->set_lazy_op_name(node_str);
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
     if (is_optimized_lazy_eager_supported(
             isView, context->viewContext.isLazyViewPresent)) {
@@ -985,7 +985,7 @@ class LazyOp {
       }
     }
 
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getDataPtr(), LazyTensorExecutionStatus::kREGISTERED);
 
@@ -1253,7 +1253,7 @@ class LazyOp {
       std::vector<at::Tensor>& input_pt_vec,
       ir::MetaData& metadata,
       bool is_optimized_lazy_eager) {
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext(0);
     values.reserve(m_inputs.size());
     for (size_t i = 0; i < m_inputs.size(); ++i) {
       const at::IValue& input = m_inputs[i];
@@ -1447,7 +1447,7 @@ class LazyOp {
     size_t optimized_key = static_cast<uint32_t>(m_symbol);
     optimized_key = at::hash_combine(optimized_key, m_out_shapes.size());
     if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      auto& device = habana::HPURegistrar::get_device();
+      auto& device = synapse_helpers::HPURegistrar::get_device();
       optimized_key =
           at::hash_combine(optimized_key, device.getDeterministic());
     }

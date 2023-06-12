@@ -240,7 +240,6 @@ list(APPEND misc_tests_src
   misc_utils_tests.cpp
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
-  device/test_registrar.cpp
   sif_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp
@@ -259,6 +258,7 @@ add_executable(
   ${misc_tests_src}
 )
 
+target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 
 if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   # Remove tests unrelated or not working with PT2
@@ -278,6 +278,7 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     test_pt2_integration
     ${hpu_ops_tests_src}
     ${misc_tests_src})
+  target_compile_definitions(test_pt2_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 endif()
 
 find_package(Python COMPONENTS Interpreter Development)

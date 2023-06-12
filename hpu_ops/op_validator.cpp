@@ -53,7 +53,7 @@ gcapi::DeviceId_t synDeviceTypeToGcApiDeviceType(synDeviceType tp) {
 }
 
 gcapi::DeviceId_t _getDeviceType() {
-  auto deviceType = HPURegistrar::get_device(0).type();
+  auto deviceType = synapse_helpers::HPURegistrar::get_device(0).type();
   auto deviceId = synDeviceTypeToGcApiDeviceType(deviceType);
   return deviceId;
 }
@@ -64,7 +64,7 @@ gcapi::DeviceId_t getDeviceType() {
 }
 
 synDeviceId getDeviceId() {
-  return HPURegistrar::get_device().id();
+  return synapse_helpers::HPURegistrar::get_device().id();
 }
 
 bool fillGcApiTypeFromScalarType(

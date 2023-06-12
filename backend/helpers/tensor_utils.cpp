@@ -190,13 +190,13 @@ void habana_helpers::copy_scalar_to_device(
     const at::Tensor& dst,
     uint32_t size) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     const at::Tensor dstRef = dst;
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -204,9 +204,10 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -214,6 +215,7 @@ void habana_helpers::copy_scalar_to_device(
         size,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -252,21 +254,23 @@ void habana_helpers::copy_scalars_to_device(
     dst_list.push_back(dst);
   }
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   if (device.IsStreamASyncEnabled()) {
     // src list and dst list keeps a reference to the tensors it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         manifest,
         [src_list, dst_list]() { return; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         manifest,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
     // wait for copy completion
     while (!copyDone) {
@@ -353,7 +357,7 @@ void habana_helpers::copy_data_to_host(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
   size_t device_id = src.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (src.nbytes() == 0) {
     return;
@@ -364,7 +368,7 @@ void habana_helpers::copy_data_to_host(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    device.copy_data_to_host(
+    auto syn_error = device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -373,9 +377,10 @@ void habana_helpers::copy_data_to_host(
         [srcRef, dstRef]() { return; },
         is_pinned,
         hpu_stream);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_host(
+    auto syn_error = device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -384,6 +389,7 @@ void habana_helpers::copy_data_to_host(
         [&copyDone]() { copyDone = true; },
         is_pinned,
         hpu_stream);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -411,7 +417,7 @@ void habana_helpers::copy_data_to_device(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   if (src.nbytes() == 0) {
@@ -424,7 +430,7 @@ void habana_helpers::copy_data_to_device(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -434,9 +440,10 @@ void habana_helpers::copy_data_to_device(
         non_blocking,
         is_pinned,
         hpu_stream);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    auto syn_error = device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -446,6 +453,7 @@ void habana_helpers::copy_data_to_device(
         false,
         is_pinned,
         hpu_stream);
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -463,7 +471,7 @@ void habana_helpers::copy_data_within_device(
     const at::Tensor& dst,
     bool non_blocking) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
@@ -471,7 +479,7 @@ void habana_helpers::copy_data_within_device(
     // operation is still in flight.
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
-    device.copy_data_within_device(
+    auto syn_error = device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -481,9 +489,10 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [srcRef, dstRef]() { return; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_within_device(
+    auto syn_error = device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -493,6 +502,7 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
+    TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -669,7 +679,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::BFloat16:
       return true;
     case c10::ScalarType::Half: {
-      auto device_type{habana::HPURegistrar::get_device().type()};
+      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
       if (device_type == synDeviceGaudi) {
         HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
       }
@@ -684,7 +694,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
 #if HAVE_FP8R152_SUPPORT
     case c10::ScalarType::Fp8r152: {
       return synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type());
+          synapse_helpers::HPURegistrar::get_device().type());
     }
 #endif
     default:

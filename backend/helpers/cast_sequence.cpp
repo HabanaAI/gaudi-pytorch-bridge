@@ -251,7 +251,7 @@ std::vector<CastTypes> get_cast_sequence(
 }
 
 std::vector<CastTypes> get_cast_sequence(CastTypes cast_types) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   return get_cast_sequence(cast_types, device.type());
 }
 

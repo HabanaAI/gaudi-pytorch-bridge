@@ -335,8 +335,8 @@ const torch::Tensor PermuteTensors::getPreCastedWeight(
   auto hl_copy_to_cpu = GetHbLazyTensor(copy_to_cpu);
   hl_copy_to_cpu.AssignIrValue(ir_weight_value);
   hl_copy_to_cpu.SetTensorData(tensor_data);
-  auto context =
-      get_device_lazy_execution_context(copy_to_cpu.device().index());
+  auto context = habana_lazy_executor.getDeviceExecutionContext(
+      copy_to_cpu.device().index());
   context->MarkTensorStatus(
       hl_copy_to_cpu.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
   return copy_to_cpu;

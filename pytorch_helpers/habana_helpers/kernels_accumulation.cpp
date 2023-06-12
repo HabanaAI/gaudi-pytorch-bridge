@@ -11,11 +11,9 @@
  *******************************************************************************
  */
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "habana_lazy/lazy_executor.h"
 
-#include <memory>
 #include <string>
 #include <unordered_set>
 
@@ -74,16 +72,16 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
     "view"};
 
 thread_local bool AccThread::acc_thread_allowed = true;
-std::unique_ptr<AccThread> AccThread::instance_{nullptr};
-std::once_flag AccThread::initialize_once_flag_{};
+bool AccThread::isInitialized = false;
 
-void AccThread::CreateInstance() {
-  instance_.reset(new AccThread());
-  habana::hpu_registrar().register_acc_thread(
-      []() { instance_.reset(nullptr); });
+AccThread::AccThread() : thread_pool(CreateAccThreadPool()) {
+  isInitialized = true;
 }
 
-AccThread::AccThread() : thread_pool(CreateAccThreadPool()) {}
+AccThread& AccThread::Get() {
+  static AccThread acc_thread; // single thread only
+  return acc_thread;
+}
 
 bool AccThread::inAccThreadContext() const {
   return thread_pool->inAccThreadContext();
@@ -149,6 +147,11 @@ void AccThread::SyncManualOpIfNeeded(const std::string& op) {
 }
 
 NoAccThread::NoAccThread(bool sync_acc_thread) {
+  // Once AccThread will be moved to GlobalContext this workaround (condition
+  // below) should be removed
+  if (!AccThread::isInitialized)
+    return;
+
   update_state_ = AccThread::Get().CanUseAccThread();
   if (update_state_) {
     if (sync_acc_thread) {

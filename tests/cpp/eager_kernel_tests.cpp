@@ -235,7 +235,7 @@ TEST_F(EagerKernelTest, MatMulTest) {
     auto outHabana = torch::matmul(ht1, ht2);
     auto out = torch::matmul(tensor1, tensor2);
     bool equal;
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
     EXPECT_TRUE(equal);
   };

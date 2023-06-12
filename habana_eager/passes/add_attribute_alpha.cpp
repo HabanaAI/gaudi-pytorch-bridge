@@ -8,8 +8,7 @@
  * and is subject to the confidentiality and license agreements under which it
  * was provided.
  *
- *******************************************************************************
- */
+ *******************************************************************************/
 
 #include <c10/util/ArrayRef.h>
 
@@ -34,19 +33,20 @@ struct AddAttributeAlphaPass {
  private:
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
-    auto& device{HPURegistrar::get_device()};
+    synapse_helpers::device& device{
+        synapse_helpers::HPURegistrar::get_device()};
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
-        changed |= processNode(node, device.getDeterministic());
+        changed |= processNode(node, device);
       }
     }
     return changed;
   }
 
-  bool processNode(torch::jit::Node* node, bool deterministic) {
+  bool processNode(torch::jit::Node* node, synapse_helpers::device& device) {
     auto one = torch::jit::attr::alpha;
-    node->i_(one, deterministic);
+    node->i_(one, device.getDeterministic());
     return true;
   }
 

@@ -48,13 +48,9 @@ class EqualFn {
 
 class SingleTonExecThreadPool {
  public:
-  static SingleTonExecThreadPool& Get() {
-    std::call_once(initialize_once_flag_, CreateInstance);
-    return *instance_;
-  }
-
   static habana_helpers::ThreadPool& getInstance() {
-    return Get().thread_pool_obj_;
+    static habana_helpers::ThreadPool thread_pool_obj(1);
+    return thread_pool_obj;
   }
 
   static void queueStatus() {
@@ -67,13 +63,9 @@ class SingleTonExecThreadPool {
   }
 
  private:
-  SingleTonExecThreadPool() : thread_pool_obj_{1} {}
+  SingleTonExecThreadPool() = default;
   SingleTonExecThreadPool(const SingleTonExecThreadPool&) = delete;
   SingleTonExecThreadPool& operator=(const SingleTonExecThreadPool&) = delete;
-  static std::unique_ptr<SingleTonExecThreadPool> instance_;
-  static std::once_flag initialize_once_flag_;
-  static void CreateInstance();
-  habana_helpers::ThreadPool thread_pool_obj_;
 };
 
 class HbExecutionContext {
@@ -412,11 +404,7 @@ class HbExecutionContext {
 
 class HbExecutionContextArena {
  public:
-  static HbExecutionContextArena& Get() {
-    std::call_once(initialize_once_flag_, CreateInstance);
-    return *instance_;
-  }
-
+  static HbExecutionContextArena Get();
   HbExecutionContext* getDeviceExecutionContext(
       int device = 0); // TODO remove device from everywhere
   HbExecutionContext* createExecutionContext(int device);
@@ -447,23 +435,13 @@ class HbExecutionContextArena {
   // context map
   std::unordered_map<int, HbExecutionContext*> m_execution_context_list;
   std::unordered_map<size_t, uint64_t> unique_graph_index_counter;
-  static std::once_flag initialize_once_flag_;
-  static std::unique_ptr<HbExecutionContextArena> instance_;
-  static void CreateInstance();
 };
 
 // The global object for all contexts, we create contexts out of this per
 // device as the execution goes on Create a global object for the arena of
 // contexts We will keep them aslive as long as program lives and manage
 // device contexts across iterations
-inline HbExecutionContextArena& get_habana_lazy_executor() {
-  return HbExecutionContextArena::Get();
-}
-
-inline HbExecutionContext* get_device_lazy_execution_context(int device = 0) {
-  return get_habana_lazy_executor().getDeviceExecutionContext(device);
-}
-
+extern HbExecutionContextArena habana_lazy_executor;
 /*
  * Helper functions to manage the tensor creation based on the execution
  * state. The execution states are following -

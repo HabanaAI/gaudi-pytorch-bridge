@@ -51,20 +51,20 @@ inline void THStorage_resizeBytes(
     const caffe2::TypeMeta dtype) {
   TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
-  int device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
+  int device = habana::HPUDeviceAllocator::allocator_active_device_id;
 
   TORCH_CHECK(
       self->resizable(), "Trying to resize storage that is not resizable");
 
   if (size_bytes == 0) {
     self->set_data_ptr(
-        at::DataPtr(nullptr, at::Device(at::DeviceType::HPU, device_id)));
+        at::DataPtr(nullptr, at::Device(at::DeviceType::HPU, device)));
     self->set_nbytes(0);
   } else {
     at::DataPtr data = self->allocator()->allocate(size_bytes);
 
     if (self->data_ptr()) {
-      auto& device = habana::HPURegistrar::get_device(device_id);
+      auto& Device = synapse_helpers::HPURegistrar::get_device(device);
       std::mutex mtx;
       std::condition_variable cv;
       std::atomic<bool> copyDone{false};
@@ -73,7 +73,7 @@ inline void THStorage_resizeBytes(
         copyDone = true;
         cv.notify_all();
       };
-      device.copy_data_within_device(
+      auto syn_error = Device.copy_data_within_device(
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
@@ -82,6 +82,7 @@ inline void THStorage_resizeBytes(
               habana_helpers::GetNBytes(self, dtype),
               (unsigned long)size_bytes),
           [&copyDone]() { copyDone = true; });
+      TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
       while (!copyDone) {
         std::this_thread::yield();

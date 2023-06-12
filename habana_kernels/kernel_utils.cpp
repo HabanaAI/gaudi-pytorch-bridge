@@ -113,7 +113,7 @@ static auto get_platform_cast_map() {
 
   insert_long_casts(cast_map);
 
-  auto type{habana::HPURegistrar::get_device().type()};
+  auto type{synapse_helpers::HPURegistrar::get_device().type()};
   switch (type) {
     case synDeviceGaudi2:
     case synDeviceGaudi3:

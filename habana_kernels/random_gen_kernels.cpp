@@ -58,7 +58,7 @@ at::Tensor get_seed_tensor_hpu(const c10::optional<Generator>& gen) {
   int seed = get_seed_hpu(gen);
   at::Tensor seed_tensor = at::tensor(seed);
   auto t = habana_lazy::append_to_batch_h2d_list(seed_tensor);
-  auto context = habana_lazy::get_device_lazy_execution_context();
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
   if (context->getCapturing()) {
     habana_lazy::HbLazyTensor hb_tensor = habana_lazy::GetHbLazyTensor(t);
     hb_tensor.getDataPtr()->is_random_seed_tensor = true;

@@ -21,7 +21,7 @@
 
 namespace {
 int GetCurrentThreadDevice() {
-  auto& d = habana::HPURegistrar::get_device();
+  auto& d = synapse_helpers::HPURegistrar::get_device();
   return d.id();
 }
 } // namespace

@@ -13,7 +13,6 @@
 #pragma once
 
 #include <absl/strings/str_format.h>
-#include <c10/util/Exception.h>
 #include <optional>
 #include <sstream>
 #include <string>

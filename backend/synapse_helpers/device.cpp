@@ -268,9 +268,9 @@ device::device(
       event_handle_cache_{*this, 0},
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
+      recipe_handle_cache_{*this},
       host_memory_{*this},
-      device_memory_{*this},
-      recipe_handle_cache_{*this} {
+      device_memory_{*this} {
   // create default stream
   create_default_stream();
   HABANA_ASSERT(create_allocator != nullptr);
@@ -311,6 +311,7 @@ device::device(
   }
 
   is_caching_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_CACHING);
+  is_stream_async_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HABANA_STREAMASYNC);
   host_memory_cache_enabled_ = GET_ENV_FLAG_NEW(PT_ENABLE_HOST_MEMORY_CACHE);
   max_dma_copy_retry_count_ =
       GET_ENV_FLAG_NEW(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
@@ -489,6 +490,8 @@ void device::cleanup() {
     return;
   }
   cleanup_done_ = true;
+
+  global_context_.Clear();
 
   // Refinement thread cleanup is the first call since
   // it might be in the process of compiling a new recipe.
@@ -1667,6 +1670,10 @@ std::string device::get_device_properties(int id) {
       ", device_type=" + std::to_string(device_info.deviceType) + ")";
 
   return properties;
+}
+
+habana::backend::GlobalContext& device::get_global_context() {
+  return global_context_;
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {

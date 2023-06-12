@@ -1,5 +1,5 @@
-/*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+/******************************************************************************
+ * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -96,7 +96,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       // we send "weights" as first output component.
       const bool flagAdditionalOutput) {
     LazyOp<T>::viewUpdateInputs();
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();
@@ -153,7 +153,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       at::TensorList& tList1,
       at::TensorList& tList2) {
     LazyOp<T>::viewUpdateInputs();
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
     const auto noOfTensor = tList1.size();
     int64_t out_index = 0;
@@ -185,7 +185,7 @@ class LazyOptimizationOp : public LazyOp<ReturnType> {
       at::TensorList& tList1,
       at::TensorList& tList2) {
     LazyOp<T>::viewUpdateInputs();
-    auto context = get_device_lazy_execution_context();
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
     const auto& node = LazyOp<T>::create_node();
 
     const auto noOfTensor = tList1.size();

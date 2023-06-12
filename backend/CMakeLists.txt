@@ -18,6 +18,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   backend_meta.cpp
   habana_operator.cpp
   scalar_cache.cpp
+  global_context.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp
   kernel/hpu_habana_launch_op_pt_lowering.cpp
@@ -30,11 +31,9 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   passes/remove_inplace_ops.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
   habana_device/HPUAllocator.cpp
-  habana_device/HPUDevice.cpp
   habana_device/HPUGraph.cpp
   habana_device/HPUStream.cpp
   habana_device/PinnedMemoryAllocator.cpp
-  habana_device/hpu_cached_devices.cpp
   helpers/collective_kernel_info.cpp
   helpers/dynamic_bucket_info.cpp
   helpers/dynamic_bucket_info_utils.cpp

@@ -21,10 +21,7 @@ namespace habana_lazy {
 class AccThread {
  public:
   // returns main accumulation thread pool
-  static AccThread& Get() {
-    std::call_once(initialize_once_flag_, CreateInstance);
-    return *instance_;
-  }
+  static AccThread& Get();
 
   bool inAccThreadContext() const;
   void run(std::function<void()>&& func);
@@ -61,18 +58,16 @@ class AccThread {
   void SyncManualOpIfNeeded(const std::string& op);
 
   static thread_local bool acc_thread_allowed;
+  static bool isInitialized;
 
  private:
   AccThread();
   std::queue<std::function<void()>> cleanup_tasks;
   std::mutex cleanup_mutex;
   static const std::unordered_set<std::string> SupportedNonAutogenOps;
-  static std::once_flag initialize_once_flag_;
-  static std::unique_ptr<AccThread> instance_;
   std::unique_ptr<AccThreadPoolBase> thread_pool;
 
   bool CanUseAccThreadInternal();
-  static void CreateInstance();
 };
 
 // Class to manage global state to disable the accumulation thread in some

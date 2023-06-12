@@ -105,16 +105,18 @@ void habana_helpers::copy_scalar_to_host(
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
-  habana::HPURegistrar::get_device(src.device().index())
-      .copy_data_to_host(
-          reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-          dst_ptr,
-          reinterpret_cast<synapse_helpers::device_ptr>(
-              src.storage().data_ptr().get()),
-          size,
-          [&copyDone]() { copyDone = true; },
-          is_pinned,
-          c10::hpu::getCurrentHPUStream());
+  auto syn_error =
+      synapse_helpers::HPURegistrar::get_device(src.device().index())
+          .copy_data_to_host(
+              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+              dst_ptr,
+              reinterpret_cast<synapse_helpers::device_ptr>(
+                  src.storage().data_ptr().get()),
+              size,
+              [&copyDone]() { copyDone = true; },
+              is_pinned,
+              c10::hpu::getCurrentHPUStream());
+  TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
 
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
@@ -178,7 +180,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       "Unsupported Cast operation requested in hpu_cast_tensor()");
 
   int device_id = Input.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   CastOperator Op(device_id, node_type.value());
   std::vector<c10::IValue> stack = {
       c10::IValue(Input), c10::IValue(at::typeMetaToScalarType(type))};

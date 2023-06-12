@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-#include "backend/scalar_cache.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 //clang-format off
@@ -32,7 +31,7 @@ using namespace c10::hpu;
 void hpu_init() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   device.get_count_by_current_type();
   // later will add device properties here.
 }
@@ -41,14 +40,15 @@ const std::string get_device_name(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  return habana::HPURegistrar::get_device().name();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  return device.name();
 }
 
 const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   synapse_helpers::MemoryStats stats;
   device.get_device_memory().get_memory_stats(&stats);
   return stats;
@@ -58,7 +58,7 @@ void reset_peak_memory_stats(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   device.get_device_memory().reset_peak_memory_stats();
 }
 
@@ -66,7 +66,7 @@ void clear_memory_stats(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   device.get_device_memory().clear_memory_stats();
 }
 
@@ -112,8 +112,9 @@ void sync_threads() {
 }
 
 void clear_global_context() {
-  auto& d = habana::HPURegistrar::get_device().get_scalar_cache();
-  d.ClearCache();
+  auto& d = synapse_helpers::HPURegistrar::get_device();
+  auto& global_context = d.get_global_context();
+  global_context.Clear();
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -123,7 +124,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     clear_global_context();
   });
   m.def("current_device", []() {
-    auto& d = habana::HPURegistrar::get_device();
+    auto& d = synapse_helpers::HPURegistrar::get_device();
     return d.id();
   });
   m.def("synchronize_device", []() {
@@ -132,16 +133,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     // sync.
     // Note: This is synchronous step marker
     habana_lazy::HbLazyTensor::StepMarker();
-    habana::HPURegistrar::synchronize_device();
+    synapse_helpers::HPURegistrar::synchronize_device();
   });
   m.def("device_count", []() {
-    return habana::HPURegistrar::get_total_device_count();
+    return synapse_helpers::HPURegistrar::get_total_device_count();
   });
   m.def("get_device_capability", []() {
-    return habana::HPURegistrar::get_device_capability();
+    return synapse_helpers::HPURegistrar::get_device_capability();
   });
   m.def("get_device_properties", [](int id) {
-    return habana::HPURegistrar::get_device_properties(id);
+    return synapse_helpers::HPURegistrar::get_device_properties(id);
   });
   m.def("reset_peak_memory_stats", [](int id) { reset_peak_memory_stats(id); });
   m.def("clear_memory_stats", [](int id) { clear_memory_stats(id); });
@@ -168,7 +169,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return mem_stat_str;
   });
   m.def("setDeterministic", [](bool val) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     device.setDeterministic(val);
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });

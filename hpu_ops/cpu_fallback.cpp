@@ -1,14 +1,11 @@
-/*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/******************************************************************************
+ * Copyright (C) 2021-2023 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
- * Unauthorized copying of this file or any element(s) within it, via any medium
- * is strictly prohibited.
- * This file contains Habana Labs, Ltd. proprietary and confidential information
- * and is subject to the confidentiality and license agreements under which it
- * was provided.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
  *
- *******************************************************************************
+ ******************************************************************************
  */
 
 #include "cpu_fallback.h"
@@ -94,10 +91,10 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
       habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
       habana_helpers::EventDispatcher::EventParams({{"op_name", op_name}}));
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 
   HABANA_ASSERT(
       context->getCapturing() == false,

@@ -1,14 +1,11 @@
-/*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+/******************************************************************************
+ * Copyright (C) 2022 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
- * Unauthorized copying of this file or any element(s) within it, via any medium
- * is strictly prohibited.
- * This file contains Habana Labs, Ltd. proprietary and confidential information
- * and is subject to the confidentiality and license agreements under which it
- * was provided.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
  *
- *******************************************************************************
+ ******************************************************************************
  */
 #include <sstream>
 
@@ -66,7 +63,7 @@ void log_dev_mem_stats(
     ss << ", size " << size / GB << "gb";
   }
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& device_memory = device.get_device_memory();
   if (device_memory.get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {
@@ -85,12 +82,13 @@ void log_dev_mem_stats(
 
     // Live tensor collection is not allowed if the launch thread execution is
     // in progress.
-    auto context = habana_lazy::get_device_lazy_execution_context();
+    auto context =
+        habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
     if (context != nullptr &&
         context->m_launch_thread_handle.valid() == false &&
         context->m_launch_thread_context == false &&
         !(GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2)) {
-      auto aten_device = device.aten_device();
+      auto aten_device = SynapseDeviceToAtenDevice(device);
 
       uint32_t future = 0;
       uint64_t future_bytes = 0;
@@ -120,8 +118,7 @@ void log_dev_mem_stats(
       ss << " future " << future_bytes / GB << "gb (" << future << ")";
     }
 
-    ss << ", last workspace "
-       << device.syn_device().get_real_workspace_size() / GB << "gb";
+    ss << ", last workspace " << device.get_real_workspace_size() / GB << "gb";
   }
 
   PT_MEMLOG_DEBUG(ss.str());

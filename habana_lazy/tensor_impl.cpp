@@ -218,7 +218,8 @@ void HbLazyTensorImpl::handle_view_cycles(
 
       // Now replace the base tensor for all the other views pointing to the
       // same base
-      auto context = get_device_lazy_execution_context();
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
       context->viewContext.ReplaceViewBase(base_id, new_base_t);
     }
   } // if (params_ptr != nullptr)
@@ -362,7 +363,8 @@ void HbLazyTensorImpl::set_storage_keep_dtype(at::Storage storage) {
     std::lock_guard<std::recursive_mutex> lock(
         habana_lazy::HbContextArena::Get()->GetMutex());
     if (hl_t_updated.IsExecutionInProgress()) {
-      auto context = habana_lazy::get_device_lazy_execution_context();
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
       context->JoinPendingLaunchThread();
     }
     // At this point, execution thread is finished.

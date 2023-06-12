@@ -167,6 +167,7 @@ add_library(habana_pytorch_plugin SHARED
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
+target_compile_definitions(habana_pytorch_plugin PUBLIC "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8) # TODO: change to 1?
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
@@ -292,6 +293,7 @@ add_library(habana_pytorch2_plugin SHARED
 target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
 target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
+target_compile_definitions(habana_pytorch2_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch2_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse

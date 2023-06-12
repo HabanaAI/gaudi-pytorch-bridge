@@ -44,7 +44,7 @@ struct HPUEvent {
   // Note: event destruction done on creating device to avoid creating a
   // HPU context on other devices.
   ~HPUEvent() {
-    auto& dev = habana::HPURegistrar::get_device().syn_device();
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
     if (is_created_) {
       dev.delete_event(id_, flags_);
     }
@@ -91,7 +91,7 @@ struct HPUEvent {
     if (!is_created_) {
       return true;
     }
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
 
     return device.query_event(id_);
   }
@@ -107,7 +107,7 @@ struct HPUEvent {
 
   // Note: hpuEventRecord must be called on the same device as the event.
   void record(const c10::hpu::HPUStream& stream) {
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     if (!is_created_) {
       createEvent(stream.device_index());
       created_with_stream_ = stream.stream();
@@ -150,7 +150,7 @@ struct HPUEvent {
       if (stream.stream() == recorded_stream_) {
         return;
       }
-      auto& device = habana::HPURegistrar::get_device().syn_device();
+      auto& device = synapse_helpers::HPURegistrar::get_device();
       device.wait_event(id_, stream.stream());
     }
   }
@@ -160,14 +160,14 @@ struct HPUEvent {
     TORCH_CHECK(
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
     return device.eplased_time(id_, other.id_);
   }
 
   // Note: hpuEventSynchronize can be safely called from any device
   void synchronize() const {
     if (is_created_) {
-      auto& device = habana::HPURegistrar::get_device().syn_device();
+      auto& device = synapse_helpers::HPURegistrar::get_device();
       device.synchronize_event(id_);
     }
   }
@@ -186,7 +186,7 @@ struct HPUEvent {
 
   void createEvent([[maybe_unused]] DeviceIndex device_index) {
     // get device
-    auto& dev = habana::HPURegistrar::get_device().syn_device();
+    auto& dev = synapse_helpers::HPURegistrar::get_device();
     device_index_ = dev.id();
     id_ = dev.get_event_index();
     dev.create_event(id_, flags_);

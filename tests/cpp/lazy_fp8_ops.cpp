@@ -19,7 +19,7 @@
 bool IsUnsupported() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  const auto device_type = habana::HPURegistrar::get_device().type();
+  const auto device_type = synapse_helpers::HPURegistrar::get_device().type();
   return device_type == synDeviceGaudi;
 }
 
