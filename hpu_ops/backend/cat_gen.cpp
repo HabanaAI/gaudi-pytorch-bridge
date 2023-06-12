@@ -71,20 +71,18 @@ sizes_vec CatOutOutputShape(const at::Stack& stack) {
 void CatOutHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto tensorlist = stack[0].toTensorList().vec();
+  auto in_tensors = stack[0].toTensorList().vec();
   auto dim_ = stack[1].toInt();
   auto result = stack[2].toTensor();
-  TORCH_CHECK(tensorlist.size() > 0, "Empty tensors list!");
+  TORCH_CHECK(in_tensors.size() > 0, "Empty tensors list!");
   int64_t dim = at::maybe_wrap_dim(
       dim_,
-      tensorlist[0].dim(),
+      in_tensors[0].dim(),
       /*wrap_scalar=*/true);
-
   std::vector<sh::tensor> cat_input_shTensor;
   std::vector<synTensor> cat_input_synTensor;
 
-  auto in_tensors = stack[0].toTensorList().vec();
-  auto out_tensor_type = in_tensors[0].scalar_type();
+  auto out_tensor_type = result.scalar_type();
 
   for (unsigned i = 0; i < in_tensors.size(); i++) {
     if (habana_helpers::pytorch_to_synapse_type(in_tensors[i].scalar_type()) !=
@@ -100,21 +98,19 @@ void CatOutHabanaOperator::AddNode(
       cat_input_synTensor.emplace_back(syn_in(i));
     }
   }
-
   auto cal_out_size = ComputeOutputShapes(stack)[0];
   ValidateInputParams(stack, cal_out_size);
 
   synConcatenateParams concat_params{};
-  concat_params.axis = tensorlist[0].dim() - dim - 1;
+  concat_params.axis = in_tensors[0].dim() - dim - 1;
 
   auto catop = BuildOp(
       graph,
       "concat",
       cat_input_synTensor,
-      {{{cal_out_size}, result.scalar_type(), 0}},
+      {{{cal_out_size}, out_tensor_type, 0}},
       &concat_params,
       sizeof(concat_params));
-
   syn_out(0) = std::move(catop[0]);
 }
 
