@@ -524,6 +524,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
 
   std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
   torch::jit::Stack temp_stack;
+  dim = at::maybe_wrap_dim(dim, self.dim());
 
   ////auto slice = at::index_select(self, 0, indices[0]);
   auto index_selectOp = make_operator<IndexSelectOperator>(
@@ -600,6 +601,7 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       std::move(scatterOp->GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
 }
+
 /*
  Implementation to take care of duplicate entries in index tensor and also
  the case where index tensor size can be greater than the self tensor size at
