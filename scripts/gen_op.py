@@ -23,6 +23,7 @@ import sys
 import yaml
 import torch
 from collections import defaultdict
+from functools import wraps
 from yaml import Loader
 from packaging.version import Version
 import pkgutil
@@ -371,11 +372,10 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
                 else:
                     dtypes = []
             assert type(dtypes) is list, f"Cannot handle dtypes for {ctxop.opname}: type(dtypes) is {type(dtypes)}"
-            dtypes = set(dtypes)
             if "Float" in dtypes:
-                dtypes.add("Double")
+                dtypes.append("Double")
             if "Char" in dtypes:
-                dtypes.add("Bool")
+                dtypes.append("Bool")
 
             dtypes = map(lambda x: f"at::ScalarType::{x}", dtypes)
             dtypes = ", ".join(dtypes)
@@ -440,22 +440,26 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
 
 allowed_lazy_keys = set()
 
-def lazy_support(default):
-    def decorate(func):
-        lazy_property = func.__name__[4:]
+def lazy_support(func):
+    lazy_property = func.__name__[4:]
 
-        print(f"Adding {lazy_property} to allowed_lazy_keys")
-        allowed_lazy_keys.add(lazy_property)
+    allowed_lazy_keys.add(lazy_property)
 
-        def wrapper(self):
-            if self.mode == "lazy":
-                return self.get_lazy().get(lazy_property, default)
+    @wraps(func)
+    def wrapper(self):
+        # Null op initialized with empty dict
+        # just to get default values for properties
+        null_op = Op("null_op", {})
 
-            return func(self)
+        # Calling __wrapped__ to avoid recursion
+        default = getattr(null_op, func.__name__).__wrapped__(null_op)
 
-        return wrapper
+        if self.mode == "lazy":
+            return self.get_lazy().get(lazy_property, default)
 
-    return decorate
+        return func(self)
+
+    return wrapper
 
 
 class Op(object):
@@ -544,7 +548,7 @@ class Op(object):
     def get_fallback_check(self):
         return self.op.get("fallback_check", [])
 
-    @lazy_support(default=None)
+    @lazy_support
     def get_override_fn(self):
         return self.op.get("override_fn", None)
 
@@ -555,7 +559,7 @@ class Op(object):
 
         return lazy_desc
 
-    @lazy_support(default=False)
+    @lazy_support
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
 
