@@ -11,12 +11,13 @@
 ###############################################################################
 
 import os
+import copy
 import logging
 import torch
 import contextlib
 
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass
 
 from .shared_layer import is_cpu_fallback_required
@@ -40,8 +41,8 @@ class OptimizerContext:
     is_training: bool
     is_backward: bool
     is_dynamic: bool
-    ids_to_nodes: dict
     stage: OptimizationPassPlacement
+    current_partitions: List
 
 
 def optimize_graph(
@@ -49,15 +50,11 @@ def optimize_graph(
     graph_module: torch.fx.GraphModule,
     example_inputs: List[torch.Tensor],
     is_training: bool,
-    is_backward: bool,
-    ids_to_nodes: dict = None,
+    is_backward: bool
 ) -> bool:
     """
     This function rans optimizations of specified stage, if anything in the
     graph has changed, it will return True.
-
-    `ids_to_nodes` parameter is used for partitioner passes where we might
-    work on both currently proposed partitioning and original `writeback` graph.
 
     Specific pass can be disabled by providing env in the form of:
     PT_HPU_DISABLE_<pass_name>=True
@@ -67,7 +64,7 @@ def optimize_graph(
     """
     from torch._dynamo import config
     is_dynamic = config.dynamic_shapes
-    ctx = OptimizerContext(graph_module, example_inputs, is_training, is_backward, is_dynamic, ids_to_nodes, stage)
+    ctx = OptimizerContext(graph_module, example_inputs, is_training, is_backward, is_dynamic, stage, None)
 
     graph_changed = False
     for optimization_pass in get_passes(stage):
@@ -106,10 +103,13 @@ def get_passes(stage: OptimizationPassPlacement):
         ]
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
-            # These passes are going to be ran in loop till we get satisfying partitioning to submodules.
-            pass_partition_and_fuse,
-            pass_graph_print,
+            # These passes will prepare proper placement for some corner-cases.
             pass_eagerize_leaf_views,
+            pass_propose_partitions,
+            pass_merge_paths,
+
+            # This is final pass that creates final submoduled graph.
+            pass_fuse_partitions,
         ]
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
         return [
@@ -121,28 +121,51 @@ def get_passes(stage: OptimizationPassPlacement):
         logger.error("unknown optimization stage %s", stage)
         raise
 
+def helper_is_view_node(node):
+    node_target = node.target.__name__.split(".")[0]
+
+    # This is list of view OPs.
+    view_ops = [
+        "view",
+        "_unsafe_view",
+        "as_strided",
+        "slice",
+        "select",
+        "squeeze",
+        "unsqueeze",
+        "expand",
+        "transpose",
+        "t",
+        "permute",
+    ]
+
+    return node_target in view_ops
 
 def helper_get_node_args(node: torch.fx.Node):
     """
     This helper function get inputs to specific node. It should supports
-    various corner cases (currently - for output node only).
+    various corner cases.
     """
-    # Output args could be a single-element tuple containing all outputs as well,
-    # so let's support that.
+    args = node.args
     if "output" in node.op and isinstance(node.args, tuple):
+        # Output args could be a single-element tuple containing all outputs as well,
+        # so let's support that.
         assert len(node.args) == 1
 
         # There are two cases, resulting unwrapped args could be again a tuple or directly a node.
         # Code assumes something iterable so if it's just a a single node, then do not unwrap it.
-        if not isinstance(node.args[0], tuple):
-            args = node.args
-        else:
+        if isinstance(node.args[0], tuple) or isinstance(node.args[0], list) or isinstance(node.args[0], torch.fx.immutable_collections.immutable_list):
             args = node.args[0]
+
+    if isinstance(args, tuple) or isinstance(args, list) or isinstance(args, torch.fx.immutable_collections.immutable_list):
+        cleaned_args = []
+        for arg in args:
+            if isinstance(arg, torch.fx.Node):
+                cleaned_args.append(arg)
     else:
-        args = node.args
+        cleaned_args = args
 
-    return args
-
+    return cleaned_args
 
 def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
@@ -161,95 +184,150 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
             logger.debug("    meta.output_device: %s", node.meta["output_device"])
     return False
 
-
-def pass_fake_propagation(ctx: OptimizerContext) -> bool:
+def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
-    This pass makes sure that input tensors are in fake mode so we don't
-    make any actual computation. Then it propagates tensor metadata into nodes.
+    This function takes out basic information from propagated fake tensor, like
+    dtype, layout and device and puts it to the node that created it.
     """
 
-    def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
-        """
-        This function takes out basic information from propagated fake tensor, like
-        dtype, layout and device and puts it to the node that created it.
-        """
+    device = None
+    dtypes = []
+    layouts = []
 
+    if (
+        type(result) is torch._subclasses.FakeTensor
+        or type(result) is torch._subclasses.fake_tensor.FakeTensor
+        or type(result) is torch.Tensor
+        or type(result) is torch.nn.parameter.Parameter
+    ):
+        device = result.device
+        dtypes = [result.dtype]
+        layouts = [result.layout]
+
+        logger.debug("    result shape: %s", result.shape)
+    elif type(result) is torch.SymInt:
+        device = torch.device("cpu")
+        dtypes = [None]
+        layouts = [None]
+
+        node.type = int
+    elif type(result) is torch.SymFloat:
+        device = torch.device("cpu")
+        dtypes = [None]
+        layouts = [None]
+
+        node.type = float
+    else:
+        devices = []
+        for res in result:
+            if res is None:
+                continue
+
+            if hasattr(res, "device"):
+                devices.append(res.device)
+            if hasattr(res, "dtype"):
+                dtypes.append(res.dtype)
+            if hasattr(res, "layout"):
+                layouts.append(res.layout)
+
+            if hasattr(res, "shape"):
+                logger.debug("    result shape: %s", res.shape)
+
+        if len(devices) > 0:
+            if devices.count(devices[0]) != len(devices) and "output" not in node.op:
+                logger.error(
+                    "multiple devices in single node\n%s\n at node: %s",
+                    devices,
+                    node,
+                )
+                raise
+            else:
+                device = devices[0]
+
+    if "output" not in node.op:
+        assert device is not None
+        assert len(dtypes) != 0
+        assert len(layouts) != 0
+    else:
         device = None
-        dtypes = []
-        layouts = []
 
-        if (
-            type(result) is torch._subclasses.FakeTensor
-            or type(result) is torch._subclasses.fake_tensor.FakeTensor
-            or type(result) is torch.Tensor
-            or type(result) is torch.nn.parameter.Parameter
-        ):
-            device = result.device
-            dtypes = [result.dtype]
-            layouts = [result.layout]
+    # Meta for the node should not be created yet. BUT...
+    # ...it happens that placeholder nodes might be reused between FWD and BWD.
+    # This is fine, I guess, as long as nothing has changed between those.
+    if "output_device" in node.meta or "output_dtypes" in node.meta or "output_layouts" in node.meta:
+        assert node.op == "placeholder"
 
-            logger.debug("    result shape: %s", result.shape)
-        elif type(result) is torch.SymInt:
-            device = torch.device("cpu")
-            dtypes = [None]
-            layouts = [None]
+        assert node.meta["output_device"] == device
+        assert node.meta["output_dtypes"] == dtypes
+        assert node.meta["output_layouts"] == layouts
 
-            node.type = int
-        elif type(result) is torch.SymFloat:
-            device = torch.device("cpu")
-            dtypes = [None]
-            layouts = [None]
+    node.meta["output_device"] = device
+    node.meta["output_dtypes"] = dtypes
+    node.meta["output_layouts"] = layouts
 
-            node.type = float
-        else:
-            devices = []
-            for res in result:
-                if res is None:
-                    continue
+def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
+    """
+    This function contains FakeMode propagation implementation for PT2.1+
+    """
 
-                if hasattr(res, "device"):
-                    devices.append(res.device)
-                if hasattr(res, "dtype"):
-                    dtypes.append(res.dtype)
-                if hasattr(res, "layout"):
-                    layouts.append(res.layout)
-
-                if hasattr(res, "shape"):
-                    logger.debug("    result shape: %s", res.shape)
-
-            if len(devices) > 0:
-                if devices.count(devices[0]) != len(devices) and "output" not in node.op:
-                    logger.error(
-                        "multiple devices in single node\n%s\n at node: %s",
-                        devices,
-                        node,
-                    )
-                    raise
-                else:
-                    device = devices[0]
-
-        if "output" not in node.op:
-            assert device is not None
-            assert len(dtypes) != 0
-            assert len(layouts) != 0
-        else:
-            device = None
-
-        # Meta for the node should not be created yet. BUT...
-        # ...it happens that placeholder nodes might be reused between FWD and BWD.
-        # This is fine, I guess, as long as nothing has changed between those.
-        if "output_device" in node.meta or "output_dtypes" in node.meta or "output_layouts" in node.meta:
-            assert node.op == "placeholder"
-
-            assert node.meta["output_device"] == device
-            assert node.meta["output_dtypes"] == dtypes
-            assert node.meta["output_layouts"] == layouts
-
-        node.meta["output_device"] = device
-        node.meta["output_dtypes"] = dtypes
-        node.meta["output_layouts"] = layouts
+    from torch._subclasses.fake_tensor import FakeTensorMode
+    from torch._dynamo.utils import detect_fake_mode
 
     class TensorInfoPropagation(torch.fx.Interpreter):
+        """
+        This class is responsible for tracing through the graph module, and
+        propagating all the necessary tensor information. All is done using
+        fake_tensors so it does not make any real computations.
+        """
+
+        def __init__(self, graph_module: torch.fx.GraphModule, fake_mode: Optional[FakeTensorMode] = None):
+            super().__init__(graph_module)
+            if fake_mode is None:
+                fake_mode = FakeTensorMode()
+            self._mode = fake_mode
+
+        def run_node(self, node: torch.fx.Node):
+            result = super().run_node(node)
+
+            fill_propagated_tensor_metadata_to_node(result, node)
+
+            return result
+
+        def propagate(self, *args):
+            fake_args = [
+                self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a
+                for a in args
+            ]
+            return self.propagate_dont_convert_inputs(*fake_args)
+
+        def propagate_dont_convert_inputs(self, *args):
+            with self._mode:
+                return super().run(*args)
+
+    fake_mode = detect_fake_mode(ctx.example_inputs)
+    if not fake_mode:
+        fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
+        TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*ctx.example_inputs)
+    else:
+        TensorInfoPropagation(ctx.graph_module, fake_mode).propagate_dont_convert_inputs(
+            *ctx.example_inputs
+        )
+
+    return True
+
+
+def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
+    """
+    This function contains FakeMode propagation implementation for PT2.0
+    """
+
+    from torch._dynamo.utils import (
+        fake_mode_from_tensors,
+        deepcopy_to_fake_tensor
+    )
+    from torch.utils._python_dispatch import _get_current_dispatch_mode_stack
+
+    class LegacyTensorInfoPropagation(torch.fx.Interpreter):
         """
         This class is responsible for tracing through the graph module, and
         propagating all the necessary tensor information. All is done using
@@ -283,12 +361,6 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
         def propagate(self, *args):
             return super().run(*args)
 
-    from torch._dynamo.utils import (
-        fake_mode_from_tensors,
-        deepcopy_to_fake_tensor
-    )
-    from torch.utils._python_dispatch import _get_current_dispatch_mode_stack
-
     # We need to make sure we run in fake_mode.
     fakemode_already_enabled = False
     for mode in _get_current_dispatch_mode_stack():
@@ -304,28 +376,48 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
             fake_mode = torch._subclasses.FakeTensorMode()
             fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
 
-    TensorInfoPropagation(ctx.graph_module, fakemode_already_enabled, fake_mode).propagate(*fake_inputs)
+    LegacyTensorInfoPropagation(ctx.graph_module, fakemode_already_enabled, fake_mode).propagate(*fake_inputs)
 
     return True
 
 
-def pass_partition_and_fuse(ctx: OptimizerContext) -> bool:
+def pass_fake_propagation(ctx: OptimizerContext) -> bool:
     """
-    This pass is supposed to run partitioner that will create propisition of partitioning.
-    This is special kind of pass, it will be ran always as first pass in the loop, and it
-    always needs to return False (graph_changed=False) because we always have to run it
-    and it will always change the graph, but we might still want to exit the loop if other
-    passes didn't find optimization/fixes opportunities.
+    This pass makes sure that input tensors are in fake mode so we don't
+    make any actual computation. Then it propagates tensor metadata into nodes.
+    """
+    from packaging.version import Version
+
+    if Version(torch.__version__) < Version("2.1"):
+        return pass_fake_propagation_legacy(ctx)
+    else:
+        return pass_fake_propagation_current(ctx)
+
+def pass_propose_partitions(ctx: OptimizerContext) -> bool:
+    """
+    This pass is supposed to run partitioner that will create proposition of partitioning.
     """
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
-    assert ctx.ids_to_nodes is not None
+    assert ctx.current_partitions is None
 
-    HabanaPartitioner(ctx.graph_module).partition_and_fuse()
+    ctx.current_partitions = HabanaPartitioner(ctx.graph_module).propose_partitions()
 
-    # This is special case, this is main pass that always needs to be ran and it should
-    # always return that nothing was changed.
+    # Nothing was really changed.
     return False
+
+def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
+    """
+    This pass is supposed to run partitioner that will, based on current partitioning, create
+    final FX module with submodules for each HPU operations cluster.
+    """
+    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+    assert ctx.graph_module is not None
+    assert ctx.current_partitions is not None
+
+    HabanaPartitioner(ctx.graph_module).fuse_partitions(ctx.current_partitions)
+
+    return True
 
 
 def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
@@ -415,13 +507,27 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "multinomial",
             "normal",
             # Other
+            "slice_backward", # SW-146680
             "addcmul",
             "arange", # SW-146681
             "index",  # SW-146773
             "split"   # SW-149515
         ]
 
-        return node_target in unsupported_ops
+        if node_target in unsupported_ops:
+            return True
+
+        # This is a list of OPs that are not supported in the graph mode only for specific dtypes.
+        unsupported_types = {
+            "permute": torch.int64
+        }
+
+        if node_target in unsupported_types:
+            for output_dtype in node.meta["output_dtypes"]:
+                if output_dtype == unsupported_types[node_target]:
+                    return True
+
+        return False
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
@@ -645,81 +751,100 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
     return graph_changed
 
 
-def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
+def pass_merge_paths(ctx: OptimizerContext) -> bool:
     """
-    This pass is supposed to work on subgraphs and find nodes which are views and that emit these
-    views to the output node. It also supports finding chains of such views.
-
-    When such view node is found, mark original graph node as placed into `eager` so it does not
-    end within clustered HPU submodules during repartition phase.
+    Placeholder for pass that will merge parallel partitions.
     """
 
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
-    assert ctx.ids_to_nodes is not None
+    assert ctx.current_partitions is not None
 
-    def is_view_node(node_name):
-        is_view = False
-        view_ops = [
-            "view",
-            "_unsafe_view",
-            "as_strided",
-            "slice",
-            "select",
-            "squeeze",
-            "unsqueeze",
-            "expand",
-            "transpose",
-            "t",
-            "permute",
-        ]
-        for view_name in view_ops:
-            # check if the op name begins with a view name and ensure that it not a scatter op
-            # TODO are these conditions sufficient to avoid false positives?
-            if (node_name.find(view_name) == 0) and ("scatter" not in node_name):
-                if len(view_name) == len(node_name):
-                    is_view = True
-                    break
-                else:
-                    # can have some numbering ex: t_1
-                    assert len(node_name) > len(view_name)
-                    if node_name[len(view_name)] == "_":
-                        is_view = True
-                        break
-
-        return is_view
-
-    def fix_node_input_views(node):
-        graph_changed = False
-
-        args = helper_get_node_args(node)
-        for arg in args:
-            if isinstance(arg, torch.fx.Node) and is_view_node(arg.name):
-                # Recursively find all views chains.
-                graph_changed = fix_node_input_views(arg) or graph_changed
-
-                # Transform current node.
-                key = arg.meta["unique_id"]
-                if key in ctx.ids_to_nodes:
-                    original_node = ctx.ids_to_nodes[key]
-                    if original_node.meta["placement"] != "eager":
-                        original_node.meta["placement"] = "eager"
-                        graph_changed = True
-
-        return graph_changed
-
-    # Get all submodules that are used in original graph.
-    # On each of them, find `output` node.
-    # Then, eagerize all views being used by this node.
     graph_changed = False
-    for n in ctx.graph_module.graph.nodes:
-        if n.op == "call_module":
-            assert not n.kwargs
-            subgraph = ctx.graph_module.get_submodule(n.target)
-            for node in subgraph.graph.nodes:
-                # Search for output node.
-                if "output" in node.op:
-                    graph_changed = fix_node_input_views(node) or graph_changed
+
+    return graph_changed
+
+def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
+    """
+    This pass is supposed to find HPU nodes which are in chains of view operations that
+    ultimately lead to non-HPU operations. As non-HPU operations will be placed outside
+    of the module, they will become a submodule output node and we don't want to feed
+    these output nodes with view tensors. In such case, we will move these HPU view OPs
+    into eager mode instead, while duplicating them in some cases to avoid too much
+    fragmentation.
+    """
+
+    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+    assert ctx.graph_module is not None
+
+    graph_changed = False
+
+    # First, make sure nodes in the graph are in topological order.
+    ctx.graph_module.graph.lint()
+
+    reverse_nodes_list = list(ctx.graph_module.graph.nodes)
+    reverse_nodes_list.reverse()
+
+    # Initialize colors.
+    for node in reverse_nodes_list:
+        assert "pass_meta_color" not in node.meta
+        node.meta["pass_meta_color"] = "none"
+
+    # Find HPU view chains used by eager OPs ('red' color - to be eagerized).
+    for node in reverse_nodes_list:
+        if node.meta["placement"] == "eager" or node.meta["pass_meta_color"] == "red":
+            args = helper_get_node_args(node)
+            for arg in args:
+                if arg.meta["placement"] == "hpu_cluster" and helper_is_view_node(arg):
+                    arg.meta["pass_meta_color"] = "red"
+
+    # Find HPU view chains used by eager OPs that are also used by non-eager HPU ops ('blue' color - to be cloned).
+    for node in reverse_nodes_list:
+        if node.meta["pass_meta_color"] == "red":
+            found_hpu_dst = False
+            for dst in node.users:
+                if (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red") or (dst.meta["pass_meta_color"] == "blue"):
+                    found_hpu_dst = True
+                    break
+
+            if found_hpu_dst:
+                node.meta["pass_meta_color"] = "blue"
+
+    # Clone each 'blue' into uncolored part that is used by non-eager HPU only and into 'red' part that is only
+    # used by eager chain.
+    for node in reverse_nodes_list:
+        if node.meta["pass_meta_color"] == "blue":
+            # Clone the node along with all inputs edges.
+            with ctx.graph_module.graph.inserting_before(node):
+                new_node = ctx.graph_module.graph.create_node(node.op, node.target, node.args, node.kwargs, node.name, node.type)
+                new_node.meta = copy.copy(node.meta)
+
+            # Move non-red (HPU path) edges to the new node.
+            nodes_to_change = []
+            for dst in node.users:
+                if dst.meta["pass_meta_color"] != "red":
+                    nodes_to_change.append(dst)
+            for dst in nodes_to_change:
+                dst.replace_input_with(node, new_node)
+
+            # Change original node color back into 'red'.
+            node.meta["pass_meta_color"] = "red"
+
+            # Remove color from new node.
+            new_node.meta["pass_meta_color"] = "none"
+
+    # Mark remaining 'red' nodes as eager. Also cleanup colors altogether.
+    for node in reverse_nodes_list:
+        assert node.meta["pass_meta_color"] != "blue"
+
+        if node.meta["pass_meta_color"] == "red":
+            graph_changed = True
+            node.meta["placement"] = "eager"
+
+        del node.meta["pass_meta_color"]
+
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
 
     return graph_changed
 

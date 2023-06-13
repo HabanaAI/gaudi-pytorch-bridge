@@ -10,6 +10,7 @@
 #
 ###############################################################################
 import torch
+import torch.nn.functional as F
 import pytest
 import os
 torch.manual_seed(0)
@@ -17,7 +18,6 @@ torch.manual_seed(0)
 from contextlib import contextmanager
 
 pytestmark = pytest.mark.xfail(reason="")
-
 
 def set_flag_in_env(name: str, value):
     if value is None:
@@ -51,7 +51,7 @@ def env_var_in_scope(vars={}):
                     del os.environ[key]
 
 def test_hpu_multilevel_noncontiguous_views():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
@@ -73,7 +73,7 @@ def test_hpu_multilevel_noncontiguous_views():
         assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
 
 def test_hpu_multilevel_noncontiguous_views_inplace():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
@@ -95,7 +95,7 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
         assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
 
 def test_hpu_multilevel_noncontiguous_views2():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         import habana_frameworks.torch.core as htcore
         def fn(x):
             a = x.t()
@@ -119,7 +119,7 @@ def test_hpu_multilevel_noncontiguous_views2():
         assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
 
 def test_hpu_multilevel_views_inplace():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True"}):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
@@ -139,3 +139,39 @@ def test_hpu_multilevel_views_inplace():
 
         hres = compiled_fn(hx)
         assert torch.allclose(res, hres.cpu(), atol = 0.001, rtol = 0.001)
+
+def test_hpu_leaf_views_test():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+        import habana_frameworks.torch.core as htcore
+        def fn(x, y, z):
+
+            hx = x.to('hpu')
+            hy = y.to('hpu')
+            hz = z.to('hpu')
+
+            tmp00 = F.relu(hx)
+            tmp01 = hx + hy
+            tmp02 = hy + hz
+            tmp10 = tmp00.t()
+            tmp11 = tmp01.t()
+            tmp12 = tmp01 + tmp02
+
+            tmp20 = tmp10.t()
+            tmp21 = tmp11.t()
+            tmp22 = tmp11 + tmp12
+
+            return tmp20.to('cpu'), tmp21.to('cpu'), tmp22.to('cpu')
+
+        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+        x = torch.randn([5, 5])
+        y = torch.randn([5, 5])
+        z = torch.randn([5, 5])
+
+        res0, res1, res2 = fn(x, y, z)
+
+        hres0, hres1, hres2 = compiled_fn(x, y, z)
+
+        assert torch.allclose(res0, hres0)
+        assert torch.allclose(res1, hres1)
+        assert torch.allclose(res2, hres2)

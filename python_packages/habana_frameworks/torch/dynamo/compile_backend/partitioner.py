@@ -30,6 +30,3 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             HabanaClusterOperatorSupport(),
             allows_single_node_partition=True,
         )
-
-    def partition_and_fuse(self):
-        return super().partition_and_fuse()

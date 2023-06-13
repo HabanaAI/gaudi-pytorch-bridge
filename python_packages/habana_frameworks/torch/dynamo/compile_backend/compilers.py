@@ -35,13 +35,13 @@ def hpu_compiler_inner(
     optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
 
     # Partition the module based on propagated device placement data.
-    partitioned_module = partition_module(graph_module, example_inputs, is_training, is_backward)
+    partition_module(graph_module, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph after the partitioner.
-    optimize_post_partitioner(partitioned_module, example_inputs, is_training, is_backward)
+    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward)
 
     # Return the module in boxed format required by AOT Autograd.
-    return functorch.compile.make_boxed_func(partitioned_module.forward)
+    return functorch.compile.make_boxed_func(graph_module.forward)
 
 
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
