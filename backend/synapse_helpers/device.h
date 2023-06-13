@@ -435,7 +435,7 @@ class device {
 
   bool query_event(hpuEvent_t id);
 
-  uint64_t eplased_time(hpuEvent_t id1, hpuEvent_t id2);
+  uint64_t elapsed_time(hpuEvent_t id1, hpuEvent_t id2);
 
   void delete_event(hpuEvent_t id, bool flags);
 

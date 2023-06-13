@@ -744,7 +744,7 @@ bool device::query_event(synapse_helpers::hpuEvent_t id) {
   return result;
 }
 
-uint64_t device::eplased_time(
+uint64_t device::elapsed_time(
     synapse_helpers::hpuEvent_t id1,
     synapse_helpers::hpuEvent_t id2) {
   std::unique_lock<std::mutex> lock(usr_event_mutex_);
@@ -761,17 +761,13 @@ uint64_t device::eplased_time(
   for (int i = 0; i < (int)user_event_map_[id1].size(); i++) {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
       break;
-    for (int j = 0; j < (int)user_event_map_[id2].size(); j++) {
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && j > 0)
-        break;
-      uint64_t time_ms = 0;
-      auto status =
-          synEventElapsedTime(&time_ms, event_array1[i], event_array2[j]);
-      if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("synEventElapsedTime failed: ", status);
-      }
-      max_time_ms = std::max(time_ms, max_time_ms);
+    uint64_t time_ms = 0;
+    auto status =
+        synEventElapsedTime(&time_ms, event_array1[i], event_array2[i]);
+    if (synStatus::synSuccess != status) {
+      PT_DEVICE_FATAL("synEventElapsedTime failed: ", status);
     }
+    max_time_ms = std::max(time_ms, max_time_ms);
   }
   return max_time_ms;
 }

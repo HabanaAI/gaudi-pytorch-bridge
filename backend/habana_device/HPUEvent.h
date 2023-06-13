@@ -161,7 +161,7 @@ struct HPUEvent {
         is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    return device.eplased_time(id_, other.id_);
+    return device.elapsed_time(id_, other.id_);
   }
 
   // Note: hpuEventSynchronize can be safely called from any device
