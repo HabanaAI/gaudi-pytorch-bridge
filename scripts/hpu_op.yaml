@@ -4600,7 +4600,7 @@ mm:
     Gaudi3: [BFloat16, Float, Half, Fp8r152]
   guid: gemm
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer
 
 
 mm.out:
@@ -4610,7 +4610,7 @@ mm.out:
     Gaudi2: [BFloat16, Float, Half, Fp8r152]
     Gaudi3: [BFloat16, Float, Half, Fp8r152]
   guid: gemm
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer
 
 mse_loss:
   force_default: false
