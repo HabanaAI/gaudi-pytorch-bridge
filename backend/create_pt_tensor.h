@@ -16,6 +16,19 @@
 #include <c10/core/TensorOptions.h>
 
 namespace habana {
+struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
+  explicit StorageLessWrapperTensorImpl(
+      const at::Tensor& rep,
+      at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+
+  explicit StorageLessWrapperTensorImpl(
+      at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+  void release_resources() override;
+
+  bool has_storage() const override;
+
+  const at::Storage& storage() const override;
+};
 
 at::Tensor nonPersistentTensor(
     const at::Tensor& input,

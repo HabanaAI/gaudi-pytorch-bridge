@@ -42,15 +42,16 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
 void view_propagate_permutation_task(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
 
-  auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
+  auto input_smeta{habana::get_storage_extra_meta(base_t)};
+  auto output_smeta{habana::get_storage_extra_meta(view_t)};
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
 
   // once we set view tensor, JIT IR pass will get invoked.
   // We need JIT IT pass under the following cases
   // base has permutation or the view is non-contiguous
-  auto base_permute = input_tmeta->get_memory_permutation();
+  auto base_permute = input_smeta->get_memory_permutation();
   if (base_permute.size() != 0) {
-    output_tmeta->set_memory_permutation(base_permute);
+    output_smeta->set_memory_permutation(base_permute);
   }
 
   output_tmeta->set_view_lowering(
@@ -60,15 +61,17 @@ void view_propagate_permutation_task(at::Tensor base_t, at::Tensor view_t) {
 void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
   auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
+  auto input_smeta{habana::get_storage_extra_meta(base_t)};
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
+  auto output_smeta{habana::get_storage_extra_meta(view_t)};
 
   // propagate the base size unconditionally.
   // This is important in multilevel views. Example: the first view can be
   // contiguous whereas the second one can be non-contiguous
   auto base_sizes = input_tmeta->is_view_tensor()
-      ? input_tmeta->get_base_tensor_size()
+      ? input_smeta->get_base_tensor_size()
       : base_t.sizes();
-  output_tmeta->set_base_tensor_size(base_sizes.vec());
+  output_smeta->set_base_tensor_size(base_sizes.vec());
 
   output_tmeta->set_view_tensor();
 
@@ -105,11 +108,11 @@ at::Tensor unfold(
 
 at::Tensor create_base(const at::Tensor& self) {
   auto self_impl = self.unsafeGetTensorImpl();
-  auto self_tmeta{habana::get_tensor_extra_meta(self)};
+  auto self_smeta{habana::get_storage_extra_meta(self)};
   at::Tensor base;
-  if (self_tmeta->get_memory_permutation().size()) {
+  if (self_smeta->get_memory_permutation().size()) {
     base = at::empty(
-        self_tmeta->get_base_tensor_size(),
+        self_smeta->get_base_tensor_size(),
         self.options(),
         c10::MemoryFormat::Contiguous);
   } else {
@@ -122,8 +125,8 @@ at::Tensor create_base(const at::Tensor& self) {
   base.unsafeGetTensorImpl()->set_storage_keep_dtype(self.storage());
 
   // propagate permutation to base
-  auto base_tmeta{habana::get_tensor_extra_meta(base)};
-  base_tmeta->set_memory_permutation(self_tmeta->get_memory_permutation());
+  auto base_smeta{habana::get_storage_extra_meta(base)};
+  base_smeta->set_memory_permutation(self_smeta->get_memory_permutation());
   return base;
 }
 

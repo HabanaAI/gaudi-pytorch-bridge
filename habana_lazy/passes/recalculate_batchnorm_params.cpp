@@ -44,16 +44,18 @@ size_t getValuePosInStack(
 
 namespace habana_lazy {
 
-habana::TensorExtraMeta* GetBackEndTensorMeta(
+::std::tuple<habana::TensorExtraMeta*, habana::StorageExtraMeta*>
+GetBackEndTensorMeta(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
     torch::jit::Node* node,
     const int idx) {
   habana::TensorExtraMeta* tmeta_ptr{nullptr};
+  habana::StorageExtraMeta* smeta_ptr{nullptr};
 
   if (idx != -1) {
     if (node->input(idx)->type() == torch::jit::NoneType::get()) {
-      return tmeta_ptr;
+      return std::tie(tmeta_ptr, smeta_ptr);
     }
 
     auto value = node->input(idx);
@@ -63,6 +65,7 @@ habana::TensorExtraMeta* GetBackEndTensorMeta(
         auto tensor = stack[index].toTensor();
         if (tensor.has_storage()) {
           tmeta_ptr = habana::get_tensor_extra_meta(tensor);
+          smeta_ptr = habana::get_storage_extra_meta(tensor);
           tmeta_ptr->set_tensor_size(tensor.sizes());
         }
       }
@@ -74,12 +77,13 @@ habana::TensorExtraMeta* GetBackEndTensorMeta(
       auto tensor = stack[index].toTensor();
       if (tensor.has_storage()) {
         tmeta_ptr = habana::get_tensor_extra_meta(tensor);
+        smeta_ptr = habana::get_storage_extra_meta(tensor);
         tmeta_ptr->set_tensor_size(tensor.sizes());
       }
     }
   }
 
-  return tmeta_ptr;
+  return std::tie(tmeta_ptr, smeta_ptr);
 }
 
 bool recomputeBatchnormParams(
@@ -304,7 +308,10 @@ void RecalculateBatchnormParams(
       auto bn = node;
       int idx_bias = 1;
 
-      auto bn_b_tmeta_ptr = GetBackEndTensorMeta(graph, stack, bn, idx_bias);
+      habana::TensorExtraMeta* bn_b_tmeta_ptr{nullptr};
+      habana::StorageExtraMeta* bn_b_smeta_ptr{nullptr};
+      std::tie(bn_b_tmeta_ptr, bn_b_smeta_ptr) =
+          GetBackEndTensorMeta(graph, stack, bn, idx_bias);
       auto bn_b = GetDataInHostBuffer(graph, stack, bn, idx_bias);
       if (!bn_b_tmeta_ptr || !bn_b) {
         continue;

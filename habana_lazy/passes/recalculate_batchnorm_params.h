@@ -15,11 +15,14 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/tensor_impl.h"
 
+#include <tuple>
+
 namespace habana_lazy {
 using Graph = torch::jit::Graph;
 using Node = torch::jit::Node;
 
-habana::TensorExtraMeta* GetBackEndTensorMeta(
+::std::tuple<habana::TensorExtraMeta*, habana::StorageExtraMeta*>
+GetBackEndTensorMeta(
     std::shared_ptr<Graph>& graph,
     torch::jit::Stack& stack,
     Node* node,

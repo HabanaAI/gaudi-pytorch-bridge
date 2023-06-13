@@ -28,12 +28,6 @@ int GetCurrentThreadDevice() {
 
 class SharedTensorExtraMeta {
  public:
-  auto get_memory_permutation() {
-    return get().get_memory_permutation();
-  }
-  auto get_dont_allow_permutation() const {
-    return get().get_dont_allow_permutation();
-  }
   const habana::TensorExtraMeta& get() const {
     return tmeta_;
   }
@@ -90,11 +84,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::getDefaultHPUGenerator();
   });
   m.doc() = "This module registers hpu lazy api.";
-  py::class_<SharedTensorExtraMeta>(m, "TensorExtraMeta")
-      .def_property_readonly(
-          "memory_permutation", &SharedTensorExtraMeta::get_memory_permutation)
-      .def_property_readonly(
-          "dont_allow_permutation",
-          &SharedTensorExtraMeta::get_dont_allow_permutation);
+  py::class_<SharedTensorExtraMeta>(m, "TensorExtraMeta");
   m.def("get_tensor_extra_meta", &SharedTensorExtraMeta::create);
 }

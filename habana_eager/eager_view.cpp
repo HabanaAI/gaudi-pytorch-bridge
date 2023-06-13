@@ -55,8 +55,9 @@ static JitNode* insert_strided_view_node(
   impl->set_storage_offset(0);
   std::vector<int64_t> base_sizes;
   auto input_tmeta{habana::get_tensor_extra_meta(input)};
-  if (input_tmeta->get_memory_permutation().size()) {
-    base_sizes = input_tmeta->get_base_tensor_size();
+  auto input_smeta{habana::get_storage_extra_meta(input)};
+  if (input_smeta->get_memory_permutation().size()) {
+    base_sizes = input_smeta->get_base_tensor_size();
   } else {
     base_sizes = {p->getTotalElements()};
   }
@@ -306,6 +307,9 @@ void HandleInputOutputViews(
     auto val = inputs.at(idx);
     HABANA_ASSERT(val.isTensor(), "Non-tensor value");
     auto input_tensor = val.toTensor();
+    if (input_tensor.device().type() != c10::DeviceType::HPU)
+      continue;
+
     auto input_tmeta{habana::get_tensor_extra_meta(input_tensor)};
 
     if (input_tmeta->is_view_lowering() || !input_tensor.is_contiguous()) {

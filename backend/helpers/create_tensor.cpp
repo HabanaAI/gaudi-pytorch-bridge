@@ -16,6 +16,7 @@
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
 
+#include "backend/create_pt_tensor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/lazy_to_backend.h"
@@ -919,25 +920,37 @@ c10::ScalarType scalar_type(const c10::Scalar& s) {
 
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
 get_tensor_memory_permutation(const at::Tensor& tensor) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
-  return {tmeta->get_memory_permutation(), tmeta->get_dont_allow_permutation()};
+  PT_BRIDGE_TRACE;
+  if (!tensor.has_storage()) {
+    PT_BRIDGE_DEBUG(
+        "Getting permutations from storage-less tensor. Returning defaults..");
+    static habana::StorageExtraMeta default_meta{};
+    default_meta = habana::StorageExtraMeta();
+    return {
+        default_meta.get_memory_permutation(),
+        default_meta.get_dont_allow_permutation()};
+  } else {
+    auto smeta{habana::get_storage_extra_meta(tensor)};
+    return {
+        smeta->get_memory_permutation(), smeta->get_dont_allow_permutation()};
+  }
 }
 
 void set_tensor_memory_permutations(
     at::Tensor& tensor,
     synapse_helpers::layouts::MemoryPermutation permutation,
     const synRetrievedLaunchTensorInfoExt* info) {
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  auto smeta{habana::get_storage_extra_meta(tensor)};
 
   PT_BRIDGE_DEBUG(
-      "Updating the PT tensor meta address: ",
-      tmeta,
+      "Updating the PT storage meta address: ",
+      smeta,
       " storage address : ",
       tensor.data_ptr(),
       " with permutation: ",
       VecToString(permutation),
       " old permutation was: ",
-      VecToString(tmeta->get_memory_permutation()));
+      VecToString(smeta->get_memory_permutation()));
 
   if (permutation.size() != tensor.sizes().size()) {
     if (!permutation.empty()) {
@@ -961,13 +974,15 @@ void set_tensor_memory_permutations(
       HABANA_ASSERT(false);
     }
   }
-  tmeta->set_memory_permutation(permutation);
+  smeta->set_memory_permutation(permutation);
 }
 
 void update_tensor_layout_and_permutation(
     const at::Tensor& pt_tensor,
     const PtTensorInfo& ti) {
   auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
+  auto smeta{habana::get_storage_extra_meta(pt_tensor)};
+
   auto internal_lf = tmeta->get_tensor_layout();
   auto internal_lf_new = ti.getHbInternalLayoutFormat();
   if (internal_lf != internal_lf_new) {
@@ -985,7 +1000,7 @@ void update_tensor_layout_and_permutation(
       ti.get_tensor_id(),
       " permutation: ",
       VecToString(ti.getHbInternalPermute()));
-  tmeta->set_memory_permutation(ti.getHbInternalPermute());
+  smeta->set_memory_permutation(ti.getHbInternalPermute());
 }
 
 at::Tensor create_empty_tensor(const PtTensorInfo& ti) {

@@ -343,7 +343,9 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     std::vector<at::Tensor>& tensors) {
   for (auto& tensor : tensors) {
     auto t_meta{habana::get_tensor_extra_meta(tensor)};
-    auto permutation = t_meta->get_memory_permutation();
+    synapse_helpers::layouts::MemoryPermutation permutation;
+    std::tie(permutation, std::ignore) =
+        habana_helpers::get_tensor_memory_permutation(tensor);
     if (!permutation.empty()) {
       PT_DISTRIBUTED_DEBUG(
           "Tensor: ",
@@ -361,10 +363,13 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
 void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
     std::vector<at::Tensor>& tensors) {
   for (auto& tensor : tensors) {
-    auto t_meta{habana::get_tensor_extra_meta(tensor)};
-    PT_DISTRIBUTED_DEBUG(
-        "Received tensor: ", t_meta->get_id(), " clearing its permutation.");
-    t_meta->set_memory_permutation({});
+    auto s_meta{habana::get_storage_extra_meta(tensor)};
+    if (s_meta) {
+      auto t_meta{habana::get_tensor_extra_meta(tensor)};
+      PT_DISTRIBUTED_DEBUG(
+          "Received tensor: ", t_meta->get_id(), " clearing its permutation.");
+      s_meta->set_memory_permutation({});
+    }
   }
 }
 

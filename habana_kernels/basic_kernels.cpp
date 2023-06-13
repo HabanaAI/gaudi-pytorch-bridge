@@ -1751,7 +1751,7 @@ void StridedViewOperator::ReuseMemoryAndAddSynapseNode(
   // gradient_as_bucket_view = True
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT)) {
     syn_tensor_output.set_dont_allow_permute(true);
-    habana::get_tensor_extra_meta(output)->set_dont_allow_permutation(true);
+    habana::get_storage_extra_meta(output)->set_dont_allow_permutation(true);
   }
 
   p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_output));

@@ -31,7 +31,7 @@ struct PermuteWeightTensor {
   void PermuteDataToQRSCK(const torch::Tensor& weight_cpu);
   const torch::Tensor& m_weight;
   int64_t m_tensor_dim;
-  habana::TensorExtraMeta* m_tensor_meta;
+  habana::StorageExtraMeta* m_storage_meta;
 };
 
 } // namespace graph

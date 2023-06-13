@@ -101,9 +101,8 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
     std::string perm = "";
     if (example_inputs[input_idx].isTensor()) {
       torch::Tensor tensor{example_inputs[input_idx].toTensor()};
-      auto tensor_meta{habana::get_tensor_extra_meta(tensor)};
-      synapse_helpers::layouts::MemoryPermutation m_perm =
-          tensor_meta->get_memory_permutation();
+      auto smeta{habana::get_storage_extra_meta(tensor)};
+      auto m_perm = smeta->get_memory_permutation();
       std::string m_perm_s(m_perm.begin(), m_perm.end());
       perm = " Perm: " + m_perm_s;
     }

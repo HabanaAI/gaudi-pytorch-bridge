@@ -141,12 +141,12 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   }
 
   synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
-    return get_ctensor_extra_meta().get_memory_permutation();
+    return get_ctensor_extra_meta().storage_meta_.get_memory_permutation();
   }
 
   void SetMemoryPermutation(
       synapse_helpers::layouts::MemoryPermutation permutation) {
-    get_tensor_extra_meta().set_memory_permutation(permutation);
+    get_tensor_extra_meta().storage_meta_.set_memory_permutation(permutation);
   }
 
   bool isShapeTensor() const {

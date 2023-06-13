@@ -1061,15 +1061,15 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
 
   HABANA_ASSERT(!TryGetHbLazyTensor(self_internal_tesor));
 
-  auto tmeta{get_tensor_extra_meta(self_internal_tesor)};
-  auto synapse_permute = tmeta->get_memory_permutation();
+  auto smeta{get_storage_extra_meta(self_internal_tesor)};
+  auto synapse_permute = smeta->get_memory_permutation();
   if (synapse_permute.size() != 0) {
     PT_LAYOUTS_DEBUG(
         "clearing memory permute, id ",
         self_hb_tensor.getTensorUniqueId(),
         " permute ",
         VecToString(synapse_permute))
-    tmeta->set_memory_permutation({});
+    smeta->set_memory_permutation({});
   }
 
   // self may have been resized, so re-set its size and strides

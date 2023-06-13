@@ -24,7 +24,7 @@ namespace graph {
 PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
     : m_weight(weight),
       m_tensor_dim(weight.dim()),
-      m_tensor_meta(habana::get_tensor_extra_meta(m_weight)) {}
+      m_storage_meta(habana::get_storage_extra_meta(m_weight)) {}
 
 void PermuteWeightTensor::PermuteIfNeeded() {
   PT_EAGER_TRACE;
@@ -69,7 +69,7 @@ void PermuteWeightTensor::PermuteIfNeeded() {
     }
 
     habana::eager::_copy_from(weight_cpu, m_weight, false);
-    m_tensor_meta->set_memory_permutation(new_permutation);
+    m_storage_meta->set_memory_permutation(new_permutation);
   }
 }
 
@@ -83,7 +83,7 @@ bool PermuteWeightTensor::ShouldPermuteWeight() {
       m_tensor_dim == 4 || m_tensor_dim == 5,
       "Unexpected tensor dimensions: ",
       m_tensor_dim);
-  MemoryPermutation current_perm{m_tensor_meta->get_memory_permutation()};
+  MemoryPermutation current_perm{m_storage_meta->get_memory_permutation()};
   MemoryPermutation required_perm{
       (m_tensor_dim == 4) ? weight_rsck_in_memory : weight_qrsck_in_memory};
   if (0 == current_perm.size()) {

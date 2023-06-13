@@ -206,7 +206,9 @@ bool FuseConvBatchnorm(
       auto ib = b_auto_cast_en ? -1 : 2;
       auto nb = b_auto_cast_en ? b_auto_cast.at(0) : conv;
 
-      auto conv_b_tmeta_ptr =
+      habana::TensorExtraMeta* conv_b_tmeta_ptr{nullptr};
+      habana::StorageExtraMeta* conv_b_smeta_ptr{nullptr};
+      std::tie(conv_b_tmeta_ptr, conv_b_smeta_ptr) =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nb, ib);
       auto conv_b = habana_lazy::GetDataInHostBuffer(graph, stack, nb, ib);
       if (!conv_b_tmeta_ptr || !conv_b) {
@@ -216,7 +218,9 @@ bool FuseConvBatchnorm(
       auto iw = w_auto_cast_en ? -1 : 1;
       auto nw = w_auto_cast_en ? w_auto_cast.at(0) : conv;
 
-      auto conv_w_tmeta_ptr =
+      habana::TensorExtraMeta* conv_w_tmeta_ptr{nullptr};
+      habana::StorageExtraMeta* conv_w_smeta_ptr{nullptr};
+      std::tie(conv_w_tmeta_ptr, conv_w_smeta_ptr) =
           habana_lazy::GetBackEndTensorMeta(graph, stack, nw, iw);
       auto conv_w = habana_lazy::GetDataInHostBuffer(graph, stack, nw, iw);
       if (!conv_w_tmeta_ptr || !conv_w) {
@@ -225,7 +229,7 @@ bool FuseConvBatchnorm(
         continue;
       }
 
-      auto conv_w_permutation = conv_w_tmeta_ptr->get_memory_permutation();
+      auto conv_w_permutation = conv_w_smeta_ptr->get_memory_permutation();
       PT_LAZY_DEBUG(
           "Conv weight permutation vector: ", VecToString(conv_w_permutation));
 

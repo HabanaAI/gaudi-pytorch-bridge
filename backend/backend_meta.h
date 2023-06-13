@@ -22,6 +22,10 @@
 #include "backend/synapse_helpers/layout_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
+namespace habana_lazy {
+class HbInternalTensorImpl;
+}
+
 namespace habana {
 
 using BaseTensorExtraMeta = c10::BackendMeta;
@@ -98,6 +102,45 @@ inline std::ostream& operator<<(std::ostream& O, const HostDataType& t) {
   return O << to_string(t);
 }
 
+struct StorageExtraMeta {
+  const synapse_helpers::layouts::MemoryPermutation& get_memory_permutation()
+      const {
+    return memory_permutation_;
+  }
+
+  bool get_dont_allow_permutation() const {
+    return dont_allow_permutation_;
+  }
+
+  void set_dont_allow_permutation(bool allow) {
+    dont_allow_permutation_ = allow;
+  }
+
+  void set_memory_permutation(
+      synapse_helpers::layouts::MemoryPermutation permutation) {
+    memory_permutation_ = permutation;
+  }
+
+  void set_base_tensor_size(std::vector<int64_t> s) {
+    base_sizes_ = s;
+  }
+
+  std::vector<int64_t>& get_base_tensor_size() {
+    return base_sizes_;
+  }
+
+ private:
+  // Memory permutation represents how tensor layout is set in memory
+  synapse_helpers::layouts::MemoryPermutation memory_permutation_{};
+  bool dont_allow_permutation_{false};
+  // view meta
+  std::vector<int64_t> base_sizes_{0};
+};
+
+StorageExtraMeta* get_storage_extra_meta(
+    const at::Tensor& tensor,
+    bool relax = false);
+
 struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::intrusive_ptr<BaseTensorExtraMeta> clone(
       const c10::intrusive_ptr<BaseTensorExtraMeta>& ptr) const override {
@@ -146,24 +189,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   bool is_const_tensor() const {
     return is_const_tensor_;
-  }
-
-  const synapse_helpers::layouts::MemoryPermutation& get_memory_permutation()
-      const {
-    return memory_permutation_;
-  }
-
-  void set_memory_permutation(
-      synapse_helpers::layouts::MemoryPermutation permutation) {
-    memory_permutation_ = permutation;
-  }
-
-  bool get_dont_allow_permutation() const {
-    return dont_allow_permutation_;
-  }
-
-  void set_dont_allow_permutation(bool allow) {
-    dont_allow_permutation_ = allow;
   }
 
   void set_tensor_type(synTensorType tensor_type) {
@@ -320,14 +345,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_view_ = true;
   }
 
-  void set_base_tensor_size(std::vector<int64_t> s) {
-    base_sizes_ = s;
-  }
-
-  std::vector<int64_t>& get_base_tensor_size() {
-    return base_sizes_;
-  }
-
   bool& is_view_lowering() {
     return is_view_lowering_;
   }
@@ -343,9 +360,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_const_tensor_{false};
   bool is_data_in_host_memory_{false};
 
-  // Memory permutation represents how tensor layout is set in memory
-  synapse_helpers::layouts::MemoryPermutation memory_permutation_{};
-  bool dont_allow_permutation_{false};
   unsigned permuted_counter_{0};
   bool is_h2d_fe_shape_tensor_{false};
   bool is_h2d_bucketing_{false};
@@ -359,11 +373,15 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_redundant_ = false;
   int id_{-1};
   int total_elem_{0};
-
   // view meta
   bool is_view_{false};
-  std::vector<int64_t> base_sizes_{0};
   bool is_view_lowering_{false};
+  // ---
+  friend StorageExtraMeta* get_storage_extra_meta(
+      const at::Tensor& tensor,
+      bool relax);
+  friend class habana_lazy::HbInternalTensorImpl;
+  StorageExtraMeta storage_meta_{};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

@@ -30,6 +30,9 @@ pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 
 static HPUDeviceAllocator hpu_device_allocator;
 
+void HPUDeviceAllocator_deleter(void* ptr);
+at::DataPtr HPUDeviceAllocator_DataPtr(void* ptr, size_t num_bytes);
+
 at::Allocator* getHABANADeviceAllocator() {
   HABANAGuardImpl h;
   h.getDevice();
@@ -175,12 +178,6 @@ HPUDeviceAllocator::~HPUDeviceAllocator() {
   flush_stream_events();
 }
 
-void HPUDeviceAllocator::deleter(void* ptr) {
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
-  auto status{device.get_device_memory().free(ptr)};
-  TORCH_HABANA_CHECK(status, "Device Free failed");
-}
-
 at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
@@ -241,15 +238,11 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
     PT_DEVICE_DEBUG("successful memory alloc, requested size ", num_bytes);
   }
 
-  return {
-      v_ptr,
-      v_ptr,
-      &HPUDeviceAllocator::deleter,
-      at::Device(at::DeviceType::HPU, allocator_active_device_id)};
+  return HPUDeviceAllocator_DataPtr(v_ptr, num_bytes);
 }
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
-  return &HPUDeviceAllocator::deleter;
+  return &HPUDeviceAllocator_deleter;
 }
 
 void HPUDeviceAllocator::flush_stream_events() const {

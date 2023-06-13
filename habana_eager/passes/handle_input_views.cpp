@@ -49,6 +49,7 @@ struct HandleInputViewsPass {
         continue;
       }
       torch::Tensor input_tensor{example_inputs[input_idx].toTensor()};
+      auto storage_meta{habana::get_storage_extra_meta(input_tensor)};
       auto tensor_meta{habana::get_tensor_extra_meta(input_tensor)};
 
       if (tensor_meta->is_view_lowering() || !input_tensor.is_contiguous()) {
@@ -72,7 +73,7 @@ struct HandleInputViewsPass {
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
         insert_strided_view_node(
             input_tensor,
-            tensor_meta,
+            storage_meta,
             user,
             input,
             view_params,
@@ -86,7 +87,7 @@ struct HandleInputViewsPass {
 
   void insert_strided_view_node(
       at::Tensor input_tensor,
-      habana::TensorExtraMeta* input_tmeta,
+      habana::StorageExtraMeta* input_smeta,
       torch::jit::Node* node,
       torch::jit::Value* value_in,
       std::unique_ptr<habana::eager::ViewParam>& p,
@@ -110,8 +111,8 @@ struct HandleInputViewsPass {
     jit_node->output(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(), input_tensor.device(), p->getViewSizes()));
 
-    if (input_tmeta->get_memory_permutation().size()) {
-      base_sizes_to_set = input_tmeta->get_base_tensor_size();
+    if (input_smeta->get_memory_permutation().size()) {
+      base_sizes_to_set = input_smeta->get_base_tensor_size();
     } else {
       base_sizes_to_set = {p->getTotalElements()};
     }

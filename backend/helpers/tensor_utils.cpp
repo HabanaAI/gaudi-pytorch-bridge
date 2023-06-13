@@ -742,7 +742,8 @@ std::string habana_helpers::detail::
   }
   switch (token) {
     case habana_helpers::FormatTokens::Permutations:
-      return VecToString(tmeta->get_memory_permutation());
+      return VecToString(
+          habana::get_storage_extra_meta(tensor)->get_memory_permutation());
     case habana_helpers::FormatTokens::Layout:
       return habana::DebugString(tmeta->get_tensor_layout());
     case habana_helpers::FormatTokens::ImplPtr:

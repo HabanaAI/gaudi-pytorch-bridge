@@ -65,8 +65,8 @@ void handlePermutedTensor(
       cpuTensor.device().type() == c10::DeviceType::CPU,
       "handlePermutedTensor cpuTensor should be CPU");
 
-  auto tmeta{habana::get_tensor_extra_meta(permutedTensor)};
-  auto synapse_permute = tmeta->get_memory_permutation();
+  auto smeta{habana::get_storage_extra_meta(permutedTensor)};
+  auto synapse_permute = smeta->get_memory_permutation();
   if (synapse_permute.size() != 0) {
     if (non_blocking) {
       TORCH_CHECK(

@@ -18,32 +18,30 @@
 #include "habana_helpers/logging_pt.h"
 
 namespace habana {
-struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
-  explicit StorageLessWrapperTensorImpl(
-      const at::Tensor& rep,
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
-      : TensorImpl(
-            c10::DispatchKeySet(c10::DispatchKey::HPU),
-            data_type.has_value() ? data_type.value() : rep.dtype(),
-            rep.device()) {}
+StorageLessWrapperTensorImpl::StorageLessWrapperTensorImpl(
+    const at::Tensor& rep,
+    at::optional<caffe2::TypeMeta> data_type)
+    : TensorImpl(
+          c10::DispatchKeySet(c10::DispatchKey::HPU),
+          data_type.has_value() ? data_type.value() : rep.dtype(),
+          rep.device()) {}
 
-  explicit StorageLessWrapperTensorImpl(
-      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
-      : TensorImpl(
-            c10::DispatchKeySet(c10::DispatchKey::HPU),
-            data_type.value(),
-            at::kHPU) {}
+StorageLessWrapperTensorImpl::StorageLessWrapperTensorImpl(
+    at::optional<caffe2::TypeMeta> data_type)
+    : TensorImpl(
+          c10::DispatchKeySet(c10::DispatchKey::HPU),
+          data_type.value(),
+          at::kHPU) {}
 
-  void release_resources() override {}
+void StorageLessWrapperTensorImpl::release_resources() {}
 
-  bool has_storage() const override {
-    return false;
-  }
+bool StorageLessWrapperTensorImpl::has_storage() const {
+  return false;
+}
 
-  const at::Storage& storage() const override {
-    TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
-  }
-};
+const at::Storage& StorageLessWrapperTensorImpl::storage() const {
+  TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
+}
 
 static bool alwaysAllocOnDevice() {
   static bool allocOnDevice = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);

@@ -947,8 +947,9 @@ void RecipeValueSpec::update_patching_table(
       auto& tensor = input.toTensor();
 
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
-      std::vector<uint8_t> permutation{tmeta->get_memory_permutation()};
-      bool dont_allow_permutation{tmeta->get_dont_allow_permutation()};
+      auto smeta{habana::get_storage_extra_meta(tensor)};
+      std::vector<uint8_t> permutation{smeta->get_memory_permutation()};
+      bool dont_allow_permutation{smeta->get_dont_allow_permutation()};
       if (false == tmeta->is_shape_tensor()) {
         dtensorinfos->at(ridx)->patch_exact(input.toTensor());
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
@@ -972,9 +973,9 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(t);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
-        auto tmeta{habana::get_tensor_extra_meta(t)};
-        std::vector<uint8_t> permutation{tmeta->get_memory_permutation()};
-        bool dont_allow_permutation{tmeta->get_dont_allow_permutation()};
+        auto smeta{habana::get_storage_extra_meta(t)};
+        std::vector<uint8_t> permutation{smeta->get_memory_permutation()};
+        bool dont_allow_permutation{smeta->get_dont_allow_permutation()};
         if (is_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,

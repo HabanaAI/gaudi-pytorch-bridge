@@ -249,6 +249,7 @@ torch::jit::Stack EagerExec::launch() {
       // would have modified the input tensor to base tensor. Need to
       // perform this operation for the cache hit case as well
       auto in = val.toTensor();
+      auto input_smeta{habana::get_storage_extra_meta(in)};
       auto input_tmeta{habana::get_tensor_extra_meta(in)};
 
       if (input_tmeta->is_view_lowering() || !in.is_contiguous()) {
@@ -257,8 +258,8 @@ torch::jit::Stack EagerExec::launch() {
         impl->set_storage_offset(0);
 
         std::vector<int64_t> base_sizes;
-        if (input_tmeta->get_memory_permutation().size()) {
-          base_sizes = input_tmeta->get_base_tensor_size();
+        if (input_smeta->get_memory_permutation().size()) {
+          base_sizes = input_smeta->get_base_tensor_size();
         } else {
           int64_t elem_size = c10::elementSize(
               habana_helpers::getInternalDtype(in.scalar_type()));
@@ -453,6 +454,7 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
 
   // hash view attribute
+  auto input_smeta{habana::get_storage_extra_meta(t)};
   auto input_tmeta{habana::get_tensor_extra_meta(t)};
   key = at::hash_combine(
       key, static_cast<size_t>(input_tmeta->is_view_lowering()));
@@ -464,7 +466,7 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   // from bridge to synapse during the cache hit. during cache miss case bridge
   // needs to set the permute information for the inputs while need to read the
   // permute information of the outputs.
-  for (auto s : input_tmeta->get_memory_permutation()) {
+  for (auto s : input_smeta->get_memory_permutation()) {
     key = at::hash_combine(key, s);
   }
 
