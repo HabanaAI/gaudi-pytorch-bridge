@@ -143,7 +143,7 @@ class FusedSGD(Optimizer):
                     self.step_t,
                     self.lr_t,
                     group["weight_decay"],
-                    group["momentum"],
+                    torch.tensor(group["momentum"], device="hpu"),
                     group["dampening"],
                     group["nesterov"],
                 )

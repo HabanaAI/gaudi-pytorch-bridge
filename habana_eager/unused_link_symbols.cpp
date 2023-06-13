@@ -361,19 +361,6 @@ void optimizer_sgd_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
-void optimizer_sgd_momentum_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
-    TensorList& momentum,
-    const at::Tensor& epoch_num,
-    at::Tensor& lr,
-    const float wd,
-    const float mom,
-    const float damp,
-    const bool nesterov) {
-  EAGER_NOT_SUPPORTED;
-}
-
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& gradients,

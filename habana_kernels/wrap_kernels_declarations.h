@@ -187,7 +187,7 @@ void optimizer_sgd_momentum_hpu_wrap(
     const at::Tensor& epoch_num,
     at::Tensor& lr,
     const float wd,
-    const float mom,
+    at::Tensor& mom,
     const float damp,
     const bool nesterov);
 at::Tensor embedding_bag_sum_hpu_wrap(

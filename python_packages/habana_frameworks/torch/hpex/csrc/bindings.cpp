@@ -85,7 +85,7 @@ static void optimizer_fused_sgd_momentum(
     const at::Tensor& epoch_num,
     at::Tensor& lr,
     const float wd,
-    const float mom,
+    at::Tensor& mom,
     const float damp,
     const bool nesterov) {
   at::TensorList gradients(gradient_vec);

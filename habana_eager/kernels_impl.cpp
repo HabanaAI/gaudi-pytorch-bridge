@@ -12,6 +12,7 @@
  *******************************************************************************
  */
 #include "backend/backend_meta.h"
+#include "common/dump_args.h"
 #include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
 #include "habana_eager/ops/eager_op.h"
@@ -109,6 +110,42 @@ at::Tensor fused_norm_hpu_wrap(
     grad[i].copy_(res[i + 1]);
   }
   return res[0];
+}
+
+void optimizer_sgd_momentum_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    at::Tensor& mom,
+    const float damp,
+    const bool nesterov) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      " optimizer_sgd_momentum:",
+      DUMP_9ARGS(
+          gradients,
+          weights,
+          momentum,
+          epoch_num,
+          lr,
+          wd,
+          mom,
+          damp,
+          nesterov));
+  TORCH_CHECK(
+      (weights.size() > 0),
+      "optimizer_sgd_momentum : can not process empty weight vector");
+  eager::EagerOp<void> hpu_op{
+      "hpu::habanaOptimizerFusedSGDMomentum",
+      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov}};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut,
+       "hpu::habanaOptimizerFusedSGDMomentum",
+       {1, 2}});
+  hpu_op.call({weights, momentum});
 }
 
 at::Tensor& hpu_wrap::_index_put_impl_(

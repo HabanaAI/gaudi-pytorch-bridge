@@ -702,6 +702,11 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
   PT_OTHER_OPS_END;
 }
 
+TORCH_LIBRARY_FRAGMENT(hpu, m) {
+  m.def(
+      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
+}
+
 static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
         .add(
