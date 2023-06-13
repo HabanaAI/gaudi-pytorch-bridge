@@ -99,6 +99,15 @@ sh::tensor& OpBackend::syn_out(int index) {
   return p_context_->syn_outputs_.at(index);
 }
 
+synTensor OpBackend::syn_seed() {
+  if (isMetaMode()) {
+    return nullptr;
+  }
+
+  HABANA_ASSERT(p_context_->syn_seed_.has_value(), "seed is not populated");
+  return p_context_->syn_seed_.value().ref().get();
+}
+
 sh::tensor_or_ref& OpBackend::SynInput(int index) {
   auto it = syn_inputs_cast_.find(index);
   if (it != syn_inputs_cast_.end()) {

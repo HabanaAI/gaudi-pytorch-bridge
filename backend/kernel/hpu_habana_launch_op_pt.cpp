@@ -569,11 +569,32 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       } // else
       input_idx++;
     } // if (value_to_ivalue[value_in] && ..
-    // input_idx is simply the index of 1st non-tensor input argument, which is
-    // the 1st time we come into else part. Since we want to generate the
-    // seed_tensor only once that is why the check on 1st non-tensor input
-    // argument.
   } // for (const auto value_in : node_ins)
+
+  bool populate_seed = false;
+  switch (node->kind()) {
+    case torch::jit::aten::bernoulli:
+      populate_seed = true;
+      break;
+  }
+
+  if (populate_seed) {
+    int seed = get_seed_hpu(c10::nullopt);
+    at::Tensor seed_tensor = at::tensor(seed).to(at::kHPU);
+    auto& syn_tensor = habana_op->AllocateSeed(*syn_graph_ptr, seed_tensor);
+    PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
+        seed_tensor,
+        syn_tensor.name(),
+        "%seed_input",
+        watch_tensor_flag_,
+        syn_tensor.id(),
+        syn_tensor.get(),
+        syn_tensor.tensor_type(),
+        DMAInputGeneratorType::SEEDTENSOR);
+    ti->set_dma_tensor_idx(aten_intermediates.size());
+    dma_input_tensorinfos.emplace_back(ti);
+    aten_intermediates.emplace_back(seed_tensor);
+  }
 }
 
 PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(

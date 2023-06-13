@@ -810,6 +810,14 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
   return std::move(const_syn_tensor);
 }
 
+synapse_helpers::tensor& habana::HabanaOperator::AllocateSeed(
+    synapse_helpers::graph& graph,
+    const at::Tensor& seed_tensor) {
+  p_context_->syn_seed_ =
+      habana_helpers::create_tensor(seed_tensor, graph, true, false);
+  return p_context_->syn_seed_.value();
+}
+
 habana::RegisterKernel& habana::KernelRegistry() {
   static habana::RegisterKernel* Registry = new habana::RegisterKernel();
   return *Registry;

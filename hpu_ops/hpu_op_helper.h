@@ -152,7 +152,7 @@ inline float& get<float>(fint_t& u) {
   auto params = std::make_shared<structname>()
 
 // Use when you want to define your own size and param var names
-#define PARAMS_STUB_VARS(structname, params_size, params) \
+#define PARAMS_STUB_VARS(structname, params, params_size) \
   const size_t& params_size = sizeof(structname);         \
   auto params = std::make_shared<structname>()
 

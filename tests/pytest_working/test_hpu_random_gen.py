@@ -159,17 +159,15 @@ def test_hpu_rand_gen_log_normal_fwd(N, H, W, C, mean, std, seed):
 def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared
     # Instead basic sanity like range and staleness are checked
-    torch.manual_seed(seed)
-    g = torch.Generator()
 
     input = torch.empty(N, C, H, W, dtype=torch.float)
     in_hpu = input.uniform_(0, 1).to(hpu)
-    g.manual_seed(seed)
-    output1 = torch.bernoulli(in_hpu, generator=g)
+    torch.manual_seed(seed)
+    output1 = torch.bernoulli(in_hpu)
     output1_hpu = output1.to(cpu).detach().numpy()
 
-    g.manual_seed(seed)
-    output2 = torch.bernoulli(in_hpu, generator=g)
+    torch.manual_seed(seed)
+    output2 = torch.bernoulli(in_hpu)
     output2_hpu = output2.to(cpu).detach().numpy()
 
     # verify if the two tensors are same for same seed
@@ -179,17 +177,17 @@ def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     testing.assert_equal((np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True)
 
     # Test bernoulli._float
-    g.manual_seed(seed)
+    torch.manual_seed(seed)
     p = 0.5
     input_i32 = torch.empty((N, C, H, W), dtype=torch.int32)
     input_i32_hpu = input_i32.to(hpu)
     output1 = input_i32_hpu.bernoulli(p, generator=g)
     output1_hpu = output1.to(cpu).detach().numpy()
 
-    g.manual_seed(seed)
+    torch.manual_seed(seed)
     input_f32 = torch.empty((N, C, H, W), dtype=torch.float32)
     input_f32_hpu = input_f32.to(hpu)
-    output2 = input_f32_hpu.bernoulli(p, generator=g)
+    output2 = input_f32_hpu.bernoulli(p)
     output2_hpu = output2.to(cpu).detach().numpy()
 
     # verify if the two tensors are same for same seed
@@ -200,17 +198,15 @@ def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
 def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared
     # Instead basic sanity like range and staleness are checked
-    torch.manual_seed(seed)
-    g = torch.Generator()
 
     input = torch.empty(N, C, H, W, dtype=torch.float)
     in_hpu = input.uniform_(0, 1).to(hpu)
-    g.manual_seed(seed)
-    output1 = torch.bernoulli(in_hpu, generator=g)
+    torch.manual_seed(seed)
+    output1 = torch.bernoulli(in_hpu)
     output1_hpu = output1.to(cpu).detach().numpy()
 
-    g.manual_seed(seed)
-    output2 = torch.bernoulli(in_hpu, generator=g)
+    torch.manual_seed(seed)
+    output2 = torch.bernoulli(in_hpu)
     output2_hpu = output2.to(cpu).detach().numpy()
 
     # verify if the two tensors are same for same seed

@@ -503,7 +503,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "randint_like",
             "randperm",
             "poisson",
-            "bernoulli",
             "multinomial",
             "normal",
             # Other

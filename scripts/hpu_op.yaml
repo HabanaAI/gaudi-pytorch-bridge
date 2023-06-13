@@ -1358,10 +1358,18 @@ bernoulli:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
-  op_frontend: GeneratorToSeed
   op_backend: Bernoulli
   out_ids: [0]
-  schema_args: "(Tensor self, *, Tensor seed) -> Tensor"
+
+bernoulli.p:
+  force_default: false
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: random_bernoulli_fwd
+  op_backend: BernoulliWithScalarP
+  out_ids: [0]
 
 bernoulli_.float:
   dtypes:
@@ -1371,8 +1379,8 @@ bernoulli_.float:
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: BernoulliFE
-  op_backend: Bernoulli
-  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
+  op_backend: BernoulliWithP
+  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli_.Tensor:
   dtypes:
@@ -1382,8 +1390,8 @@ bernoulli_.Tensor:
   guid: random_bernoulli_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: Bernoulli
-  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor seed) -> Tensor(a!)"
+  op_backend: BernoulliWithP
+  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli.out:
   dtypes:
@@ -1392,8 +1400,8 @@ bernoulli.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   op_frontend: GeneratorToSeedOut
-  op_backend: Bernoulli
-  schema_args: "(Tensor self, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_backend: BernoulliOut
+  schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
   force_default: false
@@ -1403,8 +1411,8 @@ bernoulli.float_out:
     Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
   op_frontend: BernoulliOutFE
-  op_backend: Bernoulli
-  schema_args: "(Tensor self, Tensor p, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_backend: BernoulliWithP
+  schema_args: "(Tensor self, Tensor p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
   custom_output_shape: BinaryCrossEntropyFwdOutputShape

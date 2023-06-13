@@ -101,13 +101,26 @@ TEST_F(HpuOpTest, bernoulli) {
 
   auto p = GetHpuInput(2);
   SetSeed();
-  result1 =
-      torch::bernoulli(GetHpuInput(0), at::detail::getDefaultCPUGenerator())
-          .cpu();
+  result1 = torch::bernoulli(GetHpuInput(0)).cpu();
   SetSeed();
-  result2 =
-      torch::bernoulli(GetHpuInput(0), at::detail::getDefaultCPUGenerator())
-          .cpu();
+  result2 = torch::bernoulli(GetHpuInput(0)).cpu();
+
+  EXPECT_TRUE(result1.equal(result2));
+}
+
+TEST_F(HpuOpTest, bernoulli_p) {
+  GenerateInputs(3, torch::kBFloat16);
+
+  auto result1 = torch::bernoulli(GetHpuInput(0), 0.75).cpu();
+  auto result2 = torch::bernoulli(GetHpuInput(1), 0.75).cpu();
+
+  EXPECT_FALSE(result1.equal(result2));
+
+  auto p = GetHpuInput(2);
+  SetSeed();
+  result1 = torch::bernoulli(GetHpuInput(0), 0.42).cpu();
+  SetSeed();
+  result2 = torch::bernoulli(GetHpuInput(0), 0.42).cpu();
 
   EXPECT_TRUE(result1.equal(result2));
 }

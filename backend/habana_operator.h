@@ -217,6 +217,7 @@ class PytorchKernelContext {
   size_t params_size_;
   bool is_duplicate_input_{false};
   std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
+  c10::optional<synapse_helpers::tensor_or_ref> syn_seed_;
 };
 
 struct KernelMetaData {
@@ -536,6 +537,10 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value);
+
+  synapse_helpers::tensor& AllocateSeed(
+      synapse_helpers::graph& graph,
+      const at::Tensor& seed_tensor);
 
   void SetExecutionMode(habana_helpers::HabanaFrontendTypes mode) {
     execution_mode = mode;
