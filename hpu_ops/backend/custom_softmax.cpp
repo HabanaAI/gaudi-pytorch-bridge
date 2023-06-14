@@ -26,7 +26,7 @@ std::shared_ptr<void> FillCustomSoftmaxParams(
 CustomSoftmax::CustomSoftmax(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "custom_softmax_fwd_",
+          "custom_softmax_fwd",
           scalar_type,
           {0},
           {},
