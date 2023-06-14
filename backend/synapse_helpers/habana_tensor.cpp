@@ -390,10 +390,12 @@ synapse_error_o tensor::create() {
 
   // Device Data Type should not be set in 2 scenarios as per GC(SW-141747):
   // 1: intermediate/workspace tensors having quantization_data in inference
-  // mode
+  // mode and synapse data type selection is enabled
   // 2: persistent tensors in constant sections having quantization_data in
-  // inference mode
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_ &&
+  // inference mode and synapse data type selection is enabled
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+        GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION) &&
+        have_quantization_data_ &&
         ((!is_persistent_) || (is_persistent_ && is_const_section_)))) {
     status = synTensorSetDeviceDataType(tensor_, data_type_);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
