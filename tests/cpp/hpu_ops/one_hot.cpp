@@ -35,7 +35,9 @@ TEST_P(OneHotHpuOpTestFixture, one_hot) {
   auto expected_cpu =
       torch::one_hot(abs(GetCpuInput(0)).to(torch::kLong), num_of_classes)
           .to(dtype);
-  auto expected_hpu = torch::one_hot(abs(GetHpuInput(0)), num_of_classes);
+  auto expected_hpu =
+      torch::one_hot(abs(GetHpuInput(0)).to(torch::kLong), num_of_classes)
+          .to(dtype);
   Compare(expected_cpu, expected_hpu);
 }
 
