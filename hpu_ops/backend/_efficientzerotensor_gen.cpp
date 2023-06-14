@@ -18,7 +18,8 @@ namespace habana {
 
 OutputMetaDataVector EfficientZeroMeta(const at::Stack& stack) {
   auto optionalDtype = stack.at(1).toOptional<at::ScalarType>();
-  const at::ScalarType& type = optionalDtype.value_or(at::ScalarType::Float);
+  const at::ScalarType& type =
+      optionalDtype.value_or(torch::get_default_dtype_as_scalartype());
   OutputMetaData meta{};
 
   meta.dtype = type;
