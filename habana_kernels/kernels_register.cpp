@@ -1410,7 +1410,7 @@ std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
       DUMP_6ARGS(
           input, mask, scale, softmax_scale, stochastic_rounding, is_amax));
   if (synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type())) {
+          synapse_helpers::HPURegistrar::get_device().type())) {
     return fp8_fast_softmax_lazy(
         input, mask, scale, softmax_scale, stochastic_rounding, is_amax);
   } else {
