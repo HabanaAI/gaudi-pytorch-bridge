@@ -463,7 +463,10 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, use_tensor_c
         - The tensor cache is used during graph replay if `use_tensor_cache` is True.
         - The tensors in the graph can be replaced with empty tensors after replaying to save memory
           if `use_tensor_cache` is False.
+        - If `bypass_hpu_graphs=True` is present in kwargs the original fwd is called instead
     """
+    if kwargs.pop('bypass_hpu_graphs', False):
+        return orig_fwd(*args, **kwargs)
     inputs = (args, kwargs)
 
     h = input_hash(inputs)
