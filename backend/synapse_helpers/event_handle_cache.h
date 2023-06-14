@@ -62,6 +62,12 @@ class event_handle_cache {
   // event, thus reducing overall number of events in use.
   static constexpr size_t NUM_EVENTS_MAX = 1000000;
   static constexpr size_t NUM_EVENTS_HIGH_WATERMARK = NUM_EVENTS_MAX - 100;
+
+  // when event max has reached, check if any recipe exeution completion
+  // will help in freeing the event. recipe_count in queue must be greater
+  // than 1 as recipe is incremented after launching and before the adding
+  // of producer events
+  static constexpr size_t NUM_RECIPE_COUNT_TO_WAIT_FOR_FREE_EVENT = 1;
 };
 
 class CachedEventHandle {

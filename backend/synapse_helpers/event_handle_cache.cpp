@@ -48,7 +48,7 @@ synEventHandle event_handle_cache::get_free_handle() {
     // Assert if no recipe is being executed.
     auto& recipe_counter = device_.get_active_recipe_counter();
     HABANA_ASSERT(
-        recipe_counter.get_count() != 0,
+        recipe_counter.get_count() > NUM_RECIPE_COUNT_TO_WAIT_FOR_FREE_EVENT,
         "Event handle out of resources. Event count exceeds max allowed limit.");
 
     while (free_handles_.empty()) {
