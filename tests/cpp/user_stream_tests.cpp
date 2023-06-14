@@ -454,6 +454,30 @@ TEST(TestStream, TestEventblockandwait) {
   EXPECT_EQ(equal, true);
 }
 
+bool is_simulator() {
+  struct stat st = {};
+  if (stat("/sys/devices/virtual/habanalabs/hl0/device_type", &st) == 0) {
+    char buffer[128];
+    std::string result = "";
+    FILE* pipe = popen(
+        "cat /sys/devices/virtual/habanalabs/hl0/device_type"
+        " | grep -i 'simulator' | wc -w",
+        "r");
+    if (!pipe) {
+      return false;
+    }
+    while (!feof(pipe)) {
+      if (fgets(buffer, 128, pipe) != NULL)
+        result += buffer;
+    }
+    pclose(pipe);
+    int sim_cnt;
+    sscanf(buffer, "%d", &sim_cnt);
+    return (sim_cnt > 0);
+  }
+  return false;
+}
+
 TEST(TestStream, TestEventblockandwait_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
@@ -462,12 +486,19 @@ TEST(TestStream, TestEventblockandwait_1) {
   if (num_hpus == 0)
     return;
 
+  auto t_dim_0 = 2000, t_dim_1 = 3000, t_dim_2 = 6000;
+  if (is_simulator()) {
+    t_dim_0 = 20;
+    t_dim_1 = 30;
+    t_dim_2 = 60;
+  }
+
   c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
   c10::hpu::HPUStream defaultStream = c10::hpu::getDefaultHPUStream();
 
   at::hpu::HPUEvent event1;
-  torch::Tensor t1_cpu = torch::randn({2000, 3000});
-  torch::Tensor t2_cpu = torch::randn({3000, 6000});
+  torch::Tensor t1_cpu = torch::randn({t_dim_0, t_dim_1});
+  torch::Tensor t2_cpu = torch::randn({t_dim_1, t_dim_2});
   torch::Tensor t1 = t1_cpu.to(torch::kHPU);
   torch::Tensor t2 = t2_cpu.to(torch::kHPU);
   torch::Tensor tres = torch::matmul(t1, t2);
