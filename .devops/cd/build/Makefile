@@ -207,7 +207,7 @@ endif
 	-e HOME=/tmp -e _STACK=/npu-stack -e _BUILD=/builds -e HABANA_NO_VENV=1 \
 	-e TARGET_DIR=/output -e OS_NAME=$(BUILD_OS) \
 	$(DOCKER_IMAGE) \
-	/npu-stack/cd_release/scripts/hl_tree_builder/tree_builder.sh /npu-stack/cd_release/builds/pytorch/package_$(CSV_FILE_SUFFIX).csv
+	/npu-stack/cd_release/scripts/hl_tree_builder/tree_builder.sh /npu-stack/pytorch-integration/.devops/cd/build/package_$(CSV_FILE_SUFFIX).csv
 	@echo archiving pytorch to tgz package
 	tar -czvf $(OUTPUT_DIR)/pytorch_modules$(PT_BUILD_TYPE)-v$(PT_VERSION)_$(RELEASE_VERSION)_$(RELEASE_BUILD_ID).tgz --directory=$(PACK_DIR) .
 
