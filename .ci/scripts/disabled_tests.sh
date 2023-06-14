@@ -67,8 +67,6 @@ LING_EAGER_TESTS = (
     "HpuOpTest.bernoulli_out_scalar1"
     "HpuOpTest.bernoulli_out_scalar2"
     "HpuOpTest.bernoulli_out"
-    "HpuOpTest.bitwise_and_out_scalar"
-    "HpuOpTest.bitwise_and_scalar"
     "HpuOpTest.bitwise_or_out_scalar"
     "HpuOpTest.bitwise_or_scalar"
     "HpuOpTest.bitwise_xor_out_scalar"

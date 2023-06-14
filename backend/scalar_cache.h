@@ -35,9 +35,16 @@ class ScalarCache {
   void ClearCache();
 
  private:
+  template <typename T>
+  at::Tensor GetTensorFromCacheMap(
+      std::unordered_map<T, at::Tensor>& map,
+      const T value,
+      const c10::ScalarType& dtype);
+
   std::vector<std::pair<at::Tensor, at::Tensor>> copy_tensor_list_;
   std::unordered_map<int64_t, at::Tensor> int64_to_tensor_;
   std::unordered_map<double, at::Tensor> double_to_tensor_;
+  std::unordered_map<int8_t, at::Tensor> int8_to_tensor_;
 
   at::Tensor AppendToBatchH2DList(const at::Tensor& scalar_tensor);
 };

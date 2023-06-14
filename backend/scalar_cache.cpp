@@ -27,6 +27,8 @@ c10::ScalarType GetInternalScalarType(const c10::ScalarType& scalar_type) {
       return c10::ScalarType::Int;
     case c10::ScalarType::Double:
       return c10::ScalarType::Float;
+    case c10::ScalarType::Bool:
+      return scalar_type;
     default:
       break;
   }
@@ -49,33 +51,36 @@ at::Tensor ScalarCache::AppendToBatchH2DList(const at::Tensor& scalar_tensor) {
   return t;
 }
 
+template <typename T>
+at::Tensor ScalarCache::GetTensorFromCacheMap(
+    std::unordered_map<T, at::Tensor>& map,
+    const T value,
+    const c10::ScalarType& dtype) {
+  auto it = map.find(value);
+  if (it == map.end()) {
+    auto tensor = AppendToBatchH2DList(at::tensor(value).to(dtype));
+    auto ret = map.insert(std::make_pair(value, tensor));
+    return ret.first->second;
+  }
+  return it->second;
+}
+
 at::Tensor ScalarCache::GetTensor(const at::Scalar& scalar) {
   auto dtype = scalar.type();
-  if (dtype == c10::ScalarType::Double) {
-    auto value = scalar.toDouble();
-    auto it = double_to_tensor_.find(value);
-    if (it == double_to_tensor_.end()) {
-      auto tensor = AppendToBatchH2DList(at::tensor(value).to(dtype));
-      auto ret = double_to_tensor_.insert(std::make_pair(value, tensor));
-      return ret.first->second;
-    }
 
-    return it->second;
+  switch (dtype) {
+    case c10::ScalarType::Double:
+      return GetTensorFromCacheMap(double_to_tensor_, scalar.toDouble(), dtype);
+    case c10::ScalarType::Long:
+      return GetTensorFromCacheMap(int64_to_tensor_, scalar.toLong(), dtype);
+    case c10::ScalarType::Bool:
+      return GetTensorFromCacheMap(
+          int8_to_tensor_,
+          static_cast<int8_t>(scalar.toBool()),
+          dtype); // at:tensor(value), doesn't overload for bool value
+    default:
+      HABANA_ASSERT(0, "Not supported scalar type");
   }
-
-  if (dtype == c10::ScalarType::Long) {
-    auto value = scalar.toLong();
-    auto it = int64_to_tensor_.find(value);
-    if (it == int64_to_tensor_.end()) {
-      auto tensor = AppendToBatchH2DList(at::tensor(value).to(dtype));
-      auto ret = int64_to_tensor_.insert(std::make_pair(value, tensor));
-      return ret.first->second;
-    }
-
-    return it->second;
-  }
-
-  HABANA_ASSERT(0, "Not supported scalar type");
 }
 
 void ScalarCache::CopyScalarsToDevice() {
@@ -91,6 +96,7 @@ void ScalarCache::ClearCache() {
   copy_tensor_list_.clear();
   int64_to_tensor_.clear();
   double_to_tensor_.clear();
+  int8_to_tensor_.clear();
 }
 
 } // namespace backend
