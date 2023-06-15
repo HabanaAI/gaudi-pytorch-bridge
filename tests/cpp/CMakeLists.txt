@@ -76,6 +76,7 @@ set(hpu_ops_tests_src
   hpu_ops/arange.cpp
   hpu_ops/argmin_max.cpp
   hpu_ops/avgpool_2d.cpp
+  hpu_ops/batch_norm_tests.cpp
   hpu_ops/binary_op.cpp
   hpu_ops/binarycrossentropy_with_logits.cpp
   hpu_ops/binarycrossentropy.cpp
