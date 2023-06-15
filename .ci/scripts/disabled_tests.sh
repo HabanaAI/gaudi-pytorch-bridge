@@ -64,8 +64,6 @@ LING_EAGER_TESTS = (
     "HpuOpTest.bce_out_5D_sum"
     "HpuOpTest.bce_usual_3D_sum"
     "HpuOpTest.bernoulli_out_2"
-    "HpuOpTest.bernoulli_out_scalar1"
-    "HpuOpTest.bernoulli_out_scalar2"
     "HpuOpTest.bernoulli_out"
     "HpuOpTest.bitwise_or_out_scalar"
     "HpuOpTest.bitwise_or_scalar"

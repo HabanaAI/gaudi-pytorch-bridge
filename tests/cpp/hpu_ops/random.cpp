@@ -149,7 +149,7 @@ TEST_F(HpuOpTest, bernoulli_out_scalar1) {
   auto input1 = GetHpuInput(0).to(torch::kBFloat16);
   auto input2 = GetHpuInput(1).to(torch::kBFloat16);
 
-  auto result1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto result1 = torch::empty(0, torch::kBFloat16).to(torch::kHPU);
   auto result2 = result1;
 
   SetSeed();
@@ -167,7 +167,7 @@ TEST_F(HpuOpTest, bernoulli_out_scalar2) {
   auto input1 = GetHpuInput(0).to(torch::kFloat32);
   auto input2 = GetHpuInput(1).to(torch::kFloat32);
 
-  auto result1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto result1 = torch::empty(0, torch::kFloat32).to(torch::kHPU);
   auto result2 = result1;
 
   SetSeed();
