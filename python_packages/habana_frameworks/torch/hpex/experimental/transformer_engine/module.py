@@ -37,6 +37,7 @@ from .fp8 import (
     get_fp8_te_dtype,
     get_fp8_te_sr,
     is_first_fp8_module,
+    is_amax_measure_enabled,
     new_fp8_context_id,
     get_fp8_context_id,
     set_fp8_context_id,
@@ -287,7 +288,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.fp8_init(num_gemms=num_gemms)
 
         # Previous iteration was grad_enabled
-        if self.fp8_meta.get("update_amax_and_scale_fwd", False):
+        if is_amax_measure_enabled() and self.fp8_meta.get("update_amax_and_scale_fwd", False):
             if self.fp8_meta["recipe"].reduce_amax:
                 copy_amax_from_global_buffer(self.fp8_meta, forward=True)
                 amax_and_scale_update(self.fp8_meta, True)
@@ -440,7 +441,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 ctx.fp8_meta["scaling_bwd"],
                 grad_tensor,
                 fp8_dtype_backward,
-                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+                measure_amax=is_amax_measure_enabled()
             )
             grad_output_c, _ = gather_along_first_dim(grad_output_c, ctx.tp_group)
 
@@ -456,7 +458,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             ctx.fp8_meta["scaling_bwd"],
             grad_tensor,
             fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+            measure_amax=is_amax_measure_enabled()
         )
 
         return grad_output_mat, grad_output_c, grad_bias
@@ -1050,7 +1053,8 @@ class _Linear(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         bias_dtype = (
@@ -1066,7 +1070,8 @@ class _Linear(torch.autograd.Function):
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
-                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+                measure_amax=is_amax_measure_enabled()
             )
 
         out = fp8_gemm(
@@ -2267,7 +2272,8 @@ class _MatMul(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         weight_fp8 = cast_to_fp8(
@@ -2275,7 +2281,8 @@ class _MatMul(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_WEIGHT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         out = fp8_gemm(
@@ -2345,7 +2352,8 @@ class _MatMul(torch.autograd.Function):
             ctx.fp8_meta["scaling_bwd"],
             tex.FP8BwdTensors.GRAD_OUTPUT1,
             fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+            measure_amax=is_amax_measure_enabled()
         )
 
         # DGRAD
@@ -2592,7 +2600,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         # Query matmul
@@ -2609,7 +2618,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
-                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+                measure_amax=is_amax_measure_enabled()
             )
 
         query_out = fp8_gemm(
@@ -2638,7 +2648,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM2_WEIGHT,
                 fp8_dtype_forward,
-                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+                measure_amax=is_amax_measure_enabled()
             )
 
         key_out = fp8_gemm(
@@ -2667,7 +2678,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM3_WEIGHT,
                 fp8_dtype_forward,
-                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+                measure_amax=is_amax_measure_enabled()
             )
 
         value_out = fp8_gemm(
@@ -2692,7 +2704,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM4_INPUT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         key_layer_fp8 = cast_to_fp8(
@@ -2700,7 +2713,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM4_WEIGHT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         query_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
@@ -2787,7 +2801,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             ctx.fp8_meta["scaling_bwd"],
             tex.FP8BwdTensors.GRAD_OUTPUT4,
             fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+            measure_amax=is_amax_measure_enabled()
         )
 
         # attention scores DGRAD
@@ -3167,7 +3182,8 @@ class _SelfAttentionContext(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         mixed_value_layer_fp8 = cast_to_fp8(
@@ -3175,7 +3191,8 @@ class _SelfAttentionContext(torch.autograd.Function):
             fp8_meta["scaling_fwd"],
             tex.FP8FwdTensors.GEMM1_WEIGHT,
             fp8_dtype_forward,
-            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True)
+            stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
+            measure_amax=is_amax_measure_enabled()
         )
 
         value_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
@@ -3236,7 +3253,8 @@ class _SelfAttentionContext(torch.autograd.Function):
             ctx.fp8_meta["scaling_bwd"],
             tex.FP8BwdTensors.GRAD_OUTPUT1,
             fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False)
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+            measure_amax=is_amax_measure_enabled()
         )
 
         attention_probs_grad = fp8_gemm(

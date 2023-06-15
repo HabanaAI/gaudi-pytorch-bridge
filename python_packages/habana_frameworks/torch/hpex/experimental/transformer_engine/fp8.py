@@ -33,6 +33,7 @@ _IS_FIRST_FP8_MODULE = False
 _FP8_AUTOCAST_COUNTER = 0
 _FP8_CURRENT_CONTEXT_ID = 0
 _FP8_AUTOCAST_DEPTH = 0
+_FP8_MEASURE_ENABLED = True
 _global_fp8_buffer = {}
 _fp8_tensors_recompute_buffer = []
 _amax_forward_global_reduce_func = None
@@ -243,7 +244,7 @@ def fp8_autocast(
     """
 
     global _FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP, _FP8_AUTOCAST_DEPTH
-    global _IS_FIRST_FP8_MODULE, _FP8_AUTOCAST_COUNTER
+    global _IS_FIRST_FP8_MODULE, _FP8_AUTOCAST_COUNTER, _FP8_MEASURE_ENABLED
     global _global_fp8_buffer, _buffer_delete_key_fwd
     fp8_state = (_FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP)
     try:
@@ -254,6 +255,8 @@ def fp8_autocast(
         if _FP8_AUTOCAST_DEPTH == 0:
             _IS_FIRST_FP8_MODULE = True
             _FP8_AUTOCAST_COUNTER += 1
+            _FP8_MEASURE_ENABLED = (_FP8_RECIPE.interval == 1 or
+                                    _FP8_AUTOCAST_COUNTER % _FP8_RECIPE.interval == 1)
         _FP8_AUTOCAST_DEPTH += 1
 
         yield
@@ -299,6 +302,10 @@ def is_first_fp8_module():
     tmp = _IS_FIRST_FP8_MODULE
     _IS_FIRST_FP8_MODULE = False
     return tmp
+
+
+def is_amax_measure_enabled() -> bool:
+    return _FP8_MEASURE_ENABLED
 
 
 def get_fp8_recipe() -> DelayedScaling:
