@@ -120,3 +120,39 @@ def _create_process_group_hccl(store, rank, size, timeout):
 
 
 torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl)
+
+
+def _disallow_collectives_in_graph():
+    """ W/A for issue in PT 2.0.1: https://github.com/pytorch/pytorch/issues/102478
+    """
+    try:
+        import torch._dynamo
+    except ImportError:
+        # dynamo not supported
+        return
+    import torch.distributed as dist
+    import inspect
+
+    COLLECTIVE_BASE_NAMES = [
+        "all_gather",
+        "all_reduce",
+        "all_to_all",
+        "barrier",
+        "broadcast",
+        "gather",
+        "irecv",
+        "isend",
+        "recv",
+        "reduce",
+        "scatter",
+        "send"]
+
+    for dist_func in [getattr(dist, dist_member) for dist_member in dir(dist)
+                      if inspect.isfunction(getattr(dist, dist_member))]:
+        for coll_name in COLLECTIVE_BASE_NAMES:
+            if coll_name in dist_func.__name__:
+                torch._dynamo.disallow_in_graph(dist_func)
+                break
+
+
+_disallow_collectives_in_graph()
