@@ -277,7 +277,7 @@ void HpuTraceParser::processActivity(
 
     trace_sink.addCompleteActivity(
         {name,
-         {std::make_pair("dataType", events_ptr->arguments.dataType)},
+         getExtraArgs(events_ptr),
          getActivityType(events_ptr),
          getDevice(events_ptr),
          engine_type_database_->getLine(events_ptr->engineIndex)},
@@ -400,5 +400,36 @@ ActivityType HpuTraceParser::getActivityType(const synTraceEvent* events_ptr) {
   return ActivityType::RUNTIME;
 }
 
+std::unordered_map<std::string, std::string> HpuTraceParser::getExtraArgs(
+    const synTraceEvent* events_ptr) {
+  std::unordered_map<std::string, std::string> extraArgs;
+  extraArgs.reserve(events_ptr->arguments.extraArgs.count + 1);
+
+  extraArgs["dataType"] = events_ptr->arguments.dataType;
+
+  for (size_t i{}; i < events_ptr->arguments.extraArgs.count; i++) {
+    const auto& arg = events_ptr->arguments.extraArgs.args[i];
+    std::string valueStr;
+
+    switch (arg.type) {
+      case synTraceEventArg::TYPE_CHAR_PTR:
+        valueStr = arg.value.str;
+        break;
+      case synTraceEventArg::TYPE_UINT64:
+        valueStr = std::to_string(arg.value.u64);
+        break;
+      case synTraceEventArg::TYPE_DOUBLE:
+        valueStr = std::to_string(arg.value.d);
+        break;
+      default:
+        break;
+    }
+
+    if (!valueStr.empty()) {
+      extraArgs[arg.key] = valueStr;
+    }
+  }
+  return extraArgs;
+}
 }; // namespace profile
 }; // namespace habana

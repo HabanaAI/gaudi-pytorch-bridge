@@ -61,6 +61,8 @@ class HpuTraceParser {
   int64_t getDevice(const synTraceEvent* events_ptr);
   bool isEventKernel(const synTraceEvent* events_ptr);
   ActivityType getActivityType(const synTraceEvent* events_ptr);
+  std::unordered_map<std::string, std::string> getExtraArgs(
+      const synTraceEvent* events_ptr);
   const std::string plane_name_ = "/device:HPU:0";
   long double hpu_start_time_;
   long double wall_start_time_;
