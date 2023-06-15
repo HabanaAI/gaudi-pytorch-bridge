@@ -628,6 +628,9 @@ void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
 
 bool EagerExec::is_eager_compiler_supported_for_graph(
     std::shared_ptr<JitGraph>& graph) {
+  if (synapse_helpers::HPURegistrar::get_device().type() == synDeviceGaudi) {
+    return false;
+  }
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
     if (std::string((*it)->kind().toQualString()).find("hpu::optimizer") !=
         std::string::npos) {
