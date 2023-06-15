@@ -1853,23 +1853,34 @@ void SliceOperator::ValidateSliceInputs(
 OutputShapeInfRetType SliceOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
-  int64_t dim, start, end, step;
-  std::vector<int64_t> shape;
-
+  std::vector<int64_t> out_shape;
   bool have_shape_tensor = inputs[2].isTensor();
+
   if (have_shape_tensor) {
-    shape = inputs[1].toTensor().sizes().vec();
+    std::vector<int64_t> inp_shape = inputs[0].toTensor().sizes().vec();
+    out_shape = inputs[1].toTensor().sizes().vec();
+
+    if ((habana::ShapeInference::GetCurrentPass() ==
+         habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+        (habana::ShapeInference::GetMaxPolicyInUse() ==
+         habana_helpers::DynamicDimsPolicy::CALCULATED)) {
+      for (uint64_t i = 0; i < inp_shape.size(); i++) {
+        out_shape[i] =
+            out_shape[i] < inp_shape[i] ? out_shape[i] : inp_shape[i];
+      }
+    }
   } else {
+    int64_t dim, start, end, step;
     dim = inputs[1].toInt();
     start = inputs[2].toInt();
     end = inputs[3].toInt();
     step = inputs[4].toInt();
-    shape = compute_output_shape(self, dim, start, end, step);
+    out_shape = compute_output_shape(self, dim, start, end, step);
   }
 
   auto metaData = TensorMetaData(
-      shape,
-      HabanaOperator::CalculateStrides(shape, self.suggest_memory_format()),
+      out_shape,
+      HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
       self.scalar_type(),
       self.suggest_memory_format());
   OutputShapeInfRetType out;
@@ -1960,6 +1971,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
           graph, syn_tensor_output.id(), out_shape);
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_start.id(), start);
+      shape = out_shape;
     }
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {
