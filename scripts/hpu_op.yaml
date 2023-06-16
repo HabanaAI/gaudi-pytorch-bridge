@@ -4399,15 +4399,15 @@ max_pool2d_with_indices_backward.grad_input:
     Gaudi:
       self: [BFloat16, Float]
       grad_output: [BFloat16, Float]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi2:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi3:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
@@ -4444,7 +4444,7 @@ max_pool3d_with_indices_backward:
   dtypes:
     self: [BFloat16, Float]
     grad_output: [BFloat16, Float]
-    indices: [Int]
+    indices: [Int, Long]
   op_backend: MaxPool3DWithIndicesBwd
   synapse_layouts:
   - [WHDCN, WHDCN]
