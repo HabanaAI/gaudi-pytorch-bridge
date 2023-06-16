@@ -44,35 +44,53 @@ std::vector<int64_t> indices_size(at::TensorList indices) {
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     std::vector<int64_t> input_shape,
     at::TensorList indices,
-    c10::List<int64_t> adv_index_dims) {
-  auto indices_shape = indices_size(indices);
-  bool advanced_indexing = false;
-
-  auto output_rank = static_cast<int64_t>(
-      indices_shape.size() + (int)input_shape.size() - indices_shape[0] - 1);
-  std::vector<int64_t> output_shape(output_rank, -1);
-  int64_t largest_specified_index_t_size = 0;
-  for (int i = 0; i < (int)input_shape.size(); i++) {
-    if (adv_index_dims[i] > largest_specified_index_t_size)
-      largest_specified_index_t_size = adv_index_dims[i];
+    std::vector<bool> adv_index_dims,
+    std::vector<std::vector<int64_t>> indexing_tensor_shapes) {
+  int adv_ind_dim_count = 0;
+  unsigned max_elem_count = 0;
+  std::vector<int64_t> largest_specified_index_t_size;
+  for (int i = 0; i < (int)adv_index_dims.size(); i++) {
+    unsigned elem_count;
+    if (i < indexing_tensor_shapes.size()) {
+      elem_count = std::accumulate(
+          indexing_tensor_shapes[i].begin(),
+          indexing_tensor_shapes[i].end(),
+          1,
+          std::multiplies<unsigned>());
+    } else {
+      elem_count = input_shape[i];
+    }
+    if (!adv_index_dims[i] && elem_count > max_elem_count) {
+      if (i < indexing_tensor_shapes.size())
+        largest_specified_index_t_size = indexing_tensor_shapes[i];
+      max_elem_count = elem_count;
+    } else if (adv_index_dims[i])
+      adv_ind_dim_count++;
   }
-  bool explicit_index_found = false;
-  int pos = 0;
-  for (int i = 0; i < (int)input_shape.size(); ++i) {
-    if (adv_index_dims[i]) { // dim has explicit index tensor
-      if (!explicit_index_found) {
-        output_shape[pos] = largest_specified_index_t_size;
-        pos++;
-        explicit_index_found = true;
+
+  std::vector<int64_t> output_shape;
+  bool non_adv_indexing_found = false;
+  for (int i = 0; i < (int)adv_index_dims.size(); i++) {
+    if (adv_index_dims[i]) {
+      output_shape.emplace_back(
+          (i < indexing_tensor_shapes.size()) ? indexing_tensor_shapes[i][0]
+                                              : input_shape[i]);
+    } else {
+      if (!non_adv_indexing_found) {
+        output_shape.insert(
+            output_shape.cend(),
+            largest_specified_index_t_size.cbegin(),
+            largest_specified_index_t_size.cend());
+        non_adv_indexing_found = true;
       }
-    } else { // advanced indexing done on this dim
-      output_shape[pos] = input_shape[i];
-      pos++;
     }
   }
-  for (auto i{input_shape.size()}; i < output_rank; ++i) {
-    output_shape[i] = 1;
+  for (int64_t i = adv_index_dims.size();
+       i < static_cast<int64_t>(input_shape.size());
+       i++) {
+    output_shape.emplace_back(input_shape[i]);
   }
+
   return output_shape;
 }
 
@@ -151,16 +169,18 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   }
   dims.reserve(self.dim());
   for (const auto i : c10::irange(self.dim())) {
-    if (indices[i].has_value()) {
+    if ((i < indices.size()) && indices[i].has_value()) {
       dims.push_back(i);
       transposedIndices.emplace_back(indices[i].value());
     }
   }
   for (const auto i : c10::irange(self.dim())) {
-    if (!indices[i].has_value()) {
+    if ((i < indices.size()) && !indices[i].has_value()) {
       dims.push_back(i);
       // Don't add undefined tensors to list as Lazy infra can't handle such
       // tensors
+    } else if ((i >= indices.size())) {
+      dims.push_back(i);
     }
   }
   return std::make_tuple(dims, std::move(transposedIndices));
@@ -208,28 +228,21 @@ bool handle_bool_mask_indices(
       indices_in_ivals_vec.push_back(c10::IValue(o1.value()));
     } else if (o1.has_value() && o1->defined()) {
       if (o1.value().scalar_type() == c10::ScalarType::Bool) {
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
-          has_bool_mask = true;
-          auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(o1.value());
-          t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
-          if (t_nz.dim() > 1) {
-            std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
-            c10::IntArrayRef dims_sz(dims_sz_vec);
-            auto nz_indices =
-                habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
-            for (auto i : c10::irange((int)nz_indices.size())) {
-              auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
-              bool_indices_vec.emplace_back(nzi);
-              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
-            }
-          } else {
-            bool_indices_vec.emplace_back(t_nz);
-            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
+        has_bool_mask = true;
+        auto nonzero_indices = at::nonzero(o1.value());
+        t_nz = at::squeeze(nonzero_indices, 1);
+        if (t_nz.dim() > 1) {
+          std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+          c10::IntArrayRef dims_sz(dims_sz_vec);
+          auto nz_indices = at::split_with_sizes(t_nz, dims_sz, 1);
+          for (auto i : c10::irange((int)nz_indices.size())) {
+            auto nzi = at::squeeze(nz_indices.at(i), 1).contiguous();
+            bool_indices_vec.emplace_back(nzi);
+            indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
           }
         } else {
-          has_bool_mask = true;
-          TORCH_CHECK(
-              0, "Boolean indexing is not supported in PT 2.0 Eager mode");
+          bool_indices_vec.emplace_back(t_nz);
+          indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
         }
       } else {
         bool_indices_vec.emplace_back(o1.value());
@@ -240,24 +253,67 @@ bool handle_bool_mask_indices(
   return has_bool_mask;
 }
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<at::Tensor>>
+std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
+    const at::Stack& stack) {
+  std::vector<std::vector<int64_t>> indexing_sizes;
+  at::Tensor self = stack_tensor(stack, 0);
+  auto self_size = self.sizes().vec();
+  c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
+  std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
+  const bool adv_indexing_present =
+      std::any_of(adv_ind_dim.cbegin(), adv_ind_dim.cend(), [](const auto& i) {
+        return i == true;
+      });
+  if (adv_indexing_present) {
+    const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
+    std::vector<int64_t> permuted_self_size(self_size.size(), 0);
+    for (const auto i : c10::irange(self_size.size())) {
+      permuted_self_size[i] = self_size[self_permute_dims[i]];
+    }
+
+    int idim = 0;
+    for (const auto i : c10::irange(adv_ind_dim.size())) {
+      if (adv_ind_dim[i]) {
+        indexing_sizes.emplace_back(
+            std::vector<int64_t>{permuted_self_size[i]});
+      } else {
+        indexing_sizes.emplace_back(
+            indices_ival[idim].toTensor().sizes().vec());
+        idim++;
+      }
+    }
+  } else {
+    for (const auto i : c10::irange(adv_ind_dim.size())) {
+      indexing_sizes.emplace_back(indices_ival[i].toTensor().sizes().vec());
+    }
+  }
+  return indexing_sizes;
+}
+
+std::tuple<bool, int, std::vector<int64_t>, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
+  auto self_size = self.sizes().vec();
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
   std::vector<at::Tensor> indices;
   std::vector<int64_t> self_permute_dims(self.dim());
   std::vector<int64_t> implicit_indices_pos_vec(indices_ival.size());
+  bool dims_permuted = false;
+  int num_index_tensors = 0;
   // if the non-null indices are not all adjacent, transpose self and indices
   // together so that they're adjacent at the front
   auto explicit_index_tensor_group_start = hasContiguousSubspace(indices_ival);
   if (!explicit_index_tensor_group_start) {
     std::tie(self_permute_dims, indices) = transposeToFront(stack);
+    dims_permuted = true;
     for (int i = 0; i < (int)indices.size(); i++) {
       implicit_indices_pos_vec[i] = indices[i].sizes()[0];
+      num_index_tensors++;
     }
     for (int i = (int)indices.size(); i < (int)indices_ival.size(); i++) {
       implicit_indices_pos_vec[i] = -1; //-1 indicates implicit indexing
+      num_index_tensors++;
     }
   } else {
     for (const auto i : c10::irange(self.dim())) {
@@ -277,10 +333,12 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
       i++;
     }
+    num_index_tensors = (int)indices_ival.size();
   }
   //"self" is not yet permuted for advanced indexing, but it has to be
   // considered permuted while using self's sizes in computations
-  return std::make_tuple(implicit_indices_pos_vec, self_permute_dims, indices);
+  return std::make_tuple(
+      dims_permuted, num_index_tensors, self_permute_dims, indices);
 }
 
 // index is implemented using mxnet_gatherNd, refer below for output shape
@@ -297,19 +355,18 @@ std::vector<int64_t> ComputeIndexOperatorOutputShape(
 
   auto output_rank = static_cast<int64_t>(
       indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
-
   std::vector<int64_t> output_shape(output_rank, -1);
 
   for (size_t i = 0; i < indices_shape.size() - 1; i++) {
     output_shape[i] = indices_shape[i + 1];
   }
-
   for (int64_t i = 0;
        i < static_cast<int64_t>(input.ndimension() - indices_shape[0]);
        i++) {
     output_shape[indices_shape.size() - 1 + i] =
         input_shape[indices_shape[0] + i];
   }
+
   return output_shape;
 }
 
@@ -327,7 +384,7 @@ std::vector<int64_t> get_index_result_shape(
     std::vector<at::IValue> inputs_vec) {
   const at::Tensor input = inputs_vec[0].toTensor();
   auto indices = inputs_vec[1].toTensorList().vec();
-  auto adv_index_dims = inputs_vec[2].toIntList();
+  auto adv_index_dims = inputs_vec[2].toBoolList().vec();
   std::vector<int64_t> implicit_indices_pos_vec =
       inputs_vec[3].toIntList().vec();
   bool adv_indexing_present = false;
@@ -349,9 +406,9 @@ std::vector<int64_t> get_index_result_shape(
     } else {
       permuted_input_sizes = input.sizes().vec();
     }
-
+    auto indexing_tensor_shapes = calc_indexing_tensors_shapes(inputs_vec);
     auto shape = habana::ComputeOutputShapeWithAdvIndexing(
-        permuted_input_sizes, indices, adv_index_dims);
+        permuted_input_sizes, indices, adv_index_dims, indexing_tensor_shapes);
     // TO DO: Resize output tensor if not of required shape.
     return shape;
   } else {

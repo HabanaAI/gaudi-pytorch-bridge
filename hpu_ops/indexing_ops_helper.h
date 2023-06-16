@@ -20,7 +20,8 @@ namespace habana {
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     std::vector<int64_t> input_shape,
     at::TensorList indices,
-    c10::List<int64_t> adv_index_dims);
+    std::vector<bool> adv_index_dims,
+    std::vector<std::vector<int64_t>> indexing_tensor_shapes);
 
 std::vector<int64_t> indices_size(at::TensorList indices);
 
@@ -31,7 +32,10 @@ int hasContiguousSubspace(std::vector<int64_t> implicit_indices_pos_vec);
 std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
     const at::Stack& stack);
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<at::Tensor>>
+std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
+    const at::Stack& stack);
+
+std::tuple<bool, int, std::vector<int64_t>, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack);
 
 bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig);

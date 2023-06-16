@@ -444,6 +444,15 @@ def test_index_put_bool():
     hpu_tensor[torch.tensor([[[True, False],[False,True]],[[True, False],[False,True]],[[True, False],[False,True]]])] = -100.0
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
+def test_index_mixed():
+    cpu_tensor = torch.arange(144).to(torch.float).view(4,4,3,3)
+    hpu_tensor = cpu_tensor.to("hpu")
+    bmask = torch.tensor([[False, True, False],[False, False, True],[True, True, False],[False,True,True]])
+    ind_t = torch.tensor([0, 1, 2, 0, 1, 2]).to(torch.int64)
+    res_cpu = cpu_tensor[:,bmask,ind_t]
+    res_hpu = hpu_tensor[:,bmask.to("hpu"),ind_t.to("hpu")]
+    assert torch.equal(res_hpu.to("cpu"), res_cpu)
+
 @pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
 def test_nonzero(shape_in):
     self = torch.randint(10, shape_in) > 5

@@ -33,13 +33,6 @@ FALLBACK_CHECK(
     if (o1.has_value() && o1.value().defined() &&
         o1.value().device() == torch::kCPU) {
       return false;
-    } else if (
-        o1.has_value() && o1.value().defined() &&
-        (o1.value().scalar_type() != c10::ScalarType::Bool)) {
-      continue;
-    } else if (
-        o1.has_value() && (o1.value().scalar_type() == c10::ScalarType::Bool)) {
-      return false;
     }
   }
   return true;
@@ -54,7 +47,7 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   c10::ArrayRef<c10::IValue> indices_in_orig = sub_inputs.at(1).toListRef();
-  std::vector<at::IValue> inputs_vec = sub_inputs; // inputs_orig;
+  std::vector<at::IValue> inputs_vec = sub_inputs;
   c10::ArrayRef<c10::IValue> indices_in;
   std::vector<c10::IValue> indices_in_ivals_vec;
   std::vector<c10::optional<at::Tensor>> bool_indices_vec;
@@ -66,11 +59,9 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
       MAX_DIMS_FOR_ADVANCED_INDEXING,
       " dims");
   bool advanced_indexing = false;
-  std::array<int64_t, MAX_DIMS_FOR_ADVANCED_INDEXING> advanced_indexing_dims = {
-      -1, -1, -1, -1, -1};
+  std::vector<bool> advanced_indexing_present;
   int dim = 0;
   int num_explicit_indices = 0;
-  int broadcast_to_size = 0;
   bool explicit_indices_together = false;
   int index_tensor_groups = 0;
   int index_tensor_group_start = 0;
@@ -79,14 +70,12 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
   bool has_bool_mask = false;
   c10::ScalarType prev_scalar_type;
   bool first_scalar = true;
+  int num_index_tensors = (int)indices_in_orig.size();
 
   advanced_indexing = check_for_adv_indexing(indices_in_orig);
-
-  if (advanced_indexing) {
-    has_bool_mask = handle_bool_mask_indices(
-        indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
-  }
-  if (advanced_indexing && has_bool_mask) {
+  has_bool_mask = handle_bool_mask_indices(
+      indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
+  if (has_bool_mask) {
     indices_in = indices_in_ivals_vec;
     c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
     inputs_vec.clear();
@@ -95,17 +84,13 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
   } else {
     indices_in = indices_in_orig;
   }
-
   at::Tensor self_permuted = self;
-  std::vector<int64_t> implicit_indices_pos_vec;
   std::vector<int64_t> self_permute_dims;
   if (advanced_indexing) {
     if (indices_in.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
       for (auto input : indices_in) {
         auto o1 = input.toOptional<at::Tensor>();
         if (o1.has_value() && !o1->defined()) {
-          advanced_indexing_dims[dim] =
-              0; // to indicate to use self_sizes[dim] in shape calculations.
           if (explicit_indices_together) {
             explicit_indices_together = false;
             index_tensor_group_end = dim;
@@ -117,10 +102,6 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
           }
           explicit_indices_together = true;
           auto o1_sizes = o1.value().sizes().vec();
-          advanced_indexing_dims[dim] = o1_sizes[0];
-          if (advanced_indexing_dims[dim] > broadcast_to_size) {
-            broadcast_to_size = advanced_indexing_dims[dim];
-          }
           num_explicit_indices++;
         }
         if (explicit_indices_together) {
@@ -129,31 +110,30 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
         dim++;
       }
     }
-    if ((long)indices_in.size() < self.dim()) {
-      for (int i = (int)indices_in.size(); i < self.dim(); i++) {
-        advanced_indexing_dims[i] = 0; // to indicate to use self_sizes[i];
+
+    bool dims_permuted = false;
+    std::tie(dims_permuted, num_index_tensors, self_permute_dims, indices_vec) =
+        generate_advanced_indexing_indices_list(inputs_vec);
+    if (dims_permuted) { // all explicitly indexed dims are now in higher order
+                         // dims.
+      for (const auto i : c10::irange(num_index_tensors)) {
+        if (i < num_explicit_indices) {
+          advanced_indexing_present.emplace_back(false);
+        } else {
+          advanced_indexing_present.emplace_back(true);
+        }
+      }
+    } else if (num_explicit_indices >= 1) {
+      for (const auto i : c10::irange(num_index_tensors)) {
+        if ((i >= index_tensor_group_start) && (i <= index_tensor_group_end)) {
+          advanced_indexing_present.emplace_back(false);
+        } else {
+          advanced_indexing_present.emplace_back(true);
+        }
       }
     }
-    std::tie(implicit_indices_pos_vec, self_permute_dims, indices_vec) =
-        generate_advanced_indexing_indices_list(inputs_vec);
-    if ((index_tensor_groups > 1) &&
-        (num_explicit_indices >
-         1)) { // all explicitly indexed dims are now in higher order dims.
-      for (const auto i : c10::irange((int)implicit_indices_pos_vec.size())) {
-        if (i < num_explicit_indices) {
-          advanced_indexing_dims[i] = implicit_indices_pos_vec[i];
-        } else {
-          advanced_indexing_dims[i] = 0;
-        }
-      }
-    } else if (num_explicit_indices > 1) {
-      for (const auto i : c10::irange((int)implicit_indices_pos_vec.size())) {
-        if ((i >= index_tensor_group_start) && (i <= index_tensor_group_end)) {
-          advanced_indexing_dims[i] = implicit_indices_pos_vec[i];
-        } else {
-          advanced_indexing_dims[i] = 0;
-        }
-      }
+    for (int i = num_index_tensors; i < (int)indices_in.size(); i++) {
+      advanced_indexing_present.emplace_back(true);
     }
   } else {
     for (auto input : indices_in) {
@@ -161,6 +141,10 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
       if (o1.has_value() && o1->defined()) {
         indices_vec.push_back(o1.value());
       }
+      advanced_indexing_present.emplace_back(false);
+    }
+    for (int i = 0; i < (int)self.dim(); i++) {
+      self_permute_dims.emplace_back(i);
     }
   }
   for (size_t i = 0; i < indices_vec.size(); i++) {
@@ -182,10 +166,9 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
           indices_vec_out.cend(), list.cbegin(), list.cend());
     }
   }
-
   at::TensorList indices_out_list =
       (bool_non_adv_indexing_case) ? indices_vec_out : indices_vec;
-  // at::TensorList indices_out_list(indices);
+
   int orig_in_tensor_type_count = (int)get_inputs().size();
   get_inputs().resize(get_inputs().size() + 3);
   get_inputs().at(0) = c10::IValue(self_permuted);
@@ -193,14 +176,14 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
   if (3 == orig_in_tensor_type_count) { // out variant
     auto& sub_inputs = get_inputs();
     auto out = sub_inputs.at(2).toTensor();
-    get_inputs().at(2) = advanced_indexing_dims;
-    get_inputs().at(3) = implicit_indices_pos_vec;
-    get_inputs().at(4) = self_permute_dims;
+    get_inputs().at(2) = advanced_indexing_present;
+    get_inputs().at(3) = self_permute_dims;
+    get_inputs().at(4) = num_index_tensors;
     get_inputs().at(5) = out;
   } else {
-    get_inputs().at(2) = advanced_indexing_dims;
-    get_inputs().at(3) = implicit_indices_pos_vec;
-    get_inputs().at(4) = self_permute_dims;
+    get_inputs().at(2) = advanced_indexing_present;
+    get_inputs().at(3) = self_permute_dims;
+    get_inputs().at(4) = num_index_tensors;
   }
 }
 
