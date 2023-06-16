@@ -4681,7 +4681,7 @@ mul.Tensor:
     Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
-  broadcast: true
+  output_meta: MulMeta
   guid: mult_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -4693,7 +4693,7 @@ mul.Scalar:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
   force_default: false
   guid: mult_fwd
-  broadcast: true
+  output_meta: MulMeta
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]

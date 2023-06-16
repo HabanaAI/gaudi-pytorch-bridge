@@ -86,7 +86,8 @@ std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   }
   O << ", dim=" << t.dim() << ", shape=" << t.sizes() << ", numel=" << t.numel()
     << ", stride=" << t.strides() << ", layout=" << t.layout() << ','
-    << " use_count " << t.use_count();
+    << " use_count " << t.use_count() << ',' << " scalar type "
+    << t.scalar_type();
 
   if (print_data && t.has_storage() && t.is_cpu()) {
     O << ", contents:" << '\n' << t;
