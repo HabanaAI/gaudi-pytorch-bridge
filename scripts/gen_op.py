@@ -1390,6 +1390,17 @@ def get_eager_op_info(ctxop, opname):
 
     return type, op_name
 
+def create_outputs_indices_list_by_schema(schema):
+    substring = schema[:schema.find("->")]
+    substring = substring.replace(" *", "")
+    inputs = substring.split(", ")
+    out_indices = []
+    for index, input in enumerate(inputs):
+        pattern = r"Tensor\([a-z]!\)"
+        if (re.findall(pattern, input)):
+            out_indices.append(index)
+    return out_indices
+
 inplace_params_blacklist = [
     "_native_batch_norm_legit",
 ]
@@ -1478,6 +1489,9 @@ def generate_code(
         lazyop_call_args = "{}".format(", ".join(call_args))
         if type_core(tree.children[0]) == "::std::tuple":
             lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
+
+    if ctxop.custom_schema():
+        out_indices = create_outputs_indices_list_by_schema(ctxop.custom_schema())
 
     inplace_op_info = [op_type, op_name, out_indices]
 
