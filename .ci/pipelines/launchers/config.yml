@@ -29,28 +29,28 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed_ci
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_ci
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
