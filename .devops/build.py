@@ -295,7 +295,8 @@ def rm_link_or_dir(location):
         os.remove(location)
     elif os.path.isdir(location):
         shutil.rmtree(location)
-    elif os.path.exists(location):
+
+    if os.path.exists(location):
         log.error(f"Cannot remove {location}")
         sys.exit(1)
 
