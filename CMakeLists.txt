@@ -324,7 +324,7 @@ install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/l
 
 option(BUILD_TESTS "Build gtest binaries" ON)
 if (BUILD_TESTS)
-  add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/"
+  add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
                    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/
                    EXCLUDE_FROM_ALL
                    SYSTEM)

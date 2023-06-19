@@ -50,10 +50,10 @@ set_target_properties(Test PROPERTIES
   CXX_EXTENSIONS OFF)
 
 
-if (EXISTS "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest" AND GTEST)
+if (EXISTS "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13" AND GTEST)
   externalproject_add(
     googletest
-    URL "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest/"
+    URL "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_13/"
     TIMEOUT 10
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -Dgtest_force_shared_crt=ON
