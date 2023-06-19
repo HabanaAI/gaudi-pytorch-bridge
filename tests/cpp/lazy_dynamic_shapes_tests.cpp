@@ -485,7 +485,7 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
 }
 
 // Reproducer for https://jira.habana-labs.com/browse/SW-94443
-TEST_F(LazyDynamicShapesTest, DISABLED_SingleOpAdd) {
+TEST_F(LazyDynamicShapesTest, SingleOpAdd) {
   std::vector<std::vector<int64_t>> in1 = {{10, 20, 30}, {10, 50, 30}};
   std::vector<std::vector<int64_t>> in2 = {{10, 1, 1}, {10, 50, 30}};
 

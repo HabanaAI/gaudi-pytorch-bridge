@@ -77,7 +77,7 @@ TEST_F(LazyJITTest, ExecuteGraph) {
   EXPECT_EQ(allclose(out2, exp2), true);
 }
 
-TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
+TEST_F(LazyJITTest, ExecuteGraphCustomSgd) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
   auto moments = torch::randn({2, 2}, torch::requires_grad(false));

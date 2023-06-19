@@ -282,7 +282,7 @@ TEST_F(LazyReductionKernelTest, MinTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
-TEST_F(LazyReductionKernelTest, DISABLED_Mean) {
+TEST_F(LazyReductionKernelTest, Mean) {
   torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::mean(hA);
@@ -291,7 +291,7 @@ TEST_F(LazyReductionKernelTest, DISABLED_Mean) {
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
-TEST_F(LazyReductionKernelTest, DISABLED_MeanDim_cmpt) {
+TEST_F(LazyReductionKernelTest, MeanDim_cmpt) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }

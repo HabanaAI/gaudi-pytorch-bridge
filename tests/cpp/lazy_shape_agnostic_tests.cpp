@@ -388,7 +388,7 @@ TEST_F(LazyShapeAgnosticTest, BatchNormForwardExecute) {
   }
 }
 
-TEST_F(LazyShapeAgnosticTest, DISABLED_LayerNormForwardExecute) {
+TEST_F(LazyShapeAgnosticTest, LayerNormForwardExecute) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();

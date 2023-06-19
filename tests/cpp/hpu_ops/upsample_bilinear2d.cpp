@@ -117,7 +117,7 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_fwd_out_CL) {
+TEST_F(HpuOpTest, upsample_bilinear2d_fwd_out_CL) {
   GenerateInputs(1, {{5, 6, 8, 4}});
   std::vector<int64_t> size = {7, 9};
   auto expected = torch::empty(0, TENSOR_TYPE_float);
@@ -164,7 +164,7 @@ TEST_F(HpuOpTest, upsample_bilinear2d_fwd_out) {
 }
 
 // backward variants
-TEST_F(HpuOpTest, DISABLED_upsample_bilinear2d_bwd_size) {
+TEST_F(HpuOpTest, upsample_bilinear2d_bwd_size) {
   GenerateInputs(1, {{4, 3, 12, 64}});
   std::vector<int64_t> output_size = {12, 64};
   std::vector<int64_t> input_size = {4, 3, 6, 32};

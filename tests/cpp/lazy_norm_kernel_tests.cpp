@@ -70,7 +70,7 @@ TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
 }
 
-TEST_F(LazyNormKernelTest, DISABLED_InstanceNorm3dFwdBwd) {
+TEST_F(LazyNormKernelTest, InstanceNorm3dFwdBwd) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
     GTEST_SKIP();
   }

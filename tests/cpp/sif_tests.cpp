@@ -209,9 +209,7 @@ TEST_F(SifTest, AddAddDivSubCatRelu) {
   validate_shape_end();
 }
 
-// Keeping the following unit tests disabled.
-// TODO: Enable the unit tests
-TEST_F(SifTest, DISABLED_SingleOpCat) {
+TEST_F(SifTest, SingleOpCat) {
   PT_TEST_DEBUG("SingleOpCat_BEGIN");
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));

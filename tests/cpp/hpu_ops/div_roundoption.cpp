@@ -249,7 +249,7 @@ TEST_F(HpuOpTest, div_scalar_int) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_div_scalar_int8f32) {
+TEST_F(HpuOpTest, div_scalar_int8f32) {
   GenerateInputs(1, torch::kInt8);
   auto other = GenerateScalar<float>();
 

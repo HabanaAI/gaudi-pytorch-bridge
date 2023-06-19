@@ -52,7 +52,7 @@ TEST_F(FallbackTest, Inplace) {
   EXPECT_EQ(freq.at("aten::lgamma.out"), 1);
 }
 
-TEST_F(FallbackTest, DISABLED_inverse) {
+TEST_F(FallbackTest, inverse) {
   auto a = torch::randn({2, 2});
   auto b = a.inverse();
   auto out = torch::transpose(b, 0, 1);

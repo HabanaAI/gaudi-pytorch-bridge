@@ -105,7 +105,7 @@ TEST_F(HpuOpTest, sum_UNET) {
   Compare(expected, result.to("hpu"));
 }
 
-TEST_F(HpuOpTest, DISABLED_sum_4d_2d_keepdim_cmpt) {
+TEST_F(HpuOpTest, sum_4d_2d_keepdim_cmpt) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }

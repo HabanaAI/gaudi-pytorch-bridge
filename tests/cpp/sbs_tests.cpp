@@ -536,10 +536,10 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
   }
 }
 
-TEST_P(SBSWithParamsTest, DISABLED_ConvolutionSBSTest_random_CL) {
+TEST_P(SBSWithParamsTest, ConvolutionSBSTest_random_CL) {
   ConvolutionSBSTest(true, true);
 }
-TEST_P(SBSWithParamsTest, DISABLED_ConvolutionSBSTest_const_CL) {
+TEST_P(SBSWithParamsTest, ConvolutionSBSTest_const_CL) {
   ConvolutionSBSTest(true, false);
 }
 TEST_P(SBSWithParamsTest, ConvolutionSBSTest_random_Contiguous) {
@@ -1083,8 +1083,7 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   ResetSBSHandlers();
 }
 
-// Enable when this is resolved: [SW-78057]
-TEST_P(SBSWithParamsTest, DISABLED_OnesLikeSBS) {
+TEST_P(SBSWithParamsTest, OnesLikeSBS) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});

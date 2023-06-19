@@ -161,7 +161,7 @@ TEST_F(LazyStridesTest, DISABLED_NonContigiousStrides) {
   EXPECT_EQ(c1.strides() == h1_c.strides(), true);
 }
 
-TEST_F(LazyStridesTest, DISABLED_ZeroElementStrides) {
+TEST_F(LazyStridesTest, ZeroElementStrides) {
   const int A = 2;
   const int B = 0;
   const int C = 4;

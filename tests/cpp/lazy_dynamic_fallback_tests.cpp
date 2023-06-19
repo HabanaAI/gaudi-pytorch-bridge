@@ -352,7 +352,7 @@ TEST_F(LazyDynamicFallbackTest, ArangeTest) {
   }
 }
 
-TEST_F(LazyDynamicFallbackTest, DISABLED_ArangeTestFloat) {
+TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
   std::vector<int> step_sizes{1, 2, 3, 2};

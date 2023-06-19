@@ -104,7 +104,7 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_size) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_scale_CL) {
+TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale_CL) {
   GenerateInputs(1, {{2, 7, 1, 6}});
   c10::optional<double> scale_h(0.6);
   c10::optional<double> scale_w(1.7);
@@ -152,7 +152,7 @@ TEST_F(HpuOpTest, upsample_bicubic2d_bwd_scale) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_upsample_bicubic2d_bwd_out_CL) {
+TEST_F(HpuOpTest, upsample_bicubic2d_bwd_out_CL) {
   GenerateInputs(1, {{1, 5, 28, 64}});
   std::vector<int64_t> output_size = {28, 64};
   std::vector<int64_t> input_size = {1, 5, 28, 16};

@@ -118,7 +118,7 @@ TEST_F(HpuOpTest, nansum_f32_with_nan_dty_bf16) {
 }
 
 // Put nanmean tests here because nanmean underneath uses nansum
-TEST_F(HpuOpTest, DISABLED_nanmean_f32) {
+TEST_F(HpuOpTest, nanmean_f32) {
   auto t1_cpu = torch::tensor({1, 2}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
@@ -129,7 +129,7 @@ TEST_F(HpuOpTest, DISABLED_nanmean_f32) {
   EXPECT_TRUE(out_cpu.dtype() == out_hpu.dtype());
 }
 
-TEST_F(HpuOpTest, DISABLED_nanmean_f32_with_nan) {
+TEST_F(HpuOpTest, nanmean_f32_with_nan) {
   auto t1_cpu = torch::tensor(
       {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
@@ -141,7 +141,7 @@ TEST_F(HpuOpTest, DISABLED_nanmean_f32_with_nan) {
   EXPECT_TRUE(out_cpu.dtype() == out_hpu.dtype());
 }
 
-TEST_F(HpuOpTest, DISABLED_nanmean_f32_dty_bf16) {
+TEST_F(HpuOpTest, nanmean_f32_dty_bf16) {
   auto t1_cpu = torch::tensor({1, 2}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
 
@@ -152,7 +152,7 @@ TEST_F(HpuOpTest, DISABLED_nanmean_f32_dty_bf16) {
   EXPECT_TRUE(out_cpu.dtype() == out_hpu.dtype());
 }
 
-TEST_F(HpuOpTest, DISABLED_nanmean_f32_with_nan_dty_bf16) {
+TEST_F(HpuOpTest, nanmean_f32_with_nan_dty_bf16) {
   auto t1_cpu = torch::tensor(
       {1.f, 2.f, std::numeric_limits<float>::quiet_NaN()}, torch::kF32);
   auto t1_hpu = t1_cpu.to(torch::kHPU);

@@ -680,7 +680,7 @@ TEST_F(LazyUnaryKernelTest, GeluBackward) {
   EXPECT_EQ(allclose(hout, cout, 0.001, 0.001), true);
 }
 
-TEST_F(LazyUnaryKernelTest, DISABLED_TopkTest) {
+TEST_F(LazyUnaryKernelTest, TopkTest) {
   auto self = torch::randn({3, 5});
   auto hself = self.to(torch::kHPU);
 
@@ -694,7 +694,7 @@ TEST_F(LazyUnaryKernelTest, DISABLED_TopkTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
-TEST_F(LazyUnaryKernelTest, DISABLED_TopkOutTest) {
+TEST_F(LazyUnaryKernelTest, TopkOutTest) {
   auto self = torch::randn({3, 5, 4, 7});
   auto hself = self.to(torch::kHPU);
 
@@ -714,7 +714,7 @@ TEST_F(LazyUnaryKernelTest, DISABLED_TopkOutTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
-TEST_F(LazyUnaryKernelTest, DISABLED_TopkTestFalse) {
+TEST_F(LazyUnaryKernelTest, TopkTestFalse) {
   auto self = torch::randint(0, 1000, {16, 8}, torch::dtype(torch::kInt64));
   auto hself = self.to(torch::kHPU);
 

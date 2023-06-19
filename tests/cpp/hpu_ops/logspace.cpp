@@ -57,7 +57,7 @@ TEST_F(HpuOpTest, logspace_out_3) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_logspace_out_4) {
+TEST_F(HpuOpTest, logspace_out_4) {
   at::Scalar end = -40.0;
   at::Scalar start = -10.0;
   int steps = 10;
@@ -72,7 +72,7 @@ TEST_F(HpuOpTest, DISABLED_logspace_out_4) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_logspace_out_5) {
+TEST_F(HpuOpTest, logspace_out_5) {
   at::Scalar start = 0.0f;
   at::Scalar end = 10.0f;
   int steps = 2;

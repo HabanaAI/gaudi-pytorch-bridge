@@ -78,7 +78,7 @@ TEST_F(EagerKernelTest, LinspaceOutNeToPosStep1) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST_F(EagerKernelTest, DISABLED_MinTest0D) {
+TEST_F(EagerKernelTest, MinTest0D) {
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHPU);
 

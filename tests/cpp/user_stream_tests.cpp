@@ -301,7 +301,7 @@ void kernel_add(torch::Tensor in_tensor, torch::Tensor& outtensor) {
 }
 
 // Ensures streams are thread local
-TEST(TestStream, DISABLED_MultithreadStreamKernelAdd) {
+TEST(TestStream, MultithreadStreamKernelAdd) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = synapse_helpers::HPURegistrar::get_device();
