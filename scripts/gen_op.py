@@ -2087,6 +2087,10 @@ def generate_autocast_ops(fgens, args, out_dir):
         "_fused_adam",
         "_fused_adamw",
         "_native_batch_norm_legit",
+        "sym_size.int",
+        "sym_numel",
+        "sym_stride.int",
+        "sym_storage_offset"
     )
 
     def op_to_skip(function_name, op_name):
