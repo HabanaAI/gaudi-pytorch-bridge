@@ -275,7 +275,8 @@ bool ProcessGroupHCCL::WorkHCCL::wait(
 void ProcessGroupHCCL::WorkHCCL::synchronize() {
   for (size_t i = 0; i < outputs_.size(); ++i) {
     deviceCtxts_[i]->synchronize_output(
-        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
+        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
+        (c10::hpu::getCurrentHPUStream()).stream());
   }
 }
 

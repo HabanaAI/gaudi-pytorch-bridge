@@ -88,6 +88,9 @@ class device_context : std::enable_shared_from_this<device_context> {
   hcclResult_t stream_synchronize(synStreamHandle stream_handle);
 
   hcclResult_t synchronize_output(synapse_helpers::device_ptr output_address);
+  hcclResult_t synchronize_output(
+      synapse_helpers::device_ptr output_address,
+      synapse_helpers::hpuStream_t current_stream);
   hcclResult_t barrier();
 
   void flush_stream_events() {
