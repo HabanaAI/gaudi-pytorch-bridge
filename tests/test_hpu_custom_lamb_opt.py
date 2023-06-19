@@ -217,6 +217,13 @@ def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averagi
     hpu_adam_step_list = [torch.empty(shape, dtype=dtype).to(hpu)]
     hpu_clip_global_grad_norm = cpu_clip_global_grad_norm.to(hpu)
 
+    if bias_correction:
+        bias_correction1 = torch.tensor(1.0 - pow(beta1, step), device="hpu")
+        bias_correction2 = torch.tensor(1.0 - pow(beta2, step), device="hpu")
+    else:
+        bias_correction1 = torch.tensor(1.0, device="hpu")
+        bias_correction2 = torch.tensor(1.0, device="hpu")
+
     torch.ops.hpu.optimizer_lamb_phase1(
         hpu_grad_list,
         hpu_wt_list,
@@ -230,8 +237,8 @@ def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averagi
         beta1,
         beta2,
         eps,
-        step,
-        bias_correction,
+        bias_correction1,
+        bias_correction2,
         weight_decay,
     )
     reference_optimizer_lamb_phase1(

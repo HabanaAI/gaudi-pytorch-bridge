@@ -257,6 +257,16 @@ void runLambPhase1OptimizerTest(
   float beta2 = 0.999;
   float eps = 1e-6;
 
+  // CPU calculation
+  float beta3 = grad_averaging != 0 ? 1.0 - beta1 : 1.0;
+  float bias_correction1 =
+      bias_correction != 0 ? 1.0 - std::pow(beta1, step) : 1.0;
+  float bias_correction2 =
+      bias_correction != 0 ? 1.0 - std::pow(beta2, step) : 1.0;
+
+  auto bias_correction1_t = torch::tensor(bias_correction1).to(torch::kHPU);
+  auto bias_correction2_t = torch::tensor(bias_correction2).to(torch::kHPU);
+
   habana_lazy::optimizer_lamb_phase1(
       grads,
       weights,
@@ -270,16 +280,9 @@ void runLambPhase1OptimizerTest(
       beta1,
       beta2,
       eps,
-      step,
-      bias_correction,
+      bias_correction1_t,
+      bias_correction2_t,
       weight_decay);
-
-  // CPU calculation
-  float beta3 = grad_averaging != 0 ? 1.0 - beta1 : 1.0;
-  float bias_correction1 =
-      bias_correction != 0 ? 1.0 - std::pow(beta1, step) : 1.0;
-  float bias_correction2 =
-      bias_correction != 0 ? 1.0 - std::pow(beta2, step) : 1.0;
 
   for (int i = 0; i < num_params; i++) {
     auto& grad = cpu.grads_vec[i].t.div_(cpu_clip_global_grad_norm);

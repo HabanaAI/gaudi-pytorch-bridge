@@ -7050,8 +7050,8 @@ void optimizer_lamb_phase1(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const int64_t step,
-    const int64_t bias_correction,
+    const at::Tensor& bias_correction1,
+    const at::Tensor& bias_correction2,
     const double weight_decay) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
@@ -7067,8 +7067,8 @@ void optimizer_lamb_phase1(
           beta1,
           beta2,
           epsilon,
-          step,
-          bias_correction,
+          bias_correction1,
+          bias_correction2,
           weight_decay));
 
   LazyOp<void> hpu_op{
@@ -7085,8 +7085,8 @@ void optimizer_lamb_phase1(
        beta1,
        beta2,
        epsilon,
-       step,
-       bias_correction,
+       bias_correction1,
+       bias_correction2,
        weight_decay},
       std::vector<std::vector<int64_t>>{},
       -1};

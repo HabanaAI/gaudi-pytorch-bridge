@@ -135,7 +135,6 @@ class FusedLamb(Optimizer):
             )
 
         for group in self.param_groups:
-            bias_correction = 1 if group["bias_correction"] else 0
             beta1, beta2 = group["betas"]
             grad_averaging = 1 if group["grad_averaging"] else 0
 
@@ -145,6 +144,13 @@ class FusedLamb(Optimizer):
                 group["step"] += 1
             else:
                 group["step"] = 1
+
+            if group["bias_correction"]:
+                bias_correction1 = torch.tensor(1.0 - pow(beta1, group["step"]), device="hpu")
+                bias_correction2 = torch.tensor(1.0 - pow(beta2, group["step"]), device="hpu")
+            else:
+                bias_correction1 = torch.tensor(1.0, device="hpu")
+                bias_correction2 = torch.tensor(1.0, device="hpu")
 
             (
                 grad_list,
@@ -194,8 +200,8 @@ class FusedLamb(Optimizer):
                 beta1,
                 beta2,
                 group["eps"],
-                group["step"],
-                bias_correction,
+                bias_correction1,
+                bias_correction2,
                 group["weight_decay"],
             )
 

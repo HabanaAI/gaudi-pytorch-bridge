@@ -270,26 +270,15 @@ void OptimizerLambPhase1::AddNode(
   auto beta1 = getNextInput<double>(stackGetter);
   auto beta2 = getNextInput<double>(stackGetter);
   auto epsilon = getNextInput<double>(stackGetter);
-  auto step = getNextInput<int>(stackGetter);
-  auto bias_correction = getNextInput<int>(stackGetter);
+  auto bias_correction1 = getNextInput<TensorsPair>(stackGetter);
+  auto bias_correction2 = getNextInput<TensorsPair>(stackGetter);
   auto weight_decay = getNextInput<double>(stackGetter);
-
-  float bias_correction1 = 1.0;
-  float bias_correction2 = 1.0;
-  if (bias_correction) {
-    bias_correction1 = 1.0 - std::pow(beta1, step);
-    bias_correction2 = 1.0 - std::pow(beta2, step);
-  }
 
   float beta3 = 1.0;
   if (grad_averaging) {
     beta3 = 1 - beta1;
   }
 
-  auto bias_correction1_t =
-      ConstantHelper(graph, bias_correction1, at::kFloat, {1});
-  auto bias_correction2_t =
-      ConstantHelper(graph, bias_correction2, at::kFloat, {1});
   auto beta1_t = ConstantHelper(graph, beta1, at::kFloat, {1});
   auto beta2_t = ConstantHelper(graph, beta2, at::kFloat, {1});
   auto beta3_t = ConstantHelper(graph, beta3, at::kFloat, {1});
@@ -378,14 +367,14 @@ void OptimizerLambPhase1::AddNode(
         this,
         graph,
         {get_guid_with_precision("div_fwd", dtype),
-         {add_exp_avg[0].get(), bias_correction1_t.get()},
+         {add_exp_avg[0].get(), bias_correction1.syn_t},
          {{mul_exp_avg_shape, dtype}}});
 
     auto div_exp_avg_sq = OpBackend::BuildNode(
         this,
         graph,
         {get_guid_with_precision("div_fwd", dtype),
-         {addcmul_exp_avg_sq[0].get(), bias_correction2_t.get()},
+         {addcmul_exp_avg_sq[0].get(), bias_correction2.syn_t},
          {{mul_exp_avg_sq_shape, dtype}}});
 
     auto sqrt_exp_avg_sq = OpBackend::BuildNode(

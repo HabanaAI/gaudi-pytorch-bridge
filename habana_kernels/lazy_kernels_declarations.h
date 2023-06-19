@@ -434,8 +434,8 @@ void optimizer_lamb_phase1(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const int64_t step,
-    const int64_t bias_correction,
+    const at::Tensor& bias_correction1,
+    const at::Tensor& bias_correction2,
     const double weight_decay);
 void optimizer_lamb_phase2(
     at::TensorList weights,

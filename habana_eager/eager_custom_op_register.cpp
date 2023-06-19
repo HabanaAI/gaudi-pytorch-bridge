@@ -254,8 +254,8 @@ void optimizer_lamb_phase1(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const int64_t step,
-    const int64_t bias_correction,
+    const at::Tensor bias_correction1,
+    const at::Tensor bias_correction2,
     const double weight_decay) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
@@ -270,8 +270,8 @@ void optimizer_lamb_phase1(
           beta1,
           beta2,
           epsilon,
-          step,
-          bias_correction,
+          bias_correction1,
+          bias_correction2,
           weight_decay));
 
   EagerOp<void> hpu_op{
@@ -288,8 +288,8 @@ void optimizer_lamb_phase1(
        beta1,
        beta2,
        epsilon,
-       step,
-       bias_correction,
+       bias_correction1,
+       bias_correction2,
        weight_decay}};
   return hpu_op.call(
       {exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
@@ -417,7 +417,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor(b!) lr) -> ()");
   m.def(
-      "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, int step, int bias_correction, float weight_decay) -> ()");
+      "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, Tensor bias_correction1, Tensor bias_correction2, float weight_decay) -> ()");
   m.def(
       "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> ()");
   m.def(
