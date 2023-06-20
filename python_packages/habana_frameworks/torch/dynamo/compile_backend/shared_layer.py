@@ -22,6 +22,14 @@ if configuration_flags["shared_layer_fallback_check"]:
     from ._shared_layer_C import check_cpu_fallback_op
 logger = logging.getLogger("aot_hpu_backend")
 
+hpu_supported_op_list = ["_to_copy",
+                         "getitem"]
+
+def check_for_default_op_support(op_name):
+    for op in hpu_supported_op_list:
+        if op in op_name:
+            return True
+    return False
 
 def is_cpu_fallback_required(node: torch.fx.Node) -> bool:
     """
@@ -40,23 +48,26 @@ def is_cpu_fallback_required(node: torch.fx.Node) -> bool:
         if configuration_flags["shared_layer_fallback_check"]:
             args, kwargs = node.val_args, node.val_kwargs
             arg_types = []
-            for arg in args:
-                arg_types.append(type(arg))
-            normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-            if normalized_args is None:
-                args = args[::-1]
-                arg_types = arg_types[::-1]
-                normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-            if normalized_args is not None:
-                args, kwargs = normalized_args
-                op_name = node.target.__name__.split(".")[0]
-                try:
-                    do_fallback = check_cpu_fallback_op(op_name, args, arg_types, kwargs)
-                except Exception as e:
-                    print("Exception raised in check for fallback for op", node.target)
-                    do_fallback = True
+            op_name = node.target.__name__.split(".")[0]
+            if check_for_default_op_support(op_name):
+                do_fallback = False
             else:
-                do_fallback = True
+                for arg in args:
+                    arg_types.append(type(arg))
+                normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+                if normalized_args is None:
+                    args = args[::-1]
+                    arg_types = arg_types[::-1]
+                    normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+                if normalized_args is not None:
+                    args, kwargs = normalized_args
+                    try:
+                        do_fallback = check_cpu_fallback_op(op_name, args, arg_types, kwargs)
+                    except Exception as e:
+                        print("Exception raised in check for fallback for op", node.target)
+                        do_fallback = True
+                else:
+                    do_fallback = True
         else:
             for op in ops_to_fallback:
                 if op == node.target.__name__:
