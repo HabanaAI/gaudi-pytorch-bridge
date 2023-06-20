@@ -365,7 +365,11 @@ class HabanaLaunchOpPT {
 
   std::optional<std::vector<at::Tensor>> allocated_outputs_;
 
-  void ProcessNodesForConstantTensors();
+  // Utilies for marking constant tensors in JIT graph as consts in
+  // Synapse graph. It works when parameter marking is done
+  // from the model
+  void ProcessGraphForConstantTensors();
+
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
   // 2. Input Stack
@@ -533,6 +537,8 @@ class HabanaLaunchOpPT {
   }
 
   // No need to allocate for lazy eager shape agnostic cache hit scenario
+  // API for populating Synapse tensor info which needs to be used
+  // to find constant section ID for Synapse graph inputs only
   void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
   void DumpTensors_pre(RecipeValueSpec& rv);

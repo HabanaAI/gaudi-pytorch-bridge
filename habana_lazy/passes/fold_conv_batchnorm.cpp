@@ -346,6 +346,7 @@ bool FuseConvBatchnorm(
           bn_bias_cast_node->setScope(nw->scope());
           bn_bias_cast_node->copyAttributes(*nw);
           conv->replaceInput(ib, bn_bias_cast_node->output(0));
+          // TODO - is this correct?
           stack.emplace_back(conv->input(2));
           graph->insertNode(bn_bias_cast_node);
         } else {

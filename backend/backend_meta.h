@@ -141,6 +141,22 @@ StorageExtraMeta* get_storage_extra_meta(
     const at::Tensor& tensor,
     bool relax = false);
 
+enum class ParamType { INVALID = 0, WEIGHT = 1, BIAS = 2, OTHERS = 3 };
+
+inline constexpr std::string_view to_string(const ParamType& t) {
+  switch (t) {
+    case ParamType::INVALID:
+      return "INVALID";
+    case ParamType::WEIGHT:
+      return "WEIGHT";
+    case ParamType::BIAS:
+      return "BIAS";
+    case ParamType::OTHERS:
+      return "OTHERS";
+  }
+  return "<UNKNOWN_PARAM_TYPE>";
+}
+
 struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::intrusive_ptr<BaseTensorExtraMeta> clone(
       const c10::intrusive_ptr<BaseTensorExtraMeta>& ptr) const override {
@@ -416,6 +432,38 @@ inline TensorExtraMeta* get_tensor_extra_meta(
   auto impl{tensor.unsafeGetTensorImpl()};
   TORCH_CHECK(impl, "No impl");
   return get_tensor_extra_meta(*impl, relax);
+}
+
+inline bool is_tensor_const(const at::TensorImpl& impl, bool relax = false) {
+  return get_ctensor_extra_meta(impl, relax)->is_const_tensor();
+}
+
+inline bool is_tensor_const(const at::Tensor& tensor, bool relax = false) {
+  return get_tensor_extra_meta(tensor, relax)->is_const_tensor();
+}
+
+inline void set_tensor_const(
+    const at::Tensor& tensor,
+    bool is_const,
+    bool relax = false) {
+  get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_const);
+}
+
+inline void get_and_set_tensor_const(
+    const at::Tensor& tensor_src,
+    const at::Tensor& tensor,
+    bool relax = false) {
+  auto is_src_const =
+      get_tensor_extra_meta(tensor_src, relax)->is_const_tensor();
+  get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_src_const);
+}
+
+inline void get_and_set_tensor_const(
+    const at::TensorImpl& impl,
+    const at::Tensor& tensor,
+    bool relax = false) {
+  auto is_src_const = get_ctensor_extra_meta(impl, relax)->is_const_tensor();
+  get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_src_const);
 }
 
 } // namespace habana

@@ -73,6 +73,9 @@ using namespace at;
 namespace {
 void AddMemcpy(const Tensor& src, Tensor& dst) {
   using namespace habana_lazy;
+  // propagate constant tensor status through copy
+  habana::get_and_set_tensor_const(src, dst);
+
   if ((src.numel() < dst.numel()) || (src.dim() < dst.dim())) {
     // using crude check of numel() to determine broadcast scenario to avoid
     // increase in host time
@@ -568,8 +571,13 @@ Tensor& copy_hpu_lazy_D2D(
     bool non_blocking) {
   PT_LAZY_TRACE;
 
+  auto is_src_const = habana::is_tensor_const(src_);
+  habana::set_tensor_const(self_, is_src_const);
+
   auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
   auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
+
+  habana::set_tensor_const(self, is_src_const);
   HbLazyTensor hb_tensor = GetHbLazyTensor(src);
 
   auto self_dtype = ((self.scalar_type() == c10::ScalarType::Long) ||
@@ -594,11 +602,15 @@ Tensor& copy_hpu_lazy_D2D(
       [self_, src_, self_dtype, non_blocking, no_conversion]() mutable {
         ir::NodePtr node;
         std::vector<at::Tensor> input_pt_vec;
+        auto is_src_const = habana::is_tensor_const(src_);
+        habana::set_tensor_const(self_, is_src_const);
         // pick the most recent version of src tensor
         auto src = HbLazyTensorViews::get_recent_base_tensor(src_);
         auto self = HbLazyTensorViews::get_recent_base_tensor(self_);
+        habana::set_tensor_const(self, is_src_const);
         HbLazyTensor hb_tensor = GetHbLazyTensor(src);
         auto hlresult = GetHbLazyTensor(self);
+
         auto layout_format = hb_tensor.GetTensorLayout();
         hlresult.SetTensorLayout(layout_format);
 
@@ -639,7 +651,9 @@ Tensor& copy_hpu_lazy_D2D(
             auto src_cast = empty_hpu_lazy(
                 src.sizes(), options, src.suggest_memory_format(), false);
 
+            habana::set_tensor_const(src_cast, is_src_const);
             auto hl_src_cast = GetHbLazyTensor(src_cast);
+
             hl_src_cast.IrSetNode(node);
             flush_op(1);
 
@@ -685,6 +699,7 @@ Tensor permute_hpu_lazy_internal(const Tensor& self, IntArrayRef dims_in) {
           PermuteOperator::compute_output_shape(self, dims.vec());
       auto result =
           empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
+      habana::get_and_set_tensor_const(self, result);
       return result;
     }
   };
@@ -975,6 +990,7 @@ static Tensor permute_hpu_lazy_phy(const Tensor& self, IntArrayRef dims_in) {
           PermuteOperator::compute_output_shape(self, dims.vec());
       auto result =
           empty_strided_hpu_lazy(new_sizes, new_strides, self.options(), false);
+      habana::get_and_set_tensor_const(self, result);
       return result;
     }
   };
@@ -989,6 +1005,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   habana_lazy::NoAccThread no_acc_thread;
 
   bool processed = false;
+  auto is_src_const = habana::is_tensor_const(src_);
+  habana::set_tensor_const(self, is_src_const);
   auto src = src_.contiguous(src_.suggest_memory_format());
   InitSizesAndStrides(
       self,
@@ -1027,7 +1045,9 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
           src.suggest_memory_format());
       // Setup the tensor sizes & strides for tensor with dim = 4, else for
       // now assuming contiguous
+      habana::set_tensor_const(at_internal_tensor, is_src_const);
       self_hb_tensor.SetTensorData(at_internal_tensor);
+      self_hb_tensor.SetIsConstTensor(is_src_const);
     }
   }
   auto new_tensor = preProcessIfLongorDouble(src, self, processed);
@@ -1071,6 +1091,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
         VecToString(synapse_permute))
     smeta->set_memory_permutation({});
   }
+  habana::set_tensor_const(self_internal_tesor, is_src_const);
 
   // self may have been resized, so re-set its size and strides
   self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -1117,6 +1138,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
     strided_insert_hpu_lazy(self, self, false);
   }
 
+  habana::set_tensor_const(self, is_src_const);
+
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   flush_op(1);
@@ -1136,6 +1159,9 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
       dst_device == c10::DeviceType::HPU) {
     is_d2d_copy = true;
   }
+
+  auto is_src_const = habana::is_tensor_const(src);
+  habana::set_tensor_const(self, is_src_const);
 
   // If it isnt a device to device copy, we are transferring data to and
   // from CPU. This becomes an execution step point and we need to flush
@@ -1157,8 +1183,10 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
               self.options(),
               c10::MemoryFormat::Contiguous,
               false);
+          habana::set_tensor_const(insert_t, is_src_const);
           copy_hpu_lazy_H2D(insert_t, src, non_blocking);
           HbLazyTensorViews::HandleViewsD2D(insert_t, self);
+          habana::set_tensor_const(self, is_src_const);
           return self;
         }
       }
@@ -1170,6 +1198,7 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     self = copy_hpu_lazy_D2D(self, src, non_blocking);
   }
 
+  habana::set_tensor_const(self, is_src_const);
   return self;
 }
 
@@ -1305,6 +1334,7 @@ Tensor empty_as_strided_lazy(
   auto tmeta_internal_tensor{get_tensor_extra_meta(at_internal_tensor)};
   auto layout_format = tmeta_self->get_tensor_layout();
   tmeta_internal_tensor->set_tensor_layout(layout_format);
+  tmeta_internal_tensor->set_is_const_tensor(tmeta_self->is_const_tensor());
 
   return at_internal_tensor;
 }
@@ -1475,6 +1505,7 @@ Tensor as_strided_hpu_lazy(
         true /*is_update_view*/,
         c10::nullopt);
 
+    habana::get_and_set_tensor_const(self, out);
     if (habana_lazy_executor.getExecutionMode() != kLOWERING) {
       flush_op(1);
     }
@@ -5193,6 +5224,7 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
     if (self.dim() == 0 && self.numel() == 1)
       return {self.clone()};
     auto out = at::native::permute(self, dims_in);
+    habana::get_and_set_tensor_const(self, out);
     auto param_setter = [dims_in = dims_in.vec()](
                             const Tensor& self, StrideParams& strided_param) {
       strided_param.optype = kStridedOpPermute;

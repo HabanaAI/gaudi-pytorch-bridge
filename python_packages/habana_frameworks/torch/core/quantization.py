@@ -15,6 +15,7 @@ from os import environ
 
 import torch
 from habana_frameworks.torch import hpu
+from habana_frameworks.torch import _core_C
 from habana_frameworks.torch.utils import _experimental_C
 from torch.fx import symbolic_trace
 
@@ -64,6 +65,25 @@ def _handle_quant_stats(model=None):
             except:
                 pass
 
+def _mark_params_as_const(model=None) -> None:
+    if model is None:
+        return
+    for param, param_t in model.state_dict().items():
+        try:
+            param_t_meta = _core_C.get_new_tensor_extra_meta(param_t)
+        except (RuntimeError):
+            param_t_meta = _core_C.get_tensor_extra_meta(param_t)
+        param_t_meta.is_const_tensor = True
+        param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
+        is_const = param_t_meta_copy.is_const_tensor
+
+def _check_params_as_const(model=None) -> None:
+    if model is None:
+        return
+    for param, param_t in model.state_dict().items():
+        param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
+        is_const = param_t_meta_copy.is_const_tensor
+
 def hpu_initialize(model=None, optimizer=None, args=None):
     if "PT_HPU_INFERENCE_MODE" not in environ:
         environ["PT_HPU_INFERENCE_MODE"] = "1"
@@ -73,6 +93,7 @@ def hpu_initialize(model=None, optimizer=None, args=None):
     if "GRECO_INFERENCE" not in environ:
         environ["GRECO_INFERENCE"] = "1"
     if model is not None:
+        #_mark_params_as_const(model=model)
         _read_min_max_overwrite()
         with _e_handler():
             _handle_quant_stats(model)

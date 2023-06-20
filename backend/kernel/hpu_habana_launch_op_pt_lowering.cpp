@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include <cstdint>
 #include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -267,7 +268,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
 static void getTensorSectionId(
     const synRecipeHandle& recipeHandle,
     const synTensor& tensor,
-    synSectionId& sectionId) {
+    synSectionId& sectionId,
+    bool& isInput) {
   synStatus status;
   uint32_t numOfTensors = 0;
   status = synTensorRetrieveLaunchAmount(recipeHandle, &numOfTensors);
@@ -296,10 +298,12 @@ static void getTensorSectionId(
   for (unsigned tensorIdx = 0; tensorIdx < numOfTensors; tensorIdx++) {
     if (strcmp(tensorInfos[tensorIdx].tensorName, tensorName) == 0) {
       sectionId = tensorInfos[tensorIdx].tensorSectionId;
+      isInput = (tensorInfos[tensorIdx].isInput != 0);
       return;
     }
   }
   sectionId = INVALID_SECTION_ID;
+  isInput = true;
 }
 
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
@@ -321,9 +325,18 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               "tensor is_const_tensor:  ", tmeta->is_const_tensor());
           uint64_t section_size = 0, section_data = 0;
           synSectionId tensorSectionId;
+          bool isInput;
           getTensorSectionId(
-              rv.recipe->syn_recipe_handle_, tensor.get(), tensorSectionId);
+              rv.recipe->syn_recipe_handle_,
+              tensor.get(),
+              tensorSectionId,
+              isInput);
+          if (!isInput) {
+            PT_BRIDGE_DEBUG("non-input tensor section ID:  ", tensorSectionId);
+            continue;
+          }
           HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
+          PT_BRIDGE_DEBUG("tensor section ID:  ", tensorSectionId);
           synStatus status;
           status = synRecipeSectionGetProp(
               rv.recipe->syn_recipe_handle_,

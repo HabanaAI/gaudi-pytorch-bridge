@@ -28,6 +28,12 @@ int GetCurrentThreadDevice() {
 
 class SharedTensorExtraMeta {
  public:
+  auto set_is_const_tensor(bool is_const_tensor) {
+    return get().set_is_const_tensor(is_const_tensor);
+  }
+  auto get_is_const_tensor() const {
+    return get().is_const_tensor();
+  }
   const habana::TensorExtraMeta& get() const {
     return tmeta_;
   }
@@ -59,6 +65,43 @@ class SharedTensorExtraMeta {
     return std::optional<SharedTensorExtraMeta>(
         SharedTensorExtraMeta(meta, *tmeta_ptr));
   }
+  static std::optional<SharedTensorExtraMeta> create_new(at::Tensor& tensor) {
+    auto impl{tensor.unsafeGetTensorImpl()};
+    TORCH_CHECK(
+        impl != nullptr,
+        "Cannot obtain the TensorImpl from the tensor provided");
+#if IS_PYTORCH_AT_LEAST(2, 1)
+    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
+        impl->get_backend_meta(), {});
+#else
+    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
+        impl->get_backend_meta());
+#endif
+    TORCH_CHECK(
+        meta == nullptr,
+        "Cannot create a new backend meta as one already exists");
+    c10::intrusive_ptr<c10::BackendMeta> new_tmeta{
+        std::unique_ptr<c10::BackendMeta>(new habana::TensorExtraMeta())};
+    impl->set_backend_meta(new_tmeta);
+    meta = impl->get_backend_meta();
+    TORCH_CHECK(meta == new_tmeta, "Attached meta not the same as created");
+    auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
+    TORCH_CHECK(
+        tmeta_ptr != nullptr,
+        "Got BackendMeta ",
+        meta.get(),
+        " but it is not habana::TensorExtraMeta");
+    PT_EAGER_DEBUG(
+        "Producing SharedTensorExtraMeta for impl : ",
+        impl,
+        " tensor meta at address ",
+        tmeta_ptr,
+        " storage address : ",
+        tensor.data_ptr());
+
+    return std::optional<SharedTensorExtraMeta>(
+        SharedTensorExtraMeta(meta, *tmeta_ptr));
+  }
 
  private:
   c10::intrusive_ptr<habana::BaseTensorExtraMeta> tmeta_ref_holder_;
@@ -83,7 +126,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("_get_default_generator", []() {
     return habana::getDefaultHPUGenerator();
   });
-  m.doc() = "This module registers hpu lazy api.";
-  py::class_<SharedTensorExtraMeta>(m, "TensorExtraMeta");
+  py::class_<SharedTensorExtraMeta>(m, "TensorExtraMeta")
+      .def_property(
+          "is_const_tensor",
+          &SharedTensorExtraMeta::get_is_const_tensor,
+          &SharedTensorExtraMeta::set_is_const_tensor);
   m.def("get_tensor_extra_meta", &SharedTensorExtraMeta::create);
+  m.def("get_new_tensor_extra_meta", &SharedTensorExtraMeta::create_new);
+  m.doc() = "This module registers hpu lazy api.";
 }

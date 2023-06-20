@@ -137,3 +137,46 @@ def test_shallow_copy_free4():
     hres2_cpu = hres2.cpu()
     assert(torch.allclose(res1, hres1_cpu, atol = 0.001, rtol = 0.001))
     assert(torch.allclose(res2, hres2_cpu, atol = 0.001, rtol = 0.001))
+
+def test_shallow_copy_param_free():
+    def fn_copy(param, dst_tensor, dev):
+        dst_tensor.copy_(param)
+        param.data = torch.empty(0, dtype = torch.float , device=dev)
+        return dst_tensor
+
+    def fn(x, dev):
+        y = x.add(1.0)
+        x.data = torch.empty(0, dtype = x.dtype).to(dev)
+        z = y.add(1.0)
+        return y
+
+    #CPU
+    a = torch.randn([2, 3])
+    ha = a.to('hpu')
+    dst_a = torch.randn([2, 3])
+    hdst_a = dst_a.to('hpu')
+
+    class test_module(torch.nn.Module):
+        def __init__(self, tensor):
+            super(test_module, self).__init__()
+            self.param = torch.nn.Parameter(tensor)
+
+        def forward(self, tensor):
+            x = tensor + self.param
+            return x
+
+        def get_param(self):
+            return self.param
+
+    module = test_module(tensor=a)
+    module.eval()
+    h_module = test_module(tensor=ha)
+    h_module.eval()
+    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
+    _mark_params_as_const(h_module)
+
+    with torch.no_grad():
+        dst_a = fn_copy(module.get_param(), dst_a, 'cpu')
+        hdst_a = fn_copy(h_module.get_param(), hdst_a, 'hpu')
+
+        assert(torch.allclose(dst_a, hdst_a.cpu()))

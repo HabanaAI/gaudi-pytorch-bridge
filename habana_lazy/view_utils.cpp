@@ -69,6 +69,7 @@ at::Tensor add_slice_insert_node(
   auto node = std::make_shared<ir::SliceInsert>(orig_t, insert_t, paramsvec);
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
+  habana::get_and_set_tensor_const(orig_t, result);
   auto hl_result = GetHbLazyTensor(result);
   hl_result.IrSetNode(node);
   flush_op(1);
@@ -230,6 +231,7 @@ Tensor add_strided_insert_node(
   }
   auto result = empty_hpu_lazy(
       orig_t.sizes(), orig_t.options(), orig_t.suggest_memory_format(), false);
+  habana::get_and_set_tensor_const(orig_t, result);
   auto hl_result = GetHbLazyTensor(result);
   hl_result.IrSetNode(node);
 
@@ -552,7 +554,9 @@ Tensor HbLazyTensorViews::process_strided_view(
 
 Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
   PT_LAZY_TRACE;
+  auto is_src_const = habana::is_tensor_const(src);
   auto out = src;
+  habana::set_tensor_const(out, is_src_const);
   auto hl_t = GetHbLazyTensor(src);
 
   bool is_view = hl_t.getDataPtr()->stride_params.has_value();
@@ -599,16 +603,22 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
           c10::MemoryFormat::Contiguous);
       at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
           src.unsafeGetTensorImpl()->storage_offset());
+
+      habana::set_tensor_const(at_internal_tensor, is_src_const);
       hl_t.SetTensorData(at_internal_tensor);
+      hl_t.SetIsConstTensor(is_src_const);
     } else {
       HandleViews(src, hl_t);
       hl_t = GetHbLazyTensor(src);
+
+      hl_t.SetIsConstTensor(is_src_const);
       std::vector<HbLazyTensor> tensors = {hl_t};
       HbLazyTensor::SyncTensorsGraph(&tensors);
     }
   } else {
     // check for updated version
     out = get_recent_base_tensor(src);
+    habana::set_tensor_const(out, is_src_const);
   }
 
   return out;

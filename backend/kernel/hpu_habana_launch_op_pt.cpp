@@ -1812,252 +1812,24 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 }
 
-void HabanaLaunchOpPT::ProcessNodesForConstantTensors() {
-  // for each node, we verify all the cases where the tensors can be constants.
-  // One such case is T followed by addmm/ matmul and input to transpose is
-  // constant. Bias to mm/matmul is constant. For other cases such as Linear and
-  // Convolution, constants are marked directly in AllocateAndAddSynapseNode as
-  // it's not optimal here to again do string and shape comparison to find
-  // weights when we already have it in AllocateAndAddSynapseNode
-  torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
-  for (auto* node : graph_nodes) {
-    PT_BRIDGE_DEBUG(
-        ": Node is : ",
-        node->kind().toQualString(),
-        " and scope is : ",
-        node->scope()->name().toUnqualString());
-    if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
-      auto cast_uses = node->output(0)->uses();
-      for (auto cast_u : cast_uses) {
-        PT_BRIDGE_DEBUG(
-            ": comsumer of cast: ", cast_u.user->kind().toQualString());
-        if (cast_u.user->kind() == torch::jit::aten::t) {
-          auto uses = cast_u.user->output(0)->uses();
-          for (auto u : uses) {
-            PT_BRIDGE_DEBUG(
-                ": consumer of Transpose: ", u.user->kind().toQualString());
-            auto mm_node = u.user;
-            if (mm_node->scope()->name().toUnqualString() ==
-                    cast_u.user->scope()->name().toUnqualString() &&
-                strcmp(cast_u.user->scope()->name().toUnqualString(), "") !=
-                    0) {
-              if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
-                PT_BRIDGE_DEBUG(
-                    ": Transpose has same scope as : ",
-                    mm_node->kind().toQualString(),
-                    " and scope is : ",
-                    mm_node->scope()->name().toUnqualString());
-                // Setting Transpose input as Constant
-                auto value_in = node->input(0);
-
-                if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                  PT_BRIDGE_DEBUG(": wt not present is it bf16 test ?");
-                  continue;
-                }
-                auto tensor = value_to_ivalue[value_in]->toTensor();
-                TensorExtraMeta::set_const_tensor(tensor, true);
-                // Setting Bias
-                if (mm_node->input(0)->node()) {
-                  PT_BRIDGE_DEBUG(
-                      "set bias from : ",
-                      mm_node->input(0)->node()->kind().toUnqualString(),
-                      " as const");
-                  value_in = mm_node->input(0)->node()->input(0);
-                  if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                    PT_BRIDGE_DEBUG(": bias not present, is it bf16 test ?");
-                    continue;
-                  }
-                  auto tensor = value_to_ivalue[value_in]->toTensor();
-                  TensorExtraMeta::set_const_tensor(tensor, true);
-                }
-              }
-              if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
-                PT_BRIDGE_DEBUG(
-                    ": Transpose has same scope as : ",
-                    mm_node->kind().toQualString(),
-                    " and scope is : ",
-                    mm_node->scope()->name().toUnqualString());
-                auto value_in = node->input(0);
-                if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-                  PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-                  continue;
-                }
-                auto tensor = value_to_ivalue[value_in]->toTensor();
-                TensorExtraMeta::set_const_tensor(tensor, true);
-              }
-            }
-          }
-        } else if (
-            cast_u.user->kind() == torch::jit::aten::convolution_overrideable) {
-          PT_BRIDGE_DEBUG(
-              ": Conv : ",
-              cast_u.user->kind().toQualString(),
-              " and scope is : ",
-              cast_u.user->scope()->name().toUnqualString());
-          auto value_in = node->input(0);
-          if (node->output(0) == cast_u.user->input(0)) {
-            PT_BRIDGE_DEBUG(" Input to conv: dont set to const section");
-            continue;
-          } else if (node->output(0) == cast_u.user->input(1)) {
-            PT_BRIDGE_DEBUG(" wt of conv: ")
-          } else if (node->output(0) == cast_u.user->input(2)) {
-            PT_BRIDGE_DEBUG(" bias of conv:");
-          } else {
-            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor:");
-            continue;
-          }
-          if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-            PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-            continue;
-          }
-          auto tensor = value_to_ivalue[value_in]->toTensor();
-          TensorExtraMeta::set_const_tensor(tensor, true);
-        } else if (cast_u.user->kind() == torch::jit::aten::linear) {
-          PT_BRIDGE_DEBUG(
-              ": linear : ",
-              cast_u.user->kind().toQualString(),
-              " and scope is : ",
-              cast_u.user->scope()->name().toUnqualString());
-          auto value_in = node->input(0);
-          if (node->output(0) == cast_u.user->input(0)) {
-            PT_BRIDGE_DEBUG(" Input to linear: dont set to const section");
-            continue;
-          } else if (node->output(0) == cast_u.user->input(1)) {
-            PT_BRIDGE_DEBUG(" wt of linear: ")
-          } else if (node->output(0) == cast_u.user->input(2)) {
-            PT_BRIDGE_DEBUG(" bias of linear:");
-          } else {
-            PT_BRIDGE_DEBUG(" unexpected Ignore the tensor:");
-            continue;
-          }
-          if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-            PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-            continue;
-          }
-          auto tensor = value_to_ivalue[value_in]->toTensor();
-          TensorExtraMeta::set_const_tensor(tensor, true);
-        }
-      }
+void HabanaLaunchOpPT::ProcessGraphForConstantTensors() {
+  PT_BRIDGE_BEGIN;
+  for (auto value_input : jit_ir_graph->inputs()) {
+    if (value_to_ivalue.find(value_input) == value_to_ivalue.end()) {
+      continue;
     }
-    if (node->kind() == torch::jit::aten::t) {
-      auto uses = node->output(0)->uses();
-      for (auto u : uses) {
-        PT_BRIDGE_DEBUG(
-            ": consumer of Transpose: ", u.user->kind().toQualString());
-        auto mm_node = u.user;
-        if (mm_node->scope()->name().toUnqualString() ==
-                node->scope()->name().toUnqualString() &&
-            strcmp(node->scope()->name().toUnqualString(), "") != 0) {
-          auto bias_idx = 0;
-          if (strcmp(mm_node->kind().toQualString(), "aten::addmm") == 0) {
-            PT_BRIDGE_DEBUG(
-                ": Transpose has same scope as : ",
-                mm_node->kind().toQualString(),
-                " and scope is : ",
-                mm_node->scope()->name().toUnqualString());
-            // Setting Bias
-            mm_node->input(0) == node->output(0) ? bias_idx = 1 : bias_idx = 0;
-            PT_BRIDGE_DEBUG(": bias_idx ", bias_idx);
-            auto mm_value_in = mm_node->input(bias_idx);
-            if (value_to_ivalue.find(mm_value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-              continue;
-            }
-            auto mm_tensor = value_to_ivalue[mm_value_in]->toTensor();
-            TensorExtraMeta::set_const_tensor(mm_tensor, true);
-            // Setting Transpose input as Constant
-            auto value_in = node->input(0);
-
-            if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-              continue;
-            }
-            auto tensor = value_to_ivalue[value_in]->toTensor();
-            TensorExtraMeta::set_const_tensor(tensor, true);
-          }
-          if (strcmp(mm_node->kind().toQualString(), "aten::matmul") == 0) {
-            PT_BRIDGE_DEBUG(
-                ": Transpose has same scope as : ",
-                mm_node->kind().toQualString(),
-                " and scope is : ",
-                mm_node->scope()->name().toUnqualString());
-            auto value_in = node->input(0);
-            if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-              PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-              continue;
-            }
-            auto tensor = value_to_ivalue[value_in]->toTensor();
-            TensorExtraMeta::set_const_tensor(tensor, true);
-          }
-        }
-      }
-    } else if (node->kind() == torch::jit::aten::convolution_overrideable) {
-      PT_BRIDGE_DEBUG(
-          ": Conv : ",
-          node->kind().toQualString(),
-          " and scope is : ",
-          node->scope()->name().toUnqualString());
-      auto value_in = node->input(1);
-      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": conv wt not present is it bf16 test ?");
-        continue;
-      }
-      auto tensor = value_to_ivalue[value_in]->toTensor();
+    if (!value_to_ivalue[value_input]->isTensor()) {
+      continue;
+    }
+    auto tensor = value_to_ivalue[value_input]->toTensor();
+    auto is_const_tensor = habana::is_tensor_const(tensor);
+    if (is_const_tensor) {
       TensorExtraMeta::set_const_tensor(tensor, true);
-      // assumption is conv will always have bias in inference
-      value_in = node->input(2);
-      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": conv bias not present is it bf16 test ?");
-        continue;
-      }
-      tensor = value_to_ivalue[value_in]->toTensor();
-      TensorExtraMeta::set_const_tensor(tensor, true);
-    } else if (node->kind() == torch::jit::aten::linear) {
-      PT_BRIDGE_DEBUG(
-          ": linear : ",
-          node->kind().toQualString(),
-          " and scope is : ",
-          node->scope()->name().toUnqualString());
-      auto value_in = node->input(1);
-      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-        continue;
-      }
-      auto tensor = value_to_ivalue[value_in]->toTensor();
-      TensorExtraMeta::set_const_tensor(tensor, true);
-      if (node->inputs().size() > 2) {
-        value_in = node->input(2);
-        auto value_exists = value_to_ivalue.find(value_in);
-        if (value_exists != std::end(value_to_ivalue)) {
-          tensor = value_to_ivalue[value_in]->toTensor();
-          TensorExtraMeta::set_const_tensor(tensor, true, true);
-        }
-      }
-    } else if (
-        strcmp(node->kind().toQualString(), "hpu::native_batch_norm_inf") ==
-        0) {
-      PT_BRIDGE_DEBUG(
-          ": BatchNorm : ",
-          node->kind().toQualString(),
-          " and scope is : ",
-          node->scope()->name().toUnqualString());
-      auto value_in = node->input(1);
-      if (value_to_ivalue.find(value_in) == value_to_ivalue.end()) {
-        PT_BRIDGE_DEBUG(": not present is it bf16 test ?");
-        continue;
-      }
-      auto tensor = value_to_ivalue[value_in]->toTensor();
-      TensorExtraMeta::set_const_tensor(tensor, true);
-      if (node->inputs().size() > 2) {
-        value_in = node->input(2);
-        auto value_exists = value_to_ivalue.find(value_in);
-        if (value_exists != std::end(value_to_ivalue)) {
-          tensor = value_to_ivalue[value_in]->toTensor();
-          TensorExtraMeta::set_const_tensor(tensor, true, true);
-        }
-      }
+    } else {
+      continue;
     }
   }
+  PT_BRIDGE_END;
 }
 
 void HabanaLaunchOpPT::BuildSynapseGraph(
@@ -2084,8 +1856,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
-    ProcessNodesForConstantTensors();
   // This is an optimization pass to mark all the nodes with sepcial layout
   // like weights which have HWCK Only activated in lazy mode for now
   bool is_jit_cached_graph_info_available =
@@ -3814,6 +3584,7 @@ void HabanaLaunchOpPT::run(
   }
 
   CreateValueToIvalueMapForInputs();
+  ProcessGraphForConstantTensors();
 
   if (enable_shape_agnostic_caching_) {
     ValidateInputsAndOutputsAndDisableSA(input_refs);

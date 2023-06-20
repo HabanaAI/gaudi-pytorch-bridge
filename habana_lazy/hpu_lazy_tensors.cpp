@@ -233,7 +233,9 @@ HbLazyTensor::HbLazyTensor(std::shared_ptr<Data> data)
 HbLazyTensor HbLazyTensor::Create(
     const at::Tensor& tensor,
     const c10::Device& device) {
+  auto is_tensor_const = habana::is_tensor_const(tensor);
   HbLazyTensor habana_tensor(tensor, device);
+  habana_tensor.SetIsConstTensor(is_tensor_const);
   HbContextArena::Get()->RegisterTensor(habana_tensor.getDataPtr());
   return habana_tensor;
 }
@@ -568,6 +570,7 @@ void HbLazyTensor::ClearAndAssignNewIrValue() {
   AssignIrValue(val);
 }
 
+// cannot add constant support here as tensor not present
 HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
     c10::IntArrayRef size,
     at::Scalar fill_value,
@@ -957,6 +960,12 @@ torch::jit::Stack PrepareInputStack(
     }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     auto pt_tensor = Process0DTensor(d);
+    auto is_const_tensor = habana::is_tensor_const(pt_tensor);
+
+    if (d->is_const_tensor && !is_const_tensor) {
+      habana::set_tensor_const(pt_tensor, d->is_const_tensor);
+    }
+
     stack.emplace_back(pt_tensor);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here

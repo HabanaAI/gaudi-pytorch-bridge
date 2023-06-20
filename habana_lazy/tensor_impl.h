@@ -163,6 +163,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
   static void AtenInitialize();
 
+  void SetIsConstTensor(bool is_const) {
+    get_tensor_extra_meta().set_is_const_tensor(is_const);
+  }
+
+  bool IsConstTensor() const {
+    return get_ctensor_extra_meta().is_const_tensor();
+  }
+
   const habana::TensorExtraMeta& get_ctensor_extra_meta() const {
     return *habana::get_ctensor_extra_meta(*this);
   }

@@ -177,6 +177,9 @@ struct Data {
   // that particular graph execution.
   int version = 0;
   std::atomic<int64_t> running_cntr = -1; // -1 is invalid tensor ID.
+  // used for carrying constant tensor metadata from aten::tensor to lazy to
+  // backend tensor
+  bool is_const_tensor = false;
 };
 
 struct HbLazyFrontEndInfoToBackend {
@@ -484,6 +487,14 @@ class HbLazyTensor {
   }
 
   bool created_as_zero_size_tensor = false;
+
+  bool IsConstTensor() const {
+    return data()->is_const_tensor;
+  }
+
+  void SetIsConstTensor(bool is_const) {
+    data()->is_const_tensor = is_const;
+  }
 
  private:
   Data* data() const;
