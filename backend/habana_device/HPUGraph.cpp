@@ -85,12 +85,25 @@ void HPUGraph::capture_end() {
 
   // Save all input lazy tensors and free the output IR values
   for (size_t i = 0; i < captured_graphs.size(); i++) {
-    for (auto& in : captured_graphs[i]->input_vals_) {
-      std::shared_ptr<habana_lazy::Data> d = in.m_data_ptr.lock();
-      captured_graphs[i]->hblazy_tensors_in_.emplace_back(
-          habana_lazy::HbLazyTensor(std::move(d)));
+    auto single_graph = captured_graphs[i];
+    auto num_inputs = single_graph->input_vals_.size() +
+        single_graph->user_input_indices_.size();
+    size_t saved_input_idx = 0;
+    for (size_t inp = 0; inp < num_inputs; ++inp) {
+      if (single_graph->user_input_indices_.count(inp) > 0) {
+        single_graph->hblazy_tensors_in_.emplace_back(
+            habana_lazy::HbLazyTensor());
+      } else {
+        std::shared_ptr<habana_lazy::Data> d =
+            single_graph->input_vals_[saved_input_idx++].m_data_ptr.lock();
+        single_graph->hblazy_tensors_in_.emplace_back(
+            habana_lazy::HbLazyTensor(std::move(d)));
+      }
     }
   }
+
+  // Clear the user marked inputs list
+  context->ClearHPUGraphUserMarkedInputs();
 
   // Not enabling DS back once HPU graph detected
   /*if (dynamic_env_) {
@@ -122,6 +135,7 @@ void HPUGraph::mark_step() {
       context->getInputs(),
       context->getOutputs(),
       context->getHbLazyTensors(),
+      context->getUserInputIndices(),
       context->getSeedTensorMap(),
       context->getHash(),
       context->getGraphKey(),
@@ -304,7 +318,10 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   }
 }
 
-void HPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
+void HPUGraph::replayV3(
+    std::vector<at::Tensor>& outputs,
+    std::vector<at::Tensor>& inputs,
+    bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (capturing_ == true) {
@@ -338,8 +355,25 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
         captured_graphs[i]->hblazy_tensors_out_[tensorIdx] = hb_lt;
       }
     }
-    captured_graphs[i]->replayV3(outputs, async);
+    captured_graphs[i]->replayV3(outputs, inputs, async);
   }
+}
+
+void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
+  PT_LAZY_TRACE;
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  if (capturing_ == false) {
+    // if capturing is not in progress, mark_user_inputs is not allowed.
+    PT_DEVICE_FATAL(
+        "GRAPH:: mark_user_inputs must be while capturing in progress");
+    return;
+  }
+
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+
+  habana_lazy::HbExecutionContext* context =
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+  context->setMarkedInputs(static_inputs);
 }
 
 HPUGraph::~HPUGraph() {
@@ -429,12 +463,30 @@ void SingleHPUGraph::replay(bool async) {
   }
 }
 
-void SingleHPUGraph::replayV3(std::vector<at::Tensor>& outputs, bool async) {
+void SingleHPUGraph::replayV3(
+    std::vector<at::Tensor>& outputs,
+    std::vector<at::Tensor>& inputs,
+    bool async) {
   PT_DEVICE_DEBUG(
       "In HPUGraph::replayV3 with ", outputs.size(), " output tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
   if (graph_) {
-    return replayGraph(input_vals_, async);
+    auto num_inputs = input_vals_.size() + user_input_indices_.size();
+    habana_lazy::ir::ValueList input_val_list;
+    size_t saved_input_idx = 0;
+    for (size_t i = 0; i < num_inputs; ++i) {
+      if (user_input_indices_.count(i) > 0) {
+        input_val_list.emplace_back(
+            habana_lazy::GetHbLazyTensor(inputs[user_input_indices_[i]])
+                .CurrentIrValue());
+        hblazy_tensors_in_[i] =
+            habana_lazy::GetHbLazyTensor(inputs[user_input_indices_[i]]);
+      } else {
+        input_val_list.emplace_back(input_vals_[saved_input_idx]);
+        ++saved_input_idx;
+      }
+    }
+    return replayGraph(input_val_list, async);
   }
 }
 

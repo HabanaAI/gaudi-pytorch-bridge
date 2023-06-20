@@ -256,11 +256,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "replayV3",
       [](at::hpu::HPUGraph& graph,
          std::vector<at::Tensor>& outputs,
-         bool async = false) { graph.replayV3(outputs, async); });
+         std::vector<at::Tensor>& inputs,
+         bool async = false) { graph.replayV3(outputs, inputs, async); });
   m.def(
       "mark_user_outputs",
       [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& outputs) {
         graph.mark_user_outputs(outputs);
+      });
+  m.def(
+      "mark_user_inputs",
+      [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& static_inputs) {
+        graph.mark_user_inputs(static_inputs);
       });
   m.def("enable_dynamic_shape", []() {
     habana_helpers::EnableRefineDynamicShape();

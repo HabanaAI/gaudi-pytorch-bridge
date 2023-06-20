@@ -51,17 +51,18 @@ class HPUGraph(object):
         """
         _hpu_C.replayV2(self.hpu_graph, static_tlist, tlist, asynchronous)
 
-    def replayV3(self, tlist: List[torch.Tensor], asynchronous=False):
+    def replayV3(self, tlistO: List[torch.Tensor], tlistI: List[torch.Tensor], asynchronous=False):
         r"""
         Replays the HPU work captured by this graph.
 
         Arguments:
-            tlist: List of output tensors for the graph replay
+            tlistO: List of output tensors for the graph replay
+            tlistI: List of input tensors for the graph replay
 
         .. warning::
             This API is in beta and may change in future releases.
         """
-        _hpu_C.replayV3(self.hpu_graph, tlist, asynchronous)
+        _hpu_C.replayV3(self.hpu_graph, tlistO, tlistI, asynchronous)
 
     def mark_user_outputs(self, static_tlist: List[torch.Tensor]):
         r"""
@@ -75,6 +76,17 @@ class HPUGraph(object):
         """
         _hpu_C.mark_user_outputs(self.hpu_graph, static_tlist)
 
+    def mark_user_inputs(self, static_tlist: List[torch.Tensor]):
+        r"""
+        Marks user provided input during graph capture
+
+        Arguments:
+            static_tlist: List of input tensors for the graph capture
+
+        .. warning::
+            This API is in beta and may change in future releases.
+        """
+        _hpu_C.mark_user_inputs(self.hpu_graph, static_tlist)
 
 class graph(object):
     r"""
@@ -337,6 +349,17 @@ def copy_to(dst, src):
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
+def get_user_input_tensor_list(inputs, tlist):
+    if isinstance(inputs, dict):
+        for inp in inputs.items():
+            tlist = get_user_input_tensor_list(inp, tlist)
+    elif isinstance(inputs, list) or isinstance(inputs, tuple):
+        for inp in inputs:
+            tlist = get_user_input_tensor_list(inp, tlist)
+    elif torch.is_tensor(inputs):
+        tlist = tlist + (inputs, )
+    return tlist
+
 def is_seq_of_tensor(obj):
     if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, str):
         for mem in obj:
@@ -480,33 +503,36 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, use_tensor_c
         with htorch.hpu.stream(stream):
             graph = htorch.hpu.HPUGraph()
             graph.capture_begin()
+            input_tensor_list = get_user_input_tensor_list(inputs, ())
+            if not use_tensor_cache:
+                graph.mark_user_inputs(input_tensor_list)
             outputs = orig_fwd(*args, **kwargs)
             graph.capture_end()
-            graph_inputs = inputs
             graph_outputs = outputs
 
             if use_tensor_cache:
+                graph_inputs = inputs
                 tinfo_list = None
             else:
                 tlist = extract_tensors(outputs)
                 tinfo_list = [get_tensor_info(t) for t in tlist]
                 graph.mark_user_outputs(tlist)
+                graph_inputs = []
 
             cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
 
         return outputs
 
-    # Copy the user inputs
-    copy_to(cached.graph_inputs, inputs)
-
     # use replayv1 here
     if use_tensor_cache:
+        # Copy the user inputs
+        copy_to(cached.graph_inputs, inputs)
         cached.graph.replay(cached.asynchronous)
         out = cached.graph_outputs
     else:
         replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, False)
         out_tlist = extract_tensors(cached.graph_outputs)
-        cached.graph.replayV3(out_tlist, cached.asynchronous)
+        cached.graph.replayV3(out_tlist, get_user_input_tensor_list(inputs, ()), cached.asynchronous)
         out = detach_from_original_tensor(cached.graph_outputs)
         replace_tensors_in_object(cached.graph_outputs, cached.out_tinfo_list, True)
 

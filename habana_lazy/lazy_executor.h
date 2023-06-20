@@ -280,6 +280,18 @@ class HbExecutionContext {
     return m_scalar_to_tensor_map_mtx;
   }
 
+  std::unordered_map<size_t, size_t> getUserInputIndices() const noexcept {
+    return m_user_input_positions;
+  }
+
+  void setMarkedInputs(std::vector<at::Tensor>& marked_user_tensors) {
+    m_marked_user_inputs = marked_user_tensors;
+  }
+
+  void ClearHPUGraphUserMarkedInputs() {
+    m_marked_user_inputs.clear();
+  }
+
   void clear() {
     viewContext.hb_tensors_exclude_out_view.clear();
     m_retained_tensor_list.clear();
@@ -323,6 +335,7 @@ class HbExecutionContext {
     m_input_vals.clear();
     m_output_vals.clear();
     m_hblazy_tensors.clear();
+    m_user_input_positions.clear();
   }
 
   // We want to retain some tensors for special cases where PT releases them
@@ -387,7 +400,9 @@ class HbExecutionContext {
   std::string mp_g_op_strs = "";
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
+  std::vector<at::Tensor> m_marked_user_inputs;
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
+  std::unordered_map<size_t, size_t> m_user_input_positions;
   bool m_capturing_graph{false};
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
   std::unordered_map<int64_t, c10::optional<at::Generator>>

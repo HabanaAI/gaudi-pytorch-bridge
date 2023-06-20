@@ -121,11 +121,34 @@ void HbExecutionContext::saveInputsAndOutputs(
     ir::ValueList outputVals,
     std::vector<habana_lazy::HbLazyTensor>& tensors,
     const std::vector<int>& indices) {
+  m_user_input_positions.clear();
   m_input_vals.clear();
-  for (auto& val : inputVals) {
-    m_input_vals.emplace_back(val);
-  }
-
+  size_t idx = 0;
+  std::copy_if(
+      inputVals.begin(),
+      inputVals.end(),
+      std::back_inserter(m_input_vals),
+      [this, &idx](habana_lazy::ir::Value input_ir_v_) {
+        bool matched = false;
+        size_t input_tensor_idx = 0;
+        for (auto& m_marked_user_input_t : m_marked_user_inputs) {
+          if (input_ir_v_.m_data_ptr.lock()->unique_id ==
+              habana_lazy::GetHbLazyTensor(m_marked_user_input_t)
+                  .getTensorUniqueId()) {
+            matched = true;
+            break;
+          }
+          ++input_tensor_idx;
+        }
+        if (matched) {
+          // Input value idx matched one of the user marked inputs
+          // Note the input position (idx) for the input tensor idx
+          m_user_input_positions[idx] = input_tensor_idx;
+        }
+        ++idx;
+        // Only hold on to the input val if this isn't a user given input
+        return !matched;
+      });
   m_output_vals.clear();
   for (auto& val : outputVals) {
     m_output_vals.emplace_back(val);
