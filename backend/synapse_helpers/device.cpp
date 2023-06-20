@@ -1663,6 +1663,7 @@ std::string device::get_device_properties(int id) {
       ", tpcEnabledMask=" + std::to_string(device_info.tpcEnabledMask) +
       ", dramEnabled=" + std::to_string(device_info.dramEnabled) +
       ", fd=" + std::to_string(device_info.fd) +
+      ", device_id=" + std::to_string(device_info.deviceId) +
       ", device_type=" + std::to_string(device_info.deviceType) + ")";
 
   return properties;
