@@ -123,6 +123,8 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
       std::vector<at::Tensor>& tensor,
       int tag) override;
 
+  virtual void destroy() = 0;
+
  protected:
   using CollectiveFn = std::function<hcclResult_t(
       at::Tensor&,

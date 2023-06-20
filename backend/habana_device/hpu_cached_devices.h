@@ -182,6 +182,10 @@ class HPURegistrar {
     media_proxy_finalizer_ = std::move(finalizer);
   }
 
+  void register_process_group_finalizer(CallFinally&& callf) {
+    process_group_finalizer_ = std::move(callf);
+  }
+
  private:
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
@@ -197,6 +201,8 @@ class HPURegistrar {
   HPUDevice* active_device_{nullptr};
   using device_holder = std::unique_ptr<HPUDevice, void (*)(HPUDevice*)>;
   device_holder acquired_device_;
+  CallFinally process_group_finalizer_;
+  CallFinally media_proxy_finalizer_;
 
   /**
    * Some unusual operations are possible on the registrar for testability.
@@ -206,7 +212,6 @@ class HPURegistrar {
   friend class HPURegistrarTester;
   std::function<void()> test_inject_late_cleanup_{nullptr};
 
-  CallFinally media_proxy_finalizer_;
   static void device_deleter(HPUDevice* device);
   void device_deleter_internal(HPUDevice* device);
 };

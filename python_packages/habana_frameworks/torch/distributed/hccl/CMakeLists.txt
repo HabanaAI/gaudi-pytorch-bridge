@@ -18,7 +18,7 @@ add_library(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} SHARED
 target_compile_definitions(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME})
 set_target_properties(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PROPERTIES PREFIX "")
 target_compile_options(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 install(TARGETS ${TARGET_HCCL_LAZY_WITH_NON_LAZY_COLL_NAME} LIBRARY DESTINATION habana_torch_plugin/distributed)
 
 set(TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME "_hccl_lazy_C")
@@ -28,7 +28,7 @@ add_library(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} SHARED
 target_compile_definitions(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME})
 set_target_properties(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} PROPERTIES PREFIX "")
 target_compile_options(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 install(TARGETS ${TARGET_HCCL_LAZY_WITH_LAZY_COLL_NAME} LIBRARY DESTINATION habana_torch_plugin/distributed)
 
 set(TARGET_HCCL_EAGER_COLL_NAME "_hccl_eager_C")
@@ -39,5 +39,5 @@ add_library(${TARGET_HCCL_EAGER_COLL_NAME} SHARED
 target_compile_definitions(${TARGET_HCCL_EAGER_COLL_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_HCCL_EAGER_COLL_NAME})
 set_target_properties(${TARGET_HCCL_EAGER_COLL_NAME} PROPERTIES PREFIX "")
 target_compile_options(${TARGET_HCCL_EAGER_COLL_NAME} PRIVATE -Wall -Wextra -Werror)
-target_link_libraries(${TARGET_HCCL_EAGER_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(${TARGET_HCCL_EAGER_COLL_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY} habana_pytorch_backend)
 install(TARGETS ${TARGET_HCCL_EAGER_COLL_NAME} LIBRARY DESTINATION habana_torch_plugin/distributed)

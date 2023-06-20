@@ -60,6 +60,8 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   c10::intrusive_ptr<Work> barrier(const BarrierOptions& opts) override;
 
+  void destroy() override;
+
  protected:
   c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,

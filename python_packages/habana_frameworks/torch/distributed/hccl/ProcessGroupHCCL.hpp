@@ -59,6 +59,8 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
 
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
 
+    void destroy();
+
    protected:
     // HCCL runs on a different stream. Hold tensor references which is used
     // to query completion of execution
@@ -82,6 +84,9 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
 
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
+
+  // Helper function that is called by the destructor
+  void destroy() override;
 
  protected:
   // Helper that encapsulates work shared across all collective communication
@@ -117,8 +122,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   std::vector<std::shared_ptr<hccl_integration::device_context>>
   getDeviceCtxtList(const std::vector<int>& devices);
   std::vector<synStreamHandle> getCommStreams(const std::vector<int>& devices);
-  // Helper function that is called by the destructor
-  void destroy();
 
   uint64_t hcclCommCounter_{0};
   std::mutex mutex_;
