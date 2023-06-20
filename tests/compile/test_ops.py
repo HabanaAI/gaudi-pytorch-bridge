@@ -12,7 +12,7 @@
 import torch
 import os
 import pytest
-
+import habana_frameworks.torch.utils.experimental as htexp
 
 @pytest.fixture(autouse=True)
 def run_before_and_after_tests():
@@ -39,12 +39,20 @@ def run_before_and_after_tests():
 @pytest.mark.parametrize(
     "memory_format", [torch.channels_last, torch.contiguous_format]
 )
-def test_empty_like(dtype, memory_format):
+@pytest.mark.parametrize(
+    "torch_func", [torch.empty_like, torch.zeros_like]
+)
+def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     requires_grad = False
     layout = torch.strided
+    if (
+        dtype == torch.half
+        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
+    ):
+        pytest.skip("Half is not supported on Gaudi.")
 
-    def fn(tensor, dtype, layout, requires_grad, memory_format):
-        return torch.empty_like(
+    def fn(tensor, dtype, layout, requires_grad, memory_format, torch_func):
+        return torch_func(
             tensor,
             dtype=dtype,
             layout=layout,
@@ -55,11 +63,11 @@ def test_empty_like(dtype, memory_format):
     tensor = torch.randn(4, 3, 2, 5)
 
     compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format)
+    cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format, torch_func)
 
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     hpu_res = compiled_hpu(
-        tensor.to("hpu"), dtype, layout, requires_grad, memory_format
+        tensor.to("hpu"), dtype, layout, requires_grad, memory_format, torch_func
     )
 
     assert cpu_res.size() == hpu_res.size()
