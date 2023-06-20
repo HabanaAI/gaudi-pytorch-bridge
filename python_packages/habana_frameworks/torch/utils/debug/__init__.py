@@ -1,6 +1,6 @@
 import torch
 from habana_frameworks.torch.utils import _debug_C
-
+from habana_frameworks.torch.utils.internal import is_lazy
 
 def _get_fallback_op_count() -> dict:
     return _debug_C.get_fallback_op_count()
@@ -108,7 +108,7 @@ def load_ds_checkpoint(path) -> None:
 
 def save_ds_checkpoint(path) -> None:
     _debug_C.save_ds_checkpoint(path)
-    
+
 def _is_enabled_synapse_layout_handling() -> bool:
     return True
 
@@ -128,9 +128,16 @@ def _mem_log(msg) -> bool:
     return _debug_C.mem_log(msg)
 
 
-def _bridge_cleanup():
-    _debug_C.bridge_cleanup()
+if is_lazy():
+    def _bridge_cleanup():
+        _debug_C.bridge_cleanup()
+else:
+    from habana_frameworks.torch.utils import _debug_eager_C
+    def _bridge_cleanup():
+        _debug_eager_C.bridge_cleanup()
+
 
 
 def _dump_memory_reporter() -> None:
     _debug_C.dump_memory_reporter()
+

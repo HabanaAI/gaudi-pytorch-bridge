@@ -17,3 +17,12 @@ target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
 target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
 install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+
+set(EAGER_TARGET_NAME "_debug_eager_C")
+add_library(${EAGER_TARGET_NAME} SHARED
+    bindings_eager.cpp)
+target_compile_definitions(${EAGER_TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${EAGER_TARGET_NAME})
+
+set_target_properties(${EAGER_TARGET_NAME} PROPERTIES PREFIX "")
+target_link_libraries(${EAGER_TARGET_NAME} PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
+install(TARGETS ${EAGER_TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
