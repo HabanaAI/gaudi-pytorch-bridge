@@ -777,4 +777,22 @@ at::Tensor masked_batch_gemm_lazy(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const c10::optional<at::Tensor>& seed,
+    const double p,
+    const double scale,
+    const bool is_causal);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const at::Tensor& P,
+    const c10::optional<at::Tensor>& dm,
+    const double p,
+    const double scale);
 } // namespace habana_lazy

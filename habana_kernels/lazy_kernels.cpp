@@ -60,6 +60,7 @@
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
+#include "hpu_ops/sdpa_gen.h"
 #include "lazy_kernels_declarations.h"
 #include "lazy_optimizer_kernels.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
@@ -7302,4 +7303,43 @@ at::Tensor masked_batch_gemm_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(masked_batch_gemm, hpu_op)
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const c10::optional<at::Tensor>& seed,
+    const double p,
+    const double scale,
+    const bool is_causal) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_fwd",
+      {q, k, v, attention_mask, seed, p, scale, is_causal},
+      SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_fwd, hpu_op)
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const at::Tensor& P,
+    const c10::optional<at::Tensor>& dm,
+    const double p,
+    const double scale) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_bwd", {grad, q, k, v, P, dm, p, scale}, SDPABwdOutputShape};
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
+}
 } // namespace habana_lazy

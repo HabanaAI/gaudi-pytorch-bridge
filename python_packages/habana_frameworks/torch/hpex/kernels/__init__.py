@@ -21,3 +21,4 @@ from .CustomSoftmax import CustomSoftmax
 from .ScaledMaskedSoftmax import ScaledMaskedSoftmax
 from .FlashAttentionPy import FlashAttnFunc
 from .RotaryPosEmbeddingHelper import RotaryPosEmbeddingHelperV1, RotaryPosEmbeddingHelperV2
+from .FusedSDPA import FusedSDPA
