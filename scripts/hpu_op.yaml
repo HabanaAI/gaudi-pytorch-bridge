@@ -6138,6 +6138,14 @@ select.int:
   guid: select
   out_ids: [0]
 
+select_backward:
+  custom_output_shape: SelectBackwardOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int]
+    Gaudi3: [BFloat16, Float, Int]
+  op_backend: SelectBackward
+  out_ids: [0]
 
 sgn.out:
   dtypes:
