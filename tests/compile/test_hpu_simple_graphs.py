@@ -154,6 +154,7 @@ def test_relu_than_maxpool():
 
 def test_remove_detach():
     import torch.nn.functional as F
+
     def raw_function(x):
         x = x * 2 + 1
         x = x.detach()
@@ -164,3 +165,32 @@ def test_remove_detach():
     tensor_raw = raw_function(input_tensor)
     tensor_compiled = compiled_function(input_tensor)
     assert torch.allclose(tensor_raw, tensor_compiled, rtol=1e-06)
+
+
+def test_split_with_sizes():
+    def raw_function(x):
+        x = torch.split(x, [1, 4])
+        return x
+
+    def raw_function_second_part(x):
+        x = torch.split(x, [1, 4])[1]
+        return x
+
+    compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_s = torch.compile(raw_function_second_part, backend="aot_hpu_training_backend")
+
+    input_tensor = torch.arange(10).reshape(5, 2).to(device="hpu")
+
+    standard = compiled_function(input_tensor)
+    second_item = compiled_function_s(input_tensor)
+
+    # This test is only to check if pass replacing getitem with ListUnpack
+    # will not crash (so no assert here)
+    # Comparing compiled output with raw_function might be problematic
+    # due to known issues with "aten::split_with_sizes (SW-140890)
+
+    print(standard)
+    print(second_item)
+
+
+

@@ -32,10 +32,14 @@ struct ListUnpackDesc {
   }
 
   void update_node_outputs() {
+    HABANA_ASSERT(m_output_list.size() > 0);
     for (torch::jit::Value* out : m_output_list) {
-      HABANA_ASSERT(nullptr != out);
-      auto new_out = m_node->addOutput()->copyMetadata(out);
-      out->replaceAllUsesWith(new_out);
+      if (nullptr != out) {
+        auto new_out = m_node->addOutput()->copyMetadata(out);
+        out->replaceAllUsesWith(new_out);
+      } else {
+        m_node->addOutput();
+      }
     }
   }
 
@@ -123,7 +127,7 @@ struct ReplaceGetItemWithListUnpackPass {
         long out_idx{const_node_with_idx->i(value_attr)};
         // Adding information about output value and index on list to descriptor
         desc.add_output(out_idx, node->output(0));
-        // Callecting which nodes should be removed at the end.
+        // Collecting which nodes should be removed at the end.
         nodes_to_remove.insert(node);
         nodes_to_remove.insert(const_node_with_idx);
         node->removeAllInputs();
@@ -131,8 +135,9 @@ struct ReplaceGetItemWithListUnpackPass {
       }
     }
 
-    // For every descriptor we completed we will need to update ouptut of
-    // underlying op At this moment we should have all index ready to be filled.
+    // For every descriptor we completed we will need to update output of
+    // underlying op. At this moment we should have all index ready to be
+    // filled.
     for (auto& it : list_unpack_desc_map) {
       ListUnpackDesc& desc{it.second};
       desc.update_node_outputs();
@@ -140,7 +145,7 @@ struct ReplaceGetItemWithListUnpackPass {
     }
 
     // Last pass: remove all nodes that are no longer necessary. Some
-    // prim::Constatnt nodes might remain if there are still used elsewhere in
+    // prim::Constant nodes might remain if there are still used elsewhere in
     // graph
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       torch::jit::Node* node{*it};
