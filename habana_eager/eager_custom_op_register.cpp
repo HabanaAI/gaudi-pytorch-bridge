@@ -357,6 +357,8 @@ at::Tensor rotary_embedding(
       {input, sin, cos, offset},
       {input.sizes().vec()},
       0};
+
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor, at::Tensor> rms_norm(
