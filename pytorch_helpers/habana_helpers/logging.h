@@ -78,7 +78,7 @@ std::string formatStatusMsg(synStatus statusArg);
 inline bool isTracingForced(
     const HlLogger::LoggerType& mod,
     std::string_view name) {
-  static_assert(static_cast<size_t>(HlLogger::LoggerType::LOG_MAX) <= 64);
+  static_assert(static_cast<size_t>(HlLogger::LoggerType::LOG_MAX) < 64);
 
   if (GET_ENV_FLAG_NEW(PT_FORCED_TRACING_MASK) &
       (1 << static_cast<size_t>(mod)))
@@ -292,14 +292,14 @@ class PTFuncLog {
   Logger::CheckMsgImpl(             \
       "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
 
-#define HABANA_ASSERT(condition, ...)                                      \
-  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {              \
-    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__));   \
-    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, ":", __LINE__, MSG_)); \
-    hl_logger::logStacktrace(                                              \
-        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);               \
-    Logger::habana_assert(                                                 \
-        __func__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_);        \
+#define HABANA_ASSERT(condition, ...)                                    \
+  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) {            \
+    auto MSG_ = std::string(HABANA_CHECK_MSG(condition, ##__VA_ARGS__)); \
+    HLLOG_ERR_F(PT_BRIDGE, FORMAT_AND_MSG(__FILE__, __LINE__, MSG_));    \
+    hl_logger::logStacktrace(                                            \
+        HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_ERROR);             \
+    Logger::habana_assert(                                               \
+        __func__, __FILE__, static_cast<uint32_t>(__LINE__), MSG_);      \
   }
 
 /************************CRITICAL MACROS************************/

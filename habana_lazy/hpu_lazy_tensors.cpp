@@ -192,6 +192,7 @@ Data::~Data() {
   auto context = HbContextArena::Get();
   context->UnregisterTensor(this);
   data_ptr = nullptr;
+  PT_BRIDGE_DEBUG("~Data, unique_id: ", unique_id);
 }
 
 int64_t Data::GetNextTensorId() {

@@ -436,8 +436,10 @@ void strided_insert_hpu_lazy(
     out = add_slice_insert_node(
         recent_orig_t, recent_insert_t, back_to_back_slices);
   }
+
   // update orig tensor map
   GetHbLazyTensor(params.base).getDataPtr()->recent_base = out;
+  GetHbLazyTensor(self).SetOpAccumulationInProgress();
 
   PT_VIEWTABLE_DEBUG(
       "orig tensor map entry created for ", GetHbLazyTensorId(params.base));
