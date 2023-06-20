@@ -29,20 +29,18 @@ class HpuOpTest : public HpuOpTestUtil {
 
 #define DEF_FULL_OP_TEST(name, shape, dtype, default_dtype)        \
   TEST_F(HpuOpTest, name) {                                        \
-    GenerateInputs(1, {shape}, {dtype});                           \
-    torch::Tensor shape_tensor = GetHpuInput(0);                   \
     auto fillValue = GenerateScalar<int>(-128, 127);               \
     if (default_dtype) {                                           \
       torch::set_default_dtype(c10::scalarTypeToTypeMeta(dtype));  \
     }                                                              \
     auto hpuResult = at::native::full(                             \
-        shape_tensor.sizes(),                                      \
+        shape,                                                     \
         fillValue,                                                 \
         default_dtype ? c10::nullopt : c10::make_optional(dtype),  \
         c10::nullopt,                                              \
         c10::Device(c10::DeviceType::HPU));                        \
     auto cpuResult = at::native::full(                             \
-        shape_tensor.sizes(),                                      \
+        shape,                                                     \
         fillValue,                                                 \
         default_dtype ? c10::nullopt : c10::make_optional(dtype)); \
     Compare(cpuResult, hpuResult, 0, 0);                           \
