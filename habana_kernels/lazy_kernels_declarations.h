@@ -187,6 +187,13 @@ at::Tensor slice_hpu_lazy(
     c10::optional<int64_t> start,
     c10::optional<int64_t> end,
     int64_t step);
+at::Tensor slice_backward_hpu_lazy(
+    const at::Tensor& grad_out,
+    c10::SymIntArrayRef input_sizes,
+    int64_t dim,
+    c10::SymInt start,
+    c10::SymInt end,
+    c10::SymInt step);
 at::Tensor select_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

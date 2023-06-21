@@ -449,22 +449,22 @@ void strided_insert_hpu_lazy(
 /* checks if fallback to original op is possible*/
 bool is_fallback_original_op(const Tensor& self) {
   PT_LAZY_TRACE;
-    bool is_fallback = true;
+  bool is_fallback = true;
 
-    // trace until the base tensor is reached and check if there are any
-    // as_strided ops fall back not possible if there are as_strided ops in the
-    // sequence.
-    auto stride_params_opt = GetHbLazyTensor(self).getDataPtr()->stride_params;
-    while (stride_params_opt.has_value()) {
-      if (stride_params_opt.value().optype == kStridedOpDefault) {
-        is_fallback = false;
-        break;
-      }
-
-      auto hl_parent = GetHbLazyTensor(stride_params_opt.value().parent);
-      stride_params_opt = hl_parent.getDataPtr()->stride_params;
+  // trace until the base tensor is reached and check if there are any
+  // as_strided ops fall back not possible if there are as_strided ops in the
+  // sequence.
+  auto stride_params_opt = GetHbLazyTensor(self).getDataPtr()->stride_params;
+  while (stride_params_opt.has_value()) {
+    if (stride_params_opt.value().optype == kStridedOpDefault) {
+      is_fallback = false;
+      break;
     }
-    return is_fallback;
+
+    auto hl_parent = GetHbLazyTensor(stride_params_opt.value().parent);
+    stride_params_opt = hl_parent.getDataPtr()->stride_params;
+  }
+  return is_fallback;
 }
 
 void lazy_view_fallback_handle(
@@ -3487,6 +3487,30 @@ Tensor slice_hpu_lazy(
         step);
   };
   RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(slice, self_in, out, param_setter);
+}
+
+Tensor slice_backward_hpu_lazy(
+    const Tensor& grad_output,
+    SymIntArrayRef input_sizes_sym,
+    int64_t dim,
+    c10::SymInt start_sym,
+    c10::SymInt end_sym,
+    c10::SymInt step_sym) {
+  PT_LAZY_TRACE;
+
+  IntArrayRef input_sizes = c10::asIntArrayRefUnchecked(input_sizes_sym);
+  int64_t start = start_sym.expect_int();
+  int64_t end = end_sym.expect_int();
+  int64_t step = step_sym.expect_int();
+
+  const auto grad_output_sizes = grad_output.sizes();
+  if (std::find(grad_output_sizes.begin(), grad_output_sizes.end(), 0) !=
+      grad_output_sizes.end()) {
+    return torch::zeros(input_sizes);
+  } else {
+    return at::native::slice_backward(
+        grad_output, input_sizes, dim, start, end, step);
+  }
 }
 
 Tensor alias_hpu_lazy(const Tensor& self) {

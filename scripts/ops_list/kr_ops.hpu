@@ -899,6 +899,7 @@ RegisterKernel::add op = hpu::scaled_masked_softmax
 RegisterKernel::add op = hpu::scatter_nd
 RegisterKernel::add op = hpu::scatter_nd_onnx
 RegisterKernel::add op = hpu::slice
+RegisterKernel::add op = hpu::slice_backward
 RegisterKernel::add op = hpu::slice_insert
 RegisterKernel::add op = hpu::slice_insert_ds
 RegisterKernel::add op = hpu::strided_insert

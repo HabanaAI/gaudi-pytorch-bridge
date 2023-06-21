@@ -7686,3 +7686,14 @@ zero_:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: ZeroHpuLazyOperator
   inplace_ids: [0]
+
+slice_backward:
+  custom_output_shape: SliceBackwardOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int]
+    Gaudi3: [BFloat16, Float, Int]
+  op_backend: SliceBackward
+  out_ids: [0]
+  lazy:
+    override_fn: slice_backward_hpu_lazy
