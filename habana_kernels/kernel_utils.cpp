@@ -27,6 +27,8 @@
 #include "kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
+#include <string_view>
+
 using namespace torch;
 
 namespace {
@@ -179,12 +181,13 @@ std::optional<std::string> habana_helpers::direct_cast_guid(
   return {};
 }
 
-bool habana_helpers::isLongTypeSupported(const std::string& guid) {
+bool habana_helpers::isLongTypeSupported(const std::string_view guid) {
   // Notice: We have no way of checking at runtime which kernels are supported
   // in i64 version, so the list has to be hardcoded here.
   // This is a temporary solution, in the future Synapse will allow us to call
   // i64 version for all kernels and will add i64->i32 cast when needed.
-  std::unordered_set<std::string> supported_guids{"cast_"};
+  using namespace std::literals;
+  static const std::unordered_set<std::string_view> supported_guids{"cast_"sv};
   return supported_guids.find(guid) != supported_guids.end();
 }
 

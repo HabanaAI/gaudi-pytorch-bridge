@@ -101,7 +101,7 @@ inline at::Tensor stack_tensor(const at::Stack& stack, int index) {
 
 inline std::string& update_guid_dtype(
     std::string& guid,
-    const std::string& dtype_str) {
+    std::string_view dtype_str) {
   guid = guid.substr(0, guid.find_last_of('_') + 1).append(dtype_str);
   return guid;
 }
@@ -113,13 +113,13 @@ inline std::string& update_guid_dtype(
       habana_helpers::pytorch_to_synapse_type(dtype),
       habana_helpers::isLongTypeSupported(guid));
   HABANA_ASSERT(
-      absl::holds_alternative<std::string>(string_or_error),
+      absl::holds_alternative<std::string_view>(string_or_error),
       "Error getting suffix/precision type: ",
       Logger::synStatusToStr(
           absl::get<synapse_helpers::synapse_error>(string_or_error).status));
   return update_guid_dtype(
       guid,
-      absl::get<std::string>(synapse_helpers::graph::name_suffix_from_type(
+      absl::get<std::string_view>(synapse_helpers::graph::name_suffix_from_type(
           habana_helpers::pytorch_to_synapse_type(dtype))));
 }
 

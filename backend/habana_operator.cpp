@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "backend/habana_operator.h"
+#include <algorithm>
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
@@ -92,103 +93,109 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
   return permuteOrder.find(target_layout)->second;
 }
 
-bool habana::HabanaOperator::isFp8Op(const std::string& guid) {
-  static const std::vector<std::string> fp8_ops{
-      "cast_from_fp8_f32",
-      "cast_from_fp8_bf16",
-      "cast_from_fp8_i8",
-      "cast_to_fp8_f32",
-      "cast_to_fp8_bf16",
-      "cast_to_fp8_v2_f32",
-      "cast_to_fp8_v2_bf16",
-      "fp8_cast_transpose_f32",
-      "fp8_cast_transpose_bf16",
-      "fp8_cast_transpose_bgrad_f32",
-      "fp8_cast_transpose_bgrad_bf16",
-      "fp8_cast_transpose_bgrad_dgelu_f32",
-      "fp8_cast_transpose_bgrad_dgelu_bf16",
-      "fp8_dropout_f32",
-      "fp8_dropout_bf16",
-      "fp8_gelu_f32",
-      "fp8_gelu_bf16",
-      "fp8_bgrad_dgelu_f32",
-      "fp8_bgrad_dgelu_bf16",
-      "fp8_gemm_i8",
-      "fp8_gemm_v2_i8",
-      "fp8_layernorm_f32",
-      "fp8_layernorm_bf16",
-      "fp8_reshape_i8",
-      "fp8_transpose_i8",
-      "fp8_permute_i8"};
+bool habana::HabanaOperator::isFp8Op(const std::string_view guid) {
+  using namespace std::literals;
+  // Note: For 26 items, benchmark shown 6% improvement using constexpr array
+  // (+any_of) over absl::flat_hash_set (+contains). Adding more items requires
+  // reevaluation of results. For reference on why
+  // https://www.youtube.com/watch?v=INn3xa4pMfg
+  static constexpr std::array<std::string_view, 26> fp8_ops{
+      "cast_from_fp8_f32"sv,
+      "cast_from_fp8_bf16"sv,
+      "cast_from_fp8_i8"sv,
+      "cast_to_fp8_f32"sv,
+      "cast_to_fp8_bf16"sv,
+      "cast_to_fp8_v2_f32"sv,
+      "cast_to_fp8_v2_bf16"sv,
+      "fp8_cast_transpose_f32"sv,
+      "fp8_cast_transpose_bf16"sv,
+      "fp8_cast_transpose_bgrad_f32"sv,
+      "fp8_cast_transpose_bgrad_bf16"sv,
+      "fp8_cast_transpose_bgrad_dgelu_f32"sv,
+      "fp8_cast_transpose_bgrad_dgelu_bf16"sv,
+      "fp8_dropout_f32"sv,
+      "fp8_dropout_bf16"sv,
+      "fp8_gelu_f32"sv,
+      "fp8_gelu_bf16"sv,
+      "fp8_bgrad_dgelu_f32"sv,
+      "fp8_bgrad_dgelu_bf16"sv,
+      "fp8_gemm_i8"sv,
+      "fp8_gemm_v2_i8"sv,
+      "fp8_layernorm_f32"sv,
+      "fp8_layernorm_bf16"sv,
+      "fp8_reshape_i8"sv,
+      "fp8_transpose_i8"sv,
+      "fp8_permute_i8"sv};
 
-  return std::any_of(fp8_ops.begin(), fp8_ops.end(), [&guid](const auto& op) {
-    return op == guid;
-  });
+  return std::any_of(
+      fp8_ops.begin(), fp8_ops.end(), [&guid](auto&& v) { return v == guid; });
 }
 
 std::string habana::get_guid_with_precision(
-    const std::string& guid,
+    const std::string_view guid,
     c10::ScalarType dtype,
     bool use_int64) {
-  static const absl::flat_hash_set<std::string> synapse_guids = {
+  using namespace std::literals;
+  static const absl::flat_hash_set<std::string_view> synapse_guids = {
       // Matrix operations
-      "batch_gemm",
-      "batch_gemm_dedw",
-      "batch_gemm_dedx",
-      "spatial_convolution",
-      "spatial_convolution3d",
-      "dedw",
-      "dedw3d",
-      "dedx",
-      "dedx3d",
-      "gemm",
-      "gemm_dedw",
-      "gemm_dedx",
-      "masked_batch_gemm",
+      "batch_gemm"sv,
+      "batch_gemm_dedw"sv,
+      "batch_gemm_dedx"sv,
+      "spatial_convolution"sv,
+      "spatial_convolution3d"sv,
+      "dedw"sv,
+      "dedw3d"sv,
+      "dedx"sv,
+      "dedx3d"sv,
+      "gemm"sv,
+      "gemm_dedw"sv,
+      "gemm_dedx"sv,
+      "masked_batch_gemm"sv,
       // Data movment guids
-      "broadcast",
-      "concat",
-      "expand_dims",
-      "flatten",
-      "identity",
-      "memcpy",
-      "memset",
-      "reinterpret_cast",
-      "reshape",
-      "slice",
-      "slice_axis",
-      "slice_bwd",
-      "slice_insert",
-      "split",
-      "split_shape",
-      "squeeze",
-      "strided_insert",
-      "strided_slice_grad",
-      "strided_view",
-      "transpose",
+      "broadcast"sv,
+      "concat"sv,
+      "expand_dims"sv,
+      "flatten"sv,
+      "identity"sv,
+      "memcpy"sv,
+      "memset"sv,
+      "reinterpret_cast"sv,
+      "reshape"sv,
+      "slice"sv,
+      "slice_axis"sv,
+      "slice_bwd"sv,
+      "slice_insert"sv,
+      "split"sv,
+      "split_shape"sv,
+      "squeeze"sv,
+      "strided_insert"sv,
+      "strided_slice_grad"sv,
+      "strided_view"sv,
+      "transpose"sv,
       // Normalization
-      "cud_bn_bwd_ex",
-      "cud_bn_fwd_ex",
-      "frobenius_norm_fwd",
-      "moments_fwd",
+      "cud_bn_bwd_ex"sv,
+      "cud_bn_fwd_ex"sv,
+      "frobenius_norm_fwd"sv,
+      "moments_fwd"sv,
       // Misc
-      "einsum",
-      "topk",
+      "einsum"sv,
+      "topk"sv,
   };
   // Synapse guids do not take precision type/suffix
-  if (synapse_guids.count(guid)) {
-    return guid;
+  if (synapse_guids.contains(guid)) {
+    return std::string{guid};
   }
 
   auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
       habana_helpers::pytorch_to_synapse_type(dtype), use_int64);
   HABANA_ASSERT(
-      absl::holds_alternative<std::string>(string_or_error),
+      absl::holds_alternative<std::string_view>(string_or_error),
       "Error getting suffix/precision type: ",
       Logger::synStatusToStr(
           absl::get<synapse_helpers::synapse_error>(string_or_error).status));
 
-  return guid + '_' + absl::get<std::string>(string_or_error);
+  return std::string{guid}.append(1, '_').append(
+      absl::get<std::string_view>(string_or_error));
 }
 
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(

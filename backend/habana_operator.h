@@ -33,6 +33,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
@@ -265,7 +266,7 @@ std::vector<T> SelectVectorIndices(
 }
 
 std::string get_guid_with_precision(
-    const std::string& guid,
+    const std::string_view guid,
     c10::ScalarType dtype,
     bool use_int64 = false);
 
@@ -288,7 +289,7 @@ class HabanaOperator {
       const LayoutFormat target_layout,
       bool to_device = true);
 
-  static bool isFp8Op(const std::string& guid);
+  static bool isFp8Op(const std::string_view guid);
 
   //
   // Creates graph builder context, based on the device

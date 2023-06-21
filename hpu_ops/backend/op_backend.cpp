@@ -25,16 +25,21 @@
 namespace sh = synapse_helpers;
 
 namespace {
-auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
-  static const std::string prefix = "cast_";
+const auto BuildCastGuid(
+    const c10::ScalarType& src,
+    const c10::ScalarType& dst) {
+  using namespace std::literals;
+  static const std::string_view prefix = "cast_"sv;
   auto get_prec_str = [](const c10::ScalarType& dtype) {
-    return absl::get<std::string>(synapse_helpers::graph::name_suffix_from_type(
-        habana_helpers::pytorch_to_synapse_type(dtype),
-        habana_helpers::isLongTypeSupported(prefix)));
+    return absl::get<std::string_view>(
+        synapse_helpers::graph::name_suffix_from_type(
+            habana_helpers::pytorch_to_synapse_type(dtype),
+            habana_helpers::isLongTypeSupported(prefix)));
   };
   const auto srcStr = get_prec_str(src);
   const auto dstStr = get_prec_str(dst);
-  const auto guid = prefix + srcStr + "_to_" + dstStr;
+  const auto guid =
+      std::string{prefix}.append(srcStr).append("_to_"sv).append(dstStr);
   HABANA_ASSERT(
       srcStr != dstStr, guid, " cannot be used, from=", src, " to=", dst);
   return guid;

@@ -20,6 +20,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -157,7 +158,7 @@ class graph {
     data_edges_container_[src_node_name].insert(dst_node_name);
   };
 
-  static synapse_error_v<std::string> name_suffix_from_type(
+  static synapse_error_v<std::string_view> name_suffix_from_type(
       synDataType type,
       bool use_int64 = false);
 

@@ -17,6 +17,7 @@
 #include <synapse_api_types.h>
 #include <torch/script.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include "backend/synapse_helpers/habana_tensor.h"
 
@@ -36,7 +37,7 @@ std::optional<std::string> direct_cast_guid(
     std::pair<c10::ScalarType, c10::ScalarType> type_key);
 
 // Check whether long is supported on Synapse side for given guid name
-bool isLongTypeSupported(const std::string& guid);
+bool isLongTypeSupported(const std::string_view guid);
 
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,

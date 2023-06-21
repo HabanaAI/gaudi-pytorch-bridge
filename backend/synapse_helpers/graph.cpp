@@ -657,39 +657,51 @@ synapse_error_o graph::launch(
   return {};
 }
 
-synapse_error_v<std::string> graph::name_suffix_from_type(
+synapse_error_v<std::string_view> graph::name_suffix_from_type(
     const synDataType type,
     bool use_int64) {
   std::string kernel_suffix{};
-  if (type == synDataType::syn_type_float) {
-    kernel_suffix = "f32";
-  } else if (type == synDataType::syn_type_fp16) {
-    kernel_suffix = "f16";
-  } else if (type == synDataType::syn_type_fp8_152) {
-    kernel_suffix = "f8";
-  } else if (type == synDataType::syn_type_int8) {
-    kernel_suffix = "i8";
-  } else if (type == synDataType::syn_type_uint8) {
-    kernel_suffix = "u8";
-  } else if (type == synDataType::syn_type_int16) {
-    kernel_suffix = "i16";
-  } else if (type == synDataType::syn_type_int32) {
-    kernel_suffix = "i32";
-  } else if (type == synDataType::syn_type_int64) {
-    if (use_int64) {
-      kernel_suffix = "i64";
-    } else {
-      // Temporary solution: To use autocast feature from complex guid, we need
-      // to call _i32 version of the kernel, but pass i64 tensors. Instead of
-      // changing guid names in every op implementation, it was changed here.
-      kernel_suffix = "i32";
+  using namespace std::literals;
+  switch (type) {
+    case synDataType::syn_type_float: {
+      return "f32"sv;
     }
-  } else if (type == synDataType::syn_type_bf16) {
-    kernel_suffix = "bf16";
-  } else {
-    return synapse_error{"Unknown type", synStatus::synInvalidArgument};
+    case synDataType::syn_type_fp16: {
+      return "f16"sv;
+    }
+    case synDataType::syn_type_fp8_152: {
+      return "f8"sv;
+    }
+    case synDataType::syn_type_int8: {
+      return "i8"sv;
+    }
+    case synDataType::syn_type_uint8: {
+      return "u8"sv;
+    }
+    case synDataType::syn_type_int16: {
+      return "i16"sv;
+    }
+    case synDataType::syn_type_int32: {
+      return "i32"sv;
+    }
+    case synDataType::syn_type_int64: {
+      if (use_int64) {
+        return "i64"sv;
+      } else {
+        // Temporary solution: To use autocast feature from complex guid, we
+        // need to call _i32 version of the kernel, but pass i64 tensors.
+        // Instead of changing guid names in every op implementation, it was
+        // changed here.
+        return "i32"sv;
+      }
+    }
+    case synDataType::syn_type_bf16: {
+      return "bf16"sv;
+    }
+    default: {
+      return synapse_error{"Unknown type", synStatus::synInvalidArgument};
+    }
   }
-  return kernel_suffix;
 }
 
 uint64_t graph::recipe_handle::get_recipe_host_mem_size() {
