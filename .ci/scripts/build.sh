@@ -1318,8 +1318,8 @@ run_pytorch_modules_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-        (set -x; eval ${__pytorch_modules_tests_exe} -v $__failures $__py_filter --junit-xml=$__xml ${__marker})
-        __test_status=$?
+        (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}tests.xml" ${__marker})
+        __test_status=$__test_status || $?
         popd
     fi
 

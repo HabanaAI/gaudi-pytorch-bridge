@@ -4,6 +4,8 @@ import torch
 import numpy as np
 from copy import deepcopy
 import habana_frameworks.torch
+from collections.abc import Mapping
+from typing import Callable, Dict, Optional
 
 hpu = torch.device('hpu')
 cpu = torch.device('cpu')
@@ -127,6 +129,30 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
                                 cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
 
 
+def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
+    assert isinstance(temp_test_env, Mapping)
+
+    for k,v in temp_test_env.items():
+        temp_test_env[k] = str(v)
+
+    old_env = dict(os.environ)
+    print("Set env: ", temp_test_env)
+    os.environ.update(temp_test_env)
+
+    if callback:
+        callback()
+
+    yield
+
+    print("Reset env.")
+    os.environ.clear()
+    os.environ.update(old_env)
+
+# fixutre that can be used for indirect initialization
+@pytest.fixture
+def setup_teardown_env_fixture(request):
+    yield from generic_setup_teardown_env(request.param)
+
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
     print("Using seed: ", seed)
@@ -176,7 +202,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
                 kernel_params_local[k] = kernel_params[k]
- 
+
 
     elif tensor_list:
         tensor_list = [tensor.to(device) if tensor != None else tensor for tensor in tensor_list]

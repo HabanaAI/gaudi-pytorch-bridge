@@ -5,6 +5,7 @@ cython
 flake8
 habana_pyhlml
 lark
+fvcore
 ninja>=1.11.1
 numpy==1.23.5
 packaging>=23.1
