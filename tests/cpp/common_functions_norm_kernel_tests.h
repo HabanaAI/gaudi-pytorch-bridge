@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "utils/dtype_supported_on_device.h"
+#include "utils/dynamic_shape_supported_on_device.h"
 #include "utils/hint_tolerance_values.h"
 
 struct AtTensorPair {
@@ -48,7 +49,8 @@ std::vector<AtTensorPair> native_layer_norm_test(
     BASE, MODE, WEIGHT, BIAS, DT, DTYPE, PREC, DSVAL, DSLAB)                  \
   TEST_F(                                                                     \
       BASE, LayerNorm##MODE##Weight##WEIGHT##Bias##BIAS##DT##DSLAB##xecute) { \
-    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                     \
+    if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE) ||                     \
+        !IsDynamicShapeSupportedOnCurrentDevice()) {                          \
       GTEST_SKIP();                                                           \
     }                                                                         \
     for (int dsi = 0; dsi < DSVAL; ++dsi) {                                   \

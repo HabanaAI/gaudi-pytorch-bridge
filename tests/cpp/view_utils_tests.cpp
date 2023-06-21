@@ -15,6 +15,7 @@
 #include <torch/torch.h>
 
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "utils/dynamic_shape_supported_on_device.h"
 using namespace habana_lazy;
 
 TEST(ViewUtilsTest, IsAliasSameTensor) {
@@ -129,6 +130,9 @@ TEST(ViewUtilsTest, IsAliasNonZeroOpViews) {
 }
 
 TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
+  if (!IsDynamicShapeSupportedOnCurrentDevice()) {
+    GTEST_SKIP();
+  }
   bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
     habana_helpers::EnableRefineDynamicShape();
