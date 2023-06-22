@@ -24,6 +24,9 @@ common:
             pip install -U $PYTORCH_LIGHTNING_FORK_BUILD/pkgs/*.whl
           fi
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+    Install media loader wheel:
+      command: |
+          pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl
 testsMap:
   Test_pytorch_modules_gaudi2_asic_topology:
     stages:
