@@ -97,7 +97,7 @@ def requiredArtifact = [
     'ENGINES_FW': ['config', 'data', 'shared', 'test'],
     'HCL': ['shared'],
     'HVL_MEDIA': ['shared'],
-    'MEDIA': ['shared'],
+    'MEDIA': ['test', 'shared'],
     'CODEC': ['shared']
 ]
 
