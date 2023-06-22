@@ -1013,32 +1013,29 @@ bool is_view_output(
     size_t& view_out_size) {
   bool is_out = false;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
-    if (is_allreduce) {
-      auto& param_opt = hl_t.getDataPtr()->stride_params;
+  if (is_allreduce) {
+    auto& param_opt = hl_t.getDataPtr()->stride_params;
 
-      if ((param_opt.has_value())) {
-        auto& params = param_opt.value();
-        if ((params.viewStatus == kViewWrite) && (params.write_cnt == 1)) {
-          auto recent_orig_t =
-              HbLazyTensorViews::get_recent_base_tensor(params.base);
-          auto hl_recent_orig_t = GetHbLazyTensor(recent_orig_t);
+    if ((param_opt.has_value())) {
+      auto& params = param_opt.value();
+      if ((params.viewStatus == kViewWrite) && (params.write_cnt == 1)) {
+        auto recent_orig_t =
+            HbLazyTensorViews::get_recent_base_tensor(params.base);
+        auto hl_recent_orig_t = GetHbLazyTensor(recent_orig_t);
 
-          if (hl_recent_orig_t.CurrentIrValue().IsHpuInputNode()) {
-            // not a view on strided_insert o/p
-            is_out = false;
-          } else if (
-              (params.optype == kStridedOpDefault) &&
-              (params.base.dim() == 1)) {
-            // additionaly check for contiguous strides
-            auto recalc_stride = params.strides;
-            habana_helpers::recalc_strides(recalc_stride, params.sizes);
-            auto recent_base_id = hl_recent_orig_t.getTensorUniqueId();
-            if ((bucket_recent_id.count(recent_base_id)) &&
-                (recalc_stride == params.strides)) {
-              is_out = true;
-              view_out_size += c10::multiply_integers(params.sizes);
-            }
+        if (hl_recent_orig_t.CurrentIrValue().IsHpuInputNode()) {
+          // not a view on strided_insert o/p
+          is_out = false;
+        } else if (
+            (params.optype == kStridedOpDefault) && (params.base.dim() == 1)) {
+          // additionaly check for contiguous strides
+          auto recalc_stride = params.strides;
+          habana_helpers::recalc_strides(recalc_stride, params.sizes);
+          auto recent_base_id = hl_recent_orig_t.getTensorUniqueId();
+          if ((bucket_recent_id.count(recent_base_id)) &&
+              (recalc_stride == params.strides)) {
+            is_out = true;
+            view_out_size += c10::multiply_integers(params.sizes);
           }
         }
       }
@@ -1147,7 +1144,7 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
 
   std::set<int64_t> bucket_recent_id;
   std::vector<habana_lazy::HbLazyTensor> bucket_hl_t;
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
+
     for (auto t : inputs) {
       auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
       auto org_id = habana_lazy::GetHbLazyTensorId(base, false, false);
@@ -1164,7 +1161,6 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
         bucket_recent_id.emplace(updated_id);
       }
     }
-  }
 
   /* special processing of view outputs needed only for the bwd case*/
   bool is_allreduce_bwd = (bucket_recent_id.size() > 0);

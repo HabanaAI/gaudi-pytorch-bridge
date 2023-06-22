@@ -438,7 +438,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   HABANA_ASSERT(
       context->getCapturing() == false,
       "collective nonSFG is not supported during hpu graph capturing");
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW) && is_allreduce) {
+  if (is_allreduce) {
     habana_lazy::HbLazyTensorViews::StepMarkerAllReduce(inputs);
   } else {
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, false /*async*/);

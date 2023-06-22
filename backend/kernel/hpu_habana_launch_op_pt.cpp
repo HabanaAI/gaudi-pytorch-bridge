@@ -2214,8 +2214,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
          (outputs_metadata.at(0).persistent == true)) &&
         ((opname.find("strided_insert") != std::string::npos) ||
          (opname.find("slice_insert") != std::string::npos) ||
-         (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW) &&
-          (opname.find("strided_view_out") != std::string::npos)))) {
+         (opname.find("strided_view_out") != std::string::npos))) {
       ProcessStridedInsertAtOutput(
           node, HabanaKernel, input_stack, syn_graph, outputs_metadata);
     } else {

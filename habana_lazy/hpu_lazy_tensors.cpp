@@ -1446,11 +1446,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     t.IrReconnectAsInputNode();
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GRADIENT_BUCKET_VIEW)) {
-    for (auto t : context->viewContext.updated_bucket_list) {
-      // clear IR values corresponding to sync tensors
-      t.IrReconnectAsInputNode();
-    }
+  for (auto t : context->viewContext.updated_bucket_list) {
+    // clear IR values corresponding to sync tensors
+    t.IrReconnectAsInputNode();
   }
 
   // Save po_data input and output to context for perf mode

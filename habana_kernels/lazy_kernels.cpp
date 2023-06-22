@@ -445,13 +445,8 @@ void strided_insert_hpu_lazy(
 }
 
 /* checks if fallback to original op is possible*/
-bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
+bool is_fallback_original_op(const Tensor& self) {
   PT_LAZY_TRACE;
-  // PT_HPU_FCD_STRIDE_OPT is disabled by default as a workaround for
-  // transformer accuracy issues. Disabling this flag will merge consecutive
-  // strided ops to single strided_view op. Enable this flag for improving the
-  // perf in case of back to back as_strided ops.
-  if (GET_ENV_FLAG_NEW(PT_HPU_FCD_STRIDE_OPT)) {
     bool is_fallback = true;
 
     // trace until the base tensor is reached and check if there are any
@@ -468,13 +463,6 @@ bool is_fallback_original_op(const Tensor& self, const Tensor& out) {
       stride_params_opt = hl_parent.getDataPtr()->stride_params;
     }
     return is_fallback;
-  } else {
-    auto& stride_param_opt = GetHbLazyTensor(out).getDataPtr()->stride_params;
-    TORCH_CHECK(stride_param_opt.has_value(), "invalid stride params ");
-    return (
-        GetHbLazyTensorId(self) ==
-        GetHbLazyTensorId(stride_param_opt.value().base));
-  }
 }
 
 void lazy_view_fallback_handle(
@@ -484,7 +472,7 @@ void lazy_view_fallback_handle(
     std::function<bool(const Tensor&, const Tensor&)> additional_predicate =
         [](const Tensor&, const Tensor&) { return true; }) {
   PT_LAZY_TRACE;
-  if (additional_predicate(self, out) && is_fallback_original_op(self, out)) {
+  if (additional_predicate(self, out) && is_fallback_original_op(self)) {
     auto& strided_param_opt = GetHbLazyTensor(out).getDataPtr()->stride_params;
     TORCH_CHECK(strided_param_opt.has_value(), "invalid stride params");
 
