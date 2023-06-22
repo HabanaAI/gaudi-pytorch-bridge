@@ -37,7 +37,7 @@ void HPUGraph::capture_begin() {
     return;
   }
   auto stream = c10::hpu::getCurrentHPUStream();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
   capture_stream_ = stream;
@@ -70,7 +70,7 @@ void HPUGraph::capture_end() {
     PT_DEVICE_FATAL("GRAPH:: Capture must end on the same stream it began on.");
     return;
   }
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -124,7 +124,7 @@ void HPUGraph::mark_step() {
     PT_DEVICE_FATAL("GRAPH:: Capture must end on the same stream it began on.");
     return;
   }
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -369,7 +369,7 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
     return;
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -377,7 +377,7 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
 }
 
 HPUGraph::~HPUGraph() {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -405,7 +405,7 @@ void SingleHPUGraph::replayGraph(
     habana_helpers::DisableRefineDynamicShape();
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
 

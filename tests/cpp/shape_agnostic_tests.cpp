@@ -34,7 +34,7 @@ class ShapeAgnosticTest : public habana_lazy_test::LazyTest {
 TEST_F(ShapeAgnosticTest, PermuteAdd) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3, 3});
     auto B = A.permute({0, 1, 2}).contiguous();
@@ -59,7 +59,7 @@ TEST_F(ShapeAgnosticTest, PermuteAdd) {
 TEST_F(ShapeAgnosticTest, ConvRelu) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
@@ -115,7 +115,7 @@ TEST_F(ShapeAgnosticTest, ConvRelu) {
 TEST_F(ShapeAgnosticTest, ConvReluRelu) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     // Disabling the number of cache entries check for now as the same
     // test is being also called for the lazy frontend as well and there

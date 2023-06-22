@@ -23,7 +23,7 @@ at::Allocator* getPinnedMemoryAllocator() {
 }
 
 bool PinnedMemoryAllocator_is_pinned(void* ptr) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(
+  auto& device = HPURegistrar::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
   return device.get_host_memory().is_host_memory(ptr);
 }
@@ -32,7 +32,7 @@ PinnedMemoryAllocator::PinnedMemoryAllocator() = default;
 PinnedMemoryAllocator::~PinnedMemoryAllocator() = default;
 
 void PinnedMemoryAllocator::deleter(void* ptr) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(
+  auto& device = HPURegistrar::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
   device.get_host_memory().free(ptr);
 }
@@ -40,7 +40,7 @@ void PinnedMemoryAllocator::deleter(void* ptr) {
 at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
   void* ptr = nullptr;
   if (size != 0) {
-    auto& device = synapse_helpers::HPURegistrar::get_device(
+    auto& device = HPURegistrar::get_device(
         habana::PinnedMemoryAllocator::allocator_active_device_id);
     auto status = device.get_host_memory().malloc(&ptr, size);
     TORCH_HABANA_CHECK(

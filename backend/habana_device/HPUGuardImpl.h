@@ -60,10 +60,10 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
      std::exit
 
      Static creation order:
-       When synapse_helpers::HPURegistrar::empty() is called to check if a
+       When habana::HPURegistrar::empty() is called to check if a
      device is created already, the HPRegistrar object is created before OSAL.
        The function at::detail::HABANAGuardImpl::getDevice calls this getDevice.
-       When this method first calls synapse_helpers::HPURegistrar::empty(), it
+       When this method first calls habana::HPURegistrar::empty(), it
      creates the HPRegistrar object. Later, when the HABANAGuardImpl::getDevice
      calls synapse_helpers::device::get_or_create, the OSAL object is created.
      Static destruction order:
@@ -89,7 +89,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         This ensures that the destruction order is ~HPRegistrar followed by
      ~OSAL, which ensures correct destruction of devices.
     */
-    if (!synapse_helpers::HPURegistrar::isInitialized()) {
+    if (!habana::HPURegistrar::isInitialized()) {
       auto allocatorVar = [](synDeviceId id)
           -> std::unique_ptr<synapse_helpers::device_allocator> {
         return std::make_unique<habana::HPUAllocator>(id);
@@ -107,17 +107,17 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         auto device_ptr = absl::get<std::shared_ptr<synapse_helpers::device>>(
             device_ptr_or_error);
         // Insert the device in HPURegistrar. The
-        // synapse_helpers::HPURegistrar::empty() call creates the HPURegistrar
+        // habana::HPURegistrar::empty() call creates the HPURegistrar
         // object.
         TORCH_CHECK(
-            synapse_helpers::HPURegistrar::empty(),
+            habana::HPURegistrar::empty(),
             "HPURegistrar not empty when synapse device is being created");
-        synapse_helpers::HPURegistrar::insert_device(device_ptr);
+        habana::HPURegistrar::insert_device(device_ptr);
         // Mark the HPURegistrar to be initialized with a device
-        synapse_helpers::HPURegistrar::markInitialized();
+        habana::HPURegistrar::markInitialized();
       }
     }
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     habana::HPUDeviceAllocator::allocator_active_device_id = device.id();
     habana::PinnedMemoryAllocator::allocator_active_device_id = device.id();
 
@@ -140,10 +140,10 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     // As there is always 1 device in play all the time,
     // setDevice() usage wont be required currently.
 
-    if (synapse_helpers::HPURegistrar::isInitialized()) {
+    if (habana::HPURegistrar::isInitialized()) {
       TORCH_INTERNAL_ASSERT(d.type() == type());
       habana::HPUDeviceAllocator::allocator_active_device_id =
-          synapse_helpers::HPURegistrar::get_device(d.index()).id();
+          habana::HPURegistrar::get_device(d.index()).id();
       TORCH_CHECK(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",

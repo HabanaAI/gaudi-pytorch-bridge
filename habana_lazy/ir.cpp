@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "ir.h"
@@ -77,7 +80,7 @@ size_t Use::operator()(const Use& in) const {
 Node::Node(c10::Symbol op, bool _is_input)
     : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
   /*Need to set this node if the deterministic mode is ON*/
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   deterministic = device.getDeterministic();
   PT_BRIDGE_DEBUG("Deterministic value During Node Creation: ", deterministic);
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));

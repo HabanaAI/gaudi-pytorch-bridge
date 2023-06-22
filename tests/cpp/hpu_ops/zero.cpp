@@ -21,7 +21,7 @@
 bool IsUnsupported(torch::ScalarType dtype) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  const auto device_type = synapse_helpers::HPURegistrar::get_device().type();
+  const auto device_type = habana::HPURegistrar::get_device().type();
   if (!IsDtypeSupportedOnCurrentDevice(dtype) ||
       (dtype == torch::kLong && device_type != synDeviceGaudi2)) {
     return true;

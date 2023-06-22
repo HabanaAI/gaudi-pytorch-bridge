@@ -54,7 +54,7 @@ static thread_local std::unique_ptr<StreamId> current_streams = nullptr;
 static void initGlobalStreamState() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  synapse_helpers::HPURegistrar::get_device();
+  habana::HPURegistrar::get_device();
 }
 
 // Init front-end to ensure initialization only occurs once
@@ -85,7 +85,7 @@ HPUStream HPUStreamForId(DeviceIndex device_index, StreamId stream_id) {
 
 bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -124,7 +124,7 @@ bool HPUStream::query() const {
 
 void HPUStream::synchronize() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -137,8 +137,8 @@ void HPUStream::synchronize() const {
     if (id() != getCurrentHPUStream(device_index).id()) {
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
-      bool is_main_thread = synapse_helpers::HPURegistrar::getMainThreadId() ==
-          std::this_thread::get_id();
+      bool is_main_thread =
+          habana::HPURegistrar::getMainThreadId() == std::this_thread::get_id();
       // If synchronize is called from userthread, just do wait till the
       // execution is over
       habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
@@ -163,14 +163,14 @@ HPUStream getStreamFromPool(
     DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     device_index = device.id();
   }
 
   // create stream
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   synapse_helpers::hpuStream_t stream;
   PT_DEVICE_DEBUG("STREAM:: create a new stream::");
   device.create_stream(stream, isHighPriority);
@@ -183,7 +183,7 @@ HPUStream getStreamFromPool(
 HPUStream getDefaultHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     device_index = device.id();
   }
   return HPUStreamForId(device_index, 0);
@@ -192,7 +192,7 @@ HPUStream getDefaultHPUStream(DeviceIndex device_index) {
 HPUStream getCurrentHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device();
     device_index = device.id();
   }
   PT_DEVICE_DEBUG(

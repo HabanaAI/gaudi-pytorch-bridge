@@ -258,7 +258,7 @@ static void launchRecipe(
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     std::shared_ptr<synapse_helpers::recipe>& recipe) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   auto& stream_handle = device.get_stream(c10::hpu::getCurrentHPUStream());
   std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
   if (device.IsStreamASyncEnabled()) {
@@ -301,7 +301,7 @@ static void execute_recipe(
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   auto recipe = device.get_recipe_handle_cache().get_recipe(key);
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
@@ -326,7 +326,7 @@ static void compile_and_run(
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   std::shared_ptr<synapse_helpers::recipe> recipe = nullptr;
   if (key > 0 && device.IsCachingEnabled()) {
     recipe = device.get_recipe_handle_cache().get_recipe(key, graph);
@@ -766,8 +766,7 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
 
   void* host_ptr = nullptr;
   const auto& host_ptr_size = elementSize(scalar_val_type);
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(p_context_->device_id_);
+  auto& device = habana::HPURegistrar::get_device(p_context_->device_id_);
   auto status = device.get_host_memory().malloc(&host_ptr, host_ptr_size);
   HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
 

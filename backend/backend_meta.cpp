@@ -25,7 +25,7 @@ namespace habana {
 
 TensorExtraMeta::~TensorExtraMeta() {
   if (get_host_ptr()) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     device.get_host_memory().free(get_host_ptr());
     device.get_host_memory().free(get_compile_host_ptr());
   }
@@ -36,7 +36,7 @@ void TensorExtraMeta::set_host_data(
     int size,
     int el_size,
     HostDataType dt_type) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   id_ = device.id();
   int total_elem = 2 * size * el_size;
   int data_size = size * el_size;
@@ -75,7 +75,7 @@ void TensorExtraMeta::set_const_tensor(
       " is_const_tensor_ : ",
       is_const_tensor);
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     void* host_ptr{};
     auto status = device.get_host_memory().malloc(
         &host_ptr, tensor.numel() * tensor.itemsize());

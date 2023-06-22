@@ -24,16 +24,16 @@
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/synapse_helpers/device.h"
 
-namespace synapse_helpers {
+namespace habana {
 class HPURegistrar {
   HPURegistrar() = default;
-  std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
+  std::array<synapse_helpers::device_handle, MAX_DEVICES_PER_BOX>
       acquired_devices;
   static HPURegistrar& get_hpu_registrar();
   ~HPURegistrar() {
     deleteDevices();
-    habana::HPUDeviceAllocator::allocator_active_device_id = -1;
-    habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
+    HPUDeviceAllocator::allocator_active_device_id = -1;
+    PinnedMemoryAllocator::allocator_active_device_id = -1;
   }
 
  public:
@@ -58,7 +58,7 @@ class HPURegistrar {
     return *(ret->get());
   }
 
-  static void insert_device(std::shared_ptr<synapse_helpers::device> device) {
+  static void insert_device(synapse_helpers::device_handle device) {
     get_hpu_registrar().acquired_devices[device->id()] = device;
   }
 
@@ -121,4 +121,4 @@ class HPURegistrar {
   static const std::thread::id main_thread_id_;
 };
 
-} // namespace synapse_helpers
+} // namespace habana

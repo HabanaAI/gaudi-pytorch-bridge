@@ -71,7 +71,7 @@ std::vector<int64_t> compute_nonzero_output_shape(const at::Tensor& self) {
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   auto elements = self.numel();
-  if ((synapse_helpers::HPURegistrar::get_device().type() !=
+  if ((habana::HPURegistrar::get_device().type() !=
        synDeviceType::synDeviceGreco) and
       (self.dim() <= 4) and (self.dim() > 0)) {
     elements = 1;

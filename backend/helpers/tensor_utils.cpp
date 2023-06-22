@@ -190,7 +190,7 @@ void habana_helpers::copy_scalar_to_device(
     const at::Tensor& dst,
     uint32_t size) {
   auto device_id = dst.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
@@ -254,7 +254,7 @@ void habana_helpers::copy_scalars_to_device(
     dst_list.push_back(dst);
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.IsStreamASyncEnabled()) {
     // src list and dst list keeps a reference to the tensors it is
     // operating on to prevent it from being deallocated while the
@@ -357,7 +357,7 @@ void habana_helpers::copy_data_to_host(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
   size_t device_id = src.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (src.nbytes() == 0) {
     return;
@@ -417,7 +417,7 @@ void habana_helpers::copy_data_to_device(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
   auto device_id = dst.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   if (src.nbytes() == 0) {
@@ -471,7 +471,7 @@ void habana_helpers::copy_data_within_device(
     const at::Tensor& dst,
     bool non_blocking) {
   auto device_id = dst.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
@@ -679,7 +679,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::BFloat16:
       return true;
     case c10::ScalarType::Half: {
-      auto device_type{synapse_helpers::HPURegistrar::get_device().type()};
+      auto device_type{habana::HPURegistrar::get_device().type()};
       if (device_type == synDeviceGaudi) {
         HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
       }
@@ -694,7 +694,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
 #if HAVE_FP8R152_SUPPORT
     case c10::ScalarType::Fp8r152: {
       return synapse_helpers::device_supports_fp8(
-          synapse_helpers::HPURegistrar::get_device().type());
+          habana::HPURegistrar::get_device().type());
     }
 #endif
     default:

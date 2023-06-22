@@ -17,5 +17,5 @@ bool IsDynamicShapeSupportedOnCurrentDevice() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   // Dynamic shapes are not supported on Gaudi3
-  return synapse_helpers::HPURegistrar::get_device().type() != synDeviceGaudi3;
+  return habana::HPURegistrar::get_device().type() != synDeviceGaudi3;
 }

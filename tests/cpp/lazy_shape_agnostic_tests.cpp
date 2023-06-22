@@ -61,7 +61,7 @@ class LazyShapeAgnosticTest : public habana_lazy_test::LazyTest {
 TEST_F(LazyShapeAgnosticTest, LazyDoATest1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({5, 5}, torch::requires_grad(false));
     torch::Tensor B = torch::randn({5, 5}, torch::requires_grad(false));
@@ -96,7 +96,7 @@ TEST_F(LazyShapeAgnosticTest, LazyDoATest1) {
 TEST_F(LazyShapeAgnosticTest, LazyDoATest2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({5, 5}, torch::requires_grad(false));
     torch::Tensor B = torch::randn({5, 5}, torch::requires_grad(false));
@@ -132,7 +132,7 @@ TEST_F(LazyShapeAgnosticTest, LazyDoATest2) {
 TEST_F(LazyShapeAgnosticTest, LazyDoATest3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({5, 10}, torch::requires_grad(false));
     torch::Tensor B = torch::randn({5, 10}, torch::requires_grad(false));
@@ -159,7 +159,7 @@ TEST_F(LazyShapeAgnosticTest, LazyDoATest3) {
 TEST_F(LazyShapeAgnosticTest, ConvReluTest1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
@@ -211,7 +211,7 @@ TEST_F(LazyShapeAgnosticTest, ConvReluTest1) {
 TEST_F(LazyShapeAgnosticTest, ConvReluTest2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     size_t test_count = 10;
     for (size_t count = 0; count < test_count; count++) {
@@ -262,7 +262,7 @@ TEST_F(LazyShapeAgnosticTest, ConvReluTest2) {
 TEST_F(LazyShapeAgnosticTest, MulInplaceTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
       SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -302,7 +302,7 @@ TEST_F(LazyShapeAgnosticTest, MulInplaceTest) {
 TEST_F(LazyShapeAgnosticTest, BatchNormForwardExecute) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
       SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -391,7 +391,7 @@ TEST_F(LazyShapeAgnosticTest, BatchNormForwardExecute) {
 TEST_F(LazyShapeAgnosticTest, LayerNormForwardExecute) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
@@ -439,7 +439,7 @@ TEST_F(LazyShapeAgnosticTest, LayerNormForwardExecute) {
 TEST_F(LazyShapeAgnosticTest, AvgPoolTest) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::arange(20, torch::dtype(torch::kFloat).requires_grad(true))

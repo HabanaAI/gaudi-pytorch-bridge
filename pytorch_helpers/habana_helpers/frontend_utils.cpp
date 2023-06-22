@@ -106,7 +106,7 @@ void habana_helpers::copy_scalar_to_host(
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   auto syn_error =
-      synapse_helpers::HPURegistrar::get_device(src.device().index())
+      habana::HPURegistrar::get_device(src.device().index())
           .copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
               dst_ptr,
@@ -180,7 +180,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       "Unsupported Cast operation requested in hpu_cast_tensor()");
 
   int device_id = Input.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   CastOperator Op(device_id, node_type.value());
   std::vector<c10::IValue> stack = {
       c10::IValue(Input), c10::IValue(at::typeMetaToScalarType(type))};

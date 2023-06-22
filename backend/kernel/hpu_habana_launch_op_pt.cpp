@@ -1030,8 +1030,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
                        .mark_persistence(true)
                        .with_memory_section(syn_tensor_input.memorysection())
                        .build(
-                           synapse_helpers::HPURegistrar::get_device(
-                               tensor->device().index()),
+                           HPURegistrar::get_device(tensor->device().index()),
                            syn_tensor_input.graph());
 
     meta_syn_tensors.push_back(
@@ -2038,7 +2037,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     bool is_shape_inference) {
   PT_BRIDGE_BEGIN;
   // figure out the right device id
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
 
   synapse_helpers::detail::tensor_name_generator::reset();
@@ -2894,7 +2893,7 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   PT_BRIDGE_BEGIN;
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-    auto& syn_device = synapse_helpers::HPURegistrar::get_device();
+    auto& syn_device = HPURegistrar::get_device();
     auto& time_event_handle_cache = syn_device.get_time_event_handle_cache();
     if (time_event_handle_cache.get_total_events_count() <
         synapse_helpers::event_handle_cache::get_num_events_high_watermark()) {
@@ -3630,7 +3629,7 @@ void HabanaLaunchOpPT::run(
   allocated_outputs_ = std::move(allocated_outputs);
 
   iteration_count_++;
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
 
   // Check whether dynamic shape is needed
   size_t graph_key_with_perm = graph_key;
@@ -4230,7 +4229,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
         m_map_shape.m_max_shapes);
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   std::string graphName{GetSynapseGraphName()};
 
   auto create_graph_for_refinement{[&]() -> synapse_helpers::graph {
@@ -4311,7 +4310,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
 void HabanaLaunchOpPT::run_pass() {
   PT_BRIDGE_BEGIN;
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
 
   //
   // Run the compile and execute method to infer the shapes
@@ -4567,7 +4566,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
 // Also handles fallback and failures.
 void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     DynamicShapeInfo& graph_input_info) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   habana_helpers::CompilationPass last_compilation_pass =
       habana_helpers::CompilationPass::STATIC;
   // If both min and max exists then the graph is dynamic

@@ -1443,7 +1443,7 @@ class LazyOp {
     size_t optimized_key = static_cast<uint32_t>(m_symbol);
     optimized_key = at::hash_combine(optimized_key, m_out_shapes.size());
     if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      auto& device = synapse_helpers::HPURegistrar::get_device();
+      auto& device = habana::HPURegistrar::get_device();
       optimized_key =
           at::hash_combine(optimized_key, device.getDeterministic());
     }

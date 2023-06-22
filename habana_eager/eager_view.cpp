@@ -21,7 +21,7 @@ namespace eager {
 static void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     auto one = torch::jit::attr::alpha;
-    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto& device = HPURegistrar::get_device();
     node->i_(one, device.getDeterministic());
     PT_EAGER_DEBUG(
         "Deterministic val during Jit Node creation: ", node->i(one));

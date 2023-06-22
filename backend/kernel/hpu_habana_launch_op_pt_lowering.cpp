@@ -357,7 +357,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 reinterpret_cast<uint8_t*>(section_data),
                 reinterpret_cast<uint8_t*>(section_data) + section_size,
                 (uint8_t*)host_ptr);
-            auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+            auto& device = HPURegistrar::get_device(device_id);
             auto& dst = iter->first->toTensor();
             if (old_size < section_size) {
               PT_BRIDGE_DEBUG(
@@ -673,7 +673,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     return;
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
 
   if (enable_tensor_dump_) {

@@ -430,7 +430,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& outputs,
     CollectiveFn fn,
     bool is_allreduce) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());

@@ -132,7 +132,7 @@ void HlExec::Launch(
     torch::jit::Stack& stack,
     const c10::hpu::HPUStream& stream) {
   PT_LAZY_TRACE;
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
@@ -400,7 +400,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     }
   }
 
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
   // Save po_data input and output to context for perf mode
   if (context->getCapturing() &&

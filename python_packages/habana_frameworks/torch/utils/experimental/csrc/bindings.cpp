@@ -19,7 +19,7 @@
 #include "common/utils.h"
 
 int GetDeviceType() {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   return device.type();
 }
 
@@ -28,7 +28,7 @@ intptr_t GetDataPtr(const at::Tensor& t) {
 
   if (data_ptr) {
     size_t device_id = t.device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    auto& device = habana::HPURegistrar::get_device(device_id);
 
     auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     return reinterpret_cast<intptr_t>(address);
@@ -50,7 +50,7 @@ void RecordParam(
     const bool is_optim_state,
     const uint64_t t_start,
     const uint64_t t_size) {
-  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device();
   device.record_param(
       name, is_param, is_grad, is_optim_state, t_start, t_start + t_size);
 }
@@ -62,7 +62,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](const at::Tensor& t) { return GetDataPtr(t); },
       py::arg("t"));
   m.def("compute_stream", []() {
-    auto& d = synapse_helpers::HPURegistrar::get_device();
+    auto& d = habana::HPURegistrar::get_device();
     auto hpu_stream = c10::hpu::getDefaultHPUStream(d.id());
     void* stream = (void*)d.get_stream(hpu_stream.id());
     return reinterpret_cast<uintptr_t>(stream);

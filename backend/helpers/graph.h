@@ -23,7 +23,7 @@ static inline synapse_helpers::graph create_graph(
     std::string name,
     bool dry_run = false,
     bool eager_mode = false) {
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPURegistrar::get_device(device_id);
   auto graph_or_error =
       synapse_helpers::graph::create(device, name, dry_run, eager_mode);
 
