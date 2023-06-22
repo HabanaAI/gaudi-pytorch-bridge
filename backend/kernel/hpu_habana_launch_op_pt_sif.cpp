@@ -407,6 +407,15 @@ void HabanaLaunchOpPT::visit_prim_node(
   }
 }
 
+// To instantiate the template method(s) RunHybridSif
+template void HabanaLaunchOpPT::RunHybridSif<true>(
+    std::unordered_map<int64_t, at::Tensor>&);
+
+template void HabanaLaunchOpPT::RunHybridSif<false>(
+    std::unordered_map<int64_t, at::Tensor>&);
+// --------------------
+
+template <bool DynamicShapes>
 void HabanaLaunchOpPT::RunHybridSif(
     std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
   PT_BRIDGE_BEGIN;
@@ -496,14 +505,16 @@ void HabanaLaunchOpPT::RunHybridSif(
     // Collect input shape tensors, To add them at last after graph inputs
     // Add only shape tensors and input describing shape tensors and
     // exclude front end shape tensors added for H2D tensors
-    for (auto const& input : op_input_stack) {
-      if (input.isTensor()) {
-        auto tensor = input.toTensor();
-        auto tmeta{get_tensor_extra_meta(tensor, true)};
-        if (tmeta && tmeta->is_H2D_frontend_shape_tensor() == false &&
-            (tmeta->get_tensor_type() == SHAPE_TENSOR ||
-             tmeta->get_tensor_type() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
-          input_shape_tensors_vec.emplace_back(tensor);
+    if constexpr (DynamicShapes) {
+      for (auto const& input : op_input_stack) {
+        if (input.isTensor()) {
+          auto tensor = input.toTensor();
+          auto tmeta{get_tensor_extra_meta(tensor, true)};
+          if (tmeta && tmeta->is_H2D_frontend_shape_tensor() == false &&
+              (tmeta->get_tensor_type() == SHAPE_TENSOR ||
+               tmeta->get_tensor_type() == INPUT_DESCRIBING_SHAPE_TENSOR)) {
+            input_shape_tensors_vec.emplace_back(tensor);
+          }
         }
       }
     }
@@ -526,7 +537,9 @@ void HabanaLaunchOpPT::RunHybridSif(
       habana_op->AllocateAndAddSynapseNode(
           syn_graph, op_input_stack, outputs_metadata);
 
-      process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
+      if constexpr (DynamicShapes) {
+        process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
+      }
       process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
 
       auto output_count = get_output_tensors_count(habana_op, syn_graph);
@@ -572,19 +585,22 @@ void HabanaLaunchOpPT::RunHybridSif(
         }
 
         // Recursivly collect all shape tensors
-        std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
-        ProcessShapeTensorsCS(output_shape_info, intermediate_shape_tensor_cs);
+        if constexpr (DynamicShapes) {
+          std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
+          ProcessShapeTensorsCS(
+              output_shape_info, intermediate_shape_tensor_cs);
 
-        // Get all values of shape tensor
-        for (auto& t : intermediate_shape_tensor_cs) {
-          auto curSifTidx{std::get<0>(t)};
-          auto shape_tensor_pt{std::get<1>(t)};
-          PT_DYNAMIC_SHAPE_DEBUG(
-              "For node shape output with cs, adding to tidx_to_tensor_map: ",
-              curSifTidx,
-              " -> ",
-              habana_helpers::DebugString(shape_tensor_pt));
-          tidx_to_tensor_map.insert({curSifTidx, shape_tensor_pt});
+          // Get all values of shape tensor
+          for (auto& t : intermediate_shape_tensor_cs) {
+            auto curSifTidx{std::get<0>(t)};
+            auto shape_tensor_pt{std::get<1>(t)};
+            PT_DYNAMIC_SHAPE_DEBUG(
+                "For node shape output with cs, adding to tidx_to_tensor_map: ",
+                curSifTidx,
+                " -> ",
+                habana_helpers::DebugString(shape_tensor_pt));
+            tidx_to_tensor_map.insert({curSifTidx, shape_tensor_pt});
+          }
         }
 
         HABANA_ASSERT(
@@ -601,41 +617,44 @@ void HabanaLaunchOpPT::RunHybridSif(
     }
   }
 
-  // For all Graph inputs create a sif mapping
-  for (size_t i = 0; i < graph_inputs.size(); ++i) {
-    if (input_refs[i].isScalar())
-      continue;
-    HABANA_ASSERT(input_refs[i].isTensor());
-    auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
-    tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "For graph inputs, adding to tidx_to_tensor_map: ",
-        inp_sif_tid,
-        " -> ",
-        habana_helpers::DebugString(input_refs[i].toTensor()));
-  }
+  if constexpr (DynamicShapes) {
+    // For all Graph inputs create a sif mapping
+    for (size_t i = 0; i < graph_inputs.size(); ++i) {
+      if (input_refs[i].isScalar())
+        continue;
+      HABANA_ASSERT(input_refs[i].isTensor());
+      auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
+      tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "For graph inputs, adding to tidx_to_tensor_map: ",
+          inp_sif_tid,
+          " -> ",
+          habana_helpers::DebugString(input_refs[i].toTensor()));
+    }
 
-  // For all input shape tensors create a sif mapping
-  for (auto const& input_tensor : input_shape_tensors_vec) {
-    auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
-    tidx_to_tensor_map.insert({inp_sif_tid, input_tensor});
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "For graph shape inputs, adding to tidx_to_tensor_map: ",
-        inp_sif_tid,
-        " -> ",
-        habana_helpers::DebugString(input_tensor));
-  }
+    // For all input shape tensors create a sif mapping
+    for (auto const& input_tensor : input_shape_tensors_vec) {
+      auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
+      tidx_to_tensor_map.insert({inp_sif_tid, input_tensor});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "For graph shape inputs, adding to tidx_to_tensor_map: ",
+          inp_sif_tid,
+          " -> ",
+          habana_helpers::DebugString(input_tensor));
+    }
 
-  // For all intermediate shape tensors for nodes not supporting
-  // ComputeOutputShape create a sif mapping
-  for (auto const& inter_tensor : intermediate_shape_tensors_vec) {
-    auto inter_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
-    tidx_to_tensor_map.insert({inter_sif_tid, inter_tensor});
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "For graph intermediate shape tensors, adding to tidx_to_tensor_map: ",
-        inter_sif_tid,
-        " -> ",
-        habana_helpers::DebugString(inter_tensor));
+    // For all intermediate shape tensors for nodes not supporting
+    // ComputeOutputShape create a sif mapping
+    for (auto const& inter_tensor : intermediate_shape_tensors_vec) {
+      auto inter_sif_tid =
+          habana::ShapeInference::ReadAndIncrementSifTensorId();
+      tidx_to_tensor_map.insert({inter_sif_tid, inter_tensor});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "For graph intermediate shape tensors, adding to tidx_to_tensor_map: ",
+          inter_sif_tid,
+          " -> ",
+          habana_helpers::DebugString(inter_tensor));
+    }
   }
 
   // For debugging

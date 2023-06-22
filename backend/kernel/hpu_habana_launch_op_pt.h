@@ -662,6 +662,7 @@ class HabanaLaunchOpPT {
       const torch::jit::Node* node,
       std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
 
+  template <bool DynamicShapes>
   void RunHybridSif(
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
   // --------------------

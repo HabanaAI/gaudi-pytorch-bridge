@@ -195,7 +195,8 @@ class EagerOp : public EagerOpBase {
           nullptr);
     }
 
-    auto out_spec = OutputSpec{self.scalar_type(), self.device(), self.sizes()};
+    auto out_spec =
+        OutputSpec{self.scalar_type(), self.device(), self.sizes().vec()};
     auto stack = run({out_spec});
     return self;
   }
@@ -225,7 +226,8 @@ class EagerOp : public EagerOpBase {
           nullptr);
     }
 
-    auto out_spec = OutputSpec{self.scalar_type(), self.device(), self.sizes()};
+    auto out_spec =
+        OutputSpec{self.scalar_type(), self.device(), self.sizes().vec()};
     auto stack = run({out_spec});
     return self;
   }
@@ -280,7 +282,7 @@ class EagerOp : public EagerOpBase {
     std::vector<OutputSpec> out_spec;
     habana::for_each_in_tuple(self, [&out_spec](const auto& el) {
       out_spec.emplace_back(
-          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+          OutputSpec{el.scalar_type(), el.device(), el.sizes().vec()});
     });
 
     auto stack = run(std::move(out_spec));
@@ -321,7 +323,7 @@ class EagerOp : public EagerOpBase {
     std::vector<OutputSpec> out_spec;
     for (auto& el : tensors1) {
       out_spec.emplace_back(
-          OutputSpec{el.scalar_type(), el.device(), el.sizes()});
+          OutputSpec{el.scalar_type(), el.device(), el.sizes().vec()});
     }
 
     auto stack = run(std::move(out_spec));
@@ -347,7 +349,7 @@ class EagerOp : public EagerOpBase {
               "Got a non-HPU tensor, expecting an HPU tensor");
 
           out_spec.emplace_back(OutputSpec{
-              tensor.scalar_type(), tensor.device(), tensor.sizes()});
+              tensor.scalar_type(), tensor.device(), tensor.sizes().vec()});
         }
       } while (customIt.has_more_items());
     }
@@ -387,8 +389,8 @@ class EagerOp : public EagerOpBase {
         tensor.device().type() == at::kHPU,
         "Got a non-HPU tensor, expecting an HPU tensor");
 
-    auto stack = run(
-        {OutputSpec{tensor.scalar_type(), tensor.device(), tensor.sizes()}});
+    auto stack = run({OutputSpec{
+        tensor.scalar_type(), tensor.device(), tensor.sizes().vec()}});
   }
 
   // For regular variants
@@ -402,8 +404,8 @@ class EagerOp : public EagerOpBase {
       return result;
     } else {
       m_is_pipeline_supported = false;
-      auto out_spec =
-          OutputSpec{result.scalar_type(), result.device(), result.sizes()};
+      auto out_spec = OutputSpec{
+          result.scalar_type(), result.device(), result.sizes().vec()};
       auto stack = run({out_spec});
       HABANA_ASSERT(stack.size() == 1); // single output only
       return stack.at(0).toTensor();

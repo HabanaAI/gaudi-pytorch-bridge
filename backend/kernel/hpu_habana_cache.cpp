@@ -1168,17 +1168,7 @@ void RecipeValueSpec::update_patching_table(
   output_tensor_ids = std::vector<uint64_t>(aten_output_num);
   output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
 
-  /* Patch outputs, is_shape_agnostic_lazy_eager to distinguish
-   * between old lazy eager mode and new eager mode
-   * For new eager, Use shape inference for patching outputs
-   * For old lazy eager, ouptut info is passed from frontend.
-   *
-   * Todo: Add support for shape info from front end for new eager
-   *       Remove this flag once lazy eager mode is deprecated.
-   */
-  const auto is_shape_agnostic_lazy_eager =
-      is_shape_agnostic_graph && !is_eager_mode;
-  if (is_shape_agnostic_lazy_eager) {
+  if (is_shape_agnostic_graph) {
     TORCH_CHECK(
         aten_output_num == output_shapes.size(),
         "number of output shapes for patching ",
@@ -1215,7 +1205,7 @@ void RecipeValueSpec::update_patching_table(
         output_idx,
         " is greater than #outputs ",
         aten_output_num);
-    if (is_shape_agnostic_lazy_eager) {
+    if (is_shape_agnostic_graph) {
       update_new_tensor(
           synapse_graph_ptr,
           ridx,
@@ -1226,7 +1216,7 @@ void RecipeValueSpec::update_patching_table(
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
     auto pt_output = create_or_use_output_tensor(ti);
-    if (is_shape_agnostic_lazy_eager) {
+    if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,
           "output HbInternal address: %s"
@@ -1288,7 +1278,7 @@ void RecipeValueSpec::update_patching_table(
       outduplicates_end + num_input_to_outduplicates;
   if (num_input_to_outduplicates) {
     for (; ridx < input_to_outduplicates_end; ridx++) {
-      if (is_shape_agnostic_lazy_eager) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1354,7 +1344,7 @@ void RecipeValueSpec::update_patching_table(
       interim_to_outduplicates_end + num_output_to_outduplicates;
   if (num_output_to_outduplicates) {
     for (; ridx < output_to_outduplicates_end; ridx++) {
-      if (is_shape_agnostic_lazy_eager) {
+      if (is_shape_agnostic_graph) {
         auto output_idx = dtensorinfos->at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
@@ -1389,7 +1379,7 @@ void RecipeValueSpec::update_patching_table(
       ", mismatch with num_tinfos",
       num_tinfos);
 
-  if (is_shape_agnostic_lazy_eager) {
+  if (is_shape_agnostic_graph) {
     // These tinfos not patched
     auto tinfos_not_patched = num_dma_inputs + num_intermediates +
         num_outduplicates + num_intermediate_to_outduplicates;
@@ -1411,9 +1401,6 @@ void RecipeValueSpec::update_patching_table(
         output_tensor_alllow_permutations.size());
   }
 
-  // For new eager mode
-  // Patch non-persistent and outputs info for shape agnostic flow
-  // For old lazy eager mode
   // Patch non-persistent info for shape agnostic flow
   //       outputs and inputs are patched separately
   //

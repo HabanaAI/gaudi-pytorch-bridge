@@ -187,3 +187,26 @@ TEST_F(ShapeAgnosticTest, ConvReluRelu) {
     EXPECT_EQ(num_cache_entries, 3);
   }
 }
+
+TEST_F(ShapeAgnosticTest, ScalarAdd) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    torch::Tensor A = torch::randn({3, 3, 3}, torch::dtype(torch::kFloat))
+                          .to(torch::dtype(torch::kLong));
+    auto hA = A.to(torch::kHPU);
+    A = A.add_(1);
+    hA = hA.add_(1);
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0, 0), true);
+
+    torch::Tensor B = torch::randn({6, 6, 6}, torch::dtype(torch::kFloat))
+                          .to(torch::dtype(torch::kLong));
+    auto hB = B.to(torch::kHPU);
+    B = B.add_(2);
+    hB = hB.add_(2);
+
+    EXPECT_EQ(allclose(B, hB.cpu(), 0, 0), true);
+  }
+}

@@ -23,7 +23,7 @@ using SmallTensorVector = c10::SmallVector<at::Tensor, 8>;
 struct OutputSpec {
   c10::ScalarType scalar_type;
   c10::Device device;
-  c10::IntArrayRef sizes;
+  std::vector<int64_t> sizes;
 };
 
 class OutputSpecsOrTensors {
@@ -37,6 +37,7 @@ class OutputSpecsOrTensors {
   size_t size();
   c10::TensorTypePtr get_tensor_type(size_t indx);
   std::optional<std::vector<at::Tensor>> get_tensors();
+  std::vector<std::vector<int64_t>> get_shapes();
 
  private:
   std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>> m_outputs;

@@ -114,6 +114,32 @@ std::optional<std::vector<at::Tensor>> OutputSpecsOrTensors::get_tensors() {
       : std::nullopt;
 }
 
+std::vector<std::vector<int64_t>> OutputSpecsOrTensors::get_shapes() {
+  std::vector<std::vector<int64_t>> shapes;
+  std::visit(
+      overloaded{
+          [&](std::vector<OutputSpec>& specs) {
+            std::transform(
+                specs.begin(),
+                specs.end(),
+                std::back_inserter(shapes),
+                [](OutputSpec& spec) -> std::vector<int64_t> {
+                  return spec.sizes;
+                });
+          },
+          [&](std::vector<at::Tensor>& tensors) {
+            std::transform(
+                tensors.begin(),
+                tensors.end(),
+                std::back_inserter(shapes),
+                [](at::Tensor& tensor) -> std::vector<int64_t> {
+                  return tensor.sizes().vec();
+                });
+          }},
+      m_outputs);
+  return shapes;
+}
+
 std::vector<at::IValue> convert_inputs_to_backend_tensors(
     std::vector<at::IValue>& inputs) {
   std::vector<at::IValue> stack;
@@ -273,6 +299,7 @@ torch::jit::Stack EagerExec::launch() {
     graph_and_meta->set_is_shape_agnostic_supported(isEagerCompilerGraph);
     cache.Add(key, graph_and_meta);
   }
+  graph_and_meta->set_output_shapes(m_outputs.get_shapes());
 
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{graph_and_meta};

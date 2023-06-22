@@ -213,11 +213,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       ", enable_shape_agnostic_caching_ : ",
       enable_shape_agnostic_caching_);
 
-  // For new eager, Try shape inference for patching outputs
-  // For lazy eager, output info is passed from frontend itself.
-  if (enable_shape_agnostic_caching_ &&
-      jit_graph_and_meta_data->GetFrontendType() !=
-          habana_helpers::HabanaFrontendTypes::EAGER) {
+  if (enable_shape_agnostic_caching_) {
     out_shapes = optimized_jit_graph_and_meta_data->get_output_shapes();
     HABANA_ASSERT(
         out_shapes.size() == jit_ir_graph->outputs().size(),
@@ -854,9 +850,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         handle_permutes(ti, out_tensor_syn, ivpsh);
 
         constexpr bool use_output_shape = true;
-        const bool shape_agn_flag = enable_shape_agnostic_caching_ &&
-            jit_graph_and_meta_data->GetFrontendType() ==
-                habana_helpers::HabanaFrontendTypes::EAGER;
+        constexpr bool shape_agn_flag = false;
         handle_shape_inf(ti, use_output_shape, shape_agn_flag);
       } else if (enable_shape_agnostic_caching_) {
         // For shape agnostic flow for eager we need non-persistent info as well
@@ -3142,7 +3136,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
               "HybridSif_BEGIN");
 
           habana::ShapeInference::ResetSifTensorId();
-          RunHybridSif(tidx_to_tensor_map);
+          constexpr bool dynamic_shapes_true = true;
+          RunHybridSif<dynamic_shapes_true>(tidx_to_tensor_map);
           PT_DYNAMIC_SHAPE_DEBUG("HybridSif_END");
         } else {
           PT_DYNAMIC_SHAPE_DEBUG("OutputSif_BEGIN");
@@ -3912,19 +3907,15 @@ void HabanaLaunchOpPT::run(
            habana_helpers::HabanaFrontendTypes::EAGER);
 
       /*
-       * Hybrid SIF for shape inference
-       * For new eager, Hybrid SIF is used for output and intermediate tensors
-       *                shape inference.
-       * For old lazy eager, Hybrid SIF is used for only intermediate tensors
-       *                     shape inference, if any. Since ouptut shape info
-       *                     is passed from the frontend.
-       * ToDo: Use same control flow for both above mode i.e.
-       * Add support for passing output shapes from the frontend for new eager.
+       * Hybrid SIF is used for shape inference for intermediate tensors
+       * Inputs shape is retrieved from input refs.
+       * Ouptut shape info is passed in the jit ir graph meta data.
        */
       std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map;
-      if (new_eager_mode || syn_graph_ptr->get_num_of_inter_tensors() > 0) {
+      if (syn_graph_ptr->get_num_of_inter_tensors() > 0) {
         habana::ShapeInference::ResetSifTensorId();
-        RunHybridSif(local_tidx_to_tensor_map);
+        constexpr bool dynamic_shapes_false = false;
+        RunHybridSif<dynamic_shapes_false>(local_tidx_to_tensor_map);
       }
 
       constexpr bool is_shape_agnostic_graph = true;
