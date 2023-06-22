@@ -461,7 +461,7 @@ bool is_simulator() {
     std::string result = "";
     FILE* pipe = popen(
         "cat /sys/devices/virtual/habanalabs/hl0/device_type"
-        " | grep -i 'simulator' | wc -w",
+        " | grep -i 'sim' | wc -w",
         "r");
     if (!pipe) {
       return false;
@@ -472,7 +472,7 @@ bool is_simulator() {
     }
     pclose(pipe);
     int sim_cnt;
-    sscanf(buffer, "%d", &sim_cnt);
+    sscanf(result.c_str(), "%d", &sim_cnt);
     return (sim_cnt > 0);
   }
   return false;
