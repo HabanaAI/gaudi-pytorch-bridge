@@ -368,7 +368,14 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         return "VAL_"
 
     def can_generate(self):
-        return True
+        has_op_frontend = self._ctxop.op.get("op_frontend", False)
+        has_op_backend = self._ctxop.op.get("op_backend", False)
+        has_op_template = self._ctxop.op.get("op_template", False)
+
+        is_compatible_with_shared_layer = not any([has_op_backend, has_op_frontend, has_op_template])
+        assert is_compatible_with_shared_layer, f"cannot use shared layer for {self._ctxop.opname}"
+
+        return is_compatible_with_shared_layer
 
     def get_validator_inline_data_def(self):
         return ""
@@ -439,14 +446,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             arg_dtypes,
         ]
         constructor_args = ", ".join(constructor_args)
-
-        has_op_frontend = ctxop.op.get("op_frontend", False)
-        has_op_backend = ctxop.op.get("op_backend", False)
-        has_op_template = ctxop.op.get("op_template", False)
-
-        is_compatible_with_shared_layer = not any([has_op_backend, has_op_frontend, has_op_template])
-
-        assert is_compatible_with_shared_layer, f"cannot use shared layer for {opname}"
 
         return f"static CheckNodeWithSharedLayerValidator validator_{opname}({constructor_args});\n"
 
