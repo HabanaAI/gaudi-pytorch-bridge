@@ -682,6 +682,7 @@ RegisterKernel::add op = aten::sqrt
 RegisterKernel::add op = aten::sqrt_
 RegisterKernel::add op = aten::sqrt.out
 RegisterKernel::add op = aten::squeeze.dim
+RegisterKernel::add op = aten::squeeze.dims
 RegisterKernel::add op = aten::std.correction
 RegisterKernel::add op = aten::std.correction_out
 RegisterKernel::add op = aten::std_mean.correction

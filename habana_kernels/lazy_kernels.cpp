@@ -5001,6 +5001,35 @@ Tensor squeeze_dim_hpu_lazy(const Tensor& self, int64_t dim) {
   return squeeze_hpu_lazy(self, dim);
 }
 
+Tensor squeeze_dims_hpu_lazy(const Tensor& self, IntArrayRef dims) {
+  PT_LAZY_TRACE;
+
+  Tensor out;
+  auto dims_vec = dims.vec();
+  at::wrap_all_dims(dims_vec, self.dim());
+  out = at::native::squeeze(self, dims_vec);
+
+  // lazy eager optimized view handling (no need to create view table)
+  if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
+      (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
+    return out;
+  }
+
+  auto param_setter = [dims_vec](
+                          const Tensor& self, StrideParams& strided_param) {
+    strided_param.optype = kStridedOpSqueezeDims;
+    strided_param.sizes = dims_vec;
+
+    PT_VIEWTABLE_DEBUG(
+        "squeeze dims fallback tensor id ",
+        GetHbLazyTensorId(self),
+        " dims ",
+        dims_vec);
+  };
+
+  RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(squeeze_dims, self, out, param_setter);
+}
+
 Tensor& squeeze_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
 

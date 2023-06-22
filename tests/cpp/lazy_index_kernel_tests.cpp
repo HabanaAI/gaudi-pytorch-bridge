@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -807,6 +819,39 @@ TEST_F(LazyIndexKernelTest, squeezeTestNodim) {
 
   auto B = torch::squeeze(x);
   auto hB = torch::squeeze(hx);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyIndexKernelTest, squeezeDimsAll) {
+  auto x = torch::randn({3, 1, 7, 4, 1});
+  std::vector<int64_t> dims{1, 4};
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x, dims);
+  auto hB = torch::squeeze(hx, dims);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyIndexKernelTest, squeezeDimsOne) {
+  auto x = torch::randn({1, 1, 7, 4, 1});
+  std::vector<int64_t> dims{1};
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x, dims);
+  auto hB = torch::squeeze(hx, dims);
+
+  EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
+}
+
+TEST_F(LazyIndexKernelTest, squeezeDimsNone) {
+  auto x = torch::randn({1, 1, 7, 4, 1});
+  std::vector<int64_t> dims{2, 3};
+  auto hx = x.to(torch::kHPU);
+
+  auto B = torch::squeeze(x, dims);
+  auto hB = torch::squeeze(hx, dims);
 
   EXPECT_EQ(allclose(B, hB.cpu(), 0.001, 0.001), true);
 }

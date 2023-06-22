@@ -195,6 +195,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/softmax_gen.cpp
           backend/softplus_gen.cpp
           backend/sort_gen.cpp
+          backend/squeeze_dims_gen.cpp
           backend/take_gen.cpp
           backend/threshold_gen.cpp
           backend/trace_gen.cpp

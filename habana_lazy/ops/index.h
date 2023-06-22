@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #pragma once
@@ -190,6 +193,27 @@ struct SqueezeBase : public ir::Node {
     std::vector<at::Tensor> input_pt_vec{self};
 
     m_meta_data.set(dim, static_cast<size_t>(SqueezeParams::DIM_INDEX));
+    AddInputPtTensors(input_pt_vec);
+  }
+};
+
+struct SqueezeDims : public ir::Node {
+  enum class SqueezeParams { DIM_INDEX = 1 };
+  SqueezeDims() = delete;
+  SqueezeDims(
+      const at::Tensor& self,
+      at::IntArrayRef dims,
+      std::string node_str = "aten::squeeze")
+      : Node(c10::Symbol::fromQualString(node_str)) {
+    auto hl_self = habana_lazy::GetHbLazyTensor(self);
+
+    hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
+
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+
+    m_meta_data.set(dims, static_cast<size_t>(SqueezeParams::DIM_INDEX));
     AddInputPtTensors(input_pt_vec);
   }
 };

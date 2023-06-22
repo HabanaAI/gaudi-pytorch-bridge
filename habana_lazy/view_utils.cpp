@@ -313,6 +313,9 @@ bool HbLazyTensorViews::HandleViews(const Tensor& t, const HbLazyTensor& hl_t) {
             t_opt,
             "aten::unsqueeze");
         break;
+      case kStridedOpSqueezeDims:
+        add_squeeze_dims_lazy(recent_orig_t, params.sizes, t_opt);
+        break;
       case kStridedOpExpand:
         add_expand_lazy(
             recent_orig_t,
@@ -926,6 +929,21 @@ Tensor HbLazyTensorViews::add_squeeze_unsqueeze_lazy(
   return result;
 }
 
+Tensor HbLazyTensorViews::add_squeeze_dims_lazy(
+    const Tensor& self,
+    std::vector<int64_t> dims_vec,
+    c10::optional<Tensor> out_t) {
+  PT_LAZY_TRACE;
+  IntArrayRef dims_(dims_vec);
+  ir::NodePtr node = std::make_shared<ir::SqueezeDims>(self, dims_);
+
+  HABANA_ASSERT(out_t.has_value());
+  Tensor result = out_t.value();
+  auto hl_result = GetHbLazyTensor(result);
+  hl_result.IrSetNode(node);
+  return result;
+}
+
 // For inplace torch ops acting on views, lazyOp calls will automatically insert
 // strided insert node. But we need to do this manually for custom kernels. This
 // api is meant to be used in custom kernels for tensors
@@ -1189,6 +1207,7 @@ size_t HbLazyTensorViews::updateViewHash(
       case kStridedOpView:
       case kStridedOpViewDtype:
       case kStridedOpPermute:
+      case kStridedOpSqueezeDims:
         for (auto& s : params.sizes) {
           hash = at::hash_combine(hash, s);
         }

@@ -6626,6 +6626,19 @@ squeeze.dim:
   override_fn: squeeze_dim_hpu_lazy
   acc_thread: true
 
+squeeze.dims:
+  custom_output_shape: SqueezeDimsOutputShape
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int]
+    Gaudi3: [BFloat16, Float, Int]
+  guid: squeeze
+  op_backend: SqueezeDims
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: squeeze_dims_hpu_lazy
+
 squeeze_:
   force_default: false
   override_fn: squeeze_hpu_lazy_

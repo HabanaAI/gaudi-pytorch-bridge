@@ -193,6 +193,7 @@ set(hpu_ops_tests_src
   hpu_ops/softplus.cpp
   hpu_ops/sort.cpp
   hpu_ops/square.cpp
+  hpu_ops/squeeze.cpp
   hpu_ops/sum.cpp
   hpu_ops/take.cpp
   hpu_ops/tanh.cpp

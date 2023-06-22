@@ -69,6 +69,11 @@ class HbLazyTensorViews {
       c10::optional<at::Tensor> out_t,
       std::string node_str);
 
+  static at::Tensor add_squeeze_dims_lazy(
+      const at::Tensor& self,
+      std::vector<int64_t> dims_vec,
+      c10::optional<at::Tensor> out_t);
+
  public:
   static at::Tensor add_expand_lazy(
       const at::Tensor& self,
