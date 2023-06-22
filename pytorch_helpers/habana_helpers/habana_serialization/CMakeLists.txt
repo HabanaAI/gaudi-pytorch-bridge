@@ -11,7 +11,7 @@
 ###############################################################################
 
 add_library(habana_serialization STATIC cache_file_handler.cpp deserializers.cpp serializers.cpp recipe_cache.cpp
-                                        inter_host_cache.cpp cache_version.cpp)
+                                        inter_host_cache.cpp cache_version.cpp base_cache_file_handler.cpp recipe_cache_config.cpp)
 
 target_compile_features(habana_serialization PUBLIC cxx_std_17)
 

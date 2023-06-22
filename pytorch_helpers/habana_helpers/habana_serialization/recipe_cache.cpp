@@ -24,6 +24,9 @@
 #include <fstream>
 #include <future>
 #include <memory>
+#include <sstream>
+#include <utility>
+#include "base_cache_file_handler.h"
 #include "habana_helpers/logging.h"
 
 namespace {
@@ -81,12 +84,10 @@ absl::optional<synRecipeHandle> get_recipe_handle(
 namespace serialization {
 
 RecipeCache::RecipeCache(std::string cache_path)
-    : mut_{},
-      cond_var_{},
-      cache_path_{std::move(cache_path)},
+    : cache_path_{std::move(cache_path)},
       is_cache_valid_{false},
       inter_host_cache_{nullptr},
-      cfHandler{nullptr} {
+      cf_handler_{nullptr} {
   // no checking of retval, the dir is queried below regardless
   mkdir(cache_path_.c_str(), S_IRWXU | S_IRWXG);
   struct stat info {};
@@ -98,37 +99,52 @@ RecipeCache::RecipeCache(std::string cache_path)
     is_cache_valid_ = true;
   }
 
-  cfHandler = BasicCacheFileHandler::getInstance();
-  cfHandler->init(cache_path_);
+  cf_handler_ = std::make_unique<BaseCacheFileHandler>();
+  cf_handler_->init(cache_path_);
 
   if (GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING)) {
     inter_host_cache_ =
-        std::make_unique<InterHostCache>(cache_path_, cfHandler);
+        std::make_unique<InterHostCache>(cache_path_, cf_handler_);
     inter_host_cache_->init();
+  }
+
+  cache_thread_ = std::make_unique<habana_helpers::JobThread>();
+}
+
+RecipeCache::~RecipeCache() {
+  // ensure that interhost sync ended
+  if (interhost_send_thread_.valid()) {
+    interhost_send_thread_.get();
+  }
+
+  cache_thread_ = nullptr;
+}
+
+void RecipeCache::sync() {
+  // wait until cache thread finished its job
+  if (cache_thread_) {
+    while (cache_thread_->jobCounter() > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
   }
 }
 
-RecipeCache::~RecipeCache() = default;
-
-void RecipeCache::store(
-    std::string cache_id,
-    std::shared_ptr<synapse_helpers::graph::recipe_handle> const& recipeHandle,
-    std::stringstream&& metadata) {
-  if (!is_cache_valid_)
-    return;
-
+void RecipeCache::store_task(
+    const std::string& cache_id,
+    std::shared_ptr<synapse_helpers::graph::recipe_handle> recipeHandle,
+    const std::string& metadata) {
   PT_HABHELPER_DEBUG("Serializing recipe and metadata for cache_id ", cache_id);
 
   auto recipe_path = recipe_file_path(cache_path_, cache_id);
   auto metadata_path = metadata_file_path(cache_path_, cache_id);
 
   size_t size;
-  int fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
+  int fd = cf_handler_->fileOpen(metadata_path, O_RDWR | O_CREAT);
   if (fd < 0 && errno == EACCES) {
     PT_HABHELPER_WARN("Cannot open cache directory for writing.");
     return;
   }
-  bool locked = cfHandler->fileLock(fd, true, size);
+  bool locked = cf_handler_->fileLock(fd, true, size);
   if (!locked)
     PT_HABHELPER_WARN(
         "Error when locking the metadata file ",
@@ -141,8 +157,8 @@ void RecipeCache::store(
     auto serialize_status = synRecipeSerialize(
         recipeHandle->syn_recipe_handle_, recipe_path.c_str());
     if (serialize_status != synSuccess) {
-      cfHandler->fileUnLock(fd);
-      cfHandler->fileClose(fd);
+      cf_handler_->fileUnLock(fd);
+      cf_handler_->fileClose(fd);
       PT_HABHELPER_WARN(
           Logger::formatStatusMsg(serialize_status),
           "Failed to serialized recipe(",
@@ -154,8 +170,8 @@ void RecipeCache::store(
     std::ofstream metadata_file(metadata_path.c_str(), std::ofstream::binary);
     if (!metadata_file.is_open()) {
       auto err_str = strerror(errno);
-      cfHandler->fileUnLock(fd);
-      cfHandler->fileClose(fd);
+      cf_handler_->fileUnLock(fd);
+      cf_handler_->fileClose(fd);
       PT_HABHELPER_WARN(
           "Failed to separately open metadata file(",
           recipe_path,
@@ -164,26 +180,43 @@ void RecipeCache::store(
       return;
     }
 
-    metadata_file << metadata.rdbuf();
+    metadata_file << metadata;
     metadata_file.close();
 
-    cfHandler->addFileInfo(cache_id);
+    cf_handler_->addFileInfo(cache_id);
 
     PT_HABHELPER_DEBUG("Serialization successful for cache_id ", cache_id);
-    cfHandler->fileUnLock(fd);
-    cfHandler->fileClose(fd);
+    cf_handler_->fileUnLock(fd);
+    cf_handler_->fileClose(fd);
 
-    if (send_thread.valid()) {
-      send_thread.get();
-    }
     if (inter_host_cache_) {
-      send_thread = std::async(
+      if (interhost_send_thread_.valid()) {
+        interhost_send_thread_.get();
+      }
+
+      interhost_send_thread_ = std::async(
           std::launch::async, [&] { inter_host_cache_->send_file(cache_id); });
     }
   } else {
-    cfHandler->fileUnLock(fd);
-    cfHandler->fileClose(fd);
+    cf_handler_->fileUnLock(fd);
+    cf_handler_->fileClose(fd);
   }
+}
+
+void RecipeCache::store(
+    std::string cache_id,
+    std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_handle,
+    const std::stringstream& metadata) {
+  if (!is_cache_valid_)
+    return;
+
+  PT_HABHELPER_DEBUG("Adding task for storing cache: ", cache_id);
+  cache_thread_->addJob(
+      [this, cache_id, recipe_handle, metadata = metadata.str()]() {
+        this->store_task(cache_id, recipe_handle, metadata);
+        PT_HABHELPER_DEBUG("Store task finished: ", cache_id);
+        return true;
+      });
 }
 
 absl::optional<synRecipeHandle> RecipeCache::lookup(
@@ -205,7 +238,7 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
                             this](int fd) -> absl::optional<synRecipeHandle> {
     // VLOG(10) << "Trying to lock exclusively metadata file " << metadata_path;
     size_t size;
-    bool locked = cfHandler->fileLock(fd, true, size);
+    bool locked = cf_handler_->fileLock(fd, true, size);
     if (!locked)
       PT_HABHELPER_WARN(
           "Error when locking the metadata file ",
@@ -217,8 +250,8 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
       PT_HABHELPER_DEBUG(
           "Metadata is empty. This process can compile recipe. Saving fd for metadata file ",
           metadata_path);
-      cfHandler->fileUnLock(fd);
-      cfHandler->fileClose(fd);
+      cf_handler_->fileUnLock(fd);
+      cf_handler_->fileClose(fd);
       fs::remove(metadata_path);
       return {};
     } else {
@@ -226,8 +259,8 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
           "Metadata file ",
           metadata_path,
           " is not empty. Found valid cache entry.");
-      cfHandler->fileUnLock(fd);
-      cfHandler->fileClose(fd);
+      cf_handler_->fileUnLock(fd);
+      cf_handler_->fileClose(fd);
       PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
       return get_recipe_handle(metadata_path, metadata, recipe_path);
     }
@@ -235,9 +268,9 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
 
   PT_HABHELPER_DEBUG(
       "Trying to exclusively create or open metadata file ", metadata_path);
-  int fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
+  int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
   if (fd < 0 && errno == EACCES) {
-    fd = cfHandler->fileOpen(metadata_path.c_str(), O_RDONLY);
+    fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
   }
   if (fd >= 0) {
     return try_lock_and_read(fd);

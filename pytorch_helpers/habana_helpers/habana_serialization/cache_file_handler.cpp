@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
+#include "recipe_cache_config.h"
 
 #include "habana_helpers/logging.h"
 
@@ -32,8 +33,8 @@ std::string metadata_file_path(
   return path + "/" + cache_id + METADATA_SUFFIX;
 }
 
-CacheFileHandler::CacheFileHandler() : curFolderSize{0} {
-  maxFolderSize = GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB);
+CacheFileHandler::CacheFileHandler()
+    : maxFolderSize(RecipeCacheConfig::get_instance().cache_dir_max_size_mb()) {
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
   const char* s_local_rank = getenv("LOCAL_RANK") ? getenv("LOCAL_RANK") : "0";
@@ -47,7 +48,7 @@ void CacheFileHandler::init(std::string path) {
   cache_path = std::move(path);
   fs::path dir_path{cache_path};
   HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
-  if (GET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE)) {
+  if (RecipeCacheConfig::get_instance().delete_on_init()) {
     if (local_rank == 0) {
       try {
         auto de = fs::directory_iterator{dir_path};
@@ -131,7 +132,6 @@ void CacheFileHandler::addFileInfo(const std::string& cache_id) {
       getRank());
 
   std::lock_guard<std::mutex> lg(mtx);
-  curFolderSize += size;
   checkAndDelete();
 }
 
@@ -150,75 +150,6 @@ int CacheFileHandler::openAndLockFile(
   }
 
   return fd;
-}
-
-void BasicCacheFileHandler::checkAndDelete() {
-  fs::path dir_path{getCachePath()};
-  if (!fs::exists(dir_path))
-    return;
-
-  try {
-    auto de = fs::directory_iterator{dir_path};
-
-    std::optional<uint64_t> recipe_cache_dir_max_size = getMaxFolderSize();
-
-    while ((de != fs::end(de)) && recipe_cache_dir_max_size.has_value() &&
-           (curFolderSize > recipe_cache_dir_max_size.value())) {
-      std::string cache_id;
-
-      std::string fname = de->path();
-      std::string subName = fname.substr(0, fname.rfind("."));
-
-      fs::path p1{subName + RECIPE_SUFFIX};
-      fs::path p2{subName + METADATA_SUFFIX};
-
-      if (!fs::exists(p1) || !fs::exists(p2)) {
-        de++;
-        continue;
-
-      } else {
-        int fd = fileOpen(p2.c_str(), O_RDONLY);
-        if (fd < 0 || !fileLock(fd, false)) {
-          de++;
-          continue;
-        }
-
-        // Not closing file because we want to hold the lock
-      }
-
-      fs::directory_entry de1{p1};
-      fs::directory_entry de2{p2};
-
-#if !defined __GNUC__ || __GNUC__ >= 8
-      uint64_t size = de1.file_size() + de2.file_size();
-#else
-      uint64_t size = fs::file_size(p1) + fs::file_size(p2);
-#endif
-
-      PT_HABHELPER_DEBUG(
-          CACHEFILE_LOG,
-          "Deleting: ",
-          subName,
-          ", Size: ",
-          std::dec,
-          size,
-          ", Rank: ",
-          getRank());
-
-      fs::remove(p1);
-      fs::remove(p2);
-
-      curFolderSize -= size;
-      de++;
-    }
-  } catch (fs::filesystem_error err) {
-    PT_HABHELPER_DEBUG(
-        CACHEFILE_LOG,
-        "Exception in cache removal on delete, Please delete manually: ",
-        err.what(),
-        ", Rank: ",
-        getRank());
-  }
 }
 
 } // namespace serialization

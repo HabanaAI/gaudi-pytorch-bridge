@@ -51,17 +51,19 @@ class CacheFileHandler {
   std::mutex mtx;
 
  protected:
-  // Real time Folder size. We must ensure that curFolderSize <= maxFolderSize
-  uint64_t curFolderSize;
-
-  // Child classes can view 'maxFolderSize', but can not change it
   std::optional<uint64_t> getMaxFolderSize() {
+    // Due to the fact that eviction is performed after recipe storing, there is
+    // a chance to exceed the disk cache size defined by user via
+    // PT_CACHE_FOLDER_SIZE_MB. In order to avoid such a scenario the max size
+    // is limited to the 99% of defined threshold.
+    constexpr double threshold_prescaler = 0.99;
+
     // If set to 0 then recipe cache eviction is disabled.
     if (maxFolderSize == 0) {
       return std::nullopt;
     }
 
-    return maxFolderSize;
+    return threshold_prescaler * maxFolderSize;
   }
 
   // Child classes can view 'cache_path', but can not change it
@@ -96,21 +98,6 @@ class CacheFileHandler {
   void init(std::string path);
   // Add the size of new file and delete something if required
   void addFileInfo(const std::string& cache_id);
-};
-
-class BasicCacheFileHandler : public CacheFileHandler {
-  void checkAndDelete() override;
-
-  BasicCacheFileHandler() = default;
-
- public:
-  // Singleton
-  static std::shared_ptr<BasicCacheFileHandler> getInstance() {
-    static std::shared_ptr<BasicCacheFileHandler> bHandler(
-        new BasicCacheFileHandler);
-
-    return bHandler;
-  }
 };
 
 } // namespace serialization

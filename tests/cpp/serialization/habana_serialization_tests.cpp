@@ -136,13 +136,16 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
 
     habana_lazy::HbLazyTensor::StepMarker({});
 
+    // ensure that disk cache thread stored recipes on disk
+    RecipeCacheLRU::get_cache().SyncDiskCache();
+
     int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
     if (i < 4) {
-      HABANA_ASSERT(recipe_files_count == (i + 1));
+      ASSERT_EQ(recipe_files_count, (i + 1));
     } else if (i == 4) {
       // last recipe will be deserialized from disk. number of files will not
       // grow
-      HABANA_ASSERT(recipe_files_count == i);
+      ASSERT_EQ(recipe_files_count, i);
     }
   }
   auto res2 = deserializedRecipe.to(torch::kCPU);
@@ -186,6 +189,10 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
     torch::Tensor result =
         torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
     habana_lazy::HbLazyTensor::StepMarker({});
+
+    // ensure that disk cache thread stored recipes on disk
+    RecipeCacheLRU::get_cache().SyncDiskCache();
+
     int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
     if (i == 0) {
       originalRecipe = result;

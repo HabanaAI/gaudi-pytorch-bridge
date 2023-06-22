@@ -203,12 +203,8 @@ ENV_STRING_STRUCT_DEFINITION(
     PT_HABANA_MEM_LOG_FILENAME,
     "habana_log.livealloc.log");
 ENV_STRING_STRUCT_DEFINITION(PT_HPU_GRAPH_DUMP_PREFIX, ".");
-// Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.
-// If proper path is set, disk cache is enabled for all compiled recipes.
-ENV_STRING_STRUCT_DEFINITION(PT_RECIPE_CACHE_PATH, "");
 ENV_STRING_STRUCT_DEFINITION(PT_COMPILATION_STATS_PATH, "");
 ENV_STRING_STRUCT_DEFINITION(PT_RECIPE_TRACE_PATH, "");
-
 ENV_STRUCT_DEFINITION(PT_HPU_CLUSTERED_PROGRAM, bool, false);
 ENV_STRUCT_DEFINITION(PT_HPU_CLUSTERED_PROGRAM_ENFORCE, bool, false);
 ENV_STRING_STRUCT_DEFINITION(PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR, "default");
@@ -260,9 +256,6 @@ ENV_STRUCT_DEFINITION(
     PT_HCCL_SLICE_SIZE_MB,
     unsigned,
     DEFAULT_HCCL_SLICE_SIZE_MB);
-// 1GB per worker to save recipes to the disk
-ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_SIZE_MB, unsigned, 0);
-ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_DELETE, bool, false);
 ENV_STRUCT_DEFINITION(PT_HABANA_MAX_RECIPE_HIT_COUNT, unsigned, 0);
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNC_OUTPUT_HOST, bool, false);
 // enable PT_STORE_SYNC if cs-timeouts are seen to perform host synchronization
@@ -433,8 +426,26 @@ ENV_STRUCT_DEFINITION(PT_LOG_FILE_AMOUNT, unsigned, 5);
 // the fastest solution, but could consume more CPU time
 // clang-format on
 ENV_STRUCT_DEFINITION(PT_HPU_ACC_THREAD_VERSION, int, 0);
-
 ENV_STRUCT_DEFINITION(PT_HPU_USE_SHARED_LAYER_V2, bool, false);
+
+// It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and
+// PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list
+// where params are encoded in the following way:
+// - 1st param: recipe cache directory path, if empty then disk cache is
+// disabled
+// - 2nd param: delete recipe cache one init, if set to true then PT bridge
+// clears recipe cache on init
+// - 3rd param: recipe cache max size in MB, if set to value > 0, PT bridge
+// keeps the size of cache dir under defined threshold.
+// Example: PT_HPU_RECIPE_CACHE_CONFIG=/tmp/recipe-cache,true,1024
+ENV_STRING_STRUCT_DEFINITION(PT_HPU_RECIPE_CACHE_CONFIG, "");
+
+// Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.
+// If proper path is set, disk cache is enabled for all compiled recipes.
+ENV_STRING_STRUCT_DEFINITION(PT_RECIPE_CACHE_PATH, "");
+// 1GB per worker to save recipes to the disk
+ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_SIZE_MB, unsigned, 1024);
+ENV_STRUCT_DEFINITION(PT_CACHE_FOLDER_DELETE, bool, false);
 
 // Method for string env variables
 const char* getenv_by_type_new(

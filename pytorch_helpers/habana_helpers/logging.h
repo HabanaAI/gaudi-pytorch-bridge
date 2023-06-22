@@ -477,6 +477,7 @@ class PTFuncLog {
 #define PT_MOD_INFO(MOD, ...) HLLOG_INFO(MOD, FORMAT_AND_MSG(__VA_ARGS__));
 
 #define PT_EAGER_INFO(...) PT_MOD_INFO(PT_EAGER, __VA_ARGS__);
+#define PT_HABHELPER_INFO(...) PT_MOD_INFO(PT_HABHELPER, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

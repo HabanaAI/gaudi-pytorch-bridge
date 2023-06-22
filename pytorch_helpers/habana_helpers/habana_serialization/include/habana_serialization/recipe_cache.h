@@ -24,6 +24,7 @@
 #include <string>
 #include "backend/synapse_helpers/graph.h"
 #include "cache_file_handler.h"
+#include "habana_helpers/job_thread.h"
 #include "inter_host_cache.h"
 
 namespace serialization {
@@ -37,9 +38,8 @@ class RecipeCache {
   // metadata
   void store(
       std::string cache_id,
-      std::shared_ptr<synapse_helpers::graph::recipe_handle> const&
-          recipeHandle,
-      std::stringstream&& metadata);
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_handle,
+      const std::stringstream& metadata);
   // if operation is successful (optional not empty), metadata will be populated
   // synRecipeHandle optional can be set to nullptr, that means, the cache entry
   // only had metadata
@@ -50,19 +50,19 @@ class RecipeCache {
   std::string get_cache_path() const {
     return cache_path_;
   }
+  void sync();
 
  private:
-  std::mutex mut_;
-  std::condition_variable cond_var_;
   std::string cache_path_;
   bool is_cache_valid_;
   std::unique_ptr<InterHostCache> inter_host_cache_;
-  std::shared_ptr<CacheFileHandler> cfHandler;
-  std::future<void> send_thread;
-
-  // map to track opened metadata files, so can be closed, once cache entry is
-  // stored on disk
-  std::unordered_map<std::string, int> meta2fd_map_;
+  std::shared_ptr<CacheFileHandler> cf_handler_;
+  std::future<void> interhost_send_thread_;
+  std::unique_ptr<habana_helpers::JobThread> cache_thread_;
+  void store_task(
+      const std::string& cache_id,
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipeHandle,
+      const std::string& metadata);
 };
 
 } // namespace serialization

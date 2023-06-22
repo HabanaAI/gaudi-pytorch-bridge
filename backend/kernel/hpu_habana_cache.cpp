@@ -30,6 +30,7 @@
 #include "habana_helpers/misc_utils.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/deserializers.h"
+#include "habana_serialization/recipe_cache_config.h"
 #include "habana_serialization/serializers.h"
 
 #include "backend/synapse_helpers/devmem_logger.h"
@@ -2082,22 +2083,32 @@ RecipeCacheLRU::RecipeCacheLRU() {
 
 void RecipeCacheLRU::InitDiskCache() {
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if ((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) {
+  const std::string recipe_cache_path =
+      serialization::RecipeCacheConfig::get_instance().path();
+  if (recipe_cache_path.empty()) {
     return;
   }
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
-  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if ((recipe_cache_path != NULL) && (recipe_cache_path[0] == '\0')) {
+  auto& recipe_cache_cfg = serialization::RecipeCacheConfig::get_instance();
+  recipe_cache_cfg.reload();
+  const std::string recipe_cache_path = recipe_cache_cfg.path();
+
+  if (recipe_cache_path.empty()) {
     return;
   }
   if (disk_cache_) {
     disk_cache_.reset();
   }
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+}
+
+void RecipeCacheLRU::SyncDiskCache() {
+  if (disk_cache_) {
+    disk_cache_->sync();
+  }
 }
 
 void RecipeCacheLRU::SetHostMemoryThreshold(uint32_t host_memory_threshold) {
@@ -2144,13 +2155,10 @@ void DynamicBucketInfoMap::save_ds_checkpoint(std::ofstream& ds_checkpoint) {
 
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
-  const char* recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
-  if (recipe_cache_path == NULL) {
-    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
-  }
-  if ((recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "") &&
-      (is_ds_cache_enabled)) {
+
+  std::string recipe_cache_path =
+      serialization::RecipeCacheConfig::get_instance().path();
+  if (!recipe_cache_path.empty() && is_ds_cache_enabled) {
     RecipeCacheLRU::get_cache().Serialize(recipe_cache_path);
   }
 }
@@ -2164,13 +2172,9 @@ void DynamicBucketInfoMap::load_ds_checkpoint(std::ifstream& ds_checkpoint) {
 
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
-  const char* recipe_cache_path = std::getenv("PT_RECIPE_CACHE_PATH");
-  if (recipe_cache_path == NULL) {
-    recipe_cache_path = (char*)GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-    PT_BRIDGE_DEBUG(" using default disk cache path :: ", recipe_cache_path);
-  }
-  if ((recipe_cache_path != NULL) && (std::string(recipe_cache_path) != "") &&
-      (is_ds_cache_enabled)) {
+  std::string recipe_cache_path =
+      serialization::RecipeCacheConfig::get_instance().path();
+  if (!recipe_cache_path.empty() && is_ds_cache_enabled) {
     RecipeCacheLRU::get_cache().Deserialize(recipe_cache_path);
   }
 }
@@ -2235,7 +2239,8 @@ void RecipeCacheLRU::Deserialize(std::string recipe_cache_path) {
     PT_BRIDGE_DEBUG("disk recipe cache not path, cannot De-serialize");
     return;
   }
-  SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, false, 1);
+
+  serialization::RecipeCacheConfig::get_instance().disable_delete_on_init();
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
@@ -2329,8 +2334,7 @@ void DiskCache::Add(
   std::stringstream ss;
   valSpec.Serialize(ss);
   auto hashCode = std::to_string(argSpec.hashCode());
-  recipe_cache_.store(
-      hashCode + cache_id_suffix_, valSpec.recipe, std::move(ss));
+  recipe_cache_.store(hashCode + cache_id_suffix_, valSpec.recipe, ss);
   if (valSpec.recipe && !valSpec.recipe->recipe_name_.empty()) {
     PT_BRIDGE_DEBUG(
         "Storing in disc cache: recipe:key: ",
@@ -2357,6 +2361,10 @@ void DiskCache::Add(
     hash_content_file << argSpec;
     hash_content_file.close();
   }
+}
+
+void DiskCache::sync() {
+  recipe_cache_.sync();
 }
 
 std::shared_ptr<RecipeValueSpec> DiskCache::Find(

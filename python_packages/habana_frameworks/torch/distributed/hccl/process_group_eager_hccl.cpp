@@ -400,7 +400,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
     py::object dist = py::module_::import("torch.distributed");
     py::object destroy_process_group = dist.attr("destroy_process_group");
     py::object default_pg = dist.attr("GroupMember").attr("WORLD");
-    if (default_pg != py::none()) {
+    if (!default_pg.is(py::none())) {
       PT_DISTRIBUTED_DEBUG("Destroying process groups at exit")
       destroy_process_group();
     }
