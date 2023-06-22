@@ -243,7 +243,6 @@ list(APPEND misc_tests_src
   nms_tests.cpp
   serialization/habana_serialization_tests.cpp
   sif_tests.cpp
-  shape_agnostic_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp
   tensor_usage.cpp
@@ -253,6 +252,10 @@ list(APPEND misc_tests_src
   utils/dynamic_shape_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
   view_utils_tests.cpp
+)
+
+list(APPEND eager_tests_src
+  shape_agnostic_tests.cpp
 )
 
 add_executable(
@@ -281,7 +284,8 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   add_executable(
     test_pt2_integration
     ${hpu_ops_tests_src}
-    ${misc_tests_src})
+    ${misc_tests_src}
+    ${eager_tests_src})
   target_compile_definitions(test_pt2_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 endif()
 

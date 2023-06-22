@@ -120,12 +120,10 @@ TEST_F(ShapeAgnosticTest, ConvReluRelu) {
     // Disabling the number of cache entries check for now as the same
     // test is being also called for the lazy frontend as well and there
     // the cache class instance is different than PT2.0 eager.
-#if 0
     habana::OptimizedJitGraphCache::GetOptimizedJitCache().BackupCache();
     habana::OptimizedJitGraphCache::GetOptimizedJitCache().Clear();
     size_t num_cache_entries_start =
         habana::OptimizedJitGraphCache::GetOptimizedJitCache().CacheSize();
-#endif
 
     auto input_tensor =
         torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
@@ -175,21 +173,17 @@ TEST_F(ShapeAgnosticTest, ConvReluRelu) {
 
     torch::Tensor outcpu_3 = torch::relu(input_tensor_3);
 
-#if 0
     size_t num_cache_entries_end =
         habana::OptimizedJitGraphCache::GetOptimizedJitCache().CacheSize();
     size_t num_cache_entries = num_cache_entries_end - num_cache_entries_start;
     habana::OptimizedJitGraphCache::GetOptimizedJitCache().RestoreCache();
     habana::OptimizedJitGraphCache::GetOptimizedJitCache().ClearBackupCache();
-#endif
 
     EXPECT_EQ(allclose(out_conv, outConv1, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_conv_2, outConv2, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_2, outcpu_2, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_3, outcpu_3, 0.01, 0.01), true);
-#if 0
     EXPECT_EQ(num_cache_entries, 3);
-#endif
   }
 }
