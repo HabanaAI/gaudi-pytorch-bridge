@@ -117,3 +117,23 @@ def test_expand(dtype):
 
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
+
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
+@pytest.mark.parametrize("dim", [-1, 0])
+def test_unsqueeze(dim):
+    def raw_function(x):
+        x = x * 2
+        b = x.unsqueeze(dim)
+        c = b.relu()
+        return c
+
+    cpu_tensor = torch.randn(96)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    compiled_cpu = torch.compile(raw_function)
+    cpu_res = compiled_cpu(cpu_tensor)
+
+    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(hpu_tensor)
+
+    assert torch.allclose(cpu_res, hpu_res.to('cpu'), rtol=1e-3, atol=1e-3)

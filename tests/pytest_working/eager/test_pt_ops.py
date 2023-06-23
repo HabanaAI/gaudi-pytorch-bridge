@@ -132,3 +132,18 @@ def test_var_dim(dim, unbiased, keepdim):
     result_cpu = raw_function(cpu_tensor)
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+
+@pytest.mark.parametrize("dim", [-1, 0])
+def test_unsqueeze(dim):
+    def raw_function(x):
+        x = x * 2
+        b = x.unsqueeze(dim)
+        c = b.relu()
+        return c
+
+    cpu_tensor = torch.randn(96)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_cpu = raw_function(cpu_tensor)
+    result_hpu = raw_function(hpu_tensor).to("cpu")
+    assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)

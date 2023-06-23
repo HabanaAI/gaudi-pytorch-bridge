@@ -2807,6 +2807,7 @@ std::vector<int64_t> UnsqueezeOperator::compute_output_shape(
     const at::Tensor& self,
     int64_t dim) {
   std::vector<int64_t> out_shape(self.sizes().vec());
+  dim = at::maybe_wrap_dim(dim, self.dim() + 1);
   out_shape.insert(out_shape.begin() + dim, 1);
 
   return out_shape;
@@ -2842,6 +2843,7 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
   auto input = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
+  dim = at::maybe_wrap_dim(dim, input.dim() + 1);
 
   auto shape = UnsqueezeOperator::compute_output_shape(input, dim);
 
