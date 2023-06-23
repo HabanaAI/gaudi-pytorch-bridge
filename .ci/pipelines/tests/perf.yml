@@ -1,4 +1,12 @@
 common:
+  dependencies:
+    - TPC_FUSER
+    - HCL
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - HL_THUNK
+    - TPC_KERNELS
   config:
     testCommand: run_pytorch_qa_tests
     loadLKD: true
@@ -30,6 +38,8 @@ testsMap:
       Run perf tests gaudi2 asic:
         filter: -a smoke_perf_gaudi2
   Test_pytorch_modules_gaudi_hls_asic_perf:
+    dependencies:
+      - AEON
     stages:
       Run perf tests gaudi asic:
         filter: -a smoke_perf
