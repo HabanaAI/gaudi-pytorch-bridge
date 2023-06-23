@@ -23,23 +23,9 @@
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
-// you may build with CXXFLAGS=-DHAVE_TORCH_BACKEND_META_SUPPORT=1 to excercise
-// the new code path
-#ifndef HAVE_TORCH_BACKEND_META_SUPPORT
-#define HAVE_TORCH_BACKEND_META_SUPPORT IS_PYTORCH_FORK_AT_LEAST(1, 0)
-#endif
 
-#if HAVE_TORCH_BACKEND_META_SUPPORT
 using BaseTensorExtraMeta = c10::BackendMeta;
-#else
-struct BaseTensorExtraMeta : c10::intrusive_ptr_target {
-  virtual ~BaseTensorExtraMeta(){};
-  virtual c10::intrusive_ptr<BaseTensorExtraMeta> clone(
-      const c10::intrusive_ptr<BaseTensorExtraMeta>& ptr) const {
-    return ptr;
-  }
-};
-#endif
+
 struct ShapeTensorStruct {
   bool contains_data = false;
   std::vector<int64_t> strides{};
@@ -389,13 +375,13 @@ TensorExtraMeta* allocate_tensor_extra_meta(at::TensorImpl& impl);
 inline TensorExtraMeta* get_tensor_extra_meta(
     at::TensorImpl& impl,
     [[maybe_unused]] bool relax = false) {
-#if HAVE_TORCH_BACKEND_META_SUPPORT
   auto meta{impl.get_backend_meta()};
   if (meta == nullptr)
     return allocate_tensor_extra_meta(impl);
-  return reinterpret_cast<TensorExtraMeta*>(meta.get());
+#if IS_PYTORCH_AT_LEAST(2, 1)
+  return reinterpret_cast<TensorExtraMeta*>(meta);
 #else
-  return get_tensor_extra_meta_from_hb_internal_tensor_impl(impl, relax);
+  return reinterpret_cast<TensorExtraMeta*>(meta.get());
 #endif
 }
 

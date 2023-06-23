@@ -104,34 +104,12 @@ void TensorExtraMeta::set_const_tensor(
   }
 }
 
-TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(
-    at::TensorImpl& impl,
-    [[maybe_unused]] bool relax) {
-#if HAVE_TORCH_BACKEND_META_SUPPORT
-  TORCH_CHECK(
-      false,
-      "Attempt to extract tensor extra metadata from HbInternalTensorImpl ",
-      &impl);
-#else
-  auto hb_weight_impl = dynamic_cast<habana_lazy::HbInternalTensorImpl*>(&impl);
-  if (hb_weight_impl)
-    return &hb_weight_impl->get_tensor_extra_meta();
-  TORCH_CHECK(relax, "Tensor extra meta is null for tensor impl ", &impl);
-  return nullptr;
-#endif
-}
-
 TensorExtraMeta* allocate_tensor_extra_meta(at::TensorImpl& impl) {
-#if HAVE_TORCH_BACKEND_META_SUPPORT
   TORCH_CHECK(impl.get_backend_meta() == nullptr, "Meta is already assigned.");
   auto new_meta{new habana::TensorExtraMeta()};
   auto meta =
       c10::intrusive_ptr<BaseTensorExtraMeta>::unsafe_steal_from_new(new_meta);
   impl.set_backend_meta(meta);
   return new_meta;
-#else
-  TORCH_CHECK(
-      false, "Attempt to allocate BackendMeta without proper torch support");
-#endif
 }
 } // namespace habana

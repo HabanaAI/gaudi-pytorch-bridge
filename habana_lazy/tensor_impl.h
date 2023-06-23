@@ -163,7 +163,6 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
   static void AtenInitialize();
 
-#if HAVE_TORCH_BACKEND_META_SUPPORT
   const habana::TensorExtraMeta& get_ctensor_extra_meta() const {
     return *habana::get_ctensor_extra_meta(*this);
   }
@@ -171,17 +170,6 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   habana::TensorExtraMeta& get_tensor_extra_meta() {
     return *habana::get_tensor_extra_meta(*this);
   }
-#else
-  const habana::TensorExtraMeta& get_ctensor_extra_meta() const {
-    return tmeta_;
-  }
-  habana::TensorExtraMeta& get_tensor_extra_meta() {
-    return tmeta_;
-  }
-
- private:
-  habana::TensorExtraMeta tmeta_;
-#endif
 };
 
 } // namespace habana_lazy

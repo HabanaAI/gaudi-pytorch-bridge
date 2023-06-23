@@ -38,10 +38,14 @@ class SharedTensorExtraMeta {
     return tmeta_;
   }
   static std::optional<SharedTensorExtraMeta> create(const at::Tensor& tensor) {
-#if HAVE_TORCH_BACKEND_META_SUPPORT
     auto impl{tensor.unsafeGetTensorImpl()};
-    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta{
-        impl->get_backend_meta()};
+#if IS_PYTORCH_AT_LEAST(2, 1)
+    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
+        impl->get_backend_meta(), {});
+#else
+    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
+        impl->get_backend_meta());
+#endif
     if (!meta)
       return {};
     auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
@@ -60,9 +64,6 @@ class SharedTensorExtraMeta {
         " but it is not habana::TensorExtraMeta");
     return std::optional<SharedTensorExtraMeta>(
         SharedTensorExtraMeta(meta, *tmeta_ptr));
-#else
-    return {};
-#endif
   }
 
  private:
