@@ -29,6 +29,7 @@
 #include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "habana_helpers/logging_pt.h"
+#include "utils/check_device_type.h"
 
 using namespace habana_lazy;
 
@@ -452,30 +453,6 @@ TEST(TestStream, TestEventblockandwait) {
   EXPECT_EQ(equal, true);
   equal = out_B.allclose(outHabana_B.to(torch::kCPU), 1e-3, 1e-3);
   EXPECT_EQ(equal, true);
-}
-
-bool is_simulator() {
-  struct stat st = {};
-  if (stat("/sys/devices/virtual/habanalabs/hl0/device_type", &st) == 0) {
-    char buffer[128];
-    std::string result = "";
-    FILE* pipe = popen(
-        "cat /sys/devices/virtual/habanalabs/hl0/device_type"
-        " | grep -i 'sim' | wc -w",
-        "r");
-    if (!pipe) {
-      return false;
-    }
-    while (!feof(pipe)) {
-      if (fgets(buffer, 128, pipe) != NULL)
-        result += buffer;
-    }
-    pclose(pipe);
-    int sim_cnt;
-    sscanf(result.c_str(), "%d", &sim_cnt);
-    return (sim_cnt > 0);
-  }
-  return false;
 }
 
 TEST(TestStream, TestEventblockandwait_1) {

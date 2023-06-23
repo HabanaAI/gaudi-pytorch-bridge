@@ -248,6 +248,7 @@ list(APPEND misc_tests_src
   tensor_usage.cpp
   type_promotion_tests.cpp
   user_stream_tests.cpp
+  utils/check_device_type.cpp
   utils/dtype_supported_on_device.cpp
   utils/dynamic_shape_supported_on_device.cpp
   utils/hint_tolerance_values.cpp

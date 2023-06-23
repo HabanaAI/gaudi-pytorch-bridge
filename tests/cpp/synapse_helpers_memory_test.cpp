@@ -27,6 +27,7 @@
 #include "backend/synapse_helpers/synapse_error.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
+#include "utils/check_device_type.h"
 
 using namespace synapse_helpers;
 class SynapseHelpersMemoryTest : public ::testing::Test {
@@ -337,6 +338,11 @@ TEST_F(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
+  // Test should not be run on the simulator as verification part (data transfer
+  // to/from device) takes too much time
+  if (is_simulator()) {
+    GTEST_SKIP();
+  }
   auto& device = habana::HPURegistrar::get_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
@@ -449,9 +455,12 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   free(src_400mb);
 }
 
-// This test is disabled, because verifying the contents of
-// the blocks takes time.
 TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
+  // Test should not be run on the simulator as verification part (data transfer
+  // to/from device) takes too much time
+  if (is_simulator()) {
+    GTEST_SKIP();
+  }
   auto& device = habana::HPURegistrar::get_device();
   int num_mem_blk = 0;
   // Add required test pattern of required length.
