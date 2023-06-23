@@ -44,6 +44,7 @@
   <project name="habanaqa_inference"/>
   <project name="pytorch-training-tests"/>
   <project name="habanaqa_topologies"/>
+  <project name="habanaqa_framework_features"/>
   <project name="third_party/github.com/kineto" path="third_party/kineto"/>
   <project name="event_tests_plugin"/>
   <project name="tpc_scalar_kernels"/>
