@@ -129,8 +129,9 @@ def _mem_log(msg) -> bool:
 
 
 if is_lazy():
+    from habana_frameworks.torch.utils import _debug_lazy_C
     def _bridge_cleanup():
-        _debug_C.bridge_cleanup()
+        _debug_lazy_C.bridge_cleanup()
 else:
     from habana_frameworks.torch.utils import _debug_eager_C
     def _bridge_cleanup():

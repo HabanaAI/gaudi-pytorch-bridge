@@ -141,8 +141,6 @@ void AccThreadPool::executePendingTask() {
       task();
     } catch (...) {
       ex_ptr_ = std::current_exception();
-      stop_ = true;
-      return;
     }
   }
 
