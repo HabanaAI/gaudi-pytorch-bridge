@@ -44,8 +44,8 @@ class EventDispatcher {
     return instance;
   }
 
-  using EventParams =
-      std::vector<std::pair<std::string, std::variant<int64_t, std::string>>>;
+  using EventParam = std::pair<std::string, std::variant<int64_t, std::string>>;
+  using EventParams = std::vector<EventParam>;
   using EventTsType = std::chrono::time_point<std::chrono::system_clock>;
   using EventCallbackFuncType = void(EventTsType timestamp, const EventParams&);
   using EventCallback = std::function<EventCallbackFuncType>;
