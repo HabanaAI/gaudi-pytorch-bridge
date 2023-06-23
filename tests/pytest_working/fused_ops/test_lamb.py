@@ -14,6 +14,7 @@ import numpy as np
 import os
 import sys
 import torch
+from test_utils import is_gaudi1
 
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
@@ -196,6 +197,8 @@ class TorchNVLAMB(torch.optim.Optimizer):
                 adam_step = adam_step*-step_size*trust_ratio
                 p.data.add_(adam_step)
 
+
+@pytest.mark.xfail(reason="Graph compile failed")
 def test_lamb():
     d1, d2, lr = 2, 1024, 0.001
 

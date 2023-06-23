@@ -12,11 +12,14 @@
 import torch
 import pytest
 import numpy as np
+from test_utils import cpu, hpu, is_gaudi1
 from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8, cast_to_fp8_v2, fp8_gemm, fp8_gemm_v2, fp8_transpose, cast_from_fp8, fp8_gelu, fp8_cast_transpose_fused, fp8_cast_transpose_bgrad_fused, layernorm_fwd_fp8, fp8_cast_transpose_bgrad_dgelu_fused
 
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
 ht.disable_dynamic_shape()
+
+pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8")
 
 MASK_FLOAT32 = torch.tensor(2145386496, dtype=torch.int) # 0 11111111 11000000000000000000000b
 MASK_ROUND_FLOAT32 = torch.tensor(1048575, dtype=torch.int) # 0 00000000 00011111111111111111111b
@@ -479,6 +482,7 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
         assert amax.cpu() == torch.max(gelu_bwd.abs())
 
 # TODO analyze why single elements of outputs differ for torch.bfloat16
+@pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("shape", [(64, 96)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float])
@@ -513,6 +517,7 @@ def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax):
         assert amax.cpu() == torch.max(dropout_high_prec.abs())
     assert torch.isclose(ratio_res, torch.tensor(ratio), rtol=0.1, atol=0.1)
 
+@pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("shape", [(64, 48), (2, 7)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])

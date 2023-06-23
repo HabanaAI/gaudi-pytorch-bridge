@@ -16,6 +16,7 @@ import os
 import numpy as np
 from test_utils import compare_tensors
 import pytest
+import habana_frameworks.torch.core as htcore
 
 try:
     import habana_frameworks.torch.utils.experimental as exp

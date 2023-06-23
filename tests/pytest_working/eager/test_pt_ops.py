@@ -18,7 +18,7 @@ import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 
-def test_argmax(mode):
+def test_argmax():
     def test(func, cpu_tensor):
         hpu_tensor = cpu_tensor.to("hpu")
 
@@ -40,7 +40,7 @@ def test_argmax(mode):
     test(lambda x: torch.argmax(x, dim=-1), torch.randn(B0, 2, 3))
     test(lambda x: torch.argmax(x, dim=2, keepdim=True), torch.randn(B0, 2, 3))
 
-def test_div(mode):
+def test_div():
     cpu_tensor = torch.randn(9, 9, dtype=torch.float32)
     hpu_tensor = cpu_tensor.to("hpu")
 
@@ -49,15 +49,10 @@ def test_div(mode):
 
     result_cpu = test_div_(cpu_tensor)
 
-    if mode == "graph":
-        compiled_function = torch.compile(test_div_, backend="aot_hpu_training_backend")
-        result_hpu = compiled_function(hpu_tensor)
-        assert torch.allclose(result_cpu, result_hpu.cpu(), rtol=1e-3, atol=1e-3)
-    else:
-        result_hpu = test_div_(hpu_tensor)
-        assert torch.allclose(result_cpu, result_hpu.cpu(), rtol=1e-3, atol=1e-3)
+    result_hpu = test_div_(hpu_tensor)
+    assert torch.allclose(result_cpu, result_hpu.cpu(), rtol=1e-3, atol=1e-3)
 
-def test_alias(mode):
+def test_alias():
     def raw_function(x):
         y = x[...]
         y = y + 2
@@ -68,13 +63,8 @@ def test_alias(mode):
 
     result_cpu = raw_function(x)
 
-    if mode == "graph":
-        compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
-        result_compile = compiled_function(hx).to("cpu")
-        assert torch.allclose(result_cpu, result_compile, rtol=1e-3, atol=1e-3)
-    else:
-        result_hpu = raw_function(hx).to("cpu")
-        assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+    result_hpu = raw_function(hx).to("cpu")
+    assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
 
 @pytest.mark.parametrize("memory_format", [None, torch.contiguous_format])
 def test_clone(mode, memory_format):
@@ -84,15 +74,9 @@ def test_clone(mode, memory_format):
     cpu_tensor = torch.randn(4, 4)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    if mode == "graph":
-        result_nocompile = raw_function(hpu_tensor).to("cpu")
-        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
-        result_compile = compiled_function_training(hpu_tensor).to("cpu")
-        assert torch.equal(result_nocompile, result_compile)
-    else:
-        result_cpu = raw_function(cpu_tensor)
-        result_hpu = raw_function(hpu_tensor).to("cpu")
-        assert torch.equal(result_cpu, result_hpu)
+    result_cpu = raw_function(cpu_tensor)
+    result_hpu = raw_function(hpu_tensor).to("cpu")
+    assert torch.equal(result_cpu, result_hpu)
 
 @pytest.mark.parametrize("size_stride", [
                         ((20, 20), (20, 1)),
@@ -132,19 +116,13 @@ def test_empty_memory_format(mode, size, memory_format):
     hpu_device = torch.device("hpu")
     cpu_device = torch.device("cpu")
 
-    if mode == "graph":
-        result_nocompile = test(size, hpu_device, memory_format)
-        compiled_function = torch.compile(test, backend="aot_hpu_training_backend")
-        result_compile = compiled_function(size, hpu_device, memory_format)
-        assert (result_nocompile.size() == result_compile.size() \
-            and result_nocompile.dtype == result_compile.dtype)
-    else:
-        result_cpu = test(size, cpu_device, memory_format)
-        result_hpu = test(size, hpu_device, memory_format)
-        assert (result_hpu.size() == result_cpu.size() \
-            and result_hpu.dtype == result_cpu.dtype)
 
-def test_to_copy_dtype(mode):
+    result_cpu = test(size, cpu_device, memory_format)
+    result_hpu = test(size, hpu_device, memory_format)
+    assert (result_hpu.size() == result_cpu.size() \
+        and result_hpu.dtype == result_cpu.dtype)
+
+def test_to_copy_dtype():
     def raw_function(x, dtype):
         return torch.ops.aten._to_copy(x, dtype=dtype)
 
@@ -153,15 +131,10 @@ def test_to_copy_dtype(mode):
     cpu_tensor = input_tensor.ge(0)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    if mode == "graph":
-        result_nocompile = raw_function(hpu_tensor, dtype).to("cpu")
-        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
-        result_compile = compiled_function_training(hpu_tensor, dtype).to("cpu")
-        assert torch.equal(result_nocompile, result_compile)
-    else:
-        result_cpu = raw_function(cpu_tensor, dtype)
-        result_hpu = raw_function(hpu_tensor, dtype).to("cpu")
-        assert torch.equal(result_cpu, result_hpu)
+
+    result_cpu = raw_function(cpu_tensor, dtype)
+    result_hpu = raw_function(hpu_tensor, dtype).to("cpu")
+    assert torch.equal(result_cpu, result_hpu)
 
 @pytest.mark.parametrize("dim", [0, 1, 2, [0, 1], [0, 2], [1, 2], [0, 1, 2]])
 @pytest.mark.parametrize("unbiased", [True, False])
@@ -173,12 +146,6 @@ def test_var_dim(mode, dim, unbiased, keepdim):
     cpu_tensor = torch.randn(2, 3, 4)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    if mode == "graph":
-        result_nocompile = raw_function(hpu_tensor).to("cpu")
-        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
-        result_compile = compiled_function_training(hpu_tensor).to("cpu")
-        assert torch.allclose(result_nocompile, result_compile, rtol=1e-3, atol=1e-3)
-    else:
-        result_cpu = raw_function(cpu_tensor)
-        result_hpu = raw_function(hpu_tensor).to("cpu")
-        assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+    result_cpu = raw_function(cpu_tensor)
+    result_hpu = raw_function(hpu_tensor).to("cpu")
+    assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)

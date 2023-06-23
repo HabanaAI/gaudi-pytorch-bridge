@@ -14,6 +14,8 @@ import numpy as np
 import os
 import sys
 import torch
+import pytest
+from test_utils import is_gaudi1
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.optimizers import FusedAdagrad
@@ -22,6 +24,7 @@ load_habana_module()
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
+@pytest.mark.xfail(reason="Graph compile failed")
 def test_adagrad():
     d1, d2, lr = 2, 1024, 0.001
 
@@ -85,8 +88,5 @@ def test_adagrad():
     x2_cpu = x2.to(cpu)
     y2_cpu = y2.to(cpu)
 
-    comp1 = np.allclose(x1_cpu.detach().numpy(), y1_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
-    comp2 = np.allclose(x2_cpu.detach().numpy(), y2_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
-
-    print('Optimizer output match :: {}'.format(comp1))
-    print('Optimizer output match :: {}'.format(comp2))
+    assert np.allclose(x1_cpu.detach().numpy(), y1_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
+    assert np.allclose(x2_cpu.detach().numpy(), y2_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)

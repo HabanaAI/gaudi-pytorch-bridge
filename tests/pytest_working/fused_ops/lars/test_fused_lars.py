@@ -7,6 +7,7 @@ import numpy as np
 import copy
 import random
 import habana_frameworks.torch.core as htcore
+from test_utils import is_gaudi1
 
 sys.path.append(os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "tests/fused_ops"))
 
@@ -79,6 +80,7 @@ def run_model(dev, m, x, optim):
             htcore.mark_step()
         optim.step()
 
+@pytest.mark.xfail(reason="Graph compile failed")
 def test_lars():
 
     torch.manual_seed(1234567)

@@ -6,10 +6,13 @@ from copy import deepcopy
 import habana_frameworks.torch
 from collections.abc import Mapping
 from typing import Callable, Dict, Optional
+import habana_frameworks.torch.hpu as hthpu
 
 hpu = torch.device('hpu')
 cpu = torch.device('cpu')
 
+def is_gaudi1():
+    return hthpu.get_device_name() == "GAUDI"
 
 def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, rtol=1.e-3, copy_kernel=True):
     '''Run given kernel with tensor_list as arguments on HPU and

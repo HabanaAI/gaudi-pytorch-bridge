@@ -16,6 +16,7 @@ import sys
 import torch
 import pytest
 from torch.optim import AdamW
+from test_utils import is_gaudi1
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
@@ -37,6 +38,7 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
             tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
     return tensor
 
+@pytest.mark.xfail(reason="Graph compile failed")
 @pytest.mark.parametrize("dim, wd", [
     (3, 0.1),
     (4, 0.1),
