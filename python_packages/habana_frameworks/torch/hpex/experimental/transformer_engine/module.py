@@ -464,6 +464,31 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
         return grad_output_mat, grad_output_c, grad_bias
 
+    def save_fp8_meta(self):
+        scale_fwd = self.fp8_meta["scaling_fwd"].scale.clone()
+        scale_inv_fwd = self.fp8_meta["scaling_fwd"].scale_inv.clone()
+        amax_history_fwd = self.fp8_meta["scaling_fwd"].amax_history.clone()
+        amax_history_index_fwd = self.fp8_meta["scaling_fwd"].amax_history_index.clone()
+        scale_bwd = self.fp8_meta["scaling_bwd"].scale.clone()
+        scale_inv_bwd = self.fp8_meta["scaling_bwd"].scale_inv.clone()
+        amax_history_bwd = self.fp8_meta["scaling_bwd"].amax_history.clone()
+        amax_history_index_bwd = self.fp8_meta["scaling_bwd"].amax_history_index.clone()
+
+        return scale_fwd, scale_inv_fwd, amax_history_fwd, amax_history_index_fwd, scale_bwd, scale_inv_bwd, amax_history_bwd, amax_history_index_bwd
+
+    def load_fp8_meta(self, fp8_meta):
+        scale_fwd, scale_inv_fwd, amax_history_fwd, amax_history_index_fwd, scale_bwd, scale_inv_bwd, amax_history_bwd, amax_history_index_bwd = fp8_meta
+
+        self.fp8_meta["scaling_fwd"].scale.copy_(scale_fwd)
+        self.fp8_meta["scaling_fwd"].scale_inv.copy_(scale_inv_fwd)
+        self.fp8_meta["scaling_fwd"].amax_history.copy_(amax_history_fwd)
+        self.fp8_meta["scaling_fwd"].amax_history_index.copy_(amax_history_index_fwd)
+        self.fp8_meta["scaling_bwd"].scale.copy_(scale_bwd)
+        self.fp8_meta["scaling_bwd"].scale_inv.copy_(scale_inv_bwd)
+        self.fp8_meta["scaling_bwd"].amax_history.copy_(amax_history_bwd)
+        self.fp8_meta["scaling_bwd"].amax_history_index.copy_(amax_history_index_bwd)
+
+
     @abstractmethod
     def forward(self):
         """Needs override."""
