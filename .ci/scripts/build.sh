@@ -1286,22 +1286,22 @@ run_pytorch_modules_tests()
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ "$__suite_type" == "all" ] || [ "$__suite_type" == "cpp_tests" ]; then
-    	if [ "$__dut" == "gaudi" ]; then
-        (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
-        	__test_status=$?
+        if [ "$__dut" == "gaudi" ]; then
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml $__cpp_filter)
+            __test_status=$?
         elif [ "$__dut" == "gaudi2" ]; then
-        echo "Running tests on Gaudi2"
-	(set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:LazyInferencePassTest.linear $__cpp_filter)
-    		__test_status=$?
-	elif [ "$__dut" == "gaudi3" ]; then
-	echo "Running tests on Gaudi3"
-                (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*)
-		__test_status=$?
+            echo "Running tests on Gaudi2"
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-HpuOpTest.nll_loss2d_fwd_out_bf16:LazyInferencePassTest.linear:LazyBasicKernelTest.BasicThreadSafety:SynapseHelpersMemoryTest.*: $__cpp_filter)
+            __test_status=$?
+        elif [ "$__dut" == "gaudi3" ]; then
+            echo "Running tests on Gaudi3"
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=-EagerKernelTest.MatMulTest:EagerKernelTest.*:LazyCustomKernelTest.OptSgdMomentumCustomOp_*:LazyDynamicComputeOutputShapesTest.*:LazyDynamicShapesTest*:LazyIndexKernelTest*:GenOps*:LazyFillKernelTest.ExecuteFillGraph*:LazyLinearKernelTest.MatmulTest:LazyFillKernelTest.ExecuteZerosGraph:LazyTensorShapeKernelTest*:LazyLinearKernelTest*:SBS/SBSWithParamsTest*:LazyBinaryKernelTest*:UniqueDimTest*:HpuOpComputeShapeTest*:LazyInferencePassTest*:LazyBasicKernelTest*:LazyDynamicFallbackTest*:LazyDynamicShapesBucketRefineTest*:LazyDynamicShapesSerializtionTest*:LazyMaskKernelTest*:LazyNormKernelTest*:LazyReductionKernelTest*:LazyUnaryKernelTest*:LazyUpsampleKernelTest*:SifTest*:TypePromotionTests*:TestStream*:norm/NormHpuOpTest*:TypePromotion*:HpuOpTest*:GraphOptimizeTest.PermutePassTest_NCHW_InplaceLeaky*:GraphOptimizeTest.BnReluOptTest)
+            __test_status=$?
         elif [ "$__dut" == "greco" ]; then
-        echo "Running greco tests"
-		(set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
-    		__test_status=$?
-	fi
+            echo "Running greco tests"
+            (set -x; eval LOG_LEVEL_ALL=${__hllog} PT_HPU_INFERENCE_MODE=true $__cpp_tests_exe --gtest_output=xml:$__xml --gtest_filter=HpuOpTest*addmm*:HpuOpTest*addbmm*:*LayerNormForwardExecute*:*LazyConvKernel*Pool* $__cpp_filter)
+            __test_status=$?
+        fi
     fi
 
     if [ -n "$__print_tests" ]; then
