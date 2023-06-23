@@ -15,6 +15,7 @@ import pytest
 import math
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import Format, DelayedScaling
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
+import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
 from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
     cast_to_fp8,
     cast_from_fp8,
@@ -517,3 +518,71 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
     for i in range(len(test_outputs)):
         assert torch.equal(ref_outputs[i], test_outputs[i])
         assert torch.equal(ref_grads[i], test_grads[i])
+
+
+@pytest.mark.parametrize("interval",[1,4])
+def test_measurement_interval_auto_mode(interval):
+    # Setup
+    fp8.set_fp8_autocast_counter(0)
+
+    # Actual test
+    fp8_recipe = DelayedScaling(interval=interval)
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        assert fp8.is_amax_measure_enabled()
+
+    for _ in range(interval-1):
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            assert not fp8.is_amax_measure_enabled()
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        assert fp8.is_amax_measure_enabled()
+
+
+def test_force_measurement_mode():
+    # Setup
+    fp8.set_fp8_autocast_counter(0)
+
+    # Actual test
+    fp8_recipe = DelayedScaling(interval=1)
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=True):
+        assert fp8.is_amax_measure_enabled()
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=False):
+        assert not fp8.is_amax_measure_enabled()
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        fp8.set_measurement_mode(True, True)
+        assert fp8.is_amax_measure_enabled()
+
+        fp8.set_measurement_mode(True, False)
+        assert not fp8.is_amax_measure_enabled()
+
+
+def test_auto_measurement_after_force_mode():
+    # Setup
+    fp8.set_fp8_autocast_counter(0)
+
+    # Actual test
+    fp8_recipe = DelayedScaling(interval=1)
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        fp8.set_measurement_mode(True, False)
+        fp8.set_measurement_mode(False)
+        assert fp8.is_amax_measure_enabled()
+
+
+# We need to be able to check if amax measure is enabled after we go out of the fp8 context
+# (recipe doesn't exist anymore). This is the case in backward pass in some workloads.
+def test_measurement_auto_mode_outside_fp8_autocast_context():
+    # Setup
+    fp8.set_fp8_autocast_counter(0)
+
+    # Actual test
+    fp8_recipe = DelayedScaling(interval=1)
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        pass
+
+    assert fp8.is_amax_measure_enabled()

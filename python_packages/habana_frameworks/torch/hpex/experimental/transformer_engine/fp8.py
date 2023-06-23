@@ -34,6 +34,7 @@ _FP8_AUTOCAST_COUNTER = 0
 _FP8_CURRENT_CONTEXT_ID = 0
 _FP8_AUTOCAST_DEPTH = 0
 _FP8_MEASURE_ENABLED = True
+_FP8_MANUAL_MEASUREMENT = None
 _global_fp8_buffer = {}
 _fp8_tensors_recompute_buffer = []
 _amax_forward_global_reduce_func = None
@@ -215,6 +216,7 @@ def get_default_fp8_recipe() -> DelayedScaling:
 @contextmanager
 def fp8_autocast(
     enabled: bool = False,
+    force_measurement: Optional[bool] = None,
     fp8_recipe: Optional[DelayedScaling] = None,
     fp8_group: Optional[dist_group_type] = None,
 ) -> None:
@@ -244,8 +246,9 @@ def fp8_autocast(
     """
 
     global _FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP, _FP8_AUTOCAST_DEPTH
-    global _IS_FIRST_FP8_MODULE, _FP8_AUTOCAST_COUNTER, _FP8_MEASURE_ENABLED
+    global _IS_FIRST_FP8_MODULE, _FP8_AUTOCAST_COUNTER
     global _global_fp8_buffer, _buffer_delete_key_fwd
+    global _FP8_MEASURE_ENABLED, _FP8_MANUAL_MEASUREMENT
     fp8_state = (_FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP)
     try:
         _FP8_ENABLED = enabled
@@ -255,6 +258,7 @@ def fp8_autocast(
         if _FP8_AUTOCAST_DEPTH == 0:
             _IS_FIRST_FP8_MODULE = True
             _FP8_AUTOCAST_COUNTER += 1
+            _FP8_MANUAL_MEASUREMENT = force_measurement
             _FP8_MEASURE_ENABLED = (_FP8_RECIPE.interval == 1 or
                                     _FP8_AUTOCAST_COUNTER % _FP8_RECIPE.interval == 1)
         _FP8_AUTOCAST_DEPTH += 1
@@ -289,6 +293,11 @@ def new_fp8_context_id() -> int:
     return _FP8_AUTOCAST_COUNTER
 
 
+def set_fp8_autocast_counter(value: int=0):
+    global _FP8_AUTOCAST_COUNTER
+    _FP8_AUTOCAST_COUNTER = value
+
+
 def is_fp8_enabled() -> bool:
     """Is FP8 enabled"""
     return _FP8_ENABLED
@@ -304,7 +313,17 @@ def is_first_fp8_module():
     return tmp
 
 
+def set_measurement_mode(manual: bool, manual_value: bool = True):
+    global _FP8_MANUAL_MEASUREMENT
+    if manual:
+        _FP8_MANUAL_MEASUREMENT = manual_value
+    else:
+        _FP8_MANUAL_MEASUREMENT = None
+
+
 def is_amax_measure_enabled() -> bool:
+    if _FP8_MANUAL_MEASUREMENT is not None:
+        return _FP8_MANUAL_MEASUREMENT
     return _FP8_MEASURE_ENABLED
 
 
