@@ -1,4 +1,14 @@
 common:
+  dependencies:
+    - CODEC
+    - HCL
+    - HL_THUNK
+    - MEDIA
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_FUSER
+    - TPC_KERNELS
   config:
     testCommand: run_lightning_habana_fw_tests
     loadLKD: true
