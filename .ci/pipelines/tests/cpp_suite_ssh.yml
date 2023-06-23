@@ -1,4 +1,13 @@
 common:
+  dependencies:
+    - TPC_FUSER
+    - TPC_LLVM
+    - HCL
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - HL_THUNK
+    - TPC_KERNELS
   config:
     testCommand: run_pytorch_modules_tests
     loadLKD: true
