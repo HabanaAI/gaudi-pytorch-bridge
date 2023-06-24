@@ -1547,11 +1547,21 @@ void HbLazyTensor::ExecuteCachedGraph(
       if (seed_map == seed_tensors_generator_map.end()) {
         PT_LAZY_FATAL("Failed to find seed tensorid:", d->unique_id);
       }
-      int seed = habana::get_seed_hpu(seed_map->second);
       // Update the tensor data with new seed value tensor
-      d->tensor_data = at::tensor(seed).to(c10::kHPU, true);
+      d->tensor_data = habana::get_seed_tensor_hpu(
+          seed_tensors_generator_map.at(d->unique_id));
     }
+    HABANA_ASSERT(
+        d->tensor_data.has_value(),
+        "Tensor Data not present in ExecuteCachedGraph");
     stack.emplace_back(d->tensor_data);
+  }
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
+  if (!context->copy_scalar_to_hpu_tensor_list.empty()) {
+    habana_helpers::copy_scalars_to_device(
+        context->copy_scalar_to_hpu_tensor_list);
+    context->copy_scalar_to_hpu_tensor_list.clear();
   }
 
   // Fetch graph from device context
@@ -1576,7 +1586,6 @@ void HbLazyTensor::ExecuteCachedGraph(
   }
 
   size_t i = 0;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(0);
   for (const torch::IValue& v : stack) {
     HbLazyTensor out_tensor = hblazy_tensors_out[i++];
 

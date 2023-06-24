@@ -493,7 +493,7 @@ at::Tensor append_to_batch_h2d_list(const at::Tensor& scalar_tensor) {
     const auto& tensor = preProcessIfLongorDouble(scalar_tensor, t, processed);
 
     // Mark as input
-    HbLazyTensor hb_tensor = GetHbLazyTensor(t);
+    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(t);
     hb_tensor.IrInitAsInputNode();
     context->MarkTensorStatus(
         hb_tensor.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
