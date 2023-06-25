@@ -533,7 +533,7 @@ class device {
   // event counter
   std::atomic<uint64_t> event_index_{0};
   std::mutex event_mutex_;
-  bool deterministic_ = 0;
+  bool deterministic_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DETERMINISTIC_MODE);
 
   habana::backend::GlobalContext global_context_;
 
