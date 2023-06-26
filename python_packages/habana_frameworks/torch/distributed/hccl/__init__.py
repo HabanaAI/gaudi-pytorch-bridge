@@ -147,12 +147,16 @@ def _disallow_collectives_in_graph():
         "scatter",
         "send"]
 
-    for dist_func in [getattr(dist, dist_member) for dist_member in dir(dist)
-                      if inspect.isfunction(getattr(dist, dist_member))]:
-        for coll_name in COLLECTIVE_BASE_NAMES:
-            if coll_name in dist_func.__name__:
-                torch._dynamo.disallow_in_graph(dist_func)
-                break
+    try:
+        for dist_func in [getattr(dist, dist_member) for dist_member in dir(dist)
+                          if inspect.isfunction(getattr(dist, dist_member))]:
+            for coll_name in COLLECTIVE_BASE_NAMES:
+                if coll_name in dist_func.__name__:
+                    torch._dynamo.disallow_in_graph(dist_func)
+                    break
+    except torch._dynamo.exc.IncorrectUsage:
+        # collectives already excluded from graph
+        pass
 
 
 _disallow_collectives_in_graph()
