@@ -1316,6 +1316,7 @@ def is_acc_thread_supported(opname, ctxop, rtype, sig):
 eager_ops_override_fns_whitelist = [
     "_copy_from",
     "_copy_from_and_resize",
+    "complex_hpu",
     "as_strided_hpu",
     "set_",
     "set_source_Storage",
@@ -1654,6 +1655,7 @@ def is_tensor_api(fndef):
 # that we still need to register in the new Eager flow.
 # In order to do it, we overwrite them to default=False, dispatch=True
 non_mandatory_ops_whitelist = [
+    "complex",
     "convolution_overrideable",
     "convolution_backward_overrideable",
     "is_pinned",

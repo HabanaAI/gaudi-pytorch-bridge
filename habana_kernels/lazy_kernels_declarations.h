@@ -98,6 +98,7 @@ at::Tensor& mul_out_hpu_lazy(
 at::Tensor floor_divide_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
+at::Tensor complex_hpu(const at::Tensor& real, const at::Tensor& imag);
 at::Tensor constant_pad_hpu_lazy(
     const at::Tensor& self,
     at::SymIntArrayRef pad,

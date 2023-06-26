@@ -33,6 +33,7 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/as_strided.cpp
           ops/empty.cpp
           ops/copy_from.cpp
+          ops/complex.cpp
           ops/index_put.cpp
           ops/local_scalar_dense.cpp
           ops/nonzero.cpp

@@ -2020,6 +2020,9 @@ clone:
   output_meta: CloneMeta
   out_ids: [0]
 
+complex:
+  override_fn: complex_hpu
+
 constant_pad_nd:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]

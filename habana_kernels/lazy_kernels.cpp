@@ -2042,6 +2042,10 @@ Tensor& mul_out_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(mul_out, func, out)
 }
 
+Tensor complex_hpu(const at::Tensor& real, const at::Tensor& imag) {
+  return at::native::complex(real.to("cpu"), imag.to("cpu"));
+}
+
 Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     at::SymIntArrayRef pad_sym,
