@@ -40,7 +40,7 @@ orchestratorConfig:
     silentMode: true
   - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi_sim_streams_events_pt
     silentMode: true
-  - testToLaunch: hhabanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi3_sim_streams_events_pt
+  - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi3_sim_streams_events_pt
     silentMode: true
 # Streams and Events validation <End>
 # PyTorch Operators and feature validation <End>
