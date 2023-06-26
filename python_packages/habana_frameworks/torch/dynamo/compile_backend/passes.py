@@ -509,7 +509,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "slice_backward", # SW-146680
             "addcmul",
             "index",  # SW-146773
-            "split"   # SW-149515
+            "split",   # SW-149515
+            "new_empty_strided"   # SW-149882
         ]
 
         if node_target in unsupported_ops:
