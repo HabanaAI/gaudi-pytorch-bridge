@@ -15,6 +15,7 @@ import os
 import sys
 import torch
 from test_utils import is_gaudi1
+import pytest
 
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
 

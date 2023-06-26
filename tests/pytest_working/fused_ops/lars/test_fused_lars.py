@@ -8,6 +8,7 @@ import copy
 import random
 import habana_frameworks.torch.core as htcore
 from test_utils import is_gaudi1
+import pytest
 
 sys.path.append(os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "tests/fused_ops"))
 
