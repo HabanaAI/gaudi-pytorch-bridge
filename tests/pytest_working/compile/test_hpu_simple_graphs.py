@@ -172,7 +172,7 @@ def test_remove_detach():
     tensor_compiled = compiled_function(input_tensor)
     assert torch.allclose(tensor_raw, tensor_compiled, rtol=1e-06)
 
-
+@pytest.mark.xfail(reason="Undefined symbol: habana::graph::GraphStorage::get()")
 def test_split_with_sizes():
     def raw_function(x):
         x = torch.split(x, [1, 4])
