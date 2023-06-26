@@ -71,7 +71,7 @@ class FusedLars(Optimizer):
                         self.eeta,
                         weight_decay,
                         self.eps,
-                        torch.tensor(group["lr"], device="hpu"),
+                        torch.tensor(group["lr"], device=param_list[0].device),
                     )
                     htcore.step_closure._mark_step_if_lazy()
 

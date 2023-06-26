@@ -383,24 +383,6 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
-void optimizer_lars_hpu_wrap(
-    const at::TensorList& params,
-    at::TensorList& grads,
-    const std::vector<int64_t> skipMasks,
-    const float eeta,
-    const float weight_decay,
-    const float eps,
-    const float lr) {
-  EAGER_NOT_SUPPORTED;
-}
-
-void optimizer_ResourceApplyMomentum_hpu_wrap(
-    at::TensorList& params_momentum_buffer_list,
-    const at::TensorList& d_p_list,
-    const float momentum) {
-  EAGER_NOT_SUPPORTED;
-}
-
 Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
