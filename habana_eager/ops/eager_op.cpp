@@ -85,13 +85,19 @@ torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
       m_is_pipeline_supported) {
-    SingleTonEagerContext::getInstance().m_lowering_thread_handle =
-        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
-            EagerLoweringTask,
-            m_symbol,
-            std::move(stack),
-            std::move(out_spec_or_tensors),
-            std::move(m_eager_op_meta_data));
+    SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            [this,
+             stack = std::move(stack),
+             out_spec_or_tensors = std::move(out_spec_or_tensors)]() mutable {
+              return habana_helpers::SingleTonLoweringThreadPool::getInstance()
+                  .enqueue(
+                      EagerLoweringTask,
+                      m_symbol,
+                      std::move(stack),
+                      std::move(out_spec_or_tensors),
+                      std::move(m_eager_op_meta_data));
+            });
 
     return {torch::jit::IValue()};
 

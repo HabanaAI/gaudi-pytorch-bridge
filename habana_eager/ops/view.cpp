@@ -73,11 +73,15 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   output_tmeta->set_view_tensor();
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
-    SingleTonEagerContext::getInstance().m_lowering_thread_handle =
-        habana_helpers::SingleTonLoweringThreadPool::getInstance().enqueue(
-            view_propagate_permutation_task,
-            std::move(base_t),
-            std::move(view_t));
+    SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            [base_t = std::move(base_t), view_t = std::move(view_t)]() mutable {
+              return habana_helpers::SingleTonLoweringThreadPool::getInstance()
+                  .enqueue(
+                      view_propagate_permutation_task,
+                      std::move(base_t),
+                      std::move(view_t));
+            });
   } else {
     view_propagate_permutation_task(std::move(base_t), std::move(view_t));
   }
