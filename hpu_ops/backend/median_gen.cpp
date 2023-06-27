@@ -72,7 +72,8 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       descending_order,
       0,
       topk_outshape[reduction_axis],
-      0 /*median vairiant*/);
+      0, /*median vairiant*/
+      c10::nullopt);
 
   std::vector<int64_t> slice_outshape;
   /* The output is a tensor having single value (i.e. median)*/
@@ -117,7 +118,8 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       descending_order,
       self.ndimension(),
       topk_outshape[reduction_axis],
-      1 /* median variant */);
+      1, /* median variant */
+      c10::nullopt);
 
   std::vector<int64_t> slice_outshape;
   slice_outshape = self_size;

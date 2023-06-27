@@ -24,21 +24,22 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
     int descending_order,
     int ndimension,
     int kvalue,
-    int variant) {
+    int variant,
+    c10::optional<at::ScalarType> out_dtype) {
   synBeamParams Topk_params{};
   Topk_params.bsw = kvalue;
   Topk_params.axis = reduction_axis;
   Topk_params.bottomK = descending_order;
   if (variant == 1)
     Topk_params.axis = get_dim_in_tpc_order(reduction_axis, ndimension);
-
+  at::ScalarType topk_dtype =
+      (out_dtype == c10::nullopt) ? op->ScalarType() : out_dtype.value();
   return OpBackend::BuildNode(
       op,
       graph,
       {"topk",
        std::move(input),
-       {{topk_outshape, op->ScalarType()},
-        {topk_outshape, c10::ScalarType::Int}},
+       {{topk_outshape, topk_dtype}, {topk_outshape, c10::ScalarType::Int}},
        &Topk_params,
        sizeof(Topk_params)});
 }

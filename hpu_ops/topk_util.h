@@ -25,6 +25,7 @@ std::vector<synapse_helpers::tensor> TopK_Helper(
     int descending_order,
     int ndimension,
     int kvalue,
-    int variant);
+    int variant,
+    c10::optional<at::ScalarType> out_dtype);
 
 } // namespace habana

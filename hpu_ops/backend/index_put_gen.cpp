@@ -177,7 +177,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
       0 /*descending order*/,
       reshape_sum_op.pt_shape().size(),
       reshape_sum_op.pt_shape()[0],
-      0 /*median vairiant*/);
+      0, /*median vairiant*/
+      indices_scalar_type);
   auto sort_res0 = std::move(sortOp.at(0));
   auto sort_res1 = std::move(sortOp.at(1));
 
