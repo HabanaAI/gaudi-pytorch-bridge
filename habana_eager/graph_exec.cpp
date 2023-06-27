@@ -105,7 +105,7 @@ void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
   pass::HandleDynamicOps(m_graph, example_inputs, m_dgraph_meta);
   PT_EAGER_DEBUG(
-      "Jit for ", m_graph_name, " before processing dynamicity\n", *m_graph);
+      "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
 }
 
 std::vector<at::IValue> GraphExec::ProcessDynamicStack(

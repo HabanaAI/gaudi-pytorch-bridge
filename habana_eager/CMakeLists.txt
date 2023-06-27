@@ -57,6 +57,7 @@ add_library(habana_pytorch2_frontend OBJECT
           graph_exec.cpp
           graph_dynamic.cpp
           graph_dynamic_ops.cpp
+          strided_dynamic_ops.cpp
           graph_weight_permute.cpp
           kernels_impl.cpp
           unused_link_symbols.cpp

@@ -20,11 +20,85 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
+#include "habana_lazy/tensor_impl.h"
 
 namespace habana {
 namespace graph {
 
 using GraphInputIndexMap = std::unordered_map<std::string, int64_t>;
+
+void GetValueAndScalarIndexFromInput(
+    torch::jit::Value* input,
+    torch::jit::Stack& in_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    int64_t& value,
+    int64_t& index);
+
+void GetValuesAndScalarIndexesFromListConstruct(
+    torch::jit::Node* node,
+    torch::jit::Stack& in_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<int64_t>& values,
+    std::vector<int64_t>& scalar_indexes);
+
+void CreateAndInsertDynamicNodeToGraph(
+    torch::jit::Graph* graph,
+    torch::jit::Node* aten_view_node,
+    const c10::Symbol& hpu_view_symbol,
+    c10::ArrayRef<torch::jit::Value*> inputs);
+
+void UpdateShapeTensorSize(
+    at::Tensor& dtensor,
+    std::vector<int64_t>& stack_idxs,
+    std::vector<c10::IValue>& orig_stack);
+
+int64_t UpdateDynamicTensorDSStack(
+    torch::jit::IValue& iv_tensor,
+    const std::vector<int64_t>& scalar_indexes,
+    std::shared_ptr<DynamicGraphMetaData> dmeta);
+
+int64_t CreateSTAndInsertToDSStack(
+    const std::vector<int64_t>& st_size,
+    const std::vector<int64_t>& scalar_indexes,
+    std::shared_ptr<DynamicGraphMetaData> dmeta);
+
+template <typename T>
+void UpdateH2DTensorData(at::Tensor& dtensor, std::vector<T>& data) {
+  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
+  auto tmeta{get_tensor_extra_meta(dtensor)};
+  tmeta->update_host_data(data.data(), data.size(), sizeof(T), true);
+  PT_EAGER_DEBUG("Updated dynamic H2D tensor sizes:", dtensor.sizes());
+}
+
+template <typename T>
+void SetH2DTensorHostData(
+    at::Tensor& tensor,
+    std::vector<T>& h2d_values,
+    HostDataType dt_type,
+    bool reverse_data) {
+  auto tmeta{get_tensor_extra_meta(tensor)};
+  std::vector<T> h2d_data(h2d_values);
+  if (reverse_data) {
+    std::reverse(h2d_data.begin(), h2d_data.end());
+  }
+
+  PT_EAGER_DEBUG(
+      "Dynamic H2D tensor host data:",
+      h2d_data,
+      ", type:",
+      dt_type,
+      ", type size:",
+      sizeof(T));
+  tmeta->set_host_data(h2d_data.data(), h2d_data.size(), sizeof(T), dt_type);
+  tmeta->set_H2D_data_for_bucketing();
+}
+
+template <typename T>
+int64_t CreateH2DAndInsertToDSStack(
+    std::vector<int64_t>& values,
+    std::vector<int64_t>& scalar_indexes,
+    HostDataType dt_type,
+    std::shared_ptr<DynamicGraphMetaData> dmeta);
 
 class DynamicOp {
  public:
@@ -112,5 +186,34 @@ class TopkOperatorDS : public DynamicOp {
       std::vector<c10::IValue>& stack);
 };
 
+class AsStridedOperatorDS : public DynamicOp {
+ public:
+  AsStridedOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& in_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      std::vector<at::Tensor>& in_tensors,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      std::vector<torch::jit::IValue*>& dtensor_list,
+      std::vector<habana::graph::SymIntData>& symint_list,
+      std::vector<c10::IValue>& stack);
+};
+
+class StridedInsertOperatorDS : public DynamicOp {
+ public:
+  StridedInsertOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& in_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      std::vector<at::Tensor>& in_tensors,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      std::vector<torch::jit::IValue*>& dtensor_list,
+      std::vector<habana::graph::SymIntData>& symint_list,
+      std::vector<c10::IValue>& stack);
+};
 } // namespace graph
 } // namespace habana

@@ -423,6 +423,58 @@ def test_dynamic_shape_mult_module_split():
             out_c = raw_function(t1, t2)
             assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
+def test_dynamic_shape_as_strided_ratio_flow_lazy():
+    print("Starting...................")
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+
+        import habana_frameworks.torch.core as htcore
+        print("Starting the test.................")
+        input_shapes = [
+           (2, 2),
+           (4, 2),
+           (6, 2)
+        ]
+
+        def raw_function(input_tensor):
+            t = input_tensor.shape
+            sizes = [int(t[0]*t[1]/2), 2]
+            strides = [2, 1]
+            offset = 0
+            strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
+            out = torch.add(strided_tensor, strided_tensor)
+            return out
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+        i = 0
+        for s in input_shapes:
+            t1 = torch.randn(s, requires_grad = False)
+            t1_hpu = t1.to("hpu")
+            result_compile_train = compiled_function_training(t1_hpu)
+            result_cpu = raw_function(t1)
+            assert torch.allclose(result_compile_train.to("cpu"), result_cpu, atol=0.01)
+
+def test_dynamic_shape_as_strided_lazy():
+    print("Starting...................")
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+
+        import habana_frameworks.torch.core as htcore
+        print("Starting the test.................")
+        input = [4, 6, 8]
+
+        def raw_function(input_tensor):
+            t = input_tensor.shape
+            sizes = [int(t[0]/2), 2]
+            strides = [2, 1]
+            offset = 0
+            strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
+            out = torch.add(strided_tensor, strided_tensor)
+            return out
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+        i = 0
+        for s in input:
+            t1 = torch.randn(s, requires_grad = False)
+            t1_hpu = t1.to("hpu")
+            result_compile_train = compiled_function_training(t1_hpu)
+
 if __name__ == '__main__':
     test_relu_mixed()
     test_reshape_symlnt()
@@ -437,4 +489,6 @@ if __name__ == '__main__':
     # test_dynamic_shape_topk()
     test_dynamic_shape_control_flow_static()
     test_dynamic_shape_mult_module_split()
+    test_dynamic_shape_as_strided_lazy()
+    test_dynamic_shape_as_strided_ratio_flow_lazy()
 

@@ -63,13 +63,9 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
   if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
     habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
     void* host_ptr = tmeta->get_host_ptr();
-    if (h2d_dt_type == habana::HostDataType::INT32_T) {
-      T* h2d_data = static_cast<T*>(host_ptr);
-      for (size_t i = 0; i < data_size; i++) {
-        host_data.push_back(static_cast<T>(*h2d_data++));
-      }
-    } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
-      PT_EAGER_DEBUG("H2D tensor type not supported!!");
+    T* h2d_data = static_cast<T*>(host_ptr);
+    for (size_t i = 0; i < data_size; i++) {
+      host_data.push_back(static_cast<T>(*h2d_data++));
     }
   }
 
@@ -78,6 +74,6 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
 }
 
 template std::vector<int32_t> GetH2DTensorHostData(at::Tensor&);
-
+template std::vector<uint64_t> GetH2DTensorHostData(at::Tensor&);
 } // namespace graph
 } // namespace habana

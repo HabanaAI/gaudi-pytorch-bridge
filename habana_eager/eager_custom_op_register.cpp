@@ -598,6 +598,14 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
       "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor(a!) values, Tensor(b!) indices)");
+  m.def(
+      "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
+  m.def(
+      "strided_view_ds_h2d(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_insert_orig_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
+  m.def(
+      "strided_insert_orig_ds_h2d(Tensor self, Tensor other, Tensor stride) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

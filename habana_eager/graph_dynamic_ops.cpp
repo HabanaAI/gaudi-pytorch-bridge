@@ -48,7 +48,7 @@ void GetValueAndScalarIndexFromInput(
       in_name,
       ", is value=",
       value,
-      "index=",
+      " index=",
       index);
 }
 
@@ -112,12 +112,6 @@ void UpdateShapeTensorSize(
   PT_EAGER_DEBUG("Updated dynamic shape tensor size:", dtensor.sizes());
 }
 
-void UpdateH2DTensorData(at::Tensor& dtensor, std::vector<int32_t>& data) {
-  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
-  auto tmeta{get_tensor_extra_meta(dtensor)};
-  tmeta->update_host_data(data.data(), data.size(), sizeof(int32_t), true);
-}
-
 int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
@@ -133,29 +127,6 @@ int64_t UpdateDynamicTensorDSStack(
   PT_EAGER_DEBUG("Dynamic tensor inserted to stack at index:", stack_index);
 
   return stack_index;
-}
-
-template <typename T>
-void SetH2DTensorHostData(
-    at::Tensor& tensor,
-    std::vector<T>& h2d_values,
-    HostDataType dt_type,
-    bool reverse_data) {
-  auto tmeta{get_tensor_extra_meta(tensor)};
-  std::vector<T> h2d_data(h2d_values);
-  if (reverse_data) {
-    std::reverse(h2d_data.begin(), h2d_data.end());
-  }
-
-  PT_EAGER_DEBUG(
-      "Dynamic H2D tensor host data:",
-      h2d_data,
-      ", type:",
-      dt_type,
-      ", type size:",
-      sizeof(T));
-  tmeta->set_host_data(h2d_data.data(), h2d_data.size(), sizeof(T), dt_type);
-  tmeta->set_H2D_data_for_bucketing();
 }
 
 int64_t CreateSTAndInsertToDSStack(
@@ -202,56 +173,6 @@ void DynamicOp::UpdateDynamicInputs(
     SymIntData& st_values = scalar_list[idx];
     UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
   }
-}
-
-bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
-    torch::jit::Node* aten_view_node,
-    torch::jit::Stack& org_stack,
-    GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
-    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
-  HABANA_ASSERT(2 == aten_view_node->inputs().size());
-  static const auto hpu_view_symbol{c10::Symbol::fromQualString("hpu::view")};
-  static const auto list_construct_symbol{
-      c10::Symbol::fromQualString("prim::ListConstruct")};
-  auto graph{aten_view_node->owningGraph()};
-  auto v_view_shape = aten_view_node->inputs().at(1);
-  HABANA_ASSERT(
-      v_view_shape->node()->kind() == list_construct_symbol,
-      "View input is not a ListConstruct, it is: ",
-      v_view_shape->node()->kind().toQualString());
-  auto list_construct_node{v_view_shape->node()};
-
-  // Step 1: Collect shape and scalar pos used in ListConstruct input node
-  std::vector<int64_t> st_size;
-  std::vector<int64_t> scalar_indexes;
-  GetValuesAndScalarIndexesFromListConstruct(
-      list_construct_node,
-      org_stack,
-      org_stack_index_map,
-      st_size,
-      scalar_indexes);
-
-  // Step2: Create shape tensor and insert to graph inputs.
-  auto view_st_name =
-      GetDynamicTensorName(v_view_shape->debugName(), SHAPE_TENSOR);
-  int64_t stack_index =
-      CreateSTAndInsertToDSStack(st_size, scalar_indexes, m_dmeta);
-  auto v_st_tensor = graph->addInput(view_st_name);
-
-  // Step3: Register patching function and tensor lists
-  std::vector<int64_t> dtensor_indexes{stack_index};
-  InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
-  m_dmeta->ds_input_patching_list.push_back(patch_info);
-
-  // Step4: Create hpu::view node and insert to the graph
-  CreateAndInsertDynamicNodeToGraph(
-      graph,
-      aten_view_node,
-      hpu_view_symbol,
-      {aten_view_node->input(0), v_st_tensor});
-
-  return true;
 }
 
 bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
@@ -385,7 +306,8 @@ static auto& BasicDSOpsRegistry =
     habana::graph::DSOpsRegistry()
         .add("aten::view", DSOP_MID_BACKEND(ViewOperatorDS))
         .add("aten::repeat", DSOP_MID_BACKEND(RepeatOperatorDS))
-        .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS));
-
+        .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
+        .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))
+        .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS));
 } // namespace graph
 } // namespace habana

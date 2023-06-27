@@ -924,8 +924,8 @@ bool IsStridesRatioUsed(torch::jit::Stack& inputs) {
     auto offset_t = inputs[3].toTensor();
 
     // Offset shape tensor is created only in case the ratio is used
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_t);
-    auto stride_ratios = impl->get_shape_struct().get_stride_ratios();
+    auto tmeta_offset{get_tensor_extra_meta(offset_t)};
+    auto stride_ratios = tmeta_offset->get_shape_struct().get_stride_ratios();
     if (stride_ratios.size() > 0) {
       stride_ratio_used = true;
     }
@@ -1042,7 +1042,7 @@ std::vector<int64_t> GetStridedViewOperatorH2DStrides(
   } else {
     auto offset_t = inputs[3].toTensor();
     auto input_t = inputs[0].toTensor();
-    auto impl = habana_lazy::GetHbInternalTensorImpl(offset_t);
+    auto impl = get_tensor_extra_meta(offset_t);
     if (graph_dry_run &&
         (habana::ShapeInference::GetCurrentPass() ==
              habana::ShapeInfo::InferencePass::MIN_SHAPE ||
