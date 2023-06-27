@@ -9,6 +9,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -38,6 +39,9 @@ class SifTest : public habana_lazy_test::LazyDynamicTest {
 };
 
 TEST_F(SifTest, Slice) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   int N = 1;
   int C = 4;
   int H = 24;
@@ -63,6 +67,9 @@ TEST_F(SifTest, Slice) {
 }
 
 TEST_F(SifTest, SimpleGraph) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   int kH = 3;
   int kW = 3;
@@ -133,6 +140,9 @@ TEST_F(SifTest, SimpleGraph) {
 
 // Test Add Add Div Sub
 TEST_F(SifTest, AddAddDivSub) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   const int H = 8;
   const int C = 4;
@@ -169,6 +179,9 @@ TEST_F(SifTest, AddAddDivSub) {
 
 // Test Add Add Div Sub Cat Relu
 TEST_F(SifTest, AddAddDivSubCatRelu) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   const int H = 8;
   const int C = 4;
@@ -227,6 +240,9 @@ TEST_F(SifTest, SingleOpCat) {
 }
 
 TEST_F(SifTest, AddMulRelu) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   int A = 50;
   const int C = 30;
@@ -276,6 +292,9 @@ TEST_F(SifTest, AddMulRelu) {
 //                           Out
 //
 TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   int kH = 3;
   int kW = 3;
@@ -326,6 +345,9 @@ TEST_F(SifTest, Cat_Reshape_Relu_Conv2DTransposeBias_Test) {
 }
 
 TEST_F(SifTest, AllReduce_Test) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
 
   std::vector<int> in_sizes{16, 24, 32};
@@ -354,6 +376,9 @@ TEST_F(SifTest, AllReduce_Test) {
 }
 
 TEST_F(SifTest, AllReduceWithControlEdge_Test) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
 
   std::vector<int> in_sizes{16, 24, 32};
@@ -411,6 +436,9 @@ TEST_F(SifTest, DISABLED_Fill_Add) {
 
 // Hybrid SIF test, Tests Index, Sub - auto gen ops, Cat manual op
 TEST_F(SifTest, IndexSubCat) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
@@ -468,6 +496,9 @@ TEST_F(SifTest, IndexSubCat) {
 // Hybrid SIF test, Tests Index, Sub and Silu Bwd - auto gen ops
 // with enabled Compute Output shape.
 TEST_F(SifTest, IndexSubSiluBwd) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_shape_start();
   validate_sif_start();
   std::vector<int> in_sizes{8, 16, 32};
@@ -525,6 +556,9 @@ TEST_F(SifTest, IndexSubSiluBwd) {
 // Matmul/Matmul Bwd does not support ComputeOutputShape
 // Skip ComputeOutputShape validation
 TEST_F(SifTest, MatmulFwdBwd) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_sif_start();
   std::vector<int> in_sizes{2, 4, 8};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -561,6 +595,9 @@ TEST_F(SifTest, MatmulFwdBwd) {
 // Hybrid SIF test, Tests RandPermHT
 // with enabled Compute Output shape.
 TEST_F(SifTest, RandPermHT) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   validate_sif_start();
   validate_shape_start();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);

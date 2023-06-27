@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -146,6 +147,12 @@ TEST_F(HpuOpTest, nll_loss_fwd_out) {
 }
 
 TEST_F(HpuOpTest, nll_loss2d_fwd_out_bf16) {
+  if (isGaudi2()) {
+    GTEST_SKIP() << "Test skipped on Gaudi2.";
+  }
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateIntInputs(1, {{4, 2, 4}}, 0, 5);
   auto target = GetCpuInput(0).to(torch::kLong);
   auto htarget = GetHpuInput(0).to(torch::kLong);

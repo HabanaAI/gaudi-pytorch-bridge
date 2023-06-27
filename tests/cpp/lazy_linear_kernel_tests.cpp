@@ -9,6 +9,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "utils/device_type_util.h"
 
 #define rtol 0.001
 #define atol 0.001
@@ -51,6 +52,9 @@ TEST_F(LazyLinearKernelTest, AddMmTest) {
 }
 
 TEST_F(LazyLinearKernelTest, MatmulTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1).requires_grad_();
     auto mat2 = torch::randn(size2).requires_grad_();
@@ -77,6 +81,9 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
 }
 
 TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto matmulbwd_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1, torch::requires_grad());
     auto mat2 = torch::randn(size2, torch::requires_grad());

@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -126,6 +127,9 @@ TEST_F(HpuOpTest, bernoulli_p) {
 }
 
 TEST_F(HpuOpTest, bernoulli_out) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateIntInputs(1, {{3, 3}}, 0, 2);
   auto input1 = GetCpuInput(0).to(torch::kBFloat16);
   auto input2 = input1.to(torch::kHPU);
@@ -142,6 +146,9 @@ TEST_F(HpuOpTest, bernoulli_out) {
 }
 
 TEST_F(HpuOpTest, bernoulli_out_2) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateIntInputs(1, {{3, 3}}, 0, 2);
   auto input1 = GetCpuInput(0).to(torch::kBFloat16);
   auto input2 = input1.to(torch::kHPU);
@@ -158,6 +165,9 @@ TEST_F(HpuOpTest, bernoulli_out_2) {
 }
 
 TEST_F(HpuOpTest, bernoulli_out_scalar1) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateIntInputs(2, {{3, 3}, {3, 3}}, 0, 2);
   auto input1 = GetHpuInput(0).to(torch::kBFloat16);
   auto input2 = GetHpuInput(1).to(torch::kBFloat16);
@@ -236,6 +246,9 @@ TEST_F(HpuOpTest, random_to) {
 }
 
 TEST_F(HpuOpTest, multinomial) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 2;
   SetSeed();
@@ -247,6 +260,9 @@ TEST_F(HpuOpTest, multinomial) {
 }
 
 TEST_F(HpuOpTest, multinomial_without_replacement) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
   SetSeed();
@@ -258,6 +274,9 @@ TEST_F(HpuOpTest, multinomial_without_replacement) {
 }
 
 TEST_F(HpuOpTest, multinomial_with_replacement) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
   SetSeed();
@@ -291,6 +310,9 @@ TEST_F(HpuOpTest, multinomial_without_replacement_and_different_seed) {
 }
 
 TEST_F(HpuOpTest, multinomial_out) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 2;
   auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
@@ -312,6 +334,9 @@ TEST_F(HpuOpTest, multinomial_out) {
 }
 
 TEST_F(HpuOpTest, multinomial_out_with_replacement) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 2;
   auto result = torch::empty(0, torch::kInt).to(torch::kHPU);

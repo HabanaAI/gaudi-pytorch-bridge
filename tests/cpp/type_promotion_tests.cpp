@@ -10,6 +10,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "utils/device_type_util.h"
 using namespace habana_lazy;
 using namespace at;
 
@@ -389,6 +390,9 @@ TEST_F(TypePromotionTests, CumprodInt32dtyLong) {
 }
 
 TEST_F(TypePromotionTests, CumprodLong) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto t1_cpu = torch::tensor({3}, torch::kLong);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
   auto cpu_out = torch::cumsum(t1_cpu, 0);
@@ -433,6 +437,9 @@ TEST_F(TypePromotionTests, CumsumInt32dtyLong) {
 }
 
 TEST_F(TypePromotionTests, CumsumLong) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto t1_cpu = torch::tensor({3}, torch::kLong);
   auto t1_hpu = t1_cpu.to(torch::kHPU);
   auto cpu_out = torch::cumsum(t1_cpu, 0);

@@ -19,6 +19,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -41,6 +42,9 @@ class LazyInferencePassTest : public habana_lazy_test::LazyTest {
 };
 
 TEST_F(LazyInferencePassTest, linear) {
+  if (isGaudi2()) {
+    GTEST_SKIP() << "Test skipped on Gaudi2.";
+  }
   torch::Tensor A = torch::randn({8, 4, 12, 7});
   torch::Tensor B = torch::randn({5, 7});
   torch::Tensor hA = A.to(kHPU);

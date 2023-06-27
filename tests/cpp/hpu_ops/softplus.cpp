@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -66,6 +67,9 @@ TEST_F(HpuOpTest, softplus_out_bf16) {
 // Bwd
 
 TEST_F(HpuOpTest, softplus_bwd_f32) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
 
   float beta = 1.5f;
@@ -79,6 +83,9 @@ TEST_F(HpuOpTest, softplus_bwd_f32) {
 }
 
 TEST_F(HpuOpTest, softplus_bwd_bf16) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}}, torch::kBFloat16);
 
   float beta = 1.5f;

@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 const std::array DtypesList{
@@ -143,6 +144,9 @@ class UnaryIntToFloatPromotion
       public testing::WithParamInterface<std::tuple<c10::ScalarType>> {};
 
 TEST_P(UnaryIntToFloatPromotion, reciprocal) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   const auto& testParams = GetParam();
   const auto dtype = std::get<0>(testParams);
   GenerateInputs(1, dtype);

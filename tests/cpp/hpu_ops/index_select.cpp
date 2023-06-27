@@ -8,12 +8,16 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 #define SIZE(...) __VA_ARGS__
 
 #define INDEX_SELECT_OUT_TEST(                                             \
     test_name, in_size, max_value, datatype, index_value, dim, out_size)   \
   TEST_F(HpuOpTest, test_name) {                                           \
+    if (isGaudi3()) {                                                      \
+      GTEST_SKIP() << "Test skipped on Gaudi3.";                           \
+    }                                                                      \
     torch::ScalarType dtype = datatype;                                    \
     GenerateIntInputs(1, {index_value}, 0, max_value);                     \
     auto cpu_index = GetCpuInput(0).to(torch::kLong);                      \

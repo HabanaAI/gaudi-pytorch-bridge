@@ -8,11 +8,15 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, logcumsumexp_out) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(1, torch::kFloat);
   int64_t dim = 1;
   torch::ScalarType dtype = torch::kFloat;

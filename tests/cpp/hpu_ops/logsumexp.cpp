@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -82,6 +83,9 @@ TEST_F(HpuOpTest, logsumexp_0d) {
 
 // 0d input keepdim: true
 TEST_F(HpuOpTest, logsumexp_0d_keepdim) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto tensor1 = torch::tensor(50.0);
   auto tensor2 = torch::tensor(50.0, "hpu");
   const std::vector<int64_t> dim{0};

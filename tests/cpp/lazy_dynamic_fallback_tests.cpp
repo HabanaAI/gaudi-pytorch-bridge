@@ -22,6 +22,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -145,6 +146,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicShapeTest4) {
 }
 
 TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{8, 16, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -167,6 +169,7 @@ TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
 
 // Also validates ComputeOutputShape for concat and strided_view
 TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -216,6 +219,7 @@ TEST_F(LazyDynamicFallbackTest, ViewTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, SliceTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 4;
   int H = 4;
@@ -240,6 +244,7 @@ TEST_F(LazyDynamicFallbackTest, SliceTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, SliceTest2) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -262,6 +267,7 @@ TEST_F(LazyDynamicFallbackTest, SliceTest2) {
 }
 
 TEST_F(LazyDynamicFallbackTest, DynamicAvgPoolBkwdTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   const int C = 16;
   int H = 16;
@@ -292,6 +298,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicAvgPoolBkwdTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -379,6 +386,7 @@ TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
 }
 
 TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // unset the env variable if set for this case
   bool org_state = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING);
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, true, 1);
@@ -410,6 +418,7 @@ TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
 }
 
 TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // Static Maxpool Fwd +BWD
   if (1) {
     torch::Tensor A = torch::randn(

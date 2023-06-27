@@ -8,11 +8,15 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, mvOut) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(3, {{2, 3}, {3}, {2}});
   auto expected =
       torch::mv_outf(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2));

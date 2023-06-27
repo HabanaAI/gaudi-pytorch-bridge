@@ -27,6 +27,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -62,6 +63,7 @@ class LazyDynamicComputeOutputShapesTest
 //                           Out
 
 TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -141,6 +143,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AddConv2DBNMaxPoolTest) {
 //                            |
 //                           Out
 TEST_F(LazyDynamicComputeOutputShapesTest, Conv2DTransposeBiasTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -180,6 +183,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Fill) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SiluBwdTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int C = 16;
   const int N = 16;
   int H = 16;
@@ -225,6 +229,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::manual_seed(0);
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
@@ -282,6 +287,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SqueezeTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedInsertTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -309,6 +315,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedInsertTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedViewTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -594,6 +601,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SliceTest_CmptOtShp) {
 
 // Also validates ComputeOutputShape for View, AddInplace and strided_insert
 TEST_F(LazyDynamicComputeOutputShapesTest, AddInplaceViewTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 2;
   int H = 4;
@@ -707,6 +715,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, DISABLED_RoiAlignBwd) {
 
 // Also validates ComputeOutputShape for RandPermHT
 TEST_F(LazyDynamicComputeOutputShapesTest, RandPermHT) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
@@ -725,6 +734,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, RandPermHT) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Mean) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -750,6 +760,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, repeatInlv) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, RepeatTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   int H = 4;
   std::vector<int> c{5, 50, 100};

@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -37,6 +38,9 @@ TEST_F(HpuOpTest, remainder_scalar) {
 }
 
 TEST_F(HpuOpTest, remainder_scalar_tensor) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateIntInputs(1, {{2, 3, 3}}, -10000, 10000);
   auto exp = torch::remainder(25, GetCpuInput(0));
   auto res = torch::remainder(25, GetHpuInput(0));

@@ -27,6 +27,7 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -49,6 +50,7 @@ class LazyDynamicShapesBucketRefineTest
 };
 
 TEST_F(LazyDynamicShapesBucketRefineTest, RefineAddMulRelu) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   enable_bucket_refinement();
   int A = 50;
   const int C = 30;

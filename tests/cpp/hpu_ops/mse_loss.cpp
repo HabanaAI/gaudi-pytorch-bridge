@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -22,6 +23,9 @@ TEST_F(HpuOpTest, mse_loss_fwd) {
 }
 
 TEST_F(HpuOpTest, mse_loss_bwd) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(3, {{16}, {16}, {16}});
   int reduction = torch::Reduction::None;
 

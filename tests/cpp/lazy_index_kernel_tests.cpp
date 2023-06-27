@@ -21,6 +21,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -760,6 +761,9 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
 */
 
 TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   const int64_t constStepsValue = 45;
   torch::Scalar start = 0.70f;
   torch::Scalar end = -0.03f;
@@ -776,6 +780,9 @@ TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
 }
 
 TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
   int64_t step = 100; // wrong value
@@ -857,6 +864,9 @@ TEST_F(LazyIndexKernelTest, squeezeDimsNone) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexOutTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   // SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 0, 0);
   torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);

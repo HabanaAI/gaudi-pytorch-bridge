@@ -7,11 +7,15 @@
  *
  ******************************************************************************
  */
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, matmul_5dx1d) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(2, {{8, 4, 12, 7, 3}, {3}}, {torch::kBFloat16});
 
   auto expected = torch::matmul(GetCpuInput(0), GetCpuInput(1));

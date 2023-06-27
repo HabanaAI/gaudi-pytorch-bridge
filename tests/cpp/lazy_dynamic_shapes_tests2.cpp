@@ -23,12 +23,14 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
 class LazyDynamicShapesTest2 : public habana_lazy_test::LazyDynamicTest {};
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -44,6 +46,7 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -74,6 +77,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -89,6 +93,7 @@ TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceView) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -123,6 +128,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {

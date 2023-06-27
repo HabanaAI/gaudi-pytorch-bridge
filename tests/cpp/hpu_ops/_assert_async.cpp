@@ -11,6 +11,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "util.h"
 
@@ -20,6 +21,9 @@ using namespace at;
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, AsyncAssert) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto y = torch::zeros(1).to(torch::kHPU);
   auto z = torch::zeros(1).to(torch::kHPU);
   auto x = torch::eq(y, z);

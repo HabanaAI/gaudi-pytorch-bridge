@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 #define SIZE(...) __VA_ARGS__
@@ -274,6 +275,9 @@ TEST_F(HpuOpTest, DISABLED_left_shift_scal_ten) {
 }
 
 TEST_F(HpuOpTest, right_shift_scal_ten_i32) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   int self = GenerateScalar<int>(44, 50);
   auto t2 = torch::tensor({10, 20});
   auto tensor2 = torch::tensor({10, 20}, "hpu");

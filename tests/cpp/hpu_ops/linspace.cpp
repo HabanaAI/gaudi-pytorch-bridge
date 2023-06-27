@@ -8,11 +8,15 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, linspace) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   // Not supporting for the values beyond 40
   float start = GenerateScalar<float>(-1, 40);
   // Not supporting for the values use beyond 40

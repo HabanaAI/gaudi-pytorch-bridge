@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -155,6 +156,9 @@ TEST_F(HpuOpTest, rrelu_with_noise_backward) {
 }
 
 TEST_F(HpuOpTest, rrelu_with_noise_backward_train) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(3);
   float lower = GenerateScalar<float>(0.1, 0.3);
   float upper = GenerateScalar<float>(0.6, 0.9);

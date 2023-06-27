@@ -8,11 +8,15 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, _masked_scale1) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(2, {{28}, {28}});
   float scale = 5.6;
 
@@ -22,6 +26,9 @@ TEST_F(HpuOpTest, _masked_scale1) {
 }
 
 TEST_F(HpuOpTest, _masked_scale2) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   GenerateInputs(2, {{1, 1, 8}, {2, 2, 8}}, {torch::kBFloat16});
   float scale = 0.6;
 
