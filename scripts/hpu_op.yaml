@@ -648,22 +648,35 @@ acosh_:
   op_validator: check-node-with-shared-layer
 
 add.Tensor:
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
-  override_fn: add_tensor_hpu_lazy
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  op_backend: BinaryWithAlpha
+  out_ids: [0]
   promote_to_common_type: [self, other]
+  lazy:
+    acc_thread: true
+    override_fn: add_tensor_hpu_lazy
 
 add.Scalar:
+  broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  override_fn: add_scalar_hpu_lazy
-  acc_thread: true
+  guid: binary_with_alpha_fwd
+  scalar_ids: [1, 2]
+  op_backend: BinaryWithAlpha
+  out_ids: [0]
   promote_to_common_type: [self, other]
+  lazy:
+    acc_thread: true
+    override_fn: add_scalar_hpu_lazy
 
 add_.Scalar:
   dtypes:
@@ -685,23 +698,25 @@ add_.Tensor:
 
 add.out:
   broadcast: true
+  custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
-  guid: add_fwd
+  guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
 add.Scalar_out:
+  custom_fill_params: FillBinaryAddParams
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: add_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
+  op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
 addbmm:
@@ -5774,6 +5789,7 @@ rsub.Tensor:
   custom_fill_params: FillBinaryRSubParams
   out_ids: [0]
   scalar_ids: [2]
+  op_backend: BinaryWithAlpha
 
 rsub.Scalar:
   custom_fill_params: FillBinaryRSubParams
@@ -5785,6 +5801,7 @@ rsub.Scalar:
   guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [1, 2]
+  op_backend: BinaryWithAlpha
 
 scatter.src:
   dtypes:
@@ -6550,70 +6567,76 @@ std_mean.correction:
 
 sub.Tensor:
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   out_ids: [0]
+  op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 sub.Scalar:
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
+  op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
 sub_.Tensor:
-  broadcast: true
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
+  guid: binary_with_alpha_fwd
   inplace_ids: [0]
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
 
 sub_.Scalar:
-  broadcast: true
+  custom_output_shape: BinaryOutputShapeInplace
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
+  op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
 sub.Scalar_out:
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
-  op_backend: BinaryWithAlpha
+  guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
+  op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
 sub.out:
   broadcast: true
+  custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Short, Int, Half]
-  guid: sub_fwd
+  guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
