@@ -434,6 +434,8 @@ ENV_STRUCT_DEFINITION(PT_LOG_FILE_AMOUNT, unsigned, 5);
 // clang-format on
 ENV_STRUCT_DEFINITION(PT_HPU_ACC_THREAD_VERSION, int, 0);
 
+ENV_STRUCT_DEFINITION(PT_HPU_USE_SHARED_LAYER_V2, bool, false);
+
 // Method for string env variables
 const char* getenv_by_type_new(
     const char* name,
