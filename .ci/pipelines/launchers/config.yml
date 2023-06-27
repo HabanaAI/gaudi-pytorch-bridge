@@ -14,7 +14,7 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-lightning-fork
