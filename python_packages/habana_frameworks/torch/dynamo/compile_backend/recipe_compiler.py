@@ -26,7 +26,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._fx_module = graph_module
         self._inference = not is_training
         self._recipe_id = None
-        self._dynamic = False
+        self._dynamic = dynamic
 
     def __call__(self, *args):
         from ._recipe_compiler_C import graph_compile, graph_launch

@@ -48,12 +48,15 @@ add_library(habana_pytorch2_frontend OBJECT
 	  passes/remove_detach_op.cpp
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
+          passes/replace_dynamic_ops.cpp
           eager_custom_op_register.cpp
           eager_tensor.cpp
           eager_exec.cpp
           eager_view.cpp
           eager_context.cpp
           graph_exec.cpp
+          graph_dynamic.cpp
+          graph_dynamic_ops.cpp
           graph_weight_permute.cpp
           kernels_impl.cpp
           unused_link_symbols.cpp

@@ -58,6 +58,25 @@ void TensorExtraMeta::set_host_data(
   dt_type_ = dt_type;
 }
 
+void TensorExtraMeta::update_host_data(
+    void* d,
+    int size,
+    int el_size,
+    bool compile) {
+  int data_size = size * el_size;
+  int total_elem = 2 * data_size;
+  memcpy(host_ptr_, d, data_size);
+  char* ptr = static_cast<char*>(host_ptr_) + data_size;
+  memcpy(ptr, d, data_size);
+
+  if (compile) {
+    memcpy(
+        static_cast<char*>(compile_host_ptr_),
+        static_cast<char*>(host_ptr_),
+        total_elem);
+  }
+}
+
 void TensorExtraMeta::set_const_tensor(
     const at::Tensor& tensor,
     bool is_const_tensor,

@@ -592,6 +592,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::retain_softmax_producer(Tensor self) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
+  m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
+  m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
+  m.def(
+      "hpu::topk(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor(a!) values, Tensor(b!) indices)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

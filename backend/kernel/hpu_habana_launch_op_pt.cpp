@@ -1333,7 +1333,9 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   }
 }
 
-void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
+IValPtrShared GetPrimListConstructNodeOuputIValue(
+    torch::jit::Node* node,
+    std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue) {
   const auto& node_ins = node->inputs();
   auto node_vals = node->outputs();
   HABANA_ASSERT(node_vals.size() == 1);
@@ -1350,8 +1352,8 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
         opttensorList.emplace_back(c10::nullopt);
       }
     }
-    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(opttensorList);
-    return;
+    IValPtrShared out_ival = std::make_shared<IVal>(opttensorList);
+    return out_ival;
   }
 
   auto ivptrsh = value_to_ivalue[node_ins[0]];
@@ -1365,10 +1367,9 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
       HABANA_ASSERT(ivptrsh->isTensor());
       tensorList.emplace_back(ivptrsh->toTensor());
     }
-    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(tensorList);
-    return;
+    IValPtrShared out_ival = std::make_shared<IVal>(tensorList);
+    return out_ival;
   }
-
   //  Handle construction of list consisting ints only
   if (ivptrsh->isInt()) {
     c10::List<int64_t> intList;
@@ -1378,8 +1379,8 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
       HABANA_ASSERT(ivptrsh->isInt());
       intList.emplace_back(ivptrsh->toInt());
     }
-    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(intList);
-    return;
+    IValPtrShared out_ival = std::make_shared<IVal>(intList);
+    return out_ival;
   }
 
   //  Handle construction of list consisting bools only
@@ -1391,11 +1392,20 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
       HABANA_ASSERT(ivptrsh->isBool());
       boolList.emplace_back(ivptrsh->toBool());
     }
-    value_to_ivalue[node_vals[0]] = std::make_shared<IVal>(boolList);
-    return;
+    IValPtrShared out_ival = std::make_shared<IVal>(boolList);
+    return out_ival;
   }
 
   HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
+}
+
+void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
+  const auto& node_ins = node->inputs();
+  auto node_vals = node->outputs();
+  HABANA_ASSERT(node_vals.size() == 1);
+  IValPtrShared ival =
+      GetPrimListConstructNodeOuputIValue(node, value_to_ivalue);
+  value_to_ivalue[node_vals[0]] = ival;
 }
 
 void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
@@ -2683,19 +2693,35 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
       at::Tensor new_tensor;
       if (tensor_type == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
-        new_tensor = habana_lazy::empty_hpu_lazy(
-            tensor.sizes(),
-            tensor.options(),
-            tensor.suggest_memory_format(),
-            true,
-            tensor_type);
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+          new_tensor = at::empty(
+                           tensor.sizes(),
+                           tensor.options().dtype(),
+                           tensor.suggest_memory_format())
+                           .to(at::kHPU);
+        } else {
+          new_tensor = habana_lazy::empty_hpu_lazy(
+              tensor.sizes(),
+              tensor.options(),
+              tensor.suggest_memory_format(),
+              true,
+              tensor_type);
+        }
       } else {
-        new_tensor = habana_lazy::empty_hpu_lazy(
-            dynamic_shapes.at(i).get_dims(),
-            tensor.options(),
-            tensor.suggest_memory_format(),
-            true,
-            tensor_type);
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+          new_tensor = at::empty(
+                           dynamic_shapes.at(i).get_dims(),
+                           tensor.options().dtype(),
+                           tensor.suggest_memory_format())
+                           .to(at::kHPU);
+        } else {
+          new_tensor = habana_lazy::empty_hpu_lazy(
+              dynamic_shapes.at(i).get_dims(),
+              tensor.options(),
+              tensor.suggest_memory_format(),
+              true,
+              tensor_type);
+        }
       }
       /*
        * Every new tensor is created using Habana Tensor Implementer.

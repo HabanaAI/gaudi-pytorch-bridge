@@ -293,10 +293,12 @@ class Bucket {
   void SetInputMetaData(const torch::jit::Stack& stack) {
     input_metadata_.clear();
     for (size_t i = 0; i < stack.size(); ++i) {
-      auto& tensor = stack[i].toTensor();
-      auto tmeta{habana::get_tensor_extra_meta(tensor)};
-      if (tmeta->get_shape_struct().has_shape_tensor_data()) {
-        input_metadata_.emplace(i, tmeta->get_shape_struct());
+      if (stack[i].isTensor()) {
+        auto& tensor = stack[i].toTensor();
+        auto tmeta{habana::get_tensor_extra_meta(tensor)};
+        if (tmeta->get_shape_struct().has_shape_tensor_data()) {
+          input_metadata_.emplace(i, tmeta->get_shape_struct());
+        }
       }
     }
   };

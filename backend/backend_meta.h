@@ -250,6 +250,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   }
 
   void set_host_data(void* d, int size, int ele_size, HostDataType dt_type);
+  void update_host_data(void* d, int size, int el_size, bool compile = true);
 
   void set_redundant() {
     is_redundant_ = true;

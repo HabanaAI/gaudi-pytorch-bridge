@@ -20,6 +20,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
+#include "habana_eager/graph_dynamic.h"
 
 namespace habana {
 namespace graph {
@@ -32,6 +33,14 @@ void DetectWeightTensors(
     std::shared_ptr<torch::jit::Graph> graph,
     std::set<int>& graph_inputs_to_permute);
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
+void HandleDynamicOps(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& stack,
+    std::shared_ptr<DynamicGraphMetaData> dgraph_meta);
+void HandleDynamicInputPatching(
+    torch::jit::Stack& stack,
+    std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
+    bool is_first_launch);
 void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
 void HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
@@ -54,12 +63,17 @@ class GraphExec {
   void RunGraphPasses(torch::jit::Stack& example_inputs);
   void LogRecipeInfo(torch::jit::Stack& example_inputs);
   void HandleWeightPermutation(torch::jit::Stack& stack);
+  void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
+  std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
 
   size_t m_graph_index;
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
   bool m_inference;
+  bool is_first_launch = true;
+  std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
+
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;
   std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;

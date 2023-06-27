@@ -18,6 +18,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_view.h"
+#include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_weight_permute.h"
 
 #include "habana_helpers/logging.h"
@@ -79,8 +80,14 @@ GraphExec::GraphExec(
   RunGraphPasses(example_inputs);
   LogRecipeInfo(example_inputs);
 
+  torch::jit::Stack in_stack = example_inputs;
+  if (m_dynamic) {
+    ProcessDynamicGraph(example_inputs);
+    in_stack = ProcessDynamicStack(example_inputs, false);
+  }
+
   at::ArrayRef<torch::jit::IValue> input_refs =
-      torch::jit::last(example_inputs, m_graph->inputs().size());
+      torch::jit::last(in_stack, m_graph->inputs().size());
 
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
@@ -93,6 +100,24 @@ GraphExec::GraphExec(
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
 };
+
+void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
+  m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
+  pass::HandleDynamicOps(m_graph, example_inputs, m_dgraph_meta);
+  PT_EAGER_DEBUG(
+      "Jit for ", m_graph_name, " before processing dynamicity\n", *m_graph);
+}
+
+std::vector<at::IValue> GraphExec::ProcessDynamicStack(
+    torch::jit::Stack& orig_stack,
+    bool is_first_launch) {
+  torch::jit::Stack new_stack = orig_stack;
+  pass::HandleDynamicInputPatching(new_stack, m_dgraph_meta, is_first_launch);
+  HABANA_ASSERT(
+      m_graph->inputs().size() == new_stack.size(),
+      "Graph inputs size not patching with stack size!!");
+  return new_stack;
+}
 
 void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   PT_EAGER_INFO("Jit for ", m_graph_name, ":\n", *m_graph);
@@ -127,8 +152,19 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
 
 torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
+
+  torch::jit::Stack in_stack = original_stack;
+  if (m_dynamic) {
+    in_stack = ProcessDynamicStack(original_stack, is_first_launch);
+    if (is_first_launch)
+      is_first_launch = false;
+  }
+  // TODO SW-152610
+  habana_helpers::SetRefineDynamicShapeTorchCompile(m_dynamic);
+
   torch::jit::Stack stack =
-      habana::eager::convert_inputs_to_backend_tensors(original_stack);
+      habana::eager::convert_inputs_to_backend_tensors(in_stack);
+  LogRecipeInfo(stack);
 
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
@@ -154,11 +190,12 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{m_graph_and_meta};
     habana_launch_op_.run(stack);
+    habana_helpers::SetRefineDynamicShapeTorchCompile(false);
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
   }
-} // namespace graph
+}
 
 void GraphExec::HandleWeightPermutation(torch::jit::Stack& stack) {
   PT_EAGER_TRACE;

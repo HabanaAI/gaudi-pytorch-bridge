@@ -74,6 +74,9 @@ inline bool IsControlEdgeTypeInplace(ControlEdgeType cet) {
 }
 
 LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
+IValPtrShared GetPrimListConstructNodeOuputIValue(
+    torch::jit::Node* node,
+    std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue);
 
 struct DynamicShapeInfo {
   habana_helpers::InpTensorShapes act_input_tshapes;

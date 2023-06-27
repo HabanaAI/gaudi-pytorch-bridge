@@ -23,10 +23,24 @@ namespace habana_helpers {
 thread_local bool m_enable_refine_dynamic_shape{
     GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
 
-void SetRefineDynamicShape(bool flag) {
-  m_enable_refine_dynamic_shape = flag;
-  if (lazy_to_backend::is_lazy_inference_call_context()) {
-    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
+// As the current graph mode perform lowering on the main thread itself and
+// eager do lowering on separate thread, the thread local setting will help to
+// disable dynamic shape fully for eager mode. However, this configuration
+// settings have to be revisited with SW-152610 to support pipeline
+// architecture.
+thread_local bool m_enable_torch_compile_dynamic_shape{false};
+
+void SetRefineDynamicShape(bool flag, bool compile) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    m_enable_refine_dynamic_shape = flag;
+    if (lazy_to_backend::is_lazy_inference_call_context()) {
+      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
+    }
+  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    // TODO SW-152610
+    if (compile && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
+      m_enable_torch_compile_dynamic_shape = flag;
+    }
   }
 }
 
@@ -39,15 +53,21 @@ void DisableRefineDynamicShape() {
 }
 
 bool GetRefineDynamicShapeStatus() {
-  // Dynamic shape supported only for lazy
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+    if (!lazy_to_backend::is_lazy_inference_call_context()) {
+      return m_enable_refine_dynamic_shape;
+    }
+    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    // TODO SW-152610
+    return m_enable_torch_compile_dynamic_shape;
+  } else {
     return false;
   }
+}
 
-  if (!lazy_to_backend::is_lazy_inference_call_context()) {
-    return m_enable_refine_dynamic_shape;
-  }
-  return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+void SetRefineDynamicShapeTorchCompile(bool flag) {
+  SetRefineDynamicShape(flag, true);
 }
 
 } // namespace habana_helpers
