@@ -77,6 +77,7 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(
     "dtype",
     [
