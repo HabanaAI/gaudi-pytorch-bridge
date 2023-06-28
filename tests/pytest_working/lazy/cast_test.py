@@ -9,13 +9,11 @@
 # was provided.
 #
 # ******************************************************************************
-import pytest
 import itertools
-import torch
-import habana_frameworks.torch.core as ht
-import habana_frameworks.torch.utils.experimental as htexp
-import os
 
+import habana_frameworks.torch.utils.experimental as htexp
+import pytest
+import torch
 
 dtype = [
     # torch.double, https://jira.habana-labs.com/browse/SW-115570
@@ -38,11 +36,14 @@ dtype = [
 if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
     dtype.append(torch.half)
 
+
 def get_name(param):
     return str(param).replace("torch.", "")
 
 
-@pytest.mark.parametrize("dtype1, dtype2", itertools.product(dtype, dtype), ids=get_name)
+@pytest.mark.parametrize(
+    "dtype1, dtype2", itertools.product(dtype, dtype), ids=get_name
+)
 def test_cast(dtype1, dtype2):
     device = "hpu"
     print(dtype1, dtype2)

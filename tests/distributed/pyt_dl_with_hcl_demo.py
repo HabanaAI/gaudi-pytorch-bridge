@@ -4,23 +4,19 @@ import os
 import sys
 import multiprocessing
 import multiprocessing.pool
-from random import randint
 
-from multiprocessing import Pool
 import json
 import argparse
 import signal
 
 import torch
 import torch.multiprocessing as mpt
-import torch.utils.data as torch_data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import pathlib
 import os
 import time
 import sys
-import cProfile, pstats
 import numpy as np
 
 # global settings
@@ -49,7 +45,6 @@ test_usage = """ - 'all' will run all tests except 'sanity', 'loopback' and 'all
     see README.md for details."""
 
 try:
-    import habana_frameworks.torch.core as htcore
     os.environ["PT_HPU_LAZY_MODE"] = "1"
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"

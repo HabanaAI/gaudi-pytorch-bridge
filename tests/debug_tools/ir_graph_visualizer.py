@@ -1,7 +1,6 @@
 
 # The imports used in this block
 from onnx import helper as h
-from onnx import TensorProto as tp
 # from onnx import checker
 from onnx import save
 

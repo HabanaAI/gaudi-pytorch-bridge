@@ -1,7 +1,5 @@
-from contextlib import contextmanager
 import copy
 import os
-import pytest
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -14,7 +12,6 @@ from pytest_working.test_utils import env_var_in_scope
 def _zero1_with_ddp_worker(rank, world_size):
     os.environ['RANK'] = str(rank)
 
-    import habana_frameworks.torch.distributed.hccl
     import habana_frameworks.torch.core as htcore
 
     device = torch.device('hpu')

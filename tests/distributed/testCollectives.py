@@ -4,11 +4,9 @@ import os
 import time
 import torch
 import pytest
-import random
 import cProfile, pstats
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import habana_frameworks.torch.core as htcore
 
 torch.manual_seed(0)
 device = torch.device('hpu')
@@ -22,7 +20,6 @@ class DistSetup:
         self.world_size = world_size
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12340'
-        import habana_frameworks.torch.distributed.hccl
         dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
         # Following Code is to ensure that HCL_Init is done
         _tensor = torch.ones(1).to(device)

@@ -8,12 +8,10 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
-import torch.optim as optim
 from torch.distributed.optim import ZeroRedundancyOptimizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 from torch.distributed.algorithms.ddp_comm_hooks.ddp_zero_hook import (
-    hook_with_zero_step,
     hook_with_zero_step_interleaved,
 )
 from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import (
@@ -45,7 +43,6 @@ def example(rank, world_size, use_zero):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '29500'
     # create default process group
-    import  habana_frameworks.torch.distributed.hccl
     dist.init_process_group("hccl", rank=rank, world_size=world_size)
 
     # create local model

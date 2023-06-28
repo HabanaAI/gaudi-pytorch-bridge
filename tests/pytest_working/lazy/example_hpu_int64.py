@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-import os
-import torch
-import numpy as np
+
 import pytest
-import habana_frameworks.torch.core as htcore
+import torch
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -72,7 +70,11 @@ def test_empty(device, dtype=torch.int64):
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.int64])
 def test_cumsum(device, dtype=torch.int64):
-    a = torch.tensor([[0, 1, 2, 3], [3, 4, 5, 4], [1, 2, 3, 4], [1, 2, 3, 4]], dtype=dtype, device=device)
+    a = torch.tensor(
+        [[0, 1, 2, 3], [3, 4, 5, 4], [1, 2, 3, 4], [1, 2, 3, 4]],
+        dtype=dtype,
+        device=device,
+    )
     b = a.cumsum(dim=-1)
 
     b = b.cpu()
@@ -95,7 +97,7 @@ def test_long_to_float(device):
 def test_pad(device, dtype=torch.int64):
     a = torch.ones([4, 2], device=device, dtype=dtype)
     p1d = (1, 1)
-    b = torch.nn.functional.pad(a, p1d, mode='constant', value=0)
+    b = torch.nn.functional.pad(a, p1d, mode="constant", value=0)
 
     b = b.cpu()
     print(b)
@@ -129,30 +131,3 @@ def test_copy_tensor_on_device():
 
     print(b)
     print(a)
-
-
-if (__name__ == '__main__'):
-    for device in [torch.device("cpu:0"), torch.device("hpu:0")]:
-        import time
-        # test_add(device, torch.int64)
-        # test_add(device, torch.int64, torch.int32)
-        # test_add(device, torch.int32, torch.int64)
-
-        # test_index_select(device, torch.int64)
-        # test_gather(device, torch.int64)
-        # test_argmax(device, torch.int64)
-
-        # test_empty(device, torch.int32)
-        # test_cumsum(device, torch.int64)
-        # test_long_to_float(device)
-
-        # test_pad(device, torch.float)
-        # test_pad(device, torch.int32)
-        # test_pad(device, torch.int64)
-
-        # test_arange(device, torch.int32)
-        # test_arange(device, torch.int64)
-
-        # test_slice(device, torch.int64)
-
-    test_copy_tensor_on_device()

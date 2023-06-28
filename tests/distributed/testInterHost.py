@@ -3,11 +3,9 @@ import time
 
 import torch
 import random
-import argparse
 import numpy as np
 import torch.nn.functional as F
 import torch.distributed as dist
-import torch.multiprocessing as mp
 import habana_frameworks.torch.core as htcore
 
 from mpi4py import MPI
@@ -22,7 +20,6 @@ device = torch.device('hpu')
 
 def setup(rank, world_size):
   print('Setup HCCL')
-  import habana_frameworks.torch.distributed.hccl
   dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
 
   time.sleep(15)

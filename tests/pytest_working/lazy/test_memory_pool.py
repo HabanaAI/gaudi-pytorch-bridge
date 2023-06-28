@@ -1,7 +1,6 @@
 from __future__ import print_function
 import os
 import torch
-from test_utils import setup_teardown_env_fixture
 import pytest
 device = torch.device("hpu")
 

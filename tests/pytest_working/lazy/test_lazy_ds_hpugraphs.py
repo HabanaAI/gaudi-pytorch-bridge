@@ -14,7 +14,7 @@ import torch
 import os
 import numpy as np
 import pytest
-from test_utils import compare_tensors, _kernel_copy_to_device, setup_teardown_env_fixture
+from test_utils import _kernel_copy_to_device, compare_tensors
 
 try:
     import habana_frameworks.torch as ht

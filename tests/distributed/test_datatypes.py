@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 import os
 import torch
-import sys
 import torch.distributed as dist
 import numpy
-from torch._utils_internal import TEST_MASTER_ADDR as MASTER_ADDR
-from torch._utils_internal import TEST_MASTER_PORT as MASTER_PORT
 
-from habana_frameworks.torch.utils.library_loader import load_habana_module
 
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
@@ -245,7 +241,6 @@ os.environ["MASTER_PORT"] = "12345"
 os.environ["RANK"]=str(rank)
 os.environ["LOCAL_RANK"]= str(rank)
 
-import habana_frameworks.torch.distributed.hccl
 dist.init_process_group("hccl", rank=rank, world_size=world_size)
 
 all_gather(rank,world_size)

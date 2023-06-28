@@ -13,24 +13,24 @@
 # Env Flags: PT_ENABLE_INTER_HOST_CACHING=1 PT_RECIPE_CACHE_PATH="/tmp/MyCache" LOG_LEVEL_HOSTSTAT=0 PT_HPU_ENABLE_EXECUTION_THREAD=0 PT_CACHE_FOLDER_SIZE_MB=1
 # Pytest flags: --capture=fd --log-cli-level=INFO
 
-import os
-import pytest
 import logging
+import os
 
-import torch
-import numpy as np
-import torch.distributed as dist
 import habana_frameworks.torch.core as htcore
-
+import numpy as np
+import pytest
+import torch
+import torch.distributed as dist
 from mpi4py import MPI
+from test_utils import hpu as device
 
 ITER = 5
 GAUDI_PER_HLS = 8
-from test_utils import hpu as device
+
 
 def distSetup(rank, world_size):
     dist._DEFAULT_FIRST_BUCKET_BYTES = 500 * 1024 * 1024
-    dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
+    dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
 
 
 def distCleanup(rank):
@@ -56,10 +56,10 @@ def rank(capfd, caplog):
     captured = capfd.readouterr()
     outLines = captured.err.splitlines()
 
-    logger = logging.getLogger('Test Logs')
+    logger = logging.getLogger("Test Logs")
     with caplog.at_level(logging.INFO):
         for line in outLines:
-            if 'CACHEFILE' in line or 'INTERHOST' in line:
+            if "CACHEFILE" in line or "INTERHOST" in line:
                 logger.info(line)
 
 
@@ -110,14 +110,13 @@ class TestRemoteCache():
     # Rank 0 compiles and others reuse
     def test_zero_to_all(rank, world_size, network, optimizer):
 
-        if (rank == 0):
+        if rank == 0:
             dim = 100
         else:
             dim = 99
 
         iter = ITER * world_size
-        for i in np.arange(iter):
-
+        for _ in np.arange(iter):
             inp = torch.ones(1, 3, dim, dim).to(device)
             out = network(inp)
             optimizer.zero_grad()
@@ -131,14 +130,13 @@ class TestRemoteCache():
     # Rank 8 compiles and others reuse
     def test_eight_to_all(rank, world_size, network, optimizer):
 
-        if (rank == 8):
+        if rank == 8:
             dim = 100
         else:
             dim = 99
 
         iter = ITER * world_size
-        for i in np.arange(iter):
-
+        for _ in np.arange(iter):
             inp = torch.ones(1, 3, dim, dim).to(device)
             out = network(inp)
             optimizer.zero_grad()
@@ -160,8 +158,7 @@ class TestRemoteCache():
                 dim = 100
                 iter = ITER * world_size
 
-            for i in np.arange(iter):
-
+            for _ in np.arange(iter):
                 inp = torch.ones(1, 3, dim, dim).to(device)
                 out = network(inp)
                 optimizer.zero_grad()
@@ -178,12 +175,11 @@ class TestRemoteCache():
         _ITER = 50
         dim = 99 + (rank * _ITER)
         for _ in np.arange(_ITER):
-
             inp = torch.ones(1, 3, dim, dim).to(device)
             _ = network(inp)
             htcore.mark_step()
 
             dim = dim + 1
 
-        files_count = len(list(os.scandir(os.environ['PT_RECIPE_CACHE_PATH'])))
-        assert (files_count < world_size * _ITER * 2)
+        files_count = len(list(os.scandir(os.environ["PT_RECIPE_CACHE_PATH"])))
+        assert files_count < world_size * _ITER * 2

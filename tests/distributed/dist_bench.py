@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 import os
 import torch
-import sys
 import torch.distributed as dist
 import timeit
-import numpy as np
 from torch._utils_internal import TEST_MASTER_ADDR as MASTER_ADDR
 from torch._utils_internal import TEST_MASTER_PORT as MASTER_PORT
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 load_habana_module()
-import habana_torch_hcl
 
 def _init_global_test():
     group = list(range(0, dist.get_world_size()))

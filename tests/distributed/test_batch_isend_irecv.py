@@ -2,7 +2,6 @@ import torch
 import sys, traceback
 import faulthandler
 import torch.distributed as dist
-import torch.distributed as c10d
 faulthandler.enable(all_threads=True)
 import os
 import contextlib
@@ -23,7 +22,6 @@ else:
 os.environ['ID'] = str(rank)
 
 try:
-    import habana_frameworks.torch.distributed.hccl
     global_comm = dist.init_process_group("hccl")
     a = torch.tensor([2.0], dtype=torch.float).to('hpu')
     torch.distributed.all_reduce(a)

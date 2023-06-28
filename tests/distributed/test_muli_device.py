@@ -1,14 +1,11 @@
 import os
-import time
 import torch
 import torch.distributed as dist
 import multiprocessing
 import torch.nn as nn
-import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.distributed.hccl
 
 device = torch.device('hpu')
 torch.manual_seed(0)
