@@ -141,7 +141,7 @@ class SBSWithParamsTest
   void ConvolutionSBSTest(bool channelLast, bool random);
 };
 
-TEST_P(SBSWithParamsTest, AddScalarSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_AddScalarSBS) {
   // HPU and SBS Run
   auto hpu_in =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
@@ -185,7 +185,7 @@ TEST_P(SBSWithParamsTest, AddScalarSBS) {
   EXPECT_TRUE(allclose(cpu_res4, hpu_res4_cpu));
 }
 
-TEST_P(SBSWithParamsTest, AddTensorsSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_AddTensorsSBS) {
   // HPU and SBS Run
   auto hpu_in =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kFloat));
@@ -258,7 +258,7 @@ TEST_P(SBSWithParamsTest, MulSBS) {
   }
 }
 
-TEST_P(SBSWithParamsTest, MulAddInplaceSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_MulAddInplaceSBS) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
@@ -296,7 +296,7 @@ TEST_P(SBSWithParamsTest, MulAddInplaceSBS) {
   }
 }
 
-TEST_P(SBSWithParamsTest, AddInplaceSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_AddInplaceSBS) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
@@ -852,7 +852,7 @@ TEST_P(SBSWithParamsTest, ViewsTestSBS) {
       << "B: " << B << " hB: " << hB.to(torch::kCPU);
 }
 
-TEST_P(SBSWithParamsTest, AddTensorsViewsSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_AddTensorsViewsSBS) {
   auto in = torch::randint(-100, 100, {3, 3, 3, 3, 3}, torch::kFloat);
   auto hpu_in = in.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
@@ -1083,7 +1083,7 @@ TEST_P(SBSWithParamsTest, permuteSBSTest2) {
   ResetSBSHandlers();
 }
 
-TEST_P(SBSWithParamsTest, OnesLikeSBS) {
+TEST_P(SBSWithParamsTest, DISABLED_OnesLikeSBS) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});

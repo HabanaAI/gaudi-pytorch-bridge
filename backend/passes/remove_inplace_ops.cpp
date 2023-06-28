@@ -5,7 +5,7 @@ using namespace torch::jit;
 namespace habana {
 
 static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
-    {{"aten::add_", "aten::add"},
+    {{"hpu::add_", "hpu::add"},
      {"aten::div_", "aten::div"},
      {"aten::index_put_", "aten::index_put"},
      {"aten::mul_", "aten::mul"},

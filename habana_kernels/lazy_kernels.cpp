@@ -1819,7 +1819,7 @@ void add_tensor_hpu_lazy_parallel_impl(
     add_tensor_hpu_lazy_parallel_impl(self, mul_out, 1.0, out);
   } else {
     LazyBinaryOp<at::Tensor> k{
-        "aten::add",
+        "hpu::add",
         {self, other, alpha},
         false,
         true,
@@ -1835,14 +1835,8 @@ Tensor add_tensor_hpu_lazy(
     const Scalar& alpha) {
   PT_LAZY_TRACE;
 
-  auto alpha_double = alpha.toDouble();
-  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
-    at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other.options());
-  }
-
   LazyBinaryOp<at::Tensor> k{
-      "aten::add",
+      "hpu::add",
       {self, other, alpha},
       false,
       true,
@@ -1880,7 +1874,7 @@ Tensor& add_scalar_hpu_lazy_(
     return add_tensor_hpu_lazy_(self, other_tensor, alpha);
   }
 
-  LazyOp<Tensor&> op("aten::add_", {self, other, alpha});
+  LazyOp<Tensor&> op("hpu::add_", {self, other, alpha});
   return op.call(self);
 }
 
@@ -1904,7 +1898,7 @@ void add_tensor_hpu_lazy_inplace_parallel_impl(
     }
     add_tensor_hpu_lazy_inplace_parallel_impl(self, mul_out, 1.0);
   } else {
-    LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha}, false, true);
+    LazyBinaryOp<Tensor&> op("hpu::add_", {self, other, alpha}, false, true);
     op.call(self);
   }
 }
@@ -1914,12 +1908,6 @@ Tensor& add_tensor_hpu_lazy_(
     const Tensor& other,
     const Scalar& alpha) {
   PT_LAZY_TRACE;
-
-  auto alpha_double = alpha.toDouble();
-  if (alpha_double != 1.0 && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 2) {
-    at::Tensor alpha_tensor =
-        get_tensor_for_scalar(alpha_double, other.options());
-  }
 
   if (habana_lazy::AccThread::IsAccThreadEnabled()) {
     // try to construct DTypeHelper to make sure,
