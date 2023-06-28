@@ -34,6 +34,8 @@ testsMap:
         filter: -t topology_ci -a smoke_gaudi2
       Run RN50 Eager bf16 1c training functional:
         filter: -t rn50_eager_1c
+      Run RN50 Graph bf16 1c training functional:
+        filter: -t rn50_graph_1c
   Test_pytorch_modules_gaudi_asic_topology:
     stages:
       Run toplogy tests on gaudi asic:
