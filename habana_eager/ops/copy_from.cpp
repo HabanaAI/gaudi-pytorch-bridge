@@ -65,15 +65,16 @@ void handlePermutedTensor(
       cpuTensor.device().type() == c10::DeviceType::CPU,
       "handlePermutedTensor cpuTensor should be CPU");
 
-  auto smeta{habana::get_storage_extra_meta(permutedTensor)};
-  auto synapse_permute = smeta->get_memory_permutation();
-  if (synapse_permute.size() != 0) {
+  synapse_helpers::layouts::MemoryPermutation permutation;
+  std::tie(permutation, std::ignore) =
+      habana_helpers::get_tensor_memory_permutation(permutedTensor);
+  if (permutation.size() != 0) {
     if (non_blocking) {
       TORCH_CHECK(
           false, "handlePermutedTensor we only support non_blocking = false");
     }
     // translate synapse permtue to pt permute
-    auto pt_permute = translateSynapsePermuteToPt(synapse_permute);
+    auto pt_permute = translateSynapsePermuteToPt(permutation);
     // calculate new strides according to permutation
     auto strides = calcNewStrides(permutedTensor, pt_permute);
     auto old_sizes = cpuTensor.sizes();

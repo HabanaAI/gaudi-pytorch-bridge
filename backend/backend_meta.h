@@ -137,9 +137,11 @@ struct StorageExtraMeta {
   std::vector<int64_t> base_sizes_{0};
 };
 
+StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
+
 StorageExtraMeta* get_storage_extra_meta(
-    const at::Tensor& tensor,
-    bool relax = false);
+    const c10::TensorImpl* tensor_impl,
+    at::optional<size_t> nbytes = c10::nullopt);
 
 struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::intrusive_ptr<BaseTensorExtraMeta> clone(
@@ -376,12 +378,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   // view meta
   bool is_view_{false};
   bool is_view_lowering_{false};
-  // ---
-  friend StorageExtraMeta* get_storage_extra_meta(
-      const at::Tensor& tensor,
-      bool relax);
-  friend class habana_lazy::HbInternalTensorImpl;
-  StorageExtraMeta storage_meta_{};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

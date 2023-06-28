@@ -181,9 +181,8 @@ size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto tensor = input.toTensor();
-      std::vector<uint8_t> permutation;
-      bool dont_allow_permutation = false;
-      std::tie(permutation, dont_allow_permutation) =
+      synapse_helpers::layouts::MemoryPermutation permutation;
+      std::tie(permutation, std::ignore) =
           habana_helpers::get_tensor_memory_permutation(tensor);
       for (auto item : permutation) {
         perm_hash_code = at::hash_combine(perm_hash_code, cnt);

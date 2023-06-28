@@ -111,7 +111,7 @@ struct HandleInputViewsPass {
     jit_node->output(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(), input_tensor.device(), p->getViewSizes()));
 
-    if (input_smeta->get_memory_permutation().size()) {
+    if (input_smeta && input_smeta->get_memory_permutation().size()) {
       base_sizes_to_set = input_smeta->get_base_tensor_size();
     } else {
       base_sizes_to_set = {p->getTotalElements()};
