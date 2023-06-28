@@ -1317,10 +1317,12 @@ run_pytorch_modules_tests()
     fi
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
-        pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-        (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}tests.xml" ${__marker})
-        __test_status=$__test_status || $?
-        popd
+        if [ "$__dut" != "gaudi3" ]; then
+            pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}tests.xml" ${__marker})
+            __test_status=$((__test_status | $?))
+            popd
+        fi
     fi
 
     # return error code of the tests

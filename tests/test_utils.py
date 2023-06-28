@@ -15,6 +15,8 @@ cpu = torch.device('cpu')
 def is_device(device_name):
     return hthpu.get_device_name() == device_name
 
+def is_gaudi3():
+    return hthpu.get_device_name() == "GAUDI3"
 
 def is_gaudi1():
     return is_device("GAUDI")

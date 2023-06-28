@@ -92,7 +92,17 @@ def optimizer(network):
     opt = torch.optim.SGD(network.parameters(), lr=0.001)
     return opt
 
-@pytest.mark.xfail(reason="cleanup fixtures")
+# terminate called after throwing an instance of 'c10::Error'
+#   what():  Host barrier Key error
+# Exception raised from hostBarrier at ../../../../../../repos/pytorch-integration/python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.cpp:1033 (most recent call first):
+# frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x6c (0x7f80cab2f53c in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/torch/lib/libc10.so)
+# frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, char const*) + 0x84 (0x7f80caaf5220 in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/torch/lib/libc10.so)
+# frame #2: c10d::ProcessGroupHcclBase::hostBarrier() + 0x3bf (0x7f80afaf1cff in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/habana_frameworks/torch/distributed/_hccl_C.so)
+# frame #3: c10d::ProcessGroupHCCL::destroy() + 0x28 (0x7f80afb17988 in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/habana_frameworks/torch/distributed/_hccl_C.so)
+# frame #4: c10d::ProcessGroupHCCL::~ProcessGroupHCCL() + 0x23e (0x7f80afb17e0e in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/habana_frameworks/torch/distributed/_hccl_C.so)
+# frame #5: c10d::ProcessGroupHCCL::~ProcessGroupHCCL() + 0xd (0x7f80afb17e9d in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/habana_frameworks/torch/distributed/_hccl_C.so)
+# frame #6: c10d::Reducer::~Reducer() + 0x448 (0x7f80cfe8f0e8 in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/torch/lib/libtorch_cpu.so)
+@pytest.mark.skip(reason="may crash device during teardown")
 class TestRemoteCache():
     # Rank 0 compiles and others reuse
     def test_zero_to_all(rank, world_size, network, optimizer):

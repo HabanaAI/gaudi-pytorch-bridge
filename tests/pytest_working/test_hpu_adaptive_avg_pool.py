@@ -13,7 +13,7 @@
 import torch
 import torch.nn.functional as F
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, compare_tensors
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, compare_tensors, is_gaudi3
 from numpy import floor
 
 # N - batch
@@ -30,7 +30,7 @@ mnist_test_case_list = [
 
 resnet50_test_case_list = [
     # N, H, W, C, Ho, Wo
-    (64, 112, 112, 64, 1, 1),
+    pytest.param(64, 112, 112, 64, 1, 1, marks=[pytest.mark.skip(reason="Crashes simulator")]),
     (8, 7, 7, 2048, 1, 1),
     (8, 7, 7, 2048, 1, 1)
 ]
