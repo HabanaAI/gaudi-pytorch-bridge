@@ -7214,7 +7214,7 @@ void optimizer_lamb_phase2(
   flush_op(weights.size());
 }
 
-at::Tensor rotary_embedding_lazy(
+at::Tensor rotary_pos_embedding_lazy(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
@@ -7223,11 +7223,27 @@ at::Tensor rotary_embedding_lazy(
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
-      "hpu::rotary_embedding",
+      "hpu::rotary_pos_embedding",
       {input, sin, cos, offset},
       {{input.sizes().vec()}}};
 
-  RUN_MAYBE_WITH_ACC_THREAD(rotary_embedding, op)
+  RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding, op)
+}
+
+at::Tensor rotary_pos_embedding_backward_lazy(
+    const at::Tensor& grad_in,
+    const at::Tensor& sin,
+    const at::Tensor& cos,
+    const int64_t offset) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::rotary_pos_embedding_backward",
+      {grad_in, sin, cos, offset},
+      {{grad_in.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding_backward, op)
 }
 
 std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(

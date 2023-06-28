@@ -395,19 +395,38 @@ void optimizer_adamw(
   hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
 }
 
-at::Tensor rotary_embedding(
+at::Tensor rotary_pos_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset) {
   PT_OP_TRACE;
   PT_EAGER_TRACE;
-  PT_OP_INFO("rotary_embedding :", DUMP_4ARGS(input, sin, cos, offset));
+  PT_OP_INFO("rotary_pos_embedding :", DUMP_4ARGS(input, sin, cos, offset));
 
   eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::rotary_embedding",
+      "hpu::rotary_pos_embedding",
       {input, sin, cos, offset},
       {input.sizes().vec()},
+      0};
+
+  return hpu_op.call();
+}
+
+at::Tensor rotary_pos_embedding_backward(
+    const at::Tensor& grad_in,
+    const at::Tensor& sin,
+    const at::Tensor& cos,
+    const int64_t offset) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "rotary_pos_embedding_backward :", DUMP_4ARGS(grad_in, sin, cos, offset));
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::rotary_pos_embedding_backward",
+      {grad_in, sin, cos, offset},
+      {grad_in.sizes().vec()},
       0};
 
   return hpu_op.call();
@@ -500,7 +519,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
-      "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
+      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
+  m.def(
+      "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
       "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
   m.def(
@@ -535,7 +556,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema);
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
-  m.impl("hpu::rotary_embedding", rotary_embedding);
+  m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
+  m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::rms_norm", rms_norm);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
 }

@@ -17,9 +17,13 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
+struct RotaryPosEmbedding : OpBackend {
+  RotaryPosEmbedding(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
 
-struct RotaryEmbedding : OpBackend {
-  RotaryEmbedding(int device_id, c10::ScalarType scalar_type);
+struct RotaryPosEmbeddingBackward : OpBackend {
+  RotaryPosEmbeddingBackward(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
