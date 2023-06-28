@@ -20,7 +20,7 @@ static std::vector<int64_t> get_dims_from_stack(const at::Stack& stack) {
   std::vector<int64_t> dims;
   if (stack[1].isIntList()) {
     dims = stack[1].toIntList().vec();
-  } else {
+  } else if (stack[1].isInt()) {
     dims = {stack[1].toInt()};
   }
   for (int64_t& dim : dims) {
@@ -65,7 +65,7 @@ sizes_vec CountNonzeroShape(const at::Stack& stack) {
     }
   }
 
-  return {output_shape};
+  return {std::move(output_shape)};
 }
 
 } // namespace habana

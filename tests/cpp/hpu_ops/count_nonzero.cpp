@@ -77,6 +77,7 @@ class HpuOpTest : public HpuOpTestUtil {
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);     \
     testCountNonZero({3, 2, 4, 3, 3}, torch::DTYPE, at::nullopt, 2);        \
     testCountNonZero({2, 3, 4, 5}, torch::DTYPE, at::IntArrayRef{}, 0);     \
+    testCountNonZero({2, 3, 4, 5}, torch::DTYPE, at::nullopt, at::nullopt); \
   }
 
 #define COUNT_NON_ZERO_OUT_TEST(DTYPE)                                         \
@@ -89,6 +90,7 @@ class HpuOpTest : public HpuOpTestUtil {
         {3, 2, 4, 6, 2, 1}, torch::DTYPE, at::IntArrayRef{3, 1, 2}, 0);        \
     testCountNonZeroOut({3, 2, 4, 3, 3}, torch::DTYPE, at::nullopt, 2);        \
     testCountNonZeroOut({2, 3, 4, 5}, torch::DTYPE, at::IntArrayRef{}, 0);     \
+    testCountNonZeroOut({3, 2, 4, 3}, torch::DTYPE, at::nullopt, at::nullopt); \
   }
 
 #define COUNT_NON_ZERO_TESTS(DTYPE) \
