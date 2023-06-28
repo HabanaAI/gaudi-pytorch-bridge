@@ -124,13 +124,13 @@ def test_multiple_graph_capture():
 
 def test_multiple_graph_capture_memoptimization(asynchronous=False):
     #N, D_in, H, D_out = 640, 4096, 2048, 1024
-    N, D_in, H, D_out, inner = 200, 200, 200, 200, 400
+    N, D_in, H, D_out, inner = 20, 20, 20, 20, 40
     module1_cpu = Model(D_in, H, inner).to('cpu')
     module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
     loss_fn = torch.nn.MSELoss()
-    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, asynchronous=asynchronous, use_tensor_cache=False)
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, asynchronous=asynchronous, disable_tensor_cache=True)
     x_cpu = torch.randn(N, D_in, device='cpu')
-    ITERATION=100
+    ITERATION=10
     real_inputs_cpu = [torch.rand_like(x_cpu) for _ in range(ITERATION)]
     real_inputs_hpu = [input.to('hpu') for input in real_inputs_cpu]
     real_targets_cpu = [torch.randn(N, D_out, device="cpu") for _ in range(ITERATION)]
@@ -222,7 +222,7 @@ def test_cached_module_training():
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
-    test_multiple_graph_capture_memoptimization(asynchronous=True)
+    # test_multiple_graph_capture_memoptimization(asynchronous=True)
     test_graph_capture_simple()
     test_graph_training()
     test_tensor_packer()

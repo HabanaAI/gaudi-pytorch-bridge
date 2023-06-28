@@ -204,6 +204,20 @@ void HPUGraph::replayV2(
   }
 }
 
+std::unordered_set<int64_t> get_hb_base_tensor_id_list_if_view(
+    const habana_lazy::HbLazyTensor& hl_t_in) {
+  // handle multi level views
+  auto hl_t = hl_t_in;
+  std::unordered_set<int64_t> view_t_list;
+  view_t_list.insert(hl_t.getTensorUniqueId());
+  while (hl_t.getDataPtr()->stride_params.has_value()) {
+    auto out = hl_t.getDataPtr()->stride_params.value().base;
+    hl_t = habana_lazy::GetHbLazyTensor(out, true, false);
+    view_t_list.insert(hl_t.getTensorUniqueId());
+  }
+  return view_t_list;
+}
+
 void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -215,6 +229,14 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
 
   if (captured_graphs.empty()) {
     return;
+  }
+
+  std::unordered_set<int64_t> user_out_hblazy_tid_set;
+  for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
+    auto single_graph = captured_graphs[graphIdx];
+    for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
+      user_out_hblazy_tid_set.emplace(out_tensor.getTensorUniqueId());
+    }
   }
 
   // Go over all captured SingleHPUGraphs
@@ -235,12 +257,16 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
       auto out_pos = 0;
       for (auto& t : outputs) {
         size_t idx = 0;
-        auto& ir_value = habana_lazy::GetHbLazyTensor(t).CurrentIrValue();
+        auto user_out_hbl_t = habana_lazy::GetHbLazyTensor(t);
+        auto base_view_tids =
+            get_hb_base_tensor_id_list_if_view(user_out_hbl_t);
+        auto& ir_value = user_out_hbl_t.CurrentIrValue();
         for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
           auto isSameHbTensor = out_tensor.getTensorUniqueId() ==
-              habana_lazy::GetHbLazyTensor(t).getTensorUniqueId();
+              user_out_hbl_t.getTensorUniqueId();
 
-          if (isSameHbTensor) {
+          if ((isSameHbTensor) ||
+              isExists(base_view_tids, out_tensor.getTensorUniqueId())) {
             // This is used for replay to match the user out tensor indices
             single_graph->user_out_indices_tlist_.emplace_back(
                 std::make_pair(out_pos, idx));
@@ -261,6 +287,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         bool isInplaceOutTensor = false;
         if ((out_tensor.getDataPtr()->stride_params.has_value()) ||
             (single_graph->output_vals_[outIdx].IsInplace()) ||
+            (out_tensor.IsCollective()) ||
             (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()))) {
           isInplaceOutTensor = true;
         }
@@ -319,7 +346,6 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
 }
 
 void HPUGraph::replayV3(
-    std::vector<at::Tensor>& outputs,
     std::vector<at::Tensor>& inputs,
     bool async) {
   PT_LAZY_TRACE;
@@ -341,21 +367,7 @@ void HPUGraph::replayV3(
   }
 
   for (size_t i = 0; i < captured_graphs.size(); i++) {
-    if (captured_graphs[i]->graph_) {
-      for (const auto& [userOutputIdx, tensorIdx] :
-           captured_graphs[i]->user_out_indices_tlist_) {
-        auto& t = outputs[userOutputIdx];
-        // This index must be an output tensor
-        HABANA_ASSERT(
-            captured_graphs[i]
-                ->hblazy_tensors_out_[tensorIdx]
-                .IsHpuGraphOutTensor() == true);
-        auto hb_lt = habana_lazy::GetHbLazyTensor(t);
-        hb_lt.SetHpuGraphOutTensor(true);
-        captured_graphs[i]->hblazy_tensors_out_[tensorIdx] = hb_lt;
-      }
-    }
-    captured_graphs[i]->replayV3(outputs, inputs, async);
+    captured_graphs[i]->replayV3(inputs, async);
   }
 }
 
@@ -464,11 +476,10 @@ void SingleHPUGraph::replay(bool async) {
 }
 
 void SingleHPUGraph::replayV3(
-    std::vector<at::Tensor>& outputs,
     std::vector<at::Tensor>& inputs,
     bool async) {
   PT_DEVICE_DEBUG(
-      "In HPUGraph::replayV3 with ", outputs.size(), " output tensors");
+      "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
   if (graph_) {
     auto num_inputs = input_vals_.size() + user_input_indices_.size();

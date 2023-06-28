@@ -47,7 +47,6 @@ struct SingleHPUGraph {
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void replayV3(
-      std::vector<at::Tensor>& outputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
@@ -124,7 +123,6 @@ struct HPUGraph {
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void replayV3(
-      std::vector<at::Tensor>& outputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
   void mark_user_outputs(std::vector<at::Tensor>& outputs);
