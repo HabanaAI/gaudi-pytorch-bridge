@@ -259,6 +259,7 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Int) &&
       (self.scalar_type() != c10::ScalarType::Long) &&
       (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
         HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi)) {
