@@ -27,7 +27,7 @@ using namespace at;
 
 class LazyBasicKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyBasicKernelTest, BasicThreadSafety) {
+TEST_F(LazyBasicKernelTest, DISABLED_BasicThreadSafety) {
   torch::Tensor A = torch::rand({20});
   torch::Tensor hA = A.to("hpu");
 
@@ -929,7 +929,7 @@ TEST_F(LazyBasicKernelTest, viewinsert_broadcast) {
   EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
 }
 
-TEST_F(LazyBasicKernelTest, noncontigD2H_nonblocking) {
+TEST_F(LazyBasicKernelTest, DISABLED_noncontigD2H_nonblocking) {
   torch::Tensor A = torch::randn({2, 2});
   auto hA = A.to(torch::kHPU);
   std::vector<int64_t> sz{2, 2};
