@@ -15,4 +15,7 @@ configuration_flags = {
     "use_compiled_recipes": True,
     "verbose": False,
     "keep_input_mutations": False,
-    "shared_layer_fallback_check": True}
+    "shared_layer_fallback_check": True,
+    "use_core_aten_decomp": True,
+    "use_hpu_decomp": True,
+    "use_decomp_exclusions": True}

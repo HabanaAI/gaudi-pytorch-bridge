@@ -16,26 +16,22 @@ from .config import configuration_flags
 
 logging.basicConfig()
 
-if os.getenv("PT_HPU_COMPILE_USE_RECIPES", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-    configuration_flags["use_compiled_recipes"] = True
-elif os.getenv("PT_HPU_COMPILE_USE_RECIPES", "").upper() in ["OFF", "0", "NO", "FALSE", "N"]:
-    configuration_flags["use_compiled_recipes"] = False
+def setup_env_config(env_name, config_name):
+    if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+        configuration_flags[config_name] = True
+    elif os.getenv(env_name, "").upper() in ["OFF", "0", "NO", "FALSE", "N"]:
+        configuration_flags[config_name] = False
 
-if os.getenv("PT_HPU_COMPILE_VERBOSE", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-    configuration_flags["verbose"] = True
-elif os.getenv("PT_HPU_COMPILE_VERBOSE", "").upper() in ["OFF", "0", "NO", "FALSE", "N"]:
-    configuration_flags["verbose"] = False
+setup_env_config("PT_HPU_COMPILE_USE_RECIPES",             "use_compiled_recipes")
+setup_env_config("PT_HPU_COMPILE_VERBOSE",                 "verbose")
+setup_env_config("PT_HPU_USE_CORE_ATEN_DECOMP",            "use_core_aten_decomp")
+setup_env_config("PT_HPU_USE_HPU_DECOMP",                  "use_hpu_decomp")
+setup_env_config("PT_HPU_USE_DECOMP_EXCLUSIONS",           "use_decomp_exclusions")
+setup_env_config("PT_HPU_DTYPE_PROP_IN_BACKEND",           "dtype_propagation_in_backend")
+setup_env_config("PT_HPU_KEEP_INPUT_MUTATIONS",            "keep_input_mutations")
 
-if os.getenv("PT_HPU_DTYPE_PROP_IN_BACKEND", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-    configuration_flags["dtype_propagation_in_backend"] = True
-elif os.getenv("PT_HPU_DTYPE_PROP_IN_BACKEND", "").upper() in ["OFF", "0", "NO", "FALSE", "N"]:
-    configuration_flags["dtype_propagation_in_backend"] = False
-
-if os.getenv("PT_HPU_KEEP_INPUT_MUTATIONS", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-    configuration_flags["keep_input_mutations"] = True
-else:
-    configuration_flags["keep_input_mutations"] = False
-
+# TODO: fix this flag ELSE, it now defaults to False even if it is True in the config
+# it should use setup_env_config function here instead
 if os.getenv("PT_HPU_USE_SHARED_LAYER_FALLBACK_CHECK", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
     configuration_flags["shared_layer_fallback_check"] = True
 else:

@@ -44,7 +44,6 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
     """
 
     if configuration_flags["use_compiled_recipes"]:
-
         return HabanaGraphModule(jit_ir, graph_module, is_training=is_training, dynamic=is_dynamic)
     else:
         # Return unchanged module, it will be ran eagerly.

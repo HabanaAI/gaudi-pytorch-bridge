@@ -18,6 +18,8 @@ from torch._dynamo.backends.registry import register_backend
 
 from .config import configuration_flags
 
+from .decomposition import get_hpu_decompositions
+
 from .compilers import (
     hpu_training_compiler_fw,
     hpu_training_compiler_bw,
@@ -39,7 +41,9 @@ def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs:
 
     return aot_autograd(
         fw_compiler=hpu_training_compiler_fw,
-        bw_compiler=hpu_training_compiler_bw, keep_inference_input_mutations = keep_input_mutations
+        bw_compiler=hpu_training_compiler_bw,
+        decompositions=get_hpu_decompositions(is_training=True),
+        keep_inference_input_mutations = keep_input_mutations
     )(graph_module, example_inputs)
 
 
@@ -56,5 +60,7 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
 
     return aot_autograd(
         fw_compiler=hpu_inference_compiler,
-        bw_compiler=hpu_inference_compiler_raise, keep_inference_input_mutations = keep_input_mutations
+        bw_compiler=hpu_inference_compiler_raise,
+        decompositions=get_hpu_decompositions(is_training=False),
+        keep_inference_input_mutations = keep_input_mutations
     )(graph_module, example_inputs)
