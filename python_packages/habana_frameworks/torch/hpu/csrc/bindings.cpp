@@ -168,8 +168,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return mem_stat_str;
   });
   m.def("setDeterministic", [](bool val) {
-    auto& device = habana::HPURegistrar::get_device();
-    device.setDeterministic(val);
+    auto& gconfig = habana::HPURegistrar::get_hpu_global_config();
+    gconfig.setDeterministic(val);
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
   py::class_<HPUStream>(m, "HPUStream");

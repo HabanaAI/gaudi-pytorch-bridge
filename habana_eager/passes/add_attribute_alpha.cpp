@@ -34,11 +34,11 @@ struct AddAttributeAlphaPass {
  private:
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
-    auto& device{HPURegistrar::get_device()};
+    auto& gconfig{HPURegistrar::get_hpu_global_config()};
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
-        changed |= processNode(node, device.getDeterministic());
+        changed |= processNode(node, gconfig.getDeterministic());
       }
     }
     return changed;

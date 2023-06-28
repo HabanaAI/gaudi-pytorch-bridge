@@ -447,14 +447,6 @@ class device {
     return real_workspace_size_;
   }
 
-  bool getDeterministic() const {
-    return deterministic_;
-  }
-
-  void setDeterministic(bool val) {
-    deterministic_ = val;
-  }
-
   size_t get_workspace_size() {
     return workspace_size_;
   }
@@ -538,7 +530,6 @@ class device {
   // event counter
   std::atomic<uint64_t> event_index_{0};
   std::mutex event_mutex_;
-  bool deterministic_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DETERMINISTIC_MODE);
 
   habana::backend::GlobalContext global_context_;
 

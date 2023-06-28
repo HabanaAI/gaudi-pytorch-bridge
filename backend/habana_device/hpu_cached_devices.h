@@ -17,6 +17,7 @@
 
 #include <array>
 #include <memory>
+#include <mutex>
 #include <thread>
 
 #include "backend/habana_device/HPUAllocator.h"
@@ -39,6 +40,30 @@ class HPURegistrar {
  public:
   HPURegistrar(HPURegistrar const&) = delete;
   void operator=(HPURegistrar const&) = delete;
+
+  class HPUGlobalConfig {
+   public:
+    HPUGlobalConfig() = default;
+
+    bool getDeterministic() {
+      std::lock_guard<std::mutex> lock(config_lock_);
+      return deterministic_;
+    }
+    void setDeterministic(bool val) {
+      std::lock_guard<std::mutex> lock(config_lock_);
+      deterministic_ = val;
+    }
+
+   private:
+    /* TO DO
+       ENV flag PT_HPU_ENABLE_DETERMINISTIC_MODE will be removed
+       after model script migration to deterministic API.
+
+       bool deterministic_{false};
+    */
+    bool deterministic_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DETERMINISTIC_MODE);
+    std::mutex config_lock_{};
+  };
 
   // This function always return initialized device
   static synapse_helpers::device& get_device(int device_id) {
@@ -113,6 +138,11 @@ class HPURegistrar {
 
   static const std::thread::id& getMainThreadId() {
     return main_thread_id_;
+  }
+
+  static HPUGlobalConfig& get_hpu_global_config() {
+    static HPUGlobalConfig instance_;
+    return instance_;
   }
 
  private:
