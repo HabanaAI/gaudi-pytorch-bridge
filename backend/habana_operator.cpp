@@ -475,9 +475,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       uint64_t syn_offset = input.storage_offset() * input.itemsize();
       auto sizes = input.sizes().vec();
       auto strides = input.strides().vec();
-      std::vector<uint8_t> permutation;
-      bool dont_allow_permutation = false;
-      std::tie(permutation, dont_allow_permutation) =
+      synapse_helpers::layouts::MemoryPermutation permutation;
+      std::tie(permutation, std::ignore) =
           habana_helpers::get_tensor_memory_permutation(input);
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(

@@ -433,4 +433,32 @@ HbInternalTensorImpl::HbInternalTensorImpl(
               at::DispatchKey::HPU,
               at::DispatchKey::AutogradHPU},
           data_type) {}
+
+synapse_helpers::layouts::MemoryPermutation HbInternalTensorImpl::
+    GetMemoryPermutation() const {
+  auto smeta =
+      habana::get_storage_extra_meta(static_cast<const c10::TensorImpl*>(this));
+  if (!smeta) {
+    PT_BRIDGE_DEBUG(
+        "Getting permutations from HbInternalTensorImpl ",
+        this,
+        " without StorageExtraMet-less tensor. Returning defaults..");
+    return habana::StorageExtraMeta().get_memory_permutation();
+  }
+  return smeta->get_memory_permutation();
+}
+
+void HbInternalTensorImpl::SetMemoryPermutation(
+    synapse_helpers::layouts::MemoryPermutation permutation) {
+  auto smeta = habana::get_storage_extra_meta(
+      dynamic_cast<const c10::TensorImpl*>(this));
+  if (!smeta && !permutation.empty())
+    HABANA_ASSERT(
+        smeta,
+        "Trying to set memory permutations ",
+        VecToString(permutation),
+        ", but no StorageExtraeta avilable for HbInternalTensorImpl ",
+        this);
+  smeta->set_memory_permutation(permutation);
+}
 } // namespace habana_lazy

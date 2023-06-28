@@ -29,8 +29,41 @@ synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
 
 static HPUDeviceAllocator hpu_device_allocator;
 
-void HPUDeviceAllocator_deleter(void* ptr);
-at::DataPtr HPUDeviceAllocator_DataPtr(void* ptr, size_t num_bytes);
+at::DataPtr CreateDataPtr(void* v_ptr, size_t num_bytes) {
+  if (v_ptr != nullptr) {
+    // create HPUAllocationContext only for non-empty allocation
+    auto ctx = new HPUAllocationContext;
+    ctx->data_ptr = v_ptr;
+    ctx->num_bytes = num_bytes;
+    PT_EAGER_DEBUG(
+        "Created HPUAllocationContext ",
+        ctx,
+        " for data_ptr ",
+        ctx->data_ptr,
+        " and num_bytes ",
+        ctx->num_bytes);
+    return {
+        v_ptr,
+        ctx,
+        &HPUDeviceAllocator::deleter,
+        at::Device(
+            at::DeviceType::HPU,
+            HPUDeviceAllocator::allocator_active_device_id)};
+  } else {
+    PT_EAGER_DEBUG(
+        "Created DataPtr without HPUAllocationContext due to v_ptr=",
+        v_ptr,
+        " for num_bytes ",
+        num_bytes);
+    return {
+        v_ptr,
+        v_ptr,
+        &HPUDeviceAllocator::deleter,
+        at::Device(
+            at::DeviceType::HPU,
+            HPUDeviceAllocator::allocator_active_device_id)};
+  }
+}
 
 at::Allocator* getHABANADeviceAllocator() {
   HABANAGuardImpl h;
@@ -93,6 +126,20 @@ HPUDeviceAllocator::~HPUDeviceAllocator() {
   flush_stream_events();
 }
 
+void HPUDeviceAllocator::deleter(void* ptr) {
+  synStatus status;
+  auto& device =
+      HPURegistrar::get_device(HPUDeviceAllocator::allocator_active_device_id);
+  if (ptr != nullptr) {
+    auto alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr);
+    status = device.get_device_memory().free(alloc_ctx->data_ptr);
+    delete alloc_ctx;
+  } else {
+    status = device.get_device_memory().free(ptr);
+  }
+  TORCH_HABANA_CHECK(status, "Device Free failed");
+}
+
 at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
@@ -147,11 +194,11 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
     PT_DEVICE_DEBUG("successful memory alloc, requested size ", num_bytes);
   }
 
-  return HPUDeviceAllocator_DataPtr(v_ptr, num_bytes);
+  return CreateDataPtr(v_ptr, num_bytes);
 }
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
-  return &HPUDeviceAllocator_deleter;
+  return &HPUDeviceAllocator::deleter;
 }
 
 void HPUDeviceAllocator::flush_stream_events() const {

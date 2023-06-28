@@ -100,13 +100,15 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   for (int input_idx = 0; input_idx < m_graph->inputs().size(); input_idx++) {
     if (example_inputs[input_idx].isTensor()) {
       torch::Tensor tensor{example_inputs[input_idx].toTensor()};
-      auto storage_meta{habana::get_storage_extra_meta(tensor)};
+      synapse_helpers::layouts::MemoryPermutation m_perm;
+      std::tie(m_perm, std::ignore) =
+          habana_helpers::get_tensor_memory_permutation(tensor);
       PT_EAGER_INFO(
           m_graph->inputs().at(input_idx)->debugName(),
           ": ",
           habana_helpers::DebugString(example_inputs[input_idx]),
           " Perm: ",
-          VecToString(storage_meta->get_memory_permutation()));
+          VecToString(m_perm));
     }
   }
 }
