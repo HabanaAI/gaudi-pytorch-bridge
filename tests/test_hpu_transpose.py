@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_inplace_kernel
+from test_utils import hpu, cpu
 
 # N - batch
 # H - input height
@@ -70,8 +71,6 @@ def test_hpu_t_inplace(H, W, t_inplace_op):
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_transpose_of_transpose(N, H, W, C):
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
     in_out_tensor = torch.randn(1, 2, 3, 4)
     hputensor = in_out_tensor.to(hpu)
     thputensor = torch.transpose(hputensor, 0, 2)
@@ -83,8 +82,6 @@ def test_hpu_transpose_of_transpose(N, H, W, C):
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_permute(N, H, W, C):
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
 
     in_tensor = torch.randn(N, C, H, W)
     hpu_result = in_tensor.to(hpu).permute((0, 2, 3, 1)).to(cpu)

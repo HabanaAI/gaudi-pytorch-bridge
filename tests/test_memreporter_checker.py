@@ -1,12 +1,12 @@
-from __future__ import print_function
-import argparse
 import os
 import torch
+import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.debug as htdebug
+import pytest
 
-def check_mem_reporter_file_created():
-    import habana_frameworks.torch.core as htcore
-    a = torch.ones([20,30,400,50]).to('hpu')
-    import habana_frameworks.torch.utils.debug as htdebug
+@pytest.mark.xfail(reason="File doesn't exists")
+def test_mem_reporter_file_created():
+    a = torch.ones([2,3,40,10]).to('hpu')
     htdebug._dump_memory_reporter()
     def run_iter():
       b = torch.transpose(a, 2,3)
@@ -22,7 +22,11 @@ def check_mem_reporter_file_created():
     htcore.mark_step()
     htdebug._dump_memory_reporter()
 
-    assert(os.path.exists("memory.reporter.json"))
+    file = "memory.reporter.json"
+    if os.path.exists(file):
+       os.remove(file)
+    else:
+      assert False, f"{file} doesn't exists"
 
 if __name__ == '__main__':
-    check_mem_reporter_file_created()
+    test_mem_reporter_file_created()

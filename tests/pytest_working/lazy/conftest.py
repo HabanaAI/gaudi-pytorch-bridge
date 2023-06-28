@@ -11,10 +11,9 @@
 ###############################################################################
 
 import pytest
+import os
 from test_utils import generic_setup_teardown_env
 
-@pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():
-    yield from generic_setup_teardown_env(
-        {"PT_HPU_LAZY_MODE": 1}
-    )
+    if 0 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):
+        pytest.skip("This test requires PT_HPU_LAZY_MODE=1")

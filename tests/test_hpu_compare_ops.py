@@ -1,7 +1,6 @@
 import torch
 import pytest
-import random
-from test_utils import evaluate_fwd_inplace_kernel, reset_seed, evaluate_fwd_kernel
+from test_utils import evaluate_fwd_kernel
 
 N = 8
 C = 3

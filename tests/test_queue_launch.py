@@ -1,10 +1,7 @@
-import torch.nn.functional as F
 from torch import nn
 import torch
 import habana_frameworks.torch as ht
 import time
-import os
-os.environ["PT_HPU_LAZY_MODE"] = "1"
 
 def initialize_weights(m):
     if isinstance(m, torch.nn.Conv2d):
@@ -50,7 +47,6 @@ def test_graph_training1():
     module1 = Network().to('hpu')
 
     loss_fn = torch.nn.MSELoss()
-    from habana_frameworks.torch.hpex.optimizers import FusedSGD
 
     #optimizer = FusedSGD(module1.parameters(), lr=0.1)
     optimizer = torch.optim.SGD(module1.parameters(), lr=0.1)

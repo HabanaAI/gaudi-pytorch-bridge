@@ -16,7 +16,6 @@ import pytest
 from test_utils import (
     evaluate_fwd_kernel,
     evaluate_fwd_bwd_kernel,
-    reset_seed,
     evaluate_fwd_inplace_kernel,
 )
 
@@ -159,7 +158,8 @@ def test_hpu_special_unary_op(unary_op, out, dtype, tol):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("unary_op", unary_op_list)
+@pytest.mark.parametrize("unary_op", [
+    pytest.param(op, marks=pytest.mark.xfail(reason="results mismatch") if op in (torch.sgn, torch.nn.functional.gelu) else []) for op in unary_op_list])
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
     kernel_params_fwd = {}

@@ -1,13 +1,10 @@
 from __future__ import print_function
-import argparse
 import os
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import sys
-from torchvision import datasets, transforms
-import time
+from test_utils import setup_teardown_env_fixture
+import pytest
+device = torch.device("hpu")
+
 
 def check_data_pointers( _dp1, _dp2):
     print("dp1 :: ", _dp1)
@@ -191,21 +188,7 @@ def pool_coalesce(device, pool_id):
         for i in range(len(hpu_tensor_list)):
             print("tensor ",index, " :: ",hpu_tensor_list[i].data_ptr())
 
-        #dp0 = hpu_tensor_list[0].data_ptr()
-        #print(hpu_tensor_list[2].data_ptr())
-        #print(hpu_tensor_list[3].data_ptr())
         del(hpu_tensor_list)
-        #del(hpu_tensor_list[3])
-
-        hpu_tensor_reuse = torch.randn(30000, 2000).to(device)
-        #dp1 = hpu_tensor_reuse.data_ptr()
-        #print(hpu_tensor_list[4].data_ptr())
-        #del(hpu_tensor_list[4])
-        #del(hpu_tensor_list[5])
-        hpu_tensor_reuse1 = torch.randn(20000, 1000).to(device)
-        #hpu_tensor_reuse2 = torch.randn(20000, 1000).to(device)
-        #dp0 memory must be reused
-        #assert(check_data_pointers(dp0, dp1) == True)
 
 def pool_coalesce_stringent(device, pool_id):
 
@@ -259,12 +242,10 @@ def pool_coalesce_stringent(device, pool_id):
         #dp0 memory must be reused
         #assert(check_data_pointers(dp0, dp1) == True)
 
-def main():
-
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-    load_habana_module()
-    device = torch.device("hpu")
-
+@pytest.mark.skip(reason="Tests in this file are chaning env variables")
+@pytest.mark.parametrize('setup_teardown_env_fixture', [
+    {"PT_HPU_POOL_STRATEGY": "5"}], indirect=True)
+def test_memory_pool(setup_teardown_env_fixture):
     pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
     if (pool_used != '5'):
         check_alignment(device, pool_used)

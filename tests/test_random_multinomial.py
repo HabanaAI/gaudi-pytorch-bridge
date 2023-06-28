@@ -1,7 +1,5 @@
 import torch
-from habana_frameworks.torch.utils.library_loader import load_habana_module
- 
-load_habana_module()
+
 
 if __name__ == '__main__':
     dtype = torch.float

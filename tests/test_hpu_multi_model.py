@@ -1,16 +1,11 @@
-import torch
+import torch, pytest
 from torch import nn
-from torch.nn import Module
-from torch.nn.parameter import Parameter
 import torch.nn.functional as F
-import torch.nn.init as init
 import habana_frameworks.torch as ht
-import os
 import math
 import time
 
 hpu = torch.device("hpu")
-os.environ["PT_HPU_LAZY_MODE"] = "1"
 lazy_mode = True
 profile_mode = False
 
@@ -118,35 +113,37 @@ class ModelUnderTest(nn.Module):
     def train_loop(self, hid, attn, lazy_mode=True):
         self.g.replay()
 
-batch_size, seq_len, hidden_dim, attn_dim = 64, 128, 1024, 1
+@pytest.mark.skip(reason="There is no assert in this test")
+def test_multi_model():
+    batch_size, seq_len, hidden_dim, attn_dim = 64, 128, 1024, 1
 
-hid_nc1 = torch.rand((batch_size, seq_len, hidden_dim), dtype=torch.float)
-attn_nc1 = torch.rand((batch_size, attn_dim, attn_dim, seq_len), dtype=torch.float)
-hid_nc1_hpu = hid_nc1.to(hpu)
-attn_nc1_hpu = attn_nc1.to(hpu)
+    hid_nc1 = torch.rand((batch_size, seq_len, hidden_dim), dtype=torch.float)
+    attn_nc1 = torch.rand((batch_size, attn_dim, attn_dim, seq_len), dtype=torch.float)
+    hid_nc1_hpu = hid_nc1.to(hpu)
+    attn_nc1_hpu = attn_nc1.to(hpu)
 
-hid_nc2 = torch.rand((batch_size, seq_len, hidden_dim), dtype=torch.float)
-attn_nc2 = torch.rand((batch_size, attn_dim, attn_dim, seq_len), dtype=torch.float)
-hid_nc2_hpu = hid_nc2.to(hpu)
-attn_nc2_hpu = attn_nc2.to(hpu)
+    hid_nc2 = torch.rand((batch_size, seq_len, hidden_dim), dtype=torch.float)
+    attn_nc2 = torch.rand((batch_size, attn_dim, attn_dim, seq_len), dtype=torch.float)
+    hid_nc2_hpu = hid_nc2.to(hpu)
+    attn_nc2_hpu = attn_nc2.to(hpu)
 
-m_model1 = ModelUnderTest()
-m_model1.warmup(hid=hid_nc1_hpu, attn=attn_nc1_hpu)
+    m_model1 = ModelUnderTest()
+    m_model1.warmup(hid=hid_nc1_hpu, attn=attn_nc1_hpu)
 
-m_model2 = ModelUnderTest()
-m_model2.warmup(hid=hid_nc2_hpu, attn=attn_nc2_hpu)
+    m_model2 = ModelUnderTest()
+    m_model2.warmup(hid=hid_nc2_hpu, attn=attn_nc2_hpu)
 
-num_w_batches = 500
-step = 0
-start_time = time.time()
+    num_w_batches = 500
+    step = 0
+    start_time = time.time()
 
-for batch in range(num_w_batches):
-    m_model1.train_loop(hid=hid_nc1_hpu, attn=attn_nc1_hpu)
-    m_model2.train_loop(hid=hid_nc2_hpu, attn=attn_nc2_hpu)
-    step = step + 1
+    for batch in range(num_w_batches):
+        m_model1.train_loop(hid=hid_nc1_hpu, attn=attn_nc1_hpu)
+        m_model2.train_loop(hid=hid_nc2_hpu, attn=attn_nc2_hpu)
+        step = step + 1
 
-end_time = time.time()
-total_time = end_time - start_time
-print("Total batches '{}'".format(step))
-print("Total time '{}'".format(total_time))
-print("Img/s '{}'".format(num_w_batches*batch_size / total_time))
+    end_time = time.time()
+    total_time = end_time - start_time
+    print("Total batches '{}'".format(step))
+    print("Total time '{}'".format(total_time))
+    print("Img/s '{}'".format(num_w_batches*batch_size / total_time))

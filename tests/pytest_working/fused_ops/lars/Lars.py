@@ -11,9 +11,6 @@
 ###############################################################################
 
 import torch
-from torch import nn
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
 from torch.optim.optimizer import Optimizer
 
 

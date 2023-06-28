@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.core as htcore
 import torch
+import pytest
+from test_utils import is_gaudi1
 
-
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 def test_hpu_typed_tensors_creation():
     hpu = torch.device("hpu", 0)
     ht, ct = torch.hpu.BFloat16Tensor([2, 2]), torch.BFloat16Tensor([2, 2])

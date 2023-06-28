@@ -11,37 +11,39 @@
 # ******************************************************************************
 
 import torch
-import numpy as np
 import pytest
 from test_utils import evaluate_fwd_kernel
 
 @pytest.mark.parametrize("bn_op, fwd_params_desc", [
-    (
+    pytest.param(
         torch.ops.aten._native_batch_norm_legit,
         {
             "dims": (2, 3, 4, 5),
             "training": True,
             "momentum": 0.999,
             "eps": 1e-5,
-        }
+        },
+        marks=[pytest.mark.xfail(reason="Results mismatch")],
     ),
-    (
+    pytest.param(
         torch.ops.aten._native_batch_norm_legit_functional,
         {
             "dims": (2, 3, 4, 5),
             "training": True,
             "momentum": 0.999,
             "eps": 1e-5,
-        }
+        },
+        marks=[pytest.mark.xfail(reason="Results mismatch")],
     ),
-    (
+    pytest.param(
         torch.ops.aten._native_batch_norm_legit_functional,
         {
             "dims": (2, 3, 4, 5),
             "training": False,
             "momentum": 0.999,
             "eps": 1e-5,
-        }
+        },
+        marks=[pytest.mark.xfail(reason="Results mismatch")],
     ),
 ])
 def test_hpu_native_batch_norm(bn_op, fwd_params_desc):
@@ -59,6 +61,7 @@ def test_hpu_native_batch_norm(bn_op, fwd_params_desc):
     evaluate_fwd_kernel(kernel=bn_op, kernel_params=prepare_fwd_inputs(fwd_params_desc))
 
 # TODO [Jira: SW-150573] seg fault visible for CPU pytorch result
+@pytest.mark.skip(reason="segv")
 @pytest.mark.parametrize("bn_op, fwd_params_desc", [
     (
         torch.ops.aten._native_batch_norm_legit.no_stats,

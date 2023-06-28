@@ -11,12 +11,9 @@
 ###############################################################################
 
 import numpy as np
-import os
-import sys
 import torch
 import pytest
 from torch.optim import AdamW
-from test_utils import is_gaudi1
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
@@ -47,7 +44,6 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
     (5, 0.08),
 ])
 def test_fused_adam(dim, wd):
-    torch.manual_seed(1)
     d1, d2, lr = 320, 256, 0.1
     eps = 1e-6
     if dim == 4:

@@ -10,9 +10,11 @@
 #
 ###############################################################################
 
-import os
 import pytest
 from test_utils import generic_setup_teardown_env
+
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
 # disable lazy weight sharing
@@ -21,8 +23,6 @@ def setup_teardown_env():
     )
 
 import torch
-import habana_frameworks.torch.core as htcore
-import numpy as np
 import pytest
 
 

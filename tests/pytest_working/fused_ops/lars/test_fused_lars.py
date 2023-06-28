@@ -1,16 +1,22 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
 
 import torch
 import torch.nn as nn
-import os
-import sys
 import numpy as np
 import copy
 import random
 import habana_frameworks.torch.core as htcore
-from test_utils import is_gaudi1
 import pytest
-
-sys.path.append(os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "tests/fused_ops"))
 
 from lars import ResourceApplyMomentum
 from lars import Lars
@@ -83,9 +89,6 @@ def run_model(dev, m, x, optim):
 
 @pytest.mark.xfail(reason="Graph compile failed")
 def test_lars():
-
-    torch.manual_seed(1234567)
-
     model = nn.Sequential(*[nn.Linear(C, O, bias=True) for _ in range(NUM_LAYERS)])
 
     model_ref = copy.deepcopy(model).to(devr)
@@ -110,23 +113,12 @@ def test_lars():
     xt = x.to(devt)
 
     for i in range(S):
-        print(20*'*', "Step", i, 20*'*')
         run_model(devr, model_ref, xr, opt_ref)
         run_model(devt, model_test, xt, opt_test)
-    if print_params_after_opt:
 
-        print(20*'+', "Param after ", S, " Steps", 20*'+')
-        for params in model_ref.parameters():
-            print("Ref params = ", params.to("cpu"))
-        for params in model_test.parameters():
-            print("Test params = ", params.to("cpu"))
-        print(60*'+')
-
-    print("\n************** Starting tensor comparison ********************")
     for pr, pt in zip(model_ref.parameters(), model_test.parameters()):
         prc = pr.to("cpu")
         ptc = pt.to("cpu")
         print(" Cosine similarity angle= ", cosine_sim(prc,ptc))
         np.testing.assert_allclose(prc.detach().numpy(), ptc.detach().numpy(), rtol, atol)
-    print("\n****************Test OK : ref and test parameters match within rtol = ", rtol, "atol = ", atol,"*******************\n")
 

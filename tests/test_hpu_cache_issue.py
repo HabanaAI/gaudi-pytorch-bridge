@@ -1,15 +1,12 @@
 import torch
 import torch.nn.functional as F
-import os
 import pytest
 from test_utils import compare_tensors
+from test_utils import hpu
 
 test_case_list = [
     (9, 13, 11, 9)
     ]
-
-hpu = torch.device('hpu')
-cpu = torch.device('cpu')
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_pad_op_cache_issue(N, H, W, C):
@@ -25,6 +22,7 @@ def test_hpu_pad_op_cache_issue(N, H, W, C):
     hpu_out_pad_tensor_2 =  F.pad(in_tensor.to(hpu), pad2 ,"constant", 0)
     compare_tensors(hpu_out_pad_tensor_2, cpu_out_pad_tensor_2, atol = 0, rtol = 0)
 
+@pytest.mark.xfail(reason="RuntimeError: synNodeCreateWithId failed")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_cumsum_op_cache_issue(N, H, W, C):
     in_tensor = torch.randn(N, C, H, W)

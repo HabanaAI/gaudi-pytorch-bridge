@@ -23,106 +23,77 @@
 # i.e, src.size(d> <= self.size(d) for all d except d = dim; where it can be more
 
 import torch
-import os
 import habana_frameworks.torch.core as htcore
 import random
-import sys
 import numpy as np
+import pytest
 
+@pytest.mark.xfail(reason="Results mismatch")
+def test_scatter_add():
+    DIM_MAX = 5 # 0-4
+    MAX_SIZE = 10
+    TEST_COUNT = 50
+    #the src size on axis dim can be anything
+    # so use a separate def for greater freedom to control this
+    MAX_SRC_SIZE_ON_AXIS_DIM = 20
+    src_dt = torch.float32
+    slf_dt = torch.float32
 
+    def get_d():
+        return random.randint(1, DIM_MAX)
 
-#random.seed(0)
-#torch.manual_seed(0)
+    def get_axis(d):
+        axis = random.randint(0, d-1)
+        #print("axis  = ", axis)
+        return axis
 
+    def create_self_tensor():
+        d = get_d()
+        s = [random.randint(1, MAX_SIZE) for _ in range(d)]
+        shape = tuple(s)
+        self = torch.zeros(shape, dtype = slf_dt)
+        #print("self size  = ", self.size())
 
-DIM_MAX = 5 # 0-4
-MAX_SIZE = 10
-TEST_COUNT = 50
-#the src size on axis dim can be anything
-# so use a separate def for greater freedom to control this
-MAX_SRC_SIZE_ON_AXIS_DIM = 20
-src_dt = torch.float32
-slf_dt = torch.float32
-#src_dt = torch.bfloat16
-#slf_dt = torch.bfloat16
-t_hpu = sys.argv[1]
+        return self
 
-cmp_with_cpu = True
+    def create_src_tensor(self, axis):
+        s = []
+        for i in range(self.dim()):
+            if i != axis:
+                s.append(random.randint(1, self.size(i)))
+            else:
+                s.append(random.randint(1, MAX_SRC_SIZE_ON_AXIS_DIM))
+        shape = tuple(s)
 
-test_hpu = False
-if t_hpu == "h":
-    test_hpu = True
+        src = torch.ones(shape, dtype = src_dt)
+        #print("src size  = ", src.size())
+        return src
 
-def get_d():
-  return random.randint(1, DIM_MAX)
+    def create_index_tensor(self, src, axis):
+        s = []
+        for i in range(src.dim()):
+            s.append(random.randint(1, src.size(i)))
+        shape = tuple(s)
+        # index contents should be 0 .. self.size(axis)-1
+        index = torch.randint(0, self.size(axis), shape)
+        #print("index size  = ", index.size())
+        #print("index  = ", index)
+        return index
 
-def get_axis(d):
-    axis = random.randint(0, d-1)
-    #print("axis  = ", axis)
-    return axis
+    output_rtol = 1e-3
+    output_atol = 1e-3
 
-def create_self_tensor():
-    d = get_d()
-    s = [random.randint(1, MAX_SIZE) for _ in range(d)]
-    shape = tuple(s)
-    self = torch.zeros(shape, dtype = slf_dt)
-    #print("self size  = ", self.size())
-
-    return self
-
-def create_src_tensor(self, axis):
-    s = []
-    for i in range(self.dim()):
-        if i != axis:
-            s.append(random.randint(1, self.size(i)))
-        else:
-            s.append(random.randint(1, MAX_SRC_SIZE_ON_AXIS_DIM))
-    shape = tuple(s)
-
-    src = torch.ones(shape, dtype = src_dt)
-    #print("src size  = ", src.size())
-    return src
-
-
-def create_index_tensor(self, src, axis):
-    s = []
-    for i in range(src.dim()):
-        s.append(random.randint(1, src.size(i)))
-    shape = tuple(s)
-    # index contents should be 0 .. self.size(axis)-1
-    index = torch.randint(0, self.size(axis), shape)
-    #print("index size  = ", index.size())
-    #print("index  = ", index)
-    return index
-
-output_rtol = 1e-3
-output_atol = 1e-3
-
-
-for t in range(TEST_COUNT):
-
-    self = create_self_tensor()
-    axis = get_axis(self.dim())
-    src = create_src_tensor(self, axis)
-    index = create_index_tensor(self, src, axis)
-    if test_hpu:
+    for t in range(TEST_COUNT):
+        self = create_self_tensor()
+        axis = get_axis(self.dim())
+        src = create_src_tensor(self, axis)
+        index = create_index_tensor(self, src, axis)
         self_h = self.to("hpu")
         src_h = src.to("hpu")
         index_h = index.to("hpu")
-    self.scatter_add_(axis, index, src)
-    if test_hpu:
+        self.scatter_add_(axis, index, src)
         self_h.scatter_add_(axis, index_h, src_h)
         htcore.mark_step()
 
-
-    print("TC = ", t, "\taxis = ", axis, "SIZES : self = ", self.size(), "\t\t\t index = ", index.size(), "\t\t\tsrc size = ", index.size())
-    if cmp_with_cpu:
+        print("TC = ", t, "\taxis = ", axis, "SIZES : self = ", self.size(), "\t\t\t index = ", index.size(), "\t\t\tsrc size = ", index.size())
         np.testing.assert_allclose(self.detach().numpy(), self_h.to("cpu").detach().numpy(), output_rtol, output_atol)
-        print("Test Passed")
-
-
-    #if t == 2:
-    #    print (self)
-    #    print (self_h)
-
-

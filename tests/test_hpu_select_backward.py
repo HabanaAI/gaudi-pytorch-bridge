@@ -11,8 +11,6 @@
 # ******************************************************************************
 import torch
 import pytest
-from test_utils import cpu, hpu
-import habana_frameworks.torch.hpu as ht
 
 select_backward_test_case_list = [
     # size, dim, index

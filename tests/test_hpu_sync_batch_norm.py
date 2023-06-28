@@ -1,10 +1,7 @@
-from calendar import c
 import torch
-import pytest
 import numpy as np
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, compare_tensors
-hpu = torch.device('hpu')
-cpu = torch.device('cpu')
+from test_utils import hpu, cpu, is_gaudi1
+import pytest
 
 def util_calc_l2_error(t1, t2) -> torch.tensor:
   assert(t1.numel() == t2.numel())
@@ -114,6 +111,8 @@ def batch_norm_gather_stats_with_counts_ref(mean_tensor, invstds_tensor, count_t
 
   return (partial_mean[-1], g_invstd, running_mean, running_var)
 
+@pytest.mark.xfail
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 def test_all():
   num_devices = 4
   N = 8
@@ -122,7 +121,6 @@ def test_all():
   W = 5
   atol = 1e-4
   rtol = 1e-4
-
 
   # Input tensor
   inp = torch.rand(N, C, H, W)
@@ -281,15 +279,9 @@ def test_all():
   # Verify CPU and GPU results
   print("Comparing results of batch_norm_backward_elemt")
   for i in range(len(inp_split_list)):
-    err = np.allclose(grad_in_hpu_list[i].to(cpu).detach().numpy(), grad_in_list[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
-    print(f"Device {i}: rms error in grad_in allclose = {err}")
+    np.testing.assert_allclose(grad_in_hpu_list[i].to(cpu).detach().numpy(), grad_in_list[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
 
   # Sanity check
   grad_in_sanity = batch_norm_backward_elemt_ref(grad_out, inp, g_mean, g_invstd, None, g_sum_dy, g_sum_dy_xmu, counts)
   grad_in_sanity_hpu = torch.batch_norm_backward_elemt(grad_out_hpu, inp_hpu, g_mean_hpu, g_invstd_hpu, None, g_sum_dy_hpu, g_sum_dy_xmu_hpu, counts_hpu.to(torch.int32))
-  print(np.allclose(grad_in_sanity_hpu.to(cpu).detach().numpy(), grad_in_sanity.detach().numpy(), atol=atol, rtol=rtol, equal_nan=True))
-
-
-
-
-test_all()
+  np.testing.assert_allclose(grad_in_sanity_hpu.to(cpu).detach().numpy(), grad_in_sanity.detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)

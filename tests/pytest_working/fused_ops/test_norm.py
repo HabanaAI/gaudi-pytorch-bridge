@@ -11,11 +11,8 @@
 ###############################################################################
 
 import numpy as np
-import os
-import math
 import torch
 
-from habana_frameworks.torch.hpex.normalization import FusedClipNorm
 
 habana = torch.device("hpu")
 cpu = torch.device("cpu")

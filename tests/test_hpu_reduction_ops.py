@@ -1,6 +1,6 @@
 import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
+from test_utils import evaluate_fwd_kernel
 
 
 # N - batch

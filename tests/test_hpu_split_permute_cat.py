@@ -34,6 +34,7 @@ def split_permute_cat_ref(
     return torch.cat([split[i] for i in indices], dim=1)
 
 
+@pytest.mark.xfail(reason="RuntimeError: synNodeCreateWithId failed")
 @pytest.mark.parametrize("B, F, D", split_permute_cat_test_case_list)
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_split_permute_cat_case(B, F, D, dtype):

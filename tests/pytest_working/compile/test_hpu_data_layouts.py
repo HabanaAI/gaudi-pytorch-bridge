@@ -13,13 +13,10 @@
 
 import torch
 import pytest
-import numpy as np
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 @pytest.mark.parametrize("use_eager_conv", [True, False])
 def test_data_layout_prop(use_eager_conv):
-    torch.manual_seed(2562825)
-
     conv_op = torch.nn.Conv2d(16, 33, 3, stride=2)
     if not use_eager_conv:
         conv_op = torch.compile(conv_op, backend="aot_hpu_training_backend")

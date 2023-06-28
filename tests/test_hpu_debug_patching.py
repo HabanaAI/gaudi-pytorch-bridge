@@ -1,5 +1,4 @@
 import torch
-from test_utils import compare_tensors
 import habana_frameworks.torch.core as htcore
 
 def graph():

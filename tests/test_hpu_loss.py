@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel
 
 test_case_list = [
     # N, C,
@@ -247,8 +247,6 @@ def test_hpu_nllloss2d_fwd_bwd(N, C,H, W, ignore_index):
 
 @pytest.mark.parametrize("N, C, H, W", [(32, 81, 8, 1091)])
 def test_hpu_crossentropyloss_4d_fwd(N, C, H, W):
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
     kernel = torch.nn.CrossEntropyLoss(reduction='none')
     input = torch.randn(N, C, H, W, requires_grad=True)
     target = torch.randint(low=0, high=C - 1, size=(N, H, W))
@@ -261,8 +259,6 @@ def test_hpu_crossentropyloss_4d_fwd(N, C, H, W):
 
 @pytest.mark.parametrize("N, C, H", [(32, 81, 8732)])
 def test_hpu_crossentropyloss_fwd(N, C, H):
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
     kernel = torch.nn.CrossEntropyLoss(reduction='none')
     input = torch.randn(N, C, H, requires_grad=True)
     target = torch.randint(low=0, high=C - 1, size=(N, H))
@@ -275,8 +271,6 @@ def test_hpu_crossentropyloss_fwd(N, C, H):
 
 @pytest.mark.parametrize("N, C", [(32, 81)])
 def test_hpu_crossentropyloss_1d_fwd(N, C):
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
     kernel = torch.nn.CrossEntropyLoss(reduction='none')
     input = torch.randn(N, C, requires_grad=True)
     target = torch.randint(low=0, high=C - 1, size=(N,))

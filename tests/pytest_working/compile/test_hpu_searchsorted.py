@@ -12,9 +12,9 @@
 import numpy as np
 import torch
 import pytest
-from utils import env_var_in_scope
+from test_utils import env_var_in_scope
 
-
+@pytest.mark.skip(reason="Tests in this file are changing environment variables")
 @pytest.mark.xfail(
     reason="torch._dynamo.exc.TorchRuntimeError. Remove xfail when SW-150162 is done."
 )

@@ -11,16 +11,9 @@
 ###############################################################################
 
 import numpy as np
-import os
-import sys
 import torch
-from test_utils import is_gaudi1
 import pytest
-
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
-
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
 
 habana = torch.device("hpu")
 cpu = torch.device("cpu")

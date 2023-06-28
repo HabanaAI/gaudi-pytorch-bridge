@@ -1,5 +1,4 @@
 import torch
-import pytest
 from test_utils import compare_tensors
 
 

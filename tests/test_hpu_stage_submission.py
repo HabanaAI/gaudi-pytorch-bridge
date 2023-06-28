@@ -1,11 +1,8 @@
-import os
 import torch
-import habana_frameworks.torch.hpu
-import habana_frameworks.torch.core as htcore
+from test_utils import env_var_in_scope, hpu, cpu
+import pytest
 
-torch.manual_seed(0)
-dev_hpu = torch.device("hpu")
-dev_cpu = torch.device("cpu")
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 class Net(torch.nn.Module):
   def __init__(self, input_dim, output_dim, hidden_dim=16, hidden_layers=10, threshold=0.35):
@@ -30,15 +27,14 @@ class Net(torch.nn.Module):
     x = self.fc_out(x)
     return x
 
+@pytest.mark.skip(reason="Tests is chaning env variables")
 def test_hpu_lazy_stage_submission():
-  x = torch.rand(8, 3, 24, device=dev_hpu)
-  net = Net(24, 4).to(dev_hpu)
-  y = net(x)
-  y_cpu = y.to(dev_cpu)
+  with env_var_in_scope({"PT_HPU_MAX_COMPOUND_OP_SIZE": "15",  "PT_HPU_ENABLE_STAGE_SUBMISSION": "1"}):
+    x = torch.rand(8, 3, 24, device=hpu)
+    net = Net(24, 4).to(hpu)
+    y = net(x)
+    y_cpu = y.to(cpu)
 
 if __name__ == '__main__':
-  os.environ["PT_HPU_LAZY_MODE"] = "1"
-  os.environ["PT_HPU_MAX_COMPOUND_OP_SIZE"] = "15"
-  os.environ["PT_HPU_ENABLE_STAGE_SUBMISSION"] = "1"
   test_hpu_lazy_stage_submission()
 

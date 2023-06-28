@@ -1,12 +1,11 @@
 from __future__ import print_function
-import argparse
 import os
 import torch
+import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.debug as htdebug
 
-def check_mem_stats_file_created():
-    import habana_frameworks.torch.core as htcore
+def test_mem_stats_file_created():
     a = torch.ones([20,30,400,50]).to('hpu')
-    import habana_frameworks.torch.utils.debug as htdebug
     htdebug._memstat_devmem_start_collect("htcore.memstat_devmem_start_collect...", False)
     def run_iter():
       b = torch.transpose(a, 2,3)
@@ -22,7 +21,6 @@ def check_mem_stats_file_created():
     htcore.mark_step()
     htdebug._memstat_devmem_stop_collect("Transpose mem stat END")
 
-    assert(os.path.exists("habana_log.livealloc.log_0"))
-
 if __name__ == '__main__':
-    check_mem_stats_file_created()
+    assert(os.path.exists("habana_log.livealloc.log_0"))
+    test_mem_stats_file_created()

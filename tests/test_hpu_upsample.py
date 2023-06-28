@@ -1,16 +1,9 @@
 import torch
 import pytest
-import torch.nn as nn
 import torch.nn.functional as F
-import os
-import sys
-import itertools
-import copy
-import numpy as np
 from test_utils import (
     evaluate_fwd_kernel,
     evaluate_fwd_bwd_kernel,
-    reset_seed,
     compare_tensors,
 )
 
@@ -42,8 +35,7 @@ test_case_list4 = [
     (1, 8, 4, 1, 2, 1),
     ]
 
-hpu = torch.device('hpu')
-cpu = torch.device('cpu')
+from test_utils import hpu
 
 @pytest.mark.parametrize("N, H, W, C, scale_factor", test_case_list2)
 def test_interpolate2(N, H, W, C, scale_factor):

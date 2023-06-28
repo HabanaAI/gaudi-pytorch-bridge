@@ -1,7 +1,4 @@
-import os
 import torch
-import numpy as np
-import pytest
 from test_utils import compare_tensors
 
 try:
@@ -10,7 +7,6 @@ except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
 
 def test_hpu_view_early_release():
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     batched_imgs = torch.randn(2, 5, 5)
     batched_imgs_hpu = batched_imgs.to("hpu")
     tensors = [torch.ones(3, 3), torch.ones(2, 2)]
@@ -25,13 +21,9 @@ def test_hpu_view_early_release():
     # Issue: This isn't triggering execution as pad_img_hpu are tmp views
     #        that are already deleted along with their IR graph
     out_hpu = batched_imgs_hpu.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
-    # print("out_hpu = ", out_hpu)
-    # print("batched_imgs = ", batched_imgs)
     compare_tensors(out_hpu, batched_imgs, atol=0, rtol=0)
 
 def test_hpu_as_strided_on_as_strided():
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     x = torch.randn(5, 5)
     t = torch.randn(5, 5)
     x_h = x.to("hpu")
@@ -39,7 +31,7 @@ def test_hpu_as_strided_on_as_strided():
 
     v1 = t.as_strided((1, 25), (25, 1))
     v2 = v1.as_strided((5, 5), (5, 1))
-    
+
     v2.add_(x)
     t.add_(x)
 
@@ -51,13 +43,9 @@ def test_hpu_as_strided_on_as_strided():
 
     # Issue: This isn't triggering execution on views v2_h and t_h
     out_h = v1_h.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
-    # print("out_h = ", out_h)
-    # print("v1 cpu = ", v1)
     compare_tensors(out_h, v1, atol=0, rtol=0)
 
 def test_hpu_as_strided_on_as_strided_2():
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     x = torch.randn(5, 5)
     t = torch.randn(5, 5)
     x_h = x.to("hpu")
@@ -65,7 +53,7 @@ def test_hpu_as_strided_on_as_strided_2():
 
     v1 = t.as_strided((1, 25), (25, 1))
     v2 = v1.as_strided((5, 5), (5, 1))
-    
+
     v2.add_(x)
     t.add_(x)
 
@@ -78,13 +66,9 @@ def test_hpu_as_strided_on_as_strided_2():
     # Issue: This is missing control edges and fails with graph compile
     htcore.mark_step()
     out_h = v1_h.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
-    # print("out_h = ", out_h)
-    # print("v1 cpu = ", v1)
     compare_tensors(out_h, v1, atol=0, rtol=0)
 
 def test_hpu_view_of_view():
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     x = torch.randn(5, 5)
     t = torch.randn(5, 5)
     x_h = x.to("hpu")
@@ -92,7 +76,7 @@ def test_hpu_view_of_view():
 
     v1 = t.view(1, 25)
     v2 = v1.view(5, 5)
-    
+
     v2.add_(x)
     t.add_(x)
 
@@ -105,9 +89,6 @@ def test_hpu_view_of_view():
     # Issue: view is not in-place, so updating a view doesn't update src
     # Issue: This isn't triggering execution on views v2_h and t_h
     out_h = v1_h.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
-    # print("out_h = ", out_h)
-    # print("v1 cpu = ", v1)
     compare_tensors(out_h, v1, atol=0, rtol=0)
 
 if __name__ == "__main__":

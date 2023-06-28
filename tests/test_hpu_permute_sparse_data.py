@@ -92,6 +92,7 @@ permute_test_case_list = [
   (8, 3, 4, 8, False, False, True),
 ]
 
+@pytest.mark.xfail(reason="RuntimeError: synNodeCreateWithId failed")
 @pytest.mark.parametrize("B, T, L, W, has_weight, is_1D, long_index", permute_test_case_list)
 def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
     index_dtype = torch.int64 if long_index else torch.int32

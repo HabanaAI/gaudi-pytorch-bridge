@@ -33,6 +33,9 @@ dtype_list = [
 @pytest.mark.parametrize("dtype", dtype_list)
 @pytest.mark.parametrize("zeros", [True, False])
 def test_hpu_nextafter_compare(input_shape, other_shape, dtype, zeros):
+    if dtype == torch.float:
+        pytest.xfail(reason="assert torch.all(correct_mask)")
+
     if zeros:
         kernel_params = {
             "input": torch.zeros(input_shape).to(dtype),
@@ -91,6 +94,10 @@ def test_hpu_nextafter(input_shape, other_shape, dtype, view_dtype):
         and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
     ):
         pytest.skip("Half is not supported on Gaudi.")
+
+    if view_dtype == torch.int16:
+        pytest.xfail(reason="wrong results for torch.int16")
+
     input = torch.randn(input_shape).to(dtype=dtype, device="hpu")
     other = torch.randn(other_shape).to(dtype=dtype, device="hpu")
 

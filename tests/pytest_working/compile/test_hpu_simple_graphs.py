@@ -14,7 +14,6 @@ import torch
 import pytest
 import numpy as np
 
-import habana_frameworks.torch.core as htcore
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_relu_cpuinput():
@@ -53,8 +52,6 @@ def test_relu_hpuinput():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_relu_hpuinput_mixed():
-    import habana_frameworks.torch.core as htcore
-
     def raw_function(x):
         tmp1 = x * 2 - 1
         return torch.relu(tmp1)
@@ -112,8 +109,6 @@ def test_use_random():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_create_tensor():
-    import habana_frameworks.torch.core as htcore
-
     def raw_function():
         out = torch.ones([2, 4], requires_grad=False, device=torch.device("hpu"))
         return out
@@ -128,8 +123,6 @@ def test_create_tensor():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_relu_than_maxpool():
-    torch.manual_seed(2562825)
-
     class TestModel(torch.nn.Module):
         def __init__(self):
             super().__init__()

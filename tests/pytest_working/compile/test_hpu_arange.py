@@ -12,8 +12,9 @@
 import torch
 import pytest
 import random
-from utils import env_var_in_scope
+from test_utils import env_var_in_scope
 
+@pytest.mark.skip(reason="Tests is chaning env variables")
 @pytest.mark.xfail(reason="CI problem: undefined symbol: _ZN6habana5graph12GraphStorage3getEv [SW-150162]")
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])
 @pytest.mark.parametrize("layout", [None, torch.strided])

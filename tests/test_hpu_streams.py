@@ -3,7 +3,6 @@ import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch as ht
 import time
 from threading import Thread
-from test_utils import reset_seed, compare_tensors
 import numpy as np
 
 def doWork():

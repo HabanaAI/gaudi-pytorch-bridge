@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, compare_tensors
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, compare_tensors
 from numpy import floor, ceil
 
 # N - batch
@@ -31,8 +31,7 @@ resnet50_test_case_list = [
 pool_test_case_list = [
     # N, H, W, C, R, S, str_H, str_W, padding, type, inpad, ceil_mode
     (8, 27, 27, 3, 3, 3, 2, 2, 0, 'maxpool2d', False, True),
-    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, 0, 'maxpool2d', False, False, marks=pytest.mark.xfail(
-        reason="only 3x3 window with 2x2 stride is supported")),
+    (2, 8, 8, 50, 2, 2, 2, 2, 0, 'maxpool2d', False, False,),
 ] + mnist_test_case_list + resnet50_test_case_list
 
 data_type_list = [

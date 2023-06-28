@@ -10,13 +10,10 @@
 #
 ###############################################################################
 
-import os
 
 import torch
-import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
-from test_utils import is_gaudi1
 
 
 @pytest.mark.parametrize(
@@ -243,7 +240,6 @@ def test_relu2d_contiguous():
 
 
 def test_batch_norm():
-    torch.manual_seed(10)
     N = 2
     C = 2
     H = 2
@@ -471,9 +467,10 @@ def test_local_scalar_dense(init_val, dtype):
     else:
         assert hpu_tensor.item() == init_val
 
-def test_sag_permute_add():
-    sag_flag_backup = os.environ.get("PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH", "1")
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = "true"
+@pytest.mark.skip(reason="Tests in this file are chaning env variables")
+@pytest.mark.parametrize('setup_teardown_env_fixture', [
+    {"PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH": "1"}], indirect=True)
+def test_sag_permute_add(setup_teardown_env_fixture):
     cpu_tensor = torch.randn(3, 3, 3, dtype=torch.float32)
     permute_cpu = torch.permute(cpu_tensor, (2, 0, 1)).contiguous()
     result_cpu = torch.add(permute_cpu, 2)
@@ -492,11 +489,11 @@ def test_sag_permute_add():
 
     assert torch.allclose(result_hpu.to("cpu"), result_cpu, atol=0.001, rtol=0.001)
     assert torch.allclose(result_hpu2.to("cpu"), result_cpu2, atol=0.001, rtol=0.001)
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = sag_flag_backup
 
-def test_sag_conv_relu():
-    sag_flag_backup = os.environ.get("PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH", "1")
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = "true"
+@pytest.mark.skip(reason="Tests in this file are chaning env variables")
+@pytest.mark.parametrize('setup_teardown_env_fixture', [
+    {"PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH": "1"}], indirect=True)
+def test_sag_conv_relu(setup_teardown_env_fixture):
     input_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
     input_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(1, 4, 4, 4)
 
@@ -523,15 +520,15 @@ def test_sag_conv_relu():
 
     assert torch.allclose(hpu_out_a.to("cpu"), out_a, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_b.to("cpu"), out_b, atol=0.001, rtol=0.001)
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = sag_flag_backup
 
 # To validate permute information as part of JIT/SAG key calculation
 # 1st and 2nd relu has input with real permute while 3rd relu does not
 # have any permute on the input so 3rd relu should cause a JIT/SAG cache
 # miss.
-def test_sag_conv_relu_relu():
-    sag_flag_backup = os.environ.get("PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH", "1")
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = "true"
+@pytest.mark.skip(reason="Tests in this file are chaning env variables")
+@pytest.mark.parametrize('setup_teardown_env_fixture', [
+    {"PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH": "1"}], indirect=True)
+def test_sag_conv_relu_relu(setup_teardown_env_fixture):
     input_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
     input_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(1, 4, 4, 4)
     input_c = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
@@ -565,4 +562,3 @@ def test_sag_conv_relu_relu():
     assert torch.allclose(hpu_out_a.to("cpu"), out_a, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_b.to("cpu"), out_b, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_c.to("cpu"), out_c, atol=0.001, rtol=0.001)
-    os.environ['PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH'] = sag_flag_backup

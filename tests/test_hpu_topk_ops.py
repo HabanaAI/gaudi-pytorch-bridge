@@ -1,7 +1,8 @@
 import torch
 import pytest
 import numpy as np
-from test_utils import evaluate_fwd_kernel, reset_seed
+from test_utils import evaluate_fwd_kernel
+from test_utils import hpu, cpu
 
 
 # N - batch
@@ -90,9 +91,6 @@ def test_hpu_sort_op(N, C, sort_op, dim, descending):
 @pytest.mark.parametrize("sort_op", sort_op_list)
 @pytest.mark.parametrize("dim, descending", sort_values_list)
 def test_hpu_sort_fwdbwd_op(N, C, sort_op, dim, descending):
-    cpu = torch.device('cpu')
-    hpu = torch.device('hpu')
-
     input_tensor = torch.randn(N, C, requires_grad=True)
     input_tensor_hpu = input_tensor.to(hpu).detach()
     input_tensor_hpu.requires_grad = True

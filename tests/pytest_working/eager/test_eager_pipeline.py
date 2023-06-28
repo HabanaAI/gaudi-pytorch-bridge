@@ -10,12 +10,9 @@
 #
 ###############################################################################
 
-import os
 
 import torch
-import habana_frameworks.torch.core as htcore
 import numpy as np
-import pytest
 
 
 def test_pipeline_ops_out():

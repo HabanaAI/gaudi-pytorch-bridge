@@ -15,7 +15,6 @@ import pytest
 import numpy as np
 import torch.nn.functional as F
 
-import habana_frameworks.torch.core as htcore
 
 pytestmark = pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 

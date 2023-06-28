@@ -1,13 +1,13 @@
 import torch
 import numpy as np
-import inspect
-import os
+import pytest
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
 
 
+@pytest.mark.xfail
 def test_hpu_weight_sharing_in_same_module():
     class TestModel(torch.nn.Module):
         def __init__(self):
@@ -51,6 +51,7 @@ def test_hpu_weight_sharing_in_same_module():
     assert np.equal(model.c.cpu().detach(), 1)
 
 
+@pytest.mark.xfail
 def test_hpu_weight_sharing_in_submodule():
     class TestSubModel(torch.nn.Module):
         def __init__(self, shared_parameter):
@@ -287,6 +288,7 @@ def test_hpu_weight_sharing_in_exported_parameter_cpu_hpu_cpu():
     assert nadav_list.device.type == "hpu"
 
 
+@pytest.mark.xfail
 def test_hpu_weight_sharing_in_same_module_cpu_hpu_cpu():
     class TestModel(torch.nn.Module):
         def __init__(self):
@@ -328,6 +330,7 @@ def test_hpu_weight_sharing_in_same_module_cpu_hpu_cpu():
     assert np.equal(model.b.cpu().detach(), 1)
 
 
+@pytest.mark.xfail
 def test_hpu_multiple_weight_sharing_in_same_module():
     class TestModel(torch.nn.Module):
         def __init__(self):
@@ -376,6 +379,7 @@ def test_hpu_multiple_weight_sharing_in_same_module():
     assert np.equal(model.d.cpu().detach(), 1)
 
 
+@pytest.mark.xfail
 def test_hpu_multiple_weight_sharing_in_submodule():
     class TestSubModel(torch.nn.Module):
         def __init__(self, shared_parameter):

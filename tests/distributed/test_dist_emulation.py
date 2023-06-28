@@ -8,38 +8,7 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 from torch.distributed.optim import ZeroRedundancyOptimizer
 from torch.nn.parallel import DistributedDataParallel as DDP
-
-
-def set_flag_in_env(name: str, value):
-    if value is None:
-        # Nothing to do here
-        return
-    elif isinstance(value, str):
-        os.environ[name] = value
-    elif isinstance(value, bool):
-        os.environ[name] = str(int(value))
-    elif isinstance(value, int):
-        os.environ[name] = str(value)
-    else:
-        assert False, f"Value '{value}' invalid or not supported"
-
-
-@contextmanager
-def env_var_in_scope(vars={}):
-    orig_vars = {}
-    for key in vars.keys():
-        orig_vars[key] = os.environ.get(key, None)
-        set_flag_in_env(key, vars[key])
-    try:
-        yield
-    finally:
-        for key in orig_vars.keys():
-            # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
+from pytest_working.test_utils import env_var_in_scope
 
 
 def _zero1_with_ddp_worker(rank, world_size):

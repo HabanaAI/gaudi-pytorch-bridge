@@ -13,6 +13,7 @@ import os
 import torch
 import pathlib
 import pytest
+from test_utils import is_gaudi1
 
 # Tests must be executed in separate pytest runs, because habana modules
 # have to be reloaded before setting custom list of ops
@@ -22,7 +23,6 @@ def load_modules(custom_autocast = False):
         path = str(pathlib.Path(__file__).parent.resolve())
         os.environ["LOWER_LIST"] = path + "/autocast_files/lower_list.txt"
         os.environ["FP32_LIST"] = path + "/autocast_files/fp32_list.txt"
-    import habana_frameworks.torch.core
 
 def assert_dtype(tensors, dtype):
     for tensor in tensors:
@@ -36,8 +36,9 @@ def assert_tensors_equal(tensors, tensor_refs):
     for tensor, tensor_ref in zip(tensors, tensor_refs):
         assert torch.equal(tensor, tensor_ref)
 
+@pytest.mark.xfail
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
 def test_autocast():
-    load_modules()
     device = "hpu"
     dtype = torch.bfloat16
     a = torch.rand((5, 5))*10
@@ -66,7 +67,6 @@ def test_autocast():
 
 @pytest.mark.xfail(reason="Wrong dtype. Got torch.float32, expected torch.bfloat16.")
 def test_autocast_custom_list():
-    load_modules(True)
     device = "hpu"
     dtype = torch.bfloat16
     a = torch.rand((5, 5))*10

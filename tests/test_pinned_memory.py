@@ -1,10 +1,5 @@
 import torch
-import random
-import os
-import pytest
-from torch.utils.data import _utils, Dataset, TensorDataset, DataLoader
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
+from torch.utils.data import DataLoader, TensorDataset
 
 def test_hpu_pin_memory():
     x = torch.randn(10)

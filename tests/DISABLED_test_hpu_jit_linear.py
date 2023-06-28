@@ -1,7 +1,6 @@
 import torch
-import torch.nn as nn
 import pytest
-from test_utils import reset_seed, compare_tensors
+from test_utils import compare_tensors
 import habana_frameworks.torch.core as htcore
 
 @torch.jit.script

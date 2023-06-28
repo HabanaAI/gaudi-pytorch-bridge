@@ -12,14 +12,10 @@
 
 import copy
 import numpy as np
-import os
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 import pytest
 
 
@@ -70,8 +66,6 @@ def test_mnist():
         n_cpu = torch.nn.utils.clip_grad_norm_(m_cpu.parameters(), max_norm)
         n_cpu_list.append(n_cpu)
 
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-    load_habana_module()
     habana = torch.device("hpu")
     cpu = torch.device("cpu")
 

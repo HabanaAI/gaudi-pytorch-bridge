@@ -1,11 +1,8 @@
 import torch
-import sys
-import os
-import numpy as np
 from test_utils import compare_tensors
 
 try:
-    habana_frameworks.torch.utils.experimental as htexp
+    import habana_frameworks.torch.utils.experimental as htexp
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
 

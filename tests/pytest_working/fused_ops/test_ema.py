@@ -20,11 +20,8 @@ from collections import OrderedDict
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.movingavrg import FusedEMA
 import pytest
+from test_utils import cpu, hpu
 
-torch.manual_seed(1)
-
-cpu = torch.device("cpu")
-hpu = torch.device("hpu")
 
 def is_parallel(model):
     return type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)

@@ -1,4 +1,16 @@
-#Memory Stats Apis description and test case
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
+###Memory Stats Apis description and test case
 # 1. max_memory_allocated
 # 2. reset_peak_memory_stats
 # 3. memory_allocated
@@ -53,13 +65,10 @@
 
 import torch
 import habana_frameworks.torch.hpu as htcore
-import torch.nn as nn
-import torch.nn.functional as F
+from test_utils import hpu
 
 
-if __name__ == '__main__':
-    hpu = torch.device('hpu')
-    cpu = torch.device('cpu')
+def test_mem_stat():
     input1 = torch.randn((64,28,28,20),dtype=torch.float, requires_grad=True)
     input1_hpu = input1.contiguous(memory_format=torch.channels_last).to(hpu)
     mem_summary1 = htcore.memory_summary()

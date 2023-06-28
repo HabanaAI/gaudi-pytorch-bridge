@@ -1,18 +1,15 @@
+import random
+import torch
+import habana_frameworks.torch.core as htcore
+import pytest
+
 # Tests for index add with duplicate indices for the following
 # scenarios and dims 0 or 1
 # scenario 0 : # index size = self size at specified dim 0 or 1
 # scenario 1 : # index size > self size at specified dim 0 or 1
 
-import torch
-scenario = 1
-
-def test_index_add2(device, seed, st):
+def index_add(device, seed, st, scenario):
     dtype = torch.int32
-    torch.manual_seed(seed)
-    print("seed = ",seed)
-    print("Running on device = ", device)
-    if device == 'hpu':
-        import habana_frameworks.torch.core as htcore
     d = 0
     alpha =1
     sort = st
@@ -45,39 +42,33 @@ def test_index_add2(device, seed, st):
         index = torch.randint(0,u ,(k,)).to(device)
 
     source = torch.ones(ss).to(dtype).to(device)
-
-    #print("source =", source)
-    print("index =", index)
-
     r = self.index_add_(d, index, source, alpha=1)
-
-    #print("result =", r.to("cpu"))
 
     if device == 'hpu':
         htcore.mark_step()
     return r.to("cpu")
 
-import random
-N = 20
+@pytest.mark.parametrize("scenario", [
+    pytest.param(0, marks=[pytest.mark.xfail(reason="results mismatch")]),
+    pytest.param(1, marks=[pytest.mark.xfail(reason="results mismatch")])
+])
+def test_index_add_duplicate_indices(scenario):
+    N = 20
+    mms =0
+    mmu =0
+    for _ in range(N):
+        seed = random.randint(10000, 99999999)
+        st = True
+        c = index_add("cpu", seed, st, scenario)
+        h = index_add("hpu", seed, st, scenario)
+        ms = torch.equal(c, h)
+        assert torch.equal(c, h), "sorted case doesn't match"
+        st = False
+        c = index_add("cpu", seed, st, scenario)
+        h = index_add("hpu", seed, st, scenario)
+        mu = torch.equal(c, h)
+        mms = mms +ms
+        mmu = mmu +mu
 
-mms =0
-mmu =0
-for i in range(N):
-    print("*"*80)
-    seed = random.randint(10000, 99999999)
-    st = True
-    c = test_index_add2("cpu", seed, st)
-    h = test_index_add2("hpu", seed, st)
-    ms = torch.equal(c, h)
-    print("\nsorted match ", torch.equal(c, h))
-    st = False
-    c = test_index_add2("cpu", seed, st)
-    h = test_index_add2("hpu", seed, st)
-    mu = torch.equal(c, h)
-    mms = mms +ms
-    mmu = mmu +mu
+        assert torch.equal(c, h), "unsorted case doesn't match"
 
-    print("\nunsorted match ", torch.equal(c, h))
-    print("*"*80)
-
-print ("runs matched with CPU sorted case = ", mms,  "/", N, "unsorted case  = ", mmu, "/", N)

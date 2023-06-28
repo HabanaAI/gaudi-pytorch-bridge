@@ -1,15 +1,10 @@
-import torch
-import random
 import os
 import pytest
-from torch.utils.data import _utils, TensorDataset, DataLoader
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import numpy as np
 
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
-
+@pytest.mark.skip(reason="slow test")
 def test_hpu_pin_memory():
     traindir = os.path.join('/software/lfs/data/pytorch/imagenet/ILSVRC2012', 'train')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -35,4 +30,3 @@ def test_hpu_pin_memory():
         assert np.allclose(target_out, target, atol=0.001, rtol=1.e-3), f"Data mismatch"
         if (i == 10):
            return
-    print("Done....")

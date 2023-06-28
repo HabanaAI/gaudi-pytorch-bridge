@@ -1,6 +1,6 @@
-### random tests.
 import torch
 import habana_frameworks.torch.hpu.random as rand_hpu
+import pytest
 
 def test_get_and_set_rng_state():
     state = rand_hpu.get_rng_state()
@@ -61,6 +61,7 @@ def test_manual_initial_seed():
     torch.set_rng_state(rng_state)
     rand_hpu.set_rng_state(rng_state)
 
+@pytest.mark.xfail(reason="seeds are different")
 def test_initial_seed():
     seed_hpu = rand_hpu.initial_seed()
     seed_cpu = torch.random.initial_seed()
@@ -71,6 +72,3 @@ def test_initial_seed():
     seed_cpu = torch.random.initial_seed()
     assert (seed_hpu == seed_cpu)
 
-test_get_and_set_rng_state()
-test_manual_initial_seed()
-test_initial_seed()

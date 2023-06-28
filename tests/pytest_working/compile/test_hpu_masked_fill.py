@@ -14,7 +14,7 @@ import pytest
 import random
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
-from utils import env_var_in_scope
+from test_utils import env_var_in_scope
 
 @pytest.mark.xfail(reason="CI problem: undefined symbol: _ZN6habana5graph12GraphStorage3getEv [SW-150162]")
 @pytest.mark.parametrize("shape", [(1,1), (2,2), (3,4,5,6,7)])

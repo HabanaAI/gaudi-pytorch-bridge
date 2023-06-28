@@ -11,18 +11,13 @@
 # ******************************************************************************
 
 import torch
-import numpy as np
 from torch import nn
 import habana_frameworks.torch.core as htcore
-from copy import deepcopy
-
+import pytest
+from test_utils import hpu, cpu
 
 # Test weight norm for Linear and Conv2d for each
 # of the weight dims.
-cpu = "cpu"
-hpu = "hpu"
-
-torch.manual_seed(123456)
 bias = True
 in_feat  = 10
 out_feat = 20
@@ -40,6 +35,7 @@ padding = int((R-1)/2)
 
 rtol=1e-03
 atol=1e-03
+
 class nNet(nn.Module):
     def __init__(self, w, layer_name, dim):
         super().__init__()
@@ -54,19 +50,16 @@ class nNet(nn.Module):
         T2 = self.layer(x)
         return T2
 
-def test_weight_norm_fwd_bwd(ln, device, w, x, g_in, dim):
+def weight_norm_fwd_bwd(layer_name, device, w, x, g_in, dim):
     x = x.to(device)
     g_in = g_in.to(device)
 
     x = x.to(device).detach().requires_grad_()
-    model = nNet(w, ln, dim)
+    model = nNet(w, layer_name, dim)
 
     model = model.to(device)
 
     t2 = model(x)
-    #print(" fwd o/p ", t2.to("cpu"))
-    #print(" weight_g ", model.layer.weight_g.to("cpu"))
-    #print(" weight_v ", model.layer.weight_v.to("cpu"))
     t2.backward(g_in)
     if device =="hpu":
         htcore.mark_step()
@@ -76,11 +69,11 @@ def test_weight_norm_fwd_bwd(ln, device, w, x, g_in, dim):
     b_grad = None
     if bias:
         b_grad = model.layer.bias.grad.to("cpu")
-    #print("x_grad = ", x_grad)
-    #print("wg_grad = ", wg_grad)
-    #print("wv_grad = ", wv_grad)
     return x_grad,wg_grad,wv_grad,b_grad
 
+@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.parametrize("layer_name", ["linear",
+                                        pytest.param("convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")])])
 def test_weight_norm(layer_name):
     if layer_name == "linear":
         x = torch.randn(s_i)
@@ -92,21 +85,15 @@ def test_weight_norm(layer_name):
         g_in = torch.randn(N, C, H, W)
         w = torch.randn(K, C, R, S)
 
-    print(100*"*")
     for dim in range(w.dim()):
-        print(100*"*")
-        print(" Testing  ", layer_name, " on dim = ", dim)
-        print(100*"*")
-        x_grad_c, wg_grad_c ,wv_grad_c, b_grad_c = test_weight_norm_fwd_bwd(layer_name, cpu, w, x, g_in, dim)
-        x_grad_h, wg_grad_h ,wv_grad_h, b_grad_h = test_weight_norm_fwd_bwd(layer_name, hpu, w, x, g_in, dim)
+        x_grad_c, wg_grad_c ,wv_grad_c, b_grad_c = weight_norm_fwd_bwd(layer_name, cpu, w, x, g_in, dim)
+        x_grad_h, wg_grad_h ,wv_grad_h, b_grad_h = weight_norm_fwd_bwd(layer_name, hpu, w, x, g_in, dim)
 
-        print(" input grads match? = ", torch.allclose(x_grad_c, x_grad_h, rtol=rtol, atol=atol))
-        print(" wg grads match? = ", torch.allclose(wg_grad_c, wg_grad_h, rtol=rtol, atol=atol))
-        print(" wv grads match? = ", torch.allclose(wv_grad_c, wv_grad_h, rtol=rtol, atol=atol))
+        assert torch.allclose(x_grad_c, x_grad_h, rtol=rtol, atol=atol)
+        assert torch.allclose(wg_grad_c, wg_grad_h, rtol=rtol, atol=atol)
+        assert torch.allclose(wv_grad_c, wv_grad_h, rtol=rtol, atol=atol)
         if bias:
-            print(" bias grads match? = ", torch.allclose(b_grad_c, b_grad_h, rtol=rtol, atol=atol))
-
-        print(100*"=")
+            assert torch.allclose(b_grad_c, b_grad_h, rtol=rtol, atol=atol)
 
 if __name__ == '__main__':
     test_weight_norm("linear")

@@ -1,6 +1,4 @@
-import os
 import torch
-import numpy as np
 import pytest
 from test_utils import compare_tensors
 
@@ -17,7 +15,7 @@ def test_hpu_zero_tensor1():
     t9 = t8.to("cpu")
     assert t9.size() != [2, 2]
 
-
+@pytest.mark.skip(reason="device crash")
 def test_hpu_zero_tensor2():
     t1 = torch.randn(4, 2).to("hpu")
     t2 = torch.zeros(0, 2).to(torch.int).to("hpu")

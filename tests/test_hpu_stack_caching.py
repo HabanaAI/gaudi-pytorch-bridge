@@ -1,5 +1,4 @@
 import torch
-from test_utils import compare_tensors
 
 def test_stack_cache():
     t1 = torch.randn(3,3).to("hpu")

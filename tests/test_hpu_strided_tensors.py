@@ -1,6 +1,4 @@
-import os
 import torch
-import numpy as np
 import pytest
 import test_utils
 from test_utils import compare_tensors
@@ -35,7 +33,6 @@ def test_hpu_st_tensor1():
     t5 = t2.relu()
     out_cpu = t5
 
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     t4_hpu = t4.to("hpu")
     t4_hpu_st = t4_hpu[0::4, ...]
     t1_hpu = t1.to("hpu")
@@ -44,9 +41,6 @@ def test_hpu_st_tensor1():
     t5_hpu = t2_hpu.relu()
     out_hpu = t5_hpu.to("cpu")
 
-    # print("out hpu = ", out_hpu)
-    # print("out cpu = ", out_cpu)
-    del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(out_hpu, out_cpu, atol=0, rtol=0)
 
 
@@ -57,14 +51,12 @@ def test_hpu_st_tensor2():
     t5 = t3.relu_()
     out_cpu = t5
 
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     t1_hpu = t1.to("hpu")
     t2_hpu = t1_hpu.abs()
     t3_hpu = t2_hpu[0::2, ...]
     t5_hpu = t3_hpu.relu_()
     out_hpu = t5_hpu.to("cpu")
-       
-    del os.environ["PT_HPU_LAZY_MODE"]
+
     compare_tensors(out_hpu, out_cpu, atol=0.1, rtol=0.1)
 
 
@@ -81,7 +73,6 @@ def test_hpu_st_tensor3():
     cpu_result.backward(grad_out)
     cpu_grad = in_t.grad.detach()
 
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     hpu_t = in_t_detach.to("hpu")
     hpu_t.requires_grad = True
     grad_out_hpu = grad_out_detach.to("hpu")
@@ -90,14 +81,12 @@ def test_hpu_st_tensor3():
     hpu_grad = hpu_t.grad.detach()
     hpu_result = hpu_result.to("cpu")
     hpu_grad_result = hpu_grad.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
 
     compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
     compare_tensors(hpu_grad_result, cpu_grad, atol=0, rtol=0)
 
 
 def test_hpu_st_tensor4():
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     batched_imgs = torch.randn(2, 5, 5)
     batched_imgs_hpu = batched_imgs.to("hpu")
     tensors = [torch.ones(3, 3), torch.ones(2, 2)]
@@ -110,16 +99,14 @@ def test_hpu_st_tensor4():
         pad_img_hpu[..., : img_hpu.shape[-2], : img_hpu.shape[-1]].copy_(img_hpu)
 
     out_hpu = batched_imgs_hpu.to("cpu")
-    del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(out_hpu, batched_imgs, atol=0, rtol=0)
 
 
 @pytest.mark.parametrize("N, C, H, W, bs", test_case_list_4D)
 def test_hpu_lazy_slice_fwd_4D(N, C, H, W, bs):
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     t1 = torch.zeros((N, C, H, W), requires_grad=False)
     t_in = torch.ones((N, C, H, W), requires_grad=False)
-    
+
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t_h_in = t_in.detach().to(hpu)
@@ -129,20 +116,18 @@ def test_hpu_lazy_slice_fwd_4D(N, C, H, W, bs):
         t1[bs*i: bs*(i+1)] = t.data
         t1_h[bs*i: bs*(i+1)] = t_h.data
         htcore.mark_step()
-    del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(t1_h, t1, atol=0, rtol=0)
- 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("N, const", test_case_list_1D)
 def test_hpu_lazy_slice_fwd_1D(N, const):
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     t1 = torch.arange(N - 1, dtype=torch.float32)
     t2 = torch.ones(N - 1, dtype=torch.float32)
- 
+
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t2_h = t2.detach().to(hpu)
- 
+
     for i in range(1, N):
         t1[i - 1] += const
         t1_h[i - 1] += const
@@ -151,22 +136,20 @@ def test_hpu_lazy_slice_fwd_1D(N, const):
     t2_h += t1_h
     htcore.mark_step()
 
-    del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(t2_h, t2, atol=0, rtol=0)
 
 
 @pytest.mark.parametrize("N, C, D, H, W, bs", test_case_list_5D)
 def test_hpu_lazy_slice_fwd_5D(N, C, D, H, W, bs):
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     a, b, c, d, e = (N, C, D, H, W)
     rem = a % bs
-    pad = 0 
+    pad = 0
     if a != 0:
         pad = bs-rem
     input_tensor = (a+pad, b, c, d, e)
     t1 = torch.zeros(input_tensor, requires_grad=False)
     t_in = torch.ones(input_tensor, requires_grad=False).contiguous(memory_format=torch.channels_last_3d)
-    
+
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t_h_in = t_in.detach().to(hpu)
@@ -186,12 +169,10 @@ def test_hpu_lazy_slice_fwd_5D(N, C, D, H, W, bs):
     t1_h = torch.transpose(t1_h, 0, 1).unsqueeze(0)
     htcore.mark_step()
     compare_tensors(t1_h, t1, atol=0, rtol=0)
-    del os.environ["PT_HPU_LAZY_MODE"]
 
 
 @pytest.mark.parametrize("N, C, D, H, W, bs", test_case_list_5D)
 def test_hpu_lazy_slice_fwd_5D_bf16(N, C, D, H, W, bs):
-    os.environ["PT_HPU_LAZY_MODE"] = "1"
     t1 = torch.zeros((N, C, D, H, W), requires_grad=False)
     t_in = torch.ones((N, C, D, H, W), requires_grad=False).contiguous(memory_format=torch.channels_last_3d)#.to(torch.bfloat16)
 
@@ -207,7 +188,6 @@ def test_hpu_lazy_slice_fwd_5D_bf16(N, C, D, H, W, bs):
         htcore.mark_step()
         compare_tensors(t_h, t, atol=0.001, rtol=0.001)
         compare_tensors(t1_h, t1, atol=0.001, rtol=0.001)
-    del os.environ["PT_HPU_LAZY_MODE"]
     compare_tensors(t1_h, t1, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, C", test_case_list_1D)

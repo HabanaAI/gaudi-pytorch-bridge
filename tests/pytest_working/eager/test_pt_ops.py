@@ -10,12 +10,9 @@
 #
 ###############################################################################
 
-import functools
 import numpy as np
 import torch
 import pytest
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
 
 def test_argmax():
     def test(func, cpu_tensor):

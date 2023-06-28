@@ -12,47 +12,13 @@
 import torch
 import torch.nn.functional as F
 import pytest
-import os
-torch.manual_seed(0)
+from test_utils import env_var_in_scope
 
-from contextlib import contextmanager
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
-pytestmark = pytest.mark.xfail(reason="")
-
-def set_flag_in_env(name: str, value):
-    if value is None:
-        # Nothing to do here
-        return
-    elif isinstance(value, str):
-        os.environ[name] = value
-    elif isinstance(value, bool):
-        os.environ[name] = str(int(value))
-    elif isinstance(value, int):
-        os.environ[name] = str(value)
-    else:
-        assert False, f"Value '{value}' invalid or not supported"
-
-
-@contextmanager
-def env_var_in_scope(vars={}):
-    orig_vars = {}
-    for key in vars.keys():
-        orig_vars[key] = os.environ.get(key, None)
-        set_flag_in_env(key, vars[key])
-    try:
-        yield
-    finally:
-        for key in orig_vars.keys():
-            # restore environment variable
-            if orig_vars[key] is not None:
-                os.environ[key] = orig_vars[key]
-            else:
-                if key in os.environ:
-                    del os.environ[key]
 
 def test_hpu_multilevel_noncontiguous_views():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
-        import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
             c = torch.add(b, 1.0)
@@ -74,7 +40,6 @@ def test_hpu_multilevel_noncontiguous_views():
 
 def test_hpu_multilevel_noncontiguous_views_inplace():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
-        import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
             b.mul_(2.0)
@@ -96,7 +61,6 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
 
 def test_hpu_multilevel_noncontiguous_views2():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
-        import habana_frameworks.torch.core as htcore
         def fn(x):
             a = x.t()
             b = a[:,::2]
@@ -120,7 +84,6 @@ def test_hpu_multilevel_noncontiguous_views2():
 
 def test_hpu_multilevel_views_inplace():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
-        import habana_frameworks.torch.core as htcore
         def fn(a):
             b = a[::2]
             b.mul_(2.0)
@@ -142,7 +105,6 @@ def test_hpu_multilevel_views_inplace():
 
 def test_hpu_leaf_views_test():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
-        import habana_frameworks.torch.core as htcore
         def fn(x, y, z):
 
             hx = x.to('hpu')

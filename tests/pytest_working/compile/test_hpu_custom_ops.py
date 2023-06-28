@@ -12,7 +12,9 @@
 import torch
 import pytest
 import os
-from utils import env_var_in_scope
+from test_utils import env_var_in_scope
+
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 
 @pytest.mark.xfail(

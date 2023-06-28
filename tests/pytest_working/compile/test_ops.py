@@ -10,16 +10,16 @@
 #
 ###############################################################################
 import torch
-import os
 import pytest
 import habana_frameworks.torch.utils.experimental as htexp
+
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 from test_utils import generic_setup_teardown_env
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     def callback():
-        import habana_frameworks.torch.core as htcore
-        import habana_frameworks.torch.dynamo.compile_backend
+        pass
 
     generic_setup_teardown_env(
         temp_test_env={"PT_HPU_LAZY_MODE": 0},
@@ -120,9 +120,9 @@ def test_expand(dtype):
     ):
         pytest.skip("Half is not supported for expand.")
     '''
-    expand is a view op. 
-    For instance, if we perform inplace update on expand o/p, 
-    the expand input should also reflect the change. 
+    expand is a view op.
+    For instance, if we perform inplace update on expand o/p,
+    the expand input should also reflect the change.
     In our design, view output are eagerized.
     To test graph flow, we need to keep expand as a graph intermediate.
     '''

@@ -11,8 +11,7 @@
 # ******************************************************************************
 
 import torch
-import habana_frameworks.torch.core as htcore
-from test_utils import compare_tensors, _kernel_copy_to_device
+from test_utils import compare_tensors
 
 cpu = torch.device("cpu")
 hpu = torch.device("hpu")

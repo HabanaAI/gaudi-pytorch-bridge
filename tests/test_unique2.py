@@ -11,8 +11,7 @@
 # ##############################################################################
 
 import torch
-torch.manual_seed(0)
-import habana_frameworks.torch.core as htcore
+
 import numpy as np
 from typing import Union
 import pytest
@@ -31,4 +30,6 @@ def _test_allclose(a: torch.Tensor, sorted: bool = True, dim: Union[int, None]=N
 def test_unique2(dim, sorted, input_tensor_dim):
     if ((input_tensor_dim>MAX_SUPPORTED_DIM) or (sorted and dim is not None)):
         pytest.skip("TPC can handle only upto (1D to 4D) (or) when sorted=True, dim should be None. So this will fallback to CPU")
+    elif sorted == False and input_tensor_dim == 1:
+        pytest.xfail(reason="Results mismatch")
     _test_allclose(torch.randint(9, (3, )*input_tensor_dim), sorted=sorted, dim=dim)

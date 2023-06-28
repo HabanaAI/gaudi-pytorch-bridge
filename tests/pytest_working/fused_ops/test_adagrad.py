@@ -11,16 +11,11 @@
 ###############################################################################
 
 import numpy as np
-import os
-import sys
 import torch
 import pytest
-from test_utils import is_gaudi1
 
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.optimizers import FusedAdagrad
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
