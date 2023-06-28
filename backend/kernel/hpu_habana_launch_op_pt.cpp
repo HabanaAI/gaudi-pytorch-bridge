@@ -1023,15 +1023,16 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
   // if both are persistent, use same memeory section
   if (syn_tensor_input.is_persistent() && persistence) {
     // create a tensor variant on the same memory section as the input
-    auto variant = synapse_helpers::tensor_builder(
-                       tensor->sizes(),
-                       tensor->strides(),
-                       habana_helpers::pytorch_to_synapse_type(dtype))
-                       .mark_persistence(true)
-                       .with_memory_section(syn_tensor_input.memorysection())
-                       .build(
-                           HPURegistrar::get_device(tensor->device().index()),
-                           syn_tensor_input.graph());
+    auto variant =
+        synapse_helpers::tensor_builder(
+            tensor->sizes(),
+            tensor->strides(),
+            habana_helpers::pytorch_to_synapse_type(dtype))
+            .mark_persistence(true)
+            .with_memory_section(syn_tensor_input.memorysection())
+            .build(
+                HPURegistrar::get_device(tensor->device().index()).syn_device(),
+                syn_tensor_input.graph());
 
     meta_syn_tensors.push_back(
         absl::get<synapse_helpers::tensor>(std::move(variant)));
@@ -4238,8 +4239,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   std::string graphName{GetSynapseGraphName()};
 
   auto create_graph_for_refinement{[&]() -> synapse_helpers::graph {
-    auto graph_or_error =
-        synapse_helpers::graph::create_for_refinement(device, name);
+    auto graph_or_error = synapse_helpers::graph::create_for_refinement(
+        device.syn_device(), name);
 
     if (absl::holds_alternative<synapse_helpers::synapse_error>(
             graph_or_error)) {

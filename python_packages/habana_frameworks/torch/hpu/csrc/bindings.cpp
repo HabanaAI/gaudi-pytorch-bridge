@@ -40,8 +40,7 @@ const std::string get_device_name(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
-  return device.name();
+  return habana::HPURegistrar::get_device().name();
 }
 
 const synapse_helpers::MemoryStats get_mem_stat(int device_id) {

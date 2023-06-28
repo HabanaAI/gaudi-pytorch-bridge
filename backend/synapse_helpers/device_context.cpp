@@ -54,9 +54,9 @@ hcclResult_t device_context::open_device(int device_id) {
   if (!ok(maybe_dev_handle)) {
     RETURN_ON_SYNAPSE_ERROR(get_error(maybe_dev_handle));
   }
-  synapse_helpers::device_handle dev_handle =
+  synapse_helpers::device_handle device =
       synapse_helpers::get_value(maybe_dev_handle);
-  device_ = dev_handle;
+  device_ = device;
   return hcclSuccess;
 }
 
@@ -78,12 +78,11 @@ hcclResult_t device_context::acquire_collective_stream(
     PT_DISTRIBUTED_FATAL("Uninitialized device");
     return hcclInvalidArgument;
   }
-  synapse_helpers::device_handle dev_handle = device_;
   synapse_helpers::hpuStream_t stream;
-  dev_handle->create_stream(stream, true);
+  device_->create_stream(stream, true);
 
   synapse_helpers::stream& stream_handle =
-      dev_handle->get_stream(stream, synapse_helpers::NETWORK);
+      device_->get_stream(stream, synapse_helpers::NETWORK);
   HABANA_ASSERT(nullptr != stream_handle);
 
   stream_objects_[stream_handle] = &stream_handle;
@@ -103,8 +102,7 @@ hcclResult_t device_context::release_stream(synStreamHandle stream_handle) {
     PT_DISTRIBUTED_WARN("Stream handle should not be null!");
     return hcclInvalidArgument;
   }
-  synapse_helpers::device_handle dev_handle = device_;
-  dev_handle->delete_stream(hpustream_handle_map_[stream_handle]);
+  device_->delete_stream(hpustream_handle_map_[stream_handle]);
   hpustream_handle_map_.erase(stream_handle);
 
   stream_objects_[stream_handle] = nullptr;
@@ -127,15 +125,13 @@ hcclResult_t device_context::lock_address(
     return hcclInvalidArgument;
   }
 
-  synapse_helpers::device_handle device = device_;
-
-  if (device == nullptr) {
+  if (device_ == nullptr) {
     PT_DISTRIBUTED_FATAL(
         "Device need to be opened and chosen before allocating memory.");
     return hcclInvalidUsage;
   }
 
-  synapse_helpers::device_ptr_lock locked{device->lock_addresses(
+  synapse_helpers::device_ptr_lock locked{device_->lock_addresses(
       reinterpret_cast<synapse_helpers::device_ptr>(address))};
   auto locked_address = reinterpret_cast<void*>(locked.at(0));
   *device_address = locked_address;
@@ -148,9 +144,7 @@ hcclResult_t device_context::lock_address(
   std::lock_guard<std::mutex> guard{access_mutex_};
   PT_DISTRIBUTED_DEBUG("Calling device_context::lock_address");
 
-  synapse_helpers::device_handle device = device_;
-
-  if (device == nullptr) {
+  if (device_ == nullptr) {
     PT_DISTRIBUTED_FATAL(
         "Device need to be opened and chosen before allocating memory.");
     return hcclInvalidUsage;
@@ -162,7 +156,7 @@ hcclResult_t device_context::lock_address(
         reinterpret_cast<synapse_helpers::device_ptr>(address));
 
   locked = absl::make_unique<synapse_helpers::device_ptr_lock>(
-      device->lock_addresses(
+      device_->lock_addresses(
           absl::Span<const synapse_helpers::device_ptr>(dev_addresses)));
 
   return hcclSuccess;
@@ -185,16 +179,14 @@ hcclResult_t device_context::lock_address(
     return hcclInvalidArgument;
   }
 
-  synapse_helpers::device_handle device = device_;
-
-  if (device == nullptr) {
+  if (device_ == nullptr) {
     PT_DISTRIBUTED_FATAL(
         "Device need to be opened and chosen before allocating memory.");
     return hcclInvalidUsage;
   }
 
-  locked =
-      std::make_unique<synapse_helpers::device_ptr_lock>(device->lock_addresses(
+  locked = std::make_unique<synapse_helpers::device_ptr_lock>(
+      device_->lock_addresses(
           reinterpret_cast<synapse_helpers::device_ptr>(address)));
   auto locked_address = reinterpret_cast<void*>(locked->at(0));
   *device_address = locked_address;
@@ -203,9 +195,7 @@ hcclResult_t device_context::lock_address(
 
 synapse_helpers::active_recipe_counter& device_context::
     get_active_recipe_counter() {
-  synapse_helpers::device_handle device = device_;
-
-  if (device == nullptr) {
+  if (device_ == nullptr) {
     PT_DISTRIBUTED_FATAL(
         "Device need to be opened and chosen before get_active_recipe_counter");
   }
@@ -228,13 +218,12 @@ hcclResult_t device_context::prepare_stream(
     return hcclInvalidArgument;
   }
 
-  synapse_helpers::device_handle dev_handle = device_;
-  HABANA_ASSERT(nullptr != dev_handle);
+  HABANA_ASSERT(nullptr != device_);
 
   std::vector<synapse_helpers::device_ptr> addresses;
   addresses.push_back(input_address);
 
-  dev_handle->add_wait_events_on_stream(
+  device_->add_wait_events_on_stream(
       addresses, *stream_objects_[stream_handle]);
 
   return hcclSuccess;
@@ -257,13 +246,12 @@ hcclResult_t device_context::submit_events(
     return hcclInvalidArgument;
   }
 
-  synapse_helpers::device_handle dev_handle = device_;
-  HABANA_ASSERT(nullptr != dev_handle);
+  HABANA_ASSERT(nullptr != device_);
 
   std::vector<synapse_helpers::device_ptr> addresses;
   addresses.push_back(output_address);
 
-  dev_handle->register_producer_on_stream(
+  device_->register_producer_on_stream(
       std::move(addresses), *stream_objects_[stream_handle], done_callback);
   return hcclSuccess;
 }
@@ -271,10 +259,9 @@ hcclResult_t device_context::submit_events(
 hcclResult_t device_context::submit_future(
     synapse_helpers::device_ptr device_addr,
     std::shared_future<bool> fut) {
-  synapse_helpers::device_handle dev_handle = device_;
-  HABANA_ASSERT(nullptr != dev_handle);
+  HABANA_ASSERT(nullptr != device_);
 
-  dev_handle->submit_future(device_addr, std::move(fut));
+  device_->submit_future(device_addr, std::move(fut));
   return hcclSuccess;
 }
 
@@ -289,11 +276,10 @@ hcclResult_t device_context::synchronize_output(
       output_address,
       ")");
 
-  synapse_helpers::device_handle dev_handle = device_;
-  HABANA_ASSERT(nullptr != dev_handle);
-  dev_handle->wait_for_future(output_address);
+  HABANA_ASSERT(nullptr != device_);
+  device_->wait_for_future(output_address);
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
-    dev_handle->wait_until_address_ready(output_address);
+    device_->wait_until_address_ready(output_address);
   }
   return hcclSuccess;
 }

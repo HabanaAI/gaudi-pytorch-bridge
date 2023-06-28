@@ -134,12 +134,11 @@ class device {
   static std::mutex device_mtx;
 
   using ref = std::reference_wrapper<synapse_helpers::device>;
-  static synapse_error_v<std::shared_ptr<device>> get_or_create(
+  static synapse_error_v<device_handle> get_or_create(
       const std::set<synDeviceType>& allowed_device_types,
       const create_allocator_fnc& create_allocator);
 
-  static synapse_error_v<std::shared_ptr<device>> get_by_id(
-      synDeviceId idtype_t);
+  static synapse_error_v<device_handle> get_by_id(synDeviceId idtype_t);
 
   device(const device&) = delete;
   device& operator=(const device&) = delete;
@@ -149,6 +148,11 @@ class device {
 
   void cleanup();
   void flush_stream_events();
+
+  // temporary getter. to be replaced by HPUDevice::syn_device [SW-145757]
+  device& syn_device() {
+    return *this;
+  }
 
   // Function passed here will be called at the begining od device dtor.
   void register_framework_specific_cleanup(
@@ -446,6 +450,7 @@ class device {
   bool getDeterministic() const {
     return deterministic_;
   }
+
   void setDeterministic(bool val) {
     deterministic_ = val;
   }
@@ -473,7 +478,7 @@ class device {
 
  private:
   friend class stream;
-  static synapse_error_v<std::shared_ptr<device>> create(
+  static synapse_error_v<device_handle> create(
       const std::set<synDeviceType>& allowed_device_types,
       const create_allocator_fnc& create_allocator);
   device(

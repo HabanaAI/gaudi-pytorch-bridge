@@ -68,7 +68,7 @@ void HPUAllocator::release() {
 }
 
 static void waitTillRecipeExecutionDone(synDeviceId device_id) {
-  auto& device = HPURegistrar::get_device(device_id);
+  auto& device = HPURegistrar::get_device(device_id).syn_device();
   bool status = device.get_device_memory().is_mem_threshold_hit();
   auto& recipe_counter = device.get_active_recipe_counter();
   uint32_t counter_state = recipe_counter.get_count();
@@ -88,7 +88,7 @@ static synStatus waitTillRecipeExecution(
     size_t num_bytes,
     void*& v_ptr) {
   synStatus status{synStatus::synFail};
-  auto& device = HPURegistrar::get_device(device_id);
+  auto& device = HPURegistrar::get_device(device_id).syn_device();
   // Allocation has failed, if there are still recipies in queue to execute,
   // there is a chance to recover. Wait for next recipe to finish and try to
   // allocate again, continue until malloc succeeds, or there are no more
@@ -303,7 +303,8 @@ void HPUDeviceAllocator::memstat_devmem_start_collect(
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
+  auto& device =
+      HPURegistrar::get_device(allocator_active_device_id).syn_device();
   if (device.IsStreamASyncEnabled()) {
     PT_DEVICE_WARN(
         "Warning: Set PT_ENABLE_HABANA_STREAMASYNC=0 for device memory "
@@ -325,7 +326,8 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
+  auto& device =
+      HPURegistrar::get_device(allocator_active_device_id).syn_device();
   if (device.get_device_memory().get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {
     std::string updated_msg = msg;
@@ -337,7 +339,7 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
 }
 
 void HPUDeviceAllocator::dump_memory_reporter() {
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device().syn_device();
   synapse_helpers::memory_reporter_event_create(
       device, synapse_helpers::mem_reporter_type::MEM_REPORTER_USER_CALL);
 }

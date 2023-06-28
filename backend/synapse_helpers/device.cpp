@@ -332,37 +332,36 @@ device::device(
   habana::RefinementEngine::GetEngine().Initialize();
 }
 
-synapse_error_v<std::shared_ptr<device>> device::get_or_create(
+synapse_error_v<device_handle> device::get_or_create(
     const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& allocator) {
   std::lock_guard<std::mutex> lock(device_mtx);
-  std::shared_ptr<device> device_ptr = device_in_use.lock();
-  if (device_ptr != nullptr) {
-    if (!allowed_device_types.count(device_ptr->type())) {
+  device_handle handle = device_in_use.lock();
+  if (handle != nullptr) {
+    if (!allowed_device_types.count(handle->type())) {
       return synapse_error{
           "Process already acquired device of different type.",
           synDeviceTypeMismatch};
     }
-    return device_ptr;
+    return handle;
   }
 
   return device::create(allowed_device_types, allocator);
 }
 
-synapse_error_v<std::shared_ptr<device>> device::get_by_id(
-    synDeviceId requested_id) {
+synapse_error_v<device_handle> device::get_by_id(synDeviceId requested_id) {
   std::lock_guard<std::mutex> lock(device_mtx);
-  std::shared_ptr<device> device_ptr = device_in_use.lock();
-  if (device_ptr != nullptr) {
-    if (requested_id == device_ptr->id()) {
-      return device_ptr;
+  device_handle handle = device_in_use.lock();
+  if (handle) {
+    if (requested_id == handle->id()) {
+      return handle;
     }
   }
   return synapse_error{
       "Device with given id is not open by anyone!", synObjectNotInitialized};
 }
 
-synapse_error_v<std::shared_ptr<device>> device::create(
+synapse_error_v<device_handle> device::create(
     const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& create_allocator) {
   PT_SYNHELPER_DEBUG("synHPU Init");

@@ -121,7 +121,8 @@ void log_dev_mem_stats(
       ss << " future " << future_bytes / GB << "gb (" << future << ")";
     }
 
-    ss << ", last workspace " << device.get_real_workspace_size() / GB << "gb";
+    ss << ", last workspace "
+       << device.syn_device().get_real_workspace_size() / GB << "gb";
   }
 
   PT_MEMLOG_DEBUG(ss.str());

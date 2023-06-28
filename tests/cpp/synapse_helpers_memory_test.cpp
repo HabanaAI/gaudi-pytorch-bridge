@@ -34,7 +34,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
   void SetUp() override {
     habana::HABANAGuardImpl device_guard;
     device_guard.getDevice();
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
     // clear cache scalar tensors map
     setenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP", "1", 1);
     habana_lazy::HbExecutionContext* context =
@@ -57,14 +57,14 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
     unsetenv("PT_HPU_POOL_STRATEGY");
     unsetenv("PT_ENABLE_MEMORY_DEFRAGMENTATION");
     unsetenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP");
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPURegistrar::get_device().syn_device();
     device.cleanup_workspace_buffer();
     device.get_device_memory().reset_pool();
   }
 };
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOM_1) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -110,7 +110,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_1) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOM_2) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -159,7 +159,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_2) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOM_3) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   int num_mem_blk = 0;
   // Add required test pattern of required length.
   std::set<std::pair<int, std::vector<int>>> test_set{
@@ -229,7 +229,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_3) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB
@@ -273,7 +273,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
 // we can test when we have handling in smalalloc for equal to 256 size. so
 // disabling it for now
 TEST_F(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // Fill up the entire space expect the small alloc region
   // allocate workspace buffer 1.06gb
   device.get_workspace_buffer(1143820277);
@@ -343,7 +343,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   if (is_simulator()) {
     GTEST_SKIP();
   }
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   // allocate 5 varaibles of size 200 MB and copy the src content
@@ -461,7 +461,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
   if (is_simulator()) {
     GTEST_SKIP();
   }
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   int num_mem_blk = 0;
   // Add required test pattern of required length.
   std::set<std::pair<int, std::vector<int>>> test_set{
@@ -621,7 +621,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, GenTest) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   int x = 0, y = 0;
@@ -681,7 +681,7 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
   // allocate workspace buffer 1gb
   device.get_workspace_buffer(1960834120);
   std::vector<device_ptr> address;

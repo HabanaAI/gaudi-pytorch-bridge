@@ -1644,7 +1644,7 @@ void RecipeValueSpec::launch(
 
   MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPURegistrar::get_device().syn_device();
   auto& stream_handle = device.get_stream(hpu_stream);
 
   std::vector<at::Tensor> ptRefs;
