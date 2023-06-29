@@ -20,7 +20,6 @@ LING_EAGER_TESTS = (
     "EagerKernelTest.IndexTest"
     "EagerKernelTest.LayerNormForwardWeightDefBiasDefBF16Execute"
     "EagerKernelTest.LinspaceOutNeToPosStep1"
-    "EagerKernelTest.RepeatTest"
     "EagerKernelTest.SumDimIntOut"
     "GenOps.Fns"
     "HpuOpComputeShapeTest.bce_usual_3D_sum_cmptopshp"
