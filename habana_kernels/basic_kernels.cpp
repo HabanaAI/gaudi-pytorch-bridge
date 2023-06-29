@@ -1101,6 +1101,7 @@ void StridedInsertOperator::compute_params_h2d(
     synStridedOpParams& params,
     Stack& inputs,
     synapse_helpers::graph& graph) {
+  std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   auto orig_t = inputs[0].toTensor();
   auto insert_t = inputs[1].toTensor();
   std::vector<int64_t> strides;
@@ -1194,6 +1195,7 @@ void StridedInsertOperator::compute_params(
     synStridedOpParams& params,
     Stack& inputs,
     synapse_helpers::graph& graph) {
+  std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   auto orig_t = inputs[0].toTensor();
   auto insert_t = inputs[1].toTensor();
   std::vector<int64_t> strides;
@@ -1498,6 +1500,7 @@ void StridedViewOperator::compute_params_h2d(
     std::vector<int64_t>& strides,
     int64_t& offset) {
   params = static_cast<synStridedOpParams>(params);
+  std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   std::vector<int64_t> stride_values;
   TORCH_CHECK(p_context_->syn_inputs_[1].ref().is_shape_tensor());
   size = p_context_->syn_inputs_[1].ref().pt_shape();
@@ -1593,6 +1596,7 @@ void StridedViewOperator::compute_params(
     std::vector<int64_t>& size,
     std::vector<int64_t>& strides,
     int64_t& offset) {
+  std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   auto self = inputs[0].toTensor();
   offset = 0;
 
