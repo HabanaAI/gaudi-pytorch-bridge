@@ -175,3 +175,145 @@ def test_hpu_leaf_views_test():
         assert torch.allclose(res0, hres0)
         assert torch.allclose(res1, hres1)
         assert torch.allclose(res2, hres2)
+
+def fn(a):
+    b = a.t()
+    c = b.mul(1.0)
+    return c
+
+def fn2(a):
+    b = a.t()
+    b.mul_(1.0)
+    return b
+
+def fn3(a):
+    b = a.t()
+    c = b.mul(1.0)
+    return c.t()
+
+def fn4(a):
+    b = a.t()
+    b.mul_(1.0)
+    return b.t()
+
+def fn5(a):
+    b = torch.as_strided(a, (3, 2), (1, 3), 0)
+    c = b.mul(1.0)
+    return c
+
+def fn6(a):
+    b = a.view((3, 2), (1, 3))
+    c = b.mul(1.0)
+    return c
+
+def fn7(a):
+    b = a.transpose(0, 1)
+    c = b.mul(1.0)
+    return c
+
+def fn8(a):
+    b = a.transpose(0, 1)
+    c = b.mul(1.0)
+    return c.transpose(0, 1)
+
+def fn9(a):
+    b = a.transpose(0, 1)
+    c = b.mul(1.0)
+    d = c.transpose(0, 1)
+    e = d.mul(1.0)
+    return e
+
+def fn10(a):
+    b = a.transpose(0, 1)
+    c = b.transpose(0, 1)
+    d = c.mul(1.0)
+    return c
+
+def fn11(a):
+    b = a.transpose(0, 1)
+    c = b.transpose(1, 0)
+    d = c.mul(1.0)
+    return c
+
+def fn12(a):
+    b = a.permute((1, 0))
+    c = b.mul(1.0)
+    return c
+
+def fn13(a):
+    b = a.permute((1, 0))
+    c = b.permute((0, 1))
+    d = c.mul(1.0)
+    return d
+
+@pytest.mark.parametrize("func", [fn, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn12, fn13])
+def test_hpu_non_contiguous_outputs(func):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+            from functorch.compile import make_boxed_func
+            return make_boxed_func(fx_module.forward)
+
+        from torch._dynamo.backends.common import aot_autograd
+        aot_backend = aot_autograd(fw_compiler=inner_compiler)
+
+        compiled_func_hpu = torch.compile(func, backend="aot_hpu_training_backend")
+        compiled_func_cpu = torch.compile(func, backend=aot_backend)
+
+        x = torch.randn([2, 3])
+        hx = x.to('hpu')
+
+        res_eager_cpu = func(x)
+        res_eager_cpu2 = compiled_func_cpu(x)
+        res_eager_hpu = compiled_func_hpu(hx)
+
+        assert torch.allclose(res_eager_cpu, res_eager_cpu2, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(res_eager_cpu, res_eager_hpu.cpu(), atol = 0.001, rtol = 0.001)
+        assert res_eager_cpu.size() == res_eager_hpu.size()
+        assert res_eager_cpu.stride() == res_eager_hpu.stride()
+
+
+def fn_multi(a):
+    b = a.t()
+    c = b.mul(1.0)
+    return c, c.t()
+
+def fn_multi2(a):
+    b = a.t()
+    c = b.mul(1.0)
+    d = c.mul(2.0)
+    return d, c, c.t()
+
+def fn_multi3(a):
+    b = a.t()
+    c = b.mul(1.0)
+    return b, c.t()
+
+@pytest.mark.parametrize("func", [fn_multi, fn_multi2, fn_multi3])
+def test_hpu_non_contiguous_more_outputs(func):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+        import habana_frameworks.torch.core as htcore
+
+        def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
+            from functorch.compile import make_boxed_func
+            return make_boxed_func(fx_module.forward)
+
+        from torch._dynamo.backends.common import aot_autograd
+        aot_backend = aot_autograd(fw_compiler=inner_compiler)
+
+        compiled_func_hpu = torch.compile(func, backend="aot_hpu_training_backend")
+        compiled_func_cpu = torch.compile(func, backend=aot_backend)
+
+        x = torch.randn([2, 3])
+        hx = x.to('hpu')
+
+        res_eager_cpu = func(x)
+        res_eager_cpu2 = compiled_func_cpu(x)
+        res_eager_hpu = compiled_func_hpu(hx)
+
+        for i in range(len(res_eager_cpu)):
+            assert torch.allclose(res_eager_cpu[i], res_eager_cpu2[i], atol = 0.001, rtol = 0.001)
+            assert torch.allclose(res_eager_cpu[i], res_eager_hpu[i].cpu(), atol = 0.001, rtol = 0.001)
+            assert res_eager_cpu[i].size() == res_eager_hpu[i].size()
+            assert res_eager_cpu[i].stride() == res_eager_hpu[i].stride()

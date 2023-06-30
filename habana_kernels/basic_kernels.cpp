@@ -1375,7 +1375,6 @@ void AsStridedScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
-  std::cout << __func__ << std::endl;
   TORCH_CHECK(
       inputs.size() >= 5,
       "Incorrect number of arguments for AsStridedScatterOperator op");
