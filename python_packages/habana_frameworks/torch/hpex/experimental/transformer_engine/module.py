@@ -1058,6 +1058,7 @@ class _Linear(torch.autograd.Function):
         tensor_parallel: bool,
         activation_dtype: torch.dtype,
         parallel_mode: Union[str, None],
+        minimize_memory: bool,
     ) -> torch.Tensor:
         # Make sure input dimensions are compatible
         in_features = weight.shape[-1]
@@ -1117,9 +1118,10 @@ class _Linear(torch.autograd.Function):
             inputmat_no_fp8
             if not fp8 or fp8_meta["recipe"].override_linear_precision.wgrad else None,
             inputmat if fp8 and not fp8_meta["recipe"].override_linear_precision.wgrad else None,
-            weight_fp8 if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad else None,
+            weight_fp8 if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad and not minimize_memory else None,
             weight,
             fp8_meta["scaling_fwd"].scale_inv.clone() if fp8 else None,
+            fp8_meta["scaling_fwd"].scale.clone() if fp8 else None,
         )
         ctx.activation_dtype = activation_dtype
         ctx.fp8 = fp8
@@ -1154,6 +1156,7 @@ class _Linear(torch.autograd.Function):
             weight_fp8,
             weight,
             fwd_scale_inverses,
+            fwd_scales,
         ) = ctx.saved_tensors
 
         (
@@ -1193,6 +1196,15 @@ class _Linear(torch.autograd.Function):
         fp8_dtype_backward = get_fp8_te_dtype(
             ctx.fp8_meta["recipe"], fprop_tensor=False
         )
+
+        if weight_fp8 is None:
+            # If weight_fp8 was remembered from fwd pass, recompute it
+            weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
+                weight,
+                fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
+                is_amax=False
+            )
 
         # DGRAD
         dgrad = fp8_gemm(
@@ -1250,6 +1262,7 @@ class _Linear(torch.autograd.Function):
             wgrad if weight.requires_grad else None,
             dgrad.view(ctx.inp_shape),
             grad_bias,
+            None,
             None,
             None,
             None,
@@ -1318,6 +1331,10 @@ class Linear(TransformerEngineBaseModule):
                   it controls the type used to allocate the initial parameters. Useful when
                   the model is trained with lower precision and the original FP32 parameters
                   would not fit in GPU memory.
+    minimize_memory : bool, default = `False`
+                     when set to `False`, memory usage is decreased by recalculating fp8 weight
+                     in backward pass. This reduces memory usage but obviously degrades perf.
+                     It works especially well with deepspeed pipelining mechanism.
     """
 
     def __init__(
@@ -1335,6 +1352,7 @@ class Linear(TransformerEngineBaseModule):
         params_dtype: torch.dtype = torch.float32,
         parallel_mode: Optional[str] = None,
         skip_weight_param_allocation: bool = False,
+        minimize_memory: bool = False,
     ) -> None:
         super().__init__()
         self.in_features = in_features
@@ -1343,6 +1361,7 @@ class Linear(TransformerEngineBaseModule):
         self.use_bias = bias
         self.return_bias = return_bias
         self.skip_weight_param_allocation = skip_weight_param_allocation
+        self.minimize_memory = minimize_memory
 
         if tp_group is None:
             self.tp_size = tp_size
@@ -1466,6 +1485,7 @@ class Linear(TransformerEngineBaseModule):
             self.tp_size > 1,
             self.activation_dtype,
             self.parallel_mode,
+            self.minimize_memory,
         )
 
         self.post_forward()

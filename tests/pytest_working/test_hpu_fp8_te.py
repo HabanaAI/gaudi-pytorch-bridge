@@ -406,3 +406,114 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
                                   grad_w_ref.numpy(), equal_nan=True), f"Grad weight data mismatch at {i}"
             assert np.array_equal(grad_b_test.numpy(),
                                   grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at {i}"
+
+def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
+    import habana_frameworks.torch as ht
+    # Prepare te linear module
+    torch.manual_seed(12345)
+
+    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device, requires_grad=True)
+    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
+    input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device, requires_grad=True)
+
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=1,
+        amax_compute_algo="max",
+        margin=0,
+        reduce_amax=False,
+    )
+
+    torch.manual_seed(12345)
+    ref_linear = te.Linear(4, 3, bias=True, minimize_memory=False)
+    torch.manual_seed(12345)
+    min_linear = te.Linear(4, 3, bias=True, minimize_memory=True)
+
+    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+
+    torch.manual_seed(12345)
+    ref_outputs = []
+    ref_grads = []
+    for input in inputs:
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out = ref_linear(input)
+            loss = out.sum()
+            loss.backward()
+            ref_outputs.append(out.cpu())
+            ref_grads.append(input.grad.clone().cpu().detach())
+            input.grad=None
+
+    torch.manual_seed(12345)
+    min_outputs = []
+    min_grads = []
+    for input in inputs:
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out = min_linear(input)
+            loss = out.sum()
+            loss.backward()
+            min_outputs.append(out.cpu())
+            min_grads.append(input.grad.clone().cpu().detach())
+            input.grad=None
+
+    for i in range(len(min_outputs)):
+        assert torch.equal(ref_outputs[i], min_outputs[i])
+        assert torch.equal(ref_grads[i], min_grads[i])
+
+# This test simulates scenario with deepspeed pipelining
+@pytest.mark.parametrize("minimize_memory", [True, False])
+def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:0"), dtype=torch.float32):
+    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device, requires_grad=True)
+    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
+    input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device, requires_grad=True)
+
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=1,
+        amax_compute_algo="max",
+        margin=0,
+        reduce_amax=False,
+    )
+
+
+    inputs = [input3,input2,input1]
+
+    # Reference - fwd -> bwd -> fwd -> bwd ...
+    torch.manual_seed(12345)
+    ref_linear = te.Linear(4, 3, bias=True, minimize_memory=minimize_memory)
+
+    ref_outputs = []
+    ref_grads = []
+    for input in inputs:
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out = ref_linear(input)
+            loss = out.sum()
+            loss.backward()
+            ref_outputs.append(out.cpu())
+            ref_grads.append(input.grad.clone().cpu().detach())
+            input.grad=None
+
+    # Tested configuration - fwd -> fwd -> ... -> bwd -> bwd -> ...
+    torch.manual_seed(12345)
+    test_linear = te.Linear(4, 3, bias=True, minimize_memory=minimize_memory)
+
+    test_outputs = []
+    test_grads = []
+    for input in inputs:
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out = test_linear(input)
+            test_outputs.append(out.cpu())
+
+    for i in reversed(range(len(test_outputs))):
+        output = test_outputs[i]
+        input = inputs[i]
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            loss = output.sum()
+            loss.backward()
+            test_grads.append(inputs[i].grad.clone().cpu().detach())
+            inputs[i].grad=None
+
+    for i in range(len(test_outputs)):
+        assert torch.equal(ref_outputs[i], test_outputs[i])
+        assert torch.equal(ref_grads[i], test_grads[i])
