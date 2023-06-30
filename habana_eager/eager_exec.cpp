@@ -276,6 +276,9 @@ torch::jit::Stack EagerExec::launch() {
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
     auto graph{create_eager_graph(orig_inputs)};
+    auto eager_compiler_supported =
+        is_eager_compiler_supported_for_graph(graph);
+    post_process_eager_graph(graph, eager_compiler_supported);
     prune_duplicate_graph_inputs(parent_vec, graph);
 
     at::ArrayRef<torch::jit::IValue> input_refs =
@@ -295,9 +298,8 @@ torch::jit::Stack EagerExec::launch() {
     graph_and_meta->SetOpName(m_graph_name);
     graph_and_meta->SetHPUStream(stream);
     graph_and_meta->SetFrontendType(habana_helpers::HabanaFrontendTypes::EAGER);
-    auto isEagerCompilerGraph = is_eager_compiler_supported_for_graph(graph);
-    graph_and_meta->set_is_eager_compiler_supported(isEagerCompilerGraph);
-    graph_and_meta->set_is_shape_agnostic_supported(isEagerCompilerGraph);
+    graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
+    graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);
     cache.Add(key, graph_and_meta);
   }
   graph_and_meta->set_output_shapes(m_outputs.get_shapes());
@@ -391,8 +393,6 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
     }
     graph->registerOutput(jit_value_out);
   }
-
-  post_process_eager_graph(graph);
 
   return graph;
 }
@@ -652,18 +652,24 @@ void EagerExec::set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
   m_eager_op_meta_data = eager_op_meta_data;
 }
 
-void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
+void EagerExec::post_process_eager_graph(
+    std::shared_ptr<JitGraph>& graph,
+    bool eager_compiler_supported) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
     PT_EAGER_DEBUG("Apply I/O View Handling pass.");
-    HandleInputOutputViews(graph, m_inputs, m_eager_op_meta_data);
+    HandleInputOutputViews(
+        graph, m_inputs, m_eager_op_meta_data, eager_compiler_supported);
   }
 }
 
 bool EagerExec::is_eager_compiler_supported_for_graph(
     std::shared_ptr<JitGraph>& graph) {
   if (habana::HPURegistrar::get_device().type() == synDeviceGaudi) {
+    return false;
+  }
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER)) {
     return false;
   }
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {

@@ -82,7 +82,8 @@ struct StridedOutInfo {
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::IValue>& inputs,
-    const EagerOpMetaData& eager_op_meta_data);
+    const EagerOpMetaData& eager_op_meta_data,
+    bool eager_compiler_supported);
 
 } // namespace eager
 } // namespace habana

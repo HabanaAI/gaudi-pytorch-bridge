@@ -28,6 +28,33 @@ static void set_deterministic(JitNode* node) {
   }
 }
 
+static void insert_control_edge_node(
+    std::shared_ptr<JitGraph> graph,
+    JitNode* node,
+    JitNode* insert_after_node) {
+  torch::jit::WithInsertPoint insert_point(node);
+  static std::unordered_set<std::string>
+      underscored_ops_reported_as_non_inplace = {
+          "aten::zero_",
+      };
+
+  if (underscored_ops_reported_as_non_inplace.find(
+          node->kind().toQualString()) ==
+      underscored_ops_reported_as_non_inplace.end()) {
+    return;
+  }
+
+  auto value_in = insert_after_node->output(0);
+  auto op_control_edge = c10::Symbol::fromQualString("hpu::control_edge_");
+  auto control_edge_node =
+      graph->create(op_control_edge, {insert_after_node->output(0)}, 1);
+  graph->insertNode(control_edge_node);
+  set_deterministic(control_edge_node);
+
+  insert_after_node->output(0)->replaceAllUsesAfterNodeWith(
+      control_edge_node, control_edge_node->output(0));
+}
+
 static JitNode* insert_strided_view_node(
     std::shared_ptr<JitGraph> graph,
     at::Tensor input,
@@ -255,7 +282,8 @@ static JitNode* insert_strided_insert_node(
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::IValue>& inputs,
-    const EagerOpMetaData& eager_op_meta_data) {
+    const EagerOpMetaData& eager_op_meta_data,
+    bool eager_compiler_supported) {
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
@@ -300,9 +328,10 @@ void HandleInputOutputViews(
       graph->toString(),
       "JIT_IR_Graph_END\n");
 
-  auto strided_view_node = 0;
   auto input_tensor_pos =
       get_input_tensors_positions(node, inputs, eager_op_meta_data);
+  std::vector<JitNode*> strided_view_nodes;
+  strided_view_nodes.reserve(input_tensor_pos.size());
   for (auto& idx : input_tensor_pos) {
     auto val = inputs.at(idx);
     HABANA_ASSERT(val.isTensor(), "Non-tensor value");
@@ -315,12 +344,13 @@ void HandleInputOutputViews(
     if (input_tmeta->is_view_lowering() || !input_tensor.is_contiguous()) {
       std::unique_ptr<ViewParam> p_in = std::make_unique<ViewParam>();
       p_in->setParam(input_tensor);
-      insert_strided_view_node(graph, input_tensor, node, idx, p_in);
-      strided_view_node++;
+      auto jit_node =
+          insert_strided_view_node(graph, input_tensor, node, idx, p_in);
+      strided_view_nodes.push_back(jit_node);
     }
   }
 
-  if (strided_view_node > 0) {
+  if (strided_view_nodes.size()) {
     PT_EAGER_DEBUG(
         "\nSV node insertion:=====================\n",
         "JIT_IR_Graph_BEGIN\n",
@@ -331,6 +361,13 @@ void HandleInputOutputViews(
         "JIT_IR_Graph_END\n");
   } else {
     PT_EAGER_DEBUG("\nSV node insertion not required.=====================\n");
+  }
+
+  // Insert control edge for nodes that require it when graph compiler is used
+  // (i.e. Gaudi)
+  if (!eager_compiler_supported && strided_view_nodes.size()) {
+    auto last_node = strided_view_nodes.back();
+    insert_control_edge_node(graph, node, last_node);
   }
 
   if (is_inplace_op) {

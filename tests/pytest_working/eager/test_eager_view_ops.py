@@ -375,3 +375,14 @@ def test_view_permutation_contiguous_view_update():
 
     assert torch.allclose(hb_cpu, res, atol=0.01, rtol=0.01)
 
+def test_zero_inplace_2d_noncontiguous_view():
+    cpu_tensor = torch.randn([2, 3])
+    hpu_tensor = cpu_tensor.to('hpu')
+
+    cpu_tensor.t_()
+    hpu_tensor.t_()
+
+    cpu_tensor.zero_()
+    hpu_tensor.zero_()
+
+    torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol = 0, rtol = 0)

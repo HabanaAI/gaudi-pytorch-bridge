@@ -505,6 +505,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
+  m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
