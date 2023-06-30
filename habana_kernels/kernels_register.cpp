@@ -1805,6 +1805,25 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
   return rms_norm_lazy(input, gamma, epsilon);
 }
 
+at::Tensor masked_batch_gemm_wrap(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "masked_batch_gemm :",
+      DUMP_6ARGS(a, b, mask_a, mask_b, trans_a, trans_b));
+
+  TORCH_CHECK(
+      HPURegistrar::get_device().type() == synDeviceGaudi2,
+      "masked_batch_gemm is supported only on Gaudi2.");
+  return masked_batch_gemm_lazy(a, b, mask_a, mask_b, trans_a, trans_b);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2271,6 +2290,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
       "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2307,6 +2328,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_adamw", optimizer_adamw_hpu_wrap);
   m.impl("hpu::rotary_embedding", rotary_embedding_wrap);
   m.impl("hpu::rms_norm", rms_norm_wrap);
+  m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

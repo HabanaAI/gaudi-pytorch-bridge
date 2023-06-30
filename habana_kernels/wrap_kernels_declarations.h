@@ -444,6 +444,12 @@ at::Tensor roi_align_bwd_wrap(
     int64_t w,
     int64_t sampling_ratio,
     bool aligned);
-
+at::Tensor masked_batch_gemm_wrap(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b);
 } // namespace ops
 } // namespace vision

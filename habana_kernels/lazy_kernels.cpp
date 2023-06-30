@@ -58,6 +58,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "lazy_kernels_declarations.h"
 #include "lazy_optimizer_kernels.h"
@@ -7196,6 +7197,24 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
   op.set_scalar_types({input.scalar_type(), c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(rms_norm, op)
+}
+
+at::Tensor masked_batch_gemm_lazy(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::masked_batch_gemm",
+      {a, b, mask_a, mask_b, trans_a, trans_b},
+      MaskedBatchGemmOutputShape};
+
+  RUN_MAYBE_WITH_ACC_THREAD(masked_batch_gemm, hpu_op)
 }
 
 } // namespace habana_lazy

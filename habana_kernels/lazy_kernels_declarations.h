@@ -765,4 +765,11 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
     const at::Tensor& input,
     const at::Tensor& gamma,
     double epsilon);
+at::Tensor masked_batch_gemm_lazy(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b);
 } // namespace habana_lazy

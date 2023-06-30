@@ -17,6 +17,7 @@
 #include "common/dump_args.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 
@@ -430,6 +431,27 @@ std::tuple<at::Tensor, at::Tensor> rms_norm(
   return hpu_op.call();
 }
 
+at::Tensor masked_batch_gemm(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "masked_batch_gemm :",
+      DUMP_6ARGS(a, b, mask_a, mask_b, trans_a, trans_b));
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::masked_batch_gemm",
+      {a, b, mask_a, mask_b, trans_a, trans_b},
+      MaskedBatchGemmOutputShape};
+
+  return hpu_op.call();
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -481,6 +503,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::rotary_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
       "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -512,6 +536,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_adamw", optimizer_adamw);
   m.impl("hpu::rotary_embedding", rotary_embedding);
   m.impl("hpu::rms_norm", rms_norm);
+  m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
 }
 
 } // namespace eager

@@ -146,6 +146,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/logsigmoid_gen.cpp
           backend/logsoftmax_gen.cpp
           backend/logspace_gen.cpp
+          backend/masked_batch_gemm.cpp
           backend/masked_fill_gen.cpp
           backend/masked_scatter_gen.cpp
           backend/max_min_gen.cpp
