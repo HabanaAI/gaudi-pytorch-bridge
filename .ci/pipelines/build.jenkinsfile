@@ -98,7 +98,9 @@ def requiredArtifact = [
     'HCL': ['shared'],
     'HVL_MEDIA': ['shared'],
     'MEDIA': ['test', 'shared'],
-    'CODEC': ['shared']
+    'CODEC': ['shared'],
+    'FFMPEG_FORK': ['shared'],
+    'RDMA_CORE': ['test']
 ]
 
 genericBuilder(
