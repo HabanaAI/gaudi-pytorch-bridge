@@ -583,7 +583,7 @@ _unique2:
     Gaudi2: [Float, Int]
     Gaudi3: [Float, Int]
   override_fn: unique2_hpu_lazy
-  fallback_check: [Unique2FallbackCheck, self, return_inverse, return_counts]
+  fallback_check: [Unique2FallbackCheck, self]
   acc_thread: true
 
 abs:

@@ -13,17 +13,9 @@
 
 #include "generated/lazy/_unique2.h"
 namespace habana {
-FALLBACK_CHECK(
-    Unique2FallbackCheck,
-    const at::Tensor& self,
-    bool return_inverse,
-    bool return_counts) {
-  // Fallback as return_inverse & return_counts to true isn't supported
-  if (((return_inverse || return_counts)) == true) {
-    return false;
-  }
+FALLBACK_CHECK(Unique2FallbackCheck, const at::Tensor& self) {
   // Fallback as TPC can support only upto 4D(1D to 4D)
-  else if (self.dim() > 4) {
+  if (self.dim() > 4) {
     return false;
   } else
     return true;

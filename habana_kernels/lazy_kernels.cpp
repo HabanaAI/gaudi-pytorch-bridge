@@ -5632,22 +5632,26 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
         self.sizes(), self.options(), self.suggest_memory_format(), true);
     return std::make_tuple(result_, result_, result_);
   }
-  struct Unique : LazyOp<std::tuple<at::Tensor, at::Tensor>> {
+  struct Unique
+      : LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>> {
     explicit Unique(
         const std::vector<at::IValue>& inputs,
         const std::vector<std::vector<int64_t>>& out_shapes = {})
-        : LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+        : LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>(
               "hpu::_unique2",
               inputs,
               out_shapes,
               -1) {}
 
-    std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
+    std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+    get_result_overrideable() override {
       auto inputs = get_inputs();
       auto self = inputs[0].toTensor();
       int elements = self.numel();
       auto output_shape = at::DimVector{elements};
       auto valid_shape = at::DimVector{1};
+      auto inverse_tensor_shape = DimVector{elements};
+      auto counts_tensor_shape = DimVector{elements};
       auto result0 = empty_hpu_lazy(
           output_shape, self.options(), self.suggest_memory_format(), false);
       auto result1 = empty_hpu_lazy(
@@ -5655,21 +5659,39 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
           self.options().dtype(c10::ScalarType::Int),
           self.suggest_memory_format(),
           false);
-      return {result0, result1};
+      auto result2 = empty_hpu_lazy(
+          inverse_tensor_shape,
+          self.options().dtype(c10::ScalarType::Long),
+          self.suggest_memory_format(),
+          false);
+      auto result3 = empty_hpu_lazy(
+          counts_tensor_shape,
+          self.options().dtype(c10::ScalarType::Long),
+          self.suggest_memory_format(),
+          false);
+      return {result0, result1, result2, result3};
     }
   };
 
   int elements = self.numel();
   std::vector<int64_t> feature_map_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
+  std::vector<int64_t> inverse_tensor_shape{elements};
+  std::vector<int64_t> counts_tensor_shape{elements};
   // Add unique_2 node
   Unique k(
       {self, sorted, return_inverse, return_counts},
-      {feature_map_shape, valid_count_shape});
+      {feature_map_shape,
+       valid_count_shape,
+       inverse_tensor_shape,
+       counts_tensor_shape});
   // unique2 returns 2 output feature_map and valid tensor
   auto output = k.call();
   auto feature_map = std::get<0>(output);
   auto valid_count = std::get<1>(output);
+  auto inverse_tensor = std::get<2>(output);
+  inverse_tensor = torch::reshape(inverse_tensor, self.sizes());
+  auto counts_tensor = std::get<3>(output);
 
   // Force an execution here because "unique" is a non shape inferable op.
   // .item() internally triggers a mark_step
@@ -5678,14 +5700,27 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   StageSubmission::getInstance().setStageSubmissionFlow();
 
   // Add a slice node to capture relevent elements from feature_map
-  auto result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
+  auto unique_result = slice_hpu_lazy(feature_map, 0, 0, end, 1);
+  auto counts_result = slice_hpu_lazy(counts_tensor, 0, 0, end, 1);
+
+  flush_op(3);
 
   // These are optional tensors which shall be populated only when we
   // start supporting return_inverse and return_counts
-  Tensor inverse_indices;
-  Tensor counts;
-  flush_op(1);
-  return std::make_tuple(result, inverse_indices, counts);
+
+  if (return_inverse && return_counts) {
+    return std::make_tuple(unique_result, inverse_tensor, counts_result);
+  } else if (return_inverse && !return_counts) {
+    Tensor counts;
+    return std::make_tuple(unique_result, inverse_tensor, counts);
+  } else if (!return_inverse && return_counts) {
+    Tensor inverse;
+    return std::make_tuple(unique_result, inverse, counts_result);
+  } else {
+    Tensor inverse;
+    Tensor counts;
+    return std::make_tuple(unique_result, inverse, counts);
+  }
 };
 
 std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
@@ -5773,6 +5808,7 @@ std::tuple<Tensor, Tensor, Tensor> unique_dim_hpu_lazy(
   std::vector<int64_t> valid_count_shape{1};
   std::vector<int64_t> inverse_tensor_shape{feature_map_shape[dim]};
   std::vector<int64_t> counts_tensor_shape{feature_map_shape[dim]};
+
   // Add unique_dim node
   Unique k(
       {self, dim, sorted, return_inverse, return_counts},

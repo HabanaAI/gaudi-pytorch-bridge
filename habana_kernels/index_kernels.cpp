@@ -2572,6 +2572,8 @@ void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   int elements = self.numel();
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
+  auto inverse_tensor_shape = DimVector{elements};
+  auto counts_tensor_shape = DimVector{elements};
 
   // create output and valid shape tensors which are compulsory
   auto output_feature_map = habana::createPTTensor(
@@ -2588,7 +2590,22 @@ void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       true);
-  std::vector<at::Tensor> outputs{output_feature_map, valid_count};
+  auto inverse_tensor = habana::createPTTensor(
+      self,
+      inverse_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      true);
+  auto counts_tensor = habana::createPTTensor(
+      self,
+      counts_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      true);
+  std::vector<at::Tensor> outputs{
+      output_feature_map, valid_count, inverse_tensor, counts_tensor};
   HabanaOperator::SetPTOutputs(outputs);
 }
 
@@ -2609,13 +2626,14 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   int elements = self.numel();
   auto output_shape = DimVector{elements};
   auto valid_shape = DimVector{1};
+  auto inverse_tensor_shape = DimVector{elements};
+  auto counts_tensor_shape = DimVector{elements};
 
   // The first output tensor contains unique elements.
   // The second output tensor contains the number of unique elements.
   // The two optional tensors(Inverse index(1D), Counts(1D)) can be enabled by
   // setting the corresponding parameters in the structure(return_inverse,
-  // return_counts) Currently this implementation supports with both
-  // return_inverse and return_counts as false
+  // return_counts)
 
   // create output and valid shape tensors which are compulsory
   auto output_feature_map = habana::createPTTensor(
@@ -2632,10 +2650,24 @@ void UniqueOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       c10::ScalarType::Int,
       output_metadata.at(1).persistent);
+  auto inverse_tensor = habana::createPTTensor(
+      self,
+      inverse_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      output_metadata.at(2).persistent);
+  auto counts_tensor = habana::createPTTensor(
+      self,
+      counts_tensor_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Long,
+      output_metadata.at(3).persistent);
 
   ns_UniqueKernel::ParamsV2 params;
-  params.returnInverse = 0;
-  params.returnCounts = 0;
+  params.returnInverse = 1;
+  params.returnCounts = 1;
   params.sorted = 0;
   if (self.dim() <= 4) // TPC can support only upto 4D(1D to 4D)
     params.sorted = sorted;
@@ -2652,7 +2684,9 @@ void UniqueOperator::AllocateAndAddSynapseNode(
       valid_count,
       synType,
       output_metadata.at(1),
-      graph.is_dynamic_graph() ? true : false);
+      graph.is_dynamic_graph());
+  AllocateSynapseOutput(graph, inverse_tensor, synType, output_metadata.at(2));
+  AllocateSynapseOutput(graph, counts_tensor, synType, output_metadata.at(3));
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -2663,6 +2697,8 @@ OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
   int elements = self.numel();
   std::vector<int64_t> output_shape{elements};
   std::vector<int64_t> valid_shape{1};
+  std::vector<int64_t> inverse_tensor_shape{elements};
+  std::vector<int64_t> counts_tensor_shape{elements};
 
   OutputShapeInfRetType out;
   out.AddOutputTensor(habana::TensorMetaData(
@@ -2676,6 +2712,18 @@ OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
       HabanaOperator::CalculateStrides(
           valid_shape, self.suggest_memory_format()),
       c10::ScalarType::Int,
+      self.suggest_memory_format()));
+  out.AddOutputTensor(habana::TensorMetaData(
+      inverse_tensor_shape,
+      HabanaOperator::CalculateStrides(
+          inverse_tensor_shape, self.suggest_memory_format()),
+      c10::ScalarType::Long,
+      self.suggest_memory_format()));
+  out.AddOutputTensor(habana::TensorMetaData(
+      counts_tensor_shape,
+      HabanaOperator::CalculateStrides(
+          counts_tensor_shape, self.suggest_memory_format()),
+      c10::ScalarType::Long,
       self.suggest_memory_format()));
   return out;
 }
