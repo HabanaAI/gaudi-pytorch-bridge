@@ -113,7 +113,7 @@ struct HPUGraph {
   HPUGraph();
   ~HPUGraph();
 
-  void capture_begin();
+  void capture_begin(bool dry_run = false);
   void capture_end();
   void replay(bool async = false);
   void mark_step();
@@ -124,6 +124,7 @@ struct HPUGraph {
   void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
   void mark_user_outputs(std::vector<at::Tensor>& outputs);
   void mark_user_inputs(std::vector<at::Tensor>& static_inputs);
+  void destroy();
 
  protected:
   // Stream on which capture began

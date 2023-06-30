@@ -241,6 +241,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
   m.def(
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
+  m.def("capture_begin", [](at::hpu::HPUGraph& graph, bool dry_run) {
+    graph.capture_begin(dry_run);
+  });
   m.def("capture_end", [](at::hpu::HPUGraph& graph) { graph.capture_end(); });
   m.def("replay", [](at::hpu::HPUGraph& graph, bool async = false) {
     graph.replay(async);
@@ -266,6 +269,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& static_inputs) {
         graph.mark_user_inputs(static_inputs);
       });
+  m.def("destroy", [](at::hpu::HPUGraph& graph) { graph.destroy(); });
   m.def("enable_dynamic_shape", []() {
     habana_helpers::EnableRefineDynamicShape();
   });

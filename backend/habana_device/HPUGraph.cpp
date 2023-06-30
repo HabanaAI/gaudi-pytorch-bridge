@@ -28,7 +28,7 @@ HPUGraph::HPUGraph()
     // HPUStreams may not be default-constructed.
     : capture_stream_(c10::hpu::getCurrentHPUStream()) {}
 
-void HPUGraph::capture_begin() {
+void HPUGraph::capture_begin(bool dry_run) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   if (capturing_) {
     // already captured started, error. only one graph
@@ -55,6 +55,7 @@ void HPUGraph::capture_begin() {
   context->setCapturing(true);
   /* pass this struct to global context */
   context->setCaptureGraph(this);
+  context->setDryRun(dry_run);
 }
 
 void HPUGraph::capture_end() {
@@ -82,6 +83,7 @@ void HPUGraph::capture_end() {
   /* Set graph capture mode off */
   context->setCapturing(false);
   context->setCaptureGraph(nullptr);
+  context->setDryRun(false);
 
   // Save all input lazy tensors and free the output IR values
   for (size_t i = 0; i < captured_graphs.size(); i++) {
@@ -110,6 +112,19 @@ void HPUGraph::capture_end() {
   /*if (dynamic_env_) {
     habana_helpers::EnableRefineDynamicShape();
   }*/
+}
+
+void HPUGraph::destroy() {
+  std::lock_guard<std::recursive_mutex> lock(mutex_);
+  // Clear all captured SingleHpuGraphs
+  captured_graphs.clear();
+
+  auto& device = habana::HPURegistrar::get_device();
+  habana_lazy::HbExecutionContext* context =
+      habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device.id());
+  /* Set graph capture mode off */
+  context->setCapturing(false);
+  context->setCaptureGraph(nullptr);
 }
 
 void HPUGraph::mark_step() {
@@ -235,6 +250,10 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   std::unordered_set<int64_t> user_out_hblazy_tid_set;
   for (size_t graphIdx = 0; graphIdx < captured_graphs.size(); graphIdx++) {
     auto single_graph = captured_graphs[graphIdx];
+    HABANA_ASSERT(
+        ((single_graph->prev_graph_interdep_out_t_list_.size() == 0) &&
+         (single_graph->user_out_indices_tlist_.size() == 0)),
+        "Error:mark_user_outputs is called more than once for the same graph?");
     for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
       user_out_hblazy_tid_set.emplace(out_tensor.getTensorUniqueId());
     }

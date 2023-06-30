@@ -1600,7 +1600,7 @@ void HbLazyTensor::ExecuteCachedGraph(
 
   size_t i = 0;
   for (const torch::IValue& v : stack) {
-    HbLazyTensor out_tensor = hblazy_tensors_out[i++];
+    HbLazyTensor& out_tensor = hblazy_tensors_out[i++];
 
     // clear the orig tensor map entries corresponding to cached graph outputs
     out_tensor.getDataPtr()->recent_base = c10::nullopt;

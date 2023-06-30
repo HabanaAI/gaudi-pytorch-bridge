@@ -122,13 +122,13 @@ def test_multiple_graph_capture():
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
 
-def test_multiple_graph_capture_memoptimization(asynchronous=False):
+def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=False, release_memory_test=False):
     #N, D_in, H, D_out = 640, 4096, 2048, 1024
     N, D_in, H, D_out, inner = 20, 20, 20, 20, 40
     module1_cpu = Model(D_in, H, inner).to('cpu')
     module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
     loss_fn = torch.nn.MSELoss()
-    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, asynchronous=asynchronous, disable_tensor_cache=True)
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, asynchronous=asynchronous, disable_tensor_cache=True, dry_run=dry_run)
     x_cpu = torch.randn(N, D_in, device='cpu')
     ITERATION=10
     real_inputs_cpu = [torch.rand_like(x_cpu) for _ in range(ITERATION)]
@@ -144,7 +144,8 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False):
         loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
-        # print("count: ", count, htx.hpu.memory.memory_stats())
+        if release_memory_test:
+            module1_hpu.destroy()
         count = count+1
 
     for data, target in zip(real_inputs_cpu, real_targets_cpu):
@@ -223,6 +224,8 @@ if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
     # test_multiple_graph_capture_memoptimization(asynchronous=True)
+    test_multiple_graph_capture_memoptimization(dry_run=True)
+    test_multiple_graph_capture_memoptimization(release_memory_test=True)
     test_graph_capture_simple()
     test_graph_training()
     test_tensor_packer()
