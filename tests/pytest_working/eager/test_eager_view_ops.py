@@ -360,3 +360,18 @@ def test_copy_inplace_2d_noncontiguous_view():
 
     torch.allclose(hpu_ones.cpu(), cpu_ones, atol = 0, rtol = 0)
 
+def test_view_permutation_contiguous_view_update():
+    torch.manual_seed(0)
+    a = torch.randn(2, 2, 6, 6)
+    ha = a.to('hpu')
+    m = torch.nn.Conv2d(2, 3, 3, stride=2, device = 'hpu')
+    hb = m(ha)
+    hc = hb[:]
+    hc.fill_(0.0)
+
+    hb_cpu = hb.cpu()
+
+    res = torch.zeros_like(hb_cpu)
+
+    assert torch.allclose(hb_cpu, res, atol=0.01, rtol=0.01)
+

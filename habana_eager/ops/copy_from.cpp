@@ -202,37 +202,26 @@ at::Tensor _copy_from_h2d(
 }
 
 at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
-  if (!dst.is_contiguous()) {
-    auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
-  }
-
   at::Tensor result;
 
-  // view lowering flag is set in lowering thread. Thread join is needed before
-  // checking/setting the flag
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-
   auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
-  if (is_view_op_needed(dst)) {
+  if (!dst.is_contiguous()) {
     auto self_ = self;
     auto self_tmeta{habana::get_tensor_extra_meta(self)};
-    if (is_view_op_needed(self)) {
-      bool same_data_type = (dst.scalar_type() == self.scalar_type());
-      // If dtype is same, post_process_eager_graph() will take care
-      // of strided-view node insertion when source is non-contiguous.
-      // But, if dtype is different, additional cast operation is also
-      // needed. As there is no explicit hpu::cast kind of eager-op, we
-      // use hpu::_copy_from, which takes care of cast in the back-end.
-      if (!same_data_type) {
-        at::Tensor cast_out = at::empty(
-            self.sizes(), dst.options(), c10::MemoryFormat::Contiguous);
-        habana::eager::EagerOp<at::Tensor&> hpu_op{
-            "hpu::_copy_from", {self, cast_out}, {cast_out.sizes().vec()}, 1};
-        hpu_op.set_eager_op_info(
-            {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
-        self_ = hpu_op.call(const_cast<at::Tensor&>(cast_out));
-      }
+    bool same_data_type = (dst.scalar_type() == self.scalar_type());
+    // If dtype is same, post_process_eager_graph() will take care
+    // of strided-view node insertion when source is non-contiguous.
+    // But, if dtype is different, additional cast operation is also
+    // needed. As there is no explicit hpu::cast kind of eager-op, we
+    // use hpu::_copy_from, which takes care of cast in the back-end.
+    if (!same_data_type) {
+      at::Tensor cast_out =
+          at::empty(self.sizes(), dst.options(), c10::MemoryFormat::Contiguous);
+      habana::eager::EagerOp<at::Tensor&> hpu_op{
+          "hpu::_copy_from", {self, cast_out}, {cast_out.sizes().vec()}, 1};
+      hpu_op.set_eager_op_info(
+          {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
+      self_ = hpu_op.call(const_cast<at::Tensor&>(cast_out));
     }
     result = add_strided_insert(dst, self_);
   } else {

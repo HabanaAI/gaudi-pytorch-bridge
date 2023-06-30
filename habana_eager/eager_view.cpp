@@ -151,7 +151,7 @@ static void collect_output_view_param(
         out_ival.isTensor(), "Expected tensor input, when parsing idx: ", idx);
     auto output_tensor = out_ival.toTensor();
     auto output_tmeta{habana::get_tensor_extra_meta(output_tensor)};
-    if (output_tmeta->is_view_lowering() || !output_tensor.is_contiguous()) {
+    if (!output_tensor.is_contiguous()) {
       HABANA_ASSERT(
           inputs[idx].isTensor(),
           "Tensor lists containing views are unsupported. Failed for idx: ",
