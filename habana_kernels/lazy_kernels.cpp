@@ -7274,20 +7274,39 @@ at::Tensor rotary_pos_embedding_backward_lazy(
 }
 
 std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
-    const at::Tensor& input,
+    const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
 
+  std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
+  inverse_root_mean_square_sizes.back() = 1;
+
   LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
       "hpu::rms_norm",
-      {input, gamma, epsilon},
-      {{input.sizes().vec(), input.sizes().vec()}}};
+      {data_in, gamma, epsilon},
+      {{data_in.sizes().vec(), inverse_root_mean_square_sizes}}};
 
-  op.set_scalar_types({input.scalar_type(), c10::ScalarType::Float});
+  op.set_scalar_types({data_in.scalar_type(), c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(rms_norm, op)
+}
+
+std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
+    const at::Tensor& grad_in,
+    const at::Tensor& data_in,
+    const at::Tensor& gamma,
+    const at::Tensor& inverse_rms) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
+      "hpu::rms_norm_backward",
+      {grad_in, data_in, gamma, inverse_rms},
+      {{data_in.sizes().vec(), gamma.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(rms_norm_backward, op)
 }
 
 at::Tensor masked_batch_gemm_lazy(

@@ -11,3 +11,4 @@
 ###############################################################################
 
 from .FusedClipNorm import FusedClipNorm
+from .FusedRMSNorm import FusedRMSNorm

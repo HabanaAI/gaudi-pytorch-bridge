@@ -1809,14 +1809,27 @@ at::Tensor rotary_pos_embedding_backward_wrap(
 }
 
 std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
-    const at::Tensor& input,
+    const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" rms_norm :", DUMP_3ARGS(input, gamma, epsilon));
+  PT_OP_INFO(" rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
 
-  return rms_norm_lazy(input, gamma, epsilon);
+  return rms_norm_lazy(data_in, gamma, epsilon);
+}
+
+std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
+    const at::Tensor& grad_in,
+    const at::Tensor& data_in,
+    const at::Tensor& gamma,
+    const at::Tensor& inverse_rms) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
+
+  return rms_norm_backward_lazy(grad_in, data_in, gamma, inverse_rms);
 }
 
 at::Tensor masked_batch_gemm_wrap(
@@ -2360,7 +2373,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
-      "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms) -> (Tensor, Tensor)");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
   m.def(
@@ -2409,6 +2424,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
   m.impl("hpu::rms_norm", rms_norm_wrap);
+  m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);

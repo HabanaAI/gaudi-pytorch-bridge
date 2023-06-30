@@ -433,19 +433,41 @@ at::Tensor rotary_pos_embedding_backward(
 }
 
 std::tuple<at::Tensor, at::Tensor> rms_norm(
-    const at::Tensor& input,
+    const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
   PT_OP_TRACE;
   PT_EAGER_TRACE;
-  PT_OP_INFO("rms_norm :", DUMP_3ARGS(input, gamma, epsilon));
+  PT_OP_INFO("rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
+
+  std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
+  inverse_root_mean_square_sizes.back() = 1;
 
   eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::rms_norm",
-      {input, gamma, epsilon},
-      {input.sizes().vec(), input.sizes().vec()},
+      {data_in, gamma, epsilon},
+      {data_in.sizes().vec(), inverse_root_mean_square_sizes},
       0};
-  hpu_op.set_scalar_types({input.scalar_type(), c10::ScalarType::Float});
+  hpu_op.set_scalar_types({data_in.scalar_type(), c10::ScalarType::Float});
+
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
+    const at::Tensor& grad_in,
+    const at::Tensor& data_in,
+    const at::Tensor& gamma,
+    const at::Tensor& inverse_rms) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
+
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::rms_norm_backward",
+      {grad_in, data_in, gamma, inverse_rms},
+      {data_in.sizes().vec(), gamma.sizes().vec()},
+      0};
 
   return hpu_op.call();
 }
@@ -560,7 +582,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
-      "hpu::rms_norm(Tensor input, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms) -> (Tensor, Tensor)");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
@@ -600,6 +624,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::rms_norm", rms_norm);
+  m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer);

@@ -767,9 +767,14 @@ at::Tensor rotary_pos_embedding_backward_lazy(
     const at::Tensor& cos,
     const int64_t offset);
 std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
-    const at::Tensor& input,
+    const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon);
+std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
+    const at::Tensor& grad_in,
+    const at::Tensor& data_in,
+    const at::Tensor& gamma,
+    const at::Tensor& inverse_rms);
 at::Tensor masked_batch_gemm_lazy(
     const at::Tensor& a,
     const at::Tensor& b,
