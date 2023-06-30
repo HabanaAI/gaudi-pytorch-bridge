@@ -108,5 +108,6 @@ genericBuilder(
     buildCommands: buildCommands,
     testDependencies: testDependencies,
     requiredArtifact: requiredArtifact,
-    manifest: manifest
+    manifest: manifest,
+    buildTestDocker: true
 )
