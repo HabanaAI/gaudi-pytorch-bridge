@@ -134,10 +134,10 @@ launchers:
   gerritTriggerMap:
   - repository: Habana-Lightning-Plugins
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_lightning_habana_uts
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: lightning-habana-fork
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_lightning_habana_uts
-  silentMode: true
+  silentMode: false
   gerritTriggerMap:
   - repository: lightning-habana-fork
