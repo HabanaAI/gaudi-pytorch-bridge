@@ -2951,12 +2951,12 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
       if (dropped) {
         auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
         auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
+        // Update the eviction threshold left after removing this recipe
+        eviction_threshold_left -=
+            dropped_val->recipe->get_recipe_host_mem_size();
         auto dropped_dbi =
             DynamicBucketInfoMap::get_instance().get(dropped_arg);
         if (dropped_dbi != nullptr) {
-          // Update the eviction threshold left after removing this recipe
-          eviction_threshold_left -=
-              dropped_val->recipe->get_recipe_host_mem_size();
           static_cast<void>(dsi_bucket_id);
           dropped_dbi->ResetSynapseRecipePtr(dropped_val);
         }
