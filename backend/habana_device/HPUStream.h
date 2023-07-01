@@ -18,13 +18,13 @@
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
 #include <c10/util/Exception.h>
-#include "hpu_cached_devices.h"
+//#include "hpu_cached_devices.h"
 
 #include <synapse_api_types.h>
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
-#include "habana_lazy/hpu_lazy_tensors.h"
+//#include "habana_lazy/hpu_lazy_tensors.h"
 
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 

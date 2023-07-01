@@ -26,7 +26,6 @@
 namespace habana {
 
 synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
-pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 
 static HPUDeviceAllocator hpu_device_allocator;
 
@@ -52,33 +51,6 @@ C10_REGISTER_GUARD_IMPL(HPU, habana::HABANAGuardImpl);
 } // namespace detail
 
 namespace habana {
-
-HPUAllocator::HPUAllocator(uint32_t device) : device_id(device) {}
-
-void HPUAllocator::reset() {
-  PT_DEVICE_WARN("HPUAllocator::reset should not be invoked.");
-}
-
-void HPUAllocator::release() {
-  device_id = synapse_helpers::device::INVALID_ID;
-  PT_DEVICE_WARN("HPUAllocator::release should not be invoked.");
-}
-
-static void waitTillRecipeExecutionDone(synDeviceId device_id) {
-  auto& device = HPURegistrar::get_device(device_id).syn_device();
-  bool status = device.get_device_memory().is_mem_threshold_hit();
-  auto& recipe_counter = device.get_active_recipe_counter();
-  uint32_t counter_state = recipe_counter.get_count();
-
-  while (status && (counter_state > 1)) {
-    counter_state = recipe_counter.wait_for_next_decrease_call();
-    PT_DEVICE_DEBUG(
-        "waiting for recipe launch completion, recipe count ", counter_state);
-    status = device.get_device_memory().is_mem_threshold_hit();
-  }
-
-  habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Execution-Done");
-}
 
 static synStatus waitTillRecipeExecution(
     synDeviceId device_id,
@@ -113,63 +85,6 @@ static synStatus waitTillRecipeExecution(
   return status;
 }
 
-static synStatus waitTillCachedRecipesDropped(
-    synDeviceId device_id,
-    size_t num_bytes,
-    void*& v_ptr,
-    pgmDropCachedRecipe drop_cached_recipe_cb) {
-  synStatus status{synStatus::synFail};
-  auto& device = HPURegistrar::get_device(device_id);
-  size_t nrecipes{0};
-  do {
-    bool drop_succeeded{false};
-
-    // last resort to free up memory
-    // we will wait for the completion of one recipe
-    do {
-      drop_succeeded = drop_cached_recipe_cb(nrecipes);
-
-    } while (false == drop_succeeded && nrecipes > 0);
-
-    PT_DEVICE_DEBUG(
-        "retrying mem alloc after dropping lru recipe, ",
-        "requested size ",
-        num_bytes);
-
-    status = device.get_device_memory().malloc(&v_ptr, num_bytes);
-  } while (v_ptr == nullptr && nrecipes > 0);
-
-  return status;
-}
-
-void* HPUAllocator::alloc(size_t num_bytes) {
-  if (num_bytes == 0) {
-    return nullptr;
-  }
-  synStatus status{synStatus::synSuccess};
-  auto& device = HPURegistrar::get_device(device_id);
-  waitTillRecipeExecutionDone(device_id);
-  void* v_ptr{nullptr};
-  status = device.get_device_memory().malloc(&v_ptr, num_bytes);
-
-  if (v_ptr == nullptr) {
-    status = waitTillRecipeExecution(device_id, num_bytes, v_ptr);
-  }
-
-  if (v_ptr == nullptr) {
-    TORCH_HABANA_CHECK(
-        status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
-  }
-
-  return v_ptr;
-}
-
-void HPUAllocator::free(void* ptr) {
-  auto& device = HPURegistrar::get_device(device_id);
-  auto status{device.get_device_memory().free(ptr)};
-  TORCH_HABANA_CHECK(status, "Device Free failed");
-}
-
 HPUDeviceAllocator::HPUDeviceAllocator() {
   allocator_active_device_id = -1;
 }
@@ -190,18 +105,12 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
 
   auto& device = HPURegistrar::get_device(allocator_active_device_id);
 
-  waitTillRecipeExecutionDone(allocator_active_device_id);
   if (num_bytes != 0) {
     status = device.get_device_memory().malloc(&v_ptr, num_bytes);
 
     if (v_ptr == nullptr) {
       status =
           waitTillRecipeExecution(allocator_active_device_id, num_bytes, v_ptr);
-    }
-
-    if (v_ptr == nullptr && drop_cached_recipe_cb != nullptr) {
-      status = waitTillCachedRecipesDropped(
-          allocator_active_device_id, num_bytes, v_ptr, drop_cached_recipe_cb);
     }
 
     if (status != synStatus::synSuccess) {

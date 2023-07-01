@@ -108,18 +108,6 @@ class device_ptr_lock {
   std::unique_ptr<device_ptr_lock_interface> impl_;
 };
 
-class device_allocator {
- public:
-  virtual ~device_allocator() = default;
-  virtual void release() = 0;
-  virtual void reset() = 0;
-  virtual void* alloc(std::size_t size_bytes) = 0;
-  virtual void free(void* pointer) = 0;
-};
-
-using create_allocator_fnc =
-    std::function<std::unique_ptr<device_allocator>(synDeviceId device_id)>;
-
 using framework_specific_cleanup_fnc = std::function<void()>;
 using refinement_specific_cleanup_fnc = std::function<void()>;
 

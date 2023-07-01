@@ -100,7 +100,6 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void* pool_alloc_chunk(uint64_t size, [[maybe_unused]] bool is_workspace)
       const override;
   void pool_free_chunk(void* p) const override;
-  bool is_mem_threshold_hit() const override;
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
       const override;
   void get_stats(MemoryStats* stats) const override;

@@ -168,13 +168,6 @@ static uint64_t pool_available(simple_coalesced_pool_t* p) {
   return p->end - p->next;
 }
 
-bool StaticCoalescedPooling::is_mem_threshold_hit() const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  if (bytes_in_use > (max_pool_size * 0.8))
-    return true;
-  return false;
-}
-
 void* StaticCoalescedPooling::extend_high_memory_allocation(
     uint64_t size,
     [[maybe_unused]] size_t curr_size) const {

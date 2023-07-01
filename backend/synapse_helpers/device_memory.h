@@ -59,7 +59,6 @@ class device_memory {
       const bool is_optim_state,
       const uint64_t t_start,
       const uint64_t t_end);
-  bool is_mem_threshold_hit();
   void get_memory_stats(MemoryStats* stats);
   std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map();
   void clear_memory_stats();

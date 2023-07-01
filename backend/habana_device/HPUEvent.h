@@ -36,19 +36,13 @@ namespace hpu {
  * event must match this device.
  */
 struct HPUEvent {
+ public:
   // Constructors
   // Default value for `flags` is specified below - it's 0 disable collect time
-  HPUEvent() {}
-  HPUEvent(unsigned int flags) : flags_{flags} {}
+  explicit HPUEvent() {}
+  explicit HPUEvent(unsigned int flags) : flags_{flags} {}
 
-  // Note: event destruction done on creating device to avoid creating a
-  // HPU context on other devices.
-  ~HPUEvent() {
-    auto& dev = habana::HPURegistrar::get_device().syn_device();
-    if (is_created_) {
-      dev.delete_event(id_, flags_);
-    }
-  }
+  ~HPUEvent();
 
   HPUEvent(const HPUEvent&) = delete;
   HPUEvent& operator=(const HPUEvent&) = delete;
@@ -87,90 +81,22 @@ struct HPUEvent {
   }
 
   // Note: hpuEventQuery can be safely called from any device
-  bool query() const {
-    if (!is_created_) {
-      return true;
-    }
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+  bool query() const;
 
-    return device.query_event(id_);
-  }
+  void record();
 
-  void record() {
-    record(c10::hpu::getCurrentHPUStream());
-  }
-
-  void recordOnce(const c10::hpu::HPUStream& stream) {
-    if (!was_recorded_)
-      record(stream);
-  }
+  void recordOnce(const c10::hpu::HPUStream& stream);
 
   // Note: hpuEventRecord must be called on the same device as the event.
-  void record(const c10::hpu::HPUStream& stream) {
-    auto& device = habana::HPURegistrar::get_device().syn_device();
-    if (!is_created_) {
-      createEvent(stream.device_index());
-      created_with_stream_ = stream.stream();
-      PT_DEVICE_DEBUG("event id::", id_);
-    }
+  void record(const c10::hpu::HPUStream& stream);
 
-    TORCH_CHECK(
-        device_index_ == stream.device_index(),
-        "Event device ",
-        device_index_,
-        " does not match recording stream's device ",
-        stream.device_index(),
-        ".");
-
-    // if the current stream and the record stream is different
-    // just add a event record without a step_marker.
-    // if the current stream is same as record stream, then
-    // do mark step and use this for launch.
-    PT_DEVICE_DEBUG(
-        "Event Recod Current_stream::",
-        (c10::hpu::getCurrentHPUStream()).stream(),
-        " record stream::",
-        stream.stream());
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-      if (stream.stream() == (c10::hpu::getCurrentHPUStream()).stream()) {
-        PT_DEVICE_DEBUG("Reocrd Stream current and record stream are same");
-        habana_lazy::HbLazyTensor::StepMarker({});
-      }
-    }
-
-    device.record_event(id_, stream.stream());
-    recorded_stream_ = stream.stream();
-    was_recorded_ = true;
-  }
-
-  // Note: hpuStreamWaitEvent must be called on the same device as the stream.
-  // The event has no actual HPU resources associated with it.
-  void block(const c10::hpu::HPUStream& stream) {
-    if (is_created_) {
-      if (stream.stream() == recorded_stream_) {
-        return;
-      }
-      auto& device = habana::HPURegistrar::get_device().syn_device();
-      device.wait_event(id_, stream.stream());
-    }
-  }
+  void block(const c10::hpu::HPUStream& stream);
 
   // Note: hpuEventElapsedTime can be safely called from any device
-  float elapsed_time(const HPUEvent& other) const {
-    TORCH_CHECK(
-        is_created_ && other.isCreated(),
-        "Both events must be recorded before calculating elapsed time.");
-    auto& device = habana::HPURegistrar::get_device().syn_device();
-    return device.elapsed_time(id_, other.id_);
-  }
+  float elapsed_time(const HPUEvent& other) const;
 
   // Note: hpuEventSynchronize can be safely called from any device
-  void synchronize() const {
-    if (is_created_) {
-      auto& device = habana::HPURegistrar::get_device().syn_device();
-      device.synchronize_event(id_);
-    }
-  }
+  void synchronize() const;
 
  private:
   // flags_ is used to create the event to enable/disable capture timing
@@ -184,24 +110,9 @@ struct HPUEvent {
   synapse_helpers::hpuStream_t recorded_stream_;
   synapse_helpers::hpuStream_t created_with_stream_;
 
-  void createEvent([[maybe_unused]] DeviceIndex device_index) {
-    // get device
-    auto& dev = habana::HPURegistrar::get_device().syn_device();
-    device_index_ = dev.id();
-    id_ = dev.get_event_index();
-    dev.create_event(id_, flags_);
-    is_created_ = true;
-    PT_DEVICE_DEBUG("created event with ::", id_);
-  }
+  void createEvent([[maybe_unused]] DeviceIndex device_index);
 
-  void moveHelper(HPUEvent&& other) {
-    std::swap(flags_, other.flags_);
-    std::swap(is_created_, other.is_created_);
-    std::swap(was_recorded_, other.was_recorded_);
-    std::swap(device_index_, other.device_index_);
-    std::swap(id_, other.id_);
-    std::swap(recorded_stream_, other.recorded_stream_);
-  }
+  void moveHelper(HPUEvent&& other);
 }; // namespace hpu
 
 } // namespace hpu

@@ -26,7 +26,6 @@
 #include <thread>
 #include <unordered_set>
 
-#include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "habana_helpers/logging_pt.h"
 #include "utils/check_device_type.h"

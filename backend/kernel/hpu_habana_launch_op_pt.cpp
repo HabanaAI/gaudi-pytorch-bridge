@@ -160,9 +160,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   SetOpName(name);
 
   PT_BRIDGE_DEBUG("Creating : ", SetAndGetSynapseGraphName(name, graph_index));
-  if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
-    HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
-  }
 
   tensor_dump_numel_ = -2;
 

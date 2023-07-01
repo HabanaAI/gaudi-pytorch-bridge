@@ -273,8 +273,7 @@ void dumpEnvSettings() {
 device::device(
     std::shared_ptr<session> synapse_session,
     synDeviceId device_id,
-    synDeviceType device_type,
-    const create_allocator_fnc& create_allocator)
+    synDeviceType device_type)
     : synapse_session_(std::move(synapse_session)),
       type_{device_type},
       id_{device_id},
@@ -286,8 +285,6 @@ device::device(
       recipe_handle_cache_{*this} {
   // create default stream
   create_default_stream();
-  HABANA_ASSERT(create_allocator != nullptr);
-  allocator_ = create_allocator(id_);
   ReleaseFreeMemory();
   DisableDynamicShapeGaudi3();
   dumpEnvSettings();
@@ -346,8 +343,7 @@ device::device(
 }
 
 synapse_error_v<device_handle> device::get_or_create(
-    const std::set<synDeviceType>& allowed_device_types,
-    const create_allocator_fnc& allocator) {
+    const std::set<synDeviceType>& allowed_device_types) {
   std::lock_guard<std::mutex> lock(device_mtx);
   device_handle handle = device_in_use.lock();
   if (handle != nullptr) {
@@ -359,7 +355,7 @@ synapse_error_v<device_handle> device::get_or_create(
     return handle;
   }
 
-  return device::create(allowed_device_types, allocator);
+  return device::create(allowed_device_types);
 }
 
 synapse_error_v<device_handle> device::get_by_id(synDeviceId requested_id) {
@@ -375,17 +371,10 @@ synapse_error_v<device_handle> device::get_by_id(synDeviceId requested_id) {
 }
 
 synapse_error_v<device_handle> device::create(
-    const std::set<synDeviceType>& allowed_device_types,
-    const create_allocator_fnc& create_allocator) {
+    const std::set<synDeviceType>& allowed_device_types) {
   PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
   synStatus status{synStatus::synSuccess};
-
-  if (create_allocator == nullptr) {
-    return synapse_helpers::synapse_error{
-        "You should pass non null create_allocator_fnc for device creation.",
-        synInvalidArgument};
-  }
 
   auto synapse_session_create_result{synapse_helpers::session::get_or_create()};
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
@@ -437,8 +426,8 @@ synapse_error_v<device_handle> device::create(
         habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
   }
 
-  std::shared_ptr<device> device_ptr{new device(
-      synapse_session, new_device_id, acquired_device_type, create_allocator)};
+  std::shared_ptr<device> device_ptr{
+      new device(synapse_session, new_device_id, acquired_device_type)};
 
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);
@@ -522,12 +511,12 @@ void device::cleanup() {
 
   if (is_hcl_same_addr_enabled_ && (std::getenv("HLS_MODULE_ID") != nullptr)) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
-    allocator_->free((void*)prealloc_addr);
+    device_memory_.free((void*)prealloc_addr);
   }
   // free workspace buffer
   {
     std::unique_lock<std::mutex> lock(ws_mutex_);
-    allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
+    device_memory_.free(reinterpret_cast<void*>(workspace_buffer_));
   }
 
   framework_specific_cleanup_();
@@ -980,14 +969,6 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   auto flag_guard = synapse_helpers::ostream_flag_guard::create(stream);
   stream << std::hex << syn_device.id() << std::dec;
   return stream;
-}
-
-device_ptr device::malloc(size_t size) {
-  return reinterpret_cast<device_ptr>(allocator_->alloc(size));
-}
-
-void device::free(device_ptr ptr) {
-  return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
 void device::register_host_event(uint64_t addr) {
@@ -1527,7 +1508,7 @@ void device::cleanup_workspace_buffer() {
   while (recipe_counter.get_count() > 1) {
     recipe_counter.wait_for_next_decrease_call();
   }
-  allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
+  device_memory_.free(reinterpret_cast<void*>(workspace_buffer_));
   workspace_buffer_ = 0;
   workspace_size_ = 0;
 }
@@ -1690,7 +1671,8 @@ void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
     PT_SYNHELPER_DEBUG(
         "Free buffer ptr ",
         reinterpret_cast<void*>(reinterpret_cast<device_ptr>(ptr)));
-    device_->free(reinterpret_cast<device_ptr>(ptr));
+    device_->get_device_memory().free(
+        reinterpret_cast<void*>(reinterpret_cast<device_ptr>(ptr)));
   }
 }
 

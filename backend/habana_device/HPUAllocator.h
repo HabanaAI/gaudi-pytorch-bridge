@@ -20,8 +20,6 @@
 
 #include <map>
 
-typedef bool (*pgmDropCachedRecipe)(size_t& recipe_count);
-
 namespace habana {
 
 using StorageExtraMetaMap = std::map<int64_t, habana::StorageExtraMeta>;
@@ -43,20 +41,6 @@ struct HPUAllocationContext {
 
 at::Allocator* getHABANADeviceAllocator();
 
-class HPUAllocator : public synapse_helpers::device_allocator {
- public:
-  HPUAllocator(synDeviceId);
-
-  void reset() override;
-  void release() override;
-  void* alloc(size_t num_bytes) override;
-  void free(void* ptr) override;
-  pgmDropCachedRecipe drop_cached_recipe_cb;
-
- private:
-  synDeviceId device_id{synapse_helpers::device::INVALID_ID};
-};
-
 class HPUDeviceAllocator final : public at::Allocator {
  public:
   HPUDeviceAllocator();
@@ -70,7 +54,6 @@ class HPUDeviceAllocator final : public at::Allocator {
 
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;
-  static pgmDropCachedRecipe drop_cached_recipe_cb;
 
   // At the time of destruction, enture that the stream manager is not in
   // the middle of releasing tensors

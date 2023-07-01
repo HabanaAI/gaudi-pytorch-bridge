@@ -99,13 +99,8 @@ synapse_helpers::device& HPURegistrar::get_or_create_device() {
     return get_active_device();
   }
 
-  auto allocatorVar =
-      [](synDeviceId id) -> std::unique_ptr<synapse_helpers::device_allocator> {
-    return std::make_unique<habana::HPUAllocator>(id);
-  };
-
   auto device_ptr_or_error = synapse_helpers::device::get_or_create(
-      synapse_helpers::device::get_supported_devices(), allocatorVar);
+      synapse_helpers::device::get_supported_devices());
 
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
           device_ptr_or_error)) {

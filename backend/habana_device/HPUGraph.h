@@ -12,6 +12,7 @@
  */
 #pragma once
 #include "HPUStream.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
@@ -46,9 +47,7 @@ struct SingleHPUGraph {
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
-  void replayV3(
-      std::vector<at::Tensor>& inputs,
-      bool async = false);
+  void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
 
   std::shared_ptr<torch::jit::Graph> graph_;
@@ -122,9 +121,7 @@ struct HPUGraph {
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
       bool async = false);
-  void replayV3(
-      std::vector<at::Tensor>& inputs,
-      bool async = false);
+  void replayV3(std::vector<at::Tensor>& inputs, bool async = false);
   void mark_user_outputs(std::vector<at::Tensor>& outputs);
   void mark_user_inputs(std::vector<at::Tensor>& static_inputs);
 

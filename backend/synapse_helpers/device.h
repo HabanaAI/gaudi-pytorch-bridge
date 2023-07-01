@@ -135,8 +135,7 @@ class device {
 
   using ref = std::reference_wrapper<synapse_helpers::device>;
   static synapse_error_v<device_handle> get_or_create(
-      const std::set<synDeviceType>& allowed_device_types,
-      const create_allocator_fnc& create_allocator);
+      const std::set<synDeviceType>& allowed_device_types);
 
   static synapse_error_v<device_handle> get_by_id(synDeviceId idtype_t);
 
@@ -184,9 +183,6 @@ class device {
   friend std::ostream& operator<<(
       std::ostream& stream,
       const device& syn_device);
-
-  device_ptr malloc(size_t size);
-  void free(device_ptr ptr);
 
   template <typename... DevicePtrT>
   device_ptr_lock lock_addresses(DevicePtrT... ptrs) {
@@ -471,13 +467,11 @@ class device {
  private:
   friend class stream;
   static synapse_error_v<device_handle> create(
-      const std::set<synDeviceType>& allowed_device_types,
-      const create_allocator_fnc& create_allocator);
+      const std::set<synDeviceType>& allowed_device_types);
   device(
       std::shared_ptr<session> synapse_session,
       synDeviceId device_id,
-      synDeviceType device_type,
-      const create_allocator_fnc& create_allocator);
+      synDeviceType device_type);
 
   void synchronize_event(shared_event& event) {
     sem_.synchronize_event(event);
@@ -491,7 +485,6 @@ class device {
   // WARNING: ordering of members is critical
   // note that there are inter-dependencies between devices' members that
   // require specific order of destruction.
-  std::unique_ptr<device_allocator> allocator_;
   size_t workspace_size_{0};
   size_t real_workspace_size_{0};
   device_ptr workspace_buffer_{0}; // global workspace buffer per device to be

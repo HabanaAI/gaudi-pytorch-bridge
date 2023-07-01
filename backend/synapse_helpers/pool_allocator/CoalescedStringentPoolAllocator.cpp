@@ -363,11 +363,6 @@ bool CoalescedStringentPooling::is_memory_available(
   return true;
 }
 
-bool CoalescedStringentPooling::is_mem_threshold_hit() const {
-  // not used in case of CoalescedStringentPooling
-  return false;
-}
-
 // Returns a pointer to an underlying allocated chunk of size 'num_bytes'.
 void* CoalescedStringentPooling::FindChunkPtr(
     uint64_t bin_index,

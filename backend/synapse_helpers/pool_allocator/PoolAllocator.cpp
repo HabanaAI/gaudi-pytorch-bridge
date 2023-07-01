@@ -259,13 +259,6 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   }
 }
 
-bool StaticPooling::is_mem_threshold_hit() const {
-  const std::lock_guard<std::mutex> lock(sp_mutex);
-  if (bytes_in_use > (max_pool_size * 0.80))
-    return true;
-  return false;
-}
-
 void* StaticPooling::extend_high_memory_allocation(
     uint64_t size,
     [[maybe_unused]] size_t current_ws_size) const {
@@ -493,21 +486,6 @@ void DynamicPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
   log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
   freeBlock(ptr);
-}
-
-bool DynamicPooling::is_mem_threshold_hit() const {
-  const std::lock_guard<std::mutex> lock(vp_mutex);
-  uint64_t free_mem, total_mem;
-  auto status = synDeviceGetMemoryInfo(pool_id, &free_mem, &total_mem);
-  if (synStatus::synSuccess != status) {
-    PT_DEVMEM_DEBUG(
-        Logger::formatStatusMsg(status),
-        "POOL:: Cannot obtain device memory info.");
-    return false;
-  }
-  if (bytes_in_use > (total_mem * 0.8))
-    return true;
-  return false;
 }
 
 void* DynamicPooling::extend_high_memory_allocation(

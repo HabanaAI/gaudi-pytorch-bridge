@@ -725,7 +725,6 @@ def main():
         real_path = os.path.realpath(__file__)
         demo_config_path = os.path.dirname(real_path)
         os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = demo_config_path + "/../../configs/BERT_Fusion_Ops.txt"
-        os.environ["PT_HPU_POOL_STRATEGY"]="4"
     if args.use_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
         if args.local_rank != -1:

@@ -24,7 +24,6 @@ enum PoolStrategyType {
   strategy_bump,
   strategy_dynamic,
   startegy_static_coalesce,
-  startegy_static_coalesce_with_memthreshold,
   startegy_coalesce_stringent,
 };
 
@@ -45,7 +44,6 @@ class PoolingStrategy {
   virtual void* pool_alloc_chunk(uint64_t size, bool is_workspace = false)
       const = 0;
   virtual void pool_free_chunk(void* p) const = 0;
-  virtual bool is_mem_threshold_hit() const = 0;
   virtual void* extend_high_memory_allocation(
       uint64_t size,
       size_t current_ws_size) const = 0;
@@ -114,10 +112,6 @@ class SubAllocator {
 
   void pool_free_chunk(void* p) const {
     return this->strategy_->pool_free_chunk(p);
-  }
-
-  bool is_mem_threshold_hit() const {
-    return this->strategy_->is_mem_threshold_hit();
   }
 
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
@@ -221,7 +215,6 @@ class StaticPooling : public PoolingStrategy {
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
   void pool_free_chunk(void* p) const override;
-  bool is_mem_threshold_hit() const override;
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
       const override;
   void get_stats(MemoryStats* stats) const override;
@@ -264,7 +257,6 @@ class DynamicPooling : public PoolingStrategy {
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
   void pool_free_chunk(void* p) const override;
-  bool is_mem_threshold_hit() const override;
   void* extend_high_memory_allocation(uint64_t size, size_t ws_size)
       const override;
   void get_stats(MemoryStats* stats) const override;

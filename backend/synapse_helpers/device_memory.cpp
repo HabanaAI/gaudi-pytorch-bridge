@@ -59,21 +59,6 @@ device_memory::device_memory(device& device) : device_{device} {
         PT_DEVMEM_FATAL("unknown pool error");
       }
       break;
-    case pool_allocator::startegy_static_coalesce_with_memthreshold:
-      /* this is additional startegy will be workaround for now,
-       * we remove it later and enable for all startegy by default */
-      enable_mem_threshold_check = true;
-      try {
-        PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
-        suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::StaticCoalescedPooling);
-        if (suballoc_ == nullptr) {
-          PT_DEVMEM_FATAL("unable to create pool allocator");
-        }
-      } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error");
-      }
-      break;
     case pool_allocator::startegy_static_coalesce:
       try {
         PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
@@ -286,15 +271,6 @@ synStatus device_memory::free(void* free_ptr) {
   log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
   record(free_ptr, 0, false);
   return status;
-}
-
-bool device_memory::is_mem_threshold_hit() {
-  if (!enable_mem_threshold_check)
-    return false;
-  if (pool_strategy_ != pool_allocator::strategy_none) {
-    return suballoc_->is_mem_threshold_hit();
-  }
-  return false;
 }
 
 void* device_memory::workspace_alloc(
