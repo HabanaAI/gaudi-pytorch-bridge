@@ -875,8 +875,7 @@ at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
   bool is_shape_tensor = impl && impl->isShapeTensor();
   if (pt_tensor.dim() == 0 &&
-      (!pt_tensor.unsafeGetTensorImpl()->is_wrapped_number() ||
-       d->is_random_seed_tensor)) {
+      !pt_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
     HABANA_ASSERT(is_shape_tensor == false, "0D shape tensor encountered");
     pt_tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
   }
