@@ -254,6 +254,7 @@ list(APPEND misc_tests_src
   utils/dynamic_shape_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
   view_utils_tests.cpp
+  common_tests.cpp
 )
 
 list(APPEND eager_tests_src
@@ -268,6 +269,7 @@ add_executable(
 )
 
 target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
+target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 
 if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   # Remove tests unrelated or not working with PT2
@@ -289,6 +291,7 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     ${misc_tests_src}
     ${eager_tests_src})
   target_compile_definitions(test_pt2_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
+  target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
 endif()
 
 find_package(Python COMPONENTS Interpreter Development)

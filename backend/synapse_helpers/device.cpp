@@ -41,6 +41,7 @@
 #include "backend/synapse_helpers/session.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
+#include "common/utils.h"
 
 #define PRINT_ENV_FLAG_DEFAULT(name) \
   std::clog << " " << #name << " = " << GET_ENV_FLAG_NEW(name) << "\n";
@@ -236,6 +237,16 @@ void dumpEnvSettings() {
     PRINT_ENV_FLAG_DEFAULT(PT_CACHE_FOLDER_DELETE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_MAX_COMPOUND_OP_SIZE)
     PRINT_ENV_FLAG_DEFAULT(PT_HPU_LAZY_ACC_PAR_MODE)
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+      HABANA_ASSERT(
+          common::getLoadedLibraryType() == common::LibraryType::EAGER,
+          "Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY.");
+    } else {
+      HABANA_ASSERT(
+          common::getLoadedLibraryType() == common::LibraryType::LAZY,
+          "Wrong PT plugin library loaded in the system. Expected LAZY, got EAGER.");
+    }
 
     if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
       PT_BRIDGE_WARN(

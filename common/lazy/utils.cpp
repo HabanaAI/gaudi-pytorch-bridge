@@ -21,4 +21,8 @@ void* GetDataPtrFromTensor(const at::Tensor& tensor) {
 bool IsStepMarkerSupported() {
   return true;
 }
+
+LibraryType getLoadedLibraryType() {
+  return LibraryType::LAZY;
+}
 } // namespace common

@@ -25,4 +25,13 @@ namespace common {
 void* GetDataPtrFromTensor(const at::Tensor& tensor);
 
 bool IsStepMarkerSupported();
+
+enum class LibraryType {
+  LAZY, // libhabana_pytorch_plugin.so
+  EAGER, // libhabana_pytorch2_plugin.so
+};
+
+// This function retuns specific LibraryType type based on loaded library.
+LibraryType getLoadedLibraryType();
+
 } // namespace common

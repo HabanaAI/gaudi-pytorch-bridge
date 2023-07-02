@@ -10,20 +10,14 @@
  *
  *******************************************************************************
  */
+#include <gtest/gtest.h>
+
 #include "common/utils.h"
 
-#include <ATen/Tensor.h>
-
-namespace common {
-void* GetDataPtrFromTensor(const at::Tensor& tensor) {
-  return reinterpret_cast<void*>(tensor.storage().data_ptr().get());
+TEST(Common, LoadedLibraryType) {
+#ifdef EAGER_TESTS
+  EXPECT_EQ(common::getLoadedLibraryType(), common::LibraryType::EAGER);
+#else
+  EXPECT_EQ(common::getLoadedLibraryType(), common::LibraryType::LAZY);
+#endif
 }
-
-bool IsStepMarkerSupported() {
-  return false;
-}
-
-LibraryType getLoadedLibraryType() {
-  return LibraryType::EAGER;
-}
-} // namespace common
