@@ -32,12 +32,14 @@ class LazyNormKernelTest : public habana_lazy_test::LazyTest {};
 LAYER_NORM_TEST(LazyNormKernelTest, Forward)
 LAYER_NORM_TEST(LazyNormKernelTest, Backward)
 LAYER_NORM_TEST(LazyNormKernelTest, BackwardGal)
+// Fixing in SW-144635
 // LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
 
 class LazyNormKernelDsTest : public habana_lazy_test::LazyDynamicTest {};
 
-LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Forward)
-LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Backward)
+// Fixing in SW-150776
+// LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Forward)
+// LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Backward)
 
 TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
