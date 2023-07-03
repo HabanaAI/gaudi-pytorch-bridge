@@ -21,25 +21,15 @@
   CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_slu {
-SLU_API_PTR(synSharedLayerInit);
 SLU_API_PTR(synSharedLayerInit_v2);
-SLU_API_PTR(synSharedLayerValidateGuid);
 SLU_API_PTR(synSharedLayerValidateGuid_v2);
-SLU_API_PTR(synSharedLayerRetrieveGuid);
-SLU_API_PTR(synSharedLayerGetGuidNames);
 SLU_API_PTR(synSharedLayerGetGuidNames_v2);
-SLU_API_PTR(synSharedLayerFinit);
 SLU_API_PTR(synSharedLayerFinit_v2);
 
 void LoadSymbols(void* lib_handle) {
-  SLU_INIT_PTR(synSharedLayerInit);
   SLU_INIT_PTR(synSharedLayerInit_v2);
-  SLU_INIT_PTR(synSharedLayerValidateGuid);
   SLU_INIT_PTR(synSharedLayerValidateGuid_v2);
-  SLU_INIT_PTR(synSharedLayerRetrieveGuid);
-  SLU_INIT_PTR(synSharedLayerGetGuidNames);
   SLU_INIT_PTR(synSharedLayerGetGuidNames_v2);
-  SLU_INIT_PTR(synSharedLayerFinit);
   SLU_INIT_PTR(synSharedLayerFinit_v2);
 }
 
@@ -82,44 +72,15 @@ LibSynapseUtilsLoader::~LibSynapseUtilsLoader() {
 } // namespace
 // Proxy
 
-synStatus synSharedLayerInit() {
-  LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerInit();
-}
-
 SharedLayer::Return_t synSharedLayerInit_v2() {
   LibSynapseUtilsLoader::EnsureLoaded();
   return shim_slu::synSharedLayerInit_v2();
-}
-
-synStatus synSharedLayerValidateGuid(
-    char const* guidName,
-    synSharedLayerParams_t* params,
-    const gcapi::DeviceId_t deviceId) {
-  LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerValidateGuid(guidName, params, deviceId);
 }
 
 SharedLayer::Return_t synSharedLayerValidateGuid_v2(
     const SharedLayer::Params_t* const params) {
   LibSynapseUtilsLoader::EnsureLoaded();
   return shim_slu::synSharedLayerValidateGuid_v2(params);
-}
-
-synStatus synSharedLayerRetrieveGuid(
-    char const* guidName,
-    shared_layer::OpInfoV1_t* params,
-    const gcapi::DeviceId_t deviceId) {
-  LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerRetrieveGuid(guidName, params, deviceId);
-}
-
-synStatus synSharedLayerGetGuidNames(
-    char* guidNames[gcapi::MAX_NODE_NAME],
-    int* guidCount,
-    const gcapi::DeviceId_t deviceId) {
-  LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerGetGuidNames(guidNames, guidCount, deviceId);
 }
 
 SharedLayer::Return_t synSharedLayerGetGuidNames_v2(
@@ -129,11 +90,6 @@ SharedLayer::Return_t synSharedLayerGetGuidNames_v2(
   LibSynapseUtilsLoader::EnsureLoaded();
   return shim_slu::synSharedLayerGetGuidNames_v2(
       guidNames, guidCount, deviceId);
-}
-
-synStatus synSharedLayerFinit() {
-  LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerFinit();
 }
 
 SharedLayer::Return_t synSharedLayerFinit_v2() {

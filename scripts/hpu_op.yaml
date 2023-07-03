@@ -3089,7 +3089,7 @@ gelu_backward:
   guid: cgelu_bwd
 
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer
 
 gelu_backward.grad_input:
   custom_fill_params: FillGeluBwdParams
@@ -3098,7 +3098,7 @@ gelu_backward.grad_input:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: cgelu_bwd
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer
 
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams

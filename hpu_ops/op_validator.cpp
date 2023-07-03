@@ -20,56 +20,23 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "op_backend.h"
-namespace habana {
 
-static bool use_v2 = GET_ENV_FLAG_NEW(PT_HPU_USE_SHARED_LAYER_V2);
+namespace habana {
 
 namespace {
 
-synStatus synSharedLayerInit_wrapper() {
-  if (use_v2) {
-    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS ==
-        synSharedLayerInit_v2()) {
-      return synStatus::synSuccess;
-    } else {
-      return synStatus::synFail;
-    }
-  } else {
-    return synSharedLayerInit();
-  }
-}
-
 struct SharedLayerInitialization {
   SharedLayerInitialization() {
-    static auto status = synSharedLayerInit_wrapper();
+    static auto status = synSharedLayerInit_v2();
     TORCH_CHECK(status == synSuccess, "cannot initialize shared layer");
   }
 
   ~SharedLayerInitialization() {
-    if (use_v2) {
-      synSharedLayerFinit_v2();
-    } else {
-      synSharedLayerFinit();
-    }
+    synSharedLayerFinit_v2();
   }
 };
 
 SharedLayerInitialization _slu_initializer;
-
-gcapi::DeviceId_t synDeviceTypeToGcApiDeviceType(synDeviceType tp) {
-  switch (tp) {
-    case synDeviceGaudi:
-      return gcapi::DEVICE_ID_GAUDI;
-    case synDeviceGaudi2:
-      return gcapi::DEVICE_ID_GAUDI2;
-    case synDeviceGaudi3:
-      return gcapi::DEVICE_ID_GAUDI3;
-    default:
-      break;
-  }
-
-  TORCH_CHECK(false, "unsupported synDeviceType for shared layer");
-}
 
 SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
   switch (tp) {
@@ -84,17 +51,6 @@ SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
   }
 
   TORCH_CHECK(false, "unsupported synDeviceType for shared layer");
-}
-
-gcapi::DeviceId_t _getDeviceType() {
-  auto deviceType = HPURegistrar::get_device(0).type();
-  auto deviceId = synDeviceTypeToGcApiDeviceType(deviceType);
-  return deviceId;
-}
-
-gcapi::DeviceId_t getDeviceType() {
-  static auto deviceId = _getDeviceType();
-  return deviceId;
 }
 
 synDeviceId getDeviceId() {
@@ -112,40 +68,7 @@ SharedLayer::DeviceId getDeviceType_v2() {
   return deviceId;
 }
 
-bool fillGcApiTypeFromScalarType(
-    gcapi::TensorDataType_t& dst,
-    at::ScalarType t) {
-  switch (t) {
-    case at::ScalarType::Bool:
-      dst = gcapi::DATA_I8;
-      return true;
-    case at::ScalarType::Byte:
-      dst = gcapi::DATA_U8;
-      return true;
-    case at::ScalarType::Char:
-      dst = gcapi::DATA_I8;
-      return true;
-    case at::ScalarType::Int:
-    case at::ScalarType::Long:
-      dst = gcapi::DATA_I32;
-      return true;
-    case at::ScalarType::Short:
-      dst = gcapi::DATA_I16;
-      return true;
-    case at::ScalarType::Float:
-    case at::ScalarType::Double:
-      dst = gcapi::DATA_F32;
-      return true;
-    case at::ScalarType::BFloat16:
-      dst = gcapi::DATA_BF16;
-      return true;
-    default:
-      dst = gcapi::NUM_DATATYPES;
-      return false;
-  }
-}
-
-bool fillGcApiTypeFromScalarType_v2(
+bool fillSharedLayerTenorType_v2(
     SharedLayer::Tensor& tensor,
     at::ScalarType t) {
   switch (t) {
@@ -181,25 +104,6 @@ bool fillGcApiTypeFromScalarType_v2(
   }
 }
 
-bool fillGuidParamInfoWithIntList(
-    shared_layer::guid_param_info& param,
-    const std::vector<int64_t>& xs) {
-  param.geometry.dims = xs.size() - 1;
-  for (uint64_t dim = 0; dim < xs.size() - 1; ++dim) {
-    int64_t syn_dim = xs.size() - dim - 2;
-    param.layout[syn_dim] = xs[dim];
-  }
-  if (param.geometry.dims == 0) {
-    param.geometry.dims = 1;
-    param.layout[0] = 1;
-  }
-  if (not fillGcApiTypeFromScalarType(
-          param.dataType, (at::ScalarType)xs.back()))
-    return false;
-
-  return true;
-}
-
 bool fillGuidParamInfoWithIntList_v2(
     SharedLayer::Tensor& tensor,
     const std::vector<int64_t>& xs) {
@@ -213,26 +117,9 @@ bool fillGuidParamInfoWithIntList_v2(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillGcApiTypeFromScalarType_v2(tensor, (at::ScalarType)xs.back()))
+  if (not fillSharedLayerTenorType_v2(tensor, (at::ScalarType)xs.back()))
     return false;
 
-  return true;
-}
-
-bool fillGuidParamInfoWithTensor(
-    shared_layer::guid_param_info& param,
-    const at::Tensor& t) {
-  param.geometry.dims = t.dim();
-  for (int64_t dim = 0; dim < t.dim(); ++dim) {
-    int64_t syn_dim = t.dim() - dim - 1;
-    param.layout[syn_dim] = t.size(dim);
-  }
-  if (param.geometry.dims == 0) {
-    param.geometry.dims = 1;
-    param.layout[0] = 1;
-  }
-  if (not fillGcApiTypeFromScalarType(param.dataType, t.scalar_type()))
-    return false;
   return true;
 }
 
@@ -252,58 +139,9 @@ bool fillGuidParamInfoWithTensor_v2(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillGcApiTypeFromScalarType_v2(tensor, t.scalar_type()))
+  if (not fillSharedLayerTenorType_v2(tensor, t.scalar_type()))
     return false;
   return true;
-}
-
-/*
- * This function is a wrapper for shared layer query interface.
- */
-bool ValidateGuid(
-    const std::string& guid,
-    const detail::TensorDescrArray& input_values,
-    const detail::TensorDescrArray& output_values,
-    void* filledParams = nullptr) {
-  synSharedLayerParams_t params{};
-  params.apiVersion = 1;
-  strncpy(params.nodeName, guid.c_str(), gcapi::MAX_NODE_NAME);
-  params.nodeName[gcapi::MAX_NODE_NAME - 1] = 0;
-  params.nodeParams = filledParams;
-
-  for (auto i = 0u; i < input_values.size(); ++i) {
-    bool result = false;
-    if (input_values[i].isTensor()) {
-      result = fillGuidParamInfoWithTensor(
-          params.inputTensors[i], *input_values[i].m_tensor);
-    } else {
-      result = fillGuidParamInfoWithIntList(
-          params.inputTensors[i], input_values[i].m_dims_and_type);
-    }
-
-    if (not result)
-      return false;
-  }
-  params.inputTensorNr = input_values.size();
-
-  for (auto i = 0u; i < output_values.size(); ++i) {
-    bool result = false;
-    if (output_values[i].isTensor()) {
-      result = fillGuidParamInfoWithTensor(
-          params.outputTensors[i], *output_values[i].m_tensor);
-    } else {
-      result = fillGuidParamInfoWithIntList(
-          params.outputTensors[i], output_values[i].m_dims_and_type);
-    }
-
-    if (not result)
-      return false;
-  }
-  params.outputTensorNr = output_values.size();
-  auto device = getDeviceType();
-  synStatus status;
-  status = synSharedLayerValidateGuid(guid.c_str(), &params, device);
-  return status == synSuccess;
 }
 
 /*
@@ -596,12 +434,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
     const std::vector<at::IValue>& values) {
   bool result;
 
-  bool gaudi3 = false;
-  if (use_v2) {
-    gaudi3 = getDeviceType_v2() == SharedLayer::DeviceId::DEVICE_ID_GAUDI3;
-  } else {
-    gaudi3 = getDeviceType() == gcapi::DEVICE_ID_GAUDI3;
-  }
+  bool gaudi3 = getDeviceType_v2() == SharedLayer::DeviceId::DEVICE_ID_GAUDI3;
 
   if (gaudi3) {
     result = ValidateWithDTypes(compute_type, values);
@@ -659,38 +492,22 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto promoted_type = ComputePromotedType(values);
   auto inputs = CreateInputList(values, promoted_type);
   auto outputs = CreateOutputList(values, promoted_type);
-  if (use_v2) {
-    if (not ValidateGuid_v2(
-            m_guid, inputs, outputs, params.get(), params_size)) {
-      PT_OP_INFO(
-          "Shared layer rejected op: ",
-          m_opname,
-          ":  guid=",
-          m_guid,
-          "inputlist=",
-          ToDebugString(inputs),
-          " outputlist=",
-          ToDebugString(outputs),
-          " values=",
-          ToDebugString(values));
-      return false;
-    }
-  } else {
-    if (not ValidateGuid(m_guid, inputs, outputs, params.get())) {
-      PT_OP_INFO(
-          "Shared layer rejected op: ",
-          m_opname,
-          ":  guid=",
-          m_guid,
-          "inputlist=",
-          ToDebugString(inputs),
-          " outputlist=",
-          ToDebugString(outputs),
-          " values=",
-          ToDebugString(values));
-      return false;
-    }
+
+  if (not ValidateGuid_v2(m_guid, inputs, outputs, params.get(), params_size)) {
+    PT_OP_INFO(
+        "Shared layer rejected op: ",
+        m_opname,
+        ":  guid=",
+        m_guid,
+        "inputlist=",
+        ToDebugString(inputs),
+        " outputlist=",
+        ToDebugString(outputs),
+        " values=",
+        ToDebugString(values));
+    return false;
   }
+
   return true;
 }
 

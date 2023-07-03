@@ -426,7 +426,6 @@ ENV_STRUCT_DEFINITION(PT_LOG_FILE_AMOUNT, unsigned, 5);
 // the fastest solution, but could consume more CPU time
 // clang-format on
 ENV_STRUCT_DEFINITION(PT_HPU_ACC_THREAD_VERSION, int, 0);
-ENV_STRUCT_DEFINITION(PT_HPU_USE_SHARED_LAYER_V2, bool, false);
 
 // It replaces PT_RECIPE_CACHE_PATH, PT_CACHE_FOLDER_DELETE and
 // PT_CACHE_FOLDER_SIZE_MB. PT_HPU_RECIPE_CACHE_CONFIG is a comma separated list
