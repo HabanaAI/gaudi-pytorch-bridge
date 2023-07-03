@@ -1,4 +1,4 @@
-###############################################################################
+
 # Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -11,10 +11,7 @@
 ###############################################################################
 
 import os
-import logging
 from .config import configuration_flags
-
-logging.basicConfig()
 
 def setup_env_config(env_name, config_name):
     if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
@@ -36,10 +33,5 @@ if os.getenv("PT_HPU_USE_SHARED_LAYER_FALLBACK_CHECK", "").upper() in ["ON", "1"
     configuration_flags["shared_layer_fallback_check"] = True
 else:
     configuration_flags["shared_layer_fallback_check"] = False
-
-if configuration_flags["verbose"]:
-    logger = logging.getLogger("aot_hpu_backend")
-    logger.setLevel(logging.DEBUG)
-    logger.info("config.verbose is ON")
 
 from . import backends

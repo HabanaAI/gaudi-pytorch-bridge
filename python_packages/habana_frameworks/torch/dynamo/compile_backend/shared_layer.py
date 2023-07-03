@@ -10,17 +10,16 @@
 #
 ###############################################################################
 
-import logging
-
 import torch
 import habana_frameworks
 import os
 from .config import configuration_flags
+from .logger import get_compile_backend_logger
 
 
 if configuration_flags["shared_layer_fallback_check"]:
     from ._shared_layer_C import check_cpu_fallback_op
-logger = logging.getLogger("aot_hpu_backend")
+logger = get_compile_backend_logger()
 
 hpu_supported_op_list = ["_to_copy",
                          "getitem"]

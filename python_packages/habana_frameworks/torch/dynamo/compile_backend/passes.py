@@ -12,7 +12,6 @@
 
 import os
 import copy
-import logging
 import torch
 import contextlib
 
@@ -24,8 +23,9 @@ from .shared_layer import is_cpu_fallback_required
 from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .config import configuration_flags
+from .logger import get_compile_backend_logger
 
-logger = logging.getLogger("aot_hpu_backend")
+logger = get_compile_backend_logger()
 
 
 class OptimizationPassPlacement(Enum):
