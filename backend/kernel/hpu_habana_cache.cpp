@@ -278,7 +278,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " <id : " << v.id << "> "
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
-    << " <use_count : " << v.recipe.use_count() << ">"
+    << " <use_count : " << v.recipe.use_count() << "> "
     << " <num_launches : " << v.num_launches << ">" << '\n';
 
   O << " ntensorbytes : " << synapse_helpers::get_mem_str(v.ntensorbytes)

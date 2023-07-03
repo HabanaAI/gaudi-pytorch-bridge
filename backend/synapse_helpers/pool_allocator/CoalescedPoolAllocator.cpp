@@ -103,15 +103,15 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
       "POOL:: Pool Created :: base host :: ",
       p,
       " base ptr :: ",
-      p->basememptr,
+      uint64_to_hex_string(p->basememptr),
       " memptr :: ",
-      p->memptr,
+      uint64_to_hex_string(p->memptr),
       " prealloc_pool :: ",
-      prealloc_pool->memptr,
+      uint64_to_hex_string(prealloc_pool->memptr),
       " end :: ",
-      p->end,
+      uint64_to_hex_string(p->end),
       " next :: ",
-      p->next);
+      uint64_to_hex_string(p->next));
 
   log_DRAM_start(p->memptr);
   log_DRAM_size(max_pool_size);
@@ -216,16 +216,16 @@ void StaticCoalescedPooling::print_pool_stats() const {
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
             "POOL:: can be merged :: chunk :: ",
-            chunk->memptr,
+            uint64_to_hex_string(chunk->memptr),
             " with prev :: ",
-            chunk->prev->memptr);
+            uint64_to_hex_string(chunk->prev->memptr));
       }
       if (chunk->next && !chunk->next->used && chunk->next->size) {
         PT_DEVMEM_DEBUG(
             "POOL:: can be merged :: chunk :: ",
-            chunk->memptr,
+            uint64_to_hex_string(chunk->memptr),
             " with next :: ",
-            chunk->next->memptr);
+            uint64_to_hex_string(chunk->next->memptr));
       }
     }
   }
@@ -411,9 +411,9 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
     if (isFreeBlockAvailble) {
       PT_DEVMEM_DEBUG(
           "POOL:: Free blocks available -- block split, p->end :: ",
-          p->end,
+          uint64_to_hex_string(p->end),
           " p->next :: ",
-          p->next,
+          uint64_to_hex_string(p->next),
           " max_pool_size :: ",
           max_pool_size);
       isFreeBlockAvailble = false;
@@ -424,7 +424,7 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
   }
   PT_DEVMEM_DEBUG(
       "POOL:: reusing chunk after defragment:: ",
-      free_chunk->memptr,
+      uint64_to_hex_string(free_chunk->memptr),
       " req size :: ",
       size,
       " chunk size :: ",
@@ -445,11 +445,11 @@ Chunk* StaticCoalescedPooling::reuse_chunks(uint64_t size) const {
   }
   PT_DEVMEM_DEBUG(
       "POOL:: reusing chunk :: ",
-      free_chunk->memptr,
+      uint64_to_hex_string(free_chunk->memptr),
       " req size :: ",
       size,
       " chunk size :: ",
-      free_chunk->size);
+      uint64_to_hex_string(free_chunk->size));
   free_chunk->used = true;
   return free_chunk;
 }
@@ -506,11 +506,11 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
         "POOL:: pool_alloc_chunk allocated reuse chunk :: base:: ",
         old_chunk,
         " chunk memptr ::",
-        old_chunk->memptr,
+        uint64_to_hex_string(old_chunk->memptr),
         " prev :: ",
-        prevptr,
+        uint64_to_hex_string(prevptr),
         " next :: ",
-        nextptr,
+        uint64_to_hex_string(nextptr),
         " requested size :: ",
         size,
         " chunk size :: ",
@@ -594,11 +594,11 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
       "POOL:: pool_alloc_chunk allocated :: base:: ",
       chunk,
       " chunk memptr ::",
-      chunk->memptr,
+      uint64_to_hex_string(chunk->memptr),
       " prev :: ",
-      prevptr,
+      uint64_to_hex_string(prevptr),
       " next :: ",
-      nextptr,
+      uint64_to_hex_string(nextptr),
       " requested size :: ",
       size,
       " chunk size :: ",
@@ -634,11 +634,11 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
       "split chunk::",
       chunk,
       " Prev:: ",
-      (chunk->prev ? chunk->prev->memptr : 0),
+      uint64_to_hex_string((chunk->prev ? chunk->prev->memptr : 0)),
       " memptr:: ",
-      chunk->memptr,
+      uint64_to_hex_string(chunk->memptr),
       " next:: ",
-      (chunk->next ? chunk->next->memptr : 0));
+      uint64_to_hex_string((chunk->next ? chunk->next->memptr : 0)));
   if (chunk->size < size) {
     PT_DEVMEM_DEBUG(
         "POOL:: chunk cant be split, chunk is smaller. chunk size:: ",
@@ -684,20 +684,20 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
       "new chunk::",
       new_chunk,
       " prev:: ",
-      (new_chunk->prev ? new_chunk->prev->memptr : 0),
-      " mmeptr:: ",
-      new_chunk->memptr,
+      uint64_to_hex_string((new_chunk->prev ? new_chunk->prev->memptr : 0)),
+      " memeptr:: ",
+      uint64_to_hex_string(new_chunk->memptr),
       " next:: ",
-      (new_chunk->next ? new_chunk->next->memptr : 0));
+      uint64_to_hex_string((new_chunk->next ? new_chunk->next->memptr : 0)));
   PT_DEVMEM_DEBUG(
       "modified chunk::",
       chunk,
       " prev:: ",
-      (chunk->prev ? chunk->prev->memptr : 0),
+      uint64_to_hex_string((chunk->prev ? chunk->prev->memptr : 0)),
       " memptr:: ",
-      chunk->memptr,
+      uint64_to_hex_string(chunk->memptr),
       " next::",
-      (chunk->next ? chunk->next->memptr : 0));
+      uint64_to_hex_string((chunk->next ? chunk->next->memptr : 0)));
   return chunk;
 }
 
@@ -706,20 +706,20 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
       "Merge C1::",
       c1,
       " prev:: ",
-      (c1->prev ? c1->prev->memptr : 0),
+      uint64_to_hex_string((c1->prev ? c1->prev->memptr : 0)),
       " memptr:: ",
-      c1->memptr,
+      uint64_to_hex_string(c1->memptr),
       " next:: ",
-      (c1->next ? c1->next->memptr : 0));
+      uint64_to_hex_string((c1->next ? c1->next->memptr : 0)));
   PT_DEVMEM_DEBUG(
       "Merge C2::",
       c2,
       " prev:: ",
-      (c2->prev ? c2->prev->memptr : 0),
+      uint64_to_hex_string((c2->prev ? c2->prev->memptr : 0)),
       " memptr:: ",
-      c2->memptr,
+      uint64_to_hex_string(c2->memptr),
       " next:: ",
-      (c2->next ? c2->next->memptr : 0));
+      uint64_to_hex_string((c2->next ? c2->next->memptr : 0)));
   if (c1->used || c2->used) {
     PT_DEVMEM_DEBUG(" Chunk is in use, cannot merge");
     return nullptr;
@@ -728,18 +728,18 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
   if (c2->prev != c1) {
     PT_DEVMEM_FATAL(
         "Invalid c2 prev pointer prev->",
-        c2->prev->memptr,
+        uint64_to_hex_string(c2->prev->memptr),
         " not equal to c1::",
-        c1->memptr);
+        uint64_to_hex_string(c1->memptr));
     return nullptr;
   }
   // check if c1 and c2 address are contigous(addtional check)
   if ((c1->memptr + c1->size) != c2->memptr) {
     PT_DEVMEM_FATAL(
         "c1 & c2 are not contigous c1->memptr:: ",
-        c1->memptr,
+        uint64_to_hex_string(c1->memptr),
         " c2-?memptr:",
-        c2->memptr);
+        uint64_to_hex_string(c2->memptr));
     return nullptr;
   }
 
@@ -790,11 +790,11 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
       "Merged Chunk C1::",
       c1,
       " prev:: ",
-      (c1->prev ? c1->prev->memptr : 0),
+      uint64_to_hex_string((c1->prev ? c1->prev->memptr : 0)),
       " memptr:: ",
-      c1->memptr,
+      uint64_to_hex_string(c1->memptr),
       " next:: ",
-      (c1->next ? c1->next->memptr : 0));
+      uint64_to_hex_string((c1->next ? c1->next->memptr : 0)));
   return c1;
 }
 

@@ -18,6 +18,8 @@
 
 namespace synapse_helpers {
 
+std::string uint64_to_hex_string(uint64_t number);
+
 /* END: These will be removed when all lazy kernels use shape function. */
 
 class ostream_flag_guard {

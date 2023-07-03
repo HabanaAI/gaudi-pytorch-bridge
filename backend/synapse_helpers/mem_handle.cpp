@@ -17,6 +17,8 @@
 #include <type_traits>
 #include "habana_helpers/logging.h"
 
+#include "util.h"
+
 namespace synapse_helpers {
 static std::array<HandleBucketInfo, _END> bucketInfo = {
     {{small_offset_bits,
@@ -61,7 +63,7 @@ device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
       " offset::",
       offset,
       " ptr::",
-      combined);
+      synapse_helpers::uint64_to_hex_string(combined));
   return combined;
 }
 
@@ -91,7 +93,7 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
       " offset::",
       offset,
       " Ptr::",
-      ptr);
+      uint64_to_hex_string(ptr));
   return mem_handle(id, offset);
 }
 namespace {

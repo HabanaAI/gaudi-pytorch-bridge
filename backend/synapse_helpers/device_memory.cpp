@@ -961,6 +961,11 @@ device_ptr device_memory::get_pointer(mem_handle h) {
 
     auto ptr_size = handle2pointer_.GetPtrSize(h.id());
     if (ptr_size.ptr_ == nullptr) {
+      PT_DEVMEM_DEBUG(
+          "Need to allocate buffer for tensor handle ",
+          ptr_size.ptr_,
+          " of size: ",
+          ptr_size.size_);
       alloc(&ptr_size.ptr_, ptr_size.size_);
       handle2pointer_.SetPtrSize(h.id(), ptr_size);
     }

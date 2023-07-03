@@ -848,7 +848,7 @@ void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed) {
     }
   }
   if (dmd.is_recording_enabled()) {
-    dmd.record("MALLOC", size, ptr);
+    dmd.record("MALLOC", size, uint64_to_hex_string(ptr));
   }
 }
 
@@ -864,7 +864,7 @@ void log_synDeviceFree(uint64_t ptr, bool failed) {
     }
   }
   if (dmd.is_recording_enabled()) {
-    dmd.record("FREE", ptr);
+    dmd.record("FREE", uint64_to_hex_string(ptr));
   }
 }
 
@@ -877,7 +877,11 @@ void log_synDevicePoolCreate(
     uint64_t base_mem_ptr) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
-    dmd.record("CREATE_POOL", free_mem, mem_acquire_perc, base_mem_ptr);
+    dmd.record(
+        "CREATE_POOL",
+        free_mem,
+        mem_acquire_perc,
+        uint64_to_hex_string(base_mem_ptr));
   }
 }
 
@@ -887,7 +891,7 @@ void log_synDevicePoolCreate(
 void log_synDeviceWorkspace(uint64_t ptr, size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
-    dmd.record("WORKSPACE", size, ptr);
+    dmd.record("WORKSPACE", size, uint64_to_hex_string(ptr));
   }
   if (dmd.is_fragment_json_enabled()) {
     dmd.update_workspace_record(ptr, ptr + size);
@@ -900,7 +904,7 @@ void log_synDeviceWorkspace(uint64_t ptr, size_t size) {
 void log_synDeviceAlloc(uint64_t ptr, size_t size) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
-    dmd.record("ALLOCATE", size, ptr);
+    dmd.record("ALLOCATE", size, uint64_to_hex_string(ptr));
   }
 }
 
@@ -910,7 +914,7 @@ void log_synDeviceAlloc(uint64_t ptr, size_t size) {
 void log_synDeviceDeallocate(uint64_t ptr) {
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
-    dmd.record("DEALLOCATE", ptr);
+    dmd.record("DEALLOCATE", uint64_to_hex_string(ptr));
   }
 }
 

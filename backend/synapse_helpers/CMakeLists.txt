@@ -41,7 +41,8 @@ add_library(
   stream_event_manager.cpp
   session.cpp
   stream.cpp
-  tensor_builder_base.cpp)
+  tensor_builder_base.cpp
+  util.cpp)
 
 target_include_directories(
   pytorch_synapse_helpers

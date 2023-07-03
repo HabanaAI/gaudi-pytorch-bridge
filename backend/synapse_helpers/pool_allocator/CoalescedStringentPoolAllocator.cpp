@@ -47,7 +47,7 @@ Bin* BinUtils::BinForSize(size_t bytes) const {
 void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
   PT_DEVMEM_DEBUG(
       "CS_POOL:: InsertFreeChunkIntoBin - memptr = ",
-      c->memptr,
+      uint64_to_hex_string(c->memptr),
       ", bin_index = ",
       c->bin_index);
   if (!c->used && (c->bin_index == kInvalidBinNum)) {
@@ -64,7 +64,7 @@ void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
 void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
   PT_DEVMEM_DEBUG(
       "CS_POOL:: RemoveFreeChunkFromBin - memptr = ",
-      c->memptr,
+      uint64_to_hex_string(c->memptr),
       ", bin_index = ",
       c->bin_index);
   if (!c->used && (c->bin_index != kInvalidBinNum)) {
@@ -86,7 +86,7 @@ void BinUtils::RemoveFreeChunkIterFromBin(
   Chunk* c = *citer;
   PT_DEVMEM_DEBUG(
       "CS_POOL:: RemoveFreeChunkIterFromBin - memptr = ",
-      c->memptr,
+      uint64_to_hex_string(c->memptr),
       ", bin_index = ",
       c->bin_index);
   HABANA_ASSERT(!c->used && (c->bin_index != kInvalidBinNum));
@@ -195,15 +195,15 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
       "CS_POOL:: Pool Created :: base host :: ",
       p,
       " base ptr :: ",
-      p->basememptr,
+      uint64_to_hex_string(p->basememptr),
       " memptr :: ",
-      p->memptr,
+      uint64_to_hex_string(p->memptr),
       " prealloc_pool :: ",
-      prealloc_pool->memptr,
+      uint64_to_hex_string(prealloc_pool->memptr),
       " end :: ",
-      p->end,
+      uint64_to_hex_string(p->end),
       " next :: ",
-      p->next);
+      uint64_to_hex_string(p->next));
 
   log_DRAM_start(p->memptr);
   log_DRAM_size(max_pool_size);
@@ -395,7 +395,7 @@ void* CoalescedStringentPooling::FindChunkPtr(
         }
         bin_utils->InsertFreeChunkIntoBin(chunk);
 
-        PT_DEVMEM_DEBUG("Returning: ", chunk->memptr);
+        PT_DEVMEM_DEBUG("Returning: ", uint64_to_hex_string(chunk->memptr));
 
         return (void*)(chunk);
       }
@@ -429,8 +429,9 @@ void CoalescedStringentPooling::print_pool_stats() const {
     total_chunks++;
     total_size += chunk->size;
     PT_DEVMEM_DEBUG(
+
         "Chunk memptr::",
-        chunk->memptr,
+        uint64_to_hex_string(chunk->memptr),
         " chunk size::",
         chunk->size,
         " chunk used::",
@@ -456,16 +457,16 @@ void CoalescedStringentPooling::print_pool_stats() const {
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
             "CS_POOL:: can be merged :: chunk :: ",
-            chunk->memptr,
+            uint64_to_hex_string(chunk->memptr),
             " with prev :: ",
-            chunk->prev->memptr);
+            uint64_to_hex_string(chunk->prev->memptr));
       }
       if (chunk->next && !chunk->next->used && chunk->next->size) {
         PT_DEVMEM_DEBUG(
             "CS_POOL:: can be merged :: chunk :: ",
-            chunk->memptr,
+            uint64_to_hex_string(chunk->memptr),
             " with next :: ",
-            chunk->next->memptr);
+            uint64_to_hex_string(chunk->next->memptr));
       }
     }
   }
@@ -572,7 +573,7 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
   }
   PT_DEVMEM_DEBUG(
       "CS_POOL:: reusing chunk :: ",
-      free_chunk->memptr,
+      uint64_to_hex_string(free_chunk->memptr),
       " req size :: ",
       size,
       " chunk size :: ",
@@ -745,11 +746,11 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         "CS_POOL:: pool_alloc_chunk allocated reuse chunk :: base:: ",
         old_chunk,
         " chunk memptr ::",
-        old_chunk->memptr,
+        uint64_to_hex_string(old_chunk->memptr),
         " prev :: ",
-        prevptr,
+        uint64_to_hex_string(prevptr),
         " next :: ",
-        nextptr,
+        uint64_to_hex_string(nextptr),
         " requested size :: ",
         size,
         " chunk size :: ",
@@ -760,7 +761,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     stats.UpdateStats(old_chunk->size, true);
     PT_DEVMEM_DEBUG(
         "CS_POOL:: alloc_chunk chunk::",
-        old_chunk->memptr,
+        uint64_to_hex_string(old_chunk->memptr),
         " Size::",
         old_chunk->size);
     return (void*)old_chunk->memptr;
@@ -777,11 +778,11 @@ void CoalescedStringentPooling::try_splitting_chunks(
       "split chunk::",
       chunk,
       " Prev:: ",
-      (chunk->prev ? chunk->prev->memptr : 0),
+      uint64_to_hex_string((chunk->prev ? chunk->prev->memptr : 0)),
       " memptr:: ",
-      chunk->memptr,
+      uint64_to_hex_string(chunk->memptr),
       " next:: ",
-      (chunk->next ? chunk->next->memptr : 0),
+      uint64_to_hex_string((chunk->next ? chunk->next->memptr : 0)),
       " size:: ",
       chunk->size);
 
@@ -824,20 +825,20 @@ void CoalescedStringentPooling::try_splitting_chunks(
       "new chunk::",
       new_chunk,
       " prev:: ",
-      (new_chunk->prev ? new_chunk->prev->memptr : 0),
+      uint64_to_hex_string((new_chunk->prev ? new_chunk->prev->memptr : 0)),
       " mmeptr:: ",
-      new_chunk->memptr,
+      uint64_to_hex_string(new_chunk->memptr),
       " next:: ",
-      (new_chunk->next ? new_chunk->next->memptr : 0));
+      uint64_to_hex_string((new_chunk->next ? new_chunk->next->memptr : 0)));
   PT_DEVMEM_DEBUG(
       "modified chunk::",
       chunk,
       " prev:: ",
-      (chunk->prev ? chunk->prev->memptr : 0),
+      uint64_to_hex_string((chunk->prev ? chunk->prev->memptr : 0)),
       " memptr:: ",
-      chunk->memptr,
+      uint64_to_hex_string(chunk->memptr),
       " next::",
-      (chunk->next ? chunk->next->memptr : 0));
+      uint64_to_hex_string((chunk->next ? chunk->next->memptr : 0)));
 }
 
 void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
@@ -845,11 +846,11 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       "Merge C1::",
       c1,
       " prev:: ",
-      (c1->prev ? c1->prev->memptr : 0),
+      uint64_to_hex_string((c1->prev ? c1->prev->memptr : 0)),
       " memptr:: ",
-      c1->memptr,
+      uint64_to_hex_string(c1->memptr),
       " next:: ",
-      (c1->next ? c1->next->memptr : 0),
+      uint64_to_hex_string((c1->next ? c1->next->memptr : 0)),
       " size ",
       c1->size,
       "In USe ",
@@ -859,11 +860,11 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       "Merge C2::",
       c2,
       " prev:: ",
-      (c2->prev ? c2->prev->memptr : 0),
+      uint64_to_hex_string((c2->prev ? c2->prev->memptr : 0)),
       " memptr:: ",
-      c2->memptr,
+      uint64_to_hex_string(c2->memptr),
       " next:: ",
-      (c2->next ? c2->next->memptr : 0),
+      uint64_to_hex_string((c2->next ? c2->next->memptr : 0)),
       " size ",
       c2->size,
       "In USe ",
@@ -884,9 +885,9 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   if ((c1->memptr + c1->size) != c2->memptr) {
     PT_DEVMEM_FATAL(
         "c1 & c2 are not contigous c1->memptr:: ",
-        c1->memptr,
+        uint64_to_hex_string(c1->memptr),
         " c2-?memptr:",
-        c2->memptr);
+        uint64_to_hex_string(c2->memptr));
   }
 
   if (prealloc_pool->top == c2) {
@@ -927,11 +928,11 @@ void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       "Merged Chunk C1::",
       c1,
       " prev:: ",
-      (c1->prev ? c1->prev->memptr : 0),
+      uint64_to_hex_string((c1->prev ? c1->prev->memptr : 0)),
       " memptr:: ",
-      c1->memptr,
+      uint64_to_hex_string(c1->memptr),
       " next:: ",
-      (c1->next ? c1->next->memptr : 0),
+      uint64_to_hex_string((c1->next ? c1->next->memptr : 0)),
       " size ",
       c1->size);
 }
@@ -943,7 +944,10 @@ Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c) const {
   if (c->next != nullptr && !(c->next)->used) {
     Chunk* new_chunk = c->next;
     PT_DEVMEM_DEBUG(
-        "Merging c->next ", new_chunk->memptr, " with c ", c->memptr);
+        "Merging c->next ",
+        uint64_to_hex_string(new_chunk->memptr),
+        " with c ",
+        uint64_to_hex_string(c->memptr));
     bin_utils->RemoveFreeChunkFromBin(c->next);
     merge(c, c->next);
   }
@@ -952,7 +956,10 @@ Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c) const {
   if (c->prev != nullptr && !(c->prev)->used) {
     Chunk* new_chunk = c->prev;
     PT_DEVMEM_DEBUG(
-        "Merging c ", c->memptr, " into c->prev ", new_chunk->memptr);
+        "Merging c ",
+        uint64_to_hex_string(c->memptr),
+        " into c->prev ",
+        uint64_to_hex_string(new_chunk->memptr));
     coalesced_chunk = c->prev;
     bin_utils->RemoveFreeChunkFromBin(c->prev);
     merge(c->prev, c);
