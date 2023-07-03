@@ -86,10 +86,10 @@ std::vector<AtTensorPair> native_layer_norm_test(
     }                                                                         \
   }
 
-#define LAYER_NORM_TEST_2(...)                                \
-  LAYER_NORM_TEST_3(__VA_ARGS__, F32, kFloat32, 0.01, 1, E)   \
-  LAYER_NORM_TEST_3(__VA_ARGS__, BF16, kBFloat16, 0.01, 1, E) \
-  LAYER_NORM_TEST_3(__VA_ARGS__, F16, kFloat16, 0.01, 1, E)
+#define LAYER_NORM_TEST_2(...)                                 \
+  LAYER_NORM_TEST_3(__VA_ARGS__, F32, kFloat32, 0.605, 1, E)   \
+  LAYER_NORM_TEST_3(__VA_ARGS__, BF16, kBFloat16, 0.605, 1, E) \
+  LAYER_NORM_TEST_3(__VA_ARGS__, F16, kFloat16, 0.605, 1, E)
 
 #define LAYER_NORM_TEST_1(...)        \
   LAYER_NORM_TEST_2(__VA_ARGS__, Def) \

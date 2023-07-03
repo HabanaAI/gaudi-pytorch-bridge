@@ -537,7 +537,8 @@ static synTensor CreateLayerNormBiasWeightTensor(
     const c10::optional<OpBackend::TensorsPair>& weightOrBiasOpt,
     int64_t constant_numel,
     float constant_value,
-    std::array<int64_t, 1>& weightOrBias_shape) {
+    std::vector<int64_t>& weightOrBias_shape,
+    bool isReshapeRequired) {
   if (weightOrBiasOpt) {
     synTensor synWeightOrBias = weightOrBiasOpt->syn_t;
     if (weightOrBiasOpt->pt_t.scalar_type() != c10::kFloat) {
@@ -555,7 +556,11 @@ static synTensor CreateLayerNormBiasWeightTensor(
     storage.push_back(OpBackend::BuildReshape(
         op, graph, synWeightOrBias, weightOrBias_shape, c10::kFloat));
   } else {
-    weightOrBias_shape = {constant_numel};
+    if (isReshapeRequired) {
+      weightOrBias_shape = {1, 1, constant_numel};
+    } else {
+      weightOrBias_shape = {constant_numel};
+    }
     storage.push_back(OpBackend::BuildConstant(
         op, graph, constant_value, c10::kFloat, weightOrBias_shape));
   }
@@ -579,6 +584,15 @@ void LayerNormHabanaOperator::AddNode(
   auto use_tpc_affine_path =
       !weightOpt && !biasOpt && (input_ndim == 4) && (normalized_ndim == 3);
 
+  // Since G1 uses TPC kernels, W/B tensors have to be 3D in affine mode.
+  // This also applies to F16 on G2. For BF16 and F32 CGUIDs are used on G2
+  // so there is no need to change shape of W/B tensors. For G3 affine tests
+  // are skipped.
+  auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
+      (habana::HPURegistrar::get_device().type() !=
+           synDeviceType::synDeviceGaudi2 ||
+       input.pt_t.scalar_type() == torch::kFloat16);
+
   int64_t normalized_shape_numel = c10::multiply_integers(
       normalized_shape.cbegin(), normalized_shape.cend());
 
@@ -591,7 +605,7 @@ void LayerNormHabanaOperator::AddNode(
   // storage.push_back
   storage.reserve(5);
 
-  std::array<int64_t, 1> weightOrBias_shape = {};
+  std::vector<int64_t> weightOrBias_shape = {};
   synTensor synWeight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
@@ -600,7 +614,8 @@ void LayerNormHabanaOperator::AddNode(
       weightOpt,
       weightOrBias_constant_numel,
       1.0f,
-      weightOrBias_shape);
+      weightOrBias_shape,
+      is_reshape_for_tpc_kernels_required);
 
   synTensor synBias = CreateLayerNormBiasWeightTensor(
       this,
@@ -610,7 +625,8 @@ void LayerNormHabanaOperator::AddNode(
       biasOpt,
       weightOrBias_constant_numel,
       0.0f,
-      weightOrBias_shape);
+      weightOrBias_shape,
+      is_reshape_for_tpc_kernels_required);
 
   synTensor synInput = input.syn_t;
 
@@ -749,7 +765,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   synTensor grad_out_as_4D = storage[0].get();
   synTensor input_as_4D = storage[1].get();
 
-  std::array<int64_t, 1> weightShape = {};
+  std::vector<int64_t> weightShape = {};
   synTensor synWeight = CreateLayerNormBiasWeightTensor(
       this,
       graph,
@@ -759,7 +775,8 @@ void LayerNormBwdHabanaOperator::AddNode(
       c10::multiply_integers(
           normalized_shape.cbegin(), normalized_shape.cend()),
       1.0f,
-      weightShape);
+      weightShape,
+      false);
 
   std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
   std::array<unsigned, 2> storage_indices = {};

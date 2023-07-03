@@ -32,8 +32,7 @@ class LazyNormKernelTest : public habana_lazy_test::LazyTest {};
 LAYER_NORM_TEST(LazyNormKernelTest, Forward)
 LAYER_NORM_TEST(LazyNormKernelTest, Backward)
 LAYER_NORM_TEST(LazyNormKernelTest, BackwardGal)
-// Fixing in SW-144635
-// LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
+LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
 
 class LazyNormKernelDsTest : public habana_lazy_test::LazyDynamicTest {};
 
