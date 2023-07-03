@@ -27,6 +27,7 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+  - repository: lightning-habana-fork
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
   silentMode: false
   gerritTriggerMap:
@@ -34,6 +35,7 @@ launchers:
   - repository: pytorch-lightning-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
+  - repository: lightning-habana-fork
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
   silentMode: false
   gerritTriggerMap:
