@@ -21,11 +21,11 @@ common:
           pip install -U $PYTORCH_LIGHTNING_FORK_BUILD/pkgs/*.whl
           pip install -U $HABANA_LIGHTNING_PLUGINS_BUILD/pkgs/*.whl
 testsMap:
-  Test_pytorch_modules_gaudi2_asic_8cards_ptl_fw_uts:
+  Test_pytorch_modules_gaudi2_asic_ptl_fw_uts:
     stages:
       Run lightning framework unit tests:
         filter: -t all
-  Test_pytorch_modules_gaudi_asic_8cards_ptl_fw_uts:
+  Test_pytorch_modules_gaudi_asic_ptl_fw_uts:
     stages:
       Run lightning framework unit tests:
         filter: -t all
