@@ -13,6 +13,7 @@
 #include "pyt_media_proxy.h"
 #include <torch/torch.h>
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 
 namespace torch_hpu {
@@ -20,7 +21,7 @@ namespace torch_hpu {
 PytMediaProxy::PytMediaProxy(int device_id) : device_id_(device_id) {}
 
 PytMediaProxy::~PytMediaProxy() {
-  if (!habana::HPURegistrar::isInitialized()) {
+  if (!habana::HPURegistrar::get_hpu_registrar().is_initialized()) {
     return; // Nothing to do
   }
   auto& device = habana::HPURegistrar::get_device(device_id_);
