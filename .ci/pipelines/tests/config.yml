@@ -50,22 +50,6 @@ testJobConfig:
       gaudi:
         hwType:
           asic:
-  ptl_fw_uts:
-    devices:
-      gaudi2:
-        hwType:
-          asic:
-      gaudi:
-        hwType:
-          asic:
-  ptl_plugin_uts:
-    devices:
-      gaudi2:
-        hwType:
-          asic:
-      gaudi:
-        hwType:
-          asic:
   lightning_habana_uts:
     devices:
       gaudi2:
