@@ -36,11 +36,8 @@ orchestratorConfig:
 # Subgraph validation <End>
 # Streams and Events validation <Start>
   - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi2_asic_streams_events_pt
-    silentMode: true
   - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi_sim_streams_events_pt
-    silentMode: true
   - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi3_sim_streams_events_pt
-    silentMode: true
 # Streams and Events validation <End>
 # PyTorch Operators and feature validation <End>
 # deepspeed-fork <Start>
