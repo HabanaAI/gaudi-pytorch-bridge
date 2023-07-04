@@ -8,9 +8,39 @@
  ******************************************************************************
  */
 
+#include "../utils/dtype_supported_on_device.h"
 #include "util.h"
 
-class HpuOpTest : public HpuOpTestUtil {};
+class HpuOpTest : public HpuOpTestUtil {
+ public:
+  void RetainTensorTypeTest(torch::ScalarType dtype) {
+    if (!IsDtypeSupportedOnCurrentDevice(dtype)) {
+      GTEST_SKIP();
+    }
+    GenerateInputs(1, {{1, 2, 7, 9}}, {dtype});
+    std::vector<int64_t> kernel_size = {{3, 3}};
+    std::vector<int64_t> stride = {{3, 3}};
+    std::vector<int64_t> pad_size = {{1, 1}};
+    std::vector<int64_t> dilation = {{1, 1}};
+    bool ceil_mode = false;
+    auto hpu_out = torch::max_pool2d_with_indices(
+        GetHpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+    auto expectedRetainTEnsorType = torch::kLong;
+    EXPECT_EQ(std::get<1>(hpu_out).scalar_type(), expectedRetainTEnsorType);
+  }
+};
+
+TEST_F(HpuOpTest, maxpool_2d_with_indices_half) {
+  RetainTensorTypeTest(torch::kHalf);
+}
+
+TEST_F(HpuOpTest, maxpool_2d_with_indices_bfloat16) {
+  RetainTensorTypeTest(torch::kBFloat16);
+}
+
+TEST_F(HpuOpTest, maxpool_2d_with_indices_float) {
+  RetainTensorTypeTest(torch::kFloat32);
+}
 
 TEST_F(HpuOpTest, maxpool_2d_with_indices) {
   GenerateInputs(1, {{1, 2, 7, 9}});

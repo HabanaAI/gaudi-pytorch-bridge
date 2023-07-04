@@ -251,10 +251,14 @@ std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
       kernel, stride, padding, dilation, ceil_mode, size);
 }
 
-static c10::ScalarType FindRetainTensorType(c10::ScalarType input_tensor_type) {
-  if (input_tensor_type == c10::ScalarType::BFloat16)
-    return c10::ScalarType::Short;
-  return c10::ScalarType::Byte;
+static c10::ScalarType FindRetainTensorType(c10::ScalarType inputTensorType) {
+  switch (inputTensorType) {
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Half:
+      return c10::ScalarType::Short;
+    default:
+      return c10::ScalarType::Byte;
+  }
 }
 
 // Since the out varriant intices tensor has some issue
