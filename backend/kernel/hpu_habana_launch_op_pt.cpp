@@ -3001,8 +3001,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         }
       }
 
-      rv.launch(
-          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+      if (!dry_run_) {
+        rv.launch(
+            hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+      }
       if (enable_tensor_dump_) {
         DumpTensors(rv);
       }
@@ -3308,7 +3310,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     HabanaLaunchOpPT* hbLaunchOp,
     std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
     std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
-    std::optional<std::vector<at::Tensor>> allocated_outputs_) {
+    std::optional<std::vector<at::Tensor>> allocated_outputs_,
+    bool dry_run) {
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
   rv.update_hit_count();
@@ -3344,7 +3347,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors_pre(rv);
   }
-  rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+  if (!dry_run) {
+    rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+  }
 
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors(rv);
@@ -3370,7 +3375,8 @@ void habana::HabanaLaunchOpPT::ExecuteSynapse(
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
     HabanaLaunchOpPT* hbLaunchOp,
     std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-    bool is_shape_agnostic_cache_miss) {
+    bool is_shape_agnostic_cache_miss,
+    bool dry_run) {
   PT_BRIDGE_BEGIN;
   if (hbLaunchOp->enable_shape_agnostic_caching_ &&
       hbLaunchOp->jit_graph_and_meta_data->get_is_shape_agnostic_supported()) {
@@ -3383,8 +3389,10 @@ void habana::HabanaLaunchOpPT::ExecuteSynapse(
           habana_helpers::HabanaFrontendTypes::EAGER) {
         rv.update_output_permutation();
       }
-      rv.launch(
-          hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+      if (!dry_run) {
+        rv.launch(
+            hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+      }
 
       if (hbLaunchOp->enable_tensor_dump_) {
         hbLaunchOp->DumpTensors(rv);
@@ -3461,12 +3469,14 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
 
 void HabanaLaunchOpPT::run(
     torch::jit::Stack& input_st,
-    std::optional<std::vector<at::Tensor>> allocated_outputs) {
+    std::optional<std::vector<at::Tensor>> allocated_outputs,
+    bool dry_run) {
   PT_BRIDGE_BEGIN;
   static int idx{1};
   ProcessInputStack(input_st);
   allocated_outputs_ = std::move(allocated_outputs);
 
+  dry_run_ = dry_run;
   iteration_count_++;
   auto& device = HPURegistrar::get_device();
 
@@ -3517,7 +3527,8 @@ void HabanaLaunchOpPT::run(
           this,
           cur_rvalpsh,
           cur_rargpsh,
-          allocated_outputs_);
+          allocated_outputs_,
+          dry_run);
       PT_BRIDGE_END;
       return;
     } else {
@@ -3566,7 +3577,8 @@ void HabanaLaunchOpPT::run(
                 this,
                 cur_rvalpsh,
                 cur_rargpsh,
-                allocated_outputs_);
+                allocated_outputs_,
+                dry_run);
 
         Singleton_ExecThreadPool::JoinPendingExecuteThread();
       } else {
@@ -3577,7 +3589,8 @@ void HabanaLaunchOpPT::run(
             this,
             cur_rvalpsh,
             cur_rargpsh,
-            allocated_outputs_);
+            allocated_outputs_,
+            dry_run);
       }
       PT_BRIDGE_END;
       return;
@@ -3617,9 +3630,9 @@ void HabanaLaunchOpPT::run(
       HABANA_ASSERT(
           eager_mode == true,
           "eager_mode is expected true for supporting shape agnostic graph");
-      constexpr bool dry_run = false;
+      constexpr bool dry_run__ = false;
       auto syn_graph = habana_helpers::create_graph(
-          device.id(), GetSynapseGraphName(), dry_run, eager_mode);
+          device.id(), GetSynapseGraphName(), dry_run__, eager_mode);
       constexpr bool is_shape_agnostic_graph = true;
       syn_graph.set_shape_agnostic_graph(is_shape_agnostic_graph);
       BuildSynapseGraph(syn_graph);
@@ -3682,7 +3695,8 @@ void HabanaLaunchOpPT::run(
                 nullptr,
                 this,
                 cur_rvalpsh,
-                true);
+                true,
+                dry_run);
         Singleton_ExecThreadPool::JoinPendingExecuteThread();
       } else {
         CompileSynapseGraph();
@@ -3803,7 +3817,8 @@ void HabanaLaunchOpPT::run(
                 dma_inputs_ptr,
                 this,
                 cur_rvalpsh,
-                false);
+                false,
+                dry_run);
         Singleton_ExecThreadPool::JoinPendingExecuteThread();
       } else {
         CompileSynapseGraph(false);
@@ -3817,8 +3832,10 @@ void HabanaLaunchOpPT::run(
           rv.update_output_permutation();
         }
 
-        rv.launch(
-            hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+        if (!dry_run) {
+          rv.launch(
+              hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+        }
 
         if (enable_tensor_dump_) {
           DumpTensors(rv);
@@ -3870,11 +3887,11 @@ void HabanaLaunchOpPT::run(
     CreateStaticComplationDBI(graph_key_with_perm);
   }
 
-  constexpr bool dry_run = false;
+  constexpr bool dry_run__ = false;
   const auto use_eager_compiler =
       eager_mode && jit_graph_and_meta_data->get_is_eager_compiler_supported();
   auto syn_graph = habana_helpers::create_graph(
-      device.id(), GetSynapseGraphName(), dry_run, use_eager_compiler);
+      device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler);
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph);
   if (enable_shape_agnostic_caching_) {
@@ -3899,7 +3916,8 @@ void HabanaLaunchOpPT::run(
             nullptr,
             this,
             nullptr,
-            false);
+            false,
+            dry_run);
     Singleton_ExecThreadPool::JoinPendingExecuteThread();
   } else {
     CompileSynapseGraph();

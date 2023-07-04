@@ -233,6 +233,14 @@ class HbExecutionContext {
     return m_capturing_graph;
   }
 
+  void setDryRun(bool dry_run) {
+    m_dry_run = dry_run;
+  }
+
+  bool getDryRun() {
+    return m_dry_run;
+  }
+
   void setCaptureGraph(at::hpu::HPUGraph* hpu_graph) {
     HABANA_ASSERT(m_captured_hpu_graph == nullptr || hpu_graph == nullptr)
     m_captured_hpu_graph = hpu_graph;
@@ -404,6 +412,7 @@ class HbExecutionContext {
   std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
   std::unordered_map<size_t, size_t> m_user_input_positions;
   bool m_capturing_graph{false};
+  bool m_dry_run{false};
   at::hpu::HPUGraph* m_captured_hpu_graph{nullptr};
   std::unordered_map<int64_t, c10::optional<at::Generator>>
       m_seed_tensor_generator_map;

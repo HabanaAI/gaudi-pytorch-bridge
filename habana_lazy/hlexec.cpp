@@ -48,7 +48,7 @@ namespace {
 struct Launcher {
   virtual ~Launcher() = default;
 
-  virtual void Run(torch::jit::Stack& stack) = 0;
+  virtual void Run(torch::jit::Stack& stack, bool dry_run = false) = 0;
 };
 
 /*
@@ -66,8 +66,8 @@ struct HabanaLaunchOpLauncher : Launcher {
     habana_launch_op_.set_node_bcast_map(bcast_map);
   }
 
-  void Run(torch::jit::Stack& stack) override {
-    return habana_launch_op_.run(stack);
+  void Run(torch::jit::Stack& stack, bool dry_run) override {
+    return habana_launch_op_.run(stack, {}, dry_run);
   }
 
   habana::HabanaLaunchOpPT habana_launch_op_;
@@ -84,7 +84,7 @@ struct ClusteredProgramLauncher : Launcher {
     TORCH_CHECK(executor_ != nullptr);
   }
 
-  void Run(torch::jit::Stack& stack) override {
+  void Run(torch::jit::Stack& stack, bool /*dry_run*/) override {
     executor_->Run(stack);
   }
 
@@ -130,7 +130,8 @@ HlExec::HlExec(ScopePtr scope) {
 
 void HlExec::Launch(
     torch::jit::Stack& stack,
-    const c10::hpu::HPUStream& stream) {
+    const c10::hpu::HPUStream& stream,
+    bool dry_run) {
   PT_LAZY_TRACE;
   auto& device = habana::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -168,7 +169,7 @@ void HlExec::Launch(
   auto launcher =
       CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
   try {
-    launcher->Run(stack);
+    launcher->Run(stack, dry_run);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     habana_lazy_executor.setExecutionMode(LazyExecutionMode::kLAZY);

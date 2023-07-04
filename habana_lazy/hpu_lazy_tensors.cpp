@@ -1034,6 +1034,7 @@ struct LaunchTensorsInfo {
   bool has_queued;
   uint64_t launch_jobid;
   bool dynamic_shape;
+  bool dry_run;
 };
 
 struct LaunchEagerInfo {
@@ -1144,7 +1145,8 @@ void LaunchSyncTensorsGraph(
       // Dump the JIT graph with PT_IRGRAPH_DEBUG
       PT_IRGRAPH_DEBUG(DumpGraph(launch_info.hlexec.get_graph()));
 
-      launch_info.hlexec.Launch(launch_info.stack, stream_info.stream);
+      launch_info.hlexec.Launch(
+          launch_info.stack, stream_info.stream, launch_info.dry_run);
       if (launch_info.hlexec.GetJITGraphMetaDataPtr()
               ->get_syn_graph_empty_flag() == true) {
         // The graph was not compiled. Remove the JIT graph from the cache
@@ -1480,7 +1482,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       async,
       has_queued,
       launch_jobid,
-      habana_helpers::GetRefineDynamicShapeStatus()};
+      habana_helpers::GetRefineDynamicShapeStatus(),
+      context->getDryRun()};
 
   LaunchEagerInfo lazy_eager_info = {
       lazyFrontEndInfo,

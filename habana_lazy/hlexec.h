@@ -283,7 +283,10 @@ class HlExec {
   /**
    * This method calls the Habana Graph Lowering kernel
    */
-  void Launch(torch::jit::Stack& stack, const c10::hpu::HPUStream& stream);
+  void Launch(
+      torch::jit::Stack& stack,
+      const c10::hpu::HPUStream& stream,
+      bool dry_run = false);
 
   GraphPtr get_graph() {
     return mp_g_;

@@ -751,7 +751,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
   }
 
-  rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr);
+  if (!dry_run_) {
+    rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr);
+  }
   rv.update_hit_count();
 
   if (enable_tensor_dump_) {

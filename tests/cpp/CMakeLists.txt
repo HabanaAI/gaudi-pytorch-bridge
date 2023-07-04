@@ -60,6 +60,7 @@ set(lazy_tests_src
     lazy_where_kernel_tests.cpp
     post_order_tests.cpp
     sbs_tests.cpp
+    dry_run_test.cpp
 )
 
 set(hpu_ops_tests_src

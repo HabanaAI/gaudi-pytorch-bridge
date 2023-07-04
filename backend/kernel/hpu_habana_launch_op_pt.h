@@ -140,7 +140,8 @@ class HabanaLaunchOpPT {
 
   void run(
       torch::jit::Stack& stack,
-      std::optional<std::vector<at::Tensor>> allocated_outputs = {});
+      std::optional<std::vector<at::Tensor>> allocated_outputs = {},
+      bool dry_run = false);
 
   HabanaLaunchOpPT& getInstance() {
     return *this;
@@ -178,7 +179,8 @@ class HabanaLaunchOpPT {
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
       HabanaLaunchOpPT* hbLaunchOp,
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-      bool is_shape_agnostic_cache_miss);
+      bool is_shape_agnostic_cache_miss,
+      bool dry_run = false);
   static void ExecuteSynapseCache(
       synapse_helpers::hpuStream_t hpu_stream,
       size_t graph_key_with_perm,
@@ -186,7 +188,8 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPT* hbLaunchOp,
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
       std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
-      std::optional<std::vector<at::Tensor>> allocated_outputs_);
+      std::optional<std::vector<at::Tensor>> allocated_outputs_,
+      bool dry_run = false);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
@@ -197,6 +200,7 @@ class HabanaLaunchOpPT {
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;
 
+  bool dry_run_ = false;
   std::vector<bool> node_bcast_map_;
   std::string op_name = std::string();
   std::string name = std::string();
