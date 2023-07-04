@@ -192,6 +192,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/rrelu_with_noise_gen.cpp
           backend/scaled_masked_softmax.cpp
           backend/scatter_gen.cpp
+          backend/searchsorted_gen.cpp
           backend/select_backward_gen.cpp
           backend/select_gen.cpp
           backend/shrink_gen.cpp

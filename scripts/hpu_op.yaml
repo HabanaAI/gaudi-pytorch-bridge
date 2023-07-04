@@ -6196,6 +6196,40 @@ scatter_add:
   override_fn: scatter_add_src_hpu_lazy
   acc_thread: true
 
+searchsorted.Tensor:
+  custom_fill_params: FillSearchSortedParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
+  guid: search_sorted_fwd
+  op_backend: SearchSorted
+  output_meta: SearchSortedMeta
+  out_ids: [0]
+
+searchsorted.Tensor_out:
+  custom_fill_params: FillSearchSortedParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
+  guid: search_sorted_fwd
+  op_backend: SearchSorted
+  output_meta: SearchSortedMeta
+
+searchsorted.Scalar:
+  custom_fill_params: FillSearchSortedParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
+  guid: search_sorted_fwd
+  op_backend: SearchSorted
+  output_meta: SearchSortedMeta
+  out_ids: [0]
+  promote_to_common_type: [sorted_sequence, self]
+  scalar_ids: [1]
+
 select.int:
   force_default: false
   custom_output_shape: SelectHpuOutputShape

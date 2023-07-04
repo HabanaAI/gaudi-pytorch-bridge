@@ -228,6 +228,7 @@ rsqrt                                  Yes      Yes      No        No       No  
 rsub                                   Yes      Yes      No        No       No     torch
 scatter                                Yes      Yes      Yes       No       Yes    torch
 scatter_add                            Yes      Yes      No        No       No     torch
+searchsorted                           Yes      Yes      Yes       No       No     torch
 select                                 Yes      Yes      Yes       No       No     torch
 sgn                                    Yes      Yes      No        No       No     torch
 sigmoid                                Yes      Yes      No        No       No     torch
