@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <media_pytorch_proxy.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "pyt_media_proxy.h"
 
@@ -80,8 +81,26 @@ torch::Tensor getFwOutputTensor(void* impl, uintptr_t addr) {
   return reinterpret_cast<IMediaProxy*>(impl)->getFrameworkOutputTensor(addr);
 }
 
-struct MediaProxyHolder {
-  MediaProxyHolder(int device_id) : media_proxy_impl_(device_id) {
+class MediaProxyHolder {
+ public:
+  static MediaProxyHolder& getInstance() {
+    std::call_once(initialize_once_flag_, []() {
+      instance_.reset(new MediaProxyHolder());
+      habana::HPURegistrar::get_hpu_registrar().register_media_proxy_finalizer(
+          habana::CallFinally([]() { instance_.reset(nullptr); }));
+    });
+    return *instance_.get();
+  }
+  MediaProxyHolder(const MediaProxyHolder&) = delete;
+  MediaProxyHolder(MediaProxyHolder&&) = delete;
+  MediaProxyHolder& operator=(const MediaProxyHolder&) = delete;
+  MediaProxyHolder& operator=(MediaProxyHolder&&) = delete;
+
+  PytMediaProxy media_proxy_impl_;
+  mediaFwProxy media_fw_proxy_{};
+
+ private:
+  MediaProxyHolder() : media_proxy_impl_(0) {
     mediaPytFwProxy_init(
         &media_fw_proxy_,
         &media_proxy_impl_,
@@ -94,20 +113,23 @@ struct MediaProxyHolder {
         getComputeStream);
   }
 
-  PytMediaProxy media_proxy_impl_;
-  mediaFwProxy media_fw_proxy_{};
+  static std::unique_ptr<MediaProxyHolder> instance_;
+  static std::once_flag initialize_once_flag_;
 };
-std::unique_ptr<MediaProxyHolder> media_pyt_proxy;
+
+std::unique_ptr<MediaProxyHolder> MediaProxyHolder::instance_{};
+std::once_flag MediaProxyHolder::initialize_once_flag_{};
 } // namespace
 
 uintptr_t CreatePytMediaProxy(int device_id) {
-  if (!media_pyt_proxy)
-    media_pyt_proxy = std::make_unique<MediaProxyHolder>(device_id);
-  return (uintptr_t)(&media_pyt_proxy->media_fw_proxy_);
+  TORCH_CHECK(
+      device_id == 0, "Unsupported device id ", device_id, ". Must be 0.");
+  return (uintptr_t)(&MediaProxyHolder::getInstance().media_fw_proxy_);
 }
 
 torch::Tensor GetOutputTensor(uintptr_t addr) {
-  return getFwOutputTensor(&media_pyt_proxy->media_proxy_impl_, addr);
+  return getFwOutputTensor(
+      &MediaProxyHolder::getInstance().media_proxy_impl_, addr);
 }
 } // namespace torch_hpu
 

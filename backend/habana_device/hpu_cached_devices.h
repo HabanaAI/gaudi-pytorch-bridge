@@ -183,6 +183,10 @@ class HPURegistrar {
     return active_device_ && !acquired_device_;
   }
 
+  void register_media_proxy_finalizer(CallFinally&& finalizer) {
+    media_proxy_finalizer_ = std::move(finalizer);
+  }
+
  private:
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
@@ -206,6 +210,7 @@ class HPURegistrar {
 
   synapse_helpers::device* active_device_{nullptr};
   std::shared_ptr<synapse_helpers::device> acquired_device_{nullptr};
+  CallFinally media_proxy_finalizer_;
 };
 
 inline HPURegistrar& hpu_registrar() {
