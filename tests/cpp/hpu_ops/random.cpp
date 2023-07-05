@@ -358,29 +358,31 @@ TEST_F(HpuOpTest, multinomial_out_with_replacement) {
 }
 
 // Expected hpu results are different for different seed run
-TEST_F(HpuOpTest, DISABLED_multinomial_out_with_replacement_different_seed) {
+TEST_F(HpuOpTest, multinomial_out_with_replacement_different_seed) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
-  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out2 = torch::empty(0, torch::kInt).to(torch::kHPU);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
   auto result1 =
-      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen1, result);
+      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen1, out1);
   auto result2 =
-      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen2, result);
+      torch::multinomial_outf(GetHpuInput(0), c_sample, true, gen2, out2);
   EXPECT_FALSE(result1.equal(result2));
 }
 
 // Expected hpu results are different for different seed run
-TEST_F(HpuOpTest, DISABLED_multinomial_out_without_replacement_different_seed) {
+TEST_F(HpuOpTest, multinomial_out_without_replacement_different_seed) {
   GenerateInputs(1, {{64, 64}});
   auto c_sample = 4;
-  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out1 = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out2 = torch::empty(0, torch::kInt).to(torch::kHPU);
   auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/41216728023107);
   auto result1 =
-      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen1, result);
+      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen1, out1);
   auto result2 =
-      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen2, result);
+      torch::multinomial_outf(GetHpuInput(0), c_sample, false, gen2, out2);
   EXPECT_FALSE(result1.equal(result2));
 }
