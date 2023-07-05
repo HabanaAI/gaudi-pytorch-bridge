@@ -342,11 +342,11 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
 void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     std::vector<at::Tensor>& tensors) {
   for (auto& tensor : tensors) {
+    auto t_meta{habana::get_tensor_extra_meta(tensor)};
     synapse_helpers::layouts::MemoryPermutation permutation;
     std::tie(permutation, std::ignore) =
         habana_helpers::get_tensor_memory_permutation(tensor);
     if (!permutation.empty()) {
-      auto t_meta{habana::get_tensor_extra_meta(tensor)};
       PT_DISTRIBUTED_DEBUG(
           "Tensor: ",
           t_meta->get_id(),

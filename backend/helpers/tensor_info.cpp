@@ -78,8 +78,9 @@ void PtTensorInfo::populate_tinfo(
   topts_ = pt_tensor.options();
 
   auto tmeta{habana::get_tensor_extra_meta(pt_tensor)};
-  std::tie(hb_internal_perm_, hb_dont_allow_permute_) =
-      habana_helpers::get_tensor_memory_permutation(pt_tensor);
+  auto smeta{habana::get_storage_extra_meta(pt_tensor)};
+  hb_internal_perm_ = smeta->get_memory_permutation();
+  hb_dont_allow_permute_ = smeta->get_dont_allow_permutation();
   hb_internal_lf_ = tmeta->get_tensor_layout();
   PT_BACKEND_DEBUG_TENSOR(
       pt_tensor,

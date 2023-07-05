@@ -886,7 +886,7 @@ void HcclSendOperator::AllocateAndAddSynapseNode(
   // Tensor will be sent as part of lazy graph.
   // Don't allow Synapse to return it permuted as send/recv don't support
   // permuted tensors
-  auto smeta{habana::get_storage_extra_meta(tensor)};
+  auto smeta{habana::get_storage_extra_meta(tensor, true)};
   if (smeta) {
     auto& syn_tensor = p_context_->syn_inputs_[0].ref();
     synTensorSetAllowPermutation(syn_tensor.get(), 0);

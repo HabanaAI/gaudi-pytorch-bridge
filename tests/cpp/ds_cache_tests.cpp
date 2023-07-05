@@ -66,7 +66,10 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   torch::Tensor hx = x.to(torch::kHPU);
   torch::Tensor hy = x.to(torch::kHPU);
-  auto inputs = habana_lazy_test::createStack({hx, hy});
+  auto inputs = habana_lazy_test::createStack({x, y});
+
+  // std::cout << "PTI_DBG :: x : \n" << hx.to("cpu") << '\n';
+  // std::cout << "PTI_DBG :: y : \n" << hy.to("cpu") << '\n';
 
   std::string id_str{"HabanaLaunchOp"};
   size_t graphKey = 0;
@@ -80,6 +83,11 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
       std::make_shared<habana::RecipeArgumentSpec>(
           false, inputs, jit_ir_graph, graphKey, op_strs);
+
+  // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
+  //<< rargpsh2->graphHashCode()
+  //<< ", offset_hash_code : " << rargpsh2->offsetHashCode()
+  //<< ", hash_code : " << rargpsh2->hashCode() << '\n';
 
   EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh2->graphHashCode());
   EXPECT_NE(rargpsh2->graphHashCode(), rargpsh2->hashCode());

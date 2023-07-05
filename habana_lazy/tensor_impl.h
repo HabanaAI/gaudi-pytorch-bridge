@@ -140,10 +140,14 @@ class HbInternalTensorImpl : public c10::TensorImpl {
     get_tensor_extra_meta().set_H2D_data_for_bucketing();
   }
 
-  synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const;
+  synapse_helpers::layouts::MemoryPermutation GetMemoryPermutation() const {
+    return get_ctensor_extra_meta().storage_meta_.get_memory_permutation();
+  }
 
   void SetMemoryPermutation(
-      synapse_helpers::layouts::MemoryPermutation permutation);
+      synapse_helpers::layouts::MemoryPermutation permutation) {
+    get_tensor_extra_meta().storage_meta_.set_memory_permutation(permutation);
+  }
 
   bool isShapeTensor() const {
     return get_ctensor_extra_meta().is_shape_tensor();

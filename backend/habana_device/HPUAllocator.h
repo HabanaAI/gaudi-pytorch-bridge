@@ -26,8 +26,6 @@ namespace habana {
 
 using StorageExtraMetaMap = std::map<int64_t, habana::StorageExtraMeta>;
 
-// This struct is passed to at:DataPtr during HPUAllocator::allocate() in case
-// of >0 bytes allocated. It can be retrieved by at::DataPtr::get_context().
 struct HPUAllocationContext {
   void* data_ptr; // raw data address
   size_t num_bytes; // number of bytes allocated
@@ -37,7 +35,9 @@ struct HPUAllocationContext {
   // for reduction-like operations (reduction can be done in one shot).
   StorageExtraMetaMap meta_map;
   // This field is used, when accessing StorageExtraMeta for Tensor of the same
-  // size (or bigger) as the allocated one (num_bytes >= tensor.nbytes()).
+  // size as the allocated one (num_bytes == tensor.nbytes()).
+  // In case of having contiguous views with different storage offsets, this
+  // field should not contain any permute informations.
   StorageExtraMeta base_meta;
 };
 

@@ -258,7 +258,7 @@ torch::jit::Stack EagerExec::launch() {
         impl->set_storage_offset(0);
 
         std::vector<int64_t> base_sizes;
-        if (input_smeta && input_smeta->get_memory_permutation().size()) {
+        if (input_smeta->get_memory_permutation().size()) {
           base_sizes = input_smeta->get_base_tensor_size();
         } else {
           int64_t elem_size = c10::elementSize(
@@ -466,10 +466,8 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   // from bridge to synapse during the cache hit. during cache miss case bridge
   // needs to set the permute information for the inputs while need to read the
   // permute information of the outputs.
-  if (input_smeta) {
-    for (auto s : input_smeta->get_memory_permutation()) {
-      key = at::hash_combine(key, s);
-    }
+  for (auto s : input_smeta->get_memory_permutation()) {
+    key = at::hash_combine(key, s);
   }
 
   if (input_tmeta->is_view_lowering() || !t.is_contiguous()) {

@@ -138,7 +138,7 @@ std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
 get_tensor_memory_permutation(const at::Tensor& tensor);
 
 void set_tensor_memory_permutations(
-    const at::Tensor& tensor,
+    at::Tensor& tensor,
     synapse_helpers::layouts::MemoryPermutation permutation,
     const synRetrievedLaunchTensorInfoExt* info = nullptr);
 void update_tensor_layout_and_permutation(
