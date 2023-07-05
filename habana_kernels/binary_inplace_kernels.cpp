@@ -490,7 +490,5 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
 
 static auto& BinaryInplaceKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::add_.Tensor", KERNEL_FN(AddInplaceOperator))
-        .add("hpu::add_.Scalar", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Tensor", KERNEL_FN(AddInplaceOperator))
         .add("aten::add_.Scalar", KERNEL_FN(AddInplaceOperator));

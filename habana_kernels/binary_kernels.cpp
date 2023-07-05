@@ -795,7 +795,5 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
 
 static auto& BinaryKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::add.Tensor", KERNEL_FN(AddOperator))
-        .add("hpu::add.Scalar", KERNEL_FN(AddOperator))
         .add("aten::add.Tensor", KERNEL_FN(AddOperator))
         .add("aten::add.Scalar", KERNEL_FN(AddOperator));

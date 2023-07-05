@@ -2219,12 +2219,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> Tensor");
   m.def(
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");
-  m.def("hpu::add.Tensor(Tensor self, Tensor other, Scalar alpha) -> Tensor");
-  m.def("hpu::add.Scalar(Tensor self, Scalar other, Scalar alpha) -> Tensor");
-  m.def(
-      "hpu::add_.Tensor(Tensor(a) self, Tensor other, Scalar alpha) -> Tensor(a)");
-  m.def(
-      "hpu::add_.Scalar(Tensor(a) self, Scalar other, Scalar alpha) -> Tensor(a)");
   m.def(
       "hpu::linear_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False) -> (Tensor, Tensor, Tensor)");
   m.def(
