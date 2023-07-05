@@ -12,10 +12,10 @@
 import torch
 import pytest
 import numpy as np
-from test_utils import hpu, is_gaudi1
+from test_utils import hpu, is_gaudi2
 import habana_frameworks.torch.hpu as ht
 
-pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support masked_batch_gemm op")
+pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
 
 @pytest.mark.parametrize("shape_A, shape_B", [([2, 3, 2, 4], [2, 3, 4, 8])])
 @pytest.mark.parametrize("transA", [False, True])
