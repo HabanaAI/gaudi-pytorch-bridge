@@ -556,7 +556,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
             nbs *= batch_size
         imgs = list(itertools.chain(*(100 * [imgs])))[: nbs * kwargs["num_device"]]
         lbls = list(itertools.chain(*(100 * [lbls])))[: nbs * kwargs["num_device"]]
-    device="gaudi2"
+    device="cpu"
     num_threads=1
     if mode == "eval":
         reminder = len(imgs) % kwargs["num_device"]
@@ -577,6 +577,8 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     if kwargs["benchmark"]:
         if mode == "train" or mode=="test":
             pipeline = "BenchmarkPipeline_Train"
+            device="cpu"
+            num_threads=3
         else:
             raise ValueError("Unsupported mode {} for benchmark!".format(mode))
 
@@ -586,6 +588,8 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
 
     elif mode == "train":
         pipeline = "TrainPipeline"
+        device="cpu"
+        num_threads=3
         if kwargs["dim"] == 2:
             pipe_kwargs.update({"batch_size_2d": batch_size // kwargs["nvol"]})
             batch_size = kwargs["nvol"]
@@ -602,16 +606,11 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     num_instances = kwargs["num_device"]
     instance_id = int(os.getenv("LOCAL_RANK", "0"))
 
-    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d import Unet3dMediaPipe
-    pipeline = Unet3dMediaPipe(a_device=device, a_batch_size=batch_size, a_prefetch_count=3,
-                               a_num_instances=num_instances, a_instance_id=instance_id,
-                               a_pipeline=pipeline,a_num_threads=num_threads, **pipe_kwargs)
+    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d_cpp import Unet3dMediaPipe
+    pipe = Unet3dMediaPipe(a_device=device, a_batch_size=batch_size, a_prefetch_count=3,
+                            a_num_instances=num_instances, a_instance_id=instance_id,
+                            a_pipeline=pipeline,a_num_threads=num_threads, **pipe_kwargs)
 
-    if device == "cpu":
-        from habana_frameworks.mediapipe.plugins.iterator_pytorch import CPUUnet3DPytorchIterator
-        iterator = CPUUnet3DPytorchIterator(mediapipe=pipeline)
-        return iterator
-    else:
-        from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUUnet3DPytorchIterator
-        iterator = HPUUnet3DPytorchIterator(mediapipe=pipeline)
-        return iterator
+    from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUUnet3DPytorchIterator
+    iterator = HPUUnet3DPytorchIterator(mediapipe=pipe)
+    return iterator
