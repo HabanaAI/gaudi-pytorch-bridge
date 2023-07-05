@@ -386,3 +386,58 @@ def test_zero_inplace_2d_noncontiguous_view():
     hpu_tensor.zero_()
 
     torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol = 0, rtol = 0)
+
+def test_tensorlist_view():
+    a = torch.randn([2, 4])
+    ha = a.to('hpu')
+    b = torch.randn([2, 4])
+    hb = b.to('hpu')
+
+    c = torch.cat([a[:,:], b[:,::2]], dim = 1)
+    hc = torch.cat([ha[:,:], hb[:,::2]], dim = 1)
+
+    hc_cpu = hc.cpu()
+    torch.allclose(hc_cpu, c, atol = 0, rtol = 0)
+
+def test_bernoulli():
+    torch.manual_seed(0)
+    a = torch.empty([2, 4], dtype = torch.int32)
+    ha = a.to('hpu')
+
+    av = a.view(-1).bernoulli_()
+    hav = ha.view(-1).bernoulli_()
+    hav_cpu = hav.cpu()
+
+    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+
+def test_normal():
+    torch.manual_seed(0)
+    a = torch.empty([2, 3], dtype = torch.float)
+    ha = a.to('hpu')
+
+    av = a[:,::2].normal_()
+    hav = ha[:,::2].normal_()
+    hav_cpu = hav.cpu()
+
+    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+
+def test_random():
+    torch.manual_seed(0)
+    a = torch.empty([3, 2], dtype = torch.float32)
+    ha = a.to('hpu')
+
+    av = a.t().random_()
+    hav = ha.t().random_()
+    hav_cpu = hav.cpu()
+
+    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+
+def test_geometric():
+    a = torch.empty([3, 2], dtype = torch.float32)
+    ha = a.to('hpu')
+
+    av = a[::2,:].geometric_(0.1)
+    hav = ha[::2,:].geometric_(0.1)
+    hav_cpu = hav.cpu()
+
+    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)

@@ -18,7 +18,22 @@
 namespace habana {
 namespace eager {
 
-static void set_deterministic(JitNode* node) {
+namespace {
+
+/* In general, inplace ops  read from input tensor and then write to the same
+tensor.
+The below list of ops ignore the values in the input tensor and overwrite the
+contents*/
+std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
+    "aten::zero_",
+    "aten::fill_",
+    "hpu::bernoulli_"
+    "hpu::uniform_",
+    "hpu::random_",
+    "hpu::normal_",
+    "hpu::geometric_"};
+
+void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     auto one = torch::jit::attr::alpha;
     auto& gconfig = HPURegistrar::get_hpu_global_config();
@@ -28,15 +43,11 @@ static void set_deterministic(JitNode* node) {
   }
 }
 
-static void insert_control_edge_node(
+void insert_control_edge_node(
     std::shared_ptr<JitGraph> graph,
     JitNode* node,
     JitNode* insert_after_node) {
   torch::jit::WithInsertPoint insert_point(node);
-  static std::unordered_set<std::string>
-      underscored_ops_reported_as_non_inplace = {
-          "aten::zero_",
-      };
 
   if (underscored_ops_reported_as_non_inplace.find(
           node->kind().toQualString()) ==
@@ -55,28 +66,28 @@ static void insert_control_edge_node(
       control_edge_node, control_edge_node->output(0));
 }
 
-static JitNode* insert_strided_view_node(
-    std::shared_ptr<JitGraph> graph,
+JitNode* insert_strided_view_node(
+    JitGraph& graph,
     at::Tensor input,
     JitNode* node,
-    size_t idx,
-    std::unique_ptr<ViewParam>& p) {
+    size_t idx) {
+  ViewParam p;
+  p.setParam(input);
   torch::jit::WithInsertPoint insert_point(node);
 
   auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
-  auto value_sizes =
-      graph->insertConstant(torch::jit::IValue(p->getViewSizes()));
+  auto value_sizes = graph.insertConstant(torch::jit::IValue(p.getViewSizes()));
   auto value_strides =
-      graph->insertConstant(torch::jit::IValue(p->getViewStrides()));
+      graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
   auto value_offset =
-      graph->insertConstant(torch::jit::IValue(p->getViewOffset()));
+      graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
 
   auto value_in = node->input(idx);
-  auto jit_node = graph->create(
+  auto jit_node = graph.create(
       op_strided_view, {value_in, value_sizes, value_strides, value_offset}, 1);
 
   jit_node->output(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), p->getViewSizes()));
+      input.scalar_type(), input.device(), p.getViewSizes()));
 
   auto* impl = input.unsafeGetTensorImpl();
   impl->set_storage_offset(0);
@@ -86,7 +97,7 @@ static JitNode* insert_strided_view_node(
   if (input_smeta->get_memory_permutation().size()) {
     base_sizes = input_smeta->get_base_tensor_size();
   } else {
-    base_sizes = {p->getTotalElements()};
+    base_sizes = {p.getTotalElements()};
   }
   impl->set_sizes_contiguous(base_sizes);
 
@@ -94,20 +105,20 @@ static JitNode* insert_strided_view_node(
       input.scalar_type(), input.device(), input.sizes()));
 
   set_deterministic(jit_node);
-  graph->insertNode(jit_node);
+  graph.insertNode(jit_node);
 
   value_in->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
 
   return jit_node;
 }
 
-static bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
+bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
   return (
       (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::Inplace) ||
       (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut));
 }
 
-static std::unordered_set<size_t> get_input_tensors_positions(
+static std::vector<size_t> get_input_tensors_positions(
     JitNode* node,
     const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data) {
@@ -122,22 +133,24 @@ static std::unordered_set<size_t> get_input_tensors_positions(
     HABANA_ASSERT(inputs.size() >= out_indices.size());
   }
 
-  std::unordered_set<size_t> in_indices;
+  std::vector<size_t> in_indices;
+  in_indices.reserve(inputs.size());
+
   for (size_t i = 0; i < inputs.size(); ++i) {
     auto val = inputs[i];
-    if (!val.isTensor()) {
+    if (!(val.isTensor() || val.isTensorList())) {
       continue;
     }
 
     switch (eager_op_meta_data.op_kind_) {
       case InplaceOut:
         if (!out_indices.count(i))
-          in_indices.insert(i);
+          in_indices.push_back(i);
         break;
       case Inplace:
       case OutOfPlace:
       default:
-        in_indices.insert(i);
+        in_indices.push_back(i);
         break;
     }
   }
@@ -145,7 +158,7 @@ static std::unordered_set<size_t> get_input_tensors_positions(
   return in_indices;
 }
 
-static size_t get_node_output_idx(JitNode* node, size_t idx) {
+size_t get_node_output_idx(JitNode* node, size_t idx) {
   if (node->outputs().size() == 1) {
     return 0;
   } else {
@@ -164,7 +177,12 @@ static size_t get_node_output_idx(JitNode* node, size_t idx) {
   }
 }
 
-static void collect_output_view_param(
+bool is_view(const at::Tensor& t) {
+  auto tmeta{habana::get_tensor_extra_meta(t)};
+  return (tmeta->is_view_lowering() || (!t.is_contiguous()));
+}
+
+void collect_output_view_param(
     JitNode* node,
     const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data,
@@ -178,8 +196,7 @@ static void collect_output_view_param(
     HABANA_ASSERT(
         out_ival.isTensor(), "Expected tensor input, when parsing idx: ", idx);
     auto output_tensor = out_ival.toTensor();
-    auto output_tmeta{habana::get_tensor_extra_meta(output_tensor)};
-    if (!output_tensor.is_contiguous()) {
+    if (is_view(output_tensor)) {
       HABANA_ASSERT(
           inputs[idx].isTensor(),
           "Tensor lists containing views are unsupported. Failed for idx: ",
@@ -207,16 +224,16 @@ static void collect_output_view_param(
       continue;
     }
 
-    if (inputs[idx].isList()) {
-      for (const auto& list_element : inputs[idx].toList())
-        parse_output_tensor(idx, list_element.get());
+    if (inputs[idx].isTensorList()) {
+      for (const auto& t : inputs[idx].toTensorVector())
+        parse_output_tensor(idx, t);
     } else {
       parse_output_tensor(idx, inputs[idx]);
     }
   }
 }
 
-static JitNode* replace_with_out_of_place_op(
+JitNode* replace_with_out_of_place_op(
     std::shared_ptr<JitGraph>& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
@@ -242,7 +259,7 @@ static JitNode* replace_with_out_of_place_op(
   return new_node;
 }
 
-static JitNode* insert_strided_insert_node(
+JitNode* insert_strided_insert_node(
     std::shared_ptr<JitGraph> graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data,
@@ -278,6 +295,8 @@ static JitNode* insert_strided_insert_node(
 
   return jit_node;
 }
+
+} // namespace
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
@@ -330,23 +349,39 @@ void HandleInputOutputViews(
 
   auto input_tensor_pos =
       get_input_tensors_positions(node, inputs, eager_op_meta_data);
+
   std::vector<JitNode*> strided_view_nodes;
   strided_view_nodes.reserve(input_tensor_pos.size());
-  for (auto& idx : input_tensor_pos) {
+
+  auto insert_stride_if_view = [&strided_view_nodes, &graph](
+                                   at::Tensor& input_tensor,
+                                   JitNode* node,
+                                   size_t idx) {
+    if (input_tensor.device().type() != c10::DeviceType::HPU) {
+      return;
+    }
+
+    if (!is_view(input_tensor)) {
+      return;
+    }
+
+    auto jit_node = insert_strided_view_node(*graph, input_tensor, node, idx);
+    strided_view_nodes.push_back(jit_node);
+  };
+
+  for (auto idx : input_tensor_pos) {
     auto val = inputs.at(idx);
-    HABANA_ASSERT(val.isTensor(), "Non-tensor value");
-    auto input_tensor = val.toTensor();
-    if (input_tensor.device().type() != c10::DeviceType::HPU)
-      continue;
-
-    auto input_tmeta{habana::get_tensor_extra_meta(input_tensor)};
-
-    if (input_tmeta->is_view_lowering() || !input_tensor.is_contiguous()) {
-      std::unique_ptr<ViewParam> p_in = std::make_unique<ViewParam>();
-      p_in->setParam(input_tensor);
-      auto jit_node =
-          insert_strided_view_node(graph, input_tensor, node, idx, p_in);
-      strided_view_nodes.push_back(jit_node);
+    HABANA_ASSERT(val.isTensor() || val.isTensorList(), "Non-tensor value");
+    if (val.isTensor()) {
+      auto& t = val.toTensor();
+      insert_stride_if_view(t, node, idx);
+    } else {
+      // tensorlist
+      JitNode* list_node = node->input(idx)->node();
+      size_t li = 0;
+      for (auto& t : val.toTensorVector()) {
+        insert_stride_if_view(t, list_node, li++);
+      }
     }
   }
 
@@ -378,8 +413,15 @@ void HandleInputOutputViews(
     // We reach this point if the op type is inplace or inplace-out with strided
     // output. Note, output view param is already collected.
 
-    JitNode* new_node =
-        replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+    JitNode* new_node = node;
+    // These kernels completely ignore the data in input tensor and hence the
+    // input tensor can be reused by updating inplace. Further it also avoids
+    // implementing out of place variants
+    if (underscored_ops_reported_as_non_inplace.find(
+            node->kind().toQualString()) ==
+        underscored_ops_reported_as_non_inplace.end()) {
+      new_node = replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+    }
 
     PT_EAGER_DEBUG(
         "\nSI node insertion:=====================\n",

@@ -7710,14 +7710,6 @@ xlogy_.Tensor:
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
-zero:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
-  op_backend: ZeroHpuLazyOperator
-  out_ids: [0]
-
 zero_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
