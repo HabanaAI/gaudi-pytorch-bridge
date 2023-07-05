@@ -18,9 +18,9 @@ common:
           pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
           pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
           install_pillow_simd
-          if [ $GERRIT_PROJECT == pytorch-lightning-fork ]
+          if [ $GERRIT_PROJECT == lightning-habana-fork ]
           then
-            pip install -U $PYTORCH_LIGHTNING_FORK_BUILD/pkgs/*.whl
+            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
           fi
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
 testsMap:
