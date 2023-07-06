@@ -1993,7 +1993,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       module_name = val_ins[0]->node()->scope()->name().toUnqualString();
     }
     if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && module_name.size() > 0) {
-      if ((strcmp(node->kind().toQualString(), "aten::add") == 0) &&
+      if (((strcmp(node->kind().toQualString(), "aten::add") == 0) ||
+           (strcmp(node->kind().toQualString(), "hpu::add") == 0)) &&
           std::string(node->scope()->name().toUnqualString()).find("add") ==
               std::string::npos) {
         module_name = inx == 0 ? std::string(".add")

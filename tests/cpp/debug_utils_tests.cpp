@@ -62,7 +62,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
                       "  node0 [label=\"prim::constant\\n\\nvalue=1.\"]\n"
                       "  node1 [label=\"hpu::input\\n\"]\n"
                       "  node2 [label=\"hpu::input\\n\"]\n"
-                      "  node3 [label=\"aten::add\\n\"]\n"
+                      "  node3 [label=\"hpu::add\\n\"]\n"
                       "  node4 [label=\"aten::relu\\n\"]\n"
                       "  node5 [label=\"aten::relu\\n\\nROOT=0\"]\n"
                       "  node4 -> node5\n"

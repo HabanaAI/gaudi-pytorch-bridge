@@ -658,7 +658,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("= aten::add_", 1)
+      .check_count("= hpu::add_", 1)
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
@@ -695,7 +695,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check_count("= aten::add", 1)
+      .check_count("= hpu::add", 1)
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
