@@ -7245,13 +7245,14 @@ at::Tensor rotary_pos_embedding_lazy(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
-    const int64_t offset) {
+    const int64_t offset,
+    const int64_t mode) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
       "hpu::rotary_pos_embedding",
-      {input, sin, cos, offset},
+      {input, sin, cos, offset, mode},
       {{input.sizes().vec()}}};
 
   RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding, op)

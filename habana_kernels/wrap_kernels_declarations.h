@@ -416,7 +416,8 @@ at::Tensor rotary_pos_embedding_wrap(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
-    const int64_t offset);
+    const int64_t offset,
+    const int64_t mode);
 at::Tensor rotary_pos_embedding_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& sin,

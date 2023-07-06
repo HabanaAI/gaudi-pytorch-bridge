@@ -10,17 +10,18 @@
 #
 # ******************************************************************************
 import torch
-from typing import Optional, Tuple
 import pytest
 from test_utils import cpu, hpu
 
 import habana_frameworks.torch.utils.experimental as htexp
 from habana_frameworks.torch.hpex.kernels import (
+    RotaryPosEmbeddingMode,
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
+    apply_rotary_pos_emb,
 )
 
-apply_rotary_pos_emb_v1_test_case_list = [
+apply_rotary_pos_emb_gptneox_v1_test_case_list = [
     # p_size, cos_sin_size, offset
     ((64, 8, 64), (64, 1, 64), 0),
     ((64, 8, 64), (64, 1, 64), 2),
@@ -28,13 +29,21 @@ apply_rotary_pos_emb_v1_test_case_list = [
     ((8, 1, 32, 8), (8, 1, 1, 8), 2),
 ]
 
-apply_rotary_pos_emb_v2_test_case_list = [
+apply_rotary_pos_emb_gptneox_v2_test_case_list = [
     # p_size, cos_sin_size
     ((1, 32, 133, 32), (1, 1, 4096, 32)),
     ((1, 32, 1, 32), (1, 1, 4096, 32)),
     ((1, 6, 4, 6), (1, 1, 32, 6)),
     ((1, 6, 4, 6), (1, 1, 32, 6)),
     ((1, 6, 4, 6), (1, 1, 6, 6)),
+]
+
+apply_rotary_pos_emb_gptj_test_case_list = [
+    # p_size, cos_sin_size
+    ((1, 1, 1, 2), (1, 1, 1)),
+    ((2, 4, 2, 8), (1, 4, 4)),
+    ((4, 48, 8, 64), (1, 48, 32)),
+    ((32, 1, 16, 64), (1, 1, 32)),
 ]
 
 
@@ -46,24 +55,32 @@ def rotate_half(x):
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_pos_emb_v1_ref(
+def apply_rotary_pos_emb_gptneox_v1_ref(
     p: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
     offset: int = 0,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
+    """
+    Based on apply_rotary_pos_emb() from the GPT-NeoX model in Transformer version 4.27.4 or lower.
+    Used, for example, in the LLaMA model.
+    """
     cos = cos[..., offset : p.shape[0] + offset]
     sin = sin[..., offset : p.shape[0] + offset]
 
     return (p * cos) + (rotate_half(p) * sin)
 
 
-def apply_rotary_pos_emb_v2_ref(
+def apply_rotary_pos_emb_gptneox_v2_ref(
     p: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
     position_ids: torch.LongTensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor:
+    """
+    Based on apply_rotary_pos_emb() from the GPT-NeoX model in Transformer version greater than 4.27.4
+    Used, for example, in the StableLM model.
+    """
     gather_indices = position_ids[:, None, :, None]
     gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
     cos = torch.gather(cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
@@ -72,47 +89,82 @@ def apply_rotary_pos_emb_v2_ref(
     return (p * cos) + (rotate_half(p) * sin)
 
 
-def prepare_test_data(p_size, cos_sin_size, offset: Optional[int] = 0):
-    p = torch.rand(p_size, requires_grad=True)
+def rotate_every_two(x: torch.Tensor) -> torch.Tensor:
+    x1 = x[:, :, :, ::2]
+    x2 = x[:, :, :, 1::2]
+    x = torch.stack((-x2, x1), dim=-1)
 
-    cos_sin_size = cos_sin_size[:-1] + (cos_sin_size[-1] // 2,)
-    cos = torch.rand(cos_sin_size, dtype=torch.float32) * 2 - 1
-    sin = torch.rand(cos_sin_size, dtype=torch.float32) * 2 - 1
+    return x.flatten(-2)  # in einsum notation: rearrange(x, '... d j -> ... (d j)')
 
-    if offset == 0:
-        cos = torch.cat((cos, cos), dim=-1)
-        sin = torch.cat((sin, sin), dim=-1)
+
+def apply_rotary_pos_emb_gptj_ref(
+    tensor: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
+) -> torch.Tensor:
+    """
+    Based on apply_rotary_pos_emb() from the GPTJAttention class in GPT-J model.
+    Note that the original version has sin and cos swapped with each other.
+    """
+    return (tensor * cos) + (rotate_every_two(tensor) * sin)
+
+
+def prepare_test_data(p_size, cos_sin_size, offset, mode):
+    if mode == RotaryPosEmbeddingMode.BLOCKWISE:
+        p = torch.rand(p_size, requires_grad=True)
+
+        cos_sin_size = cos_sin_size[:-1] + (cos_sin_size[-1] // 2,)
+        cos = torch.rand(cos_sin_size, dtype=torch.float32) * 2 - 1
+        sin = torch.rand(cos_sin_size, dtype=torch.float32) * 2 - 1
+
+        if offset == 0:
+            cos = torch.cat((cos, cos), dim=-1)
+            sin = torch.cat((sin, sin), dim=-1)
+        else:
+            off_size = (p_size[0],)
+            for i in range(len(p_size) - 2):
+                off_size = off_size + (1,)
+            off_size = off_size + (offset,)
+
+            off = torch.rand(off_size, dtype=torch.float32)
+            cos = torch.cat((off, cos, cos), dim=-1)
+            sin = torch.cat((off, sin, sin), dim=-1)
+
+        position_ids = torch.randint(0, p_size[2], (1, p_size[2])).to(torch.long)
+
+        return p, cos, sin, position_ids
     else:
-        off_size = (p_size[0],)
-        for i in range(len(p_size) - 2):
-            off_size = off_size + (1,)
-        off_size = off_size + (offset,)
+        p = torch.rand(p_size)
+        cos = torch.rand(cos_sin_size)
+        sin = torch.rand(cos_sin_size)
 
-        off = torch.rand(off_size, dtype=torch.float32)
-        cos = torch.cat((off, cos, cos), dim=-1)
-        sin = torch.cat((off, sin, sin), dim=-1)
+        output_size = 2 * sin.shape[2]
+        sin = torch.repeat_interleave(sin, 2, dim=2, output_size=output_size).unsqueeze(
+            2
+        )
+        cos = torch.repeat_interleave(cos, 2, dim=2, output_size=output_size).unsqueeze(
+            2
+        )
 
-    position_ids = torch.randint(0, p_size[2], (1, p_size[2])).to(torch.long)
-
-    return p, cos, sin, position_ids
+    return p, cos, sin
 
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size, offset",
-    apply_rotary_pos_emb_v1_test_case_list,
+    apply_rotary_pos_emb_gptneox_v1_test_case_list,
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
+def test_apply_rotary_pos_emb_gptneox_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     if (
         dtype == torch.float16
         and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
     ):
         pytest.skip("Half is not supported on Gaudi.")
 
-    p, cos, sin, _ = prepare_test_data(p_size, cos_sin_size, offset)
+    p, cos, sin, _ = prepare_test_data(
+        p_size, cos_sin_size, offset, RotaryPosEmbeddingMode.BLOCKWISE
+    )
 
     # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_v1_ref(p, cos, sin, offset)
+    p_embed_ref = apply_rotary_pos_emb_gptneox_v1_ref(p, cos, sin, offset)
     loss_ref = p_embed_ref.sum()
     loss_ref.backward()
 
@@ -145,10 +197,10 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size",
-    apply_rotary_pos_emb_v2_test_case_list,
+    apply_rotary_pos_emb_gptneox_v2_test_case_list,
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, dtype):
+def test_apply_rotary_pos_emb_gptneox_v2_fwd_bwd(p_size, cos_sin_size, dtype):
     if (
         dtype == torch.float16
         and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
@@ -159,10 +211,12 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, dtype):
     # query_shape=[bs, num_attention_heads, seq_len, rotary_ndim]
     # cos_shape=[1, 1, max_position_embeddings, rotary_ndim]
     # position_ids_shape=[bs, seq_len]
-    p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size)
+    p, cos, sin, position_ids = prepare_test_data(
+        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE
+    )
 
     # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids)
+    p_embed_ref = apply_rotary_pos_emb_gptneox_v2_ref(p, cos, sin, position_ids)
     loss_ref = p_embed_ref.sum()
     loss_ref.backward()
 
@@ -191,4 +245,40 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, dtype):
 
     torch.testing.assert_close(
         p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
+    )
+
+
+@pytest.mark.parametrize(
+    "p_size, cos_sin_size",
+    apply_rotary_pos_emb_gptj_test_case_list,
+)
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
+    if (
+        dtype == torch.float16
+        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
+    ):
+        pytest.skip("Half is not supported on Gaudi.")
+
+    p, cos, sin = prepare_test_data(
+        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.PAIRWISE
+    )
+
+    output_ref = apply_rotary_pos_emb_gptj_ref(p, cos, sin)
+
+    p_hpu = p.to(dtype).to(hpu)
+    cos_hpu = cos.to(dtype).to(hpu)
+    sin_hpu = sin.to(dtype).to(hpu)
+
+    output_hpu = apply_rotary_pos_emb(
+        p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE
+    )
+
+    if dtype == torch.float32:
+        tol = 0.001
+    else:
+        tol = 0.012
+
+    torch.testing.assert_close(
+        output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
     )

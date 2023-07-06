@@ -28,12 +28,11 @@ void RotaryPosEmbedding::AddNode(
   auto sin = getNextInput<TensorsPair>(stackGetter);
   auto cos = getNextInput<TensorsPair>(stackGetter);
   auto offset = getNextInput<int>(stackGetter);
+  auto mode = getNextInput<int>(stackGetter);
 
-  std::string guid =
-      get_guid_with_precision("rope_st2_fwd", input.pt_t.scalar_type());
-
-  ns_RoPESt2::Params params{};
+  ns_RoPESt2::ParamsV2 params{};
   params.offset = offset;
+  params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
 
   std::vector<synTensor> inputs = {input.syn_t, sin.syn_t, cos.syn_t};
 
@@ -41,7 +40,7 @@ void RotaryPosEmbedding::AddNode(
       {input.pt_t.sizes(), input.pt_t.scalar_type(), 0}};
 
   auto output = OpBackend::BuildNode(
-      this, graph, {guid, inputs, output_attrs, &params, sizeof(params)});
+      this, graph, {GetGuid(), inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(output[0]);
 }
@@ -60,9 +59,6 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto cos = getNextInput<TensorsPair>(stackGetter);
   auto offset = getNextInput<int>(stackGetter);
 
-  std::string guid =
-      get_guid_with_precision("rope_st2_bwd", grad_in.pt_t.scalar_type());
-
   ns_RoPESt2::Params params{};
   params.offset = offset;
 
@@ -72,7 +68,7 @@ void RotaryPosEmbeddingBackward::AddNode(
       {grad_in.pt_t.sizes(), grad_in.pt_t.scalar_type(), 0}};
 
   auto grad_out = OpBackend::BuildNode(
-      this, graph, {guid, inputs, output_attrs, &params, sizeof(params)});
+      this, graph, {GetGuid(), inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(grad_out[0]);
 }

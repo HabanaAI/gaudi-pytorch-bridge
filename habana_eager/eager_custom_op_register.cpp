@@ -399,14 +399,16 @@ at::Tensor rotary_pos_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
-    const int64_t offset) {
+    const int64_t offset,
+    const int64_t mode) {
   PT_OP_TRACE;
   PT_EAGER_TRACE;
-  PT_OP_INFO("rotary_pos_embedding :", DUMP_4ARGS(input, sin, cos, offset));
+  PT_OP_INFO(
+      "rotary_pos_embedding :", DUMP_5ARGS(input, sin, cos, offset, mode));
 
   eager::EagerOp<at::Tensor> hpu_op{
       "hpu::rotary_pos_embedding",
-      {input, sin, cos, offset},
+      {input, sin, cos, offset, mode},
       {input.sizes().vec()},
       0};
 
@@ -578,7 +580,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
-      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, int offset) -> Tensor");
+      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, int offset, int mode) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(
