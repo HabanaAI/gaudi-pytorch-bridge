@@ -475,5 +475,12 @@ at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
+    const at::Tensor& self);
+at::Tensor retain_softmax_consumer_wrap(
+    const at::Tensor& self,
+    const at::Tensor& max,
+    const at::Tensor& exp_sum_recpr);
+
 } // namespace ops
 } // namespace vision

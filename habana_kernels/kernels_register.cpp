@@ -1871,6 +1871,28 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
 
   return sdpa_bwd_lazy(grad, q, k, v, P, dm, p, scale);
 }
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
+    const at::Tensor& self) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("retain_softmax_producer :", DUMP_ARG(self));
+
+  return retain_softmax_producer_lazy(self);
+}
+
+at::Tensor retain_softmax_consumer_wrap(
+    const at::Tensor& self,
+    const at::Tensor& max,
+    const at::Tensor& exp_sum_recpr) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " retain_softmax_consumer :", DUMP_3ARGS(self, max, exp_sum_recpr));
+
+  return retain_softmax_consumer_lazy(self, max, exp_sum_recpr);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2345,6 +2367,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::retain_softmax_producer(Tensor self) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2386,6 +2412,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
+  m.impl("hpu::retain_softmax_producer", retain_softmax_producer_wrap);
+  m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

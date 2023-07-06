@@ -160,18 +160,6 @@ def meta_optimizer_optimizer_lars(
     return
 
 
-@register_meta([torch.ops.hpu.optimizer_sgd.default])
-def meta_optimizer_sgd(gradients, weights, lr, wd, mom, damp, nesterov):
-    return
-
-
-@register_meta([torch.ops.hpu.optimizer_sgd_momentum.default])
-def meta_optimizer_sgd_momentum(
-    gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov
-):
-    return
-
-
 @register_meta([torch.ops.hpu.optimizer_lamb_phase2.default])
 def meta_optimizer_lamb_phase2(
     weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb
@@ -210,6 +198,21 @@ def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
     out_shape = shape_a[0:2] + [shape_a[dim_a], shape_b[dim_b]]
     out = a.new_empty(out_shape)
     return out
+
+
+@register_meta([torch.ops.hpu.retain_softmax_producer.default])
+def meta_retain_softmax_producer(input):
+    out_shape = input.shape
+    retain_shape = out_shape[:-1] + (1,)
+    out = input.new_empty(out_shape)
+    max = input.new_empty(retain_shape)
+    exp_sum_recpr = input.new_empty(retain_shape, dtype=torch.float32)
+    return out, max, exp_sum_recpr
+
+
+@register_meta([torch.ops.hpu.retain_softmax_consumer.default])
+def meta_retain_softmax_consumer(input, max, exp_sum_recpr):
+    return input.new_empty(input.shape)
 
 
 def activate_hpu_custom_op_meta():

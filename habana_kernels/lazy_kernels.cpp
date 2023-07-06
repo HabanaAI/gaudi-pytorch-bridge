@@ -7348,4 +7348,38 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
 }
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_lazy(
+    const at::Tensor& self) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  auto out_shape = self.sizes().vec();
+  auto retain_output_shape = out_shape;
+  retain_output_shape.back() = 1;
+  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> op{
+      "hpu::retain_softmax_producer",
+      {self},
+      {{out_shape, retain_output_shape, retain_output_shape}}};
+  op.set_scalar_types(
+      {self.scalar_type(), self.scalar_type(), c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(retain_softmax_producer, op)
+}
+
+at::Tensor retain_softmax_consumer_lazy(
+    const at::Tensor& self,
+    const at::Tensor& max,
+    const at::Tensor& exp_sum_recpr) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::retain_softmax_consumer",
+      {self, max, exp_sum_recpr},
+      {{self.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(retain_softmax_consumer, op)
+}
+
 } // namespace habana_lazy

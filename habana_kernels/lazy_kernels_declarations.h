@@ -795,4 +795,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_lazy(
+    const at::Tensor& self);
+at::Tensor retain_softmax_consumer_lazy(
+    const at::Tensor& self,
+    const at::Tensor& max,
+    const at::Tensor& exp_sum_recpr);
 } // namespace habana_lazy

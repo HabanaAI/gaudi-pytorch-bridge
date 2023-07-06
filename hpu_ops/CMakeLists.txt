@@ -199,6 +199,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/slice_backward_gen.cpp
           backend/smooth_l1_loss_gen.cpp
           backend/softmax_gen.cpp
+          backend/softmax_retain.cpp
           backend/softplus_gen.cpp
           backend/sort_gen.cpp
           backend/squeeze_dims_gen.cpp
