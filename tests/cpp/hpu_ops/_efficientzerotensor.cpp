@@ -16,12 +16,8 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, EfficientZeroTensor) {
-  // Workaround for 'Habana device not initialized' exception
-  GenerateInputs(1, {{3, 2, 3}}, {torch::kFloat32});
-  torch::Tensor tensor_helper = GetHpuInput(0);
-
   auto tensor = at::_efficientzerotensor(
-      tensor_helper.sizes(),
+      {{3, 2, 3}},
       torch::kFloat32,
       c10::nullopt,
       c10::Device(c10::DeviceType::HPU),

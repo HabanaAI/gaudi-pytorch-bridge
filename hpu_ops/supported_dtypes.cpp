@@ -12,6 +12,7 @@
  */
 
 #include "supported_dtypes.h"
+#include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_kernels/fallback_helper.h"
@@ -26,6 +27,10 @@ SupportedDtypes::SupportedDtypes(
   }
 
   auto get_curr_dev_type = []() {
+    // get device should be invoked in case device has not been initialized yet
+    HABANAGuardImpl device_guard;
+    device_guard.getDevice();
+
     auto dev = HPURegistrar::get_device().type();
     return dev;
   };
