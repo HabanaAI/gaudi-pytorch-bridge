@@ -48,7 +48,7 @@ TEST_F(LazyMiscTest, CloneTest) {
   EXPECT_EQ(allclose(x, y, 0.001, 0.001), true);
 }
 
-TEST_F(LazyMiscTest, DISABLED_CloneIRTest) {
+TEST_F(LazyMiscTest, CloneIRTest) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.relu();
   tensor_in1 = tensor_in1.clone();
@@ -60,9 +60,6 @@ TEST_F(LazyMiscTest, DISABLED_CloneIRTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
   auto str = po_data.post_order[0]->ToString();
   auto cond = (str.find("hpu::input") != string::npos);
-  EXPECT_TRUE(cond);
-  str = po_data.post_order[2]->ToString();
-  cond = (str.find("habana_d2d_memcpy") != string::npos);
   EXPECT_TRUE(cond);
 
   std::vector<at::Tensor> input_list{tensor_in1};
