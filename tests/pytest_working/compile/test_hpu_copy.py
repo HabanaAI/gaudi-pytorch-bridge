@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
-
+import torch
+from test_utils import env_var_in_scope
 
 pytestmark = pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 
@@ -19,7 +19,15 @@ from test_utils import env_var_in_scope
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 def test_hpu_view_copy():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True", "PT_HPU_KEEP_INPUT_MUTATIONS" : "1"}):
+    with env_var_in_scope(
+        {
+            "PT_HPU_LAZY_MODE": "0",
+            "PT_HPU_DETERMINISTIC_ENABLE": "0",
+            "PT_HPU_COMPILE_USE_RECIPES": "True",
+            "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
+        }
+    ):
+
         def fn(a, b):
             a.copy_(b.view(a.shape))
             return a
@@ -27,17 +35,26 @@ def test_hpu_view_copy():
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         x = torch.randn([5, 10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
-        y = torch.empty_like(x)
+        torch.empty_like(x)
         hy = torch.empty_like(hx)
 
         hres = compiled_fn(hx, hy)
 
-        assert torch.allclose(hres.cpu(), hx.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hres.cpu(), hx.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_copy_expand():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True", "PT_HPU_KEEP_INPUT_MUTATIONS" : "1"}):
+    with env_var_in_scope(
+        {
+            "PT_HPU_LAZY_MODE": "0",
+            "PT_HPU_DETERMINISTIC_ENABLE": "0",
+            "PT_HPU_COMPILE_USE_RECIPES": "True",
+            "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
+        }
+    ):
+
         def fn(a, b):
             a.copy_(b)
             return a
@@ -47,18 +64,27 @@ def test_hpu_copy_expand():
         x = torch.randn([5, 10])
         y = torch.randn([5, 1])
 
-        hx = x.to('hpu')
-        hy = y.to('hpu')
+        hx = x.to("hpu")
+        hy = y.to("hpu")
 
-        #CPU
+        # CPU
         res = fn(x, y)
 
         hres = compiled_fn(hx, hy)
 
-        assert torch.allclose(hres.cpu(), res, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
+
 
 def test_hpu_copy_keepmutation():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True", "PT_HPU_KEEP_INPUT_MUTATIONS" : "1"}):
+    with env_var_in_scope(
+        {
+            "PT_HPU_LAZY_MODE": "0",
+            "PT_HPU_DETERMINISTIC_ENABLE": "0",
+            "PT_HPU_COMPILE_USE_RECIPES": "True",
+            "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
+        }
+    ):
+
         def fn(a, b):
             a.copy_(b)
             return a
@@ -66,18 +92,26 @@ def test_hpu_copy_keepmutation():
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         x = torch.randn([5, 10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
-        y = torch.empty_like(x)
+        torch.empty_like(x)
         hy = torch.empty_like(hx)
 
         hres = compiled_fn(hx, hy)
 
-        assert torch.allclose(hres.cpu(), hx.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hres.cpu(), hx.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_inplace_copies():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True", "PT_HPU_KEEP_INPUT_MUTATIONS" : "1"}):
-        torch._dynamo.config.verbose=True
+    with env_var_in_scope(
+        {
+            "PT_HPU_LAZY_MODE": "0",
+            "PT_HPU_DETERMINISTIC_ENABLE": "0",
+            "PT_HPU_COMPILE_USE_RECIPES": "True",
+            "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
+        }
+    ):
+        torch._dynamo.config.verbose = True
 
         def fn(x):
             x.mul_(2.0)
@@ -86,19 +120,27 @@ def test_hpu_inplace_copies():
         # CPU
         x = torch.randn([10])
         y = torch.randn([10])
-        hx = x.to('hpu')
-        hy = y.to('hpu')
+        hx = x.to("hpu")
+        y.to("hpu")
         x = fn(x)
 
         # HPU
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
         hx = compiled_fn(hx)
 
-        assert torch.allclose(hx.cpu(), x, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hx.cpu(), x, atol=0.001, rtol=0.001)
+
 
 def test_hpu_expand():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_COMPILE_USE_RECIPES": "True", "PT_HPU_KEEP_INPUT_MUTATIONS" : "0"}):
-        torch._dynamo.config.verbose=True
+    with env_var_in_scope(
+        {
+            "PT_HPU_LAZY_MODE": "0",
+            "PT_HPU_DETERMINISTIC_ENABLE": "0",
+            "PT_HPU_COMPILE_USE_RECIPES": "True",
+            "PT_HPU_KEEP_INPUT_MUTATIONS": "0",
+        }
+    ):
+        torch._dynamo.config.verbose = True
 
         def fn(x):
             x = x.expand([3, 4])
@@ -107,11 +149,11 @@ def test_hpu_expand():
 
         # CPU
         x = torch.tensor([[1.0], [2.0], [3.0]])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
         res = fn(x)
 
         # HPU
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
         hres = compiled_fn(hx)
 
-        assert torch.allclose(hres.cpu(), res, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

@@ -10,15 +10,15 @@
 #
 # ******************************************************************************
 import math
+
+import pytest
 import torch
 import torch.nn.functional as F
-import pytest
 from test_utils import (
-    evaluate_fwd_kernel,
     evaluate_fwd_bwd_kernel,
     evaluate_fwd_inplace_kernel,
+    evaluate_fwd_kernel,
 )
-
 
 # N - batch
 # H - input height
@@ -118,18 +118,14 @@ def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
         kernel_params = {"input": torch.randn(N, C, H, W).to(dtype), "p": 6.0}
     elif unary_op == torch.rsqrt:
         kernel_params = {
-            "input": torch.add(
-                torch.rand(N, C, H, W, requires_grad=True), 1
-            ).to(dtype)
+            "input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)
         }
     elif unary_op == torch.log or unary_op == torch.log2:
         kernel_params = {
             "input": torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)
         }
     else:
-        kernel_params = {
-            "input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)
-        }
+        kernel_params = {"input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
 
     evaluate_fwd_kernel(
         kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol
@@ -158,8 +154,18 @@ def test_hpu_special_unary_op(unary_op, out, dtype, tol):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("unary_op", [
-    pytest.param(op, marks=pytest.mark.xfail(reason="results mismatch") if op in (torch.sgn, torch.nn.functional.gelu) else []) for op in unary_op_list])
+@pytest.mark.parametrize(
+    "unary_op",
+    [
+        pytest.param(
+            op,
+            marks=pytest.mark.xfail(reason="results mismatch")
+            if op in (torch.sgn, torch.nn.functional.gelu)
+            else [],
+        )
+        for op in unary_op_list
+    ],
+)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
     kernel_params_fwd = {}
@@ -171,9 +177,7 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
         bwd_tensors = [torch.tensor(1).to(dtype)]
     elif unary_op == torch.rsqrt:
         kernel_params_fwd = {
-            "input": torch.add(
-                torch.rand(N, C, H, W, requires_grad=True), 1
-            ).to(dtype)
+            "input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)
         }
         bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
     elif unary_op == torch.log or unary_op == torch.log2:
@@ -200,9 +204,7 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_gelu_op_fwd_bwd(N, H, W, C, dtype, tol):
-    kernel_params_fwd = {
-        "input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)
-    }
+    kernel_params_fwd = {"input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
     bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
     evaluate_fwd_bwd_kernel(
         kernel=torch.nn.functional.gelu,
@@ -234,7 +236,7 @@ def test_hpu_unary_inplace_op(N, H, W, C, unary_inplace_op):
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op, kernel_params_fwd", unary_op_out_list)
 def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
-    kernel_params_fwd["input"] = inT = torch.randn(N, C, H, W)
+    kernel_params_fwd["input"] = torch.randn(N, C, H, W)
     kernel_params_fwd["out"] = torch.empty((N, C, H, W))
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params_fwd)
 
@@ -306,10 +308,3 @@ def test_hpu_unary_op_clamp_inplace(N, H, W, C):
         kernel_name="clamp_",
         kernel_params=kernel_params,
     )
-
-
-if __name__ == "__main__":
-    test_hpu_unary_op(*test_case_list[0], temp_list[0])
-    test_hpu_unary_op_fwd_bwd(*test_case_list[0], temp_list[0])
-    test_hpu_unary_inplace_op(*test_case_list[0], temp_inplace_list[0])
-    test_hpu_binary_op_out_intype(*test_case_list[0], unary_op_out_list[0])

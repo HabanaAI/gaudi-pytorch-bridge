@@ -16,6 +16,7 @@ from torch.testing._internal.common_methods_invocations import op_db
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import habana_frameworks.torch.utils.experimental as htexp
 from functools import reduce
+from test_utils import generic_setup_teardown_env
 
 
 all_dtypes = [
@@ -26,6 +27,12 @@ all_dtypes = [
     torch.int8,
     torch.bool,
 ]
+@pytest.fixture(autouse=True, scope="module")
+def setup_teardown_env():
+    def callback():
+        pass
+
+    generic_setup_teardown_env(temp_test_env={"PT_HPU_LAZY_MODE": 0}, callback=callback)
 
 
 if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
@@ -66,6 +73,7 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     assert cpu_res.dtype == hpu_res.dtype
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(
     "dtype, layout, device",
     [(torch.int, torch.strided, torch.device("hpu")), (None, None, None)],
@@ -159,6 +167,8 @@ def test_slice_scatter(dtype):
 
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_expand(dtype):
+    if dtype == torch.half:
+        pytest.skip("Half is not supported for expand.")
     """
     expand is a view op.
     For instance, if we perform inplace update on expand o/p,

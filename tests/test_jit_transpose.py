@@ -1,17 +1,22 @@
-import torch
-from test_utils import compare_tensors
 import habana_frameworks.torch.core as htcore
 import pytest
+import torch
+from test_utils import compare_tensors
+
 
 @torch.jit.script
 def transpose(x):
     return torch.t(x)
 
+
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 in_t = torch.randn(8, 10)
 
-@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
+
+@pytest.mark.xfail(
+    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
+)
 def test_jit_transpose():
     with torch.jit.optimized_execution(True):
         htcore.disable()
@@ -32,4 +37,4 @@ def test_jit_transpose():
     out = model_trace_hpu(hpu_t)
     hpu_result = out.to(cpu)
 
-    compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+    compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.0e-3)

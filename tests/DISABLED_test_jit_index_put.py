@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
-import torch
-import pytest
-from test_utils import compare_tensors
 import habana_frameworks.torch.core as htcore
+import pytest
+import torch
+from test_utils import compare_tensors
+
 
 # We are running this test in JIT script mode instead of JIT trace mode
 # because in JIT trace mode, 2nd argument is received as an
@@ -25,9 +26,12 @@ def multiple_funcs(x1, x2, x3):
     x1.index_put_([x3], x2, True)
     return x1
 
-@pytest.mark.xfail(reason="module 'habana_frameworks.torch.core' has no attribute 'enable'")
+
+@pytest.mark.xfail(
+    reason="module 'habana_frameworks.torch.core' has no attribute 'enable'"
+)
 def test_jit_index_put():
-    #trace_file_name = "test_jit_index_put_cpu_trace.pt"
+    # trace_file_name = "test_jit_index_put_cpu_trace.pt"
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
@@ -53,14 +57,8 @@ def test_jit_index_put():
     # "HPU IR Graph optimized"
     w_hpu = multiple_funcs(x_hpu, y_hpu, z_hpu)
     result = w_hpu.to(cpu)
-    # print("--------------------")
-    # print(f"input:\n{x_cpu, y_cpu, z_cpu}")
-    # print("--------------------")
-    # print(f"Result HPU:\n{result}")
-    # print("--------------------")
     compare_tensors(result, cpu_op, atol=0.001, rtol=1.0e-3)
-    # print("--- Comparison Done ---")
+
 
 if __name__ == "__main__":
     test_jit_index_put()
-

@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 from test_utils import evaluate_fwd_kernel
 
 test_case_list = [
@@ -31,13 +31,15 @@ test_case_list = [
     (5, 3, 4, torch.bitwise_not),
 ]
 
+
 @pytest.mark.parametrize("C, H, W, bitwise_op", test_case_list)
 def test_hpu_bitwise_op(C, H, W, bitwise_op):
     kernel_params_fwd = {}
-    kernel_params_fwd["input"] = torch.randint(-10, 10, (5,3,4)) > 0
+    kernel_params_fwd["input"] = torch.randint(-10, 10, (5, 3, 4)) > 0
     if bitwise_op != torch.bitwise_not:
         kernel_params_fwd["other"] = torch.randint(-10, 10, (C, H, W)) > 0
     evaluate_fwd_kernel(kernel=bitwise_op, kernel_params=kernel_params_fwd)
+
 
 if __name__ == "__main__":
     test_hpu_bitwise_op(*test_case_list[0])

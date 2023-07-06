@@ -10,11 +10,11 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.core as htcore
 import torch
 import torch.nn as nn
 from test_utils import compare_tensors
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.core as htcore
+
 
 class model(nn.Module):
     def __init__(self):
@@ -43,6 +43,7 @@ def test_lazy_mark_step_basic():
     htcore.mark_step()
     out_hpu = d_hpu.to(cpu)
     compare_tensors(out_hpu, out_cpu, atol=0, rtol=0)
+
 
 if __name__ == "__main__":
     test_lazy_mark_step_basic()

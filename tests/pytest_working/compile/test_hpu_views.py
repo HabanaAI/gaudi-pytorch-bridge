@@ -9,6 +9,7 @@
 # was provided.
 #
 ###############################################################################
+import pytest
 import torch
 import torch.nn.functional as F
 import pytest
@@ -19,6 +20,7 @@ pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variabl
 
 def test_hpu_multilevel_noncontiguous_views():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+
         def fn(a):
             b = a[::2]
             c = torch.add(b, 1.0)
@@ -27,7 +29,7 @@ def test_hpu_multilevel_noncontiguous_views():
 
         # CPU
         x = torch.randn([10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
         result1, result2 = fn(x)
 
@@ -35,11 +37,13 @@ def test_hpu_multilevel_noncontiguous_views():
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         hresult1, hresult2 = compiled_fn(hx)
-        assert torch.allclose(result1, hresult1.cpu(), atol = 0.001, rtol = 0.001)
-        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_multilevel_noncontiguous_views_inplace():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+
         def fn(a):
             b = a[::2]
             b.mul_(2.0)
@@ -48,7 +52,7 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
 
         # CPU
         x = torch.randn([10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
         result1, result2 = fn(x)
 
@@ -56,21 +60,23 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         hresult1, hresult2 = compiled_fn(hx)
-        assert torch.allclose(result1, hresult1.cpu(), atol = 0.001, rtol = 0.001)
-        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_multilevel_noncontiguous_views2():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+
         def fn(x):
             a = x.t()
-            b = a[:,::2]
+            b = a[:, ::2]
             c = torch.sum(b)
             d = b.reshape(-1)
             return c, d
 
         # CPU
         x = torch.randn([5, 10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
         result1, result2 = fn(x)
 
@@ -79,11 +85,13 @@ def test_hpu_multilevel_noncontiguous_views2():
 
         hresult1, hresult2 = compiled_fn(hx)
         hresult1_cpu = hresult1.cpu()
-        assert torch.allclose(result1, hresult1_cpu, atol = 0.001, rtol = 0.001)
-        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result1, hresult1_cpu, atol=0.001, rtol=0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_multilevel_views_inplace():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+
         def fn(a):
             b = a[::2]
             b.mul_(2.0)
@@ -93,7 +101,7 @@ def test_hpu_multilevel_views_inplace():
 
         # CPU
         x = torch.randn([10])
-        hx = x.to('hpu')
+        hx = x.to("hpu")
 
         res = fn(x)
 
@@ -101,15 +109,17 @@ def test_hpu_multilevel_views_inplace():
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         hres = compiled_fn(hx)
-        assert torch.allclose(res, hres.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_hpu_leaf_views_test():
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+
         def fn(x, y, z):
 
-            hx = x.to('hpu')
-            hy = y.to('hpu')
-            hz = z.to('hpu')
+            hx = x.to("hpu")
+            hy = y.to("hpu")
+            hz = z.to("hpu")
 
             tmp00 = F.relu(hx)
             tmp01 = hx + hy
@@ -122,7 +132,7 @@ def test_hpu_leaf_views_test():
             tmp21 = tmp11.t()
             tmp22 = tmp11 + tmp12
 
-            return tmp20.to('cpu'), tmp21.to('cpu'), tmp22.to('cpu')
+            return tmp20.to("cpu"), tmp21.to("cpu"), tmp22.to("cpu")
 
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 

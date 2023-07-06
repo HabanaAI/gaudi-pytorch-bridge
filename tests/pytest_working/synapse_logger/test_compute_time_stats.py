@@ -11,15 +11,21 @@
 ###############################################################################
 import os
 import sys
+
 import pytest
 
-sys.path.append(f"{os.environ['PYTORCH_MODULES_ROOT_PATH']}/pytorch_helpers/synapse_logger/tools/")
-import compute_time_stats as cts
+sys.path.append(
+    f"{os.environ['PYTORCH_MODULES_ROOT_PATH']}/pytorch_helpers/synapse_logger/tools/"
+)
+import compute_time_stats as cts  # noqa
+
 
 @pytest.mark.xfail(reason="ValueError: min() arg is an empty sequence")
 def test_compute_stats():
     input_functions = "empty_strided_hpu_lazy,slice_hpu_lazy,copy_hpu_lazy_"
-    func_times = cts.generate_func_times(input_file="example_file.json", func_names=input_functions)
+    func_times = cts.generate_func_times(
+        input_file="example_file.json", func_names=input_functions
+    )
     assert len(func_times) == 3  # three functions
 
     for input_fn in input_functions.split(","):
@@ -27,4 +33,7 @@ def test_compute_stats():
 
     # variance of 1 element throws exception, so check
     # that it's returned 0 for single occurrence of copy_hpu_lazy_
-    assert len(func_times["copy_hpu_lazy_"].samples) == 1 and func_times["copy_hpu_lazy_"].stddev == 0
+    assert (
+        len(func_times["copy_hpu_lazy_"].samples) == 1
+        and func_times["copy_hpu_lazy_"].stddev == 0
+    )

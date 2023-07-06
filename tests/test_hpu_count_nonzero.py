@@ -11,10 +11,10 @@
 # ******************************************************************************
 
 
-import torch
-import pytest
-from test_utils import evaluate_fwd_kernel, compare_tensors, hpu
 import habana_frameworks.torch.utils.experimental as htexp
+import pytest
+import torch
+from test_utils import compare_tensors, evaluate_fwd_kernel, hpu
 
 params_list = [
     ([8, 2, 3], [0, 2]),

@@ -1,7 +1,8 @@
 import habana_frameworks.torch.utils.experimental as htexp
 import torch
-from habana_frameworks.torch.utils import profiler as htprofiler
 from habana_frameworks.torch.utils import debug as htdebug
+from habana_frameworks.torch.utils import profiler as htprofiler
+
 htdebug._set_dynamic_mode()
 htdebug._set_module_name("test_name")
 htdebug._enable_eliminate_common_subexpression(False)
@@ -39,10 +40,10 @@ htprofiler._stop_profiler()
 
 print("device_type", htexp._get_device_type())
 print("compute_stream", htexp._compute_stream())
-x = torch.randn(10, device='hpu')
+x = torch.randn(10, device="hpu")
 print("data_ptr", htexp._data_ptr(x))
 device_type = htexp._get_device_type()
-if (device_type == htexp.synDeviceType.synDeviceGaudi):
+if device_type == htexp.synDeviceType.synDeviceGaudi:
     print("gaudi")
 
 print("set_profiler_tracer_memory", htexp._set_profiler_tracer_memory(0))

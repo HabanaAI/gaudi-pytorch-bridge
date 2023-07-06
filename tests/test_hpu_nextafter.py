@@ -10,11 +10,10 @@
 #
 # ******************************************************************************
 
-import torch
-import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_inplace_kernel
 import habana_frameworks.torch.utils.experimental as htexp
-
+import pytest
+import torch
+from test_utils import evaluate_fwd_inplace_kernel, evaluate_fwd_kernel
 
 nextafter_shapes_list = [
     # input_shape, other_shape

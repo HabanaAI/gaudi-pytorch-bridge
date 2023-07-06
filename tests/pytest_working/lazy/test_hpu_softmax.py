@@ -10,14 +10,10 @@
 #
 ###############################################################################
 
+import pytest
 import torch
 import torch.nn.functional as F
-import pytest
-from test_utils import (
-    evaluate_fwd_kernel,
-    evaluate_fwd_bwd_kernel,
-    compare_tensors,
-)
+from test_utils import compare_tensors, evaluate_fwd_bwd_kernel, evaluate_fwd_kernel
 
 mnist_test_cast_list = [
     # N, C, dim
@@ -47,7 +43,10 @@ op_list = [
 @pytest.mark.parametrize("N, C, D, H, W, dim", test_case_5D)
 @pytest.mark.parametrize("kernel_op", op_list)
 def test_hpu_log_softmax_5D_fwd_bwd(N, C, D, H, W, kernel_op, dim):
-    kernel_params = {"input": torch.randn(N, C, D, H, W, requires_grad=True), "dim": dim}
+    kernel_params = {
+        "input": torch.randn(N, C, D, H, W, requires_grad=True),
+        "dim": dim,
+    }
     bwd_tensors = [torch.randn(N, C, D, H, W)]
     evaluate_fwd_bwd_kernel(
         kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
@@ -69,6 +68,7 @@ def test_hpu_log_softmax_fwd_bwd(N, C, kernel_op, dim):
     evaluate_fwd_bwd_kernel(
         kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
     )
+
 
 @pytest.mark.xfail(reason="softmax_kernel_impl not implemented for '<dtype>'")
 @pytest.mark.parametrize("N, C, dim", test_case_list)

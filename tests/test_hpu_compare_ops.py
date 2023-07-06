@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 from test_utils import evaluate_fwd_kernel
 
 N = 8
@@ -13,7 +13,12 @@ W = 24
 # C - input channels
 test_case_list = [
     #  N, H, W, C,
-    (N, H, W, C,),
+    (
+        N,
+        H,
+        W,
+        C,
+    ),
 ]
 
 
@@ -23,7 +28,7 @@ compare_op_list = [
     (torch.lt, {}),
     (torch.ge, {}),
     (torch.le, {}),
-    (torch.ne, {})
+    (torch.ne, {}),
 ]
 
 compare_op_out_list_bool = [
@@ -48,6 +53,7 @@ def test_hpu_compare_op(N, H, W, C, compare_op, kernel_params_fwd):
     kernel_params_fwd["other"] = torch.randn(N, C, H, W)
     evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
 
+
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("compare_op, kernel_params_fwd", compare_op_list)
 def test_hpu_compare_op_broadcast_case1(N, H, W, C, compare_op, kernel_params_fwd):
@@ -71,6 +77,7 @@ def test_hpu_compare_op_scalar(N, H, W, C, compare_op, kernel_params_fwd):
     kernel_params_fwd["input"] = torch.randn(N, C, H, W)
     kernel_params_fwd["other"] = 0.5
     evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
+
 
 @pytest.mark.parametrize("compare_op", [torch.le])
 def test_hpu_compare_op_0D_tensor(compare_op):

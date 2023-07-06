@@ -10,18 +10,25 @@
 #
 ###############################################################################
 
-import torch
 import numpy as np
+import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
 from test_utils import hpu
 
 
 def test_custom_softmax():
-    input = torch.tensor([[0., 1., 2., 3.], [1000, 1000, 0., 1004.],
-                         [-9984, -9984, -9984, -1000]], dtype=torch.bfloat16)
-    ref_output = torch.tensor([[0.0320, 0.0869, 0.2373, 0.6445],
-                               [0.0177, 0.0177, 0.0000, 0.9648],
-                               [0.0000, 0.0000, 0.0000, 1.0000]], dtype=torch.float32)
+    input = torch.tensor(
+        [[0.0, 1.0, 2.0, 3.0], [1000, 1000, 0.0, 1004.0], [-9984, -9984, -9984, -1000]],
+        dtype=torch.bfloat16,
+    )
+    ref_output = torch.tensor(
+        [
+            [0.0320, 0.0869, 0.2373, 0.6445],
+            [0.0177, 0.0177, 0.0000, 0.9648],
+            [0.0000, 0.0000, 0.0000, 1.0000],
+        ],
+        dtype=torch.float32,
+    )
 
     out = CustomSoftmax.apply(torch.clone(input).detach().to(hpu), 0)
     out_cpu = out.cpu().to(torch.float32)

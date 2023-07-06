@@ -12,21 +12,21 @@
 
 import enum
 import unittest
-import pytest
+
 import numpy as np
+import pytest
 import torch
-from test_utils import cpu, hpu
-from numpy.testing import assert_array_equal, assert_raises
 from habana_frameworks.torch.hpex.kernels.fbgemm import bounds_check_indices
-from test_utils import generic_setup_teardown_env
+from numpy.testing import assert_array_equal, assert_raises
+from test_utils import cpu, generic_setup_teardown_env, hpu
+
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
-    yield from generic_setup_teardown_env(
-        {"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 0}
-    )
+    yield from generic_setup_teardown_env({"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 0})
+
 
 class BoundsCheckMode(enum.IntEnum):
     # Raise an exception (CPU) or device-side assert (HPU)
@@ -37,6 +37,7 @@ class BoundsCheckMode(enum.IntEnum):
     IGNORE = 2
     # No bounds checks.
     NONE = 3
+
 
 class TestCase(enum.IntEnum):
     __test__ = False
@@ -49,29 +50,147 @@ class TestCase(enum.IntEnum):
     # Test offsets bound errors.
     TEST_OFFSETS_BOUND_ERRORS = 3
 
+
 bounds_check_test_case_list = [
     # T, B, max_L, bounds_check_mode, weighted, test_case, dtype
-    (4, 8, 8, BoundsCheckMode.NONE, True, TestCase.CHECK_ALL_INDICES_THE_SAME, torch.int32),
-    (2, 4, 8, BoundsCheckMode.NONE, False, TestCase.CHECK_ALL_INDICES_THE_SAME, torch.int32),
-    (4, 8, 8, BoundsCheckMode.WARNING, True, TestCase.CHECK_INDICES_NOT_THE_SAME, torch.int32),
-    (4, 8, 8, BoundsCheckMode.FATAL, True, TestCase.CHECK_INDICES_NOT_THE_SAME, torch.int32),
-    (2, 4, 8, BoundsCheckMode.WARNING, True, TestCase.CHECK_ALL_INDICES_ZERO, torch.int32),
-    (4, 8, 8, BoundsCheckMode.FATAL, True, TestCase.CHECK_ALL_INDICES_ZERO, torch.int32),
-    (2, 4, 4, BoundsCheckMode.WARNING, True, TestCase.TEST_OFFSETS_BOUND_ERRORS, torch.int32),
-    (4, 8, 8, BoundsCheckMode.FATAL, True, TestCase.TEST_OFFSETS_BOUND_ERRORS, torch.int32),
-    (4, 8, 8, BoundsCheckMode.NONE, True, TestCase.CHECK_ALL_INDICES_THE_SAME, torch.int64),
-    (2, 4, 8, BoundsCheckMode.NONE, False, TestCase.CHECK_ALL_INDICES_THE_SAME, torch.int64),
-    (4, 8, 8, BoundsCheckMode.WARNING, True, TestCase.CHECK_INDICES_NOT_THE_SAME, torch.int64),
-    (4, 8, 8, BoundsCheckMode.FATAL, True, TestCase.CHECK_INDICES_NOT_THE_SAME, torch.int64),
-    (2, 4, 4, BoundsCheckMode.WARNING, True, TestCase.TEST_OFFSETS_BOUND_ERRORS, torch.int64),
-    (4, 8, 8, BoundsCheckMode.FATAL, True, TestCase.TEST_OFFSETS_BOUND_ERRORS, torch.int64)
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.NONE,
+        True,
+        TestCase.CHECK_ALL_INDICES_THE_SAME,
+        torch.int32,
+    ),
+    (
+        2,
+        4,
+        8,
+        BoundsCheckMode.NONE,
+        False,
+        TestCase.CHECK_ALL_INDICES_THE_SAME,
+        torch.int32,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.WARNING,
+        True,
+        TestCase.CHECK_INDICES_NOT_THE_SAME,
+        torch.int32,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.FATAL,
+        True,
+        TestCase.CHECK_INDICES_NOT_THE_SAME,
+        torch.int32,
+    ),
+    (
+        2,
+        4,
+        8,
+        BoundsCheckMode.WARNING,
+        True,
+        TestCase.CHECK_ALL_INDICES_ZERO,
+        torch.int32,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.FATAL,
+        True,
+        TestCase.CHECK_ALL_INDICES_ZERO,
+        torch.int32,
+    ),
+    (
+        2,
+        4,
+        4,
+        BoundsCheckMode.WARNING,
+        True,
+        TestCase.TEST_OFFSETS_BOUND_ERRORS,
+        torch.int32,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.FATAL,
+        True,
+        TestCase.TEST_OFFSETS_BOUND_ERRORS,
+        torch.int32,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.NONE,
+        True,
+        TestCase.CHECK_ALL_INDICES_THE_SAME,
+        torch.int64,
+    ),
+    (
+        2,
+        4,
+        8,
+        BoundsCheckMode.NONE,
+        False,
+        TestCase.CHECK_ALL_INDICES_THE_SAME,
+        torch.int64,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.WARNING,
+        True,
+        TestCase.CHECK_INDICES_NOT_THE_SAME,
+        torch.int64,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.FATAL,
+        True,
+        TestCase.CHECK_INDICES_NOT_THE_SAME,
+        torch.int64,
+    ),
+    (
+        2,
+        4,
+        4,
+        BoundsCheckMode.WARNING,
+        True,
+        TestCase.TEST_OFFSETS_BOUND_ERRORS,
+        torch.int64,
+    ),
+    (
+        4,
+        8,
+        8,
+        BoundsCheckMode.FATAL,
+        True,
+        TestCase.TEST_OFFSETS_BOUND_ERRORS,
+        torch.int64,
+    ),
 ]
+
 
 def assert_array_not_equal(x, y):
     return assert_raises(AssertionError, assert_array_equal, x, y)
 
+
 @pytest.mark.xfail
-@pytest.mark.parametrize("T, B, max_L, bounds_check_mode, weighted, test_case, dtype", bounds_check_test_case_list)
+@pytest.mark.parametrize(
+    "T, B, max_L, bounds_check_mode, weighted, test_case, dtype",
+    bounds_check_test_case_list,
+)
 def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype):
     if test_case != test_case.CHECK_INDICES_NOT_THE_SAME:
         rows_per_table = torch.tensor(
@@ -95,8 +214,48 @@ def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype
         offsets = offsets.to(hpu)
     else:
         rows_per_table = torch.tensor([45, 344]).to(hpu)
-        indices = torch.tensor([44, 3, 41, 12, 45, 13, 32, 29, 7, 34, 21, 20, 43, 30, 32, 21, 29, 198, 309, 55,
-                                237, 196, 128, 122, 28, 246, 170, 252, 243, 11, 230, 35, 41, 111, 142, 147, 11, 170])
+        indices = torch.tensor(
+            [
+                44,
+                3,
+                41,
+                12,
+                45,
+                13,
+                32,
+                29,
+                7,
+                34,
+                21,
+                20,
+                43,
+                30,
+                32,
+                21,
+                29,
+                198,
+                309,
+                55,
+                237,
+                196,
+                128,
+                122,
+                28,
+                246,
+                170,
+                252,
+                243,
+                11,
+                230,
+                35,
+                41,
+                111,
+                142,
+                147,
+                11,
+                170,
+            ]
+        )
         offsets = torch.tensor([0, 4, 6, 12, 16, 23, 30, 38, 38]).to(hpu)
         warning_expected = 1
 
@@ -118,7 +277,14 @@ def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype
 
     indices = indices.to(hpu)
 
-    bounds_check_indices(rows_per_table, indices, offsets, bounds_check_mode, warning, weights if weighted else None)
+    bounds_check_indices(
+        rows_per_table,
+        indices,
+        offsets,
+        bounds_check_mode,
+        warning,
+        weights if weighted else None,
+    )
 
     if test_case == TestCase.CHECK_ALL_INDICES_THE_SAME:
         torch.testing.assert_close(indices_copy, indices.to(cpu))
@@ -146,6 +312,8 @@ def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype
                 torch.testing.assert_close(offsets[-1].item(), indices.numel())
 
             if bounds_check_mode == BoundsCheckMode.WARNING:
-                unittest.TestCase().assertGreaterEqual(warning.item(), min(2, offsets.numel() - 1))
+                unittest.TestCase().assertGreaterEqual(
+                    warning.item(), min(2, offsets.numel() - 1)
+                )
         else:
             np.testing.assert_array_less(torch.min(indices).to(cpu), 0)

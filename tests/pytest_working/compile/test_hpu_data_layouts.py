@@ -11,8 +11,9 @@
 ###############################################################################
 
 
-import torch
 import pytest
+import torch
+
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 @pytest.mark.parametrize("use_eager_conv", [True, False])

@@ -1,7 +1,7 @@
-import torch
 import pytest
+import torch
 import torchvision
-from test_utils import *
+from test_utils import compare_tensors, cpu, hpu
 
 test_case_list = [
     # num_boxes, iou_threshold
@@ -9,7 +9,11 @@ test_case_list = [
     (40, 0.25),
 ]
 
+<<<<<<< HEAD:tests/test_hpu_custom_nms.py
 @pytest.mark.xfail(reason="RuntimeError: 'nms_kernel' not implemented for 'BFloat16'")
+=======
+
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_custom_nms.py
 @pytest.mark.parametrize("num_boxes, iou_threshold", test_case_list)
 def test_nms_lazy(num_boxes, iou_threshold):
 
@@ -25,13 +29,16 @@ def test_nms_lazy(num_boxes, iou_threshold):
     nms = CustomNms()
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
-    keep_hpu = nms.nms(
-        hpu_box, hpu_scores, iou_threshold)
+    keep_hpu = nms.nms(hpu_box, hpu_scores, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
     keep_hpu = torchvision.ops.nms(hpu_box, hpu_scores, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
 
+<<<<<<< HEAD:tests/test_hpu_custom_nms.py
 @pytest.mark.xfail
+=======
+
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_custom_nms.py
 @pytest.mark.parametrize("num_boxes, iou_threshold", test_case_list)
 def test_batched_nms_lazy(num_boxes, iou_threshold):
 
@@ -49,9 +56,9 @@ def test_batched_nms_lazy(num_boxes, iou_threshold):
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     hpu_idx = idx.to(hpu)
-    keep_hpu = nms.batched_nms(
-        hpu_box, hpu_scores, hpu_idx, iou_threshold)
+    keep_hpu = nms.batched_nms(hpu_box, hpu_scores, hpu_idx, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
+
 
 if __name__ == "__main__":
     test_batched_nms_lazy(50, 0.2)

@@ -11,12 +11,13 @@
 ###############################################################################
 
 import copy
+
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import pytest
 
 
 class MNISTNet(nn.Module):
@@ -37,10 +38,11 @@ class MNISTNet(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
+
 @pytest.mark.xfail
 def test_mnist():
     m_cpu = MNISTNet()
-    m_clone =  copy.deepcopy(m_cpu)
+    m_clone = copy.deepcopy(m_cpu)
     max_norm = 1.0
 
     i_clone_list, t_clone_list = [], []
@@ -50,7 +52,7 @@ def test_mnist():
     opt_cpu.zero_grad()
 
     count = 5
-    for i in range(count) :
+    for _ in range(count):
         i_cpu = torch.rand(1, 1, 28, 28)
         t_cpu = torch.from_numpy(np.random.choice(10, 1))
         i_clone_list.append(i_cpu.clone())
@@ -76,15 +78,15 @@ def test_mnist():
     opt_hpu.zero_grad()
 
     with torch.no_grad():
-        for name, param in m_hpu.named_parameters():
-            if(param.ndim == 4):
-                param.data = param.data.permute((2,3,1,0))
+        for _, param in m_hpu.named_parameters():
+            if param.ndim == 4:
+                param.data = param.data.permute((2, 3, 1, 0))
     try:
         from habana_frameworks.torch.hpex.normalization import FusedClipNorm
     except ImportError:
         raise ImportError("Please install habana_torch.")
 
-    for i in range(count) :
+    for i in range(count):
         i_hpu, t_hpu = i_clone_list[i].to(habana), t_clone_list[i].to(habana)
 
         # train one iteration on hpu
@@ -97,10 +99,11 @@ def test_mnist():
         n_hpu = FusedNorm.clip_norm()
 
         comp = np.allclose(
-                n_cpu_list[i].detach().numpy(),
-                n_hpu.detach().to(cpu).numpy(),
-                atol=0.001,
-                rtol=1.e-3,
-                equal_nan=True)
+            n_cpu_list[i].detach().numpy(),
+            n_hpu.detach().to(cpu).numpy(),
+            atol=0.001,
+            rtol=1.0e-3,
+            equal_nan=True,
+        )
 
-        print('Iteraion {} norm output match :: {}'.format(i, comp))
+        print("Iteraion {} norm output match :: {}".format(i, comp))

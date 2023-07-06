@@ -1,37 +1,44 @@
-import torch
 import habana_frameworks.torch as ht
+<<<<<<< HEAD:tests/test_hpu_event_limit.py
 import datetime;
 import pytest
+=======
+import torch
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_event_limit.py
 
 pytestmark = pytest.mark.skip(reason="Too long/hang")
 
 def create_events(enable_timing):
-    in_shape = (10,2)
-    tA_h = torch.zeros(in_shape).to('hpu')
-    tB_h = torch.ones(in_shape).to('hpu')
+    in_shape = (10, 2)
+    tA_h = torch.zeros(in_shape).to("hpu")
+    tB_h = torch.ones(in_shape).to("hpu")
 
-    s = ht.hpu.Stream()
+    ht.hpu.Stream()
     events = []
-    # for i in range(1024 * 1024 // 2):
-    for i in range(1000000):
-        startEv =ht.hpu.Event(enable_timing)
+    for _ in range(1000000):
+        startEv = ht.hpu.Event(enable_timing)
         endEv = ht.hpu.Event(enable_timing)
-        assert endEv.query()== True , "Event query on unrecorded event returned False (expected True)"
+        assert (
+            endEv.query() is True
+        ), "Event query on unrecorded event returned False (expected True)"
 
         events.append((startEv, endEv))
 
-    for i, (startEv, endEv) in enumerate(events):
+    for _, (startEv, endEv) in enumerate(events):
         startEv.record()
         for _ in range(100):
-            tA_h = torch.add(tA_h,tB_h)
+            tA_h = torch.add(tA_h, tB_h)
         endEv.record()
         endEv.synchronize()
+
 
 def testMaxLimitForProfileEvents():
     create_events(True)
 
+
 def testMaxLimitForEvents():
     create_events(False)
+
 
 if __name__ == "__main__":
     testMaxLimitForProfileEvents()

@@ -11,6 +11,7 @@
 ###############################################################################
 
 import datetime
+
 import pytest
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 
@@ -54,20 +55,30 @@ class TestEventDispatcher:
         for c in callbacks:
             evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback)
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+        evt_disp.publish(
+            EventId.GRAPH_COMPILATION,
+            [("duration", 1), ("recipe", "test")],
+            datetime.datetime.now(),
+        )
 
         assert all([c.hit_count == 1 for c in callbacks])
 
     @pytest.mark.xfail        
     def test_subscribe_and_partially_unsubscribe(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
+        handles = [
+            evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks
+        ]
 
         # unsubscribe even callbacks
         for h in handles[::2]:
             evt_disp.unsubscribe(h)
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+        evt_disp.publish(
+            EventId.GRAPH_COMPILATION,
+            [("duration", 1), ("recipe", "test")],
+            datetime.datetime.now(),
+        )
 
         # check if unsubscribed callbacks weren't called
         assert all([c.hit_count == 0 for c in callbacks[::2]])
@@ -78,17 +89,23 @@ class TestEventDispatcher:
     @pytest.mark.xfail
     def test_subscribe_and_unsubscribe_all(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
+        handles = [
+            evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks
+        ]
 
         for h in handles:
             evt_disp.unsubscribe(h)
 
-        evt_disp.publish(EventId.GRAPH_COMPILATION, [("duration", 1), ("recipe", "test")], datetime.datetime.now())
+        evt_disp.publish(
+            EventId.GRAPH_COMPILATION,
+            [("duration", 1), ("recipe", "test")],
+            datetime.datetime.now(),
+        )
 
         assert all([c.hit_count == 0 for c in callbacks])
 
     def test_subscribe_and_publish_different_event(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
+        callback = CallbackFn("Handler!")
 
         evt_disp.subscribe(EventId.GRAPH_COMPILATION, callback.callback)
 
@@ -97,7 +114,7 @@ class TestEventDispatcher:
         assert callback.hit_count == 0
 
     def test_publish_in_loop(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
+        callback = CallbackFn("Handler!")
         evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
 
         for _ in range(100):
@@ -107,7 +124,9 @@ class TestEventDispatcher:
 
     def test_publish_then_unsubscribe_some_and_publish_again(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks]
+        handles = [
+            evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks
+        ]
 
         evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
 
@@ -128,9 +147,13 @@ class TestEventDispatcher:
 
     @pytest.mark.xfail
     def test_parameters(self, evt_disp):
-        callback = CallbackFn(f"Handler!")
+        callback = CallbackFn("Handler!")
         evt_disp.subscribe(EventId.CUSTOM_EVENT, callback.callback)
 
-        evt_disp.publish(EventId.CUSTOM_EVENT, [("param1", 1234), ("param2", "test")], datetime.datetime.now())
+        evt_disp.publish(
+            EventId.CUSTOM_EVENT,
+            [("param1", 1234), ("param2", "test")],
+            datetime.datetime.now(),
+        )
         assert callback.hit_count == 1
         assert callback.params_log[0] == [("param1", 1234), ("param2", "test")]

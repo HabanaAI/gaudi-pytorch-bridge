@@ -9,8 +9,8 @@
 # was provided.
 #
 # ******************************************************************************
-import torch
 import pytest
+import torch
 
 select_backward_test_case_list = [
     # size, dim, index

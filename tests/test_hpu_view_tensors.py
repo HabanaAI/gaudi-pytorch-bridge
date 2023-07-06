@@ -4,7 +4,8 @@ from test_utils import compare_tensors
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
+
 
 def test_hpu_view_early_release():
     batched_imgs = torch.randn(2, 5, 5)
@@ -22,6 +23,7 @@ def test_hpu_view_early_release():
     #        that are already deleted along with their IR graph
     out_hpu = batched_imgs_hpu.to("cpu")
     compare_tensors(out_hpu, batched_imgs, atol=0, rtol=0)
+
 
 def test_hpu_as_strided_on_as_strided():
     x = torch.randn(5, 5)
@@ -44,6 +46,7 @@ def test_hpu_as_strided_on_as_strided():
     # Issue: This isn't triggering execution on views v2_h and t_h
     out_h = v1_h.to("cpu")
     compare_tensors(out_h, v1, atol=0, rtol=0)
+
 
 def test_hpu_as_strided_on_as_strided_2():
     x = torch.randn(5, 5)
@@ -68,6 +71,7 @@ def test_hpu_as_strided_on_as_strided_2():
     out_h = v1_h.to("cpu")
     compare_tensors(out_h, v1, atol=0, rtol=0)
 
+
 def test_hpu_view_of_view():
     x = torch.randn(5, 5)
     t = torch.randn(5, 5)
@@ -91,9 +95,9 @@ def test_hpu_view_of_view():
     out_h = v1_h.to("cpu")
     compare_tensors(out_h, v1, atol=0, rtol=0)
 
+
 if __name__ == "__main__":
     test_hpu_view_of_view()
     test_hpu_as_strided_on_as_strided_2()
     test_hpu_as_strided_on_as_strided()
     test_hpu_view_early_release()
-

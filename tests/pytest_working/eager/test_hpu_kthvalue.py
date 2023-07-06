@@ -11,9 +11,9 @@
 # ******************************************************************************
 
 
-import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, compare_tensors
+import torch
+from test_utils import compare_tensors, evaluate_fwd_kernel
 
 kthvalue_params_list = [
     ((8, 2), 3, 0),
@@ -48,6 +48,4 @@ def test_hpu_kthvalue(self_shape, k_value, axis, keepdim, dtype):
         cpu_values = torch.unsqueeze(cpu_values, axis)
     gathered_values = torch.gather(original_tensor.to("hpu"), axis, hpu_indices)
 
-    compare_tensors(
-        gathered_values, cpu_values, atol=0, rtol=0, assert_enable=True
-    )
+    compare_tensors(gathered_values, cpu_values, atol=0, rtol=0, assert_enable=True)

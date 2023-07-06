@@ -1,6 +1,6 @@
+import pytest
 import torch
 import torch.nn as nn
-import pytest
 from test_utils import evaluate_fwd_kernel
 
 grid_params_list = [

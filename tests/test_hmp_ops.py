@@ -1,61 +1,74 @@
+import pytest
 import torch
 from habana_frameworks.torch.hpex import hmp
-import pytest
 
 pytestmark = pytest.mark.xfail
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 def test_add_override(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
     b = torch.randn(3, 4).to(hpu)
     a = a + b
     assert a.dtype == torch.float32
 
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 def test_add_ioverride(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
     b = torch.randn(3, 4).to(hpu)
     a += b
     assert a.dtype == torch.float32
 
-@pytest.mark.parametrize("dtype", [
-    pytest.param(torch.bfloat16, marks=[pytest.mark.xfail(reason="Results mismatch")]),
-    pytest.param(torch.float16)])
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        pytest.param(
+            torch.bfloat16, marks=[pytest.mark.xfail(reason="Results mismatch")]
+        ),
+        pytest.param(torch.float16),
+    ],
+)
 def test_truediv_override(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
-    b = torch.randn(3, 4).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
+    torch.randn(3, 4).to(hpu)
     a = a / 5
     assert a.dtype == dtype
 
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 def test_add_inplace(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
     b = torch.randn(3, 4).to(hpu)
     a = a.add_(b)
     assert a.dtype == dtype
 
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 def test_add_tensor(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
     b = torch.randn(3, 4).to(hpu)
     a = a.add(b)
     assert a.dtype == torch.float32
 
+
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 def test_add_torch(dtype):
-    hmp.convert(isVerbose=True, low_precision_type = dtype)
-    a = torch.randn(3, 4, dtype = dtype).to(hpu)
+    hmp.convert(isVerbose=True, low_precision_type=dtype)
+    a = torch.randn(3, 4, dtype=dtype).to(hpu)
     b = torch.randn(3, 4).to(hpu)
     a = torch.add(a, b)
     assert a.dtype == torch.float32
+
 
 def test_cat_torch():
     hmp.convert(isVerbose=True)
@@ -65,6 +78,7 @@ def test_cat_torch():
     a = torch.cat([a, b, c])
     assert a.dtype == torch.float32
 
+
 @pytest.mark.xfail(reason="Results mismatch")
 def test_gelu_torch():
     # This test should only be run if gelu is added to bf16_list
@@ -72,6 +86,7 @@ def test_gelu_torch():
     b = torch.randn(3, 4).to(hpu)
     out = torch.nn.functional.gelu(b)
     assert out.dtype == torch.bfloat16
+
 
 def test_layer_norm_torch():
     # This test should only be run if gelu is added to bf16_list

@@ -10,13 +10,18 @@
 #
 # ******************************************************************************
 
-import torch
 import random
-import pytest
 from itertools import accumulate
 from typing import List, Optional, Tuple
+
+import pytest
+import torch
+from habana_frameworks.torch.hpex.kernels.fbgemm import (
+    permute_1D_sparse_data,
+    permute_2D_sparse_data,
+)
 from test_utils import cpu, hpu
-from habana_frameworks.torch.hpex.kernels.fbgemm import permute_1D_sparse_data, permute_2D_sparse_data
+
 
 def permute_sparse_data_ref(
     lengths: torch.Tensor,
@@ -73,27 +78,34 @@ def permute_sparse_data_ref(
 
 
 permute_test_case_list = [
-  # B, T, L, W, has_weight, is_1D, long_index
-  (1, 3, 3, 2, True, True, False),
-  (1, 1, 2, 9, True, True, False),
-  (1, 1, 2, 9, True, True, True),
-  (5, 6, 4, 6, True, True, True),
-  (8, 3, 4, 8, True, True, True),
-  (1, 3, 3, 2, True, False, False),
-  (5, 6, 4, 6, True, False, False),
-  (8, 3, 4, 8, True, False, True),
-  (1, 3, 3, 2, False, True, False),
-  (1, 1, 2, 9, False, True, False),
-  (1, 1, 2, 9, False, True, True),
-  (5, 6, 4, 6, False, True, True),
-  (8, 3, 4, 8, False, True, True),
-  (1, 3, 3, 2, False, False, False),
-  (5, 6, 4, 6, False, False, False),
-  (8, 3, 4, 8, False, False, True),
+    # B, T, L, W, has_weight, is_1D, long_index
+    (1, 3, 3, 2, True, True, False),
+    (1, 1, 2, 9, True, True, False),
+    (1, 1, 2, 9, True, True, True),
+    (5, 6, 4, 6, True, True, True),
+    (8, 3, 4, 8, True, True, True),
+    (1, 3, 3, 2, True, False, False),
+    (5, 6, 4, 6, True, False, False),
+    (8, 3, 4, 8, True, False, True),
+    (1, 3, 3, 2, False, True, False),
+    (1, 1, 2, 9, False, True, False),
+    (1, 1, 2, 9, False, True, True),
+    (5, 6, 4, 6, False, True, True),
+    (8, 3, 4, 8, False, True, True),
+    (1, 3, 3, 2, False, False, False),
+    (5, 6, 4, 6, False, False, False),
+    (8, 3, 4, 8, False, False, True),
 ]
 
+<<<<<<< HEAD:tests/test_hpu_permute_sparse_data.py
 @pytest.mark.xfail(reason="RuntimeError: synNodeCreateWithId failed")
 @pytest.mark.parametrize("B, T, L, W, has_weight, is_1D, long_index", permute_test_case_list)
+=======
+
+@pytest.mark.parametrize(
+    "B, T, L, W, has_weight, is_1D, long_index", permute_test_case_list
+)
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_permute_sparse_data.py
 def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
     index_dtype = torch.int64 if long_index else torch.int32
     length_splits: Optional[List[torch.Tensor]] = None
@@ -137,7 +149,8 @@ def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
         indices.to(cpu),
         weights.to(cpu) if has_weight else None,
         permute.to(cpu).long(),
-        is_1D)
+        is_1D,
+    )
 
     if is_1D:
         (
@@ -148,7 +161,7 @@ def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
             permute.to(hpu),
             lengths.to(hpu),
             indices.to(hpu),
-            weights.to(hpu) if has_weight else None
+            weights.to(hpu) if has_weight else None,
         )
     else:
         (
@@ -159,12 +172,18 @@ def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
             permute.to(hpu),
             lengths.to(hpu),
             indices.to(hpu),
-            weights.to(hpu) if has_weight else None
+            weights.to(hpu) if has_weight else None,
         )
 
-    torch.testing.assert_close(permuted_indices.to(cpu).numpy(), permuted_indices_ref.numpy())
-    torch.testing.assert_close(permuted_lengths.to(cpu).numpy(), permuted_lengths_ref.numpy())
+    torch.testing.assert_close(
+        permuted_indices.to(cpu).numpy(), permuted_indices_ref.numpy()
+    )
+    torch.testing.assert_close(
+        permuted_lengths.to(cpu).numpy(), permuted_lengths_ref.numpy()
+    )
     if has_weight:
-        torch.testing.assert_close(permuted_weights.to(cpu).numpy(), permuted_weights_ref.numpy())
+        torch.testing.assert_close(
+            permuted_weights.to(cpu).numpy(), permuted_weights_ref.numpy()
+        )
     else:
         assert permuted_weights is None and permuted_weights_ref is None

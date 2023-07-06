@@ -10,10 +10,21 @@
 #
 # ******************************************************************************
 import os
-import torch
 import pathlib
+
 import pytest
 from test_utils import is_gaudi1
+import torch
+
+
+# Tests must be executed in separate pytest runs, because habana modules
+# have to be reloaded before setting custom list of ops
+
+def load_modules(custom_autocast=False):
+    if custom_autocast:
+        path = str(pathlib.Path(__file__).parent.resolve())
+        os.environ["LOWER_LIST"] = path + "/autocast_files/lower_list.txt"
+        os.environ["FP32_LIST"] = path + "/autocast_files/fp32_list.txt"
 
 
 def assert_dtype(tensors, dtype):

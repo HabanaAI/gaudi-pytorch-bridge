@@ -1,10 +1,14 @@
-import torch
 import numpy as np
+<<<<<<< HEAD:tests/test_weight_sharing.py
 import pytest
+=======
+import torch
+
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_weight_sharing.py
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
 
 
 @pytest.mark.xfail
@@ -72,6 +76,7 @@ def test_hpu_weight_sharing_in_submodule():
         def forward(self, input):
             c = self.a / input + self.b(input) * input
             return c
+
     # initial - cpu with weight sharing
     model = TestModel()
     result = model(2)
@@ -105,21 +110,33 @@ def test_hpu_weight_sharing_in_exported_parameter():
     exported = model.a
     assert model.a.device.type == "cpu"
     assert exported.device.type == "cpu"
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 1)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 1
+    )
     exported.data += 1
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 2)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 2
+    )
     model.a.data += 1
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3
+    )
 
     # hpu with exported parameter
     model.to("hpu")
     assert model.a.device.type == "hpu"
     assert exported.device.type == "hpu"
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3
+    )
     exported.data += 1
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 4)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 4
+    )
     model.a.data += 1
-    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 5)
+    assert np.equal(
+        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 5
+    )
 
 
 def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
@@ -144,7 +161,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
             return c
 
     def hpu_mem_usage():
-        return htcore.hpu.memory_stats()['InUse']
+        return htcore.hpu.memory_stats()["InUse"]
 
     def stats(param):
         return {
@@ -160,7 +177,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
     model.to("hpu")
     external = model.a
     external_2 = model.a
-    assert (hpu_mem_usage() > initial_memory)
+    assert hpu_mem_usage() > initial_memory
 
     stats_model_parameter_before = stats(model.a)
     stats_external_before = stats(external)
@@ -168,36 +185,67 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
 
     external.data = external.data.cpu()
     current_memory = hpu_mem_usage()
-    assert (current_memory == initial_memory)
+    assert current_memory == initial_memory
 
     stats_model_parameter_after = stats(model.a)
     stats_external_after = stats(external)
     stats_external2_after = stats(external_2)
 
-    assert (stats_model_parameter_before["id"] != stats_model_parameter_after["id"])
-    assert (stats_model_parameter_before["id"] == stats_external_before["id"]
-            == stats_external2_before["id"] == stats_external_after["id"]
-            == stats_external2_after["id"])
+    assert stats_model_parameter_before["id"] != stats_model_parameter_after["id"]
+    assert (
+        stats_model_parameter_before["id"]
+        == stats_external_before["id"]
+        == stats_external2_before["id"]
+        == stats_external_after["id"]
+        == stats_external2_after["id"]
+    )
 
-    assert (stats_model_parameter_before["device"] == stats_external_before["device"]
-            == stats_external2_before["device"])
-    assert (stats_model_parameter_after["device"] == stats_external_after["device"]
-            == stats_external2_after["device"])
-    assert (stats_model_parameter_before["device"] != stats_model_parameter_after["device"])
+    assert (
+        stats_model_parameter_before["device"]
+        == stats_external_before["device"]
+        == stats_external2_before["device"]
+    )
+    assert (
+        stats_model_parameter_after["device"]
+        == stats_external_after["device"]
+        == stats_external2_after["device"]
+    )
+    assert (
+        stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
+    )
 
-    assert (stats_model_parameter_before["data_device"] == stats_external_before["data_device"]
-            == stats_external2_before["data_device"])
-    assert (stats_model_parameter_after["data_device"] == stats_external_after["data_device"]
-            == stats_external2_after["data_device"])
-    assert (stats_model_parameter_before["data_device"] != stats_model_parameter_after["data_device"])
+    assert (
+        stats_model_parameter_before["data_device"]
+        == stats_external_before["data_device"]
+        == stats_external2_before["data_device"]
+    )
+    assert (
+        stats_model_parameter_after["data_device"]
+        == stats_external_after["data_device"]
+        == stats_external2_after["data_device"]
+    )
+    assert (
+        stats_model_parameter_before["data_device"]
+        != stats_model_parameter_after["data_device"]
+    )
 
-    assert (stats_model_parameter_before["type"] == stats_external_before["type"]
-            == stats_external2_before["type"] == stats_model_parameter_after["type"]
-            == stats_external_after["type"] == stats_external2_after["type"])
+    assert (
+        stats_model_parameter_before["type"]
+        == stats_external_before["type"]
+        == stats_external2_before["type"]
+        == stats_model_parameter_after["type"]
+        == stats_external_after["type"]
+        == stats_external2_after["type"]
+    )
 
-    assert (stats_model_parameter_before["shape"] == stats_external_before["shape"]
-            == stats_external2_before["shape"] == stats_model_parameter_after["shape"]
-            == stats_external_after["shape"] == stats_external2_after["shape"])
+    assert (
+        stats_model_parameter_before["shape"]
+        == stats_external_before["shape"]
+        == stats_external2_before["shape"]
+        == stats_model_parameter_after["shape"]
+        == stats_external_after["shape"]
+        == stats_external2_after["shape"]
+    )
 
 
 def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
@@ -207,7 +255,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
             self.a = torch.nn.Parameter(torch.ones([10000]))
 
     def hpu_mem_usage():
-        return htcore.hpu.memory_stats()['InUse']
+        return htcore.hpu.memory_stats()["InUse"]
 
     def stats(param):
         return {
@@ -224,7 +272,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
     external = model.a
     external_2 = model.a
 
-    assert (hpu_mem_usage() > initial_memory)
+    assert hpu_mem_usage() > initial_memory
 
     stats_model_parameter_before = stats(model.a)
     stats_external_before = stats(external)
@@ -232,35 +280,66 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
 
     external.data = external.data.cpu()
 
-    assert (hpu_mem_usage() == initial_memory)
+    assert hpu_mem_usage() == initial_memory
 
     stats_model_parameter_after = stats(model.a)
     stats_external_after = stats(external)
     stats_external2_after = stats(external_2)
 
-    assert (stats_model_parameter_before["id"] != stats_model_parameter_after["id"])
-    assert (stats_model_parameter_before["id"] == stats_external_before["id"]
-            == stats_external2_before["id"] == stats_external_after["id"]
-            == stats_external2_after["id"])
+    assert stats_model_parameter_before["id"] != stats_model_parameter_after["id"]
+    assert (
+        stats_model_parameter_before["id"]
+        == stats_external_before["id"]
+        == stats_external2_before["id"]
+        == stats_external_after["id"]
+        == stats_external2_after["id"]
+    )
 
-    assert (stats_model_parameter_before["device"] == stats_external_before["device"]
-            == stats_external2_before["device"])
-    assert (stats_model_parameter_after["device"] == stats_external_after["device"]
-            == stats_external2_after["device"])
-    assert (stats_model_parameter_before["device"] != stats_model_parameter_after["device"])
+    assert (
+        stats_model_parameter_before["device"]
+        == stats_external_before["device"]
+        == stats_external2_before["device"]
+    )
+    assert (
+        stats_model_parameter_after["device"]
+        == stats_external_after["device"]
+        == stats_external2_after["device"]
+    )
+    assert (
+        stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
+    )
 
-    assert (stats_model_parameter_before["data_device"] == stats_external_before["data_device"]
-            == stats_external2_before["data_device"])
-    assert (stats_model_parameter_after["data_device"] == stats_external_after["data_device"]
-            == stats_external2_after["data_device"])
-    assert (stats_model_parameter_before["data_device"] != stats_model_parameter_after["data_device"])
+    assert (
+        stats_model_parameter_before["data_device"]
+        == stats_external_before["data_device"]
+        == stats_external2_before["data_device"]
+    )
+    assert (
+        stats_model_parameter_after["data_device"]
+        == stats_external_after["data_device"]
+        == stats_external2_after["data_device"]
+    )
+    assert (
+        stats_model_parameter_before["data_device"]
+        != stats_model_parameter_after["data_device"]
+    )
 
-    assert (stats_model_parameter_before["type"] == stats_external_before["type"]
-            == stats_external2_before["type"] == stats_model_parameter_after["type"]
-            == stats_external_after["type"] == stats_external2_after["type"])
-    assert (stats_model_parameter_before["shape"] == stats_external_before["shape"]
-            == stats_external2_before["shape"] == stats_model_parameter_after["shape"]
-            == stats_external_after["shape"] == stats_external2_after["shape"])
+    assert (
+        stats_model_parameter_before["type"]
+        == stats_external_before["type"]
+        == stats_external2_before["type"]
+        == stats_model_parameter_after["type"]
+        == stats_external_after["type"]
+        == stats_external2_after["type"]
+    )
+    assert (
+        stats_model_parameter_before["shape"]
+        == stats_external_before["shape"]
+        == stats_external2_before["shape"]
+        == stats_model_parameter_after["shape"]
+        == stats_external_after["shape"]
+        == stats_external2_after["shape"]
+    )
 
 
 def test_hpu_weight_sharing_in_exported_parameter_cpu_hpu_cpu():
@@ -402,6 +481,7 @@ def test_hpu_multiple_weight_sharing_in_submodule():
         def forward(self, input):
             c = self.a / input + self.b(input) * input
             return c
+
     # initial - cpu with weight sharing
     model = TestModel()
     result = model(2)

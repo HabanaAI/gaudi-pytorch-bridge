@@ -21,27 +21,29 @@ def test_linear_nobias():
     s1 = 5
     bsz = 4
     seqlen = 3
-    '''
+    """
     m = nn.Linear(in_features, out_features).to('hpu')
     input = torch.randn(seqlen, bsz, s1, in_features).to('hpu')
     output = m(input)
     print('..............................output size = ',output.size())
-    '''
-    residual = torch.randn((seqlen, bsz, s1, out_features), requires_grad=True).to(torch.float)
-    rh = residual.detach().to('hpu')
+    """
+    residual = torch.randn((seqlen, bsz, s1, out_features), requires_grad=True).to(
+        torch.float
+    )
+    rh = residual.detach().to("hpu")
     a = torch.randn((seqlen, bsz, s1, in_features), requires_grad=True).to(torch.float)
-    ah = a.detach().to('hpu')
+    ah = a.detach().to("hpu")
     ah.requires_grad = True
     b = torch.randn((out_features, in_features), requires_grad=True).to(torch.float)
-    bh = b.detach().to('hpu')
+    bh = b.detach().to("hpu")
     bh.requires_grad = True
     c = torch.randn((out_features), requires_grad=True).to(torch.float)
-    ch = c.detach().to('hpu')
+    ch = c.detach().to("hpu")
     ch.requires_grad = True
-    dh = torch.nn.functional.linear(ah,bh)
+    dh = torch.nn.functional.linear(ah, bh)
     print(dh.shape)
-    res = rh + dh
-    d = torch.nn.functional.linear(a,b)
+    rh + dh
+    d = torch.nn.functional.linear(a, b)
     compare_tensors(dh.to("cpu"), d, rtol=1e-3, atol=1e-3)
     lcpu = d.sum()
     lcpu.backward()

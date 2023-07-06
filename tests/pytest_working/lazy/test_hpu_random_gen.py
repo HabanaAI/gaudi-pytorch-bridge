@@ -10,11 +10,11 @@
 #
 ###############################################################################
 
-import torch
-import pytest
 import numpy as np
+import pytest
+import torch
 from numpy import testing
-from test_utils import hpu, cpu
+from test_utils import cpu, hpu
 
 # N - batch
 # H - input height
@@ -28,6 +28,7 @@ test_case_list = [
     (2, 2, 2, 2, 0, 5, 1245),
     (4, 3, 2, 1, -1, 2, 3235),
 ]
+
 
 @pytest.mark.parametrize("N, H, W, C, min, max, seed", test_case_list)
 def test_hpu_rand_gen_uniform_fwd(N, H, W, C, min, max, seed):
@@ -53,7 +54,9 @@ def test_hpu_rand_gen_uniform_fwd(N, H, W, C, min, max, seed):
     testing.assert_equal(output1_hpu, output2_hpu)
 
     # verify if the output values exceeds the range
-    testing.assert_equal((np.min(output2_hpu) >= a) and (np.max(output2_hpu) <= b), True)
+    testing.assert_equal(
+        (np.min(output2_hpu) >= a) and (np.max(output2_hpu) <= b), True
+    )
 
     # verify if two tensors are different for different seeds
     input3 = torch.empty(N, C, H, W, dtype=torch.float)
@@ -85,7 +88,11 @@ def test_hpu_rand_gen_normal_fwd(N, H, W, C, mean, std, seed):
     testing.assert_equal(output1_hpu, output2_hpu)
 
     # verify if the output values exceeds the range (used 5 sigma range)
-    testing.assert_equal((np.min(output2_hpu) >= (mean - 5 * std)) and (np.max(output2_hpu) <= (mean + 5 * std)), True)
+    testing.assert_equal(
+        (np.min(output2_hpu) >= (mean - 5 * std))
+        and (np.max(output2_hpu) <= (mean + 5 * std)),
+        True,
+    )
 
     # verify if two tensors are different for different seeds
     input3 = torch.empty(N, C, H, W, dtype=torch.float)
@@ -129,7 +136,11 @@ def test_hpu_rand_gen_log_normal_fwd(N, H, W, C, mean, std, seed):
     testing.assert_equal(output1_hpu, output2_hpu)
 
     # verify if the output values exceeds the range (used 5 sigma range)
-    testing.assert_equal((np.min(output2_hpu) >= (mean - 5 * std)) and (np.max(output2_hpu) <= (mean + 5 * std)), True)
+    testing.assert_equal(
+        (np.min(output2_hpu) >= (mean - 5 * std))
+        and (np.max(output2_hpu) <= (mean + 5 * std)),
+        True,
+    )
 
     # verify if two tensors are different for different seeds
     input3 = torch.empty(N, C, H, W, dtype=torch.float)
@@ -151,7 +162,9 @@ def test_hpu_rand_gen_log_normal_fwd(N, H, W, C, mean, std, seed):
     testing.assert_equal(output4_hpu, output5_hpu)
 
 
-@pytest.mark.xfail(reason="synNodeCreateWithId failed for node: broadcast with synStatus 1 [Invalid argument].")
+@pytest.mark.xfail(
+    reason="synNodeCreateWithId failed for node: broadcast with synStatus 1 [Invalid argument]."
+)
 @pytest.mark.parametrize("N, H, W, C, min, max, seed", test_case_list)
 def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared
@@ -171,7 +184,9 @@ def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     testing.assert_equal(output1_hpu, output2_hpu)
 
     # verify if the output values exceeds the range
-    testing.assert_equal((np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True)
+    testing.assert_equal(
+        (np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True
+    )
 
     # Test bernoulli._float
     torch.manual_seed(seed)
@@ -210,8 +225,10 @@ def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
     testing.assert_equal(output1_hpu, output2_hpu)
 
     # verify if the output values exceeds the range
-    testing.assert_equal((np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True)
+    testing.assert_equal(
+        (np.min(output2_hpu) >= 0) and (np.max(output2_hpu) <= 1), True
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_hpu_rand_gen_bernoulli_fwd_scalar(*test_case_list[0])

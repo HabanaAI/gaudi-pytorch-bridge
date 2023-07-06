@@ -1,37 +1,40 @@
 import torch
 import torch_hpu
 
+
 # Tests based on https://github.com/pytorch/rfcs/pull/17/files
 def test_hpu_inference_mode():
     def check(tensor):
         try:
             tensor._version
-        except:
-            assert(tensor.is_inference() == True)
+        except:  # noqa
+            assert tensor.is_inference() is True
         else:
-            assert(False and "Able to access version counter")
+            assert False and "Able to access version counter"
 
     torch_hpu.is_available()
     hpu = torch.device("hpu")
     a_tensor = torch.randn(4, 4, 64, device=hpu)
     a_tensor_vc = a_tensor._version
 
-    assert(a_tensor.is_inference() == False)
+    assert a_tensor.is_inference() is False
     b_tensor = a_tensor.view(-1)
     b_tensor_vc = b_tensor._version
-    assert(b_tensor.is_inference() == False and a_tensor_vc == b_tensor_vc)
+    assert b_tensor.is_inference() is False and a_tensor_vc == b_tensor_vc
     b_tensor += 1
     b_tensor_vc_updated = b_tensor._version
-    assert(b_tensor.is_inference() == False and (b_tensor_vc_updated == b_tensor_vc + 1))
-    c_tensor = a_tensor * 2;
+    assert b_tensor.is_inference() is False and (b_tensor_vc_updated == b_tensor_vc + 1)
+    c_tensor = a_tensor * 2
     c_tensor_vc = c_tensor._version
-    assert(c_tensor.is_inference() == False and a_tensor_vc == c_tensor_vc)
+    assert c_tensor.is_inference() is False and a_tensor_vc == c_tensor_vc
 
     with torch.inference_mode():
         # Inplace Operation on Normal tensor.
         b_tensor.add_(2)
         b_tensor_vc_updated_i = b_tensor._version
-        assert(b_tensor.is_inference() == False and (b_tensor_vc_updated_i == b_tensor_vc_updated + 1))
+        assert b_tensor.is_inference() is False and (
+            b_tensor_vc_updated_i == b_tensor_vc_updated + 1
+        )
 
         # Inplace Operation on Inference tensor.
         k_tensor = torch.randn(4, 4, 64, device=hpu)
@@ -42,7 +45,10 @@ def test_hpu_inference_mode():
 
         # View Op on Normal tensor.
         l_tensor = b_tensor.view(-1)
-        assert(l_tensor.is_inference() == False and b_tensor_vc_updated_i == l_tensor._version)
+        assert (
+            l_tensor.is_inference() is False
+            and b_tensor_vc_updated_i == l_tensor._version
+        )
 
         # View Op on Inference tensor.
         m_tensor = torch.randn(4, 4, 64, device=hpu)
@@ -60,10 +66,13 @@ def test_hpu_inference_mode():
     # Inplace Op on Inference tensor outside of inference_mode
     try:
         p_tensor.add_(1)
-    except:
-        assert(p_tensor.is_inference() == True)
+    except:  # noqa
+        assert p_tensor.is_inference() is True
     else:
-        assert(False and "Able to do inplace op on inference tensor outside on inference mode")
+        assert (
+            False
+            and "Able to do inplace op on inference tensor outside on inference mode"
+        )
 
     # View Op on Inference tensor outside of inference_mode
     r_tensor = p_tensor.view(-1)

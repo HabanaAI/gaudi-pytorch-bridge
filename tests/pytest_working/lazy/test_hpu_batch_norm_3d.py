@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -65,23 +66,40 @@ class FeatureExtractor(nn.Module):
 
 @pytest.mark.xfail(reason="Graph compile failed. synStatus 26")
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
-@pytest.mark.parametrize('setup_teardown_env_fixture', [
-    {"PT_HPU_LAZY_MODE": "1"}, {"PT_HPU_LAZY_MODE": "2"}], indirect=True)
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture",
+    [{"PT_HPU_LAZY_MODE": "1"}, {"PT_HPU_LAZY_MODE": "2"}],
+    indirect=True,
+)
 def test_bn_3d(setup_teardown_env_fixture, device="hpu"):
     in_d = 1
-    conv_feature_layers = [(16, 10, 5), (16, 3, 2), (16, 3, 2), (16, 3, 2), (16, 3, 2), (16, 2, 2), (16, 2, 2)]
+    conv_feature_layers = [
+        (16, 10, 5),
+        (16, 3, 2),
+        (16, 3, 2),
+        (16, 3, 2),
+        (16, 3, 2),
+        (16, 2, 2),
+        (16, 2, 2),
+    ]
     conv_layers = nn.ModuleList()
 
     for dim, k, stride in conv_feature_layers:
-        fe_blk = FeatureExtractor(n_in=in_d, n_out=dim, k=k, stride=stride,
-                                  is_group_norm=(in_d == 1), device=device).to(device=device)
+        fe_blk = FeatureExtractor(
+            n_in=in_d,
+            n_out=dim,
+            k=k,
+            stride=stride,
+            is_group_norm=(in_d == 1),
+            device=device,
+        ).to(device=device)
         conv_layers.append(fe_blk)
         in_d = dim
 
     x = torch.rand((8, 1, 1200)).float()
     x = x.to(device=device)
 
-    for idx, conv in enumerate(conv_layers):
+    for _, conv in enumerate(conv_layers):
         x = conv(x)
 
     loss = nn.CrossEntropyLoss()

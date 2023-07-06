@@ -10,18 +10,18 @@
 #
 ###############################################################################
 
-import torch
 import os
+
 import numpy as np
 import pytest
+import torch
 from test_utils import _kernel_copy_to_device, compare_tensors
 
 try:
     import habana_frameworks.torch as ht
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
-
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
 
 
 class Model(torch.nn.Module):
@@ -29,7 +29,9 @@ class Model(torch.nn.Module):
         super(Model, self).__init__()
         self.Linear1 = torch.nn.Linear(inp_size, inner_size)
         self.Linear2 = torch.nn.Linear(inner_size, out_size)
-        self.h = torch.nn.ModuleList([torch.nn.Linear(inp_size, inp_size) for i in range(20)])
+        self.h = torch.nn.ModuleList(
+            [torch.nn.Linear(inp_size, inp_size) for i in range(20)]
+        )
 
     def forward(self, inp):
         for i, (block) in enumerate(self.h):
@@ -42,20 +44,20 @@ class Model(torch.nn.Module):
 
 @pytest.mark.xfail(reason="Results mismatch")
 def test_graph_training():
-    #N, D_in, H, D_out = 640, 4096, 2048, 1024
+    # N, D_in, H, D_out = 640, 4096, 2048, 1024
     N, D_in, H, D_out = 2, 2, 2, 2
-    module1_cpu = torch.nn.Linear(D_in, H).to('cpu')
-    module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
+    module1_cpu = torch.nn.Linear(D_in, H).to("cpu")
+    module1_hpu = _kernel_copy_to_device(module1_cpu, "hpu")
     loss_fn = torch.nn.MSELoss()
-    optimizer_cpu = torch.optim.SGD(module1_cpu.parameters(),lr=0.1)
-    optimizer_hpu = torch.optim.SGD(module1_hpu.parameters(),lr=0.1)
-    x_cpu = torch.randn(N, D_in, device='cpu')
-    x_hpu = x_cpu.to('hpu')
+    optimizer_cpu = torch.optim.SGD(module1_cpu.parameters(), lr=0.1)
+    optimizer_hpu = torch.optim.SGD(module1_hpu.parameters(), lr=0.1)
+    x_cpu = torch.randn(N, D_in, device="cpu")
+    x_hpu = x_cpu.to("hpu")
     module1_hpu = ht.hpu.make_graphed_callables(module1_hpu, (x_hpu,))
     real_inputs_cpu = [torch.rand_like(x_cpu) for _ in range(100)]
-    real_inputs_hpu = [input.to('hpu') for input in real_inputs_cpu]
+    real_inputs_hpu = [input.to("hpu") for input in real_inputs_cpu]
     real_targets_cpu = [torch.randn(N, D_out, device="cpu") for _ in range(100)]
-    real_targets_hpu = [target.to('hpu') for target in real_targets_cpu]
+    real_targets_hpu = [target.to("hpu") for target in real_targets_cpu]
 
     for data, target in zip(real_inputs_hpu, real_targets_hpu):
         optimizer_hpu.zero_grad(set_to_none=True)
@@ -70,10 +72,11 @@ def test_graph_training():
         loss_cpu = loss_fn(tmp, target)
         loss_cpu.backward()
         optimizer_cpu.step()
-    for j, (p, q) in enumerate(zip(module1_hpu.parameters(), module1_cpu.parameters())):
+    for _, (p, q) in enumerate(zip(module1_hpu.parameters(), module1_cpu.parameters())):
         if p.requires_grad and q.requires_grad:
             compare_tensors(p, q, atol=0.001, rtol=1.0e-3)
-    compare_tensors(loss_hpu, loss_cpu, atol=0.001, rtol=1.e-3)
+    compare_tensors(loss_hpu, loss_cpu, atol=0.001, rtol=1.0e-3)
+
 
 input_shapes = [
     (3, 6, 4),
@@ -82,19 +85,22 @@ input_shapes = [
     (3, 12, 5),
     (3, 10, 6),
     (3, 10, 7),
-    (3, 10, 8)
+    (3, 10, 8),
 ]
 
 from test_utils import setup_teardown_env_fixture
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
-@pytest.mark.parametrize('setup_teardown_env_fixture', [
-        {"PT_HPU_LAZY_MODE": 1, "PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}], indirect=True)
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture",
+    [{"PT_HPU_LAZY_MODE": 1, "PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
+    indirect=True,
+)
 @pytest.mark.parametrize("shapes", input_shapes)
 def test_hpu_lazy_dynamic_shape(shapes, setup_teardown_env_fixture):
     hpu = torch.device("hpu")
     for s in shapes:
-        t1 = torch.randn(s, requires_grad = False)
-        t2 = torch.randn(s, requires_grad = False)
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
 
         t3 = torch.add(t1, t2)
         t4 = torch.mul(t1, t2)
@@ -112,5 +118,4 @@ def test_hpu_lazy_dynamic_shape(shapes, setup_teardown_env_fixture):
         test_graph_training()
         assert os.environ["PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES"] == "1"
         t6_h_cpu = t6_h.cpu()
-        assert np.allclose(t6, t6_h_cpu, atol=0.001, rtol=1.e-3), f"Data mismatch"
-
+        assert np.allclose(t6, t6_h_cpu, atol=0.001, rtol=1.0e-3), "Data mismatch"

@@ -10,13 +10,12 @@
 #
 ###############################################################################
 
-import numpy as np
-import torch
-import pytest
-from torch.optim import AdamW
-
 import habana_frameworks.torch.core as htcore
+import numpy as np
+import pytest
+import torch
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
+from torch.optim import AdamW
 
 habana = torch.device("hpu")
 cpu = torch.device("cpu")

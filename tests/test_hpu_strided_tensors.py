@@ -1,12 +1,12 @@
-import torch
 import pytest
 import test_utils
+import torch
 from test_utils import compare_tensors
 
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
 
 
 test_case_list_1D = [
@@ -110,11 +110,11 @@ def test_hpu_lazy_slice_fwd_4D(N, C, H, W, bs):
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t_h_in = t_in.detach().to(hpu)
-    for i in range(N//bs):
-        t = t_in[bs*i: bs*(i+1)]
-        t_h = t_h_in[bs*i: bs*(i+1)]
-        t1[bs*i: bs*(i+1)] = t.data
-        t1_h[bs*i: bs*(i+1)] = t_h.data
+    for i in range(N // bs):
+        t = t_in[bs * i : bs * (i + 1)]
+        t_h = t_h_in[bs * i : bs * (i + 1)]
+        t1[bs * i : bs * (i + 1)] = t.data
+        t1_h[bs * i : bs * (i + 1)] = t_h.data
         htcore.mark_step()
     compare_tensors(t1_h, t1, atol=0, rtol=0)
 
@@ -145,20 +145,22 @@ def test_hpu_lazy_slice_fwd_5D(N, C, D, H, W, bs):
     rem = a % bs
     pad = 0
     if a != 0:
-        pad = bs-rem
-    input_tensor = (a+pad, b, c, d, e)
+        pad = bs - rem
+    input_tensor = (a + pad, b, c, d, e)
     t1 = torch.zeros(input_tensor, requires_grad=False)
-    t_in = torch.ones(input_tensor, requires_grad=False).contiguous(memory_format=torch.channels_last_3d)
+    t_in = torch.ones(input_tensor, requires_grad=False).contiguous(
+        memory_format=torch.channels_last_3d
+    )
 
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t_h_in = t_in.detach().to(hpu)
     N, C, D, H, W = input_tensor
-    for i in range(N//bs):
-        t = t_in[bs*i: bs*(i+1)]
-        t_h = t_h_in[bs*i: bs*(i+1)]
-        t1[bs*i: bs*(i+1)] = t.data
-        t1_h[bs*i: bs*(i+1)] = t_h.data
+    for i in range(N // bs):
+        t = t_in[bs * i : bs * (i + 1)]
+        t_h = t_h_in[bs * i : bs * (i + 1)]
+        t1[bs * i : bs * (i + 1)] = t.data
+        t1_h[bs * i : bs * (i + 1)] = t_h.data
         htcore.mark_step()
         compare_tensors(t_h, t, atol=0, rtol=0)
     t1 = t1[pad:]
@@ -174,29 +176,32 @@ def test_hpu_lazy_slice_fwd_5D(N, C, D, H, W, bs):
 @pytest.mark.parametrize("N, C, D, H, W, bs", test_case_list_5D)
 def test_hpu_lazy_slice_fwd_5D_bf16(N, C, D, H, W, bs):
     t1 = torch.zeros((N, C, D, H, W), requires_grad=False)
-    t_in = torch.ones((N, C, D, H, W), requires_grad=False).contiguous(memory_format=torch.channels_last_3d)#.to(torch.bfloat16)
+    t_in = torch.ones((N, C, D, H, W), requires_grad=False).contiguous(
+        memory_format=torch.channels_last_3d
+    )  # .to(torch.bfloat16)
 
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)
     t_h_in = t_in.detach().to(hpu).to(torch.bfloat16)
     htcore.mark_step()
-    for i in range(N//bs):
-        t = t_in[bs*i: bs*(i+1)]
-        t_h = t_h_in[bs*i: bs*(i+1)]#.to(torch.float32)
-        t1[bs*i: bs*(i+1)] = t.data
-        t1_h[bs*i: bs*(i+1)] = t_h.data#.to(torch.float32)
+    for i in range(N // bs):
+        t = t_in[bs * i : bs * (i + 1)]
+        t_h = t_h_in[bs * i : bs * (i + 1)]  # .to(torch.float32)
+        t1[bs * i : bs * (i + 1)] = t.data
+        t1_h[bs * i : bs * (i + 1)] = t_h.data  # .to(torch.float32)
         htcore.mark_step()
         compare_tensors(t_h, t, atol=0.001, rtol=0.001)
         compare_tensors(t1_h, t1, atol=0.001, rtol=0.001)
     compare_tensors(t1_h, t1, atol=0, rtol=0)
 
+
 @pytest.mark.parametrize("N, C", test_case_list_1D)
 def test_hpu_autograd_slicefunction(N, C):
-    a = torch.randn([N, C, 2], requires_grad = True)
-    ha = a.to('hpu')
+    a = torch.randn([N, C, 2], requires_grad=True)
+    ha = a.to("hpu")
     a2 = torch.relu(a)
     b = torch.BoolTensor([N, C])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
     a2[b, :] = 0.0
 
     ha2 = torch.relu(ha)
@@ -204,20 +209,21 @@ def test_hpu_autograd_slicefunction(N, C):
 
     compare_tensors(ha2, a2, atol=0.001, rtol=0.001)
 
+
 @pytest.mark.parametrize("N, C", test_case_list_1D)
 def test_hpu_autograd_divout(N, C):
     a = torch.randn([C])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
     b = torch.randn([C])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
     c = torch.randn([C])
-    hc = c.to('hpu')
+    hc = c.to("hpu")
 
     v = b.view(-1)
     torch.div(a, v, out=c)
 
     hv = hb.view(-1)
-    torch.div(ha, hv, out = hc)
+    torch.div(ha, hv, out=hc)
 
     compare_tensors(hc, c, atol=0.001, rtol=0.001)
 

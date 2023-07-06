@@ -10,20 +10,20 @@
 #
 ###############################################################################
 
-import torch
+import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
-import habana_frameworks.torch.core as htcore
+import torch
 
 try:
     import habana_frameworks.torch.utils.experimental as exp
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
 
-@pytest.mark.parametrize("input_tensor", [(5,5)])
+
+@pytest.mark.parametrize("input_tensor", [(5, 5)])
 def test_hpu_lazy_data_ptr(input_tensor):
     t1 = torch.randn(input_tensor, requires_grad=True)
-    grad_out = torch.randn(3, 2, requires_grad=False)
 
     hpu = torch.device("hpu")
 
@@ -50,19 +50,21 @@ def test_hpu_lazy_data_ptr(input_tensor):
     print("t3_view data_ptr ", hex(t3_view_data_ptr))
 
     out.sum().backward()
-    grad_t1_cpu = t1.grad.clone().detach()
+    t1.grad.clone().detach()
 
     out_h.sum().backward()
     # out_h.backward(grad_out.detach().to(hpu))
     htcore.mark_step()
 
     print("t1_h.grad data_ptr ", hex(exp._data_ptr(t1_h.grad)))
-    grad_t1_h = t1_h.grad.cpu()
+    t1_h.grad.cpu()
 
     out_cpu_to_compare = out.clone().detach()
     out_h_cpu_to_compare = out_h.cpu().clone().detach()
 
-    #TBD: This can be enabled only after as_strided patch makes views to share
+    # TBD: This can be enabled only after as_strided patch makes views to share
     # storage
-    #assert(t3_h_data_ptr == t3_view_data_ptr)
-    assert np.allclose(out_cpu_to_compare, out_h_cpu_to_compare, atol=0, rtol=0), f"Data mismatch"
+    # assert(t3_h_data_ptr == t3_view_data_ptr)
+    assert np.allclose(
+        out_cpu_to_compare, out_h_cpu_to_compare, atol=0, rtol=0
+    ), "Data mismatch"

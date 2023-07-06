@@ -10,16 +10,16 @@
 #
 # ******************************************************************************
 
-import torch
-from torch import nn
 import habana_frameworks.torch.core as htcore
 import pytest
-from test_utils import hpu, cpu
+import torch
+from test_utils import cpu, hpu
+from torch import nn
 
 # Test weight norm for Linear and Conv2d for each
 # of the weight dims.
 bias = True
-in_feat  = 10
+in_feat = 10
 out_feat = 20
 N = 4
 s_i = (4, in_feat)
@@ -29,12 +29,13 @@ C = 10
 H = 20
 W = 20
 K = C
-R = 5 # give an odd no so that padding can be integer
+R = 5  # give an odd no so that padding can be integer
 S = R
-padding = int((R-1)/2)
+padding = int((R - 1) / 2)
 
-rtol=1e-03
-atol=1e-03
+rtol = 1e-03
+atol = 1e-03
+
 
 class nNet(nn.Module):
     def __init__(self, w, layer_name, dim):
@@ -42,13 +43,14 @@ class nNet(nn.Module):
         if layer_name == "linear":
             m = nn.Linear(in_feat, out_feat, bias=bias)
         else:
-            m = nn.Conv2d(C, K, R, padding = padding, bias = bias)
+            m = nn.Conv2d(C, K, R, padding=padding, bias=bias)
         m.weight = nn.Parameter(w)
-        self.layer = nn.utils.weight_norm(m, dim = dim)
+        self.layer = nn.utils.weight_norm(m, dim=dim)
 
     def forward(self, x):
         T2 = self.layer(x)
         return T2
+
 
 def weight_norm_fwd_bwd(layer_name, device, w, x, g_in, dim):
     x = x.to(device)
@@ -61,7 +63,7 @@ def weight_norm_fwd_bwd(layer_name, device, w, x, g_in, dim):
 
     t2 = model(x)
     t2.backward(g_in)
-    if device =="hpu":
+    if device == "hpu":
         htcore.mark_step()
     x_grad = x.grad.to("cpu")
     wg_grad = model.layer.weight_g.grad.to("cpu")
@@ -69,11 +71,24 @@ def weight_norm_fwd_bwd(layer_name, device, w, x, g_in, dim):
     b_grad = None
     if bias:
         b_grad = model.layer.bias.grad.to("cpu")
-    return x_grad,wg_grad,wv_grad,b_grad
+    return x_grad, wg_grad, wv_grad, b_grad
 
+<<<<<<< HEAD:tests/test_hpu_weight_norm.py
 @pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("layer_name", ["linear",
                                         pytest.param("convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")])])
+=======
+
+@pytest.mark.parametrize(
+    "layer_name",
+    [
+        "linear",
+        pytest.param(
+            "convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")]
+        ),
+    ],
+)
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_weight_norm.py
 def test_weight_norm(layer_name):
     if layer_name == "linear":
         x = torch.randn(s_i)
@@ -86,8 +101,12 @@ def test_weight_norm(layer_name):
         w = torch.randn(K, C, R, S)
 
     for dim in range(w.dim()):
-        x_grad_c, wg_grad_c ,wv_grad_c, b_grad_c = weight_norm_fwd_bwd(layer_name, cpu, w, x, g_in, dim)
-        x_grad_h, wg_grad_h ,wv_grad_h, b_grad_h = weight_norm_fwd_bwd(layer_name, hpu, w, x, g_in, dim)
+        x_grad_c, wg_grad_c, wv_grad_c, b_grad_c = weight_norm_fwd_bwd(
+            layer_name, cpu, w, x, g_in, dim
+        )
+        x_grad_h, wg_grad_h, wv_grad_h, b_grad_h = weight_norm_fwd_bwd(
+            layer_name, hpu, w, x, g_in, dim
+        )
 
         assert torch.allclose(x_grad_c, x_grad_h, rtol=rtol, atol=atol)
         assert torch.allclose(wg_grad_c, wg_grad_h, rtol=rtol, atol=atol)
@@ -95,7 +114,8 @@ def test_weight_norm(layer_name):
         if bias:
             assert torch.allclose(b_grad_c, b_grad_h, rtol=rtol, atol=atol)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_weight_norm("linear")
-    print(100*"+")
+    print(100 * "+")
     test_weight_norm("convolution")

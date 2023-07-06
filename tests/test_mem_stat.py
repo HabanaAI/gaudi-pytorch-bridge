@@ -10,7 +10,7 @@
 #
 ###############################################################################
 
-###Memory Stats Apis description and test case
+# Memory Stats Apis description and test case
 # 1. max_memory_allocated
 # 2. reset_peak_memory_stats
 # 3. memory_allocated
@@ -22,14 +22,14 @@
 # 9. max_memory_cached
 # 10. mem_get_info
 
-#TORCH.HPU.MAX_MEMORY_ALLOCATED
-#This API returns peak HPU memory allocated by tensors( in bytes). reset_peak_memory_stats() can be used to reset the starting point in tracing stats.
+# TORCH.HPU.MAX_MEMORY_ALLOCATED
+# This API returns peak HPU memory allocated by tensors( in bytes). reset_peak_memory_stats() can be used to reset the starting point in tracing stats.
 
-#TORCH.HPU.MEMORY_ALLOCATED
-#Returns the current HPU memory occupied by tensors.
+# TORCH.HPU.MEMORY_ALLOCATED
+# Returns the current HPU memory occupied by tensors.
 
-#TORCH.HPU.MEMORY_STATS
-#Returns list of HPU memory statics. Below sample memory stats printout and details
+# TORCH.HPU.MEMORY_STATS
+# Returns list of HPU memory statics. Below sample memory stats printout and details
 
 # ('Limit', 3050939105) : amount of total memory on HPU device
 # ('InUse', 20073088) : amount of allocated memory at any instance. ( starting point after reset_peak_memroy_stats() )
@@ -42,56 +42,56 @@
 # ('TotalSystemFrees', 2) : total number of system frees
 # ('TotalActiveAllocs', 32)] : total number of active allocations
 
-#TORCH.HPU.MEMORY_SUMMARY
-#Returns human readable printout of current memory stats.
+# TORCH.HPU.MEMORY_SUMMARY
+# Returns human readable printout of current memory stats.
 
-#TORCH.HPU.RESET_PEAK_MEMORY_STATS
-#Resets starting point of memory occupied by tensors.
+# TORCH.HPU.RESET_PEAK_MEMORY_STATS
+# Resets starting point of memory occupied by tensors.
 
-#TORCH.HPU.MEMORY_RESERVED
-#Returns the current HPU memory managed by caching allocator in bytes for a given device.
+# TORCH.HPU.MEMORY_RESERVED
+# Returns the current HPU memory managed by caching allocator in bytes for a given device.
 
-#TORCH.HPU.MAX_MEMORY_RESERVED
-#Returns the maximum HPU memory managed by caching allocator in bytes for a given device.
+# TORCH.HPU.MAX_MEMORY_RESERVED
+# Returns the maximum HPU memory managed by caching allocator in bytes for a given device.
 
-#TORCH.HPU.MEMORY_CACHED
-#Deprecated same as memory_reserved.
+# TORCH.HPU.MEMORY_CACHED
+# Deprecated same as memory_reserved.
 
-#TORCH.HPU.MAX_MEMORY_CACHED
-#Deprecated same as max_memory_reserved.
+# TORCH.HPU.MAX_MEMORY_CACHED
+# Deprecated same as max_memory_reserved.
 
-#TORCH.HPU.MEM_GET_INFO
-#Returns the free and total memory occupied by a HPU device.
+# TORCH.HPU.MEM_GET_INFO
+# Returns the free and total memory occupied by a HPU device.
 
-import torch
 import habana_frameworks.torch.hpu as htcore
+import torch
 from test_utils import hpu
 
 
 def test_mem_stat():
-    input1 = torch.randn((64,28,28,20),dtype=torch.float, requires_grad=True)
-    input1_hpu = input1.contiguous(memory_format=torch.channels_last).to(hpu)
+    input1 = torch.randn((64, 28, 28, 20), dtype=torch.float, requires_grad=True)
+    input1_hpu = input1.contiguous(memory_format=torch.channels_last).to(hpu)  # noqa
     mem_summary1 = htcore.memory_summary()
-    print('memory_summary1:')
+    print("memory_summary1:")
     print(mem_summary1)
     htcore.reset_peak_memory_stats()
-    input2 = torch.randn((64,28,28,20),dtype=torch.float, requires_grad=True)
-    input2_hpu = input2.contiguous(memory_format=torch.channels_last).to(hpu)
+    input2 = torch.randn((64, 28, 28, 20), dtype=torch.float, requires_grad=True)
+    input2_hpu = input2.contiguous(memory_format=torch.channels_last).to(hpu)  # noqa
     mem_summary2 = htcore.memory_summary()
-    print('memory_summary2:')
+    print("memory_summary2:")
     print(mem_summary2)
     mem_allocated = htcore.memory_allocated()
-    print('memory_allocated: ', mem_allocated)
+    print("memory_allocated: ", mem_allocated)
     mem_stats = htcore.memory_stats()
-    print('memory_stats:')
+    print("memory_stats:")
     print(mem_stats)
     max_mem_allocated = htcore.max_memory_allocated()
-    print('max_memory_allocated: ', max_mem_allocated)
-    print('memory_reserved:', htcore.memory_reserved())
-    print('max_memory_reserved:', htcore.max_memory_reserved())
-    print('memory_cached:', htcore.memory_cached())
-    print('max_memory_cached:', htcore.max_memory_cached())
-    print('mem_get_info (free_mem, total_mem):', htcore.mem_get_info())
-    assert(htcore.memory_reserved() == htcore.memory_cached())
-    assert(htcore.memory_reserved() == htcore.max_memory_reserved())
-    assert(htcore.memory_cached() == htcore.max_memory_cached())
+    print("max_memory_allocated: ", max_mem_allocated)
+    print("memory_reserved:", htcore.memory_reserved())
+    print("max_memory_reserved:", htcore.max_memory_reserved())
+    print("memory_cached:", htcore.memory_cached())
+    print("max_memory_cached:", htcore.max_memory_cached())
+    print("mem_get_info (free_mem, total_mem):", htcore.mem_get_info())
+    assert htcore.memory_reserved() == htcore.memory_cached()
+    assert htcore.memory_reserved() == htcore.max_memory_reserved()
+    assert htcore.memory_cached() == htcore.max_memory_cached()

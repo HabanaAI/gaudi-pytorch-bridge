@@ -10,18 +10,22 @@
 #
 ###############################################################################
 
+from typing import List, Optional
+
 import torch
 from torch import Tensor
-from typing import List, Optional
 from torch.optim.optimizer import Optimizer
 
-def resource_apply_momentum(params: List[Tensor],
-        d_p_list: List[Tensor],
-        momentum_buffer_list: List[Optional[Tensor]],
-        *,
-        momentum: float,
-        lr: float,
-        nesterov: bool):
+
+def resource_apply_momentum(
+    params: List[Tensor],
+    d_p_list: List[Tensor],
+    momentum_buffer_list: List[Optional[Tensor]],
+    *,
+    momentum: float,
+    lr: float,
+    nesterov: bool,
+):
     for i, param in enumerate(params):
         d_p = d_p_list[i]
         if momentum != 0:
@@ -33,6 +37,7 @@ def resource_apply_momentum(params: List[Tensor],
                 buf.mul_(momentum).sub_(d_p)
             d_p = buf
         param.add_(d_p)
+
 
 class ResourceApplyMomentum(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
@@ -48,8 +53,7 @@ class ResourceApplyMomentum(Optimizer):
 
     """
 
-    def __init__(self, params, lr, momentum=0,
-                 weight_decay=0, nesterov=False):
+    def __init__(self, params, lr, momentum=0, weight_decay=0, nesterov=False):
         if lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
         if momentum < 0.0:
@@ -57,8 +61,9 @@ class ResourceApplyMomentum(Optimizer):
         if weight_decay < 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-        defaults = dict(lr=lr, momentum=momentum,
-                        weight_decay=weight_decay, nesterov=nesterov)
+        defaults = dict(
+            lr=lr, momentum=momentum, weight_decay=weight_decay, nesterov=nesterov
+        )
         if nesterov and (momentum <= 0):
             raise ValueError("Nesterov momentum requires a momentum")
         super(ResourceApplyMomentum, self).__init__(params, defaults)
@@ -66,7 +71,7 @@ class ResourceApplyMomentum(Optimizer):
     def __setstate__(self, state):
         super(ResourceApplyMomentum, self).__setstate__(state)
         for group in self.param_groups:
-            group.setdefault('nesterov', False)
+            group.setdefault("nesterov", False)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -85,32 +90,34 @@ class ResourceApplyMomentum(Optimizer):
             params_with_grad = []
             d_p_list = []
             momentum_buffer_list = []
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            nesterov = group['nesterov']
-            lr = group['lr']
+            group["weight_decay"]
+            momentum = group["momentum"]
+            nesterov = group["nesterov"]
+            lr = group["lr"]
 
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is not None:
                     params_with_grad.append(p)
                     d_p_list.append(p.grad)
 
                     state = self.state[p]
-                    if 'momentum_buffer' not in state:
+                    if "momentum_buffer" not in state:
                         momentum_buffer_list.append(None)
                     else:
-                        momentum_buffer_list.append(state['momentum_buffer'])
+                        momentum_buffer_list.append(state["momentum_buffer"])
 
-            resource_apply_momentum(params_with_grad,
-                  d_p_list,
-                  momentum_buffer_list,
-                  momentum=momentum,
-                  lr=lr,
-                  nesterov=nesterov)
+            resource_apply_momentum(
+                params_with_grad,
+                d_p_list,
+                momentum_buffer_list,
+                momentum=momentum,
+                lr=lr,
+                nesterov=nesterov,
+            )
 
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
                 state = self.state[p]
-                state['momentum_buffer'] = momentum_buffer
+                state["momentum_buffer"] = momentum_buffer
 
         return loss

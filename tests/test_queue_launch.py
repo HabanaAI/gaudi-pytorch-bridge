@@ -1,7 +1,9 @@
-from torch import nn
-import torch
-import habana_frameworks.torch as ht
 import time
+
+import habana_frameworks.torch as ht
+import torch
+from torch import nn
+
 
 def initialize_weights(m):
     if isinstance(m, torch.nn.Conv2d):
@@ -23,8 +25,8 @@ def print_grads(model):
     for name, param in model.named_parameters():
         print(name, param.data)
 
-class Network(nn.Module):
 
+class Network(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -36,28 +38,31 @@ class Network(nn.Module):
     def forward(self, x):
         x = self.hidden(x)
         x = torch.relu_(x)
-        for i in range(10):
-             x = self.sigmoid(x)
-             x = self.output(x)
+        for _ in range(10):
+            x = self.sigmoid(x)
+            x = self.output(x)
         x = self.softmax(x)
         return x
 
+
 def test_graph_training1():
-    N, D_in, H, D_out = 20, 20, 20, 20
-    module1 = Network().to('hpu')
+    N, D_in, D_out = 20, 20, 20
+    module1 = Network().to("hpu")
 
     loss_fn = torch.nn.MSELoss()
 
-    #optimizer = FusedSGD(module1.parameters(), lr=0.1)
+    # optimizer = FusedSGD(module1.parameters(), lr=0.1)
     optimizer = torch.optim.SGD(module1.parameters(), lr=0.1)
 
-    x = torch.full((N, D_in), 0.25, device='hpu')
+    x = torch.full((N, D_in), 0.25, device="hpu")
 
     module1.apply(initialize_weights)
-    #print_grads(module1)
+    # print_grads(module1)
     iterations = 150
     real_inputs = [torch.full_like(x, 0.45) for _ in range(iterations)]
-    real_targets = [torch.full((N, D_out), 0.36, device="hpu") for _ in range(iterations)]
+    real_targets = [
+        torch.full((N, D_out), 0.36, device="hpu") for _ in range(iterations)
+    ]
     ht.core.mark_step()
     loss = 0
     start = time.time()
@@ -72,6 +77,7 @@ def test_graph_training1():
         ht.core.mark_step()
     ht.hpu.synchronize()
     print("Time taken: ", time.time() - start, "Loss:", loss)
+
 
 if __name__ == "__main__":
     test_graph_training1()

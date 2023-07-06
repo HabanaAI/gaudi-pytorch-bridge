@@ -10,13 +10,15 @@
 #
 # ******************************************************************************
 
-import torch
-import random
-import pytest
 import itertools
+import random
 from typing import List
-from test_utils import cpu, hpu, is_gaudi1
+
+import pytest
+import torch
 from habana_frameworks.torch.hpex.kernels.fbgemm import expand_into_jagged_permute
+from test_utils import cpu, hpu, is_gaudi1
+
 
 def expand_into_jagged_permute_ref(
     permute: List[int],
@@ -34,11 +36,33 @@ def expand_into_jagged_permute_ref(
 
     return output_permute
 
+
 permute_test_case_list = [
-  # T, W
-  pytest.param(10, 8, marks=[pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")] if is_gaudi1() else []),
-  pytest.param(12, 16, marks=[pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")] if is_gaudi1() else []),
+    # T, W
+    pytest.param(
+        10,
+        8,
+        marks=[
+            pytest.mark.xfail(
+                reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32"
+            )
+        ]
+        if is_gaudi1()
+        else [],
+    ),
+    pytest.param(
+        12,
+        16,
+        marks=[
+            pytest.mark.xfail(
+                reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32"
+            )
+        ]
+        if is_gaudi1()
+        else [],
+    ),
 ]
+
 
 @pytest.mark.parametrize("T, W", permute_test_case_list)
 def test_expand_into_jagged_permute_case(T, W):
@@ -61,7 +85,7 @@ def test_expand_into_jagged_permute_case(T, W):
         permute_tensor.to(hpu),
         offsets_1d_tensor.to(hpu),
         permuted_offsets_1d_tensor.to(hpu),
-        offsets_1d[-1]
+        offsets_1d[-1],
     )
 
     output_permute_ref = expand_into_jagged_permute_ref(
@@ -70,4 +94,6 @@ def test_expand_into_jagged_permute_case(T, W):
     )
     output_permute_ref_tensor = torch.tensor(output_permute_ref)
 
-    torch.testing.assert_close(output_permute.to(cpu).numpy(), output_permute_ref_tensor.numpy())
+    torch.testing.assert_close(
+        output_permute.to(cpu).numpy(), output_permute_ref_tensor.numpy()
+    )

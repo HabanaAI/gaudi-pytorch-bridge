@@ -10,9 +10,9 @@
 #
 # ******************************************************************************
 
-import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, compare_tensors, cpu, hpu
+import torch
+from test_utils import compare_tensors, cpu, evaluate_fwd_kernel, hpu
 
 self_shapes = [(1, 2, 4, 4, 4, 2), (16, 4, 2), (2), (8, 10), (2, 5, 10, 15)]
 
@@ -33,9 +33,7 @@ scalar_list = [2.0, -100, 0.5, 3, 1]
 
 
 def generate_tensor_list(shapes, types):
-    return [
-        torch.randn(shape).to(dtype).to(hpu) for shape, dtype in zip(shapes, types)
-    ]
+    return [torch.randn(shape).to(dtype).to(hpu) for shape, dtype in zip(shapes, types)]
 
 
 @pytest.mark.parametrize("self_value", [generate_tensor_list(self_shapes, self_dtypes)])
@@ -52,7 +50,7 @@ def test_hpu_foreach_mul(self_value, other_name, other_value):
         "self": self_value,
         other_name: other_value,
     }
-    #print("Self: ", kernel_params["self"])
+    # print("Self: ", kernel_params["self"])
     kernel = torch._foreach_mul
 
     evaluate_fwd_kernel(
@@ -61,36 +59,43 @@ def test_hpu_foreach_mul(self_value, other_name, other_value):
         check_results=True,
     )
 
-@pytest.mark.parametrize("self_value", [generate_tensor_list(self_shapes, self_dtypes_float)])
-@pytest.mark.parametrize("kernel", [
-    torch._foreach_abs,
-    torch._foreach_exp, 
-    torch._foreach_sqrt,
-    torch._foreach_sqrt,
-    torch._foreach_acos,
-    torch._foreach_asin,
-    torch._foreach_atan,
-    torch._foreach_ceil,
-    torch._foreach_cos,
-    torch._foreach_cosh,
-    torch._foreach_erf,
-   #torch._foreach_erfc,
-   #torch._foreach_expm1,
-    torch._foreach_floor,
-    torch._foreach_log,
-    torch._foreach_log10,
-   #torch._foreach_log1p,
-    torch._foreach_log2,
-    torch._foreach_neg,
-    torch._foreach_tan,
-    torch._foreach_tanh,
-    torch._foreach_sin,
-    torch._foreach_sinh,
-    torch._foreach_round,
-    torch._foreach_frac,
-    torch._foreach_reciprocal,
-    torch._foreach_sigmoid,
-    torch._foreach_trunc])
+
+@pytest.mark.parametrize(
+    "self_value", [generate_tensor_list(self_shapes, self_dtypes_float)]
+)
+@pytest.mark.parametrize(
+    "kernel",
+    [
+        torch._foreach_abs,
+        torch._foreach_exp,
+        torch._foreach_sqrt,
+        torch._foreach_sqrt,
+        torch._foreach_acos,
+        torch._foreach_asin,
+        torch._foreach_atan,
+        torch._foreach_ceil,
+        torch._foreach_cos,
+        torch._foreach_cosh,
+        torch._foreach_erf,
+        # torch._foreach_erfc,
+        # torch._foreach_expm1,
+        torch._foreach_floor,
+        torch._foreach_log,
+        torch._foreach_log10,
+        # torch._foreach_log1p,
+        torch._foreach_log2,
+        torch._foreach_neg,
+        torch._foreach_tan,
+        torch._foreach_tanh,
+        torch._foreach_sin,
+        torch._foreach_sinh,
+        torch._foreach_round,
+        torch._foreach_frac,
+        torch._foreach_reciprocal,
+        torch._foreach_sigmoid,
+        torch._foreach_trunc,
+    ],
+)
 def test_hpu_foreach(self_value, kernel):
     kernel_params = {
         "self": self_value,
@@ -102,9 +107,7 @@ def test_hpu_foreach(self_value, kernel):
     )
 
 
-@pytest.mark.parametrize(
-    "hpu_self", [generate_tensor_list(self_shapes, self_dtypes)]
-)
+@pytest.mark.parametrize("hpu_self", [generate_tensor_list(self_shapes, self_dtypes)])
 @pytest.mark.parametrize(
     "hpu_other", [2, scalar_list, generate_tensor_list(other_shapes, other_dtypes)]
 )

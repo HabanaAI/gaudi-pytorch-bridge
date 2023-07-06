@@ -10,9 +10,9 @@
 #
 ###############################################################################
 
-import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel
+import torch
+from test_utils import evaluate_fwd_bwd_kernel, evaluate_fwd_kernel
 
 cat_op_list = [
     # op, op params dict
@@ -75,7 +75,11 @@ cat_op_list = [
             "out": torch.empty(0),
             "dim": 3,
         },
-        marks=[pytest.mark.skip(reason="segv, Dimension out of range (expected to be in range of [-1, 0], but got 3)")]
+        marks=[
+            pytest.mark.skip(
+                reason="segv, Dimension out of range (expected to be in range of [-1, 0], but got 3)"
+            )
+        ],
     ),
     (
         torch.cat,
@@ -125,8 +129,8 @@ cat_op_list_fwd_bwd = [
 @pytest.mark.parametrize("cat_op, kernel_params_fwd", cat_op_list)
 def test_hpu_cat(cat_op, kernel_params_fwd):
     # import pudb; pudb.set_trace()
-    [print(t.shape) for t in kernel_params_fwd['tensors']]
-    print(kernel_params_fwd['dim'])
+    [print(t.shape) for t in kernel_params_fwd["tensors"]]
+    print(kernel_params_fwd["dim"])
     evaluate_fwd_kernel(kernel=cat_op, kernel_params=kernel_params_fwd)
 
 

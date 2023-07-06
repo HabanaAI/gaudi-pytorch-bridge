@@ -7,42 +7,59 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 
-import torch
-import numpy as np
-import pytest
 import math
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import Format, DelayedScaling
+
+import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
-from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
-    cast_to_fp8,
-    cast_from_fp8,
-    fp8_gelu
-)
+import numpy as np
+import pytest
+import torch
 from habana_frameworks.torch import _hpex_C as tex
-import habana_frameworks.torch as ht
+from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
+    cast_from_fp8,
+    cast_to_fp8,
+    fp8_gelu,
+)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
+    DelayedScaling,
+    Format,
+)
 
-# Disable dynamic shapes
-import habana_frameworks.torch.hpu as ht
 ht.disable_dynamic_shape()
 
-pytestmark = pytest.mark.xfail(reason="When running all tests from file, some of them fail randomly with RuntimeError: Habana device not initialized")
+pytestmark = pytest.mark.xfail(
+    reason="When running all tests from file, some of them fail randomly with RuntimeError: Habana device not initialized"
+)
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("stochastic_rounding", [True, False])
-@pytest.mark.parametrize("scale", [1., 16.])
+@pytest.mark.parametrize("scale", [1.0, 16.0])
 def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale):
     input_value = 18.5
     input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
 
     meta = tex.FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
-    meta.scale_inv = torch.full((1,), 0., dtype=torch.float32, device=device)
+    meta.scale_inv = torch.full((1,), 0.0, dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    cast_out = cast_to_fp8(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
+    cast_out = cast_to_fp8(
+        input_data,
+        meta,
+        tex.FP8FwdTensors.GEMM1_INPUT,
+        tex.DType.kFloat8E5M2,
+        stochastic_rounding=stochastic_rounding,
+    )
 
-    upcasted = cast_from_fp8(cast_out, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, tex.DType.kFloat32)
+    upcasted = cast_from_fp8(
+        cast_out,
+        meta,
+        tex.FP8FwdTensors.GEMM1_INPUT,
+        tex.DType.kFloat8E5M2,
+        tex.DType.kFloat32,
+    )
     mean = torch.mean(upcasted).cpu()
     # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
     # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
@@ -53,25 +70,40 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         assert mean > 17.5
     else:
         assert mean == 20.0
-    assert meta.scale_inv.item() == 1./scale
+    assert meta.scale_inv.item() == 1.0 / scale
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("stochastic_rounding", [True, False])
-@pytest.mark.parametrize("scale", [1., 16.])
+@pytest.mark.parametrize("scale", [1.0, 16.0])
 @pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
-def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, value, rounded_value):
+def test_te_gelu_with_stochastic_rounding(
+    device, dtype, stochastic_rounding, scale, value, rounded_value
+):
     if dtype == torch.float32:
         pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
     input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
 
     meta = tex.FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
-    meta.scale_inv = torch.full((1,), 0., dtype=torch.float32, device=device)
+    meta.scale_inv = torch.full((1,), 0.0, dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    gelu_out, retain = fp8_gelu(input_data, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, stochastic_rounding=stochastic_rounding)
+    gelu_out, retain = fp8_gelu(
+        input_data,
+        meta,
+        tex.FP8FwdTensors.GEMM1_INPUT,
+        tex.DType.kFloat8E5M2,
+        stochastic_rounding=stochastic_rounding,
+    )
 
-    upcasted = cast_from_fp8(gelu_out, meta, tex.FP8FwdTensors.GEMM1_INPUT, tex.DType.kFloat8E5M2, tex.DType.kFloat32)
+    upcasted = cast_from_fp8(
+        gelu_out,
+        meta,
+        tex.FP8FwdTensors.GEMM1_INPUT,
+        tex.DType.kFloat8E5M2,
+        tex.DType.kFloat32,
+    )
     mean = torch.mean(upcasted).cpu()
     # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
     # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
@@ -82,27 +114,37 @@ def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         assert mean >= torch.nn.functional.gelu(torch.tensor(value - 1.0))
     else:
         assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
-    assert meta.scale_inv.item() == 1./scale
+    assert meta.scale_inv.item() == 1.0 / scale
+
 
 class MyLinear(torch.nn.Module):
-    __constants__ = ['in_features', 'out_features']
+    __constants__ = ["in_features", "out_features"]
     in_features: int
     out_features: int
     weight: torch.Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True,
-                 device=None, dtype=None, skip_weight_param_allocation: bool = False) -> None:
-        factory_kwargs = {'device': device, 'dtype': dtype}
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+        skip_weight_param_allocation: bool = False,
+    ) -> None:
+        factory_kwargs = {"device": device, "dtype": dtype}
         super(MyLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.skip_weight_param_allocation = skip_weight_param_allocation
         if not self.skip_weight_param_allocation:
-            self.weight = torch.nn.Parameter(torch.empty((out_features, in_features), **factory_kwargs))
+            self.weight = torch.nn.Parameter(
+                torch.empty((out_features, in_features), **factory_kwargs)
+            )
         if bias:
             self.bias = torch.nn.Parameter(torch.empty(out_features, **factory_kwargs))
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -117,12 +159,15 @@ class MyLinear(torch.nn.Module):
             torch.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input: torch.Tensor, weight: torch.Tensor = None) -> torch.Tensor:
-        return torch.nn.functional.linear(input, weight if weight is not None else self.weight, self.bias)
+        return torch.nn.functional.linear(
+            input, weight if weight is not None else self.weight, self.bias
+        )
 
     def extra_repr(self) -> str:
-        return 'in_features={}, out_features={}, bias={}'.format(
+        return "in_features={}, out_features={}, bias={}".format(
             self.in_features, self.out_features, self.bias is not None
         )
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
@@ -133,7 +178,9 @@ class MyLinear(torch.nn.Module):
 @pytest.mark.parametrize("trans_b", [True, False])
 def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b):
     fp8_format = Format.E5M2_HYBRID
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max")
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max"
+    )
 
     if batched:
         inp_size = [4, 8, size_B, size_A]
@@ -155,10 +202,25 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
     fp8_w_val = 3.5
 
     # calculate cpu reference
-    in_cpu = torch.full(inp_size, fp8_in_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
-    w_cpu = torch.full(weight_size, fp8_w_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+    in_cpu = torch.full(
+        inp_size,
+        fp8_in_val,
+        dtype=dtype,
+        device=torch.device("cpu"),
+        requires_grad=True,
+    )
+    w_cpu = torch.full(
+        weight_size,
+        fp8_w_val,
+        dtype=dtype,
+        device=torch.device("cpu"),
+        requires_grad=True,
+    )
 
-    ref_out = torch.matmul(in_cpu if not trans_a else in_cpu.transpose(-1, -2), w_cpu if not trans_b else w_cpu.transpose(-1, -2))
+    ref_out = torch.matmul(
+        in_cpu if not trans_a else in_cpu.transpose(-1, -2),
+        w_cpu if not trans_b else w_cpu.transpose(-1, -2),
+    )
     ref_loss = ref_out.sum()
     ref_loss.backward()
     grad_in_cpu = in_cpu.grad.clone().to(torch.float).detach()
@@ -166,8 +228,12 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
     ref_out = ref_out.to(torch.float).detach()
 
     # quantize and calculate hpu result
-    in_hpu = torch.full(inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True)
-    w_hpu = torch.full(weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True)
+    in_hpu = torch.full(
+        inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True
+    )
+    w_hpu = torch.full(
+        weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True
+    )
 
     hpu_matmul = te.MatMul()
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
@@ -178,9 +244,9 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
     grad_w_hpu = w_hpu.grad.clone().to(torch.float).cpu().detach()
     hpu_out = hpu_out.to(torch.float).cpu().detach()
 
-    assert np.array_equal(hpu_out, ref_out, equal_nan=True), f"Data mismatch"
-    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), f"Data mismatch"
-    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), f"Data mismatch"
+    assert np.array_equal(hpu_out, ref_out, equal_nan=True), "Data mismatch"
+    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), "Data mismatch"
+    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), "Data mismatch"
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -190,7 +256,9 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
 @pytest.mark.parametrize("bias_add", [False])
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     fp8_format = Format.E5M2_HYBRID
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max")
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max"
+    )
 
     inp_size = (size_B, size_A)
     weight_size = (size_A, size_A)
@@ -200,8 +268,20 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     fp8_w_val = 3.5
 
     # calculate cpu reference
-    in_cpu = torch.full(inp_size, fp8_in_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
-    w_cpu = torch.full(weight_size, fp8_w_val, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
+    in_cpu = torch.full(
+        inp_size,
+        fp8_in_val,
+        dtype=dtype,
+        device=torch.device("cpu"),
+        requires_grad=True,
+    )
+    w_cpu = torch.full(
+        weight_size,
+        fp8_w_val,
+        dtype=dtype,
+        device=torch.device("cpu"),
+        requires_grad=True,
+    )
 
     ref_linear = MyLinear(size_A, size_A, bias=False, skip_weight_param_allocation=True)
     ref_out = ref_linear(in_cpu, weight=w_cpu)
@@ -212,10 +292,16 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     ref_out = ref_out.to(torch.float).detach()
 
     # quantize and calculate hpu result
-    in_hpu = torch.full(inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True)
-    w_hpu = torch.full(weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True)
+    in_hpu = torch.full(
+        inp_size, fp32_in_val, dtype=dtype, device=device, requires_grad=True
+    )
+    w_hpu = torch.full(
+        weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True
+    )
 
-    hpu_linear = te.Linear(size_A, size_A, bias=False, skip_weight_param_allocation=True)
+    hpu_linear = te.Linear(
+        size_A, size_A, bias=False, skip_weight_param_allocation=True
+    )
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         hpu_out = hpu_linear(in_hpu, weight=w_hpu)
     hpu_loss = hpu_out.sum()
@@ -224,10 +310,9 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     grad_w_hpu = w_hpu.grad.clone().to(torch.float).cpu().detach()
     hpu_out = hpu_out.to(torch.float).cpu().detach()
 
-    assert np.array_equal(hpu_out, ref_out, equal_nan=True), f"Data mismatch"
-    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), f"Data mismatch"
-    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), f"Data mismatch"
-
+    assert np.array_equal(hpu_out, ref_out, equal_nan=True), "Data mismatch"
+    assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), "Data mismatch"
+    assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), "Data mismatch"
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -249,7 +334,19 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
 
     my_linear = te.Linear(4, 3, bias=True)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [
+        input1,
+        input2,
+        input3,
+        input2,
+        input1,
+        input2,
+        input3,
+        input3,
+        input1,
+        input1,
+        input3,
+    ]
     outputs = []
 
     if hpu_graph:
@@ -279,21 +376,27 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
                 outputs.append(out.cpu())
 
     clamped_output = [outputs[1], outputs[2]]
+
     def was_clamped(x, scale):
         return torch.eq(x, clamped_output[scale]).all()
+
     def wasnt_clamped(x):
         return not was_clamped(x, 0) and not was_clamped(x, 1)
 
-    assert(wasnt_clamped(outputs[3]))
-    assert(wasnt_clamped(outputs[4]))
+    assert wasnt_clamped(outputs[3])
+    assert wasnt_clamped(outputs[4])
     # 5th input is bigger than 4th, so output should have been clamped using scale from input 0
     # In case amax_history longer than 1, fifth output should not have been clamped (amax should be remembered from 3rd iteration)
-    assert(was_clamped(outputs[5], 0) if amax_history_len == 1 else wasnt_clamped(outputs[5]))
+    assert (
+        was_clamped(outputs[5], 0)
+        if amax_history_len == 1
+        else wasnt_clamped(outputs[5])
+    )
     # 6th input is bigger than 5th, so output should have been clamped using scale from input 1
-    assert(was_clamped(outputs[6], 1))
-    assert(wasnt_clamped(outputs[7]))
-    assert(wasnt_clamped(outputs[8]))
-    assert(wasnt_clamped(outputs[9]))
+    assert was_clamped(outputs[6], 1)
+    assert wasnt_clamped(outputs[7])
+    assert wasnt_clamped(outputs[8])
+    assert wasnt_clamped(outputs[9])
     # 10th input is bigger than 9th, so output should have been clamped using scale from input 0
     # If up to two last amax values are remembered - when the big input comes after two small ones, clamping should be observed
     assert(was_clamped(outputs[10], 0) if amax_history_len <= 2 else wasnt_clamped(outputs[10]))

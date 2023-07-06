@@ -19,32 +19,32 @@ def test_linear_2d_nobias():
     out_features = 16
     in_features = 8
     bsz = 4
-    '''
+    """
     m = nn.Linear(in_features, out_features).to('hpu')
     input = torch.randn(seqlen, bsz, s1, in_features).to('hpu')
     output = m(input)
     print('..............................output size = ',output.size())
-    '''
+    """
     residual = torch.randn((bsz, out_features), requires_grad=True).to(torch.float)
-    rh = residual.detach().to('hpu')
+    rh = residual.detach().to("hpu")
     a = torch.randn((bsz, in_features), requires_grad=True).to(torch.float)
-    ah = a.detach().to('hpu')
+    ah = a.detach().to("hpu")
     ah.requires_grad = True
     b = torch.randn((out_features, in_features), requires_grad=True).to(torch.float)
-    bh = b.detach().to('hpu')
+    bh = b.detach().to("hpu")
     bh.requires_grad = True
     c = torch.randn((out_features), requires_grad=True).to(torch.float)
-    ch = c.detach().to('hpu')
+    ch = c.detach().to("hpu")
     ch.requires_grad = True
-    dh = torch.nn.functional.linear(ah,bh)
-    #print(dh.to('cpu'))
+    dh = torch.nn.functional.linear(ah, bh)
+    # print(dh.to('cpu'))
     print(dh.shape)
-    res = rh + dh
-    #print(res.to('cpu'))
-    #print(res.shape)
-    d = torch.nn.functional.linear(a,b)
+    rh + dh
+    # print(res.to('cpu'))
+    # print(res.shape)
+    d = torch.nn.functional.linear(a, b)
     comp_res = compare_tensors(dh.to("cpu"), d, rtol=1e-3, atol=1e-3)
-    print('cpu and hpu result match = ',comp_res)
+    print("cpu and hpu result match = ", comp_res)
     lcpu = d.sum()
     print(lcpu)
     lcpu.backward()

@@ -1,9 +1,10 @@
-import torch
+import os
+
+import habana_frameworks.torch.core as htcore
 import pytest
+import torch
 import torch.nn.functional as F
 from test_utils import compare_tensors, env_var_in_scope, hpu
-import habana_frameworks.torch.core as htcore
-import os
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
@@ -14,17 +15,20 @@ def embedding_func(x, y):
     return torch.transpose(b, 0, 1)
 
 
-test_case_list = [((0, 512), (30522, 768)),
-                  ((0, 512), (512, 768)),
-                  ((0, 1), (2, 768))]
+test_case_list = [((0, 512), (30522, 768)), ((0, 512), (512, 768)), ((0, 1), (2, 768))]
 
 
 @pytest.mark.parametrize("indices, weight", test_case_list)
-@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
+@pytest.mark.xfail(
+    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
+)
 def test_embedding(indices, weight):
-    with env_var_in_scope({"PT_HPU_GRAPH_FUSION_OPS_FILE": os.path.join(
-        os.environ["MODEL_GARDEN_PYTORCH_PATH"],
-        "nlp/bert/BERT_Fusion_Ops.txt")}
+    with env_var_in_scope(
+        {
+            "PT_HPU_GRAPH_FUSION_OPS_FILE": os.path.join(
+                os.environ["MODEL_GARDEN_PYTORCH_PATH"], "nlp/bert/BERT_Fusion_Ops.txt"
+            )
+        }
     ):
         x = torch.stack(
             (
@@ -55,7 +59,7 @@ def test_embedding(indices, weight):
             model_trace_hpu = torch.jit.trace(
                 embedding_func, (hpu_x, hpu_y), check_trace=False
             )
-            model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_x, hpu_y)
+            model_trace_hpu.graph_for(hpu_x, hpu_y)
             # print("Fused graph on HPU: ")
             # print(model_trace_hpu_graph)
             hpu_out = model_trace_hpu(hpu_x, hpu_y)
@@ -65,6 +69,7 @@ def test_embedding(indices, weight):
 
             compare_tensors(hpu_out, cpu_result, atol=0.001, rtol=1.0e-3)
             compare_tensors(hpu_grad, cpu_grad, atol=0.001, rtol=1.0e-3)
+
 
 if __name__ == "__main__":
     test_embedding(*test_case_list[0])

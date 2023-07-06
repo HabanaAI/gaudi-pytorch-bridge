@@ -10,13 +10,12 @@
 #
 # ******************************************************************************
 
-import torch
-import pytest
-from test_utils import cpu, hpu
-from habana_frameworks.torch.hpex.kernels.fbgemm import split_permute_cat
-
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
+import pytest
+import torch
+from habana_frameworks.torch.hpex.kernels.fbgemm import split_permute_cat
+from test_utils import cpu, hpu
 
 ht.disable_dynamic_shape()
 

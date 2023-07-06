@@ -1,6 +1,9 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 class MnistNet(nn.Module):
     def __init__(self):
@@ -21,7 +24,8 @@ class MnistNet(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
-## reinforcement learning example
+
+# reinforcement learning example
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
@@ -34,7 +38,7 @@ class Policy(nn.Module):
         return F.log_softmax(action_scores, dim=1)
 
 
-## Simple fusion check example
+# Simple fusion check example
 @torch.jit.script
 def mul_op(tensor_a, tensor_b):
     tensor_c = torch.mul(tensor_a, tensor_b)
@@ -42,19 +46,23 @@ def mul_op(tensor_a, tensor_b):
     result = torch.mul(tensor_c, tensor_d)
     return result
 
-## ResNet example
+
+# ResNet example
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                        padding=1, bias=False)
+    return nn.Conv2d(
+        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
+    )
+
 
 class BasicBlock(nn.Module):
     expansion = 1
-    __constants__ = ['downsample']
+    __constants__ = ["downsample"]
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
@@ -84,14 +92,14 @@ class BasicBlock(nn.Module):
 
         return out
 
+
 class ResNet(nn.Module):
-    __constants__ = ['layer1', 'layer2', 'layer3', 'layer4']
+    __constants__ = ["layer1", "layer2", "layer3", "layer4"]
 
     def __init__(self, block, layers, num_classes=1000):
         super(ResNet, self).__init__()
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                                bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -99,13 +107,20 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        #self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.avgpool = nn.AvgPool2d(7, stride=7, padding=0, ceil_mode=False, count_include_pad=True, divisor_override=None)
+        # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.avgpool = nn.AvgPool2d(
+            7,
+            stride=7,
+            padding=0,
+            ceil_mode=False,
+            count_include_pad=True,
+            divisor_override=None,
+        )
         self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -143,15 +158,15 @@ class ResNet(nn.Module):
 
         return x
 
-class SRNet(nn.Module):
 
+class SRNet(nn.Module):
     def __init__(self, upscale_factor):
         super(SRNet, self).__init__()
         self.relu = nn.ReLU()
         self.conv1 = nn.Conv2d(1, 64, (5, 5), (1, 1), (2, 2))
         self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
         self.conv3 = nn.Conv2d(64, 32, (3, 3), (1, 1), (1, 1))
-        self.conv4 = nn.Conv2d(32, upscale_factor ** 2, (3, 3), (1, 1), (1, 1))
+        self.conv4 = nn.Conv2d(32, upscale_factor**2, (3, 3), (1, 1), (1, 1))
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
 
     def forward(self, x):
@@ -161,12 +176,13 @@ class SRNet(nn.Module):
         x = self.pixel_shuffle(self.conv4(x))
         return x
 
-class TransformerModel(nn.Module):
 
+class TransformerModel(nn.Module):
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
         super(TransformerModel, self).__init__()
         from torch.nn import TransformerEncoder, TransformerEncoderLayer
-        self.model_type = 'Transformer'
+
+        self.model_type = "Transformer"
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
@@ -179,7 +195,11 @@ class TransformerModel(nn.Module):
 
     def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float("-inf"))
+            .masked_fill(mask == 1, float(0.0))
+        )
         return mask
 
     def init_weights(self):
@@ -200,20 +220,22 @@ class TransformerModel(nn.Module):
         output = self.decoder(output)
         return output
 
-class PositionalEncoding(nn.Module):
 
+class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[: x.size(0), :]
         return self.dropout(x)

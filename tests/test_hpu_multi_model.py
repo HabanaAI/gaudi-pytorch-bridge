@@ -1,27 +1,40 @@
+<<<<<<< HEAD:tests/test_hpu_multi_model.py
 import torch, pytest
 from torch import nn
 import torch.nn.functional as F
 import habana_frameworks.torch as ht
+=======
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/lazy/test_hpu_multi_model.py
 import math
 import time
+
+import habana_frameworks.torch as ht
+import pytest
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 hpu = torch.device("hpu")
 lazy_mode = True
 profile_mode = False
 
+
 class BertSelfAttention(nn.Module):
-    __constants__ = ['hidden_size',
-                     'num_attention_heads',
-                     'attention_probs_dropout_prob',
-                     'attention_head_size',
-                     'all_head_size']
+    __constants__ = [
+        "hidden_size",
+        "num_attention_heads",
+        "attention_probs_dropout_prob",
+        "attention_head_size",
+        "all_head_size",
+    ]
+
     def __init__(self):
         super(BertSelfAttention, self).__init__()
         self.hidden_size = 1024
         self.num_attention_heads = 16
         self.attention_probs_dropout_prob = 0.1
-        self.attention_head_size = int(1024 / 16) #64
-        self.all_head_size = 16 * int(1024 / 16) #1024
+        self.attention_head_size = int(1024 / 16)  # 64
+        self.all_head_size = 16 * int(1024 / 16)  # 1024
 
         self.query = nn.Linear(self.hidden_size, self.hidden_size)
         self.key = nn.Linear(self.hidden_size, self.hidden_size)
@@ -30,12 +43,18 @@ class BertSelfAttention(nn.Module):
         self.dropout = nn.Dropout(self.attention_probs_dropout_prob)
 
     def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = torch.reshape(x, new_x_shape)
         return x.permute(0, 2, 1, 3)
 
     def transpose_key_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = torch.reshape(x, new_x_shape)
         return x.permute(0, 2, 3, 1)
 
@@ -66,10 +85,10 @@ class BertSelfAttention(nn.Module):
         context_layer = context_layer.flatten(start_dim=2, end_dim=3)
         return context_layer
 
+
 class BertSelfOutput(nn.Module):
-    __constants__ = ['hidden_size',
-                     'num_attention_heads',
-                     'hidden_dropout_prob']
+    __constants__ = ["hidden_size", "num_attention_heads", "hidden_dropout_prob"]
+
     def __init__(self):
         super(BertSelfOutput, self).__init__()
         self.hidden_size = 1024
@@ -85,6 +104,7 @@ class BertSelfOutput(nn.Module):
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
         return hidden_states
 
+
 class BertAttention(nn.Module):
     def __init__(self):
         super(BertAttention, self).__init__()
@@ -95,6 +115,7 @@ class BertAttention(nn.Module):
         self_output = self.self(input_tensor, attention_mask)
         attention_output = self.output(self_output, input_tensor)
         return attention_output
+
 
 class ModelUnderTest(nn.Module):
     def __init__(self) -> None:
@@ -107,11 +128,12 @@ class ModelUnderTest(nn.Module):
     def warmup(self, hid, attn, lazy_mode=True):
         with ht.hpu.stream(self.s):
             self.g.capture_begin()
-            out = self.model(hid, attn)
+            self.model(hid, attn)
             self.g.capture_end()
 
     def train_loop(self, hid, attn, lazy_mode=True):
         self.g.replay()
+
 
 @pytest.mark.skip(reason="There is no assert in this test")
 def test_multi_model():
@@ -137,7 +159,7 @@ def test_multi_model():
     step = 0
     start_time = time.time()
 
-    for batch in range(num_w_batches):
+    for _ in range(num_w_batches):
         m_model1.train_loop(hid=hid_nc1_hpu, attn=attn_nc1_hpu)
         m_model2.train_loop(hid=hid_nc2_hpu, attn=attn_nc2_hpu)
         step = step + 1
@@ -146,4 +168,4 @@ def test_multi_model():
     total_time = end_time - start_time
     print("Total batches '{}'".format(step))
     print("Total time '{}'".format(total_time))
-    print("Img/s '{}'".format(num_w_batches*batch_size / total_time))
+    print("Img/s '{}'".format(num_w_batches * batch_size / total_time))

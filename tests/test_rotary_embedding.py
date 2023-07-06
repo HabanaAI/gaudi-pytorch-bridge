@@ -9,10 +9,10 @@
 # was provided.
 #
 # ******************************************************************************
-import torch
-import pytest
-from test_utils import cpu, hpu
 import habana_frameworks.torch.hpu as ht
+import pytest
+import torch
+from test_utils import cpu, hpu
 
 ht.disable_dynamic_shape()
 

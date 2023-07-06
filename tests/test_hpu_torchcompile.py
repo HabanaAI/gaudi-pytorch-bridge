@@ -10,15 +10,20 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 from test_utils import env_var_in_scope
 
+<<<<<<< HEAD:tests/test_hpu_torchcompile.py
 pytestmark = pytest.mark.skip(reason="silently kills all tests")
+=======
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_torchcompile.py
 
 @pytest.mark.xfail
 def test_simple_convolution():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         class Net(torch.nn.Module):
@@ -48,7 +53,9 @@ def test_simple_convolution():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_convolution_mixed():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         class Net_1(torch.nn.Module):
@@ -91,8 +98,12 @@ def test_simple_convolution_mixed():
 
         tensor = torch.rand(8, 1, 32, 32).to("hpu")
 
-        compiled_function_1 = torch.compile(raw_function_1, backend="aot_hpu_inference_backend")
-        compiled_function_2 = torch.compile(raw_function_2, backend="aot_hpu_inference_backend")
+        compiled_function_1 = torch.compile(
+            raw_function_1, backend="aot_hpu_inference_backend"
+        )
+        compiled_function_2 = torch.compile(
+            raw_function_2, backend="aot_hpu_inference_backend"
+        )
 
         res_eager = raw_function_2(raw_function_1(tensor))
         res_graph_to_eager = raw_function_2(compiled_function_1(tensor))
@@ -101,9 +112,12 @@ def test_simple_convolution_mixed():
         assert torch.allclose(res_eager, res_graph_to_eager, rtol=1e-03)
         assert torch.allclose(res_eager, res_eager_to_graph, rtol=1e-03)
 
+
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_sgd_convnet():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -159,14 +173,22 @@ def test_simple_sgd_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+        compiled_function_test = torch.compile(
+            raw_function_test, backend="aot_hpu_inference_backend"
+        )
+        compiled_function_train = torch.compile(
+            raw_function_train, backend="aot_hpu_training_backend"
+        )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
-        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+        loss_nocompile0, result_nocompile0 = raw_function_test(
+            input_tensor1, input_tensor2
+        )
+        loss_compile0, result_compile0 = compiled_function_test(
+            input_tensor1, input_tensor2
+        )
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -183,7 +205,9 @@ def test_simple_sgd_convnet():
 
 @pytest.mark.skip
 def test_simple_sgd_convnet_with_device_pingpong():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -245,14 +269,22 @@ def test_simple_sgd_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+        compiled_function_test = torch.compile(
+            raw_function_test, backend="aot_hpu_inference_backend"
+        )
+        compiled_function_train = torch.compile(
+            raw_function_train, backend="aot_hpu_training_backend"
+        )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
-        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+        loss_nocompile0, result_nocompile0 = raw_function_test(
+            input_tensor1, input_tensor2
+        )
+        loss_compile0, result_compile0 = compiled_function_test(
+            input_tensor1, input_tensor2
+        )
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -269,7 +301,10 @@ def test_simple_sgd_convnet_with_device_pingpong():
 
 @pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
+
         class LeNet5(torch.nn.Module):
             def __init__(self):
                 super().__init__()
@@ -323,14 +358,22 @@ def test_simple_adam_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+        compiled_function_test = torch.compile(
+            raw_function_test, backend="aot_hpu_inference_backend"
+        )
+        compiled_function_train = torch.compile(
+            raw_function_train, backend="aot_hpu_training_backend"
+        )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
-        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+        loss_nocompile0, result_nocompile0 = raw_function_test(
+            input_tensor1, input_tensor2
+        )
+        loss_compile0, result_compile0 = compiled_function_test(
+            input_tensor1, input_tensor2
+        )
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -347,7 +390,9 @@ def test_simple_adam_convnet():
 
 @pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet_with_device_pingpong():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -409,14 +454,22 @@ def test_simple_adam_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
-        compiled_function_train = torch.compile(raw_function_train, backend="aot_hpu_training_backend")
+        compiled_function_test = torch.compile(
+            raw_function_test, backend="aot_hpu_inference_backend"
+        )
+        compiled_function_train = torch.compile(
+            raw_function_train, backend="aot_hpu_training_backend"
+        )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
-        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
+        loss_nocompile0, result_nocompile0 = raw_function_test(
+            input_tensor1, input_tensor2
+        )
+        loss_compile0, result_compile0 = compiled_function_test(
+            input_tensor1, input_tensor2
+        )
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -430,15 +483,20 @@ def test_simple_adam_convnet_with_device_pingpong():
         assert loss_compile3 < loss_compile2
         assert loss_compile2 < loss_compile1
 
+
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_view():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
+    ):
         pass
 
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+        compiled_function_inference = torch.compile(
+            raw_function, backend="aot_hpu_inference_backend"
+        )
 
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
 

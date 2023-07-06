@@ -12,24 +12,36 @@
 
 import datetime
 import json
+import multiprocessing
 import os
+<<<<<<< HEAD:tests/test_metrics.py
 os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
+=======
+from multiprocessing import Process, Queue
+
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_metrics.py
 import pytest
 import torch
-from habana_frameworks.torch.hpu.metrics import metric_global, metric_localcontext, MetricNotFound, metrics_dump
-from habana_frameworks.torch.utils.event_dispatcher import *
-import multiprocessing
-from multiprocessing import Process, Queue
 import torch.multiprocessing as pt_mp
-from test_utils import hpu
+from habana_frameworks.torch.hpu.metrics import (
+    MetricNotFound,
+    metric_global,
+    metric_localcontext,
+    metrics_dump,
+)
+from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
+from test_utils import env_var_in_scope, hpu
 
-pytestmark = pytest.mark.skip(reason="Some of these tests don't free device and other tests are failing.")
+pytestmark = pytest.mark.skip(
+    reason="Some of these tests don't free device and other tests are failing."
+)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def set_multiprocess_start_method():
     # set spawn start method to not inherit already imported modules in child
     # processes used in metrics tests
-    multiprocessing.set_start_method('spawn')
+    multiprocessing.set_start_method("spawn")
 
 
 def compute_single_step(shape, device, sum_loops=1):
@@ -81,7 +93,10 @@ class TestMetricsAPI:
             compute_single_step(shape, device)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == 1
-            assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
+            assert (
+                gc_metric_dict["TotalTime"] == total_time_of_last_iter
+                or total_time_of_last_iter == -1
+            )
 
     @pytest.mark.skip(reason="Tests is chaning env variables")
     def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric, rc_metric):
@@ -125,21 +140,32 @@ class TestMetricsAPI:
     @staticmethod
     def _worker_metric_zero_at_beginning(q, metric_name):
         from habana_frameworks.torch.hpu import metric_global
+
         metric = metric_global(metric_name)
         metric_dict = dict(metric.stats())
         q.put(metric_dict)
 
+<<<<<<< HEAD:tests/test_metrics.py
     @pytest.mark.parametrize("metric_name",
                              [("graph_compilation"),
                               ("cpu_fallback"),
                               ("memory_defragmentation"),
                               ("recipe_cache")])
+=======
+    @pytest.mark.parametrize(
+        "metric_name",
+        [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation")],
+    )
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_metrics.py
     def test_metric_zero_at_beginning(self, metric_name):
         """
         Spawns fresh process and verifies if metric are equal 0 at beginning.
         """
         q = Queue()
-        p = Process(target=TestMetricsAPI._worker_metric_zero_at_beginning, args=(q, metric_name))
+        p = Process(
+            target=TestMetricsAPI._worker_metric_zero_at_beginning,
+            args=(q, metric_name),
+        )
         p.start()
         metric_dict = q.get(timeout=10)
         p.join()
@@ -163,16 +189,21 @@ class TestMetricsAPI:
             assert metric_dict["MaxTime"] == 0
             assert metric_dict["TotalSuccessful"] == 0
 
-
-    def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(self, gc_metric):
+    def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(
+        self, gc_metric
+    ):
         device = hpu
         shape = [3, 2, 1]
         torch.random.manual_seed(42)
 
         ed = EventDispatcher.instance()
 
-        h1 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}"))
-        h2 = ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}"))
+        ed.subscribe(
+            EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}")
+        )
+        ed.subscribe(
+            EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}")
+        )
 
         compute_single_step(shape, device)
 
@@ -219,10 +250,8 @@ class TestMetricsAPI:
 
     def test_get_nonexisting_local_metric(self):
         with pytest.raises(MetricNotFound):
-            with metric_localcontext("non-existing") as m:
+            with metric_localcontext("non-existing") as m:  # noqa
                 pass
-
-from test_utils import env_var_in_scope
 
 
 class TestMetricsDump:
@@ -233,7 +262,8 @@ class TestMetricsDump:
         as parameter, so each run can be executed with separate set of
         environmental variables.
         """
-        def runner_func(worker_function, *args, env={}, **kwargs):
+
+        def runner_func(worker_function, *args, env=None, **kwargs):
             with env_var_in_scope(env):
                 p = Process(target=worker_function, args=args, kwargs=kwargs)
                 p.start()
@@ -254,19 +284,27 @@ class TestMetricsDump:
         print(f"name={m.name()}, stats={m.stats()}")
 
     @pytest.mark.xfail(reason="File doesn't exists")
-    @pytest.mark.parametrize("base_name,multinode,expected_base_name",
-                             [("metric_file", False, "metric_file"),
-                              ("metric_file.txt", False, "metric_file.txt"),
-                              ("metric_file", True, "metric_file-rank0"),
-                              ("metric_file.json", True, "metric_file-rank0.json"),
-                              ("metric_file.txt.json", True, "metric_file.txt-rank0.json")])
-    def test_metric_file_with_correct_name_is_created(self, runner, tmp_path, base_name, multinode, expected_base_name):
+    @pytest.mark.parametrize(
+        "base_name,multinode,expected_base_name",
+        [
+            ("metric_file", False, "metric_file"),
+            ("metric_file.txt", False, "metric_file.txt"),
+            ("metric_file", True, "metric_file-rank0"),
+            ("metric_file.json", True, "metric_file-rank0.json"),
+            ("metric_file.txt.json", True, "metric_file.txt-rank0.json"),
+        ],
+    )
+    def test_metric_file_with_correct_name_is_created(
+        self, runner, tmp_path, base_name, multinode, expected_base_name
+    ):
         metric_file_user_input = f"{tmp_path}/{base_name}"
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file_user_input,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+        }
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -280,7 +318,7 @@ class TestMetricsDump:
             "Metric name": "metric_name",
             "Generated on": "generated_on",
             "Triggered by": "triggered_by",
-            "Statistics": "statistics"
+            "Statistics": "statistics",
         }
 
         while curr_line < len(lines):
@@ -299,7 +337,9 @@ class TestMetricsDump:
 
             if value == "":  # new sub-object
                 curr_root[key] = {}
-                curr_line = TestMetricsDump._parse_text_obj(lines, curr_line + 1, curr_root[key], curr_root_indent + 1)
+                curr_line = TestMetricsDump._parse_text_obj(
+                    lines, curr_line + 1, curr_root[key], curr_root_indent + 1
+                )
             else:
                 curr_root[key] = value
                 curr_line += 1
@@ -314,7 +354,9 @@ class TestMetricsDump:
 
         while num_processed_lines < len(lines):
             root = {}
-            num_processed_lines = TestMetricsDump._parse_text_obj(lines, num_processed_lines, root, 0)
+            num_processed_lines = TestMetricsDump._parse_text_obj(
+                lines, num_processed_lines, root, 0
+            )
             num_processed_lines += 1
             if root:
                 metrics.append(root)
@@ -337,9 +379,11 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_metric_dump_on_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
-                    "PT_HPU_METRICS_FILE_FORMAT": format}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+            "PT_HPU_METRICS_FILE_FORMAT": format,
+        }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -357,11 +401,15 @@ class TestMetricsDump:
         assert datetime.datetime.fromisoformat(metric["generated_on"])
 
     @pytest.mark.parametrize("format", ["json", "text"])
-    def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
+    def test_metric_dump_on_metric_change_and_process_exit(
+        self, runner, tmp_path, format
+    ):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
-                    "PT_HPU_METRICS_FILE_FORMAT": format}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
+            "PT_HPU_METRICS_FILE_FORMAT": format,
+        }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -375,11 +423,18 @@ class TestMetricsDump:
         for idx, metric_on_metric_change in enumerate(gc_only[:3]):
             assert metric_on_metric_change["metric_name"] == "graph_compilation"
             assert metric_on_metric_change["triggered_by"] == "metric_change"
-            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
-            assert int(metric_on_metric_change["statistics"]["TotalTime"]) > prev_total_time
+            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (
+                idx + 1
+            )
+            assert (
+                int(metric_on_metric_change["statistics"]["TotalTime"])
+                > prev_total_time
+            )
             prev_total_time = int(metric_on_metric_change["statistics"]["TotalTime"])
 
-            curr_generated_on = datetime.datetime.fromisoformat(metric_on_metric_change["generated_on"])
+            curr_generated_on = datetime.datetime.fromisoformat(
+                metric_on_metric_change["generated_on"]
+            )
             if prev_generated_on is not None:
                 assert curr_generated_on > prev_generated_on
             prev_generated_on = curr_generated_on
@@ -390,7 +445,8 @@ class TestMetricsDump:
         assert metric_on_process_exit["triggered_by"] == "process_exit"
         assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
         assert int(metric_on_process_exit["statistics"]["TotalTime"]) == int(
-            last_metric_on_metric_change["statistics"]["TotalTime"])
+            last_metric_on_metric_change["statistics"]["TotalTime"]
+        )
 
     def test_metric_if_defaults_are_correct(self, runner, tmp_path):
         metric_file = f"{tmp_path}/metric.json"
@@ -426,6 +482,7 @@ class TestMetricsDump:
     def worker_process_for_mp(rank, world_size, call_initialize_dist_hpu):
         if call_initialize_dist_hpu:
             import habana_frameworks.torch.distributed.hccl as hccl
+
             hccl.initialize_distributed_hpu(world_size, rank, rank)
 
         device = hpu
@@ -433,7 +490,9 @@ class TestMetricsDump:
         compute_single_step([3, 2, 1], device)
 
     @staticmethod
-    def _sample_worker_running_processes_via_torch_mp(world_size, call_initialize_dist_hpu):
+    def _sample_worker_running_processes_via_torch_mp(
+        world_size, call_initialize_dist_hpu
+    ):
         pt_mp.start_processes(
             TestMetricsDump.worker_process_for_mp,
             nprocs=world_size,
@@ -443,14 +502,20 @@ class TestMetricsDump:
         )
 
     @pytest.mark.parametrize("call_init_dist_hpu", [True, False])
-    def test_metric_run_processes_via_torch_mp(self, runner, tmp_path, call_init_dist_hpu):
+    def test_metric_run_processes_via_torch_mp(
+        self, runner, tmp_path, call_init_dist_hpu
+    ):
         metric_file = f"{tmp_path}/metric.json"
         env_vars = {"PT_HPU_METRICS_FILE": metric_file}
 
         world_size = 2
 
-        runner(TestMetricsDump._sample_worker_running_processes_via_torch_mp,
-               world_size, call_init_dist_hpu, env=env_vars)
+        runner(
+            TestMetricsDump._sample_worker_running_processes_via_torch_mp,
+            world_size,
+            call_init_dist_hpu,
+            env=env_vars,
+        )
 
         for rank in range(world_size):
             if call_init_dist_hpu:
@@ -471,9 +536,10 @@ class TestMetricsDump:
             assert int(metric["statistics"]["TotalTime"]) > 0
 
         if call_init_dist_hpu:
-            assert not os.path.exists(metric_file), \
-                "When 'initialize_distributed_hpu' is called then metrics should" \
+            assert not os.path.exists(metric_file), (
+                "When 'initialize_distributed_hpu' is called then metrics should"
                 " be stored in files with suffix 'rankX'"
+            )
 
     @staticmethod
     def _sample_worker_process_with_manual_metric_dump(metric_file, metric_format):
@@ -488,7 +554,11 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_manual_metric_dump(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        runner(TestMetricsDump._sample_worker_process_with_manual_metric_dump, metric_file, format)
+        runner(
+            TestMetricsDump._sample_worker_process_with_manual_metric_dump,
+            metric_file,
+            format,
+        )
 
         with open(metric_file, "r") as f:
             payload = f.read()

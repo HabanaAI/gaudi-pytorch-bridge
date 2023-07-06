@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 
 
 def test_hpu_dropout():
@@ -24,14 +24,14 @@ def test_hpu_dropout():
     grad_out = grad_out_cpu.to("hpu")
     grad_out.requires_grad = False
     out.backward(grad_out)
-    grad_in = a.grad
+    a.grad
     # print(a.to('cpu'), out.to('cpu'), grad_out.to('cpu'), grad_in.to('cpu'))
 
 
-
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
-@pytest.mark.parametrize('setup_teardown_env_fixture', [
-    {"PT_HPU_LAZY_MODE": "1"}], indirect=True)
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture", [{"PT_HPU_LAZY_MODE": "1"}], indirect=True
+)
 def test_hpu_dropout_lazy(setup_teardown_env_fixture):
     a = torch.randn(2, 2, requires_grad=True).to("hpu")
     dropoutmod = torch.nn.Dropout(p=0.3)

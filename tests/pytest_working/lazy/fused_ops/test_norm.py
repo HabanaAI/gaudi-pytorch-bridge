@@ -13,15 +13,15 @@
 import numpy as np
 import torch
 
-
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
+
 
 def test_norm():
     d1, d2, num, norm_type = 2, 1024, 5, 2.0
     max_norm_val = 1.0
     vec_cpu, vec_n_cpu, vec_hpu = [], [], []
-    for i in range(num):
+    for _ in range(num):
         u = torch.rand(d1, d2)
         vec_cpu.append(u)
         vec_n_cpu.append(torch.norm(u))

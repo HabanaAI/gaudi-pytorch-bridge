@@ -1,16 +1,19 @@
 import os
-import pytest
-import torch
-import numpy as np
-from copy import deepcopy
 from collections.abc import Mapping
+from contextlib import contextmanager
+from copy import deepcopy
 from typing import Callable, Dict, Optional
+
 import habana_frameworks.torch.hpu as hthpu
 from contextlib import contextmanager
 import habana_frameworks.torch.utils.debug as htdebug
+import numpy as np
+import pytest
+import torch
 
-hpu = torch.device('hpu')
-cpu = torch.device('cpu')
+hpu = torch.device("hpu")
+cpu = torch.device("cpu")
+
 
 
 def is_device(device_name):
@@ -19,30 +22,37 @@ def is_device(device_name):
 def is_gaudi1():
     return is_device("GAUDI")
 
+
 def is_gaudi2():
     return is_device("GAUDI2")
 
 def is_gaudi3():
     return is_device("GAUDI3")
 
+
 def is_lazy():
     return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
 
-def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, rtol=1.e-3, copy_kernel=True):
-    '''Run given kernel with tensor_list as arguments on HPU and
+
+def evaluate_fwd_kernel(
+    kernel, kernel_params, check_results=True, atol=0.001, rtol=1.0e-3, copy_kernel=True
+):
+    """Run given kernel with tensor_list as arguments on HPU and
     then CPU. Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function.
-    Always return lists of outputs'''
+    Always return lists of outputs"""
 
     # Order of operations matters. I am executing HPU first to fail early
     # in case of missing kernel. Furtheremore if we test inplace operators
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
-    hpu_result = run_kernel_on_device(device=hpu,
-                                      kernel=kernel,
-                                      kernel_params=kernel_params, copy_kernel=copy_kernel)
+    hpu_result = run_kernel_on_device(
+        device=hpu, kernel=kernel, kernel_params=kernel_params, copy_kernel=copy_kernel
+    )
 
-    cpu_result = run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
+    cpu_result = run_kernel_on_device(
+        device=cpu, kernel=kernel, kernel_params=kernel_params
+    )
 
     if check_results:
         compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
@@ -50,48 +60,71 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, r
     return hpu_result, cpu_result
 
 
-def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3, copy_kernel=True, grad_on_grad_enable=True):
-    '''Run given kernel fwd and bwd pass on HPU and then on CPU.
+def evaluate_fwd_bwd_kernel(
+    kernel,
+    kernel_params_fwd,
+    tensor_list_bwd,
+    check_results_fwd=True,
+    check_results_bwd=True,
+    atol=0.001,
+    rtol=1.0e-3,
+    copy_kernel=True,
+    grad_on_grad_enable=True,
+):
+    """Run given kernel fwd and bwd pass on HPU and then on CPU.
     Optionally check results and return them if user wants
-    to process them latter e.g. to use custom comparison function'''
+    to process them latter e.g. to use custom comparison function"""
     # TODO: figure out how can we define kernel_params_bwd and use it instead of tensor_list_bwd
 
     # Order of operations matters. I am executing HPU first to fail early
     # in case of missing kernel. Furtheremore if we test inplace operators
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
-    hpu_result_fwd = run_kernel_on_device(device=hpu,
-                                          kernel=kernel,
-                                          kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
+    hpu_result_fwd = run_kernel_on_device(
+        device=hpu,
+        kernel=kernel,
+        kernel_params=kernel_params_fwd,
+        copy_kernel=copy_kernel,
+    )
 
     if grad_on_grad_enable:
-      hpu_result_bwd = run_kernel_on_device(
-          device=hpu,
-          kernel=hpu_result_fwd[0].grad_fn,
-          tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
-    else:
-      with torch.no_grad():
         hpu_result_bwd = run_kernel_on_device(
             device=hpu,
             kernel=hpu_result_fwd[0].grad_fn,
-            tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+            tensor_list=tensor_list_bwd,
+            copy_kernel=copy_kernel,
+        )
+    else:
+        with torch.no_grad():
+            hpu_result_bwd = run_kernel_on_device(
+                device=hpu,
+                kernel=hpu_result_fwd[0].grad_fn,
+                tensor_list=tensor_list_bwd,
+                copy_kernel=copy_kernel,
+            )
 
     cpu_result_fwd = run_kernel_on_device(
         device=cpu,
         kernel=kernel,
-        kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
+        kernel_params=kernel_params_fwd,
+        copy_kernel=copy_kernel,
+    )
 
     if grad_on_grad_enable:
-      cpu_result_bwd = run_kernel_on_device(
-         device=cpu,
-         kernel=cpu_result_fwd[0].grad_fn,
-         tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
-    else:
-      with torch.no_grad():
         cpu_result_bwd = run_kernel_on_device(
             device=cpu,
             kernel=cpu_result_fwd[0].grad_fn,
-            tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+            tensor_list=tensor_list_bwd,
+            copy_kernel=copy_kernel,
+        )
+    else:
+        with torch.no_grad():
+            cpu_result_bwd = run_kernel_on_device(
+                device=cpu,
+                kernel=cpu_result_fwd[0].grad_fn,
+                tensor_list=tensor_list_bwd,
+                copy_kernel=copy_kernel,
+            )
 
     if check_results_fwd:
         compare_tensors(hpu_result_fwd, cpu_result_fwd, atol=atol, rtol=rtol)
@@ -102,16 +135,27 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     return (hpu_result_fwd, hpu_result_bwd), (cpu_result_fwd, cpu_result_bwd)
 
 
-def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check_results=True, atol=0.001, rtol=1.e-3):
-    hpu_result = _run_inplace_kernel_on_device(device=hpu,
-                                               in_out_tensor=in_out_tensor,
-                                               kernel_name=kernel_name,
-                                               kernel_params=kernel_params)
+def evaluate_fwd_inplace_kernel(
+    in_out_tensor,
+    kernel_name,
+    kernel_params,
+    check_results=True,
+    atol=0.001,
+    rtol=1.0e-3,
+):
+    hpu_result = _run_inplace_kernel_on_device(
+        device=hpu,
+        in_out_tensor=in_out_tensor,
+        kernel_name=kernel_name,
+        kernel_params=kernel_params,
+    )
 
-    cpu_result = _run_inplace_kernel_on_device(device=cpu,
-                                               in_out_tensor=in_out_tensor,
-                                               kernel_name=kernel_name,
-                                               kernel_params=kernel_params)
+    cpu_result = _run_inplace_kernel_on_device(
+        device=cpu,
+        in_out_tensor=in_out_tensor,
+        kernel_name=kernel_name,
+        kernel_params=kernel_params,
+    )
 
     if check_results:
         compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
@@ -127,26 +171,54 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
             continue
 
-    hpu_tensors = [tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors]
+    hpu_tensors = [
+        tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors
+    ]
 
     for i in range(len(hpu_tensors)):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
             continue
         elif assert_enable:
-            hpu_tensors[i] = hpu_tensors[i].float() if hpu_tensors[i].dtype == torch.bfloat16 else hpu_tensors[i]
-            cpu_tensors[i] = cpu_tensors[i].float() if cpu_tensors[i].dtype == torch.bfloat16 else cpu_tensors[i]
-            np.testing.assert_allclose(hpu_tensors[i].detach().numpy(),
-                                cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
+            hpu_tensors[i] = (
+                hpu_tensors[i].float()
+                if hpu_tensors[i].dtype == torch.bfloat16
+                else hpu_tensors[i]
+            )
+            cpu_tensors[i] = (
+                cpu_tensors[i].float()
+                if cpu_tensors[i].dtype == torch.bfloat16
+                else cpu_tensors[i]
+            )
+            np.testing.assert_allclose(
+                hpu_tensors[i].detach().numpy(),
+                cpu_tensors[i].detach().numpy(),
+                atol=atol,
+                rtol=rtol,
+            )
         else:
-            hpu_tensors[i] = hpu_tensors[i].float() if hpu_tensors[i].dtype == torch.bfloat16 else hpu_tensors[i]
-            cpu_tensors[i] = cpu_tensors[i].float() if cpu_tensors[i].dtype == torch.bfloat16 else cpu_tensors[i]
-            print('hpu_result[{}]'.format(i), hpu_tensors[i].detach().numpy())
-            print('cpu_result[{}]'.format(i), cpu_tensors[i].detach().numpy())
-            return np.allclose(hpu_tensors[i].detach().numpy(),
-                                cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
+            hpu_tensors[i] = (
+                hpu_tensors[i].float()
+                if hpu_tensors[i].dtype == torch.bfloat16
+                else hpu_tensors[i]
+            )
+            cpu_tensors[i] = (
+                cpu_tensors[i].float()
+                if cpu_tensors[i].dtype == torch.bfloat16
+                else cpu_tensors[i]
+            )
+            print("hpu_result[{}]".format(i), hpu_tensors[i].detach().numpy())
+            print("cpu_result[{}]".format(i), cpu_tensors[i].detach().numpy())
+            return np.allclose(
+                hpu_tensors[i].detach().numpy(),
+                cpu_tensors[i].detach().numpy(),
+                atol=atol,
+                rtol=rtol,
+                equal_nan=True,
+            )
+
 
 @contextmanager
-def env_var_in_scope(vars={}):
+def env_var_in_scope(vars=None):
     def set_flag_in_env(name: str, value):
         assert (
             "PT_HPU_LAZY_MODE" != name
@@ -157,6 +229,7 @@ def env_var_in_scope(vars={}):
             os.environ[name] = str(value)
 
     orig_vars = {}
+    vars = vars if vars else {}
     for key in vars.keys():
         orig_vars[key] = os.environ.get(key, None)
         set_flag_in_env(key, vars[key])
@@ -171,7 +244,9 @@ def env_var_in_scope(vars={}):
                 if key in os.environ:
                     del os.environ[key]
 
-def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
+def generic_setup_teardown_env(
+    temp_test_env: Dict, callback: Optional[Callable] = None
+):
     htdebug._bridge_cleanup()
     assert isinstance(temp_test_env, Mapping)
 
@@ -185,6 +260,7 @@ def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable]
 
     print("Reset env.")
 
+
 # fixutre that can be used for indirect initialization
 @pytest.fixture
 def setup_teardown_env_fixture(request):
@@ -196,7 +272,9 @@ def _assert_tensors_on_device(tensor_list, device):
         assert t.device.type == device.type
 
 
-def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, copy_kernel=True):
+def run_kernel_on_device(
+    device, kernel, tensor_list=None, kernel_params=None, copy_kernel=True
+):
     # print("tensor_list", tensor_list)
     # print("kernel_params", kernel_params)
     if copy_kernel:
@@ -213,30 +291,44 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
                 kernel_params_local[k] = v.to(device)
-            elif isinstance(v, tuple) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
+            elif (
+                isinstance(v, tuple) and (len(v) > 0) and isinstance(v[0], torch.Tensor)
+            ):
                 if device == cpu:
                     # HPU does not support dtype=long, therefore use dtype=int
                     # in test-cases and convert it to dtype=long for CPU (CPU
                     # works for dtype=long only)
                     kernel_params_local[k] = tuple(
-                        [i.to(device, dtype=torch.long) if i.type() == 'torch.IntTensor' else i.to(device) for i in v])
+                        [
+                            i.to(device, dtype=torch.long)
+                            if i.type() == "torch.IntTensor"
+                            else i.to(device)
+                            for i in v
+                        ]
+                    )
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
-            elif isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
+            elif (
+                isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor)
+            ):
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
                 kernel_params_local[k] = kernel_params[k]
 
-
     elif tensor_list:
-        tensor_list = [tensor.to(device) if tensor != None else tensor for tensor in tensor_list]
+        tensor_list = [
+            tensor.to(device) if tensor is not None else tensor
+            for tensor in tensor_list
+        ]
 
     result = kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
 
     return _convert_to_tensor_list(result)
 
 
-def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_list=None, kernel_params=None):
+def _run_inplace_kernel_on_device(
+    device, in_out_tensor, kernel_name, tensor_list=None, kernel_params=None
+):
     assert isinstance(in_out_tensor, torch.Tensor)
     if kernel_params and tensor_list:
         raise RuntimeError("Pass tensors using kernel_params")
@@ -262,7 +354,7 @@ def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_lis
 
 
 def _kernel_copy_to_device(kernel, device):
-    if hasattr(kernel, 'to'):
+    if hasattr(kernel, "to"):
         kernel_copy = deepcopy(kernel)
         return kernel_copy.to(device)
     else:

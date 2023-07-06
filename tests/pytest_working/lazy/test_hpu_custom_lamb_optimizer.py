@@ -10,7 +10,7 @@
 #
 # ******************************************************************************
 
-import copy, pytest
+import copy
 
 import habana_frameworks.torch.core as htcore
 import pytest
@@ -111,10 +111,8 @@ def reference_optimizer_lamb_phase2(
 )
 @pytest.mark.parametrize("weight_shapes", [[(5, 4)], [(2, 3, 3), (4, 2)]])
 @pytest.mark.parametrize("use_lamb", [True, False])
-@pytest.mark.parametrize("weight_decay", [0, 0.1])
-def test_optimizer_lamb_phase2(
-    weight_dtype, weight_shapes, weight_decay, use_lamb
-):
+@pytest.mark.parametrize("weight_decay", [0, 0.1])    
+def test_optimizer_lamb_phase2(weight_dtype, weight_shapes, weight_decay, use_lamb):
     lr = 0.1
     n = len(weight_shapes)
     cpu_weights, hpu_weights = create_grads([weight_dtype] * n, weight_shapes)
@@ -196,7 +194,6 @@ def reference_optimizer_lamb_phase1(
 @pytest.mark.parametrize("step", [1, 4])
 @pytest.mark.parametrize("grad_averaging", [0, 1])
 def test_optimizer_lamb_phase1(weight_decay, bias_correction, step, grad_averaging):
-
 
     dtype = torch.float
     shape = (5, 4)
@@ -351,7 +348,7 @@ def test_lamb(count, lr):
 
     opt_hpu_nv = TorchNVLAMB(m_hpu_nv.parameters(), lr=lr)
 
-    for i in range(count):
+    for _ in range(count):
         i_hpu_nv = torch.rand((1, 1, 28, 28))
         t_hpu_nv = torch.randint(10, (1,))
         i_clone_list.append(i_hpu_nv.detach().clone())

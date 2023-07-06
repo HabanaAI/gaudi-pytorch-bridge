@@ -1,6 +1,6 @@
-import torch
 import pytest
 import test_utils
+import torch
 from test_utils import compare_tensors, env_var_in_scope, is_lazy
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
@@ -8,7 +8,7 @@ pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variabl
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import habana_frameworks.torch.core"
+    raise AssertionError("Could Not import habana_frameworks.torch.core")
 
 
 test_case_list = [
@@ -16,9 +16,14 @@ test_case_list = [
     [(132, 176, 136), (146, 175, 146)]
 ]
 
+<<<<<<< HEAD:tests/test_hpu_permute.py
 @pytest.mark.xfail
 @pytest.mark.skipif(not is_lazy(), reason="Lazy only test")
 @pytest.mark.skip(reason="Tests is chaning env variables")
+=======
+
+@pytest.mark.skipif(not is_lazy())
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_permute.py
 @pytest.mark.parametrize("dyn_shape", test_case_list)
 def test_hpu_permute(dyn_shape):
     def fun(img, lbl, dev):
@@ -31,7 +36,7 @@ def test_hpu_permute(dyn_shape):
         return img, lbl
 
     shapes = dyn_shape
-    with env_var_in_scope({"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES":1}):
+    with env_var_in_scope({"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}):
         for i in range(len(shapes)):
             x, y, z = shapes[i]
             input = torch.randn((1, 4, x, y, z))
@@ -42,5 +47,5 @@ def test_hpu_permute(dyn_shape):
             compare_tensors(t_h, t_c, 1e-3, 1e-3)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_hpu_permute(*test_case_list[0])

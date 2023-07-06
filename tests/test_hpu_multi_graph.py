@@ -1,7 +1,8 @@
-import torch
 import habana_frameworks.torch as ht
+import torch
 
-device = 'hpu'
+device = "hpu"
+
 
 class GraphTest(object):
     def __init__(self, size: int) -> None:
@@ -20,6 +21,7 @@ class GraphTest(object):
         else:
             self.g.replay()
 
+
 def test_graph_capture_simple():
     gt1 = GraphTest(size=1000)
     gt2 = GraphTest(size=2000)
@@ -34,6 +36,7 @@ def test_graph_capture_simple():
             gt2.warp_func(False)
             gt1.warp_func(False)
     ht.hpu.synchronize()
+
 
 if __name__ == "__main__":
     test_graph_capture_simple()

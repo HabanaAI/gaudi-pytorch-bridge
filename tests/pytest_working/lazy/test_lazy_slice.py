@@ -10,12 +10,12 @@
 #
 ###############################################################################
 
-import torch
 import numpy as np
+import torch
+
 
 def test_hpu_lazy_slice_fwd_bwd():
     t1 = torch.randn((5, 5), requires_grad=True)
-    grad_out = torch.randn(3, 2, requires_grad=False)
 
     hpu = torch.device("hpu")
 
@@ -30,4 +30,4 @@ def test_hpu_lazy_slice_fwd_bwd():
     out_h.sum().backward()
     grad_t1_h = t1_h.grad.cpu()
 
-    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0, rtol=0), f"Data mismatch"
+    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0, rtol=0), "Data mismatch"
