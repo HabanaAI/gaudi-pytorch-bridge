@@ -581,8 +581,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             "addcmul",
             "arange",  # SW-146681
             "index",  # SW-146773
-            "split",  # SW-149515
-            "new_empty_strided"   # SW-149882
+            "split",   # SW-149515
+            "new_empty_strided",   # SW-149882
+            "squeeze" # SW-151342
         ]
 
         if node_target in unsupported_ops:
