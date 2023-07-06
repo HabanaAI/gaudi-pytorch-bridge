@@ -61,5 +61,6 @@ inline int64_t mod_exp(bool w, int64_t x = 997) {
 }
 
 bool IsHostMemoryThresholdReached();
+int GetRankFromEnv();
 
 } // namespace habana

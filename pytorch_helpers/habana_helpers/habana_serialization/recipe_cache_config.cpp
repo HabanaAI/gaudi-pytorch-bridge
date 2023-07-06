@@ -18,6 +18,7 @@
 #include <array>
 #include <cstdlib>
 #include <functional>
+#include <iostream>
 #include <mutex>
 #include <string>
 #include <type_traits>
@@ -25,6 +26,7 @@
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 
 namespace serialization {
 
@@ -32,7 +34,18 @@ namespace serialization {
   setenv(#env_name, val.c_str(), 1);          \
   GET_ENV_FLAG_NEW(env_name, 1)
 
+#define PRINT_DEPRECATION_WARN_IF_ENV_USED(env_name) \
+  if (IS_ENV_FLAG_DEFINED_NEW(env_name))             \
+  std::clog << #env_name                             \
+      " flag is going to be deprecated, use PT_HPU_RECIPE_CACHE_CONFIG instead\n"
+
 RecipeCacheConfig::RecipeCacheConfig() {
+  if (habana::GetRankFromEnv() == 0) {
+    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_RECIPE_CACHE_PATH);
+    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_CACHE_FOLDER_DELETE);
+    PRINT_DEPRECATION_WARN_IF_ENV_USED(PT_CACHE_FOLDER_SIZE_MB);
+  }
+
   reload();
 }
 
@@ -100,5 +113,4 @@ unsigned int RecipeCacheConfig::cache_dir_max_size_mb() {
 }
 
 std::mutex RecipeCacheConfig::mutex_;
-
 }; // namespace serialization

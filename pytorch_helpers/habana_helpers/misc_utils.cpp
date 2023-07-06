@@ -48,4 +48,20 @@ bool IsHostMemoryThresholdReached() {
   return false;
 }
 
+int GetRankFromEnv() {
+  int node_id = 0;
+  auto pt_rank = std::getenv("RANK");
+  auto mpi_rank = std::getenv("OMPI_COMM_WORLD_RANK");
+
+  if (pt_rank != nullptr) {
+    node_id = std::stoi(pt_rank);
+  } else if (mpi_rank != nullptr) {
+    node_id = std::stoi(mpi_rank);
+  } else {
+    node_id = 0;
+  }
+
+  return node_id;
+}
+
 } // namespace habana
