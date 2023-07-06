@@ -66,7 +66,7 @@ SharedLayer::DeviceId getDeviceType() {
   return deviceId;
 }
 
-bool fillSharedLayerTenorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
+bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
   switch (t) {
     case at::ScalarType::Byte:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U8;
@@ -113,7 +113,7 @@ bool fillGuidParamInfoWithIntList(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillSharedLayerTenorType(tensor, (at::ScalarType)xs.back()))
+  if (not fillSharedLayerTensorType(tensor, (at::ScalarType)xs.back()))
     return false;
 
   return true;
@@ -139,7 +139,7 @@ bool fillGuidParamInfoWithTensor(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillSharedLayerTenorType(tensor, t.scalar_type()))
+  if (not fillSharedLayerTensorType(tensor, t.scalar_type()))
     return false;
   return true;
 }
@@ -465,15 +465,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
 bool CheckNodeWithSharedLayerValidator::Validate(
     at::ScalarType compute_type,
     const std::vector<at::IValue>& values) {
-  bool result;
-
-  bool gaudi3 = getDeviceType() == SharedLayer::DeviceId::DEVICE_ID_GAUDI3;
-
-  if (gaudi3) {
-    result = ValidateWithDTypes(compute_type, values);
-  } else {
-    result = ValidateWithSharedLayer(compute_type, values);
-  }
+  bool result = ValidateWithSharedLayer(compute_type, values);
   if (not result) {
     PT_OP_INFO("Fallback for op", m_opname);
   }
