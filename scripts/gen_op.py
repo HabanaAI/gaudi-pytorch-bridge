@@ -24,7 +24,7 @@ import yaml
 import torch
 from collections import defaultdict
 from functools import wraps
-from yaml import Loader
+from yaml import CLoader as Loader
 from packaging.version import Version
 import pkgutil
 
