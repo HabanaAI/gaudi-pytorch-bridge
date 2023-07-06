@@ -46,3 +46,4 @@ def test_linear():
     compare_tensors(ah.grad.to("cpu"), a.grad, rtol=1e-3, atol=1e-3)
     compare_tensors(bh.grad.to("cpu"), b.grad, rtol=1e-3, atol=1e-3)
     compare_tensors(ch.grad.to("cpu"), c.grad, rtol=1e-3, atol=1e-3)
+

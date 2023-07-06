@@ -12,6 +12,7 @@
 
 import torch
 import numpy as np
+import pytest
 from test_utils import hpu, cpu
 import pytest
 

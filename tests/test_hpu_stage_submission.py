@@ -1,4 +1,5 @@
 import torch
+import pytest
 from test_utils import env_var_in_scope, hpu, cpu
 import pytest
 

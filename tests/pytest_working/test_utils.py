@@ -148,6 +148,9 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 @contextmanager
 def env_var_in_scope(vars={}):
     def set_flag_in_env(name: str, value):
+        assert (
+            "PT_HPU_LAZY_MODE" != name
+        ), "Setting PT_HPU_LAZY_MODE during test is forbidden. Use python3 -m pytest --mode argument instead"
         if value is None:
             os.environ[name] = ""
         else:

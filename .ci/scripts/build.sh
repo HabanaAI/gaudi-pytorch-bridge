@@ -1408,7 +1408,11 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         if [ "$__dut" != "gaudi3" ]; then
             pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_pytest.xml" ${__marker})
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --junit-prefix="Lazy." ${__marker})
+            __test_status=$((__test_status | $?))
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --junit-prefix="Compile." ${__marker})
+            __test_status=$((__test_status | $?))
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --junit-prefix="Eager." ${__marker})
             __test_status=$((__test_status | $?))
             popd
         fi
