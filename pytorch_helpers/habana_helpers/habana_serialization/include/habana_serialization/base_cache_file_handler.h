@@ -13,13 +13,20 @@
 #pragma once
 
 #include <fcntl.h>
-#include <filesystem>
+
 #include <map>
 #include <optional>
 #include <vector>
-#include "cache_file_handler.h"
 
+#if !defined __GNUC__ || __GNUC__ >= 8
+#include <filesystem>
 namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
+#include "cache_file_handler.h"
 
 namespace serialization {
 
