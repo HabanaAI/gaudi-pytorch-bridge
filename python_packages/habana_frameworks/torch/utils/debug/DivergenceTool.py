@@ -4,9 +4,13 @@ import sqlite3
 import subprocess
 import csv
 import numpy as np
+import json
 
-static_path = '/tmp/StaticSynRec.db'
-dynamic_path = '/tmp/DynamicSynRec.db'
+dump_dir = '/tmp/'
+static_path = dump_dir + 'StaticSynRec.db'
+dynamic_path = dump_dir + 'DynamicSynRec.db'
+static_json = dump_dir + 'StaticSynRec.json'
+dynamic_json = dump_dir + 'DynamicSynRec.json'
 differing_tables = {}
 
 def ca_tensor_error_stats(a,b):
@@ -185,7 +189,7 @@ def compare_databases(db_file1, db_file2):
     if differing_tables:
         print("There is divergence in static and dynamic runs")
         print("Dumping divergence data in file\033[91m DivergenceDump.txt\033[0m")
-        output_file = open('DivergenceDump.txt', 'w')
+        output_file = open('DifferenceDump.txt', 'w')
         for key, value in differing_tables.items():
             print(key, value, file=output_file)
         output_file.close()
@@ -194,13 +198,25 @@ def compare_databases(db_file1, db_file2):
         print("The static and dynamic runs are equal")
         return True
 
+def find_node_name(graph_name, tensor):
+    with open(dynamic_json, "r") as file:
+        json_data = json.load(file)
+        for graph in json_data["graphs"]:
+            if graph["name"] == graph_name:
+                for node in graph["nodes"]:
+                    if tensor in node["output_tensors"]:
+                        return ['Output', node["name"], node["guid"]]
+                    elif tensor in node["input_tensors"]:
+                        return ['Input', node["name"], node["guid"]]
+    return ['None', 'None', 'None']
+
 def dump_to_csv():
     print("---------- Analyzing differences using dbparser and dumping in CSV file \033[91msynrec_comparision.csv\033[0m ----------")
     dynamic_output = 'Output_dynamic.log'
     static_output = 'Output_static.log'
     json_tests_path = get_json_test_path()
     csv_dump_list = []
-    csv_tuple = ('Graph', 'Tensor', 'maxabs', 'minabs', 'mse', 'rmse', 'norm_dev1', 'norm_dev2', 'norm_r', 'angle', 'cos_sim_ok')
+    csv_tuple = ('Graph', 'Tensor', 'Input/Output', 'Node Name', 'Node Guid', 'maxabs', 'minabs', 'mse', 'rmse', 'norm_dev1', 'norm_dev2', 'norm_r', 'angle', 'cos_sim_ok')
     csv_dump_list.append(csv_tuple)
     for key, values in differing_tables.items():
         for value in values:
@@ -219,7 +235,8 @@ def dump_to_csv():
             dynamic_values = read_values_from_file(dynamic_output)
             # return format [maxabs, minabs, mse, dist, rmse, norm_dev1, norm_dev2, norm_r, angle, cos_sim_ok]
             difference = calculate_difference(static_values, dynamic_values)
-            csv_tuple = (key[0], value)
+            node_name = find_node_name(key[0], value)
+            csv_tuple = (key[0], value, node_name[0], node_name[1], node_name[2])
             combined_tuple = csv_tuple + tuple(difference)
             csv_dump_list.append(combined_tuple)
     if os.path.isfile(static_output):
@@ -235,7 +252,6 @@ parser.add_argument("--csv", action="store_true", help="Specify if difference sh
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    dump_dir = '/tmp'
     SYNREC_PATH=get_synrec_path()
     # Loop through all files in the current directory
     for file in os.listdir(dump_dir):
