@@ -44,8 +44,6 @@
 
 namespace synapse_helpers {
 std::string get_mem_str(size_t nbytes);
-typedef uint64_t hpuStream_t;
-typedef uint64_t hpuEvent_t;
 
 // this enum is used only for the case where non generic stream is used
 enum default_stream_type {
@@ -425,7 +423,7 @@ class device {
 
   void delete_stream(hpuStream_t id);
 
-  void create_event(hpuEvent_t id, bool flags);
+  hpuEvent_t create_event(bool flags);
 
   void record_event(hpuEvent_t id, hpuStream_t record_stream);
 

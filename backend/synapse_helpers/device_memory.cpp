@@ -20,7 +20,6 @@
 #include <synapse_api.h>
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
-#include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/memory_defragmentation.h"
@@ -166,6 +165,76 @@ size_t device_memory::get_max_cntgs_chunk_size() const {
   return suballoc_->get_max_cntgs_chunk_size();
 }
 
+void device_memory::insert_events(AllocInfo* alloc_info) {
+  stream_set streams(std::move(alloc_info->stream_uses));
+  AT_ASSERT(alloc_info->stream_uses.empty());
+  for (auto& stream : streams) {
+    hpuEvent_t event = device_.create_event(0);
+    device_.record_event(event, stream);
+
+    alloc_info->event_count++;
+    std::lock_guard<std::mutex> lock(event_mutex);
+    hpu_events[stream].emplace_back(event, alloc_info);
+  }
+}
+
+void device_memory::process_events() {
+  // Process outstanding HpuEvents. Events that are completed are
+  // removed from the queue, and the 'event_count' for the
+  // corresponding allocation is decremented. We maintain a separate
+  // list of events per stream to avoid head-of-line delays if one
+  // or more streams has long-running operations.
+
+  // Iterate over different streams.
+  std::lock_guard<std::mutex> lock(event_mutex);
+  for (auto it = hpu_events.begin(); it != hpu_events.end();) {
+    // Iterate over this stream's (event, block) pairs.
+    while (!it->second.empty()) {
+      auto& e = it->second.front();
+      hpuEvent_t event = e.first;
+      AllocInfo* alloc_info = e.second;
+
+      auto res = device_.query_event(event);
+      if (!res) {
+        e.first = event;
+        break;
+      } else {
+        device_.delete_event(event, 0);
+      }
+
+      alloc_info->event_count--;
+      if (alloc_info->event_count == 0) {
+        device_.get_device_memory().free(alloc_info->ptr);
+      }
+      it->second.pop_front();
+    }
+
+    if (it->second.empty()) {
+      it = hpu_events.erase(it);
+    } else {
+      it++;
+    }
+  }
+}
+
+AllocInfo* device_memory::get_alloc_info(void* ptr, bool remove) {
+  std::lock_guard<std::mutex> lock(alloc_mutex);
+  auto it = allocInfoMap.find(ptr);
+  if (it == allocInfoMap.end()) {
+    return nullptr;
+  }
+  AllocInfo* alloc_info = it->second;
+  if (remove) {
+    allocInfoMap.erase(it);
+  }
+  return alloc_info;
+}
+
+void device_memory::add_allocInfo(AllocInfo* allocInfo) {
+  std::lock_guard<std::mutex> lock(alloc_mutex);
+  allocInfoMap[allocInfo->ptr] = allocInfo;
+}
+
 #define DEFAULT_RECIPE_COUNT 0
 
 // warapper for malloc/free for pool startegy not equal to 5
@@ -214,6 +283,41 @@ synStatus device_memory::deallocate(void* ptr) {
     PT_DEVMEM_DEBUG(Logger::formatStatusMsg(status), "SynDeviceFree Failed.");
   }
   log_synDeviceMemStats(*this);
+  return status;
+}
+
+synStatus device_memory::malloc(
+    void** v_ptr,
+    uint64_t size,
+    hpuStream_t stream) {
+  synStatus status{synStatus::synSuccess};
+  // Processes end-of-life events for outstanding allocations used on
+  // multiple streams (checks if their GPU-side uses are complete and
+  // recycles their memory if so)
+  process_events();
+  void* ptr = nullptr;
+  malloc(&ptr, size);
+  *v_ptr = ptr;
+  AllocInfo* alloc_info = new AllocInfo(stream, *v_ptr);
+  add_allocInfo(alloc_info);
+  return status;
+}
+
+synStatus device_memory::free_with_stream(void* free_ptr) {
+  synStatus status{synStatus::synSuccess};
+  if (!free_ptr) {
+    return status;
+  }
+  AllocInfo* alloc_info = get_alloc_info(free_ptr, true /* remove */);
+  if (!alloc_info) {
+    PT_DEVMEM_FATAL("invalid device pointer: ", free_ptr);
+  }
+
+  if (!alloc_info->stream_uses.empty()) {
+    insert_events(alloc_info);
+  } else {
+    free(free_ptr);
+  }
   return status;
 }
 
@@ -271,6 +375,20 @@ synStatus device_memory::free(void* free_ptr) {
   log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
   record(free_ptr, 0, false);
   return status;
+}
+
+void device_memory::recordStream(void* ptr, hpuStream_t stream) {
+  AllocInfo* alloc_info = get_alloc_info(ptr);
+  // alloc_info must not be null reaching here
+  TORCH_INTERNAL_ASSERT(
+      alloc_info != nullptr, "No allocated block can be found");
+
+  if (stream == alloc_info->stream) {
+    // ignore uses on the allocation stream, since those don't require any
+    // special synchronization
+    return;
+  }
+  alloc_info->stream_uses.insert(stream);
 }
 
 void* device_memory::workspace_alloc(

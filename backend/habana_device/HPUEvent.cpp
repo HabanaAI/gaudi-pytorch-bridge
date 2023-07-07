@@ -29,8 +29,7 @@ void HPUEvent::createEvent([[maybe_unused]] DeviceIndex device_index) {
   // get device
   auto& dev = habana::HPURegistrar::get_device().syn_device();
   device_index_ = dev.id();
-  id_ = dev.get_event_index();
-  dev.create_event(id_, flags_);
+  id_ = dev.create_event(flags_);
   is_created_ = true;
   PT_DEVICE_DEBUG("created event with ::", id_);
 }

@@ -37,8 +37,19 @@
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
 
+using stream_set = absl::flat_hash_set<synapse_helpers::hpuStream_t>;
 namespace synapse_helpers {
 class device;
+
+struct AllocInfo {
+  synapse_helpers::hpuStream_t stream; // allocation stream
+  stream_set stream_uses; // streams on which the block was used
+  void* ptr{nullptr}; // memory ptr
+  int event_count{0}; // number of outstanding HPU events
+
+  AllocInfo(synapse_helpers::hpuStream_t stream, void* ptr)
+      : stream(stream), stream_uses(), ptr(ptr) {}
+};
 
 class device_memory {
  public:
@@ -49,7 +60,12 @@ class device_memory {
   device_memory(device_memory&&) = delete;
   device_memory& operator=(device_memory&&) = delete;
   synStatus malloc(void** ptr, size_t size);
+  synStatus malloc(
+      void** ptr,
+      size_t size,
+      synapse_helpers::hpuStream_t stream);
   synStatus free(void* ptr);
+  synStatus free_with_stream(void* ptr);
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
   device_ptr fix_address(void* ptr);
   void record_param(
@@ -78,6 +94,7 @@ class device_memory {
   bool is_allocated(const device_ptr address) const;
   size_t get_max_cntgs_chunk_size() const;
   synapse_helpers::MemoryReporter* get_memory_reporter();
+  void recordStream(void* ptr, synapse_helpers::hpuStream_t stream);
 
  private:
   device& device_;
@@ -108,5 +125,14 @@ class device_memory {
   void record(void* ptr, size_t size, bool alloc);
 
   MemoryReporter mem_reporter;
+  std::mutex alloc_mutex;
+  absl::flat_hash_map<void*, AllocInfo*> allocInfoMap;
+  std::mutex event_mutex;
+  std::unordered_map<hpuStream_t, std::deque<std::pair<hpuEvent_t, AllocInfo*>>>
+      hpu_events;
+  void add_allocInfo(AllocInfo* allocInfo);
+  AllocInfo* get_alloc_info(void* ptr, bool remove = false);
+  void insert_events(AllocInfo* alloc_info);
+  void process_events(void);
 };
 } // namespace synapse_helpers

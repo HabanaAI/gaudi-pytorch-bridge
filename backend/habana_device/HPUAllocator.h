@@ -15,6 +15,7 @@
 #include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 
@@ -48,6 +49,7 @@ class HPUDeviceAllocator final : public at::Allocator {
 
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
+  static void recordStream(const at::DataPtr& ptr, c10::hpu::HPUStream stream);
 
   void* allocate_impl(size_t size, synStatus& status) const;
   static void deleter(void* ptr);

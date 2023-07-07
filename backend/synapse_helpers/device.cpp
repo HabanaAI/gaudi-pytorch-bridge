@@ -591,8 +591,9 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
 
 // In Case of Generic stream, NETWORK type is not part of the default.
 // as the collectives always uses a different stream.
-void device::create_event(synapse_helpers::hpuEvent_t id, bool flags) {
+synapse_helpers::hpuEvent_t device::create_event(bool flags) {
   std::unique_lock<std::mutex> lock(usr_event_mutex_);
+  synapse_helpers::hpuEvent_t id = get_event_index();
   PT_SYNHELPER_DEBUG("Create_event for id::", id, " flasg::", flags);
   std::array<synEventHandle, _END_TYPE> event_array;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
@@ -611,6 +612,7 @@ void device::create_event(synapse_helpers::hpuEvent_t id, bool flags) {
     }
   }
   user_event_map_[id] = event_array;
+  return id;
 }
 
 void device::record_event(

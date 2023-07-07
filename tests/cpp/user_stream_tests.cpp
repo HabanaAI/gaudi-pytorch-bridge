@@ -845,3 +845,16 @@ TEST(TestStream, TestWAR_multistream) {
 
   PT_TEST_DEBUG("tensor::", cpu_tensor[0][0]);
 }
+
+TEST(TestStream, record_stream) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
+  void* ptr;
+  c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
+  device.get_device_memory().malloc(
+      reinterpret_cast<void**>(&ptr), 104857600, default_s.stream());
+  c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
+  device.get_device_memory().recordStream(ptr, compute1.stream());
+  device.get_device_memory().free(ptr);
+}
