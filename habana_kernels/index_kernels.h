@@ -374,35 +374,6 @@ class IndexAddV2Operator : public HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
-class IndexCopyCguidOperator : public ScatterWrapperOperator {
- public:
-  IndexCopyCguidOperator(int device_id, c10::ScalarType scalarType)
-      : ScatterWrapperOperator(device_id, scalarType, "index_copy") {}
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-// IndexCopyOperator
-class IndexCopyOperator : public HabanaOperator {
- public:
-  IndexCopyOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("index_copy_fwd_filler", scalarType)),
-        scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) final;
-
- protected:
-  c10::ScalarType scalarType_;
-};
-
 //
 // Arange Operator
 class ArangeOperator : public HabanaOperator {

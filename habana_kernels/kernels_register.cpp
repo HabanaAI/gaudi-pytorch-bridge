@@ -339,26 +339,6 @@ Tensor& hpu_wrap::index_fill_(
   return index_fill_hpu_lazy_(self, dim, index, value);
 }
 
-Tensor& hpu_wrap::index_copy_(
-    Tensor& self,
-    int64_t dim,
-    const Tensor& index,
-    const Tensor& value) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "index_copy_ :",
-      " self=",
-      to_string(self),
-      " dim=",
-      to_string(dim),
-      "index=",
-      to_string(index),
-      "value=",
-      to_string(value));
-  return index_copy_hpu_lazy_(self, dim, index, value);
-}
-
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;

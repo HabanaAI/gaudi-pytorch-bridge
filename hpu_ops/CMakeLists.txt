@@ -128,6 +128,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/hpu_op_helper.cpp
           backend/huber_loss_gen.cpp
           backend/index_gen.cpp
+          backend/index_copy_gen.cpp
           backend/index_put_gen.cpp
           backend/index_select_gen.cpp
           backend/isfinite_isinf_isnan_gen.cpp

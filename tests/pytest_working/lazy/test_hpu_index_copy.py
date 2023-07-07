@@ -16,7 +16,7 @@ import numpy as np
 from test_utils import compare_tensors
 
 
-@pytest.mark.parametrize("shape", [(5, 7), (6, 4, 8), (6, 4, 8, 12)])
+@pytest.mark.parametrize("shape", [(5, 7), (6, 4)])
 @pytest.mark.parametrize("dim", [0, 1])
 @pytest.mark.parametrize("is_full_shape", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int])

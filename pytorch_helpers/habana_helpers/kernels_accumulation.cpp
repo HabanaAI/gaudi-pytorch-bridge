@@ -49,7 +49,6 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
     "gelu_backward",
     "gelu",
     "index_add_out",
-    "index_copy_",
     "index_fill_",
     "kl_div_backward",
     "kl_div",

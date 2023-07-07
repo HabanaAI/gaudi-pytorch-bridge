@@ -3641,6 +3641,32 @@ index_add_:
   override_fn: index_add_hpu_lazy_
   acc_thread: true
 
+index_copy:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+  guid: index_copy_fwd
+  custom_fill_params: FillIndexCopyParams
+  out_ids: [0]
+
+index_copy_:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+  guid: index_copy_fwd
+  custom_fill_params: FillIndexCopyParams
+  inplace_ids: [0]
+
+index_copy.out:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+  guid: index_copy_fwd
+  custom_fill_params: FillIndexCopyParams
+
 index_select:
   out_ids: [0]
   custom_output_shape: IndexSelectOutShape

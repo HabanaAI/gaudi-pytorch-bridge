@@ -176,11 +176,6 @@ at::Tensor& index_fill_hpu_lazy_(
     int64_t dim,
     const at::Tensor& index,
     const at::Scalar& value);
-at::Tensor& index_copy_hpu_lazy_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& value);
 at::Tensor slice_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

@@ -3445,37 +3445,6 @@ Tensor& index_fill_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_fill_, func, self)
 }
 
-Tensor& index_copy_hpu_lazy_(
-    Tensor& self,
-    int64_t dim,
-    const Tensor& indices,
-    const Tensor& source) {
-  PT_LAZY_TRACE;
-
-  handle_collective(self);
-  handle_collective(indices);
-  handle_collective(source);
-
-  // TPC doesn't support inplace index add natively
-  // Implement using out of place index add followed by D2D copy
-  // TODO revisit once strided mem copy feature is mature
-  auto func = [self, dim, indices, source]() mutable {
-    auto hl_self = GetOrCreateHbLazyTensor(self);
-    LazyOp<Tensor> index_copy_op(
-        "aten::index_copy", {self, dim, indices, source}, {self.sizes().vec()}
-        // out_shapes
-    );
-
-    Tensor index_copy_out = index_copy_op.call();
-
-    LazyOp<at::Tensor&> k{
-        "hpu::habana_d2d_memcpy_other", {index_copy_out, self}};
-    return k.call(self);
-  };
-
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(index_copy_, func, self)
-}
-
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,

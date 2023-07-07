@@ -49,11 +49,6 @@ at::Tensor& index_fill_(
     int64_t dim,
     const at::Tensor& index,
     const at::Scalar& value);
-at::Tensor& index_copy_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& value);
 at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
 ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
     const at::Tensor& input,
