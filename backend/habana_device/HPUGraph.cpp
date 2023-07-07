@@ -89,6 +89,7 @@ void HPUGraph::capture_end() {
     auto num_inputs = single_graph->input_vals_.size() +
         single_graph->user_input_indices_.size();
     size_t saved_input_idx = 0;
+    single_graph->hblazy_tensors_in_.clear();
     for (size_t inp = 0; inp < num_inputs; ++inp) {
       if (single_graph->user_input_indices_.count(inp) > 0) {
         single_graph->hblazy_tensors_in_.emplace_back(
