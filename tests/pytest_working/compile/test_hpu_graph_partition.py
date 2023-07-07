@@ -19,6 +19,37 @@ import habana_frameworks.torch.core as htcore
 
 pytestmark = pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 
+
+def test_parallel_graphs():
+    torch.manual_seed(2562825)
+
+    def raw_fnc(tensor_one, tensor_two):
+        maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=1)
+        tensor_one = 2 * tensor_one
+        tensor_one = torch.relu(tensor_one)
+        tensor_one = tensor_one.to(device="cpu")
+        tensor_one = maxpool(tensor_one)
+        tensor_one = tensor_one.to(device="hpu")
+
+        tensor_two = 2 * tensor_two
+        tensor_two = torch.relu(tensor_two)
+        tensor_two = tensor_two.to(device="cpu")
+        tensor_two = maxpool(tensor_two)
+        tensor_two = tensor_two.to(device="hpu")
+
+        return tensor_one + tensor_two
+
+    compiled_fnc = torch.compile(raw_fnc, backend="aot_hpu_training_backend")
+
+    tensor_one = torch.randn(2, 2, 2, 2).to(device="hpu")
+    tensor_two = torch.randn(2, 2, 2, 2).to(device="hpu")
+
+    out = compiled_fnc(tensor_one, tensor_two)
+    out_raw = raw_fnc(tensor_one, tensor_two)
+
+    torch.allclose(out, out_raw)
+
+
 def test_device_partition_cpuinput():
     def raw_function(x):
         tmp1 = x * 2 + 1

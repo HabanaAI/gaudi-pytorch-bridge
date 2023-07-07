@@ -843,14 +843,154 @@ def pass_skip_copies(ctx: OptimizerContext) -> bool:
 
 def pass_merge_paths(ctx: OptimizerContext) -> bool:
     """
-    Placeholder for pass that will merge parallel partitions.
+    This pass that will merge parallel partitions.
     """
-
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
     assert ctx.current_partitions is not None
 
+    logger.debug(f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}")
+
     graph_changed = False
+
+    if len(ctx.current_partitions) == 1:
+        logger.debug(f"Merging skipped for single partition graph")
+        # In case of single partition there is no merging to be done
+        return graph_changed
+
+    class ColorGraph():
+        def __init__(self):
+            self.OUTPUT_COLOR = 0
+            self.all_colors = set()
+            self.partition_colors = set()
+            self.output_colors = set()
+            self.colors_to_remove = set()
+            self._last_color = 0
+            self._graph = dict()
+
+        def new_color(self):
+            self._last_color += 1
+            self.all_colors.add(self._last_color)
+            return self._last_color
+
+        def new_partition_color(self):
+            color = self.new_color()
+            self.partition_colors.add(color)
+            return color
+
+        def add_node(self, user_color, color):
+            if user_color != color:
+                if color in self._graph:
+                    self._graph[color].add(user_color)
+                else:
+                    self._graph[color] = set()
+                    self._graph[color].add(user_color)
+
+        def _update_internal_sets(self):
+            for color in self.all_colors:
+                if color not in self._graph.keys():
+                    self.output_colors.add(color)
+                    continue
+                if color not in self.partition_colors:
+                    self.colors_to_remove.add(color)
+                    continue
+
+        def _merge_outputs(self):
+            for output_color in self.output_colors:
+                for v in self._graph.values():
+                    if output_color in v:
+                        v.remove(output_color)
+                        v.add(self.OUTPUT_COLOR)
+                self.all_colors.remove(output_color)
+            self.output_colors = set()
+            self.output_colors.add(self.OUTPUT_COLOR)
+            self.all_colors.add(self.OUTPUT_COLOR)
+
+        def _merge_non_partition_colors(self):
+            for color in self.colors_to_remove:
+                replacement_set = self._graph[color]
+                for v in self._graph.values():
+                    if color in v:
+                        v.remove(color)
+                        v.update(replacement_set)
+            for color in self.colors_to_remove:
+                del self._graph[color]
+                self.all_colors.remove(color)
+            self.colors_to_remove = set()
+
+        def extract_new_partitions(self):
+            logger.debug("Color graph (initial): \n%s", self)
+            self._update_internal_sets()
+            self._merge_outputs()
+            logger.debug("Color graph (replaced output): \n%s", self)
+            self._merge_non_partition_colors()
+            logger.debug("Color graph (partitions only): \n%s", self)
+            partitions = dict()
+            for color, user_set in self._graph.items():
+                user_frozen_set = frozenset(user_set)
+                if user_frozen_set in partitions:
+                    partitions[user_frozen_set].add(color)
+                else:
+                    partitions[user_frozen_set] = set()
+                    partitions[user_frozen_set].add(color)
+            return list(partitions.values())
+
+        def __str__(self):
+            lines = []
+            lines.append(f"Partition colors: {self.partition_colors}")
+            lines.extend([
+                f"{k} --> {v}" for k, v in self._graph.items()
+            ])
+            return "\n".join(lines)
+
+    color_graph = ColorGraph()
+
+    # Color all nodes in every partition on the same color
+    partitions_by_color = dict()
+
+    for part in ctx.current_partitions:
+        partition_color = color_graph.new_partition_color()
+        for node in part.nodes:
+            node.meta["merge_path_color"] = partition_color
+        partitions_by_color[partition_color] = part
+
+    # Color remaining nodes (new color for every node)
+    for node in ctx.graph_module.graph.nodes:
+        if "merge_path_color" not in node.meta:
+            node_color = color_graph.new_color()
+            node.meta["merge_path_color"] = node_color
+
+    # Build color graph
+    for node in ctx.graph_module.graph.nodes:
+        for user in node.users.keys():
+            user_color = user.meta.get("merge_path_color")
+            node_color = node.meta.get("merge_path_color")
+            color_graph.add_node(user_color, node_color)
+
+    new_partitions_desc_list = color_graph.extract_new_partitions()
+
+    # Update only if new partitioning is better than old one
+    if len(new_partitions_desc_list) < len(ctx.current_partitions):
+        logger.debug("New partition list (by colors): %s", new_partitions_desc_list)
+        from torch.fx.passes.infra.partitioner import Partition
+
+        new_partitions = list()
+        for desc in new_partitions_desc_list:
+            new_part = Partition()
+            for color in desc:
+                for node in partitions_by_color[color].nodes:
+                    new_part.add_node(node)
+            new_partitions.append(new_part)
+
+        ctx.current_partitions = new_partitions
+        graph_changed = True
+        logger.debug("Merge paths done. Partition cnt: %s", len(ctx.current_partitions))
+    else:
+        logger.debug("No partitions suitable for merging found")
+
+    # Cleanup coloring information from meta
+    for node in ctx.graph_module.graph.nodes:
+        del node.meta["merge_path_color"]
 
     return graph_changed
 
