@@ -2216,6 +2216,19 @@ def generate(args):
     generate_frontend(fgens, fgen_files, lazy_inclusions, "lazy")
     generate_frontend(fgens_eager, fgen_files, eager_inclusions, "eager")
 
+def get_manual_ops(fgens, args, is_eager_frontend=False):
+    overrides = parse_local_overrides(args.hputype)
+    pt_ver_overrides = parse_local_overrides(args.pt_ver_hputype)
+    _ensure_no_registrations_are_present_in_both(overrides, pt_ver_overrides)
+    overrides.update(pt_ver_overrides)
+
+    manual_ops = []
+    for fgen in fgens:
+        mapsig_key = get_mapsig_key(fgen.mapsig)
+        if mapsig_key in overrides:
+            manual_ops.append(get_function_name(fgen.tree))
+    return manual_ops
+
 def generate_check_kernel_support(args):
     fndefs, errors = extract_functions(args.typedef)
     assert len(errors) == 0
@@ -2244,6 +2257,7 @@ def generate_check_kernel_support(args):
     )
     assert len(errors) == 0, "Found {} errors: {}".format(len(errors), errors)
 
+    manual_ops = get_manual_ops(fgens_manual, args, "lazy")
     if len(ctx.op_data) != len(fgens):
         fgen_data = [get_aten_opname(x.aten_sig) for x in fgens]
         for op in ctx.op_data.keys():
@@ -2257,7 +2271,7 @@ def generate_check_kernel_support(args):
         '#include "hpu_ops/op_validator.h"\n'
         '#include "habana_eager/ops/eager_op.h"\n'
     )
-    generate_check_kernel_support_frontend(args, fgens, fgen_files, header_inclusions, "check_kernel_support")
+    generate_check_kernel_support_frontend(args, fgens, fgen_files, header_inclusions, manual_ops, "check_kernel_support")
 
 
 def generate_backend(fgens, fgen_files):
@@ -2538,9 +2552,9 @@ using habana_helpers::DTypeHelper;
 using namespace torch::jit;
 '''
 
-unsupported_data_types = ["TensorList", "ArrayRef", "std::array"]
+unsupported_data_types = ["TensorList", "ArrayRef", "std::array", "at::MemoryFormat"]
 
-def generate_check_kernel_support_frontend(args, fgens, fgen_files, frontend_inclusions, out_dir):
+def generate_check_kernel_support_frontend(args, fgens, fgen_files, frontend_inclusions, manual_ops, out_dir):
     dtype_defs = ""
     functions = ""
     torch_regs = ""
@@ -2554,7 +2568,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgen_files, frontend_inc
 
     ops_added = set()
     unique_func_map = {}
-    hpu_shared_layer_unsupported_ops = set()
+    hpu_shared_layer_unsupported_ops = set(manual_ops)
     for idx, fgen in enumerate(fgens):
         if fgen.func in unique_func_map:
             unique_func_map[fgen.func].append(idx)

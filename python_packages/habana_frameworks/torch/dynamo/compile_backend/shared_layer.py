@@ -16,13 +16,39 @@ import os
 from .config import configuration_flags
 from .logger import get_compile_backend_logger
 
-
-if configuration_flags["shared_layer_fallback_check"]:
-    from ._shared_layer_C import check_cpu_fallback_op
 logger = get_compile_backend_logger()
+from ._shared_layer_C import check_cpu_fallback_op
 
 hpu_supported_op_list = ["_to_copy",
                          "getitem"]
+
+hpu_fallback_op_list  = [
+            "zeros",
+            "ones",
+            # Random OPs.
+            "seed",
+            "manual_seed",
+            "initial_seed",
+            "get_rng_state",
+            "set_rng_state",
+            "rand",
+            "randn",
+            "randint",
+            "rand_like",
+            "randn_like",
+            "randint_like",
+            "randperm",
+            "poisson",
+            "multinomial",
+            "normal",
+            # Other
+            "slice_backward", # SW-146680
+            "addcmul",
+            "index",  # SW-146773
+            "split",   # SW-149515
+            "new_empty_strided",   # SW-149882
+            "squeeze" # SW-151342
+            ]
 
 def check_for_default_op_support(op_name):
     for op in hpu_supported_op_list:
@@ -30,50 +56,50 @@ def check_for_default_op_support(op_name):
             return True
     return False
 
-def is_cpu_fallback_required(node: torch.fx.Node) -> bool:
+def check_for_default_fallback(op_name, node):
+    for op in hpu_fallback_op_list:
+        if op in op_name:
+            return True
+    unsupported_types = {"permute": torch.int64}
+    if op_name in unsupported_types:
+        for output_dtype in node.meta["output_dtypes"]:
+            if output_dtype == unsupported_types[op_name]:
+                return True
+    return False
+
+def is_eager_fallback_required(node: torch.fx.Node) -> bool:
     """
     This function is supposed to ask shared layer whether specific
-    node is supported.
+    node is supported by the device.
     """
 
     do_fallback = False
+    assert node.op == "call_function"
 
-    # SHARED LAYER MOCKUP BEGIN #
-
-    # For now, just use hardcoded list instead of query
-    # TODO: add shared layer query here and remove current mockup
-    ops_to_fallback = []
-    if node.op == "call_function" and node.meta["output_device"].type == "hpu":
-        if configuration_flags["shared_layer_fallback_check"]:
-            args, kwargs = node.val_args, node.val_kwargs
-            arg_types = []
-            op_name = node.target.__name__.split(".")[0]
-            if check_for_default_op_support(op_name):
-                do_fallback = False
-            else:
-                for arg in args:
-                    arg_types.append(type(arg))
+    if node.meta["output_device"].type == "hpu":
+        args, kwargs = node.val_args, node.val_kwargs
+        arg_types = []
+        op_name = node.target.__name__.split(".")[0]
+        if check_for_default_fallback(op_name, node):
+            do_fallback = True
+        elif not check_for_default_op_support(op_name):
+            for arg in args:
+                arg_types.append(type(arg))
+            normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+            if normalized_args is None:
+                args = args[::-1]
+                arg_types = arg_types[::-1]
                 normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-                if normalized_args is None:
-                    args = args[::-1]
-                    arg_types = arg_types[::-1]
-                    normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
-                if normalized_args is not None:
-                    args, kwargs = normalized_args
-                    try:
-                        do_fallback = check_cpu_fallback_op(op_name, args, arg_types, kwargs)
-                    except Exception as e:
-                        print("Exception raised in check for fallback for op", node.target)
-                        do_fallback = True
-                else:
+            if normalized_args is not None:
+                args, kwargs = normalized_args
+                try:
+                    do_fallback = check_cpu_fallback_op(op_name, args, arg_types, kwargs)
+                except Exception as e:
+                    print("Exception raised in check for fallback for op", node.target)
                     do_fallback = True
-        else:
-            for op in ops_to_fallback:
-                if op == node.target.__name__:
-                    do_fallback = True
-                    break
+            else:
+                do_fallback = True
 
-    # SHARED LAYER MOCKUP END #
 
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
     return do_fallback

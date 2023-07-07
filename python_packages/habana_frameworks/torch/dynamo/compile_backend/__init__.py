@@ -27,11 +27,4 @@ setup_env_config("PT_HPU_USE_DECOMP_EXCLUSIONS",           "use_decomp_exclusion
 setup_env_config("PT_HPU_DTYPE_PROP_IN_BACKEND",           "dtype_propagation_in_backend")
 setup_env_config("PT_HPU_KEEP_INPUT_MUTATIONS",            "keep_input_mutations")
 
-# TODO: fix this flag ELSE, it now defaults to False even if it is True in the config
-# it should use setup_env_config function here instead
-if os.getenv("PT_HPU_USE_SHARED_LAYER_FALLBACK_CHECK", "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-    configuration_flags["shared_layer_fallback_check"] = True
-else:
-    configuration_flags["shared_layer_fallback_check"] = False
-
 from . import backends

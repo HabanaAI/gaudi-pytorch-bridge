@@ -19,7 +19,7 @@ from enum import Enum
 from typing import List, Optional
 from dataclasses import dataclass
 
-from .shared_layer import is_cpu_fallback_required
+from .shared_layer import is_eager_fallback_required
 from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .config import configuration_flags
@@ -99,8 +99,6 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
-            pass_mark_fallbacks,
-            pass_transform_fallbacks,
             pass_skip_copies,
             pass_graph_print,
         ]
@@ -552,58 +550,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     """
     assert ctx.graph_module is not None
 
-    def is_op_unsupported_in_graph(node):
-        node_target = node.target.__name__.split(".")[0]
-
-        # This is list of OPs that need to be ran eagerly at this point of time.
-        unsupported_ops = [
-            # Tensor creation OPs.
-            "zeros",
-            "ones",
-            # Random OPs.
-            "seed",
-            "manual_seed",
-            "initial_seed",
-            "get_rng_state",
-            "set_rng_state",
-            "rand",
-            "randn",
-            "randint",
-            "rand_like",
-            "randn_like",
-            "randint_like",
-            "randperm",
-            "poisson",
-            "multinomial",
-            "normal",
-            # Other
-            "slice_backward",  # SW-146680
-            "addcmul",
-            "arange",  # SW-146681
-            "index",  # SW-146773
-            "split",   # SW-149515
-            "new_empty_strided",   # SW-149882
-            "squeeze" # SW-151342
-        ]
-
-        if node_target in unsupported_ops:
-            return True
-
-        # This is a list of OPs that are not supported in the graph mode only for specific dtypes.
-        unsupported_types = {"permute": torch.int64}
-
-        if node_target in unsupported_types:
-            for output_dtype in node.meta["output_dtypes"]:
-                if output_dtype == unsupported_types[node_target]:
-                    return True
-
-        return False
-
     for node in ctx.graph_module.graph.nodes:
         placement = None
         if node.op == "placeholder" or node.op == "output":
-            placement = "eager"
-        elif node.op == "call_function" and is_op_unsupported_in_graph(node):
             placement = "eager"
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
@@ -622,6 +571,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
+        elif node.op == "call_function" and is_eager_fallback_required(node):
+            placement = "eager"
         elif node.meta["output_device"].type == "hpu":
             # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.
             # Let's create an assert that will fire in case this assumption proves wrong.
@@ -647,151 +598,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         node.meta["placement"] = placement
 
     return True
-
-
-def pass_mark_fallbacks(ctx: OptimizerContext) -> bool:
-    """
-    This pass is supposed to find nodes requiring CPU fallback.
-    If such node is found, mark it as requriing fallbacking.
-    """
-
-    assert ctx.graph_module is not None
-    graph_changed = False
-    for node in ctx.graph_module.graph.nodes:
-        if is_cpu_fallback_required(node):
-            if node.meta["placement"] != "cpufallback":
-                node.meta["placement"] = "cpufallback"
-                graph_changed = True
-
-    return graph_changed
-
-
-def pass_transform_fallbacks(ctx: OptimizerContext) -> bool:
-    """
-    This pass is supposed to find nodes annotated as requiring fallbacks,
-    for each such node it will materialize the copies and move the actual
-    OP to CPU.
-    """
-
-    assert ctx.graph_module is not None
-    graph_changed = False
-    fallbacked_ops_counter = {}
-
-    for node in ctx.graph_module.graph.nodes:
-        if node.meta["placement"] == "cpufallback":
-            if node.target.__name__ in fallbacked_ops_counter:
-                fallbacked_ops_counter[node.target.__name__] += 1
-            else:
-                fallbacked_ops_counter[node.target.__name__] = 1
-
-            graph_changed = True
-            with ctx.graph_module.graph.inserting_before(node):
-                for arg in node.args:
-                    if isinstance(arg, torch.fx.Node):
-                        input_copy_node = ctx.graph_module.graph.call_function(
-                            torch.ops.aten._to_copy.default,
-                            (arg,),
-                            {"device": torch.device("cpu")},
-                        )
-                        input_copy_node.meta["placement"] = "eager"
-                        input_copy_node.meta["output_device"] = torch.device("cpu")
-                        input_copy_node.meta["output_dtypes"] = [
-                            arg.meta["output_dtypes"][0]
-                        ]
-                        input_copy_node.meta["output_layouts"] = [
-                            arg.meta["output_layouts"][0]
-                        ]
-                        input_copy_node.meta["output_shapes"] = [
-                            arg.meta["output_shapes"][0]
-                        ]
-                        input_copy_node.meta["output_strides"] = [
-                            arg.meta["output_strides"][0]
-                        ]
-                        input_copy_node.meta["output_contiguous"] = [
-                            arg.meta["output_contiguous"][0]
-                        ]
-                        node.replace_input_with(arg, input_copy_node)
-
-            # Check if this is tuple based output.
-            is_tuple_output = False
-            for user in node.users:
-                if user.op == "call_function" and "getitem" in user.target.__name__:
-                    is_tuple_output = True
-                    break
-
-            if not is_tuple_output:
-                with ctx.graph_module.graph.inserting_after(node):
-                    output_copy_node = ctx.graph_module.graph.call_function(
-                        torch.ops.aten._to_copy.default,
-                        (node,),
-                        {"device": node.meta["output_device"]},
-                    )
-                    output_copy_node.meta["placement"] = "eager"
-                    output_copy_node.meta["output_device"] = node.meta["output_device"]
-                    output_copy_node.meta["output_dtypes"] = [
-                        node.meta["output_dtypes"][0]
-                    ]
-                    output_copy_node.meta["output_layouts"] = [
-                        node.meta["output_layouts"][0]
-                    ]
-                    output_copy_node.meta["output_shapes"] = [
-                        node.meta["output_shapes"][0]
-                    ]
-                    output_copy_node.meta["output_strides"] = [
-                        node.meta["output_strides"][0]
-                    ]
-                    output_copy_node.meta["output_contiguous"] = [
-                        node.meta["output_contiguous"][0]
-                    ]
-                    node.replace_all_uses_with(output_copy_node)
-
-                    # Above line will also replace the input of output
-                    # conversion to itself.... fix it back.
-                    output_copy_node.replace_input_with(output_copy_node, node)
-            else:
-                # We need to fall back getitems following the output tuple
-                # instead of just the output itself.
-                for user in node.users:
-                    assert isinstance(user, torch.fx.Node)
-                    assert "getitem" in user.target.__name__
-                    with ctx.graph_module.graph.inserting_after(user):
-                        output_copy_node = ctx.graph_module.graph.call_function(
-                            torch.ops.aten._to_copy.default,
-                            (user,),
-                            {"device": user.meta["output_device"]},
-                        )
-                        output_copy_node.meta["placement"] = "eager"
-                        output_copy_node.meta["output_device"] = user.meta[
-                            "output_device"
-                        ]
-                        output_copy_node.meta["output_dtypes"] = [
-                            user.meta["output_dtypes"][0]
-                        ]
-                        output_copy_node.meta["output_layouts"] = [
-                            user.meta["output_layouts"][0]
-                        ]
-                        output_copy_node.meta["output_shapes"] = [
-                            user.meta["output_shapes"][0]
-                        ]
-                        output_copy_node.meta["output_strides"] = [
-                            user.meta["output_strides"][0]
-                        ]
-                        output_copy_node.meta["output_contiguous"] = [
-                            user.meta["output_contiguous"][0]
-                        ]
-                        user.replace_all_uses_with(output_copy_node)
-
-                        # Above line will also replace the input of output
-                        # conversion to itself.... fix it back.
-                        output_copy_node.replace_input_with(output_copy_node, user)
-
-                    user.meta["placement"] = "eager"
-                    user.meta["output_device"] = torch.device("cpu")
-
-            node.meta["placement"] = "eager"
-            node.meta["output_device"] = torch.device("cpu")
-
-    return graph_changed
 
 
 def pass_non_contiguous_outputs(ctx: OptimizerContext) -> bool:
