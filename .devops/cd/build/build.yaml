@@ -48,15 +48,9 @@ steps:
       cmd: cd ${BUILD_DIR} && make build-data RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: text
       cmd: cd ${BUILD_DIR} && make build-text RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
-    - name: lightning
-      cmd: cd ${BUILD_DIR} && make build-lightning RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
-      failOnError: false
   postBuild:
     - name: archive PT
       cmd: cd ${BUILD_DIR} && make archive RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
-    - name: archive PT internal
-      cmd: cd ${BUILD_DIR} && make archive-internal RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
-      failOnError: false
   test:
     - name: torch nda
       cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=torch-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
@@ -64,8 +58,6 @@ steps:
       cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_torch_dataloader-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: plugin nda
       cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_torch_plugin-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
-    - name: lightning nda
-      cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=pytorch_lightning-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: gpu migration nda
       cmd: cd ${BUILD_DIR} && make test-nda RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} PACKAGE_NAME=habana_gpu_migration-*.whl WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: tb profiler nda

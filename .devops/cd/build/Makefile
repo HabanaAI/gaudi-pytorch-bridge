@@ -183,10 +183,6 @@ build-%: validate init
 archive-next: CSV_FILE_SUFFIX = next
 archive-next: archive
 
-archive-internal: CSV_FILE_SUFFIX=internal
-archive-internal: PT_BUILD_TYPE=_$(CSV_FILE_SUFFIX)
-archive-internal: archive
-
 archive: validate init ## archive all whls to tgz package
 ifndef PT_VERSION
 	$(error PT_VERSION is not set)
