@@ -83,6 +83,19 @@ std::string ThreadPool::ToString() {
   return ss.str();
 }
 
+void ThreadPool::ThrottleIfNeeded() {
+  if (m_tasks->is_full()) {
+    PT_BRIDGE_WARN(
+        "Message queue is full, queue size : ",
+        m_tasks->size(),
+        " queue capacity : ",
+        m_tasks->queue_capacity());
+    while (m_tasks->size() > m_tasks->queue_capacity() / 2) {
+      sleep(0);
+    }
+  }
+}
+
 // the destructor joins all threads
 ThreadPool::~ThreadPool() {
   {

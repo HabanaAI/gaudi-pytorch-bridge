@@ -26,6 +26,9 @@
 
 namespace habana_helpers {
 
+#define STD_QUEUE_CAPACITY \
+  1000000 // To Do - need to review the number if std queue is used
+
 enum QueueType { QT_LockFree, QT_WithLock, QT_Standard };
 
 template <typename T>
@@ -36,6 +39,8 @@ class Queue {
   virtual T& front() = 0;
   virtual bool empty() = 0;
   virtual size_t size() const = 0;
+  virtual bool is_full() = 0;
+  virtual size_t queue_capacity() const = 0;
   static Queue<T>* Create(QueueType type, size_t size);
   virtual ~Queue<T>() = default;
 };
@@ -64,7 +69,7 @@ class ThreadQueueWithLock : public Queue<T> {
     }
     m_maxSize = 0;
   }
-  size_t queueCapacity() const {
+  size_t queue_capacity() const {
     return m_maxSize;
   }
 
@@ -74,6 +79,10 @@ class ThreadQueueWithLock : public Queue<T> {
 
   bool empty() {
     return m_queue.empty();
+  }
+
+  bool is_full() {
+    return (size() >= queue_capacity());
   }
 
   T pop() {
@@ -147,7 +156,7 @@ class ThreadQueueLockFree : public Queue<T> {
     delete[](char*) queue;
   }
 
-  size_t queueCapacity() const {
+  size_t queue_capacity() const {
     return capacityQueue;
   }
 
@@ -161,7 +170,7 @@ class ThreadQueueLockFree : public Queue<T> {
   }
 
   bool is_full() {
-    return (size() >= queueCapacity());
+    return (size() >= queue_capacity());
   }
 
   bool emplace(const T& data) {
@@ -222,6 +231,16 @@ class StdQueue : public Queue<T> {
 
   T& front() {
     return m_queue.front();
+  }
+
+  size_t queue_capacity() const {
+    // To Do
+    return STD_QUEUE_CAPACITY;
+  }
+
+  bool is_full() {
+    // To Do
+    return false;
   }
 };
 

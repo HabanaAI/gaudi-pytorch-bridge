@@ -262,6 +262,7 @@ list(APPEND misc_tests_src
 
 list(APPEND eager_tests_src
   shape_agnostic_tests.cpp
+  eager_pipeline_tests.cpp
 )
 
 add_executable(
