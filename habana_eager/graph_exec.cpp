@@ -98,20 +98,16 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   PT_EAGER_INFO("Jit for ", m_graph_name, ":\n", *m_graph);
 
   for (int input_idx = 0; input_idx < m_graph->inputs().size(); input_idx++) {
-    std::string perm = "";
     if (example_inputs[input_idx].isTensor()) {
       torch::Tensor tensor{example_inputs[input_idx].toTensor()};
-      auto smeta{habana::get_storage_extra_meta(tensor)};
-      auto m_perm = smeta->get_memory_permutation();
-      std::string m_perm_s(m_perm.begin(), m_perm.end());
-      perm = " Perm: " + m_perm_s;
+      auto storage_meta{habana::get_storage_extra_meta(tensor)};
+      PT_EAGER_INFO(
+          m_graph->inputs().at(input_idx)->debugName(),
+          ": ",
+          habana_helpers::DebugString(example_inputs[input_idx]),
+          " Perm: ",
+          VecToString(storage_meta->get_memory_permutation()));
     }
-
-    PT_EAGER_INFO(
-        m_graph->inputs().at(input_idx)->debugName(),
-        ": ",
-        habana_helpers::DebugString(example_inputs[input_idx]),
-        perm);
   }
 }
 
