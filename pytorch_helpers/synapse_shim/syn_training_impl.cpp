@@ -460,6 +460,17 @@ synStatus SYN_API_CALL synProfilerGetTrace(
       type, deviceId, format, buffer, size, numEntries);
 }
 
+synStatus SYN_API_CALL synProfilerQueryRequiredMemory(
+    const synDeviceId deviceId,
+    uint32_t* bytesRequired) {
+  return syn_api->synProfilerQueryRequiredMemory(deviceId, bytesRequired);
+}
+
+synStatus SYN_API_CALL
+synProfilerSetUserBuffer(const synDeviceId deviceId, void* userBuffer) {
+  return syn_api->synProfilerSetUserBuffer(deviceId, userBuffer);
+}
+
 synStatus SYN_API_CALL synConfigurationSet(
     const char* configurationName,
     const char* configurationValue) {

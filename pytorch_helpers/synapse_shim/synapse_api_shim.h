@@ -72,6 +72,8 @@
   visitor(synProfilerStart);                   \
   visitor(synProfilerStop);                    \
   visitor(synProfilerGetTrace);                \
+  visitor(synProfilerQueryRequiredMemory);     \
+  visitor(synProfilerSetUserBuffer);           \
   visitor(synConfigurationSet);                \
   visitor(synConfigurationGet);                \
   visitor(synSectionCreate);                   \

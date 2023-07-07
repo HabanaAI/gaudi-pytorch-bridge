@@ -276,3 +276,13 @@ def _convert_to_tensor_list(tensor_or_tensors):
         return result_list
     else:
         raise TypeError("Can not convert outputs")
+
+def _is_simulator():
+    status = False
+    if os.path.exists("/sys/class/accel/accel0/device/device_type"):
+        import subprocess
+        out = subprocess.Popen(['cat', '/sys/class/accel/accel0/device/device_type'],
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stdout, _ = out.communicate()
+        status = ("SIM".lower() in str(stdout).lower())
+    return status

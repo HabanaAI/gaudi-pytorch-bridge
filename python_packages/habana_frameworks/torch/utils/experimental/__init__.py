@@ -106,3 +106,12 @@ def _record_params(model=None, optimizer=None, force_model_update=False):
                     pass
         _model_params_initialized = True
     _optim_state_initialized = _is_optim_recorded
+
+def _set_profiler_tracer_memory(device_id) -> int:
+    if _is_available():
+        try:
+            return _experimental_C.set_profiler_tracer_memory(device_id)
+        except:
+            return 0
+    else:
+        return 0

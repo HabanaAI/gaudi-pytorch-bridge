@@ -37,6 +37,28 @@ intptr_t GetDataPtr(const at::Tensor& t) {
   return 0;
 }
 
+void SetProfilerTracerMemory(const int device_id) {
+  if (device_id >= 0) {
+    uint32_t bytes_req = 0;
+    synStatus status = synProfilerQueryRequiredMemory(0, &bytes_req);
+    if (status != synSuccess) {
+      std::cerr << "synProfilerQueryRequiredMemory failed" << std::endl;
+    }
+
+    if (bytes_req > 0) {
+      void* data_ptr{nullptr};
+      auto& device = habana::HPURegistrar::get_device(device_id);
+      device.get_device_memory().malloc(&data_ptr, bytes_req);
+      auto user_buff =
+          reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
+      status = synProfilerSetUserBuffer(0, user_buff);
+      if (status != synSuccess) {
+        std::cerr << "synProfilerSetUserBuffer failed" << std::endl;
+      }
+    }
+  }
+}
+
 void RecordQuantParams(std::string name, float min, float max) {
   PtTensorInferenceData::get_instance().SetInferenceTensorRange(name, min, max);
   std::replace(name.begin(), name.end(), '.', '/'); // replace all 'x' to 'y'
@@ -91,6 +113,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("is_optim_state"),
       py::arg("t_start"),
       py::arg("t_size"));
+  m.def(
+      "set_profiler_tracer_memory",
+      [](const int device_id) { return SetProfilerTracerMemory(device_id); },
+      py::arg("device_id"));
   py::enum_<synDeviceType>(m, "synDeviceType")
       .value("synDeviceGaudi", synDeviceGaudi)
       .value("synDeviceGaudi2", synDeviceGaudi2)
