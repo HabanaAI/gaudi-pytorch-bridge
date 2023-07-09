@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Callable, Dict, Optional
 import habana_frameworks.torch.hpu as hthpu
 from contextlib import contextmanager
+import habana_frameworks.torch.utils.debug as htdebug
 
 hpu = torch.device('hpu')
 cpu = torch.device('cpu')
@@ -168,6 +169,7 @@ def env_var_in_scope(vars={}):
                     del os.environ[key]
 
 def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
+    htdebug._bridge_cleanup()
     assert isinstance(temp_test_env, Mapping)
 
     print("Set env: ", temp_test_env)

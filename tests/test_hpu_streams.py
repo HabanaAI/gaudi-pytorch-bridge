@@ -515,10 +515,10 @@ def testProfiling_copy_d2h():
     htcore.mark_step()
     startEv =ht.hpu.Event(enable_timing=True)
     endEv = ht.hpu.Event(enable_timing=True)
-    startEv.record()
+    startEv.record(s)
     with ht.hpu.stream(s):
         hpu_tensor.to('cpu')
-    endEv.record()
+    endEv.record(s)
     endEv.synchronize()
     print(f'Time Elapsed={startEv.elapsed_time(endEv)}')  # milliseconds
     print(f'After record :endEv info={repr(endEv)}')

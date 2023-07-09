@@ -309,5 +309,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_dynamic_shape", []() {
     habana_helpers::DisableRefineDynamicShape();
   });
+  m.def("record_stream", [](at::Tensor tensor, HPUStream stream) {
+    habana::HPUDeviceAllocator::recordStream(
+        tensor.storage().data_ptr(), stream);
+  });
   m.doc() = "This module registers hpu backend.";
 }

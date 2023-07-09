@@ -15,6 +15,7 @@
 #include <torch/extension.h>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/tensor_info.h"
 #include "common/utils.h"
 
@@ -123,6 +124,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value("synDeviceGaudi3", synDeviceGaudi3)
       .export_values();
 
+  m.def("reset_device_memory", []() {
+    auto& device = habana::HPURegistrar::get_device().syn_device();
+    device.cleanup_workspace_buffer();
+    device.get_device_memory().reset_pool();
+    habana_helpers::EventDispatcher::Instance().unsubscribe_all();
+  });
   m.doc() =
       "This module registers hpu experimental API used by Media internal component.";
 }

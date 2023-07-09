@@ -1,4 +1,5 @@
 import enum
+import warnings
 import habana_frameworks.torch.hpu as hpu
 from habana_frameworks.torch.utils._experimental_C import synDeviceType
 from habana_frameworks.torch.utils import _experimental_C
@@ -115,3 +116,9 @@ def _set_profiler_tracer_memory(device_id) -> int:
             return 0
     else:
         return 0
+
+def _reset_device_memory():
+    warnings.warn("used only to reset the memory in case of testing")
+    if _is_available:
+        hpu.init()
+        _experimental_C.reset_device_memory()

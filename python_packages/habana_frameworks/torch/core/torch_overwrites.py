@@ -18,6 +18,7 @@ from typing import Union, Optional
 
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
+import habana_frameworks.torch.hpu as ht
 import torch
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
@@ -94,6 +95,19 @@ def overwrite_torch_functions():
         return manual_seed_orig(seed)
 
     torch.manual_seed = wrap_manual_seed
+
+    # wrap torch.Tensor.record_stream
+
+    record_orig = torch.Tensor.record_stream
+
+    @wraps(torch.Tensor.record_stream)
+    def wrap_record_stream(self, stream):
+        if isinstance(self, Tensor) and self.device.type == 'hpu':
+          ht.record_stream(self, stream)
+        else:
+          record_orig(self, stream)
+
+    torch.Tensor.record_stream = wrap_record_stream
 
     # wrap torch.nn.modules.Module.add_module
 

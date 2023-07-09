@@ -196,3 +196,6 @@ def get_stream_info(stream:Stream):
         stream = stream.stream
 
     return _hpu_C.get_stream_info(stream)
+
+def record_stream(self, stream):
+    _hpu_C.record_stream(self, stream.stream)

@@ -234,12 +234,13 @@ void HPUDeviceAllocator::recordStream(
   if (ptr.get_deleter() != &HPUDeviceAllocator::deleter)
     return;
 
+  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
+    return;
+  }
   auto& device =
       HPURegistrar::get_device(HPUDeviceAllocator::allocator_active_device_id);
   if (ptr.get() != nullptr) {
-    auto alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr.get());
-    device.get_device_memory().recordStream(
-        alloc_ctx->data_ptr, stream.stream());
+    device.get_device_memory().recordStream(ptr.get(), stream.stream());
   }
 }
 
