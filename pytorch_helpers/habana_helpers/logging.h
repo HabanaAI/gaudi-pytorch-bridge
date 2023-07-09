@@ -62,6 +62,7 @@ enum class LoggerType {
   PT_EAGER,
   PT_CUSTOM, // Don't use it in checkin code.
   PT_RECIPE_STATS,
+  PT_FILE_LOCK,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -116,6 +117,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_EAGER, "PT_EAGER"},
       {HlLogger::LoggerType::PT_RECIPE_STATS, "PT_RECIPE_STATS"},
       {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
+      {HlLogger::LoggerType::PT_FILE_LOCK, "PT_FILE_LOCK"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
@@ -458,6 +460,7 @@ class PTFuncLog {
 #define PT_DYNAMIC_SHAPE_DEBUG(...) PT_MOD_DEBUG(PT_DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_EAGER_DEBUG(...) PT_MOD_DEBUG(PT_EAGER, __VA_ARGS__)
 #define PT_FALLBACK_DEBUG(...) PT_MOD_DEBUG(PT_FALLBACK, __VA_ARGS__)
+#define PT_FILE_LOCK_DEBUG(...) PT_MOD_DEBUG(PT_FILE_LOCK, __VA_ARGS__)
 #define PT_HABHELPER_DEBUG(...) PT_MOD_DEBUG(PT_HABHELPER, __VA_ARGS__)
 #define PT_HOSTSTAT_DEBUG(...) PT_MOD_DEBUG(PT_HOSTSTAT, __VA_ARGS__)
 #define PT_IRGRAPH_DEBUG(...) PT_MOD_DEBUG(PT_IRGRAPH, __VA_ARGS__)

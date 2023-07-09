@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <fcntl.h>
 #include <stddef.h>
 #include <cstdint>
 #include <memory>
@@ -84,20 +85,22 @@ class CacheFileHandler {
 
   static int fileOpen(const std::string& fname, int flags);
   static int fileClose(int fd);
-  static bool fileLock(int fd, bool block);
+  static bool fileLock(int fd, bool write);
   static int fileUnLock(int fd);
   // Lock file and get size
-  static bool fileLock(int fd, bool block, size_t& size);
+  static bool fileLock(int fd, bool write, size_t& size);
   // Open, Lock, and get Size
   static int openAndLockFile(
       const std::string& fname,
       int flags,
-      bool block,
+      bool write,
       size_t& size);
   // Must be called if CachePath changes
   void init(std::string path);
   // Add the size of new file and delete something if required
   void addFileInfo(const std::string& cache_id);
+
+  static struct flock fileLocker;
 };
 
 } // namespace serialization
