@@ -360,7 +360,7 @@ bool InterHostCache::recv_file(std::string cache_id) {
   std::string metafile = metadata_file_path(cache_path_, cache_id);
   size_t size = 0;
   int fd = cfHandler_->openAndLockFile(
-      metafile.c_str(), O_RDWR | O_CREAT, false, size);
+      metafile.c_str(), O_RDWR | O_CREAT, true, size);
 
   if (fd < 0 || size > 0) {
     if (fd >= 0)
