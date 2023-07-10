@@ -345,12 +345,15 @@ def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
     fork_build_dir = os.getenv("PYTORCH_FORK_RELEASE_BUILD")
     expected_location = os.path.join(fork_build_dir, "pkgs")
 
-    compatible_wheels = list(
-        filter(
-            lambda wheel: _is_compatible_wheel_with_matching_version(wheel, pt_ver),
-            os.listdir(expected_location),
+    if not os.path.exists(expected_location):
+        compatible_wheels = []
+    else:
+        compatible_wheels = list(
+            filter(
+                lambda wheel: _is_compatible_wheel_with_matching_version(wheel, pt_ver),
+                os.listdir(expected_location),
+            )
         )
-    )
 
     if len(compatible_wheels) > 1:
         raise NotImplementedError(
