@@ -24,9 +24,8 @@ else
     python${MIN_PYTHON_VER} -m pip install ${HABANALABS_LOCAL_DIR}/habana_pyhlml-${HABANA_RELEASE_VERSION}.${HABANA_RELEASE_ID}*.whl ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
 fi
 python${MIN_PYTHON_VER} -m pip install ./*.whl ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
-if [ -z $SKIP_ON_DEBUG ]; then
-    python${MIN_PYTHON_VER} -m pip install $(grep "lightning" ./requirements-pytorch.txt) --no-warn-script-location --disable-pip-version-check ${PIP_PYTHON_OPTIONS}
-fi
+python${MIN_PYTHON_VER} -m pip install $(grep "lightning" ./requirements-pytorch.txt) --no-warn-script-location --disable-pip-version-check ${PIP_PYTHON_OPTIONS}
+
 if [ -z $HABANALABS_LOCAL_DIR ]; then
     python${MIN_PYTHON_VER} -m pip install habana-lightning-plugins=="${HABANA_RELEASE_VERSION}"."${HABANA_RELEASE_ID}" --disable-pip-version-check ${PIP_PYTHON_OPTIONS} ${EXTRA_INDEX_URL}
 else
