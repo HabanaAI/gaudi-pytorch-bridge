@@ -25,8 +25,18 @@ from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass
 from io import StringIO
-from typing import (Any, Dict, Iterable, List, NamedTuple, Optional, Sequence,
-                    Set, Tuple, Union)
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import op_stats_generator
 
@@ -51,10 +61,14 @@ class VersionAndSource:
         return f"VersionAndSource({version_string}, {self.source})"
 
 
-def _to_version_and_source(version_and_source: VersionLiteralAndSource) -> VersionAndSource:
+def _to_version_and_source(
+    version_and_source: VersionLiteralAndSource,
+) -> VersionAndSource:
     if version_and_source.version == "nightly":
         return VersionAndSource(version_and_source.version, version_and_source.source)
-    return VersionAndSource(Version(version_and_source.version), version_and_source.source)
+    return VersionAndSource(
+        Version(version_and_source.version), version_and_source.source
+    )
 
 
 class BuildEnv(NamedTuple):
@@ -64,8 +78,10 @@ class BuildEnv(NamedTuple):
     optional: bool
 
     def __repr__(self):
-        return f"BuildEnv(Python {self.py_ver}, PT {self.pt_ver_and_src}, " \
+        return (
+            f"BuildEnv(Python {self.py_ver}, PT {self.pt_ver_and_src}, "
             f"venv: '{self.venv_dir}', optional: {self.optional})"
+        )
 
 
 class WheelConfig(NamedTuple):
@@ -82,8 +98,12 @@ class WheelConfig(NamedTuple):
 venv_base_dir = os.path.join(os.environ["HOME"], ".venvs")
 
 
-supported_pt_versions = tuple(map(_to_version_and_source, profiles.get_available_versions()))
-recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and_source("current"))
+supported_pt_versions = tuple(
+    map(_to_version_and_source, profiles.get_available_versions())
+)
+recommended_pt_version = _to_version_and_source(
+    profiles.get_version_literal_and_source("current")
+)
 
 supported_python_versions = (
     Version("3.8"),
@@ -184,7 +204,8 @@ def get_supported_python_version(
 
 
 def get_supported_pt_version(
-    candidate: Union[str, Version], supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]]
+    candidate: Union[str, Version],
+    supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]],
 ) -> Optional[Union[VersionLiteralAndSource, VersionAndSource]]:
     for supported in supported_list:
         if supported.version == "nightly":
@@ -257,7 +278,9 @@ def prepare_env(venv_dir):
 
 def run(*args, venv=".") -> None:
     log.info(f"In venv {venv} calling `{' '.join(args)}`")
-    log.debug(f"^^^ called by {inspect.stack()[1].function} at {inspect.stack()[1].filename}:{inspect.stack()[1].lineno}")
+    log.debug(
+        f"^^^ called by {inspect.stack()[1].function} at {inspect.stack()[1].filename}:{inspect.stack()[1].lineno}"
+    )
     # must run through shell because otherwise changing PATH has no effect
     sp.check_call(
         " ".join(args), env=prepare_env(venv), shell=True, executable="/bin/bash"
@@ -392,7 +415,9 @@ def resolve_pip_args(version_and_source: VersionAndSource) -> Tuple[str, ...]:
         # source must be an index_url
         args += ("--extra-index-url", source)
 
-    return args + (profiles.get_required_pt(version, profiles.RequirementPurpose.BUILD), )  # e.g. 'torch==1.12.0'
+    return args + (
+        profiles.get_required_pt(version, profiles.RequirementPurpose.BUILD),
+    )  # e.g. 'torch==1.12.0'
 
 
 def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
@@ -410,7 +435,9 @@ def install_pt(pt_ver: VersionAndSource, venv_python, venv_dir, user):
     )
 
 
-def install_requirements(pt_modules_root, pt_ver: VersionAndSource, venv_dir, venv_python, label=None) -> Optional[Version]:
+def install_requirements(
+    pt_modules_root, pt_ver: VersionAndSource, venv_dir, venv_python, label=None
+) -> Optional[Version]:
     user = tuple()
     if venv_dir is None:
         user = ("--user",)
@@ -448,9 +475,23 @@ def install_requirements(pt_modules_root, pt_ver: VersionAndSource, venv_dir, ve
     return query_installed_pt_ver(venv_dir, venv_python, label=label)
 
 
-def needs_to_install_torch_from_requirements_file(venv_dir, venv_python, requirements_args: str):
+def needs_to_install_torch_from_requirements_file(
+    venv_dir, venv_python, requirements_args: str
+):
     # Last line is "Would install package-version package2-version2"
-    would_install = outof(venv_python, "-m", "pip", "install", "--dry-run", requirements_args, venv=venv_dir).strip().splitlines()[-1]
+    would_install = (
+        outof(
+            venv_python,
+            "-m",
+            "pip",
+            "install",
+            "--dry-run",
+            requirements_args,
+            venv=venv_dir,
+        )
+        .strip()
+        .splitlines()[-1]
+    )
     would_install_packages = would_install.split(" ")[2:]
     return any(package.startswith("torch-") for package in would_install_packages)
 
@@ -542,7 +583,9 @@ def prepare_venv(
         if installed_pt_ver is None:
             update = True
         if pt_ver.source.startswith("-r"):
-            update = needs_to_install_torch_from_requirements_file(venv_dir, venv_python, os.path.expandvars(pt_ver.source))
+            update = needs_to_install_torch_from_requirements_file(
+                venv_dir, venv_python, os.path.expandvars(pt_ver.source)
+            )
 
     if recreate_venv == RecreateVenv.NEVER or pt_ver.source == "preinstalled":
         update = False
@@ -758,7 +801,11 @@ def prepare_build_dirs(
                 )
 
         wheel_configs = create_wheel_targets(
-            wheels_per_build_envs, whl_build_dir, cmake_configurations.keys(), pmake, args.verbose
+            wheels_per_build_envs,
+            whl_build_dir,
+            cmake_configurations.keys(),
+            pmake,
+            args.verbose,
         )
 
         create_ctest_target(pmake)
@@ -815,8 +862,12 @@ def create_collect_binaries_target(
         destinations.append(destination)
         # all rules are phony because these are not actual files
         pmake(f".PHONY: {destination}/all {destination}/wheel_install")
-        pmake(".SECONDEXPANSION:")  # GNU Make specific hax to expand $$ in prerequisite list
-        pmake(f"{destination}/all {destination}/wheel_install: intermediate/$$(notdir $$@)")
+        pmake(
+            ".SECONDEXPANSION:"
+        )  # GNU Make specific hax to expand $$ in prerequisite list
+        pmake(
+            f"{destination}/all {destination}/wheel_install: intermediate/$$(notdir $$@)"
+        )
         pmake("\tDESTINATION=$(dir $@);\\")
         pmake("\trm $$DESTINATION/*.so* 2>/dev/null;\\")
         pmake("\trm $$DESTINATION/*.py 2>/dev/null;\\")
@@ -829,11 +880,15 @@ def create_collect_binaries_target(
         #         f'\techo "Copying {pt_ver_and_src.version} targets from {source} to $$DESTINATION" &&\\'
         #     )
         #     pmake(f"\tcp -f {source}/*.so.{pt_ver_and_src.version}* $$DESTINATION &&\\")
-        source = target_absdir(py_ver, next(iter(lib_versions)).version.label, cmake_config)
+        source = target_absdir(
+            py_ver, next(iter(lib_versions)).version.label, cmake_config
+        )
         pmake(f'\techo "Copying remaining targets from {source} to $$DESTINATION" &&\\')
         pmake(f"\tcp -fs {source}/*.so* $$DESTINATION && \\")
         pmake(f"\tcp -fs {source}/*.py $$DESTINATION && \\")
-        pmake(f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\")  # skip if not building tests
+        pmake(
+            f"\t(cp -fs {source}/test_* $$DESTINATION || true) && \\"
+        )  # skip if not building tests
         cmake_config_upper = cmake_config.upper()
         pmake(
             '\tfind -D exec $${DESTINATION} -maxdepth 1 "(" -name "*.so*" -o -name "*.py" ")" '
@@ -843,9 +898,13 @@ def create_collect_binaries_target(
             r" -exec cp -fs {} $$BUILD_ROOT_LATEST \;"
         )
 
-    pmake("all wheel_install: " + " ".join(f"{single_destination}/$$@" for single_destination in destinations))
+    pmake(
+        "all wheel_install: "
+        + " ".join(f"{single_destination}/$$@" for single_destination in destinations)
+    )
     top_level_linux_wheel_targets = " ".join(
-        f"wheel_{wheel_target.wheel_name}/linux" for wheel_target in list(wheels_per_build_envs.values())[0]
+        f"wheel_{wheel_target.wheel_name}/linux"
+        for wheel_target in list(wheels_per_build_envs.values())[0]
     )
     pmake("intermediate/wheel_install: " + top_level_linux_wheel_targets)
 
@@ -880,13 +939,21 @@ def create_wheel_target_for_single_python(
 
     cmake_configuration = cmake_configuration.upper()
     pkgs_dir = f"${{PYTORCH_MODULES_{cmake_configuration}_BUILD}}/pkgs"
-    versioned_pkgs_dir = pkgs_dir + "_" + str(pt_vers[0].version.base_version) if len(pt_vers) == 1 else ""
+    versioned_pkgs_dir = (
+        pkgs_dir + "_" + str(pt_vers[0].version.base_version)
+        if len(pt_vers) == 1
+        else ""
+    )
 
     pmake(f".PHONY: {wheel_target}/linux")
     pmake(f"{wheel_target}/linux:\n\t")
 
-    platform_wheel = f"py{py_ver}/{wheel_name}/{wheel_target}/{cmake_configuration}/linux"
-    new_serializer = f"py{py_ver}/{wheel_name}/{wheel_target}{cmake_configuration}/linux_serial"
+    platform_wheel = (
+        f"py{py_ver}/{wheel_name}/{wheel_target}/{cmake_configuration}/linux"
+    )
+    new_serializer = (
+        f"py{py_ver}/{wheel_name}/{wheel_target}{cmake_configuration}/linux_serial"
+    )
     pmake(f".PHONY: {platform_wheel} {new_serializer}")
     pmake(
         f"{platform_wheel} {new_serializer}: "
@@ -895,7 +962,7 @@ def create_wheel_target_for_single_python(
     pmake(
         f"\t{'-' if optional else ''}cd $$PYTORCH_MODULES_ROOT_PATH/{whl_source_dir} && {activate} &&\\"
     )
-    verbosity = '--verbose' if verbose >= 2 else ''
+    verbosity = "--verbose" if verbose >= 2 else ""
     pmake(
         f'\tRELEASE_VERSION="{get_release_version()}" PT_WHEEL_VERS="{pt_wheel_vers}" '
         f'PT_WHEEL_NAME="{full_wheel_name}" PYTORCH_MODULES_WHL_BUILD_DIR={whl_build_dir}/py{py_ver} '
@@ -934,7 +1001,11 @@ def create_wheel_target_for_single_python(
 
 
 def create_wheel_targets(
-    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource], whl_build_dir, cmake_configurations: Sequence[str], pmake, verbose
+    wheels_per_build_envs: Dict[BuildEnv, WheelNameAndSource],
+    whl_build_dir,
+    cmake_configurations: Sequence[str],
+    pmake,
+    verbose,
 ) -> List[WheelConfig]:
     """Returns a list of wheel configs to be built"""
     wheel_configs = []
@@ -1090,15 +1161,17 @@ def prepare_single_build_directory(
     )
     pmake(f".PHONY: {subtarget}/all {subtarget}/wheel {subtarget}/ctest")
     pmake(f"{subtarget}/all:")
-    pmake(f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))")
+    pmake(
+        f"\t{activate} && cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS))"
+    )
     pmake(f"SUBNAMES += {subtarget}")
     for build_env in build_envs:
         pmake(f"SUBNAMES_PY_{build_env.py_ver}_{cmake_config.upper()} += {subtarget}")
     pmake(f"{subtarget}/wheel_install:")
     pt_ver_dir = common_venv_build_env.pt_ver_and_src.version.label.replace(".", "_")
     wheel_installs = [
-        f"\t{'-' if build_env.optional else ''} " \
-        f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} " \
+        f"\t{'-' if build_env.optional else ''} "
+        f"DESTDIR={whl_build_dir}/py{build_env.py_ver}/pt{pt_ver_dir} "
         f"cmake --build {current_ver_build_dir} $(filter -j%,$(MAKEFLAGS)) --target install"
         for build_env in build_envs
     ]
@@ -1189,7 +1262,9 @@ def build(
 ):
     with chdir(work_dir):
         jobs = ("-j", str(jobs)) if jobs else tuple()
-        verbose = ("VERBOSE=1",) if verbose >= 2 else tuple() if verbose == 1 else ("-s",)
+        verbose = (
+            ("VERBOSE=1",) if verbose >= 2 else tuple() if verbose == 1 else ("-s",)
+        )
         use_icecc = ("CCACHE_PREFIX=icecc",) if use_icecc else tuple()
         try:
             run(
@@ -1255,11 +1330,15 @@ def get_cmake_configurations(args) -> Dict[str, str]:
         cmake_flags.set_if_missing("IWYU", "")
     if args.sanitize:
         cmake_flags.set_if_missing("SANITIZER", "ON")
+    if args.thread_sanitize:
+        cmake_flags.set_if_missing("THREAD_SANITIZER", "ON")
     if args.no_cpp_tests:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
     if args.upstream_compile:
         cmake_flags.set_if_missing("UPSTREAM_COMPILE", "ON")
-    cmake_flags.set_if_missing("BUILD_PKGS", "OFF")  # wheel builds are now handled in multi-build Makefile
+    cmake_flags.set_if_missing(
+        "BUILD_PKGS", "OFF"
+    )  # wheel builds are now handled in multi-build Makefile
 
     build_type = "CMAKE_BUILD_TYPE"
     debug = "Debug"
@@ -1348,18 +1427,24 @@ def run_ctest_on_dirs(cmake_build_configs):
 
 
 def resolve_python_from_venv(venv_dir: str, build_envs: Sequence[BuildEnv]) -> str:
-    matching_build_env = next(filter(lambda build_env: build_env.venv_dir == venv_dir, build_envs))
+    matching_build_env = next(
+        filter(lambda build_env: build_env.venv_dir == venv_dir, build_envs)
+    )
     return get_python_exec(matching_build_env)
 
 
-def generate_op_stats(cmake_build_configs: List[Tuple[str, str, bool]], build_envs: Sequence[BuildEnv]) -> None:
+def generate_op_stats(
+    cmake_build_configs: List[Tuple[str, str, bool]], build_envs: Sequence[BuildEnv]
+) -> None:
     output_dir = os.getenv("HABANA_LOGS")
     for build_directory, venv_directory, _ in cmake_build_configs:
         if "Release" in build_directory:
             log.info("Generating operator statistics for %s", build_directory)
             venv_python = resolve_python_from_venv(venv_directory, build_envs)
             torch_installation_dir = query_torch_path(venv_python, venv_directory)
-            op_stats_generator.generate_stats(torch_installation_dir, build_directory, output_dir)
+            op_stats_generator.generate_stats(
+                torch_installation_dir, build_directory, output_dir
+            )
 
 
 def install_wheel():
@@ -1413,7 +1498,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--python-versions", "--py-versions",
+        "--python-versions",
+        "--py-versions",
         choices=supported_python_versions + ("all", "current"),
         nargs="+",
         default=("current",),
@@ -1449,9 +1535,7 @@ def parse_args():
     )
 
     ext_args.add_argument(
-        "-i", "--install-ext",
-        action="store_true",
-        help="Install extension wheels"
+        "-i", "--install-ext", action="store_true", help="Install extension wheels"
     )
 
     parser.add_argument(
@@ -1509,6 +1593,12 @@ def parse_args():
         "-s", "--sanitize", action="store_true", help="Build with sanitizers"
     )
     parser.add_argument(
+        "-t",
+        "--thread-sanitize",
+        action="store_true",
+        help="Build with thread sanitizer. Cannot be used simultanously with --sanitize",
+    )
+    parser.add_argument(
         "-l",
         "--no_cpp_tests",
         action="store_true",
@@ -1524,9 +1614,7 @@ def parse_args():
         action="store_true",
         help="Generate operator statistics",
     )
-    parser.add_argument(
-        "--tidy", action="store_true", help="Build with clang-tidy"
-    )
+    parser.add_argument("--tidy", action="store_true", help="Build with clang-tidy")
     parser.add_argument(
         "--no-iwyu", action="store_true", help="Build without Include What You Use"
     )
@@ -1691,7 +1779,9 @@ class ManylinuxRunner(object):
         sp.check_call(command, shell=True)
 
 
-def select_targets_and_configs(args, wheel_configs: List[WheelConfig]) -> Tuple[Set, List]:
+def select_targets_and_configs(
+    args, wheel_configs: List[WheelConfig]
+) -> Tuple[Set, List]:
     if args.no_ext_build:
         return {"all"}, []
 
@@ -1718,7 +1808,9 @@ def get_newest_file(files: Sequence[str]) -> str:
     return files[newest_file_index]
 
 
-def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConfig], args):
+def log_produced_wheels_and_dump_manifest(
+    selected_wheel_configs: List[WheelConfig], args
+):
     log.info("Produced wheels:")
     wheel_manifest = []
     for no, wheel_config in enumerate(selected_wheel_configs):
@@ -1726,12 +1818,21 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConf
         if wheel_list:
             produced_wheel = get_newest_file(wheel_list)
             if len(wheel_list) > 1:
-                log.debug("More than one file matched wheel file path pattern: %s", ', '.join(wheel_list))
-            optional = 'optional ' if wheel_config.optional else ''
-            fixed_venv_dirs = ', and in '.join(_fix_venv_dirs_if_manylinux(wheel_config.venv_dirs))
-            install_info = f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
-            wheel_info = f"wheel {wheel_config.full_wheel_name}" \
-                         f"(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
+                log.debug(
+                    "More than one file matched wheel file path pattern: %s",
+                    ", ".join(wheel_list),
+                )
+            optional = "optional " if wheel_config.optional else ""
+            fixed_venv_dirs = ", and in ".join(
+                _fix_venv_dirs_if_manylinux(wheel_config.venv_dirs)
+            )
+            install_info = (
+                f" and installed in {fixed_venv_dirs}" if args.install_ext else ""
+            )
+            wheel_info = (
+                f"wheel {wheel_config.full_wheel_name}"
+                f"(pt_vers={wheel_config.pt_vers}, py_ver={wheel_config.py_ver})"
+            )
             log.info(
                 f" {no: 2}) Built {optional}{wheel_info} in {produced_wheel}{install_info}"
             )
@@ -1751,12 +1852,14 @@ def log_produced_wheels_and_dump_manifest(selected_wheel_configs: List[WheelConf
                 os.environ["PYTORCH_MODULES_RELEASE_BUILD"], "wheel_manifest.json"
             ),
             "w",
-            encoding="utf-8"
+            encoding="utf-8",
         ) as wheel_manifest_fd:
             json.dump(wheel_manifest, wheel_manifest_fd)
 
 
-def list_wheel_specs_for_specific_pt_versions(versions: Set[VersionAndSource]) -> List[WheelSpec]:
+def list_wheel_specs_for_specific_pt_versions(
+    versions: Set[VersionAndSource],
+) -> List[WheelSpec]:
     return [
         WheelSpec(
             wheel_name="habana_torch_plugin",
@@ -1791,7 +1894,9 @@ def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
                         )
                         pt_versions.add(recommended_pt_version)
                     else:
-                        supported = get_supported_pt_version(preinstalled_pt_version, supported_pt_versions)
+                        supported = get_supported_pt_version(
+                            preinstalled_pt_version, supported_pt_versions
+                        )
                         if not supported:
                             log.fatal(
                                 f"Requested 'preinstalled' PT version ({preinstalled_pt_version}), "
@@ -1799,19 +1904,31 @@ def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
                                 f"are {supported_pt_versions}."
                             )
                             sys.exit(1)
-                        pt_versions.add(VersionAndSource(supported.version, "preinstalled"))
+                        pt_versions.add(
+                            VersionAndSource(supported.version, "preinstalled")
+                        )
                 elif "://" in requested:  # URI
                     pt_versions.add(VersionAndSource(Version(requested), "uri"))
                 else:
                     try:  # support names matching those from 'pt_versions' in profiles.json (e.g. "current")
-                        version_literal_and_source = profiles.get_version_literal_and_source(requested)
+                        version_literal_and_source = (
+                            profiles.get_version_literal_and_source(requested)
+                        )
                         if version_literal_and_source is not None:
-                            pt_versions.add(_to_version_and_source(version_literal_and_source))
-                    except KeyError:  # if not given by name, try finding profile by PT version
-                        supported = get_supported_pt_version(Version(requested), supported_pt_versions)
+                            pt_versions.add(
+                                _to_version_and_source(version_literal_and_source)
+                            )
+                    except (
+                        KeyError
+                    ):  # if not given by name, try finding profile by PT version
+                        supported = get_supported_pt_version(
+                            Version(requested), supported_pt_versions
+                        )
                         if not supported:
-                            log.fatal(f"Requested {requested} PT version which is not supported. Currently supported PT"
-                                      f" versions are {supported_pt_versions}.")
+                            log.fatal(
+                                f"Requested {requested} PT version which is not supported. Currently supported PT"
+                                f" versions are {supported_pt_versions}."
+                            )
                         pt_versions.add(supported)
             wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
     return preinstalled_pt_version, wheel_specs
@@ -1897,7 +2014,7 @@ def install_wheels_in_venvs(selected_wheel_configs):
                     "install",
                     "--force-reinstall",
                     get_newest_file(wheel_list),
-                    venv=venv
+                    venv=venv,
                 )
         # else: checked in log_produced_wheels_and_dump_manifest
 
@@ -1930,14 +2047,22 @@ def main():
 
         current_pt_version, wheel_specs = prepare_wheel_specs(args, current_pt_version)
 
-        selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
-        log.debug(
-            f"Selected PyTorch versions: {selected_pt_versions}"
+        selected_pt_versions = set(
+            [item for sublist in wheel_specs for item in sublist.pt_versions]
         )
+        log.debug(f"Selected PyTorch versions: {selected_pt_versions}")
         unsupported_pt_versions = selected_pt_versions.difference(supported_pt_versions)
-        unsupported_pt_versions = list(filter(lambda ver_and_str: ver_and_str.version != "nightly" and ver_and_str.source not in ("preinstalled", "uri"), unsupported_pt_versions))
+        unsupported_pt_versions = list(
+            filter(
+                lambda ver_and_str: ver_and_str.version != "nightly"
+                and ver_and_str.source not in ("preinstalled", "uri"),
+                unsupported_pt_versions,
+            )
+        )
         if unsupported_pt_versions:
-            log.fatal(f"Selected unsupported PyTorch versions: {unsupported_pt_versions}")
+            log.fatal(
+                f"Selected unsupported PyTorch versions: {unsupported_pt_versions}"
+            )
             sys.exit(1)
 
         wheels_per_build_envs = prepare_build_envs(
