@@ -15,6 +15,7 @@ sourceControl:
     - specs_external
     - hcl
     - huda
+    - media
     - swtools_sdk
     - synapse
     - synapse_profiler
