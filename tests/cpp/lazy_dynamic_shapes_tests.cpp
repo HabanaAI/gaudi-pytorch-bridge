@@ -2560,3 +2560,36 @@ TEST_F(LazyDynamicShapesTest, DISABLED_CatOutTest) {
   torch::cat_outf({hX, hY}, 0, h_out2);
   EXPECT_EQ(allclose(h_out2.to(torch::kCPU), out2, 0.001, 0.001), true);
 }
+
+TEST_F(LazyDynamicShapesTest, H2D_API_test) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
+  }
+
+  std::vector<int64_t> in_sizes{6144, 24576, 98304};
+  std::vector<std::vector<int64_t>> out_sizes{
+      {2, 2, 32, 32}, {2, 2, 64, 64}, {2, 2, 128, 128}};
+  std::vector<std::vector<int64_t>> strides{
+      {3072, 1024, 32, 1}, {12288, 4096, 64, 1}, {49152, 16384, 128, 1}};
+  std::vector<int64_t> offsets{1024, 4096, 16384};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    auto in_s = in_sizes[i];
+    c10::IntArrayRef out_s(out_sizes[i].data(), out_sizes[i].size());
+    auto stride = strides[i];
+    auto offset = offsets[i];
+
+    PT_TEST_DEBUG("\n PTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({in_s});
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor hOut = torch::as_strided(hA, out_s, stride, offset);
+    torch::Tensor out = torch::as_strided(A, out_s, stride, offset);
+    hOut = hOut.add_(1.0);
+    out = out.add_(1.0);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
+}

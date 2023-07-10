@@ -384,7 +384,7 @@ synapse_error_o tensor::create() {
 
   if (is_host_to_device_tensor()) {
     status = synTensorSetHostPtr(
-        tensor_, host_ptr_, total_size_bytes_ * 2, data_type_, false);
+        tensor_, host_ptr_, total_size_bytes_ * 2, data_type_, true);
     SYNAPSE_SUCCESS_CHECK_WITH_OP("Set host ptr failed.", status, cleanup());
   }
 
