@@ -147,8 +147,6 @@ def get_sync_debug_mode() -> int:
 
 
 def setDeterministic(val: bool) -> None:
-    if not is_initialized():
-        init()
     _hpu_C.setDeterministic(val)
 
 

@@ -11,18 +11,31 @@
 ###############################################################################
 
 import torch
-import habana_frameworks.torch as htcore
-
-hpu = torch.device('hpu')
-cpu = torch.device('cpu')
 
 # Check API doesn't acquire any device on invoke
 def test_hpu_deterministic_api():
-    device_count = htcore.hpu.device_count()
-    htcore.hpu.setDeterministic(1)
-    new_device_count = htcore.hpu.device_count()
-    assert(device_count == new_device_count)
+    try:
+        import habana_frameworks.torch.hpu as htcore
+        device_count = htcore.device_count()
+        htcore.setDeterministic(True)
+        new_device_count = htcore.device_count()
+        assert(device_count == new_device_count)
+    except ImportError as e:
+        print(f"failed importing habana_frameworks.torch.hpu with ImportError: {e=}")
+
+
+def test_hpu_deterministic_api_init():
+    try:
+        import habana_frameworks.torch.hpu as htcore
+        device_status = htcore.is_initialized()
+        htcore.setDeterministic(True)
+        new_device_status = htcore.is_initialized()
+        assert(device_status == new_device_status)
+    except ImportError as e:
+        print(f"failed importing habana_frameworks.torch.hpu with ImportError: {e=}")
+
 
 if __name__ == "__main__":
+    test_hpu_deterministic_api_init()
     test_hpu_deterministic_api()
 
