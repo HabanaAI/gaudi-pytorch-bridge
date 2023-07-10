@@ -57,6 +57,6 @@ orchestratorConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   codeCoverageConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
-  coverityConfig:
+#  coverityConfig:
 stepConfig:
   jobTimeout: '300'
