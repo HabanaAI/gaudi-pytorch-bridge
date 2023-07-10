@@ -785,7 +785,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
         !is_hccl_send_mark_step()) {
       if (!ti->is_ZST()) {
-        setSynapsePermuteFlag(sh_t, ti);
+        setSynapsePermuteFlag(sh_t, ti, ivpsh);
         if (pt_to_synapse_tensors.count(ivpsh)) {
           PT_BRIDGE_DEBUG(
               habana_helpers::DebugString(ivpsh),
@@ -1778,7 +1778,8 @@ void HabanaLaunchOpPT::validateOutputShape(
 
 void HabanaLaunchOpPT::setSynapsePermuteFlag(
     synapse_helpers::tensor& out_syntensor,
-    PtTensorInfoShared& ti) {
+    PtTensorInfoShared& ti,
+    IValPtrShared ivpsh) {
   if (out_syntensor.get() == nullptr || out_syntensor.is_dont_allow_permute()) {
     PT_BRIDGE_DEBUG(
         "Not setting synapse allow permutation on tensor: ",
@@ -1790,7 +1791,9 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 
   auto rank = out_syntensor.pt_shape().size();
-  if (rank >= 2) {
+  auto is_partial_view =
+      (ivpsh->toTensor().nbytes() != ivpsh->toTensor().storage().nbytes());
+  if ((rank >= 2) & !is_partial_view) {
     PT_BRIDGE_DEBUG(
         "Setting synapse allow permutation on tensor: ",
         out_syntensor.id(),
@@ -2425,6 +2428,14 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " because it is 0D/1D");
           continue;
         }
+        auto& t = ival->toTensor();
+        if (t.nbytes() != t.storage().nbytes()) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because it is a view");
+          continue;
+        }
         if (out_syntensor.ref().is_dont_allow_permute()) {
           PT_BRIDGE_DEBUG(
               "Not setting synapse allow permutation on tensor: ",
@@ -2444,6 +2455,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       auto iter = pt_to_synapse_tensors.find(ival);
       HABANA_ASSERT(pt_to_synapse_tensors.count(ival));
       if (iter != pt_to_synapse_tensors.end()) {
+        // TODO refactor the below code to remove code duplication
         auto syn_vec = (iter->second);
         auto& out_syntensor = (*syn_vec)[0];
         if (out_syntensor.ref().get() == nullptr) {
@@ -2465,6 +2477,14 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               "Not setting synapse allow permutation on tensor: ",
               out_syntensor.ref().id(),
               " because it is 0D/1D");
+          continue;
+        }
+        auto& t = ival->toTensor();
+        if (t.nbytes() != t.storage().nbytes()) {
+          PT_BRIDGE_DEBUG(
+              "Not setting synapse allow permutation on tensor: ",
+              out_syntensor.ref().id(),
+              " because it is a view");
           continue;
         }
         if (out_syntensor.ref().is_dont_allow_permute()) {
