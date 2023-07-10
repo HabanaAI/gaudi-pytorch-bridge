@@ -1854,6 +1854,14 @@ run_lightning_habana_fw_tests()
         ((__test_status=__test_status || $?))
 
         popd
+        pushd $LIGHTNING_HABANA_FORK_ROOT/examples/
+        echo "Executing Lightning Habana examples"
+        pip freeze list
+        (set -x; eval python mnist_trainer.py)
+        ((__test_status=__test_status || $?))
+        (LOWER_LIST=ops_fp32_mnist.txt FP32_LIST=ops_bf16_mnist.txt python mnist_trainer.py -r autocast)
+        ((__test_status=__test_status || $?))
+        popd
     fi
 
     # return error code of the tests
