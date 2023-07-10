@@ -21,6 +21,11 @@ def checkYAMLLinter = [
         """)
     }
 ]
+def ccacheStats = [
+    'Print CCache statistics': { util ->
+        util.runShellCommandWrapper("ccache --show-stats --show-config")
+    }
+]
 def pytorchLightningFork = [
     'Build Pytorch lightning fork': { util ->
         util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
@@ -39,6 +44,16 @@ def habanaLightningPlugins = [
         util.runBuildShell('build_habana_lightning_plugins')
     }
 ]
+def pytorchFork = [
+    'Build Pytorchfork modules': { util ->
+        util.runBuildShell('build_pytorch_fork --dist')
+        util.runShellCommandWrapper("""
+            set -xe
+            __clean_pytorch_dev_py_deps
+            pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
+        """)
+    }
+]
 def preBuildStages = [
     'Install Python test dependencies': { util ->
         util.runShellCommandWrapper("""
@@ -53,16 +68,9 @@ def preBuildStages = [
         util.runShellCommandWrapper('rm -rf ${PYTORCH_LIGHTNING_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl')
         util.runShellCommandWrapper('rm -rf ${HABANA_LIGHTNING_PLUGINS_BUILD}/dist/*.whl')
-    },
-    'Build Pytorchfork modules': { util ->
-        util.runBuildShell('build_pytorch_fork --dist')
-        util.runShellCommandWrapper("""
-            set -xe
-            __clean_pytorch_dev_py_deps
-            pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
-        """)
     }
 ]
+preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
 if(env.GERRIT_PROJECT == 'pytorch-integration' && env.IS_PROMOTE == "false") {
     preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
 }
@@ -72,7 +80,7 @@ if((env.GERRIT_PROJECT == 'pytorch-lightning-fork' || env.GERRIT_PROJECT == 'Hab
 if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && env.IS_PROMOTE == "false") {
     preBuildStages =  preBuildStages + lightningHabanaFork
 }
-preBuildStages =  preBuildStages + habanaLightningPlugins + lightningHabanaFork
+preBuildStages =  preBuildStages + habanaLightningPlugins + lightningHabanaFork + ccacheStats
 def buildCommands = [
     'Pytorch vision fork': 'build_pytorch_vision_fork',
     'Pytorch modules': 'build_pytorch_modules'
