@@ -105,22 +105,6 @@ launchers:
   - repository: pytorch-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_8cards_ptl_fw_uts
-  silentMode: true
-  gerritTriggerMap:
-  - repository: pytorch-lightning-fork
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_8cards_ptl_fw_uts
-  silentMode: true
-  gerritTriggerMap:
-  - repository: pytorch-lightning-fork
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_ptl_plugin_uts
-  silentMode: true
-  gerritTriggerMap:
-  - repository: Habana-Lightning-Plugins
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_ptl_plugin_uts
-  silentMode: true
-  gerritTriggerMap:
-  - repository: Habana-Lightning-Plugins
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_lightning_habana_uts
   silentMode: false
   gerritTriggerMap:
