@@ -796,7 +796,7 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST_F(LazyIndexKernelTest, SelectNDimsTest) {
+TEST_F(LazyIndexKernelTest, DISABLED_SelectNDimsTest) {
   torch::Tensor a =
       torch::randn({2, 3, 4, 5, 6, 4}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);

@@ -62,29 +62,30 @@ struct Slice : public ir::Node {
       auto hl_shape = GetOrCreateHbLazyTensor(shape_t, c10::kHPU);
       AddInput(hl_shape.GetIrValue());
       input_pt_vec.emplace_back(shape_t);
-      auto dims = self.dim();
-      std::vector<int64_t> step_vec(dims, 1);
-      step_vec[dim] = step;
-      auto step_t = empty_hpu_lazy(
-          c10::IntArrayRef(step_vec.data(), step_vec.size()),
+
+      std::vector<int64_t> host_params{
+          self.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
+      int index = self.dim() - dim;
+      host_params[index] = step;
+      host_params[index + 5] = start;
+      auto host_tensor = empty_hpu_lazy(
+          host_params.size() * 2,
           self.options(),
-          c10::MemoryFormat::Contiguous,
+          self.suggest_memory_format(),
           false,
-          SHAPE_TENSOR);
-      auto hl_step = GetOrCreateHbLazyTensor(step_t, c10::kHPU);
-      AddInput(hl_step.GetIrValue());
-      input_pt_vec.emplace_back(step_t);
-      std::vector<int64_t> start_vec(dims, 0);
-      start_vec[dim] = start;
-      auto start_t = empty_hpu_lazy(
-          c10::IntArrayRef(start_vec.data(), start_vec.size()),
-          self.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      auto hl_start = GetOrCreateHbLazyTensor(start_t, c10::kHPU);
-      AddInput(hl_start.GetIrValue());
-      input_pt_vec.emplace_back(start_t);
+          HOST_TO_DEVICE_TENSOR);
+      auto hl_param_tensor = GetOrCreateHbLazyTensor(host_tensor, c10::kHPU);
+      auto hl_param_tensor_internal =
+          hl_param_tensor.CurrentTensorAttached().value();
+      auto host_tmeta{habana::get_tensor_extra_meta(hl_param_tensor_internal)};
+      host_tmeta->set_host_data(
+          host_params.data(),
+          host_params.size(),
+          sizeof(uint64_t),
+          habana::HostDataType::UINT64_T);
+      host_tmeta->set_H2D_data_for_bucketing();
+      AddInput(hl_param_tensor.GetIrValue());
+      input_pt_vec.emplace_back(host_tensor);
     } else {
       m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
       m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
@@ -111,20 +112,15 @@ struct Slice : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    if (habana_helpers::GetRefineDynamicShapeStatus() &&
-        (m_inputs.size() == 4)) {
+    if (habana_helpers::GetRefineDynamicShapeStatus()) {
       auto& shape = m_inputs[1];
       HABANA_ASSERT(shape.DataPtrValidAndNotExpired());
       std::shared_ptr<Data> data_shape = shape.m_data_ptr.lock();
-      ss << ", shape =" << data_shape->sizes;
-      auto& start = m_inputs[3];
-      HABANA_ASSERT(start.DataPtrValidAndNotExpired());
-      std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
-      ss << ", start=" << data_start->sizes;
-      auto& step = m_inputs[2];
-      HABANA_ASSERT(step.DataPtrValidAndNotExpired());
-      std::shared_ptr<Data> data_step = step.m_data_ptr.lock();
-      ss << ", step=" << data_step->sizes;
+      ss << ", shape=" << data_shape->sizes;
+      auto& params = m_inputs[2];
+      HABANA_ASSERT(params.DataPtrValidAndNotExpired());
+      std::shared_ptr<Data> params_ = params.m_data_ptr.lock();
+      ss << ", params=" << params_->sizes;
     } else {
       ss << Node::ToString() << ", dim="
          << m_meta_data.get(static_cast<size_t>(SliceParms::DIM_INDEX));
