@@ -13,8 +13,6 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x
-    silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_container
     silentMode: true
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
@@ -49,8 +47,6 @@ orchestratorConfig:
 # deepspeed-fork <End>
   - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite
   - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_resnet50_suite
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards
-    silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_container
     silentMode: true
   sanitizerConfig:
