@@ -46,6 +46,7 @@ at::Tensor AtenFromHbLazyTensor(
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
+  auto const_tensor_id = HbLazy_tensor.GetConstTensorId();
   c10::Storage lazy_storage;
   CreateStorageForAtenTensor(
       scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
@@ -54,7 +55,7 @@ at::Tensor AtenFromHbLazyTensor(
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
       std::move(HbLazy_tensor), std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
-  habana::set_tensor_const(tensor, is_tensor_const);
+  habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;
 }
 
@@ -67,6 +68,7 @@ at::Tensor AtenFromHbLazyTensor(
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
+  auto const_tensor_id = HbLazy_tensor.GetConstTensorId();
   c10::Storage lazy_storage;
   CreateStorageForAtenTensor(
       scalarTypeToTypeMeta(HbLazy_tensor.dtype()).itemsize(),
@@ -75,7 +77,7 @@ at::Tensor AtenFromHbLazyTensor(
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
       HbLazy_tensor, std::move(lazy_storage)));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
-  habana::set_tensor_const(tensor, is_tensor_const);
+  habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;
 }
 
@@ -90,10 +92,11 @@ at::Tensor AtenFromHbLazyTensor(
   PT_LAZY_TRACE;
   HABANA_ASSERT(HbLazy_tensor.is_null() == false);
   auto is_tensor_const = HbLazy_tensor.IsConstTensor();
+  auto const_tensor_id = HbLazy_tensor.GetConstTensorId();
   at::Tensor tensor = at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
       std::move(HbLazy_tensor), storage, key_set));
   InitSizesAndStrides(tensor, tensor_type, size, stride, mem_format);
-  habana::set_tensor_const(tensor, is_tensor_const);
+  habana::set_tensor_const(tensor, is_tensor_const, const_tensor_id);
   return tensor;
 }
 
@@ -206,6 +209,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
     bool handle_collective,
     bool is_size_strides_update) {
   auto is_tensor_const = habana::is_tensor_const(tensor);
+  auto const_id = habana::get_tensor_const_id(tensor);
   HbLazyTensorImpl* impl = GetHbLazyTensorImpl(tensor);
   if (impl == nullptr) {
     return c10::nullopt;
@@ -231,7 +235,10 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
 
   auto is_impl_const = habana::is_tensor_const(*impl);
   if (is_impl_const || is_tensor_const) {
-    hl_t.SetIsConstTensor(true);
+    if (!habana::is_tensor_const_with_valid_const_id(tensor)) {
+      const_id = habana::get_tensor_const_id(*impl);
+    }
+    hl_t.SetIsConstTensor(true, const_id);
   }
 
   // It may happen, HPU Lazy Tensor might be created with {0} size

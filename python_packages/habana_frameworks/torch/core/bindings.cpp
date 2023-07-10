@@ -34,6 +34,12 @@ class SharedTensorExtraMeta {
   auto get_is_const_tensor() const {
     return get().is_const_tensor();
   }
+  auto set_const_id(int id) {
+    return get().set_const_id(id);
+  }
+  auto get_const_id() const {
+    return get().get_const_id();
+  }
   const habana::TensorExtraMeta& get() const {
     return tmeta_;
   }
@@ -130,7 +136,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def_property(
           "is_const_tensor",
           &SharedTensorExtraMeta::get_is_const_tensor,
-          &SharedTensorExtraMeta::set_is_const_tensor);
+          &SharedTensorExtraMeta::set_is_const_tensor)
+      .def_property(
+          "const_id",
+          &SharedTensorExtraMeta::get_const_id,
+          &SharedTensorExtraMeta::set_const_id);
   m.def("get_tensor_extra_meta", &SharedTensorExtraMeta::create);
   m.def("get_new_tensor_extra_meta", &SharedTensorExtraMeta::create_new);
   m.doc() = "This module registers hpu lazy api.";

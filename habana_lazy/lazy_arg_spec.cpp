@@ -130,6 +130,10 @@ void LazyArgumentSpec::GetArgSpecKey(
           static_cast<std::underlying_type<c10::MemoryFormat>::type>(m);
       mf_hash_code =
           at::hash_combine(mf_hash_code, at::get_hash(habana::mod_exp(m_int)));
+      if (habana::is_tensor_const_with_valid_const_id(in_tensor)) {
+        auto const_id = habana::get_tensor_const_id(in_tensor);
+        mf_hash_code = at::hash_combine(mf_hash_code, const_id);
+      }
       if (in_tensor.has_storage()) {
         auto hb_tensor = GetHbInternalTensorImpl(in_tensor);
         if (hb_tensor) {

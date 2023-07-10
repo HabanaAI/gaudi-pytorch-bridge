@@ -234,8 +234,9 @@ HbLazyTensor HbLazyTensor::Create(
     const at::Tensor& tensor,
     const c10::Device& device) {
   auto is_tensor_const = habana::is_tensor_const(tensor);
+  auto tensor_const_id = habana::get_tensor_const_id(tensor);
   HbLazyTensor habana_tensor(tensor, device);
-  habana_tensor.SetIsConstTensor(is_tensor_const);
+  habana_tensor.SetIsConstTensor(is_tensor_const, tensor_const_id);
   HbContextArena::Get()->RegisterTensor(habana_tensor.getDataPtr());
   return habana_tensor;
 }
@@ -962,7 +963,7 @@ torch::jit::Stack PrepareInputStack(
     auto is_const_tensor = habana::is_tensor_const(pt_tensor);
 
     if (d->is_const_tensor && !is_const_tensor) {
-      habana::set_tensor_const(pt_tensor, d->is_const_tensor);
+      habana::set_tensor_const(pt_tensor, d->is_const_tensor, d->const_id);
     }
 
     stack.emplace_back(pt_tensor);

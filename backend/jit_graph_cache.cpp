@@ -149,6 +149,7 @@ void ComputeGraphHashCode(
 
   // Handle the dims also
   size_t typedims_hash{0};
+  size_t constid_hash{0};
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
@@ -159,10 +160,15 @@ void ComputeGraphHashCode(
           static_cast<std::underlying_type<c10::ScalarType>::type>(pt_type)};
       typedims_hash =
           at::hash_combine(typedims_hash, habana::mod_exp(pt_type_int));
+      if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
+        auto const_id = habana::get_tensor_const_id(pt_tensor);
+        constid_hash = at::hash_combine(constid_hash, const_id);
+      }
     }
   }
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
+  graphHashCode = at::hash_combine(graphHashCode, constid_hash);
 
   if (!node_bcast_details.empty()) {
     std::hash<std::vector<bool>> hash_bcast;

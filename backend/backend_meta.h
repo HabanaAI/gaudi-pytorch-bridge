@@ -209,6 +209,10 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     return is_const_tensor_;
   }
 
+  bool has_valid_const_id() const {
+    return (const_id_ != -1);
+  }
+
   void set_tensor_type(synTensorType tensor_type) {
     tensor_type_ = tensor_type;
   }
@@ -343,9 +347,18 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     id_ = id;
   }
 
+  int get_const_id() const {
+    return const_id_;
+  }
+
+  void set_const_id(int id) {
+    const_id_ = id;
+  }
+
   void clone_host_buffer_info(const TensorExtraMeta& tmeta) {
     if (tmeta.get_compile_host_ptr()) {
       set_id(tmeta.get_id());
+      set_const_id(tmeta.get_const_id());
       set_host_size(tmeta.get_host_size());
       set_host_el_size(tmeta.get_host_el_size());
       total_elem_ = 2 * size_ * el_size_;
@@ -390,6 +403,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   ShapeTensorStruct shape_tensor_struct_{};
   bool is_redundant_ = false;
   int id_{-1};
+  int const_id_{-1};
   int total_elem_{0};
   // view meta
   bool is_view_{false};
@@ -438,20 +452,64 @@ inline bool is_tensor_const(const at::Tensor& tensor, bool relax = false) {
   return get_tensor_extra_meta(tensor, relax)->is_const_tensor();
 }
 
+inline int get_tensor_const_id(const at::TensorImpl& impl, bool relax = false) {
+  return get_ctensor_extra_meta(impl, relax)->get_const_id();
+}
+
+inline int get_tensor_const_id(const at::Tensor& tensor, bool relax = false) {
+  return get_tensor_extra_meta(tensor, relax)->get_const_id();
+}
+
+inline bool is_tensor_const_with_valid_const_id(
+    const at::TensorImpl& impl,
+    bool relax = false) {
+  auto tmeta = get_ctensor_extra_meta(impl, relax);
+  if (tmeta->is_const_tensor()) {
+    HABANA_ASSERT(
+        tmeta->has_valid_const_id(),
+        "Constant tensor does not have a valid constant id");
+  }
+  return true;
+}
+
+inline bool is_tensor_const_with_valid_const_id(
+    const at::Tensor& tensor,
+    bool relax = false) {
+  auto tmeta = get_tensor_extra_meta(tensor, relax);
+  if (tmeta->is_const_tensor()) {
+    HABANA_ASSERT(
+        tmeta->has_valid_const_id(),
+        "Constant tensor does not have a valid constant id");
+  }
+  return true;
+}
+
 inline void set_tensor_const(
     const at::Tensor& tensor,
     bool is_const,
+    int const_id,
     bool relax = false) {
-  get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_const);
+  auto tmeta = get_tensor_extra_meta(tensor, relax);
+  tmeta->set_is_const_tensor(is_const);
+  PT_BRIDGE_DEBUG(
+      "set_tensor_const: is_const ", is_const, " const_id: ", const_id);
+  if (is_const) {
+    HABANA_ASSERT(const_id != -1, "Const id can not be -1 for constant tensors")
+    HABANA_ASSERT(
+        tmeta->get_const_id() == -1 or tmeta->get_const_id() == const_id,
+        "Constant id already set for the tensor")
+    tmeta->set_const_id(const_id);
+  }
 }
 
 inline void get_and_set_tensor_const(
     const at::Tensor& tensor_src,
     const at::Tensor& tensor,
     bool relax = false) {
-  auto is_src_const =
-      get_tensor_extra_meta(tensor_src, relax)->is_const_tensor();
-  get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_src_const);
+  auto tmeta_src = get_tensor_extra_meta(tensor_src, relax);
+  auto is_src_const = tmeta_src->is_const_tensor();
+  auto src_const_id = tmeta_src->get_const_id();
+  habana::set_tensor_const(tensor, is_src_const, src_const_id);
 }
 
 inline void get_and_set_tensor_const(
@@ -460,6 +518,8 @@ inline void get_and_set_tensor_const(
     bool relax = false) {
   auto is_src_const = get_ctensor_extra_meta(impl, relax)->is_const_tensor();
   get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_src_const);
+  auto src_const_id = get_ctensor_extra_meta(impl, relax)->get_const_id();
+  get_tensor_extra_meta(tensor, relax)->set_const_id(src_const_id);
 }
 
 } // namespace habana

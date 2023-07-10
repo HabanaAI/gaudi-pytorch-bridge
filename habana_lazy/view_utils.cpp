@@ -550,8 +550,9 @@ Tensor HbLazyTensorViews::process_strided_view(
 Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
   PT_LAZY_TRACE;
   auto is_src_const = habana::is_tensor_const(src);
+  auto src_const_id = habana::get_tensor_const_id(src);
   auto out = src;
-  habana::set_tensor_const(out, is_src_const);
+  habana::set_tensor_const(out, is_src_const, src_const_id);
   auto hl_t = GetHbLazyTensor(src);
 
   bool is_view = hl_t.getDataPtr()->stride_params.has_value();
@@ -599,21 +600,21 @@ Tensor HbLazyTensorViews::HandleViewsD2H(const Tensor& src) {
       at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
           src.unsafeGetTensorImpl()->storage_offset());
 
-      habana::set_tensor_const(at_internal_tensor, is_src_const);
+      habana::set_tensor_const(at_internal_tensor, is_src_const, src_const_id);
       hl_t.SetTensorData(at_internal_tensor);
-      hl_t.SetIsConstTensor(is_src_const);
+      hl_t.SetIsConstTensor(is_src_const, src_const_id);
     } else {
       HandleViews(src, hl_t);
       hl_t = GetHbLazyTensor(src);
 
-      hl_t.SetIsConstTensor(is_src_const);
+      hl_t.SetIsConstTensor(is_src_const, src_const_id);
       std::vector<HbLazyTensor> tensors = {hl_t};
       HbLazyTensor::SyncTensorsGraph(&tensors);
     }
   } else {
     // check for updated version
     out = get_recent_base_tensor(src);
-    habana::set_tensor_const(out, is_src_const);
+    habana::set_tensor_const(out, is_src_const, src_const_id);
   }
 
   return out;

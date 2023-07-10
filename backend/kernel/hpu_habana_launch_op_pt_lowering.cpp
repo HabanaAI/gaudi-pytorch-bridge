@@ -318,7 +318,11 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       PT_BRIDGE_DEBUG("tensor is_const_tensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
         if (tmeta->is_const_tensor()) {
-          PT_BRIDGE_DEBUG("const tensor name:: ", tensor.name());
+          PT_BRIDGE_DEBUG(
+              "const tensor name:: ",
+              tensor.name(),
+              " const id:: ",
+              tmeta->get_const_id());
           // remove the const marking to avoid copy more than once
           TensorExtraMeta::set_const_tensor(src, false);
           PT_BRIDGE_DEBUG(
@@ -370,6 +374,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 reinterpret_cast<uint8_t*>(section_data),
                 reinterpret_cast<uint8_t*>(section_data) + section_size,
                 (uint8_t*)host_ptr);
+            HABANA_ASSERT(
+                tmeta->has_valid_const_id(),
+                "Constant tensor can not have constant id as -1");
             auto& device = HPURegistrar::get_device(device_id);
             auto& dst = iter->first->toTensor();
             if (old_size < section_size) {

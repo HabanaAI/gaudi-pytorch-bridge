@@ -180,6 +180,7 @@ struct Data {
   // used for carrying constant tensor metadata from aten::tensor to lazy to
   // backend tensor
   bool is_const_tensor = false;
+  int const_id = -1;
 };
 
 struct HbLazyFrontEndInfoToBackend {
@@ -492,8 +493,16 @@ class HbLazyTensor {
     return data()->is_const_tensor;
   }
 
-  void SetIsConstTensor(bool is_const) {
+  bool GetConstTensorId() const {
+    return data()->const_id;
+  }
+  void SetIsConstTensor(bool is_const, int const_id) {
     data()->is_const_tensor = is_const;
+    data()->const_id = const_id;
+    if (is_const) {
+      HABANA_ASSERT(
+          const_id != -1, "LazyTensor: Constant tensor can not have id as -1");
+    }
   }
 
  private:
