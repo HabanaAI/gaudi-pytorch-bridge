@@ -3,8 +3,6 @@ config:
   sharedCCacheEnabled: true
   gerritTriggerMap:
     - repository: pytorch-fork
-    - repository: pytorch-lightning-fork
-    - repository: Habana-Lightning-Plugins
     - repository: pytorch-vision-fork
     - repository: pytorch-integration
     - repository: lightning-habana-fork
