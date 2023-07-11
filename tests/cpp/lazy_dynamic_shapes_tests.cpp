@@ -57,6 +57,7 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyDynamicTest {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
