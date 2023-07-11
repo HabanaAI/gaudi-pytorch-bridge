@@ -6,7 +6,6 @@
 #include <torch/csrc/jit/passes/lower_tuples.h>
 #include <torch/csrc/jit/passes/peephole.h>
 #include <torch/csrc/jit/passes/specialize_autogradzero.h>
-#include "backend/passes/habana_fuser.h"
 #include "test_base.h"
 #include "test_utils.h"
 #include "torch/csrc/autograd/engine.h"
