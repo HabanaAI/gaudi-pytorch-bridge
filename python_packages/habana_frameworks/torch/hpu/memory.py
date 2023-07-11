@@ -111,7 +111,7 @@ def _extended_memory_summary_dict(device: Optional[_device_t] = None)->dict:
     return _hpu_C.get_extended_memory_summary()
 
 def _extended_memory_summary(device: Optional[_device_t] = None)->str:
-    return _format_memory_summary(_extended_memory_summary_dict)
+    return _format_memory_summary(_extended_memory_summary_dict())
 
 def _get_hlml_shared_object_name(device: Optional[_device_t] = None)->str:
     if device is None:

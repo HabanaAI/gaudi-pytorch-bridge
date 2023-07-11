@@ -13,6 +13,7 @@
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(lazy_tests_src
+    lazy_graph_passes/test_replace_inplace_ops.cpp
     lazy_add_composite_tests.cpp
     lazy_basic_kernel_tests.cpp
     lazy_binary_composite_kernel_tests.cpp

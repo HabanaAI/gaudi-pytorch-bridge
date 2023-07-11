@@ -18,15 +18,20 @@ using Value = torch::jit::Value;
 using Node = torch::jit::Node;
 
 static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
-    {{"aten::add_", "aten::add"},
-     {"hpu::add_", "hpu::add"},
-     {"aten::div_", "aten::div"},
-     {"aten::index_put_", "aten::index_put"},
-     {"aten::mul_", "aten::mul"},
-     {"aten::relu_", "aten::relu"},
-     {"aten::leaky_relu_", "aten::leaky_relu"},
-     {"aten::clamp_", "aten::clamp"},
-     {"aten::sub_", "aten::sub"}};
+    {
+        {"aten::add_", "aten::add"},
+        {"hpu::add_", "hpu::add"},
+        {"aten::div_", "aten::div"},
+        {"aten::index_put_", "aten::index_put"},
+        {"aten::mul_", "aten::mul"},
+        {"aten::relu_", "aten::relu"},
+        {"aten::leaky_relu_", "aten::leaky_relu"},
+        {"aten::clamp_", "aten::clamp"},
+        {"aten::sub_", "aten::sub"},
+        // Idemponent transformation inplace -> inplace, it is quick fix for
+        // invalid detection of graph inputs in some cases.
+        {"aten::zero_", "aten::zero_"},
+};
 
 bool isInplaceOp(const Node* node) {
   return node ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0
@@ -86,22 +91,6 @@ bool isGraphOutput(const std::shared_ptr<Graph>& graph, const Value* v) {
   return false;
 }
 
-bool feedsIntoInplaceOrCtrl(
-    const std::shared_ptr<Graph>& graph,
-    const Value* v) {
-  for (auto& u : v->uses()) {
-    auto n = u.user;
-    if (n && checkOps(n) && (n->outputs().size() >= 1)) {
-      auto o = n->output(0);
-      if (feedsIntoInplaceOrCtrl(graph, o)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 /*
  * A Inplace op can be replaced if the below conditions
  * are met:
@@ -113,7 +102,6 @@ bool feedsIntoInplaceOrCtrl(
 
 If below conditions are satisfied, then check for graph output is avoided.
 1. Node not connected to input
-2. Not feeding into any other inplace/control edge ops.
  */
 bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   if ((nullptr == node) || (node->outputs().size() > 1) ||
@@ -121,10 +109,8 @@ bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
     return false;
   }
 
-  auto out = node->output(0);
   auto in = node->input(0);
-  if (isInplaceOp(node) && !isGraphInput(graph, in) &&
-      !feedsIntoInplaceOrCtrl(graph, out)) {
+  if (isInplaceOp(node) && !isGraphInput(graph, in)) {
     return true;
   }
   return false;
