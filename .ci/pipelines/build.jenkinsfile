@@ -23,7 +23,7 @@ def checkYAMLLinter = [
 ]
 def ccacheStats = [
     'Print CCache statistics': { util ->
-        util.runShellCommandWrapper("ccache --show-stats --show-config")
+        util.runShellCommandWrapper("ccache --show-stats")
     }
 ]
 def pytorchLightningFork = [
