@@ -3460,10 +3460,9 @@ Tensor& index_copy_hpu_lazy_(
   // Implement using out of place index add followed by D2D copy
   // TODO revisit once strided mem copy feature is mature
   auto func = [self, dim, indices, source]() mutable {
-    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
     auto hl_self = GetOrCreateHbLazyTensor(self);
     LazyOp<Tensor> index_copy_op(
-        "aten::index_copy", {self, dim_, indices, source}, {self.sizes().vec()}
+        "aten::index_copy", {self, dim, indices, source}, {self.sizes().vec()}
         // out_shapes
     );
 

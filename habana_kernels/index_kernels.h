@@ -353,6 +353,16 @@ class IndexAddV2Operator : public HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
+class IndexCopyCguidOperator : public ScatterWrapperOperator {
+ public:
+  IndexCopyCguidOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(device_id, scalarType, "index_copy") {}
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 // IndexCopyOperator
 class IndexCopyOperator : public HabanaOperator {
  public:

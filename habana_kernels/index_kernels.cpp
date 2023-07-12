@@ -806,6 +806,44 @@ void IndexAddV2Operator::AllocateAndAddSynapseNode(
   }
 }
 
+void IndexCopyCguidOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of input expected for IndexCopyKernel operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be Tensor for IndexCopyKernel operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input type expected to be Int for IndexCopyKernel operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input type expected to be Tensor for IndexCopyKernel operator");
+  TORCH_CHECK(
+      inputs[3].isTensor(),
+      "nput type expected to be Int for IndexCopyKernel operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  if (index.dim() == 0) {
+    SET_SIZE_STRIDE_1D(index);
+  }
+
+  auto output = AllocateOutput(inputs, output_metadata.at(0));
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  ns_IndexCopy::Params params;
+  params.axis = dim;
+
+  p_context_->params_.emplace<ns_IndexCopy::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 void IndexCopyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -830,52 +868,73 @@ void IndexCopyOperator::AllocateAndAddSynapseNode(
   auto index = inputs[2].toTensor();
   auto value = inputs[3].toTensor();
 
-  std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
   torch::jit::Stack temp_stack;
 
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[dim] = index.sizes()[0];
+  // TODO: This value has been obtained empirically. Usage of index_copy cguid
+  // is faster than scatter kernel until DmaMemcpy nodes takes longer
+  // then the benefit of quicker kernel. It happens around 2097152 (2^21)
+  // elements. When task SW-152292 is done, only cguid will be used.
+  constexpr int64_t index_copy_cguid_threshold = 2097152;
+  if (self.numel() < index_copy_cguid_threshold) {
+    auto indexCopyOp = make_operator<IndexCopyCguidOperator>(
+        this->p_context_->device_id_, self.scalar_type());
+    temp_stack = {IValue(self), IValue(dim), IValue(index), IValue(value)};
 
-  ////auto index_expanded = index.view(expanded_sizes)
-  auto reshapeOp = make_operator<ReshapeOperator>(
-      this->p_context_->device_id_, index.scalar_type());
-  temp_stack = {IValue(index), IValue(expanded_sizes)};
-  reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  reshapeOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
+    indexCopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    indexCopyOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    indexCopyOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+    indexCopyOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
 
-  // Broadcast index tensor to same shape as value tensor
-  bool implicit =
-      false; // The value of implicit is currently ignored in broadcast kernel
-  auto bcastOp = make_operator<BroadcastOperator>(
-      this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
-  temp_stack = {
-      IValue(reshapeOp->GetOutputs()[0]),
-      IValue(value.sizes()),
-      IValue(implicit)};
-  bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
-  bcastOp->AllocateAndAddSynapseNode(
-      graph, temp_stack, OutputMetaDataVector(1));
-  temp_stack.clear();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(indexCopyOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(indexCopyOp->GetOutputs()[0]));
+  } else {
+    // Expand 1D index tensor to same number of dimensions as value tensor
+    auto dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+    auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
+    expanded_sizes[dim_] = index.sizes()[0];
 
-  auto scatterOp = make_operator<ScatterHelperOperator>(
-      this->p_context_->device_id_, self.scalar_type());
-  temp_stack = {
-      IValue(self),
-      IValue(dim),
-      IValue(bcastOp->GetOutputs()[0]),
-      IValue(value)};
+    ////auto index_expanded = index.view(expanded_sizes)
+    auto reshapeOp = make_operator<ReshapeOperator>(
+        this->p_context_->device_id_, index.scalar_type());
+    temp_stack = {IValue(index), IValue(expanded_sizes)};
+    reshapeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    reshapeOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
+    temp_stack.clear();
 
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
-  scatterOp->SetSynapseInput(p_context_->syn_inputs_[2]);
-  scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
+    // Broadcast index tensor to same shape as value tensor
+    bool implicit =
+        false; // The value of implicit is currently ignored in broadcast kernel
+    auto bcastOp = make_operator<BroadcastOperator>(
+        this->p_context_->device_id_, reshapeOp->GetOutputs()[0].scalar_type());
+    temp_stack = {
+        IValue(reshapeOp->GetOutputs()[0]),
+        IValue(value.sizes()),
+        IValue(implicit)};
+    bcastOp->SetSynapseInput(reshapeOp->GetSynOutputs()[0]);
+    bcastOp->AllocateAndAddSynapseNode(
+        graph, temp_stack, OutputMetaDataVector(1));
+    temp_stack.clear();
 
-  p_context_->syn_outputs_.emplace_back(
-      std::move(scatterOp->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
+    auto scatterOp = make_operator<ScatterHelperOperator>(
+        this->p_context_->device_id_, self.scalar_type());
+    temp_stack = {
+        IValue(self),
+        IValue(dim_),
+        IValue(bcastOp->GetOutputs()[0]),
+        IValue(value)};
+
+    scatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    scatterOp->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    scatterOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+    scatterOp->AllocateAndAddSynapseNode(graph, temp_stack, output_metadata);
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(scatterOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(scatterOp->GetOutputs()[0]));
+  }
 }
 
 // brodcast index tensor shape and get the correct shape and size
