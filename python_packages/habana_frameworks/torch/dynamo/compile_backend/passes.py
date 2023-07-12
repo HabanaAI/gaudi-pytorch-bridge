@@ -242,6 +242,15 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_contiguous = [None]
 
         node.type = float
+    elif isinstance(result, int):
+        device = torch.device("cpu")
+        dtypes = [None]
+        layouts = [None]
+        output_shapes = [None]
+        output_strides = [None]
+        output_contiguous = [None]
+
+        node.type = int
     else:
         devices = []
         for res in result:
