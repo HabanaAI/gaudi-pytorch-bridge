@@ -1644,6 +1644,57 @@ TEST_F(LazyDynamicShapesTest, TopKTest1) {
   runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
 }
 
+void runSortDynamicTest(std::vector<int> changing_dim_values, int dim) {
+  int N = 1;
+  int C = 2;
+  int H = 2;
+  int W = 20;
+  c10::ScalarType dtype{torch::kInt32};
+  std::vector<int64_t> dimensions = {N, C, H, W};
+  for (int i = 0; i < changing_dim_values.size(); i++) {
+    int change_dim_value = changing_dim_values[i];
+    dimensions[dim] = change_dim_value;
+    PT_TEST_DEBUG("\nPTI_DBG :: SortTest TEST ", i, "  --------\n");
+
+    torch::Tensor input_cpu =
+        torch::randn(dimensions, torch::requires_grad(false));
+    // PRINT_TENSOR_WITH_DATA(input_cpu);
+
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+    std::tuple<at::Tensor, at::Tensor> out_hpu = torch::sort(input_hpu, dim);
+    std::tuple<at::Tensor, at::Tensor> out_cpu = torch::sort(input_cpu, dim);
+
+    auto hpu_value0 = std::get<0>(out_hpu);
+    auto hpu_value1 = std::get<1>(out_hpu);
+
+    auto cpu_value0 = std::get<0>(out_cpu);
+
+    HbLazyTensor::StepMarker({});
+    auto out0 = hpu_value0.to(torch::kCPU);
+    auto out1 = hpu_value1.to(torch::kCPU);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: input_cpu.shape : ",
+        input_cpu.sizes(),
+        " input_cpu.strides : ",
+        input_cpu.strides());
+    PT_TEST_DEBUG("PTI_DBG :: dimensions : ", dimensions);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: output.shape : ",
+        out0.sizes(),
+        " output.strides : ",
+        out0.strides());
+
+    EXPECT_EQ(allclose(cpu_value0, out0, 0, 0), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, SortTest1) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  // Changing W values
+  runSortDynamicTest({20, 33, 40, 35, 25, 28}, 3);
+}
+
 void runTopkOutDynamicTest(
     std::vector<int> K_values,
     std::vector<int> changing_dim_values,
@@ -1695,6 +1746,53 @@ TEST_F(LazyDynamicShapesTest, TopKOutTest) {
   runTopkOutDynamicTest({5, 5, 5, 5, 5, 5}, {20, 33, 40, 35, 25, 28}, 3);
   // Changing K and W values
   runTopkOutDynamicTest({5, 15, 25, 20, 6, 8}, {20, 33, 40, 35, 25, 28}, 3);
+}
+
+void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
+  std::vector<int64_t> dimensions = {1, 2, 2, 20};
+  for (int i = 0; i < changing_dim_values.size(); i++) {
+    int change_dim_value = changing_dim_values[i];
+    dimensions[dim] = change_dim_value;
+    PT_TEST_DEBUG("\nPTI_DBG :: TopKOutTest TEST ", i, "  --------\n");
+
+    torch::Tensor input_cpu =
+        torch::randn(dimensions, torch::requires_grad(false));
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+    auto cpu_values = torch::empty(0);
+    auto hpu_values = cpu_values.to(torch::kHPU);
+
+    auto cpu_indices = torch::empty(0).to(torch::kLong);
+    auto hpu_indices = cpu_indices.to(torch::kHPU);
+
+    torch::sort_out(hpu_values, hpu_indices, input_hpu, dim);
+    torch::sort_out(cpu_values, cpu_indices, input_cpu, dim);
+
+    HbLazyTensor::StepMarker({});
+    auto out0 = hpu_values.to(torch::kCPU);
+    auto out1 = hpu_indices.to(torch::kCPU);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: input_cpu.shape : ",
+        input_cpu.sizes(),
+        " input_cpu.strides : ",
+        input_cpu.strides());
+    PT_TEST_DEBUG("PTI_DBG :: dimensions : ", dimensions);
+    PT_TEST_DEBUG(
+        "PTI_DBG :: output.shape : ",
+        out0.sizes(),
+        " output.strides : ",
+        out0.strides());
+
+    EXPECT_EQ(allclose(cpu_values, out0, 0, 0), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, SortOutTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  // Changing W values
+  runSortOutDynamicTest({20, 33, 40, 35, 25, 28}, 3);
+  // Changing W values
+  runSortOutDynamicTest({20, 33, 40, 35, 25, 28}, 2);
 }
 
 TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
