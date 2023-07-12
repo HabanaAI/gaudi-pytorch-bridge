@@ -144,7 +144,26 @@ def compare_databases(db_file1, db_file2):
     if sorted(tables1) != sorted(tables2):
         print("Databases have different table names")
         return False
-
+    '''
+    This is thr format in which data is preset in DB file
+    Data is from synapse/src/data_serialize/sql_db_serializer.cpp
+        "ROW_INDEX      int     not NULL,"
+        "ID             int     not NULL,"
+        "GRAPH_GROUP    int     not NULL,"
+        "ITERATION      int     not NULL,"
+        "NAME           text    not NULL,"
+        "TYPE           int     not NULL,"
+        "DATA_TYPE      int     not NULL,"
+        "COMPRESSION    int     not NULL,"
+        "VALIDATION     int     not NULL," -> If this is valid tensor(0->valid)
+        "CONST_TENSOR   int     not NULL,"
+        "SHAPE          blob,"
+        "PERMUTATION    blob,"
+        "DATA_ID        int     not NULL," -> Hash of the data present in tensor
+    '''
+    valid_idx =  8
+    name_idx = 4
+    data_idx = -1
     # Check if the data in each table is the same in both databases
     for table_name in tables1[2:]:
         cursor1.execute(f"SELECT * FROM \"{table_name[0]}\"")
@@ -153,14 +172,15 @@ def compare_databases(db_file1, db_file2):
         rows2 = cursor2.fetchall()
         if len(rows1) != len(rows2):
             print(table_name[0] + " has different tensor numbers in static and dynamic not comparing")
-        else :
-            row1_data = [lis[-1] for lis in rows1]
-            row2_data = [lis[-1] for lis in rows2]
+        else:
+            row1_data = [lis[data_idx] for lis in rows1]
+            row2_data = [lis[data_idx] for lis in rows2]
             if row1_data != row2_data:
                 differing_tables[table_name] = []
                 for i in range(len(rows1)):
-                    if(rows1[i][-1] != rows2[i][-1]):
-                       differing_tables[table_name].append(rows1[i][4])
+                    # Check if tensor is valid and data is different
+                    if((rows1[i][valid_idx] == 0) and (rows2[i][valid_idx] == 0 ) and (rows1[i][data_idx] != rows2[i][data_idx])):
+                       differing_tables[table_name].append(rows1[i][name_idx])
 
     if differing_tables:
         print("There is divergence in static and dynamic runs")
