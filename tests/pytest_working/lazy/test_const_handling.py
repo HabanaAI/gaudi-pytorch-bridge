@@ -71,3 +71,56 @@ def test_same_graph_with_diff_const():
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(
         output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+
+
+@pytest.mark.xfail(reason="Modification of constants differently across recipe is not supported")
+def test_same_const_across_recipes():
+    load_habana_module()
+    # Define input tensors
+    input_tensor1 = torch.randn(1, 3, 64, 64)
+    input_tensor2 = torch.randn(1, 3, 32, 32)
+
+    # Define kernel size, stride, and padding for the convolutional layers
+    kernel_size = 3
+    stride = 1
+    padding = 1
+
+    # Set the weights and bias for both convolutional layers
+    conv_layer1 = torch.nn.Conv2d(3, 6, kernel_size, stride, padding)
+    # Initialize the weights of the convolutional layer with random values
+    nn.init.xavier_normal_(conv_layer1.weight)
+    # Initialize the biases of the convolutional layer with random non-zero values
+    nn.init.normal_(conv_layer1.bias)
+
+    # Set the convolutional layers in evaluation mode and disable autograd
+    conv_layer1.eval()
+    with torch.no_grad():
+        # Perform convolution on both nodes
+        output1 = conv_layer1(input_tensor1)
+        output2 = conv_layer1(input_tensor2)
+
+
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+    input_tensor1_hpu = input_tensor1.to(hpu)
+    input_tensor2_hpu = input_tensor2.to(hpu)
+    conv_layer1_hpu = conv_layer1.to(hpu)
+    from habana_frameworks.torch.core.quantization import _mark_params_as_const
+    _mark_params_as_const(conv_layer1_hpu)
+
+    import habana_frameworks.torch.core as htcore
+    htcore.hpu_initialize()
+
+    with torch.no_grad():
+        output1_hpu = conv_layer1_hpu(input_tensor1_hpu)
+    output1_hpu_cpu = output1_hpu.to(cpu)
+    htcore.mark_step()
+
+    with torch.no_grad():
+        output2_hpu = conv_layer1_hpu(input_tensor2_hpu)
+    output2_hpu_cpu = output2_hpu.to(cpu)
+
+    #numpy.testing.assert_allclose(
+    #    output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+    #numpy.testing.assert_allclose(
+    #    output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)

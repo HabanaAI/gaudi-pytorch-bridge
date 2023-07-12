@@ -309,6 +309,7 @@ static void getTensorSectionId(
 
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     RecipeValueSpec& rv) {
+  std::vector<synSectionId> constSectionIds;
   for (auto iter = pt_to_synapse_tensors.begin();
        iter != pt_to_synapse_tensors.end();
        ++iter) {
@@ -375,39 +376,55 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 reinterpret_cast<uint8_t*>(section_data),
                 reinterpret_cast<uint8_t*>(section_data) + section_size,
                 (uint8_t*)host_ptr);
+            auto checksum = GetDataChecksum((void*)(host_ptr), section_size);
             HABANA_ASSERT(
                 tmeta->has_valid_const_id(),
                 "Constant tensor can not have constant id as -1");
             auto& device = HPURegistrar::get_device(device_id);
-            auto& dst = iter->first->toTensor();
-            if (old_size < section_size) {
+            auto const_id = tmeta->get_const_id();
+            if (m_const_checksum_map.find(const_id) ==
+                m_const_checksum_map.end()) {
+              if (old_size < section_size) {
+                PT_BRIDGE_DEBUG(
+                    "Needed reallocation (bridge) old_size ",
+                    old_size,
+                    " < ",
+                    section_size);
+                at::DataPtr data =
+                    src.storage().allocator()->allocate(section_size);
+                src.storage().set_data_ptr(std::move(data));
+                src.storage().set_nbytes(section_size);
+                ivalue_to_tensor_info_map[iter->first]->set_buffer(
+                    (void*)(src.storage().data_ptr().get()));
+              }
+              std::atomic<bool> copyDone{false};
+              device.copy_data_to_device(
+                  host_ptr,
+                  reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+                  reinterpret_cast<synapse_helpers::device_ptr>(
+                      src.storage().data_ptr().get()),
+                  section_size,
+                  [&copyDone]() { copyDone = true; },
+                  false,
+                  true);
+              // wait for copy completion
+              while (!copyDone) {
+                std::this_thread::yield();
+              }
+              insertConstantChecksum(const_id, checksum);
+            } else {
+              HABANA_ASSERT(
+                  m_const_checksum_map[const_id] == checksum,
+                  "Modification of constants differently across recipe is not supported");
               PT_BRIDGE_DEBUG(
-                  "Needed reallocation (bridge) old_size ",
-                  old_size,
-                  " < ",
-                  section_size);
-              at::DataPtr data =
-                  dst.storage().allocator()->allocate(section_size);
-              dst.storage().set_data_ptr(std::move(data));
-              dst.storage().set_nbytes(section_size);
-              ivalue_to_tensor_info_map[iter->first]->set_buffer(
-                  (void*)(dst.storage().data_ptr().get()));
+                  "Constant tensor only exists on the device, avoiding re-copy to device");
             }
-            std::atomic<bool> copyDone{false};
-            device.copy_data_to_device(
-                host_ptr,
-                reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-                reinterpret_cast<synapse_helpers::device_ptr>(
-                    dst.storage().data_ptr().get()),
-                section_size,
-                [&copyDone]() { copyDone = true; },
-                false,
-                true);
-            // wait for copy completion
-            while (!copyDone) {
-              std::this_thread::yield();
-            }
+            constSectionIds.push_back(tensorSectionId);
             status = synHostFree(device_id, host_ptr, 0);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
+            status = synHostUnmap(device_id, (void*)(section_data));
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
@@ -416,6 +433,11 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       }
     }
   }
+  auto status = synRecipeSectionHostBuffersClear(
+      rv.recipe->syn_recipe_handle_,
+      constSectionIds.data(),
+      constSectionIds.size());
+  constSectionIds.clear();
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {

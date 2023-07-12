@@ -237,6 +237,14 @@ synSectionSetConst(synSectionHandle sectionHandle, bool sectionIsConst) {
   return syn_api->synSectionSetConst(sectionHandle, sectionIsConst);
 }
 
+synStatus SYN_API_CALL synRecipeSectionHostBuffersClear(
+    synRecipeHandle recipeHandle,
+    const synSectionId* sectionIds,
+    size_t numOfSections) {
+  return syn_api->synRecipeSectionHostBuffersClear(
+      recipeHandle, sectionIds, numOfSections);
+}
+
 synStatus SYN_API_CALL synRecipeSectionGetProp(
     const synRecipeHandle pRecipeHandle,
     const synSectionId sectionId,

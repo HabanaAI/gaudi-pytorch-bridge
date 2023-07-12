@@ -131,6 +131,7 @@ SYN_API_PTR(synTensorSetHostPtr);
 SYN_API_PTR(synTensorSetPermutation);
 SYN_API_PTR(synSectionSetConst);
 SYN_API_PTR(synSectionSetGroup);
+SYN_API_PTR(synRecipeSectionHostBuffersClear);
 SYN_API_PTR(synRecipeSectionGetProp);
 SYN_API_PTR(synRecipeSerialize);
 SYN_API_PTR(synRecipeDeSerialize);
@@ -233,6 +234,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorSetPermutation);
   SYN_API_INIT_PTR(synSectionSetConst);
   SYN_API_INIT_PTR(synSectionSetGroup);
+  SYN_API_INIT_PTR(synRecipeSectionHostBuffersClear);
   SYN_API_INIT_PTR(synRecipeSectionGetProp);
   SYN_API_INIT_PTR(synRecipeSerialize);
   SYN_API_INIT_PTR(synRecipeDeSerialize);
@@ -1007,6 +1009,22 @@ synProfilerAddCustomMeasurement(const char* description, uint64_t nanoTime) {
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synProfilerAddCustomMeasurement, description, nanoTime);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synRecipeSectionHostBuffersClear(
+    synRecipeHandle recipeHandle,
+    const synSectionId* sectionIds,
+    size_t numOfSections) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(recipeHandle), ARG(sectionIds), ARG(numOfSections));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synRecipeSectionHostBuffersClear,
+      recipeHandle,
+      sectionIds,
+      numOfSections)
   API_LOG_RESULT();
   return status;
 }

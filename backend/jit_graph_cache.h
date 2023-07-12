@@ -33,6 +33,8 @@ void ComputeGraphHashCode(
     uint64_t unique_graph_cntr = 0,
     std::vector<bool> node_bcast_details = {});
 
+size_t GetDataChecksum(void* data, size_t dataSize);
+
 /**
  * JitGraphCache
  * ----------------

@@ -85,6 +85,7 @@
   visitor(synSectionSetPersistent);            \
   visitor(synSectionDestroy);                  \
   visitor(synSectionSetConst);                 \
+  visitor(synRecipeSectionHostBuffersClear);   \
   visitor(synRecipeSectionGetProp);            \
   visitor(synRecipeSerialize);                 \
   visitor(synRecipeDeSerialize);               \

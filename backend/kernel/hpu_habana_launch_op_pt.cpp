@@ -82,6 +82,8 @@ std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
 std::unordered_map<size_t, habana_helpers::InpTensorShapes>
     HabanaLaunchOpPT::ref_input_shape_map = {};
+std::unordered_map<int, size_t> HabanaLaunchOpPT::m_const_checksum_map;
+std::mutex HabanaLaunchOpPT::checksum_map_mtx;
 //--------------------------------------
 
 void HabanaLaunchOpPT::cleanUp() {

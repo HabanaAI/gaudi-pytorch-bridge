@@ -242,6 +242,14 @@ class HabanaLaunchOpPT {
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
 
+  static std::unordered_map<int, size_t> m_const_checksum_map;
+  static std::mutex checksum_map_mtx;
+  static void insertConstantChecksum(int id, size_t checksum) {
+    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
+    m_const_checksum_map[id] =
+        checksum; // Insert or replace the value in a single line
+  }
+
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
 

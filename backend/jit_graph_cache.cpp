@@ -12,6 +12,9 @@
  */
 #include "backend/jit_graph_cache.h"
 #include <sstream>
+#define XXH_STATIC_LINKING_ONLY
+#define XXH_IMPLEMENTATION
+#include <utilities/xxhash.h>
 // WeightIdentificationPass
 #include "backend/lazy_to_backend.h"
 #include "habana_lazy/passes/pass_utils.cpp"
@@ -44,6 +47,11 @@ size_t GetWeightHash(
   }
 
   return hash_code;
+}
+
+size_t GetDataChecksum(void* data, size_t dataSize) {
+  uint64_t checksum = XXH3_64bits(data, dataSize);
+  return checksum;
 }
 
 void ComputeGraphHashCode(
