@@ -2593,3 +2593,27 @@ TEST_F(LazyDynamicShapesTest, H2D_API_test) {
 
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, false, 1);
 }
+
+TEST_F(LazyDynamicShapesTest, gather_dynamic_test) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  // static case
+  torch::Tensor inp1 = torch::randn({2, 10, 53});
+  auto inp2 = torch::randint(0, 4, {2, 10, 20}, torch::kLong);
+  auto hinp1 = inp1.to(torch::kHPU);
+  auto hinp2 = inp2.to(torch::kHPU);
+  auto cpu = torch::gather(inp1, 2, inp2, 0);
+  auto hpu = torch::gather(hinp1, 2, hinp2, 0);
+  HbLazyTensor::StepMarker({});
+  EXPECT_EQ(allclose(cpu, hpu.cpu()), true);
+  // dynamic cache Miss
+  {
+    torch::Tensor inp1 = torch::randn({2, 100, 53});
+    auto inp2 = torch::randint(0, 4, {2, 100, 5}, torch::kLong);
+    auto hinp1 = inp1.to(torch::kHPU);
+    auto hinp2 = inp2.to(torch::kHPU);
+    auto cpu = torch::gather(inp1, 2, inp2, 0);
+    auto hpu = torch::gather(hinp1, 2, hinp2, 0);
+    HbLazyTensor::StepMarker({});
+    EXPECT_EQ(allclose(cpu, hpu.cpu()), true);
+  }
+}
