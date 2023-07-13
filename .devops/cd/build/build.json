@@ -5,7 +5,6 @@
             "automation",
             "pytorch-fork",
             "pytorch-integration",
-            "pytorch-lightning-fork",
             "pytorch-training-tests",
             "pytorch-vision-fork",
             "specs_external",
@@ -37,9 +36,6 @@
     },
     "plugin": {
         "cmd": "build_pytorch_tb_plugin --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
-    },
-    "lightning": {
-        "cmd": "build_pytorch_lightning_fork ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "gpu_migration": {
         "cmd": "echo ${RELEASE_VERSION}.${RELEASE_BUILD_NUMBER} > ${GPU_MIGRATION_ROOT_PATH}/VERSION ; build_gpu_migration"

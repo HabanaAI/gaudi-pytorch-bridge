@@ -9,7 +9,6 @@ sourceControl:
     - devops/cd_release
     - pytorch-fork
     - pytorch-integration
-    - pytorch-lightning-fork
     - pytorch-training-tests
     - pytorch-vision-fork
     - specs_external
