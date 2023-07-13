@@ -844,12 +844,19 @@ void MeanOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Mean operator");
 
   Tensor self = inputs[0].toTensor();
-  Tensor output = habana::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      at::MemoryFormat::Contiguous,
-      output_metadata.at(0).persistent);
+
+  auto& mdata = output_metadata.at(0);
+  Tensor output;
+  if (mdata.allocated_tensor.has_value()) {
+    output = mdata.allocated_tensor.value();
+  } else {
+    output = habana::createPTTensor(
+        self,
+        {0},
+        self.options(),
+        at::MemoryFormat::Contiguous,
+        output_metadata.at(0).persistent);
+  }
 
   std::vector<int64_t> data;
   auto ndim = self.dim();

@@ -150,27 +150,24 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
   if (m_res_ids.empty()) {
     return;
   }
-  if (!m_output_metadata.empty() &&
-      m_output_metadata.at(0).allocated_tensor.has_value()) {
-    for (const auto& el : m_output_metadata) {
-      AllocateSynapseOutput(graph, el.allocated_tensor.value(), el);
-    }
-    return;
-  }
 
   for (const auto& metadata : m_output_metadata) {
-    const auto t = GetProxyTensor(metadata.dtype, metadata.shape);
-    const auto& output = metadata.strides.empty()
-        ? habana::createPTTensor(
-              t, metadata.shape, t.options(), metadata.persistent)
-        : habana::createPTTensor(
-              t,
-              metadata.shape,
-              metadata.strides,
-              t.options(),
-              metadata.mem_format,
-              metadata.persistent);
-    AllocateSynapseOutput(graph, output, metadata);
+    if (metadata.allocated_tensor.has_value()) {
+      AllocateSynapseOutput(graph, metadata.allocated_tensor.value(), metadata);
+    } else {
+      const auto t = GetProxyTensor(metadata.dtype, metadata.shape);
+      const auto& output = metadata.strides.empty()
+          ? habana::createPTTensor(
+                t, metadata.shape, t.options(), metadata.persistent)
+          : habana::createPTTensor(
+                t,
+                metadata.shape,
+                metadata.strides,
+                t.options(),
+                metadata.mem_format,
+                metadata.persistent);
+      AllocateSynapseOutput(graph, output, metadata);
+    }
   }
 }
 
@@ -178,7 +175,6 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   if (!m_is_outfn) {
     return;
   }
-
   // Check Out variant has output shapes else raise exception
   ComputeOutputShapes(stack);
 

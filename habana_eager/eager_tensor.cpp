@@ -20,16 +20,7 @@ namespace habana {
 namespace eager {
 
 at::Tensor HbEagerTensorPool::get_tensor() {
-  if (tensor_pool.empty()) {
-    handle.wait();
-    std::swap(tensor_pool, tensor_pool_other);
-    handle = std::async(
-        std::launch::async, &HbEagerTensorPool::extend_empty_tensor_pool, this);
-  }
-
-  auto t = tensor_pool.back();
-  tensor_pool.pop_back();
-  return t;
+  return at::empty({}, c10::nullopt);
 }
 
 /** - Note on time:

@@ -128,7 +128,7 @@ void PadOperator::AllocateAndAddSynapseNode(
 
   std::vector<int64_t> shape;
   shape = compute_output_shape(self, pad);
-  auto output = at::empty(shape, self.options());
+
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
 
@@ -145,7 +145,15 @@ void PadOperator::AllocateAndAddSynapseNode(
     param.pads[i + ndim] = pad[2 * i + 1];
   }
 
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  if (output_metadata.at(0).allocated_tensor.has_value()) {
+    AllocateSynapseOutput(
+        graph,
+        output_metadata.at(0).allocated_tensor.value(),
+        output_metadata.at(0));
+  } else {
+    auto output = at::empty(shape, self.options());
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  }
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 

@@ -148,6 +148,7 @@ def test_as_strided_scatter(dtype):
         assert result_hpu.layout == result_cpu.layout
         assert result_hpu.cpu().equal(result_cpu)
 
+
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_slice_scatter(dtype):
     results = run_test("slice_scatter", dtype)
@@ -157,6 +158,7 @@ def test_slice_scatter(dtype):
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
         assert result_hpu.cpu().equal(result_cpu)
+
 
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_expand(dtype):
@@ -243,6 +245,7 @@ def test_logical_bin_ops(dtype, torch_func):
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
+
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_logical_not(dtype):
     def raw_function(a):
@@ -258,3 +261,22 @@ def test_logical_not(dtype):
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
+
+
+@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+def test_cat():
+    def raw_function(t1, t2):
+        return torch.cat((t1, t2))
+
+    compiled_fnc = torch.compile(raw_function, backend="aot_hpu_training_backend")
+
+    t1 = torch.rand(8, 8)
+    t2 = torch.rand(8, 8)
+
+    t1_cpu = t1.to(device="cpu")
+    t2_cpu = t2.to(device="cpu")
+    cpu_reference = raw_function(t1_cpu, t2_cpu)
+
+    hpu_output = compiled_fnc(t1, t2)
+
+    torch.allclose(hpu_output.to(device="cpu"), cpu_reference)

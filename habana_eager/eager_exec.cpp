@@ -48,22 +48,22 @@ overloaded(Ts...) -> overloaded<Ts...>;
 enum class ProcessList { asTensor, asList };
 
 template <ProcessList process_list = ProcessList::asList, class T>
-void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    const at::IValue& input = inputs[i];
-    if (is_metadata_candidate(input)) {
-      visitor(input);
-    } else if (input.isScalar()) {
-      visitor(input.toScalar());
-    } else if (input.isTensor()) {
-      const at::Tensor& t = input.toTensor();
+void traversing_ivalues(const std::vector<at::IValue>& ivalues, T&& visitor) {
+  for (size_t i = 0; i < ivalues.size(); ++i) {
+    const at::IValue& ivalue = ivalues[i];
+    if (is_metadata_candidate(ivalue)) {
+      visitor(ivalue);
+    } else if (ivalue.isScalar()) {
+      visitor(ivalue.toScalar());
+    } else if (ivalue.isTensor()) {
+      const at::Tensor& t = ivalue.toTensor();
       if (t.defined()) {
         visitor(t);
       } else {
         visitor(torch::jit::IValue());
       }
-    } else if (input.isList()) {
-      const auto& list = input.toListRef();
+    } else if (ivalue.isList()) {
+      const auto& list = ivalue.toListRef();
       for (const auto& li : list) {
         HABANA_ASSERT(
             li.isTensor(),
@@ -77,8 +77,16 @@ void traversing_inputs(const std::vector<at::IValue>& inputs, T&& visitor) {
       }
       if constexpr (process_list == ProcessList::asList)
         visitor(list);
+    } else if (ivalue.isTuple()) {
+      const auto& tuple = ivalue.toTupleRef();
+      if (tuple.size() == 0) {
+        continue;
+      }
+      PT_BRIDGE_FATAL("Tuple not supportd at index ", i);
+      HABANA_ASSERT(0);
     } else {
-      PT_BRIDGE_FATAL("Got unhandled type: ", input.tagKind(), " at index ", i);
+      PT_BRIDGE_FATAL(
+          "Got unhandled type: ", ivalue.tagKind(), " at index ", i);
       HABANA_ASSERT(0);
     }
   }
@@ -142,13 +150,13 @@ std::vector<std::vector<int64_t>> OutputSpecsOrTensors::get_shapes() {
   return shapes;
 }
 
-std::vector<at::IValue> convert_inputs_to_backend_tensors(
-    std::vector<at::IValue>& inputs) {
+std::vector<at::IValue> convert_ivalues_to_backend_tensors(
+    std::vector<at::IValue>& ivalues) {
   std::vector<at::IValue> stack;
-  stack.reserve(inputs.size());
+  stack.reserve(ivalues.size());
 
-  traversing_inputs<ProcessList::asList>(
-      inputs,
+  traversing_ivalues<ProcessList::asList>(
+      ivalues,
       overloaded{
           // metadata
           [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
@@ -312,7 +320,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   std::vector<JitValue*> node_inputs;
 
   size_t idx = 0;
-  traversing_inputs(
+  traversing_ivalues(
       stack,
       overloaded{
           // metadata
@@ -402,7 +410,7 @@ size_t EagerExec::calculate_operator_key(
 
   std::unordered_set<size_t> input_hash_values;
   int inp_index = 0;
-  traversing_inputs<ProcessList::asTensor>(
+  traversing_ivalues<ProcessList::asTensor>(
       stack,
       overloaded{
           [this, &optimized_key, &inp_index](const torch::jit::IValue& input) {
@@ -624,7 +632,7 @@ torch::jit::Stack EagerExec::prepare_input_stack(
     const torch::jit::Stack& inputs) {
   torch::jit::Stack stack;
   stack.reserve(stack.size());
-  traversing_inputs<ProcessList::asTensor>(
+  traversing_ivalues<ProcessList::asTensor>(
       inputs,
       overloaded{// metadata
                  [&stack](const torch::jit::IValue& v) {},

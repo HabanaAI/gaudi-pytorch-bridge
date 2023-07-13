@@ -1998,6 +1998,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   habana::ShapeInference::ResetSifTensorId();
 
+  std::optional<std::vector<at::Tensor>::iterator> allocated_outputs_iter;
+  if (allocated_outputs_.has_value()) {
+    allocated_outputs_iter = allocated_outputs_->begin();
+  }
+
   size_t outputs_metadata_index = 0;
   // Collect inputs shape tensors accross all nodes
   std::vector<size_t> inputs_shape_tensors_vec;
@@ -2107,14 +2112,21 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
 
-    if (node == *graph_nodes.rbegin() && allocated_outputs_.has_value()) {
-      HABANA_ASSERT(outputs_metadata.size() == allocated_outputs_->size());
-      for (auto [itm, ita] =
-               std::tuple{
-                   outputs_metadata.begin(), allocated_outputs_->begin()};
+    if (allocated_outputs_iter.has_value()) {
+      c10::ArrayRef<torch::jit::Value*> node_outputs = getNodeOutputs(node);
+      for (auto [itm, itn] =
+               std::tuple{outputs_metadata.begin(), node_outputs.begin()};
            itm != outputs_metadata.end();
-           ++itm, ++ita)
-        itm->allocated_tensor = *ita;
+           ++itm, ++itn) {
+        if (jitgraph_utils::isInGraphOutputs(*itn)) {
+          HABANA_ASSERT(
+              allocated_outputs_iter.value() !=
+                  allocated_outputs_.value().end(),
+              "number of allocated_outputs_ is smaller than numer of outputs found in JIT graph");
+          itm->allocated_tensor = *allocated_outputs_iter.value();
+          allocated_outputs_iter.value()++;
+        }
+      }
     }
 
     std::string module_name = node->scope()->name().toUnqualString();

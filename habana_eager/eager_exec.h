@@ -161,7 +161,7 @@ class EagerExec {
   void mark_maybe_grad_view();
 };
 
-std::vector<at::IValue> convert_inputs_to_backend_tensors(
-    std::vector<at::IValue>& inputs);
+std::vector<at::IValue> convert_ivalues_to_backend_tensors(
+    std::vector<at::IValue>& ivalues);
 } // namespace eager
 } // namespace habana

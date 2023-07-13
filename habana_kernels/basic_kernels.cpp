@@ -433,9 +433,12 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
+  } else if (output_metadata.at(0).allocated_tensor.has_value()) {
+    output = output_metadata.at(0).allocated_tensor.value();
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
+
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, NULL, 0);
@@ -810,13 +813,21 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
         "Input slice params type expected to be integer list");
   }
   std::vector<int64_t> shape = self.sizes().vec();
-  Tensor output = habana::createPTTensor(
-      self,
-      shape,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  auto& mdata = output_metadata.at(0);
+  Tensor output;
+  if (mdata.allocated_tensor.has_value()) {
+    output = mdata.allocated_tensor.value();
+    AllocateSynapseOutput(graph, output, mdata);
+  } else {
+    Tensor output = habana::createPTTensor(
+        self,
+        shape,
+        self.options(),
+        self.suggest_memory_format(),
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  }
 
   if (has_shape_tensor) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -1338,13 +1349,21 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
   compute_params(params, inputs, graph);
 
   auto orig_t = inputs[0].toTensor();
-  auto output = habana::createPTTensor(
-      orig_t,
-      orig_t.sizes(),
-      orig_t.options(),
-      orig_t.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+  PT_EAGER_INFO("Input: ", habana_helpers::DebugString(orig_t));
+
+  auto& mdata = output_metadata.at(0);
+  if (mdata.allocated_tensor.has_value()) {
+    AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+  } else {
+    auto output = habana::createPTTensor(
+        orig_t,
+        orig_t.sizes(),
+        orig_t.options(),
+        orig_t.suggest_memory_format(),
+        mdata.persistent);
+    AllocateSynapseOutput(graph, output, mdata);
+  }
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -1648,8 +1667,8 @@ void StridedViewOperator::compute_params(
     // For dynamic min-max inference, validate the mem access of
     // elements. If the calculation dosen't match, fail here for inference
     // fallback to kick in. if GC compile fails, the fallback penalty is huge.
-    // Since GC has relaxed memory access check for min/max only have the check
-    // for actual
+    // Since GC has relaxed memory access check for min/max only have the
+    // check for actual
     if (!graph.is_dry_run() ||
         habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
@@ -1707,13 +1726,20 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   compute_params(params, inputs, graph, size, strides, offset);
   auto self = inputs[0].toTensor();
 
-  auto output = habana::createPTTensor(
-      self,
-      size,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  at::Tensor output;
+  auto& mdata = output_metadata.at(0);
+  if (mdata.allocated_tensor.has_value()) {
+    output = mdata.allocated_tensor.value();
+    AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+  } else {
+    output = habana::createPTTensor(
+        self,
+        size,
+        self.options(),
+        self.suggest_memory_format(),
+        mdata.persistent);
+    AllocateSynapseOutput(graph, output, mdata);
+  }
 
   // If shape tensors are not created at frontend we need to create
   // Shape tensor at backend and also pass the params. Otherwise no params are

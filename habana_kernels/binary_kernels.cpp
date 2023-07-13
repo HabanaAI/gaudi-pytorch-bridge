@@ -271,24 +271,36 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& syn_tensor = std::move(castOp->GetSynOutputs()[0]);
     syn_inputs.push_back(syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto output = habana::createPTTensor(
-        arg1,
-        IntArrayRef(out_shape.data(), out_shape.size()),
-        arg1.options(),
-        memory_format,
-        c10::ScalarType::BFloat16,
-        output_metadata.at(0).persistent);
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+
+    auto& mdata = output_metadata.at(0);
+    if (mdata.allocated_tensor.has_value()) {
+      AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          c10::ScalarType::BFloat16,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
+    }
   } else {
     syn_inputs.push_back(arg2_syn_tensor.get());
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto output = habana::createPTTensor(
-        arg1,
-        IntArrayRef(out_shape.data(), out_shape.size()),
-        arg1.options(),
-        memory_format,
-        output_metadata.at(0).persistent);
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    auto& mdata = output_metadata.at(0);
+
+    if (mdata.allocated_tensor.has_value()) {
+      AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
+    }
   }
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
@@ -551,14 +563,18 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor_or_ref& mulOp_out = mulOp->GetSynOutputs()[0];
 
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto output = habana::createPTTensor(
-        arg1,
-        IntArrayRef(out_shape.data(), out_shape.size()),
-        arg1.options(),
-        memory_format,
-        output_metadata.at(0).persistent);
-
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    auto& mdata = output_metadata.at(0);
+    if (mdata.allocated_tensor.has_value()) {
+      AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
+    }
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
     synapse_helpers::tensor& arg2_syn_tensor = mulOp_out;
@@ -581,13 +597,18 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         deterministic);
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
-    auto output = habana::createPTTensor(
-        arg1,
-        IntArrayRef(out_shape.data(), out_shape.size()),
-        arg1.options(),
-        memory_format,
-        output_metadata.at(0).persistent);
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    auto& mdata = output_metadata.at(0);
+    if (mdata.allocated_tensor.has_value()) {
+      AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
+    } else {
+      auto output = habana::createPTTensor(
+          arg1,
+          IntArrayRef(out_shape.data(), out_shape.size()),
+          arg1.options(),
+          memory_format,
+          mdata.persistent);
+      AllocateSynapseOutput(graph, output, mdata);
+    }
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
     synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];

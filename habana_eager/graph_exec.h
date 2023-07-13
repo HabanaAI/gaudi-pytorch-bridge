@@ -14,6 +14,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,29 +26,6 @@
 namespace habana {
 namespace graph {
 
-namespace pass {
-void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
-void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
-void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
-void DetectWeightTensors(
-    std::shared_ptr<torch::jit::Graph> graph,
-    std::set<int>& graph_inputs_to_permute);
-void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
-void HandleDynamicOps(
-    std::shared_ptr<torch::jit::Graph> graph,
-    torch::jit::Stack& stack,
-    std::shared_ptr<DynamicGraphMetaData> dgraph_meta);
-void HandleDynamicInputPatching(
-    torch::jit::Stack& stack,
-    std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
-    bool is_first_launch);
-void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
-void HandleInputViews(
-    std::shared_ptr<torch::jit::Graph> graph,
-    torch::jit::Stack& example_inputs,
-    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);
-} // namespace pass
-
 class GraphExec {
  public:
   GraphExec(
@@ -57,9 +35,21 @@ class GraphExec {
       bool dynamic,
       bool inference);
 
-  torch::jit::Stack launch(torch::jit::Stack& inputs);
+  torch::jit::Stack launch(
+      torch::jit::Stack& inputs,
+      std::vector<at::Tensor>& outputs);
+
+  static void LaunchRecipeTask(
+      GraphExec& gexec,
+      torch::jit::Stack& inputs,
+      std::vector<at::Tensor>& outputs);
 
  private:
+  torch::jit::Stack LaunchDynamicRecipe(torch::jit::Stack& inputs);
+  torch::jit::Stack LaunchRecipe(
+      torch::jit::Stack& stack,
+      std::optional<std::vector<at::Tensor>> maybe_outputs = {});
+
   void RunGraphPasses(torch::jit::Stack& example_inputs);
   void LogRecipeInfo(torch::jit::Stack& example_inputs);
   void HandleWeightPermutation(torch::jit::Stack& stack);
@@ -73,32 +63,13 @@ class GraphExec {
   bool m_dynamic;
   bool m_inference;
   bool is_first_launch = true;
+  bool m_is_pipeline_supported = false;
   std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;
   std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;
-};
-
-class GraphStorage {
- public:
-  static GraphStorage& get();
-
-  size_t add_new_recipe(
-      std::shared_ptr<torch::jit::Graph> graph,
-      torch::jit::Stack& example_inputs,
-      bool dynamic,
-      bool inference);
-  torch::jit::Stack launch_recipe(size_t recipe_id, torch::jit::Stack& inputs);
-
- private:
-  GraphStorage(){};
-  GraphStorage(const GraphStorage&) = delete;
-  GraphStorage& operator=(const GraphStorage&) = delete;
-  GraphStorage(GraphStorage&&) = delete;
-  GraphStorage& operator=(GraphStorage&&) = delete;
-
-  std::vector<habana::graph::GraphExec> m_storage_vec;
+  std::vector<int> m_outputs_order;
 };
 
 } // namespace graph

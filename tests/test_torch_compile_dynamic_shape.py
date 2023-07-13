@@ -257,12 +257,12 @@ def test_dynamic_shape_topk_lazy():
             return hpu_value0
         i = 0
         for s in sizes:
-            t = torch.randn(s)
-            t1 = t.to("hpu")
-            result_compile_train = raw_function(t1, K[i])
-            out_cpu = raw_function(t, K[i])
+            t_cpu = torch.randn(s)
+            t_hpu = t_cpu.to("hpu")
+            result_hpu_raw = raw_function(t_hpu, K[i])
+            out_cpu = raw_function(t_cpu, K[i])
             i = i + 1
-            assert torch.allclose(result_compile_train.to("cpu"), out_cpu)
+            assert torch.allclose(result_hpu_raw.to("cpu"), out_cpu)
 
 def test_dynamic_shape_repeat_static():
     print("Starting...................")

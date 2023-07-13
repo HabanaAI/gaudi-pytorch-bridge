@@ -131,6 +131,10 @@ Tensor CatOperator::CheckAllocateOutput(
     out_size = inputs[2].toTensor().sizes().vec();
   }
 
+  if (output_metadata.allocated_tensor.has_value()) {
+    return output_metadata.allocated_tensor.value();
+  }
+
   auto out = habana::createPTTensor(
       first_tensor,
       out_size,

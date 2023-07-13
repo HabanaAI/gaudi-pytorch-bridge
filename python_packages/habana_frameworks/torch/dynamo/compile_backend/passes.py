@@ -65,6 +65,7 @@ def optimize_graph(
     from torch._dynamo import config
 
     is_dynamic = config.dynamic_shapes
+
     ctx = OptimizerContext(
         graph_module, example_inputs, is_training, is_backward, is_dynamic, stage, None
     )
@@ -658,7 +659,8 @@ def pass_non_contiguous_outputs(ctx: OptimizerContext) -> bool:
 
         # handle a case when output size of non-contiguous tensor is bigger than contiguous one
         dst_node = n
-        if non_contiguous_size > contiguous_size:
+        add_empty = non_contiguous_size > contiguous_size
+        if add_empty:
             with ctx.graph_module.graph.inserting_after(n):
                 dst_node = ctx.graph_module.graph.call_function(
                     torch.ops.aten.empty,
@@ -691,8 +693,12 @@ def pass_non_contiguous_outputs(ctx: OptimizerContext) -> bool:
             as_strided_scatter.meta["output_device"] = n.meta["output_device"]
             as_strided_scatter.meta["output_dtypes"] = [n.meta["output_dtypes"][0]]
             as_strided_scatter.meta["output_layouts"] = [n.meta["output_layouts"][0]]
-            as_strided_scatter.meta["output_shapes"] = [n.meta["output_shapes"][0]]
-            as_strided_scatter.meta["output_strides"] = [[default_strides]]
+            if add_empty:
+                as_strided_scatter.meta["output_shapes"] = [[non_contiguous_size]]
+                as_strided_scatter.meta["output_strides"] = [[1]]
+            else:
+                as_strided_scatter.meta["output_shapes"] = [n.meta["output_shapes"][0]]
+                as_strided_scatter.meta["output_strides"] = [[default_strides]]
             as_strided_scatter.meta["output_contiguous"] = [True]
 
             n.replace_all_uses_with(as_strided_scatter)

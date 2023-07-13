@@ -15,6 +15,7 @@ import pytest
 import numpy as np
 
 
+
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_relu_cpuinput():
     def raw_function(x):
@@ -31,6 +32,7 @@ def test_relu_cpuinput():
 
     assert torch.allclose(result_nocompile, result_compile_train)
     assert torch.allclose(result_compile_infer, result_compile_train)
+
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_relu_hpuinput():
@@ -70,6 +72,83 @@ def test_relu_hpuinput_mixed():
     assert torch.allclose(result_nocompile, result_mixed_train)
     assert torch.allclose(result_mixed_infer, result_mixed_train)
 
+@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+def test_output_middle_node():
+    import habana_frameworks.torch.core as htcore
+
+    def raw_function(x):
+        tmp1 = x * 2 - 1
+        tmp2 = 1 / tmp1 + 1
+        tmp3 = torch.relu(tmp2)
+        return tmp2
+
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+    tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
+
+    result_nocompile = raw_function(tensor)
+
+    result_compile_train = compiled_function_training(tensor)
+    result_infer = compiled_function_inference(tensor)
+
+    assert torch.allclose(result_nocompile, result_compile_train)
+    assert torch.allclose(result_infer, result_compile_train)
+
+@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+def test_output_first_and_last_node():
+    import habana_frameworks.torch.core as htcore
+
+    def raw_function(x):
+        tmp1 = x * 2 - 1
+        tmp2 = 1 / tmp1 + 1
+        tmp3 = torch.relu(tmp2)
+        return tmp1, tmp3
+
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+    tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
+
+    result_nocompile_1, result_nocompile_2 = raw_function(tensor)
+
+    result_compile_train_1, result_compile_train_2 = compiled_function_training(tensor)
+    result_infer_1, result_infer_2 = compiled_function_inference(tensor)
+
+    assert torch.allclose(result_nocompile_1, result_compile_train_1)
+    assert torch.allclose(result_infer_1, result_compile_train_1)
+
+    assert torch.allclose(result_nocompile_2, result_compile_train_2)
+    assert torch.allclose(result_infer_2, result_compile_train_2)
+
+@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+def test_output_reverse_order_node():
+    import habana_frameworks.torch.core as htcore
+
+    def raw_function(x):
+        tmp1 = x * 2 - 1
+        tmp2 = 1 / tmp1 + 1
+        tmp3 = torch.relu(tmp2)
+        return tmp3, tmp2, tmp1
+
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+    tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
+
+    result_nocompile_1, result_nocompile_2, result_nocompile_3 = raw_function(tensor)
+
+    result_compile_train_1, result_compile_train_2, result_compile_train_3 = compiled_function_training(tensor)
+    result_infer_1, result_infer_2, result_infer_3 = compiled_function_inference(tensor)
+
+    assert torch.allclose(result_nocompile_1, result_compile_train_1)
+    assert torch.allclose(result_infer_1, result_compile_train_1)
+
+    assert torch.allclose(result_nocompile_2, result_compile_train_2)
+    assert torch.allclose(result_infer_2, result_compile_train_2)
+
+    assert torch.allclose(result_nocompile_3, result_compile_train_3)
+    assert torch.allclose(result_infer_3, result_compile_train_3)
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_multiple_runs():
@@ -151,6 +230,37 @@ def test_relu_than_maxpool():
 
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+def test_relu_than_maxpool_ignore_first_output():
+    torch.manual_seed(9361478)
+
+    class TestModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer1 = torch.nn.Sequential(
+                torch.nn.ReLU(),
+                torch.nn.MaxPool2d(kernel_size=2, stride=2, return_indices=True)
+            )
+
+        def forward(self, x):
+            x = self.layer1(x)
+            return x[1]
+
+    model = TestModel().to("hpu")
+
+    def raw_function(x):
+        return model(x)
+
+    compiled_fnc = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+
+    tensor = torch.rand(8, 16, 10, 10, device="cpu").to("hpu")
+
+    res_ver = raw_function(tensor)
+    res = compiled_fnc(tensor)
+
+    assert torch.all(torch.eq(res, res_ver))
+
+
+@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
 def test_remove_detach():
     import torch.nn.functional as F
 
@@ -164,6 +274,7 @@ def test_remove_detach():
     tensor_raw = raw_function(input_tensor)
     tensor_compiled = compiled_function(input_tensor)
     assert torch.allclose(tensor_raw, tensor_compiled, rtol=1e-06)
+
 
 @pytest.mark.xfail(reason="Undefined symbol: habana::graph::GraphStorage::get()")
 def test_split_with_sizes():
@@ -190,6 +301,3 @@ def test_split_with_sizes():
 
     print(standard)
     print(second_item)
-
-
-

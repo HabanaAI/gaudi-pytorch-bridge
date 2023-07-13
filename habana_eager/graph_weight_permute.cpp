@@ -27,8 +27,8 @@ PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
       m_storage_meta(habana::get_storage_extra_meta(m_weight)) {}
 
 void PermuteWeightTensor::PermuteIfNeeded() {
-  PT_EAGER_TRACE;
   if (ShouldPermuteWeight()) {
+    PT_EAGER_TRACE;
     HABANA_ASSERT(
         m_tensor_dim == 4 || m_tensor_dim == 5,
         "Permute weight support only 4/5D tensors");
@@ -65,6 +65,9 @@ void PermuteWeightTensor::PermuteIfNeeded() {
       if (dtype == c10::ScalarType::Float) {
         PermuteDataToQRSCK<float>(weight_cpu);
       }
+      if (dtype == c10::ScalarType::Half) {
+        PermuteDataToQRSCK<float>(weight_cpu);
+      }
       new_permutation = weight_qrsck_in_memory;
     }
 
@@ -74,7 +77,6 @@ void PermuteWeightTensor::PermuteIfNeeded() {
 }
 
 bool PermuteWeightTensor::ShouldPermuteWeight() {
-  PT_EAGER_TRACE;
   // For conv1d (tensor_dim == 3) permutation is not needed
   if (m_tensor_dim == 3) {
     return false;

@@ -158,13 +158,20 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
 
-  auto output = habana::createPTTensor(
-      input,
-      RepeatOperator::compute_output_shape(input, rpt_cast),
-      input.options(),
-      output_metadata.at(0).persistent);
+  if (output_metadata.at(0).allocated_tensor.has_value()) {
+    AllocateSynapseOutput(
+        graph,
+        output_metadata.at(0).allocated_tensor.value(),
+        output_metadata.at(0));
+  } else {
+    auto output = habana::createPTTensor(
+        input,
+        RepeatOperator::compute_output_shape(input, rpt_cast),
+        input.options(),
+        output_metadata.at(0).persistent);
 
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  }
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -198,17 +205,24 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   }
   ns_TileKernel::ParamsV2 params{};
 
-  auto output = habana::createPTTensor(
-      input,
-      RepeatOperator::compute_output_shape(input, repeats),
-      input.options(),
-      output_metadata.at(0).persistent);
+  if (output_metadata.at(0).allocated_tensor.has_value()) {
+    AllocateSynapseOutput(
+        graph,
+        output_metadata.at(0).allocated_tensor.value(),
+        output_metadata.at(0));
+  } else {
+    auto output = habana::createPTTensor(
+        input,
+        RepeatOperator::compute_output_shape(input, repeats),
+        input.options(),
+        output_metadata.at(0).persistent);
+    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  }
 
   for (int64_t i = 0; i < size; ++i) {
     params.repeat[size - i - 1] = repeats[i];
   }
 
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

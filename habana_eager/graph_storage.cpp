@@ -1,0 +1,51 @@
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#include "habana_eager/graph_storage.h"
+
+#include "habana_helpers/logging.h"
+
+namespace habana {
+namespace graph {
+
+GraphStorage& GraphStorage::get() {
+  static GraphStorage storage;
+  return storage;
+}
+
+size_t GraphStorage::add_new_recipe(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& example_inputs,
+    bool dynamic,
+    bool inference) {
+  PT_EAGER_TRACE;
+  size_t output_recipe_id{m_storage_vec.size()};
+  m_storage_vec.emplace_back(
+      output_recipe_id, graph, example_inputs, dynamic, inference);
+  PT_EAGER_DEBUG("Recipe added to storage. recipe_id: ", output_recipe_id);
+  return output_recipe_id;
+}
+
+torch::jit::Stack GraphStorage::launch_recipe(
+    size_t recipe_id,
+    torch::jit::Stack& inputs,
+    std::vector<at::Tensor>& outputs) {
+  PT_EAGER_TRACE;
+  PT_EAGER_DEBUG("Launching recipe_id: ", recipe_id);
+  HABANA_ASSERT(recipe_id < m_storage_vec.size());
+  GraphExec& gexec{m_storage_vec[recipe_id]};
+  return gexec.launch(inputs, outputs);
+}
+
+} // namespace graph
+} // namespace habana
