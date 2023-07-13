@@ -131,7 +131,7 @@ class FusedLamb(Optimizer):
             )
         else:
             clip_global_grad_norm = torch.tensor(
-                [1.0], dtype=torch.float32, device="hpu:0"
+                [1.0], dtype=torch.float32, device=self.device
             )
 
         for group in self.param_groups:
@@ -146,11 +146,11 @@ class FusedLamb(Optimizer):
                 group["step"] = 1
 
             if group["bias_correction"]:
-                bias_correction1 = torch.tensor(1.0 - pow(beta1, group["step"]), device="hpu")
-                bias_correction2 = torch.tensor(1.0 - pow(beta2, group["step"]), device="hpu")
+                bias_correction1 = torch.tensor(1.0 - pow(beta1, group["step"]), device=self.device)
+                bias_correction2 = torch.tensor(1.0 - pow(beta2, group["step"]), device=self.device)
             else:
-                bias_correction1 = torch.tensor(1.0, device="hpu")
-                bias_correction2 = torch.tensor(1.0, device="hpu")
+                bias_correction1 = torch.tensor(1.0, device=self.device)
+                bias_correction2 = torch.tensor(1.0, device=self.device)
 
             (
                 grad_list,
@@ -172,9 +172,9 @@ class FusedLamb(Optimizer):
                 # State initialization
                 if len(state) == 0:
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device).to(p.dtype)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device).to(p.dtype)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -212,7 +212,7 @@ class FusedLamb(Optimizer):
                 adam_norm_list,
                 wt_norm_list,
                 adam_step_list,
-                torch.tensor(-group["lr"], device="hpu"),
+                torch.tensor(-group["lr"], device=self.device),
                 group["weight_decay"],
                 self.use_lamb,
             )
