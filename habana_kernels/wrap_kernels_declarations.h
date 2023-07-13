@@ -215,6 +215,14 @@ void optimizer_lars_hpu_wrap(
     const double weight_decay,
     const double eps,
     const at::Tensor& lr);
+void optimizer_lars_hpu_wrap(
+    const at::TensorList params,
+    at::TensorList grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr);
 void optimizer_resource_apply_momentum_hpu_wrap(
     at::TensorList params_momentum_buf_list,
     const at::TensorList dp_list,

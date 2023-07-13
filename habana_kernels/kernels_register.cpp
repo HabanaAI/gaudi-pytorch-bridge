@@ -1044,24 +1044,31 @@ void optimizer_sgd_momentum_hpu_wrap(
 void optimizer_lars_hpu_wrap(
     const at::TensorList params,
     at::TensorList grads,
-    ArrayRef<int64_t> skip_masks,
-    const double eeta,
-    const double weight_decay,
-    const double eps,
-    const at::Tensor& lr) {
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " optimizer_lars :",
-      DUMP_7ARGS(params, grads, skip_masks, eeta, weight_decay, eps, lr));
-
-  LazyOp<void> hpu_op{
-      "hpu::optimizer_lars",
-      {params, grads, skip_masks, eeta, weight_decay, eps, lr},
-      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
-      -1};
-
-  runInplaceMaybeWithAccThread("hpu::optimizer_lars", std::move(hpu_op), grads);
+      " optimizer_lars_hpu_wrap:",
+      " param=",
+      to_string(params),
+      " grad=",
+      to_string(grads),
+      " skipMasks=",
+      to_string(skipMasks),
+      "eeta=",
+      to_string(eeta),
+      "weight_decay=",
+      to_string(weight_decay),
+      "eps=",
+      to_string(eps),
+      "lr=",
+      to_string(lr));
+  return optimizer_lars_hpu_lazy(
+      params, grads, skipMasks, eeta, weight_decay, eps, lr);
 }
 
 void optimizer_resource_apply_momentum_hpu_wrap(
@@ -2202,7 +2209,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> ()");
   m.def(
-      "optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor lr) -> ()");
+      "habanaOptimizerLars(Tensor[] params, Tensor(a!)[] grads, Tensor lr_t, int[] skip_masks, float eeta, float weight_decay, float eps) -> ()");
   m.def(
       "optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
@@ -2417,7 +2424,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum_hpu_wrap);
-  m.impl("hpu::optimizer_lars", optimizer_lars_hpu_wrap);
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);

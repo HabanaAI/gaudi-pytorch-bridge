@@ -472,6 +472,14 @@ void optimizer_sgd_momentum_hpu_lazy(
     const float wd,
     const float damp,
     const bool nesterov);
+void optimizer_lars_hpu_lazy(
+    const at::TensorList params,
+    at::TensorList grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr);
 at::Tensor ones_like_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::ScalarType> dtype,

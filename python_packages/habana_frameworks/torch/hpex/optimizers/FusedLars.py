@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import os
 import torch
 from torch import nn
 from torch.autograd import Variable
@@ -17,6 +18,7 @@ from torch.nn.parameter import Parameter
 from torch.optim.optimizer import Optimizer
 
 from habana_frameworks.torch import core as htcore
+from habana_frameworks.torch import _hpex_C
 
 
 class FusedLars(Optimizer):
@@ -64,7 +66,13 @@ class FusedLars(Optimizer):
                 # eg. during warmup steps. Call fused op only if list has something.
                 if len(param_list) != 0:
                     htcore.step_closure._mark_step_if_lazy()
-                    torch.ops.hpu.optimizer_lars(
+
+                    if os.getenv("PT_HPU_LAZY_MODE", "1") != "0":
+                        lars_impl = _hpex_C.fused_lars
+                    else:
+                        lars_impl = torch.ops.hpu.optimizer_lars
+
+                    lars_impl(
                         param_list,
                         grad_list,
                         skip_mask_list,

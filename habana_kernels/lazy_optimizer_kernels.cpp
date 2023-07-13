@@ -138,4 +138,38 @@ void optimizer_sgd_momentum_hpu_lazy(
   loo.call(weights, momentum, OPTIMIZER::SGD_MOMENTUM);
 }
 
+void optimizer_lars_hpu_lazy(
+    const at::TensorList params,
+    at::TensorList grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  auto lr_t = get_tensor_for_scalar(lr, params[0].options());
+  std::vector<at::Tensor> params_copy;
+  std::copy(params.begin(), params.end(), std::back_inserter(params_copy));
+  std::vector<at::Tensor> grads_copy;
+  std::copy(grads.begin(), grads.end(), std::back_inserter(grads_copy));
+
+  handle_collective(params);
+  handle_collective(grads);
+
+  auto func = [grads_copy = std::move(grads_copy),
+               params_copy = std::move(params_copy),
+               skipMasks,
+               eeta,
+               weight_decay,
+               eps,
+               lr_t]() {
+    auto params = torch::TensorList(params_copy);
+    auto grads = torch::TensorList(grads_copy);
+    LazyOptimizationOp<void> lo(
+        "hpu::habanaOptimizerLars",
+        {grads, params, lr_t, skipMasks, eeta, weight_decay, eps});
+    lo.call(grads, LARS);
+  };
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_lars, func);
+}
+
 } // namespace habana_lazy

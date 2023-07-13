@@ -838,6 +838,7 @@ RegisterKernel::add op = hpu::habana_nms
 RegisterKernel::add op = hpu::habanaOptimizerFusedAdagrad
 RegisterKernel::add op = hpu::habanaOptimizerFusedSGD
 RegisterKernel::add op = hpu::habanaOptimizerFusedSGDMomentum
+RegisterKernel::add op = hpu::habanaOptimizerLars
 RegisterKernel::add op = hpu::habanaOptimizerSparseAdagrad
 RegisterKernel::add op = hpu::habanaOptimizerSparseSgd
 RegisterKernel::add op = hpu::habana_permute_1D_sparse_data

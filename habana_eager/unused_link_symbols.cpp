@@ -310,6 +310,17 @@ void optimizer_adagrad_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
+void optimizer_lars_hpu_wrap(
+    const at::TensorList params,
+    at::TensorList grads,
+    const std::vector<int64_t> skipMasks,
+    const float eeta,
+    const float weight_decay,
+    const float eps,
+    const float lr) {
+  EAGER_NOT_SUPPORTED;
+}
+
 void optimizer_sgd_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
