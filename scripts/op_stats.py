@@ -33,6 +33,34 @@ def extract_signature_list(lst):
         sl.append(extract_signature(l))
     return sl
 
+# checks if stats of a sublist of ops is to be written.
+# if yes, returns the sublist of ops listed in the file and
+# the path of the output file where the stats is written.
+# the output file path and name are same as that of the input file
+# just that the output file name has ".out.csv" at the end.
+def need_op_sublist_stats():
+    need = False
+    s = os.getenv("PT_OP_STATS_SUBLIST", None)
+    if s:
+        if not os.path.isfile(s):
+            print("Op stats requested for sublist, but path",s, "does not exist")
+            assert 0
+        else:
+            need = True
+    if not need:
+        return None, None
+
+    op_sl_file = open(s, 'r')
+    op_sl = op_sl_file.readlines()
+    op_sl_array = []
+    for line in op_sl:
+        l = line.strip()
+        if len(l) != 0:
+            op_sl_array.append(line.strip())
+
+    sublist_stats_output_fname = s+".out.csv"
+
+    return op_sl_array, sublist_stats_output_fname
 
 def write_consolidated_op_list(name, op_d):
 
@@ -138,6 +166,30 @@ def write_consolidated_op_list(name, op_d):
         row["dt_df_implemented_manual"] = rv_dt_df_impl_m
         row["dt_df_remaining"] = rv_dt_df_nimpl
         writer.writerow(row)
+
+    # Write ops sublist stats
+    op_sl_array, sublist_stats_output_fname = need_op_sublist_stats()
+
+    if sublist_stats_output_fname is None:
+        return
+
+    with open(sublist_stats_output_fname, "w", newline='') as op_subl_csv:
+        header = ["op_name", "relevant_to_hpu", "op_category",
+                  "op_type", "implemented", "implement_method", "op_signature"]
+        writer = csv.DictWriter(op_subl_csv, fieldnames=header, delimiter="|")
+        writer.writeheader()
+        for k in op_sl_array:
+            v = op_d.get(k)
+            print("\n ", k)
+            row = {}
+            row["op_name"] = k
+            row["op_signature"] = v["op_with_sig"]
+            row["relevant_to_hpu"] = v["relevant"]
+            row["op_category"] = v["type"]
+            row["op_type"] = v["type2"]
+            row["implemented"] = v["impld"]
+            row["implement_method"] = v["impl_method"]
+            writer.writerow(row)
 
 
 def write_unique_op_list_v1(name, op_d):
