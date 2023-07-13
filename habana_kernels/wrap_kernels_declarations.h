@@ -445,7 +445,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const c10::optional<at::Tensor>& attention_mask,
-    const c10::optional<at::Tensor>& seed,
     const double p,
     const double scale,
     const bool is_causal);

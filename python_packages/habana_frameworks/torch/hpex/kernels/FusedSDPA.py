@@ -22,14 +22,6 @@ def check_dbg_env_var(v):
     return env_var_set
 
 def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
-    if dropout_p > 0.0:
-        seed = rand_hpu.seed()
-        #Create 32 bit seed from 64 bit seed
-        seed = seed & 0xFFFFFFFF
-        seed_t = torch.tensor(seed, dtype=torch.int32)
-        seed_t = seed_t.to(q.device)
-    else:
-        seed_t = None
 
     if scale == None:
         scale = 1.0/math.sqrt(q.size(-1))
@@ -44,7 +36,7 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
             is_causal = False
 
     fwd = torch.ops.hpu.sdpa_fwd
-    out, P, dm = fwd(q, k, v, attn_mask, seed_t, dropout_p, scale, is_causal)
+    out, P, dm = fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
     ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p

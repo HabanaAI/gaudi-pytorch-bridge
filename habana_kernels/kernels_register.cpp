@@ -1865,17 +1865,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& k,
     const at::Tensor& v,
     const c10::optional<at::Tensor>& attention_mask,
-    const c10::optional<at::Tensor>& seed,
     const double p,
     const double scale,
     const bool is_causal) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " sdpa_fwd :",
-      DUMP_8ARGS(q, k, v, attention_mask, seed, p, scale, is_causal));
+      " sdpa_fwd :", DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
 
-  return sdpa_fwd_lazy(q, k, v, attention_mask, seed, p, scale, is_causal);
+  return sdpa_fwd_lazy(q, k, v, attention_mask, p, scale, is_causal);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
@@ -2387,8 +2385,17 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms) -> (Tensor, Tensor)");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
+
+  // Seed is generated at FE and passed to BE. There is no seed at python
+  // interface. So the schema with python interface and BE differ. Register the
+  // op at python interface directly with the wrapper function to let Pytorch
+  // Infer the schema at operator level. So no m.impl() def is needed for this
+  // operator. For BE, Register a schema with seed.
+  m.def("hpu::sdpa_fwd", sdpa_fwd_wrap);
+  // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
+  // tensor as well.
   m.def(
-      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
@@ -2434,7 +2441,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rms_norm", rms_norm_wrap);
   m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
-  m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer_wrap);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);

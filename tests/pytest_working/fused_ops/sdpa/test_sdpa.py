@@ -400,5 +400,41 @@ def test_sdpa(
             vb_print("Max diff PT NN SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v.grad - v_grad_hpu_c)))
 
 
+def test_sdpa_fwd_manual_seed():
+
+    dtype = torch.float32
+    q_shape = k_shape = v_shape = (8,2, 32, 16)
+
+    Q = torch.randn(q_shape).to(dtype)
+    K = torch.randn(k_shape).to(dtype)
+    V = torch.randn(v_shape).to(dtype)
+
+    Q_hpu = Q.to("hpu")
+    K_hpu = K.to("hpu")
+    V_hpu = K.to("hpu")
+
+
+    dropout = 0.2
+    seed = 20000
+    # Just need FWD output; No need to o/p the dropout mask
+    os.environ['FSDPA_DBG_USE_DROPOUT_STUB'] = '0'
+    # case 1
+    torch.manual_seed(seed)
+    case1_fwd_out= FusedSDPA.apply(Q_hpu, K_hpu, V_hpu, None, dropout )
+
+    # case 2 repeat ; set manual seed again
+    torch.manual_seed(seed)
+    case2_fwd_out= FusedSDPA.apply(Q_hpu, K_hpu, V_hpu, None, dropout )
+
+    assert torch.allclose(case1_fwd_out, case2_fwd_out), " Error: Outputs are not equal"
+
+    #Enable the following test if SDPA seed test needs more testing
+    #torch.manual_seed(seed + 1000)
+    #case3_fwd_out= FusedSDPA.apply(Q_hpu, K_hpu, V_hpu, None, dropout )
+
+    #assert not torch.allclose(case1_fwd_out, case3_fwd_out), " Error: Outputs are equal"
+
+
 if __name__ == "__main__":
     test_sdpa(*tc_list[0])
+    test_sdpa_fwd_manual_seed()

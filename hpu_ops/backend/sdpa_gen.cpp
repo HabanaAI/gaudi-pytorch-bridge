@@ -146,5 +146,5 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 static const auto& SDPAKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::sdpa_fwd", KERNEL_FN_GLOBAL(habana::SDPAFwd))
+        .add("hpu::sdpa_fwd_be", KERNEL_FN_GLOBAL(habana::SDPAFwd))
         .add("hpu::sdpa_bwd", KERNEL_FN_GLOBAL(habana::SDPABwd));

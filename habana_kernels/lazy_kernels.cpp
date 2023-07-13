@@ -7333,16 +7333,21 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const at::Tensor& k,
     const at::Tensor& v,
     const c10::optional<at::Tensor>& attention_mask,
-    const c10::optional<at::Tensor>& seed,
     const double p,
     const double scale,
     const bool is_causal) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
 
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<Generator> gen;
+    seed_opt = habana::get_seed_tensor_hpu(gen);
+  }
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
-      "hpu::sdpa_fwd",
-      {q, k, v, attention_mask, seed, p, scale, is_causal},
+      "hpu::sdpa_fwd_be",
+      {q, k, v, attention_mask, seed_opt, p, scale, is_causal},
       SDPAFwdOutputShape};
   hpu_op.set_scalar_types(
       {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
