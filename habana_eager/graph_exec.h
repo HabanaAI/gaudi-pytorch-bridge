@@ -32,6 +32,9 @@ void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
 void DetectWeightTensors(
     std::shared_ptr<torch::jit::Graph> graph,
     std::set<int>& graph_inputs_to_permute);
+void GetOutputsOrderInGraph(
+    std::shared_ptr<torch::jit::Graph> graph,
+    std::vector<int>& outputs_order);
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
@@ -57,7 +60,9 @@ class GraphExec {
       bool dynamic,
       bool inference);
 
-  torch::jit::Stack launch(torch::jit::Stack& inputs);
+  torch::jit::Stack launch(
+      torch::jit::Stack& inputs,
+      std::vector<at::Tensor>& outputs);
 
  private:
   void RunGraphPasses(torch::jit::Stack& example_inputs);
@@ -78,6 +83,7 @@ class GraphExec {
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;
   std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;
+  std::vector<int> m_outputs_order;
 };
 
 class GraphStorage {
@@ -89,7 +95,10 @@ class GraphStorage {
       torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference);
-  torch::jit::Stack launch_recipe(size_t recipe_id, torch::jit::Stack& inputs);
+  torch::jit::Stack launch_recipe(
+      size_t recipe_id,
+      torch::jit::Stack& inputs,
+      std::vector<at::Tensor>& outputs);
 
  private:
   GraphStorage(){};

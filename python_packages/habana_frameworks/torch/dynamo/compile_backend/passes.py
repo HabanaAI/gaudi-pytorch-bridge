@@ -64,7 +64,11 @@ def optimize_graph(
     """
     from torch._dynamo import config
 
-    is_dynamic = config.dynamic_shapes
+    # W/A for PyTorch 2.0.x as there is known issue with passing dynamic_shapes parameter to backward graphs.
+    # We will follow dynamic flow for all graphs when PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES enabled.
+    # In PyTorch 2.1.x we should'n depend on PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES env var but only on dynamic_shapes config.
+    is_dynamic = config.dynamic_shapes or (os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper() in ["ON", "1", "YES", "TRUE", "Y"])
+
     ctx = OptimizerContext(
         graph_module, example_inputs, is_training, is_backward, is_dynamic, stage, None
     )

@@ -17,6 +17,7 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_tensor.h"
 #include "habana_eager/eager_view.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_weight_permute.h"
@@ -54,13 +55,23 @@ size_t GraphStorage::add_new_recipe(
 
 torch::jit::Stack GraphStorage::launch_recipe(
     size_t recipe_id,
-    torch::jit::Stack& inputs) {
+    torch::jit::Stack& inputs,
+    std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Launching recipe_id: ", recipe_id);
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
   HABANA_ASSERT(recipe_id < m_storage_vec.size());
-  return m_storage_vec[recipe_id].launch(inputs);
+
+  std::vector<at::Tensor> backend_outputs;
+  backend_outputs.reserve(outputs.size());
+  for (auto& tensor : outputs) {
+    backend_outputs.push_back(
+        habana::eager::HbEagerTensorPool::getInstance().get_backend_tensor(
+            tensor));
+  }
+
+  return m_storage_vec[recipe_id].launch(inputs, backend_outputs);
 }
 
 GraphExec::GraphExec(
@@ -129,7 +140,15 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
 }
 
 void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
-  PT_EAGER_INFO("Jit for ", m_graph_name, ":\n", *m_graph);
+  PT_EAGER_INFO(
+      "Jit for ",
+      m_graph_name,
+      " dynamic: ",
+      m_dynamic,
+      " inference: ",
+      m_inference,
+      ":\n",
+      *m_graph);
 
   for (int input_idx = 0; input_idx < m_graph->inputs().size(); input_idx++) {
     if (example_inputs[input_idx].isTensor()) {
@@ -157,10 +176,18 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
   pass::RemoveDetachOp(m_graph);
+  pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
 }
 
-torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
+torch::jit::Stack GraphExec::launch(
+    torch::jit::Stack& original_stack,
+    std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
+
+  std::vector<at::Tensor> reordered_outputs(outputs.size());
+  for (size_t i = 0; i < reordered_outputs.size(); i++) {
+    reordered_outputs[i] = outputs[m_outputs_order[i]];
+  }
 
   torch::jit::Stack in_stack = original_stack;
   if (IsDynamicGraph()) {
@@ -200,8 +227,11 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
 
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{m_graph_and_meta};
-    habana_launch_op_.run(stack);
-    // [TODO] Disable hybrid sif until SW-153320
+    if (reordered_outputs.size() > 0) {
+      habana_launch_op_.run(stack, reordered_outputs);
+    } else {
+      habana_launch_op_.run(stack);
+    }
     habana_helpers::SetHybridSIFTorchCompile(true);
     return stack;
   } catch (const std::exception& e) {

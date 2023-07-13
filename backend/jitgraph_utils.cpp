@@ -12,6 +12,7 @@
  */
 
 #include "backend/jitgraph_utils.h"
+#include "habana_helpers/logging.h"
 
 namespace jitgraph_utils {
 
@@ -140,6 +141,20 @@ int inplaceInputId(const torch::jit::Node* node) {
     inputId = (node->inputs().size() == 2) ? 1 : -1;
   }
   return inputId;
+}
+
+c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node) {
+  auto node_outs = node->outputs();
+  if (*node->output(0)->type() == *torch::jit::ListType::ofTensors() &&
+      node->outputs().size() == 1) {
+    auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
+    HABANA_ASSERT(
+        unpack_node != nullptr,
+        "TensorList is not input to ListUnpack node. Node: ",
+        node->kind().toQualString());
+    node_outs = unpack_node->outputs();
+  }
+  return node_outs;
 }
 
 } // namespace jitgraph_utils
