@@ -28,7 +28,9 @@ namespace {
 struct SharedLayerInitialization {
   SharedLayerInitialization() {
     static auto status = synSharedLayerInit_v2();
-    TORCH_CHECK(status == synSuccess, "cannot initialize shared layer");
+    TORCH_CHECK(
+        SharedLayer::Return_t::SHARED_LAYER_SUCCESS == status,
+        "cannot initialize shared layer");
   }
 
   ~SharedLayerInitialization() {
@@ -147,7 +149,7 @@ bool fillGuidParamInfoWithTensor_v2(
 /*
  * This function is a wrapper for shared layer query interface.
  */
-bool ValidateGuid_v2(
+SharedLayer::Return_t ValidateGuid_v2(
     const std::string& guid,
     const detail::TensorDescrArray& input_values,
     const detail::TensorDescrArray& output_values,
@@ -192,8 +194,9 @@ bool ValidateGuid_v2(
           input_tensors[i], input_values[i].m_dims_and_type);
     }
 
-    if (not result)
-      return false;
+    if (not result) {
+      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    }
   }
   params.inputTensorNr = input_values.size();
 
@@ -207,17 +210,16 @@ bool ValidateGuid_v2(
           output_tensors[i], output_values[i].m_dims_and_type);
     }
 
-    if (not result)
-      return false;
+    if (not result) {
+      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    }
   }
   params.outputTensorNr = output_values.size();
 
   params.inputTensors = input_tensors.get();
   params.outputTensors = output_tensors.get();
 
-  SharedLayer::Return_t status = synSharedLayerValidateGuid_v2(&params);
-
-  return status == SharedLayer::Return_t::SHARED_LAYER_SUCCESS;
+  return synSharedLayerValidateGuid_v2(&params);
 }
 
 detail::TensorDescr TryCastTensor(
@@ -330,6 +332,41 @@ detail::TensorDescr TryCastTensor(
   return r;
 }
 
+std::string ToDebugString(const SharedLayer::Return_t errcode) {
+  switch (errcode) {
+    case SharedLayer::Return_t::SHARED_LAYER_SUCCESS:
+      return "SUCCESS";
+    case SharedLayer::Return_t::SHARED_LAYER_GUID_NOT_FOUND:
+      return "GUID_NOT_FOUND";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_INPUT_COUNT:
+      return "INCOMPATIBLE_INPUT_COUNT";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_INPUT_DIMENSION:
+      return "INCOMPATIBLE_INPUT_DIMENSION";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_INPUT_SIZE:
+      return "INCOMPATIBLE_INPUT_SIZE";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_OUTPUT_COUNT:
+      return "INCOMPATIBLE_OUTPUT_COUNT";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_OUTPUT_DIMENSION:
+      return "INCOMPATIBLE_OUTPUT_DIMENSION";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_OUTPUT_SIZE:
+      return "INCOMPATIBLE_OUTPUT_SIZE";
+    case SharedLayer::Return_t::SHARED_LAYER_INCOMPATIBLE_DATA_TYPE:
+      return "INCOMPATIBLE_DATA_TYPE";
+    case SharedLayer::Return_t::SHARED_LAYER_UNSUPPORTED_LAYER_CONFIGURATION:
+      return "UNSUPPORTED_LAYER_CONFIGURATION";
+    case SharedLayer::Return_t::SHARED_LAYER_UNSUPPORTED_QUANT_PARAMS:
+      return "UNSUPPORTED_QUANT_PARAMS";
+    case SharedLayer::Return_t::SHARED_LAYER_UNSUPPORTED_BROADCAST_MODE:
+      return "UNSUPPORTED_BROADCAST_MODE";
+    case SharedLayer::Return_t::SHARED_LAYER_KERNEL_INVALID_SCALAR_ARGUMENT:
+      return "INVALID_KERNEL_SCALAR_ARGUMENT";
+    case SharedLayer::Return_t::SHARED_LAYER_MISSING_PRIVATE_STRUCTURE:
+      return "MISSING_PRIVATE_STRUCTURE";
+    case SharedLayer::Return_t::SHARED_LAYER_FAILED:
+    default:
+      return "UNKNOWN_FAILURE";
+  }
+}
 } // namespace
 
 detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
@@ -474,8 +511,8 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   std::size_t params_size = 0;
 
   if (m_fillNodeParamsFunc) {
-    // FillNodeParams function can throw exception when some parameters are not
-    // supported by HPU
+    // FillNodeParams function can throw exception when some parameters are
+    // not supported by HPU
     try {
       params = m_fillNodeParamsFunc(values, params_size);
     } catch (...) {
@@ -493,18 +530,23 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto inputs = CreateInputList(values, promoted_type);
   auto outputs = CreateOutputList(values, promoted_type);
 
-  if (not ValidateGuid_v2(m_guid, inputs, outputs, params.get(), params_size)) {
+  auto validation_result =
+      ValidateGuid_v2(m_guid, inputs, outputs, params.get(), params_size);
+
+  if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
     PT_OP_INFO(
         "Shared layer rejected op: ",
         m_opname,
         ":  guid=",
         m_guid,
-        "inputlist=",
+        " inputlist=",
         ToDebugString(inputs),
         " outputlist=",
         ToDebugString(outputs),
         " values=",
-        ToDebugString(values));
+        ToDebugString(values),
+        " reason=",
+        ToDebugString(validation_result));
     return false;
   }
 
