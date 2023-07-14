@@ -403,6 +403,88 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
             assert np.array_equal(grad_b_test.numpy(),
                                   grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at {i}"
 
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+def test_module_cacher_with_dilation(dtype):
+    import habana_frameworks.torch as ht
+    torch.manual_seed(12345)
+    device=torch.device("hpu:0")
+
+    input0 = torch.tensor([0.1, 0.2, 0.3, 0.4], dtype=dtype, device=device, requires_grad=True)
+    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device, requires_grad=True)
+    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
+
+    fp8_recipe = DelayedScaling(
+        fp8_format=Format.E5M2_HYBRID,
+        amax_history_len=1,
+        amax_compute_algo="max",
+        reduce_amax=False,
+        interval=1,
+    )
+
+    # Prepare te linear module and optimizer
+    my_linear = te.Linear(4, 3, bias=True)
+    optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
+
+    def train_step(model, input, optimizer):
+        out = model(input)
+        loss = out.sum()
+        loss.backward()
+        optimizer.step()
+
+        # Force computations
+        model.fp8_meta["scaling_fwd"].amax_history.cpu()
+
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
+        train_step(my_linear, input0, optimizer)
+
+        # Wrap the modules in hpu_graph wrapper twice - once with measurement, once no measurement
+        fp8.set_measurement_mode(True, True)
+        fp8_meta = my_linear.save_fp8_meta()
+        x = torch.zeros_like(input0)
+        my_linear_with_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)
+        train_step(my_linear_with_measure, x, optimizer)
+        my_linear_with_measure.load_fp8_meta(fp8_meta)
+
+        fp8.set_measurement_mode(True, False)
+        fp8_meta = my_linear.save_fp8_meta()
+        x = torch.zeros_like(input0)
+        my_linear_no_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)
+        train_step(my_linear_no_measure, x, optimizer)
+        my_linear_no_measure.load_fp8_meta(fp8_meta)
+
+        # Run alternately with amax measurement on and off, remember amax history and weight
+        weights = []
+        amax_0 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
+        weights.append(my_linear.weight.cpu().detach())
+
+        train_step(my_linear_no_measure, input1, optimizer)
+        amax_1 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
+        weights.append(my_linear.weight.cpu().detach())
+
+        train_step(my_linear_with_measure, input1, optimizer)
+        amax_2 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
+        weights.append(my_linear.weight.cpu().detach())
+
+        train_step(my_linear_no_measure, input2, optimizer)
+        amax_3 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
+        weights.append(my_linear.weight.cpu().detach())
+
+        train_step(my_linear_with_measure, input2, optimizer)
+        amax_4 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
+        weights.append(my_linear.weight.cpu().detach())
+
+    # The following asserts verify that amax history is updated every other step
+    # (when my_linear_with_measure is called) and is not updated on other steps
+    assert torch.equal(amax_0[0][0], amax_1[0][0])
+    assert torch.not_equal(amax_1[0][0], amax_2[0][0])
+    assert torch.equal(amax_2[0][0], amax_3[0][0])
+    assert torch.not_equal(amax_3[0][0], amax_4[0][0])
+
+    # The following asserts verify that weights are actually updated on the original model every step
+    for i in range(len(weights)-1):
+        assert not torch.equal(weights[i], weights[i+1])
+
 def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
     import habana_frameworks.torch as ht
     # Prepare te linear module
