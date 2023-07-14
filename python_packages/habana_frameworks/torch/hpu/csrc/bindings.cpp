@@ -24,6 +24,7 @@
 #include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/stream.h"
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
@@ -308,6 +309,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("disable_dynamic_shape", []() {
     habana_helpers::DisableRefineDynamicShape();
+  });
+  m.def(
+      "enable_inference_mode", []() { habana_helpers::EnableInferenceMode(); });
+  m.def("disable_inference_mode", []() {
+    habana_helpers::DisableInferenceMode();
   });
   m.def("record_stream", [](at::Tensor tensor, HPUStream stream) {
     habana::HPUDeviceAllocator::recordStream(

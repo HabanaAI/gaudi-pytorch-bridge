@@ -13,6 +13,7 @@
 #include <cstdint>
 #include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -476,7 +477,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
       cur_rvalpsh->recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+  if (habana_helpers::IsInferenceMode()) {
     HabanaLaunchOpPT::PostCompilationStepForConstTensors(rv);
   }
 

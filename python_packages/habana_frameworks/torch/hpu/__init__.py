@@ -173,6 +173,11 @@ def enable_dynamic_shape():
 def disable_dynamic_shape():
     _hpu_C.disable_dynamic_shape()
 
+def enable_inference_mode():
+    _hpu_C.enable_inference_mode()
+
+def disable_inference_mode():
+    _hpu_C.disable_inference_mode()
 
 def is_bf16_supported():
     r"""Check if bf16 is supported."""

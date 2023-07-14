@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "backend/habana_device/HPUStream.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/jit_graph_cache.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
@@ -135,12 +136,12 @@ class OptPassCfg {
     return pass.enable_replace_views;
   }
   bool IsEnabledBnParamRecalc() const {
-    bool flag = GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) ||
-        pass.enable_bn_param_recalculation;
+    bool flag =
+        habana_helpers::IsInferenceMode() || pass.enable_bn_param_recalculation;
     return flag;
   }
   bool IsEnabledFuseConvBn() const {
-    bool flag = GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+    bool flag = habana_helpers::IsInferenceMode() &&
         pass.enable_fuse_conv_bn_optimization;
     return flag;
   }

@@ -545,7 +545,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     HABANA_ASSERT(value_exists != std::end(value_to_ivalue));
     auto ivalue = value_exists->second;
     std::string scope_string;
-    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    if (habana_helpers::IsInferenceMode()) {
       scope_string = std::string(node->scope()->name().toUnqualString());
       scope_string = !scope_string.empty()
           ? scope_string.substr(1, scope_string.length() - 1)
@@ -2117,12 +2117,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     std::string module_name = node->scope()->name().toUnqualString();
-    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+    if (habana_helpers::IsInferenceMode() &&
         (strcmp(node->kind().toQualString(), "aten::view") == 0)) {
       auto val_ins = node->inputs();
       module_name = val_ins[0]->node()->scope()->name().toUnqualString();
     }
-    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && module_name.size() > 0) {
+    if (habana_helpers::IsInferenceMode() && module_name.size() > 0) {
       if (((strcmp(node->kind().toQualString(), "aten::add") == 0) ||
            (strcmp(node->kind().toQualString(), "hpu::add") == 0)) &&
           std::string(node->scope()->name().toUnqualString()).find("add") ==

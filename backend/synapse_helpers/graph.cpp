@@ -28,6 +28,7 @@
 #include "absl/memory/memory.h"
 
 #include "backend/helpers/event_dispatcher.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -127,7 +128,7 @@ synapse_error_v<graph> graph::create(
     }
     SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+    if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
       uint64_t values[] = {true};
       synGraphAttribute att[] = {GRAPH_ATTRIBUTE_INFERENCE};

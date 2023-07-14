@@ -21,6 +21,8 @@
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_helpers/dtype_helpers.h"
+
+#include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
@@ -227,7 +229,7 @@ synapse_helpers::tensor create_tensor(
 
   bool const_section = false;
   void* host_ptr = nullptr;
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && tensor.has_storage()) {
+  if (IsInferenceMode() && tensor.has_storage()) {
     auto tmeta{habana::get_tensor_extra_meta(tensor)};
     const_section = tmeta->is_const_tensor();
     if (const_section) {
@@ -248,7 +250,7 @@ synapse_helpers::tensor create_tensor(
           .mark_const_section(const_section, host_ptr)
           .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
   // Add a check to validate the inference_range
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+  if (IsInferenceMode()) {
     bool range_found = false;
     PtTensorInferenceData::InferenceRangePair inference_range;
     if (name.size() > 0 &&
@@ -378,7 +380,7 @@ synapse_helpers::tensor create_tensor(
           .with_dont_allow_permutation(dont_allow_permutation)
           .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)) {
+  if (IsInferenceMode()) {
     bool range_found = false;
     PtTensorInferenceData::InferenceRangePair inference_range;
     if (name.size() > 0 &&

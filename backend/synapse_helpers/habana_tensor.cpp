@@ -16,6 +16,7 @@
 #include <synapse_api.h>
 #include <algorithm>
 #include <iterator>
+#include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/tensor_builder_base.h"
 #include "habana_helpers/logging.h"
@@ -360,7 +361,7 @@ synapse_error_o tensor::create() {
   if (data_type_ == syn_type_fp8_143) {
     set_quantization_data(&dynamic_range_fp8_143_);
   } else if (
-      GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) && have_quantization_data_ &&
+      habana_helpers::IsInferenceMode() && have_quantization_data_ &&
       tensor_type_ == DATA_TENSOR) {
     set_quantization_data(&dynamic_range_);
   }
@@ -394,7 +395,7 @@ synapse_error_o tensor::create() {
   // mode and synapse data type selection is enabled
   // 2: persistent tensors in constant sections having quantization_data in
   // inference mode and synapse data type selection is enabled
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) &&
+  if (!(habana_helpers::IsInferenceMode() &&
         GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_SYNAPSE_DATA_TYPE_SELECTION) &&
         have_quantization_data_ &&
         ((!is_persistent_) || (is_persistent_ && is_const_section_)))) {

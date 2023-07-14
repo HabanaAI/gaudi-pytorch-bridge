@@ -97,8 +97,7 @@ def _check_params_as_const(model=None) -> None:
         is_const = param_t_meta_copy.is_const_tensor
 
 def hpu_initialize(model=None, optimizer=None, args=None):
-    if "PT_HPU_INFERENCE_MODE" not in environ:
-        environ["PT_HPU_INFERENCE_MODE"] = "1"
+    hpu.enable_inference_mode()
     if "PT_HPU_MATMUL3D_2D_RESHAPE" not in environ:
         environ["PT_HPU_MATMUL3D_2D_RESHAPE"] = "1"
     # media WA to not convert imagenet label tensor to int64

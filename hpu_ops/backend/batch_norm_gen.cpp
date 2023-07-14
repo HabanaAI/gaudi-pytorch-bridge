@@ -13,6 +13,7 @@
 
 #include <perf_lib_layer_params.h>
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/runtime_config.h"
 #include "generated/backend/_native_batch_norm_legit.h"
 #include "generated/backend/native_batch_norm.h"
 #include "generated/backend/native_batch_norm_backward.h"
@@ -72,7 +73,7 @@ enum OutputIdx { INPUT_GRAD_IDX = 0, WEIGHT_GRAD_IDX = 1, BIAS_GRAD_IDX = 2 };
 
 inline bool is_training(bool pt_training_flag, bool is_running_mean_defined) {
   bool inference_mode = (not pt_training_flag) and is_running_mean_defined;
-  return GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE) ? false : not inference_mode;
+  return habana_helpers::IsInferenceMode() ? false : not inference_mode;
 }
 
 c10::IntArrayRef get_rm_size(const at::Tensor& input) {
