@@ -523,14 +523,6 @@ synapse_error_o graph::launch(
   }
 
   PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
-  PT_SYNHELPER_DEBUG(
-      "in graph::launch, launch handle string:\n",
-      absl::StrFormat(
-          "------Launch-handle %s------\n"
-          "input_outputs_names={%s}\n"
-          "-------------------------",
-          recipe_handle.recipe_name_,
-          to_string(inputs_and_outputs_info)));
 
   auto table_checker{
       [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
@@ -620,6 +612,18 @@ synapse_error_o graph::launch(
       ++index;
       ++iter;
     }
+
+    PT_SYNHELPER_DEBUG(
+        "in graph::launch, launch handle string:\n",
+        "------Launch-handle ",
+        recipe_handle.recipe_name_,
+        "------\n"
+        "input_outputs_names=",
+        to_string(inputs_and_outputs_info),
+        "\n"
+        "-------------------------",
+        "Recipe handle: ",
+        fmt::ptr(recipe_handle.syn_recipe_handle_));
 
     habana_lazy::log_dev_mem_stats(
         "Post-Tensors",
