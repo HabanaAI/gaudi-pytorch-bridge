@@ -1008,9 +1008,12 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         {
             "sort",
             {{at::ScalarType::Float,
+              at::ScalarType::BFloat16,
               at::ScalarType::Int,
               at::ScalarType::Long,
-              at::ScalarType::Double}},
+              at::ScalarType::Double,
+              at::ScalarType::Half,
+              at::ScalarType::Short}},
         },
         {
             "elu",

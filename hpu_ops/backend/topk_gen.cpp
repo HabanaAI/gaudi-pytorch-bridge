@@ -40,9 +40,6 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
-  TORCH_CHECK(
-      !(self.dtype() == c10::ScalarType::BFloat16),
-      "BFloat16 is not supported");
 
   auto outshape = TopkOutputShape(stack)[0];
 

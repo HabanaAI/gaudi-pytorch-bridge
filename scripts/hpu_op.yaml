@@ -6763,9 +6763,9 @@ threshold_backward.grad_input:
 
 topk:
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [Float, Int, BFloat16, Short]
+    Gaudi2: [Float, Int, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, BFloat16, Short, Half]
   custom_output_shape: TopkOutputShape
   fallback_check: [TopkFallbackCheck, sorted]
   op_backend: Topk
@@ -6775,9 +6775,9 @@ topk:
 
 topk.values:
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [Float, Int, BFloat16, Short]
+    Gaudi2: [Float, Int, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, BFloat16, Short, Half]
   custom_output_shape: TopkOutputShape
   fallback_check: [TopkFallbackCheck, sorted]
   op_frontend: TopKFE
@@ -6786,9 +6786,9 @@ topk.values:
 
 sort.values_stable:
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [Float, Int, BFloat16, Short]
+    Gaudi2: [Float, Int, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, BFloat16, Short, Half]
   custom_output_shape: SortOutputShape
   fallback_check: [SortFallbackCheck, self, stable, dim, descending]
   op_backend: Sort
