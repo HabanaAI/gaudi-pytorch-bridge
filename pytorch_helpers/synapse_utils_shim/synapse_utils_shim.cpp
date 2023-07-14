@@ -21,16 +21,16 @@
   CHECK_NULL(func = (decltype(func))dlsym(lib_handle, #func))
 
 namespace shim_slu {
-SLU_API_PTR(synSharedLayerInit_v2);
-SLU_API_PTR(synSharedLayerValidateGuid_v2);
-SLU_API_PTR(synSharedLayerGetGuidNames_v2);
-SLU_API_PTR(synSharedLayerFinit_v2);
+SLU_API_PTR(synSharedLayerInit);
+SLU_API_PTR(synSharedLayerValidateGuid);
+SLU_API_PTR(synSharedLayerGetGuidNames);
+SLU_API_PTR(synSharedLayerFinit);
 
 void LoadSymbols(void* lib_handle) {
-  SLU_INIT_PTR(synSharedLayerInit_v2);
-  SLU_INIT_PTR(synSharedLayerValidateGuid_v2);
-  SLU_INIT_PTR(synSharedLayerGetGuidNames_v2);
-  SLU_INIT_PTR(synSharedLayerFinit_v2);
+  SLU_INIT_PTR(synSharedLayerInit);
+  SLU_INIT_PTR(synSharedLayerValidateGuid);
+  SLU_INIT_PTR(synSharedLayerGetGuidNames);
+  SLU_INIT_PTR(synSharedLayerFinit);
 }
 
 } // namespace shim_slu
@@ -72,27 +72,26 @@ LibSynapseUtilsLoader::~LibSynapseUtilsLoader() {
 } // namespace
 // Proxy
 
-SharedLayer::Return_t synSharedLayerInit_v2() {
+SharedLayer::Return_t synSharedLayerInit() {
   LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerInit_v2();
+  return shim_slu::synSharedLayerInit();
 }
 
-SharedLayer::Return_t synSharedLayerValidateGuid_v2(
+SharedLayer::Return_t synSharedLayerValidateGuid(
     const SharedLayer::Params_t* const params) {
   LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerValidateGuid_v2(params);
+  return shim_slu::synSharedLayerValidateGuid(params);
 }
 
-SharedLayer::Return_t synSharedLayerGetGuidNames_v2(
+SharedLayer::Return_t synSharedLayerGetGuidNames(
     char* guidNames[SharedLayer::MAX_NODE_NAME],
     int* guidCount,
     const SharedLayer::DeviceId deviceId) {
   LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerGetGuidNames_v2(
-      guidNames, guidCount, deviceId);
+  return shim_slu::synSharedLayerGetGuidNames(guidNames, guidCount, deviceId);
 }
 
-SharedLayer::Return_t synSharedLayerFinit_v2() {
+SharedLayer::Return_t synSharedLayerFinit() {
   LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerFinit_v2();
+  return shim_slu::synSharedLayerFinit();
 }

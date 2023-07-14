@@ -27,14 +27,14 @@ namespace {
 
 struct SharedLayerInitialization {
   SharedLayerInitialization() {
-    static auto status = synSharedLayerInit_v2();
+    static auto status = synSharedLayerInit();
     TORCH_CHECK(
         SharedLayer::Return_t::SHARED_LAYER_SUCCESS == status,
         "cannot initialize shared layer");
   }
 
   ~SharedLayerInitialization() {
-    synSharedLayerFinit_v2();
+    synSharedLayerFinit();
   }
 };
 
@@ -55,24 +55,18 @@ SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
   TORCH_CHECK(false, "unsupported synDeviceType for shared layer");
 }
 
-synDeviceId getDeviceId() {
-  return HPURegistrar::get_device().id();
-}
-
-SharedLayer::DeviceId _getDeviceType_v2() {
+SharedLayer::DeviceId _getDeviceType() {
   auto deviceType = HPURegistrar::get_device(0).type();
   auto deviceId = synDeviceTypeToSharedLayerType(deviceType);
   return deviceId;
 }
 
-SharedLayer::DeviceId getDeviceType_v2() {
-  static auto deviceId = _getDeviceType_v2();
+SharedLayer::DeviceId getDeviceType() {
+  static auto deviceId = _getDeviceType();
   return deviceId;
 }
 
-bool fillSharedLayerTenorType_v2(
-    SharedLayer::Tensor& tensor,
-    at::ScalarType t) {
+bool fillSharedLayerTenorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
   switch (t) {
     case at::ScalarType::Byte:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U8;
@@ -106,7 +100,7 @@ bool fillSharedLayerTenorType_v2(
   }
 }
 
-bool fillGuidParamInfoWithIntList_v2(
+bool fillGuidParamInfoWithIntList(
     SharedLayer::Tensor& tensor,
     const std::vector<int64_t>& xs) {
   tensor.geometry.dims = xs.size() - 1;
@@ -119,17 +113,16 @@ bool fillGuidParamInfoWithIntList_v2(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillSharedLayerTenorType_v2(tensor, (at::ScalarType)xs.back()))
+  if (not fillSharedLayerTenorType(tensor, (at::ScalarType)xs.back()))
     return false;
 
   return true;
 }
 
-bool fillGuidParamInfoWithTensor_v2(
+bool fillGuidParamInfoWithTensor(
     SharedLayer::Tensor& tensor,
     const at::Tensor& t) {
-  // todo:
-  // missing tensor.quantizationParam setting ?
+  // todo SW-150876 missing tensor.quantizationParam setting
 
   tensor.geometry.dims = t.dim();
   for (int64_t dim = 0; dim < t.dim(); ++dim) {
@@ -141,7 +134,7 @@ bool fillGuidParamInfoWithTensor_v2(
     tensor.layout.layout[0] = 1;
   }
 
-  if (not fillSharedLayerTenorType_v2(tensor, t.scalar_type()))
+  if (not fillSharedLayerTenorType(tensor, t.scalar_type()))
     return false;
   return true;
 }
@@ -149,7 +142,7 @@ bool fillGuidParamInfoWithTensor_v2(
 /*
  * This function is a wrapper for shared layer query interface.
  */
-SharedLayer::Return_t ValidateGuid_v2(
+SharedLayer::Return_t ValidateGuid(
     const std::string& guid,
     const detail::TensorDescrArray& input_values,
     const detail::TensorDescrArray& output_values,
@@ -157,13 +150,13 @@ SharedLayer::Return_t ValidateGuid_v2(
     uint32_t filledParamsSize = 0) {
   SharedLayer::Params_t params{};
   params.apiVersion = 1;
-  auto deviceId = getDeviceType_v2();
+  auto deviceId = getDeviceType();
   params.deviceId = deviceId;
 
   strncpy(params.guid.name, guid.c_str(), SharedLayer::MAX_NODE_NAME);
-  // todo how to determine?:
-  //    params.guid.nameHash -> is it optional?
-  //    params.guid. kernelProperties ?
+  // skipping:
+  // params.guid.nameHash - not used in lower layer
+  // params.guid.kernelProperties - not used in lower layer
 
   params.nodeParams.nodeParams = filledParams;
   params.nodeParams.nodeParamsSize = filledParamsSize;
@@ -187,10 +180,10 @@ SharedLayer::Return_t ValidateGuid_v2(
   for (auto i = 0u; i < input_values.size(); ++i) {
     bool result = false;
     if (input_values[i].isTensor()) {
-      result = fillGuidParamInfoWithTensor_v2(
+      result = fillGuidParamInfoWithTensor(
           input_tensors[i], *input_values[i].m_tensor);
     } else {
-      result = fillGuidParamInfoWithIntList_v2(
+      result = fillGuidParamInfoWithIntList(
           input_tensors[i], input_values[i].m_dims_and_type);
     }
 
@@ -203,10 +196,10 @@ SharedLayer::Return_t ValidateGuid_v2(
   for (auto i = 0u; i < output_values.size(); ++i) {
     bool result = false;
     if (output_values[i].isTensor()) {
-      result = fillGuidParamInfoWithTensor_v2(
+      result = fillGuidParamInfoWithTensor(
           output_tensors[i], *output_values[i].m_tensor);
     } else {
-      result = fillGuidParamInfoWithIntList_v2(
+      result = fillGuidParamInfoWithIntList(
           output_tensors[i], output_values[i].m_dims_and_type);
     }
 
@@ -219,7 +212,7 @@ SharedLayer::Return_t ValidateGuid_v2(
   params.inputTensors = input_tensors.get();
   params.outputTensors = output_tensors.get();
 
-  return synSharedLayerValidateGuid_v2(&params);
+  return synSharedLayerValidateGuid(&params);
 }
 
 detail::TensorDescr TryCastTensor(
@@ -471,7 +464,7 @@ bool CheckNodeWithSharedLayerValidator::Validate(
     const std::vector<at::IValue>& values) {
   bool result;
 
-  bool gaudi3 = getDeviceType_v2() == SharedLayer::DeviceId::DEVICE_ID_GAUDI3;
+  bool gaudi3 = getDeviceType() == SharedLayer::DeviceId::DEVICE_ID_GAUDI3;
 
   if (gaudi3) {
     result = ValidateWithDTypes(compute_type, values);
@@ -531,7 +524,7 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto outputs = CreateOutputList(values, promoted_type);
 
   auto validation_result =
-      ValidateGuid_v2(m_guid, inputs, outputs, params.get(), params_size);
+      ValidateGuid(m_guid, inputs, outputs, params.get(), params_size);
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
     PT_OP_INFO(
