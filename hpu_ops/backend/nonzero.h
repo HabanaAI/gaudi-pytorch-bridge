@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,22 +10,18 @@
  *
  *******************************************************************************
  */
-
 #pragma once
-
-#include "hpu_ops/hpu_op_helper.h"
-#include "hpu_ops/op_backend.h"
+#include <ATen/core/DimVector.h>
+#include <c10/util/Optional.h>
+#include "hpu_ops/nonzero.h"
 
 namespace habana {
-
-struct IndexPutEager : OpBackend {
-  IndexPutEager(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
-struct IndexPutBoolEager : OpBackend {
-  IndexPutBoolEager(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
+std::vector<synapse_helpers::tensor> NonZeroCommon(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    NonZeroParams_t self_params,
+    synTensor self_synin,
+    c10::optional<int> final_result_index,
+    at::DimVector& shape_tensor_shape,
+    bool use_tpc_impl = false);
 } // namespace habana
