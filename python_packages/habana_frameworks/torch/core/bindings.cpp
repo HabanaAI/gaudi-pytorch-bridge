@@ -29,17 +29,18 @@ int GetCurrentThreadDevice() {
 class SharedTensorExtraMeta {
  public:
   auto set_is_const_tensor(bool is_const_tensor) {
-    return get().set_is_const_tensor(is_const_tensor);
+    return tmeta_.set_is_const_tensor(is_const_tensor);
   }
   auto get_is_const_tensor() const {
     return get().is_const_tensor();
   }
   auto set_const_id(int id) {
-    return get().set_const_id(id);
+    return tmeta_.set_const_id(id);
   }
   auto get_const_id() const {
     return get().get_const_id();
   }
+  // set functions can not call const get() to modify
   const habana::TensorExtraMeta& get() const {
     return tmeta_;
   }
