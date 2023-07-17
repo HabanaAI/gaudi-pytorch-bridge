@@ -437,6 +437,9 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     h = input_hash(inputs)
     cached = cache.get(h)
 
+    # [SW-152869] Keep input tensor copy optimization disabled as it has some accuracy issue.
+    input_tensor_opt_enable = False
+
     cached_tlist =  extract_tensors(kwargs.pop('cache_tensors_list', []))
     # Read from env variable.
     env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
@@ -450,7 +453,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
             graph = htorch.hpu.HPUGraph()
             graph.capture_begin(dry_run=dry_run)
             input_tensor_list = get_user_input_tensor_list(inputs, ())
-            if disable_tensor_cache:
+            if input_tensor_opt_enable and disable_tensor_cache:
                 graph.mark_user_inputs(input_tensor_list)
             outputs = orig_fwd(*args, **kwargs)
             graph.capture_end()
@@ -466,7 +469,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
                 tinfo_list = [get_tensor_info(t) for t in tlist]
                 tlist =  cached_tlist +  tlist
                 graph.mark_user_outputs(tlist)
-                graph_inputs = []
+                graph_inputs = [] if input_tensor_opt_enable else inputs
                 if (dry_run):
                     graph.replayV3(get_user_input_tensor_list(inputs, ()), asynchronous)
 
@@ -480,6 +483,8 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         copy_to(cached.graph_inputs, inputs)
         cached.graph.replay(cached.asynchronous)
     else:
+        if not input_tensor_opt_enable:
+            copy_to(cached.graph_inputs, inputs)
         cached.graph.replayV3(get_user_input_tensor_list(inputs, ()), cached.asynchronous)
     out = cached.graph_outputs
     # Enable this line to see the graph counts and memory stats
