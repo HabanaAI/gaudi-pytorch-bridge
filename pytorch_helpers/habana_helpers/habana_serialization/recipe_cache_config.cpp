@@ -30,10 +30,6 @@
 
 namespace serialization {
 
-#define OVERRIDE_ENV_USING_STR(env_name, val) \
-  setenv(#env_name, val.c_str(), 1);          \
-  GET_ENV_FLAG_NEW(env_name, 1)
-
 #define PRINT_DEPRECATION_WARN_IF_ENV_USED(env_name) \
   if (IS_ENV_FLAG_DEFINED_NEW(env_name))             \
   std::clog << #env_name                             \
@@ -64,13 +60,25 @@ void RecipeCacheConfig::reload() {
 
     const std::array<std::function<void(std::string&)>, 3> env_var_setters = {
         [](std::string& val) {
-          OVERRIDE_ENV_USING_STR(PT_RECIPE_CACHE_PATH, val);
+          SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, val.c_str(), 1);
         },
         [](std::string& val) {
-          OVERRIDE_ENV_USING_STR(PT_CACHE_FOLDER_DELETE, val);
+          // parse if provided value is not empty
+          // it it is empty then leave default
+          if (!val.empty()) {
+            auto value =
+                PARSE_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, val.c_str());
+            SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, value, 1);
+          }
         },
         [](std::string& val) {
-          OVERRIDE_ENV_USING_STR(PT_CACHE_FOLDER_SIZE_MB, val);
+          // parse if provided value is not empty
+          // it it is empty then leave default
+          if (!val.empty()) {
+            auto value =
+                PARSE_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB, val.c_str());
+            SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_SIZE_MB, value, 1);
+          }
         },
     };
 

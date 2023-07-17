@@ -74,6 +74,9 @@
   (env_flags::new_style::unset_env_flag_new<env_flags::new_style::e>(#e))
 #define IS_ENV_FLAG_DEFINED_NEW(e) \
   (env_flags::new_style::is_defined_new<env_flags::new_style::e>(#e))
+#define PARSE_ENV_FLAG_NEW(e, v)                     \
+  (env_flags::new_style::parse_env_by_type<decltype( \
+       env_flags::new_style::e::actual_value)>(#e, v))
 
 // ****************************************************************************
 
@@ -477,6 +480,9 @@ T getenv_by_type_new(
     const T def_val,
     const T min_val,
     const T max_val);
+
+template <class T>
+T parse_env_by_type(const char* name, const char* value);
 
 /*
  * Template method(s) for setting env variables

@@ -251,6 +251,28 @@ const char* getenv_by_type_new(
   return act_val.c_str();
 }
 
+static bool parse_env_bool(const char* name, const char* value) {
+  bool result = false;
+  bool true_found = absl::EqualsIgnoreCase(value, "1") ||
+      absl::EqualsIgnoreCase(value, "true");
+  bool false_found = absl::EqualsIgnoreCase(value, "0") ||
+      absl::EqualsIgnoreCase(value, "false");
+
+  if (true_found)
+    result = true;
+  else if (false_found)
+    result = false;
+  else {
+    PT_SYNHELPER_FATAL(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        value,
+        "\" couldn't be converted properly");
+  }
+  return result;
+}
+
 bool getenv_by_type_new(
     const char* name,
     const bool& skip_cache,
@@ -266,31 +288,104 @@ bool getenv_by_type_new(
     bool result = def_val;
     const char* envstrp = getenv(name);
     if (envstrp && *envstrp) {
-      bool true_found = absl::EqualsIgnoreCase(envstrp, "1") ||
-          absl::EqualsIgnoreCase(envstrp, "true");
-      bool false_found = absl::EqualsIgnoreCase(envstrp, "0") ||
-          absl::EqualsIgnoreCase(envstrp, "false");
-
-      if (true_found)
-        result = true;
-      else if (false_found)
-        result = false;
-      else {
-        PT_SYNHELPER_FATAL(
-            "Environment variable \"",
-            name,
-            "\"=\"",
-            envstrp,
-            "\" converted to default value \"",
-            def_val,
-            "\" due to syntax error");
-      }
+      result = parse_env_bool(name, envstrp);
       is_defined = true;
     }
     act_val = result;
     is_cached = true;
   }
   return act_val;
+}
+
+template <class T, class F>
+static T parse_env_numeric(
+    const char* name,
+    const char* value,
+    T min_val,
+    T max_val,
+    F func_strtonum) {
+  // Only case that we need to handle is hex numbers without 0x prefix
+  std::string envstr_lc{value};
+  std::string envstr_orig{value};
+
+  // Using a lowercase representation
+  std::transform(
+      envstr_lc.begin(),
+      envstr_lc.end(),
+      envstr_lc.begin(),
+      [](unsigned char c) { return std::tolower(c); });
+
+  const std::string hex_qual{"0x"};
+  if (envstr_lc.find(hex_qual) != 0 &&
+      std::any_of(
+          std::begin(envstr_lc), std::end(envstr_lc), [](unsigned char c) {
+            return (c >= 'a' && c <= 'f');
+          })) {
+    envstr_lc.insert(0, hex_qual);
+    value = envstr_lc.c_str();
+  }
+
+  errno = 0;
+  char* endptr;
+  T envval = static_cast<T>(func_strtonum(value, &endptr, 0));
+  if (errno == ERANGE) {
+    PT_SYNHELPER_FATAL(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        envstr_orig,
+        "\" converted to different value \"",
+        envval,
+        "\" due to underflow/overflow.");
+  } else if (errno != 0) {
+    PT_SYNHELPER_FATAL(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        envstr_orig,
+        "\" is not converted properly.");
+  }
+
+  // Nonnull endptr means incorrect input string
+  // Report syntax error and assert
+  if (*endptr) {
+    PT_SYNHELPER_FATAL(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        envstr_orig,
+        "\" converted to different value \"",
+        envval,
+        "\" due to syntax error.");
+  }
+
+  // Range check and report the error and assert for overflow / underflow
+  if ((envval < min_val) || (envval > max_val)) {
+    PT_SYNHELPER_FATAL(
+        "Environment variable \"",
+        name,
+        "\"=\"",
+        envstr_orig,
+        "\" decoded as ",
+        envval,
+        " is out of range <",
+        min_val,
+        ", ",
+        max_val,
+        ">");
+  }
+
+  // Return conversion result
+  PT_SYNHELPER_DEBUG(
+      "Environment variable \"",
+      name,
+      "\"=\"",
+      envstr_orig,
+      "\" is decoded as ",
+      envval,
+      '\"');
+
+  return envval;
 }
 
 template <class T, class F>
@@ -315,94 +410,11 @@ static T getenv_numeric_new(
   // 6 | XXX=1234asdf    |   Invalid         | syntax error "asdf"
   // 7 | XXX=asdf        |   Invalid         | syntax error "asdf"
   // 8 | XXX=123...789   |   Invalid         | overflow error
-  T envval{};
   if (!is_cached || skip_cache) {
     const char* envstrp = getenv(name);
     if (envstrp && *envstrp) {
-      // getenv returned a valid string
-
-      // Only case that we need to handle is hex numbers without 0x prefix
-      std::string envstr_lc{envstrp};
-      std::string envstr_orig{envstrp};
-
-      // Using a lowercase representation
-      std::transform(
-          envstr_lc.begin(),
-          envstr_lc.end(),
-          envstr_lc.begin(),
-          [](unsigned char c) { return std::tolower(c); });
-
-      const std::string hex_qual{"0x"};
-      if (envstr_lc.find(hex_qual) != 0 &&
-          std::any_of(
-              std::begin(envstr_lc), std::end(envstr_lc), [](unsigned char c) {
-                return (c >= 'a' && c <= 'f');
-              })) {
-        envstr_lc.insert(0, hex_qual);
-        envstrp = envstr_lc.c_str();
-      }
-
-      errno = 0;
-      char* endptr;
-      envval = static_cast<T>(func_strtonum(envstrp, &endptr, 0));
-      if (errno == ERANGE) {
-        PT_SYNHELPER_FATAL(
-            "Environment variable \"",
-            name,
-            "\"=\"",
-            envstr_orig,
-            "\" converted to different value \"",
-            envval,
-            "\" due to underflow/overflow.");
-      } else if (errno != 0) {
-        PT_SYNHELPER_FATAL(
-            "Environment variable \"",
-            name,
-            "\"=\"",
-            envstr_orig,
-            "\" is not converted properly.");
-      }
-
-      // Nonnull endptr means incorrect input string
-      // Report syntax error and assert
-      if (*endptr) {
-        PT_SYNHELPER_FATAL(
-            "Environment variable \"",
-            name,
-            "\"=\"",
-            envstr_orig,
-            "\" converted to different value \"",
-            envval,
-            "\" due to syntax error.");
-      }
-
-      // Range check and report the error and assert for overflow / underflow
-      if ((envval < min_val) || (envval > max_val)) {
-        PT_SYNHELPER_FATAL(
-            "Environment variable \"",
-            name,
-            "\"=\"",
-            envstr_orig,
-            "\" decoded as ",
-            envval,
-            " is out of range <",
-            min_val,
-            ", ",
-            max_val,
-            ">");
-      }
-
-      // Return conversion result
-      PT_SYNHELPER_DEBUG(
-          "Environment variable \"",
-          name,
-          "\"=\"",
-          envstr_orig,
-          "\" is decoded as ",
-          envval,
-          '\"');
-
-      act_val = envval;
+      act_val =
+          parse_env_numeric(name, envstrp, min_val, max_val, func_strtonum);
       is_defined = true;
     } else {
       act_val = def_val;
@@ -441,6 +453,31 @@ INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned, strtoul)
 INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned long, strtoul)
 INSTANTIATE_GETENV_BY_TYPE_NEW(long long, strtoll)
 INSTANTIATE_GETENV_BY_TYPE_NEW(unsigned long long, strtoull)
+
+#define INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(T, conv)              \
+  template <>                                                   \
+  T parse_env_by_type<T>(const char* name, const char* value) { \
+    T parsed = parse_env_numeric(                               \
+        name,                                                   \
+        value,                                                  \
+        std::numeric_limits<T>::min(),                          \
+        std::numeric_limits<T>::max(),                          \
+        conv);                                                  \
+    return parsed;                                              \
+  }
+
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(int, strtol)
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(long, strtol)
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(unsigned, strtoul)
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(unsigned long, strtoul)
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(long long, strtoll)
+INSTANTIATE_PARSE_ENV_BY_TYPE_NEW(unsigned long long, strtoull)
+
+template <>
+bool parse_env_by_type<bool>(const char* name, const char* value) {
+  bool parsed = parse_env_bool(name, value);
+  return parsed;
+}
 
 ENV_STRING_STRUCT_STATIC_DEFINITION(GC_KERNEL_PATH);
 ENV_STRING_STRUCT_STATIC_DEFINITION(PT_HABANA_MEM_LOG_FILENAME);
