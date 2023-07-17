@@ -19,7 +19,6 @@ from .CustomNms import CustomNms
 from .CustomRoiAlign import RoiAlignFunction
 from .CustomSoftmax import CustomSoftmax
 from .ScaledMaskedSoftmax import ScaledMaskedSoftmax
-from .FlashAttentionPy import FlashAttnFunc
 from .RotaryPosEmbeddingHelper import (
     RotaryPosEmbeddingMode,
     RotaryPosEmbeddingHelperV1,
