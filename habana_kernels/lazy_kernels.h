@@ -1335,9 +1335,9 @@ class LazyOp {
               if (it == values.end()) {
                 values.emplace_back(val);
               }
-            }
-            if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
-              context->m_retained_tensor_list.emplace_back(t);
+              if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
+                context->m_retained_tensor_list.emplace_back(t);
+              }
             }
           }
         }

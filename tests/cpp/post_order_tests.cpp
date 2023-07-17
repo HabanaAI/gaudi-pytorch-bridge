@@ -370,3 +370,18 @@ TEST_F(PostOrderTest, D2H_Test) {
   EXPECT_TRUE(allclose(c5, h5_c));
   EXPECT_TRUE(allclose(c5, h6_c));
 }
+
+TEST_F(PostOrderTest, poTestCat) {
+  // test case for result = add(tensor1, tensor2, alpha)
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
+
+  auto result = cat_hpu_lazy({torch::neg(tensor_in1), tensor_in2}, 0);
+  auto hl_result = SyncAndGetHbLazyTensor(result);
+
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  auto str = po_data.post_order[0]->ToString();
+  EXPECT_TRUE(po_data.outputs.size() == 1);
+}
