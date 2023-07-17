@@ -81,7 +81,13 @@ def _mark_params_as_const(model=None) -> None:
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
         id = param_t_meta_copy.const_id
-        print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
+        # print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
+
+def _get_marked_const_count() -> int:
+    global _const_id
+    count = (_const_id + 1)
+    # print("Total number of marked const tensors: '{}'".format(count))
+    return count
 
 def _check_params_as_const(model=None) -> None:
     if model is None:
