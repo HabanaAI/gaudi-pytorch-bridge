@@ -1920,6 +1920,9 @@ run_lightning_habana_fw_tests()
 
     if [ -n "$__print_tests" ]; then
         pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
+        if [[ "$__dut" = "sim" ]]; then
+            export ENABLE_EXEUTION_ON_GAUDI_SIM=1
+        fi
         echo "Fabric tests:"
         ${__pytorch_lightning_qa_tests_exe} --collectonly test_fabric/
         __test_status=$?
@@ -1934,7 +1937,9 @@ run_lightning_habana_fw_tests()
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
-
+        if [[ "$__dut" = "sim" ]]; then
+            export ENABLE_EXEUTION_ON_GAUDI_SIM=1
+        fi
         echo "Executing Lightning fabric tests on HPU"
         (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter test_fabric/ --forked --junit-xml="${__xml}fabric_fw_uts.xml" ${__marker})
         ((__test_status=__test_status || $?))
@@ -1947,7 +1952,7 @@ run_lightning_habana_fw_tests()
         ((__test_status=__test_status || $?))
 
         popd
-        pushd $LIGHTNING_HABANA_FORK_ROOT/examples/
+        pushd $LIGHTNING_HABANA_FORK_ROOT/examples/pytorch
         echo "Executing Lightning Habana examples"
         pip freeze list
         (set -x; eval python mnist_trainer.py)
