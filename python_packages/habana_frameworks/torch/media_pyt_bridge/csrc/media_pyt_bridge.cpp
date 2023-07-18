@@ -136,11 +136,11 @@ torch::Tensor GetOutputTensor(uintptr_t addr) {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.doc() = "media_pyt_bridge python binding";
   m.def(
-      "CreatePytMediaProxy",
+      "create_pyt_media_proxy",
       &torch_hpu::CreatePytMediaProxy,
       "Create media pytorch bridge proxy");
   m.def(
-      "get_out_tensor",
+      "get_output_tensor",
       &torch_hpu::GetOutputTensor,
       "Return pytorch tensor from proxy object");
 }

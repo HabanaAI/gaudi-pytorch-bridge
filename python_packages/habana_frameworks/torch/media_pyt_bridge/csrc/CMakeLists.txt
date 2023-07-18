@@ -9,7 +9,7 @@
 #
 # ##############################################################################
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(TARGET_NAME "media_pyt_bridge")
+set(TARGET_NAME "_media_pyt_bridge_C")
 add_library(${TARGET_NAME} SHARED
     media_pyt_bridge.cpp
     pyt_media_proxy.cpp
