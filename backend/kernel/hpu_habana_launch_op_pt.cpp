@@ -1355,6 +1355,11 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
     return out_ival;
   }
 
+  // Handle empty list
+  if (node_ins.empty()) {
+    return std::make_shared<IVal>(c10::List<int64_t>());
+  }
+
   auto ivptrsh = value_to_ivalue[node_ins[0]];
 
   // Handle construction of list consisting tensor only

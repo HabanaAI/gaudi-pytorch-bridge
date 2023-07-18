@@ -19,42 +19,43 @@ from .logger import get_compile_backend_logger
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
 
-hpu_supported_op_list = {"_to_copy",
-                         "getitem",
-                         "copy"
-                        }
+hpu_supported_op_list = {
+    "_to_copy",
+    "copy",
+    "full",
+    "getitem",
+}
 
+hpu_fallback_op_list = [
+    # Random OPs.
+    "seed",
+    "manual_seed",
+    "initial_seed",
+    "get_rng_state",
+    "set_rng_state",
+    "rand",
+    "randn",
+    "randint",
+    "rand_like",
+    "randn_like",
+    "randint_like",
+    "randperm",
+    "poisson",
+    "multinomial",
+    "normal",
+    # Other
+    "slice_backward",  # SW-146680
+    "addcmul",
+    "index",  # SW-146773
+    "squeeze",  # SW-151342
+]
 
-hpu_fallback_op_list  = [
-            "zeros",
-            "ones",
-            # Random OPs.
-            "seed",
-            "manual_seed",
-            "initial_seed",
-            "get_rng_state",
-            "set_rng_state",
-            "rand",
-            "randn",
-            "randint",
-            "rand_like",
-            "randn_like",
-            "randint_like",
-            "randperm",
-            "poisson",
-            "multinomial",
-            "normal",
-            # Other
-            "slice_backward", # SW-146680
-            "addcmul",
-            "index",  # SW-146773
-            "squeeze" # SW-151342
-            ]
 
 def check_for_default_op_support(op_name):
     if op_name in hpu_supported_op_list:
         return True
     return False
+
 
 def check_for_default_fallback(op_name, node):
     for op in hpu_fallback_op_list:
@@ -65,7 +66,13 @@ def check_for_default_fallback(op_name, node):
         for output_dtype in node.meta["output_dtypes"]:
             if output_dtype == unsupported_types[op_name]:
                 return True
+
+    # https://github.com/pytorch/pytorch/issues/75465
+    # bool has issue with JIT scalar representation
+    if op_name == "full" and isinstance(node.args[1], bool):
+        return True
     return False
+
 
 def is_eager_fallback_required(node: torch.fx.Node) -> bool:
     """
@@ -85,21 +92,26 @@ def is_eager_fallback_required(node: torch.fx.Node) -> bool:
         elif not check_for_default_op_support(op_name):
             for arg in args:
                 arg_types.append(type(arg))
-            normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+            normalized_args = torch.fx.operator_schemas.normalize_function(
+                node.target, args, kwargs, arg_types
+            )
             if normalized_args is None:
                 args = args[::-1]
                 arg_types = arg_types[::-1]
-                normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
+                normalized_args = torch.fx.operator_schemas.normalize_function(
+                    node.target, args, kwargs, arg_types
+                )
             if normalized_args is not None:
                 args, kwargs = normalized_args
                 try:
-                    do_fallback = check_cpu_fallback_op(op_name, args, arg_types, kwargs)
+                    do_fallback = check_cpu_fallback_op(
+                        op_name, args, arg_types, kwargs
+                    )
                 except Exception as e:
                     print("Exception raised in check for fallback for op", node.target)
                     do_fallback = True
             else:
                 do_fallback = True
-
 
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
     return do_fallback
