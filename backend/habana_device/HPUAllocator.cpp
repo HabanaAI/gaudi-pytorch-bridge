@@ -106,7 +106,12 @@ static synStatus waitTillRecipeExecution(
           counter_state,
           " requested size ",
           num_bytes);
-      status = device.get_device_memory().malloc(&v_ptr, num_bytes);
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+        status = device.get_device_memory().malloc(
+            &v_ptr, num_bytes, c10::hpu::getCurrentHPUStream().stream());
+      } else {
+        status = device.get_device_memory().malloc(&v_ptr, num_bytes);
+      }
       // It is not guaranteed that device will have more memory avaliable at
       // exit point, since framework might called multiple new allocations
       // from other threads, or wakeup might be spurious.
@@ -132,10 +137,18 @@ void HPUDeviceAllocator::deleter(void* ptr) {
       HPURegistrar::get_device(HPUDeviceAllocator::allocator_active_device_id);
   if (ptr != nullptr) {
     auto alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr);
-    status = device.get_device_memory().free_with_stream(alloc_ctx->data_ptr);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+      status = device.get_device_memory().free_with_stream(alloc_ctx->data_ptr);
+    } else {
+      status = device.get_device_memory().free(alloc_ctx->data_ptr);
+    }
     delete alloc_ctx;
   } else {
-    status = device.get_device_memory().free_with_stream(ptr);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+      status = device.get_device_memory().free_with_stream(ptr);
+    } else {
+      status = device.get_device_memory().free(ptr);
+    }
   }
   TORCH_HABANA_CHECK(status, "Device Free failed");
 }
@@ -153,8 +166,12 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
   auto& device = HPURegistrar::get_device(allocator_active_device_id);
 
   if (num_bytes != 0) {
-    status = device.get_device_memory().malloc(
-        &v_ptr, num_bytes, c10::hpu::getCurrentHPUStream().stream());
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+      status = device.get_device_memory().malloc(
+          &v_ptr, num_bytes, c10::hpu::getCurrentHPUStream().stream());
+    } else {
+      status = device.get_device_memory().malloc(&v_ptr, num_bytes);
+    }
 
     if (v_ptr == nullptr) {
       status =
@@ -205,6 +222,8 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 void HPUDeviceAllocator::recordStream(
     const at::DataPtr& ptr,
     c10::hpu::HPUStream stream) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM))
+    return;
   // Empty tensor's storage().data() might be a null ptr. As there is no
   // blocks associated with those tensors, it is fine to do nothing here.
   if (!ptr.get()) {
