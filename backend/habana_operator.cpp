@@ -102,7 +102,7 @@ bool habana::HabanaOperator::isFp8Op(const std::string_view guid) {
   // (+any_of) over absl::flat_hash_set (+contains). Adding more items requires
   // reevaluation of results. For reference on why
   // https://www.youtube.com/watch?v=INn3xa4pMfg
-  static constexpr std::array<std::string_view, 26> fp8_ops{
+  static constexpr std::array<std::string_view, 27> fp8_ops{
       "cast_from_fp8_f32"sv,
       "cast_from_fp8_bf16"sv,
       "cast_from_fp8_i8"sv,
@@ -116,6 +116,7 @@ bool habana::HabanaOperator::isFp8Op(const std::string_view guid) {
       "fp8_cast_transpose_bgrad_bf16"sv,
       "fp8_cast_transpose_bgrad_dgelu_f32"sv,
       "fp8_cast_transpose_bgrad_dgelu_bf16"sv,
+      "fp8_copy__i8"sv,
       "fp8_dropout_f32"sv,
       "fp8_dropout_bf16"sv,
       "fp8_gelu_f32"sv,

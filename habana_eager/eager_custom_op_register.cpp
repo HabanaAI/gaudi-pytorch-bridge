@@ -532,6 +532,10 @@ at::Tensor retain_softmax_consumer(
   return hpu_op.call();
 }
 
+at::Tensor& fp8_copy_(at::Tensor& self, const at::Tensor& src) {
+  TORCH_CHECK(false, "hpu::fp8_copy_ is not available in Eager mode.");
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -606,6 +610,7 @@ TORCH_LIBRARY(hpu, m) {
       "strided_insert_orig_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(
       "strided_insert_orig_ds_h2d(Tensor self, Tensor other, Tensor stride) -> (Tensor)");
+  m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -642,6 +647,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer);
+  m.impl("hpu::fp8_copy_", fp8_copy_);
 }
 
 } // namespace eager

@@ -2089,6 +2089,17 @@ at::Tensor _ragged_softmax_wrap(
   return habana_lazy::_ragged_softmax(self, dim, half_to_float, valid_count);
 }
 
+at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_2ARGS(self, src));
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
+    return fp8_copy_lazy(self, src);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
@@ -2402,6 +2413,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::retain_softmax_producer(Tensor self) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
+  m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2444,6 +2456,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer_wrap);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);
+  m.impl("hpu::fp8_copy_", fp8_copy_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

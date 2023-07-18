@@ -47,6 +47,7 @@ DEFINE_OP(Fp8GemmV2)
 DEFINE_OP(Fp8Transpose)
 DEFINE_OP(Fp8Permute)
 DEFINE_OP(Fp8Reshape)
+DEFINE_OP(Fp8Copy_)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(Fp8DropoutOutputShape)

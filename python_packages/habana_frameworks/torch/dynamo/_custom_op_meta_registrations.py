@@ -215,6 +215,10 @@ def meta_retain_softmax_consumer(input, max, exp_sum_recpr):
     return input.new_empty(input.shape)
 
 
+@register_meta([torch.ops.hpu.fp8_copy_.default])
+def meta_fp8_copy_(self, src):
+    return self
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

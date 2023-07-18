@@ -13,6 +13,7 @@ import torch
 import pytest
 import numpy as np
 from test_utils import cpu, hpu, is_gaudi1
+import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8, cast_to_fp8_v2, fp8_gemm, fp8_gemm_v2, fp8_transpose, cast_from_fp8, fp8_gelu, fp8_cast_transpose_fused, fp8_cast_transpose_bgrad_fused, layernorm_fwd_fp8, fp8_cast_transpose_bgrad_dgelu_fused
 
 # Disable dynamic shapes
@@ -698,3 +699,16 @@ def test_transpose(shape, is_out):
     out_ref = input.t()
 
     assert np.array_equal(out.cpu(), out_ref)
+
+
+@pytest.mark.parametrize("shape", [(2, 2), (512,), (5, 4, 3, 8)])
+def test_fp8_copy_(shape):
+    torch.manual_seed(0)
+    hpu = torch.device("hpu")
+
+    self = cast_to_fp8((torch.zeros(shape)).to(hpu))
+    htcore.mark_step()
+    src = cast_to_fp8((torch.randn(shape)*50).to(hpu))
+
+    torch.ops.hpu.fp8_copy_(self, src)
+    assert np.array_equal(self.cpu(), src.cpu())

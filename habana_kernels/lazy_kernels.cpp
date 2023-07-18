@@ -7406,4 +7406,13 @@ at::Tensor retain_softmax_consumer_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(retain_softmax_consumer, op)
 }
 
+at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor&> op{"hpu::fp8_copy_", {self, src}, {{self.sizes().vec()}}};
+
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_copy_, op, self)
+}
+
 } // namespace habana_lazy

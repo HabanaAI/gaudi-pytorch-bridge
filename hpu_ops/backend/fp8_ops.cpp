@@ -916,6 +916,24 @@ void Fp8Reshape::AddNode(
   syn_out(0) = std::move(reshape[0]);
 }
 
+Fp8Copy_::Fp8Copy_(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_copy_", scalar_type, {}, {0}, {}, false) {}
+
+void Fp8Copy_::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 2, "Fp8Copy_ must have 2 input arguments");
+
+  std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+  auto shape = stack[0].toTensor().sizes().vec();
+  auto copy = BuildNode(
+      this,
+      graph,
+      {"memcpy_" + guid_suffix,
+       {syn_in(1)},
+       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}}});
+
+  syn_out(0) = std::move(copy[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -942,4 +960,5 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
         .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose))
         .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
-        .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape));
+        .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape))
+        .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_));
