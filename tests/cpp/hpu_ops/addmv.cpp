@@ -67,6 +67,35 @@ TEST_F(HpuOpTest, addmv_usual_3) {
   Compare(expected, result, 1e-2, 1e-2);
 }
 
+TEST_F(HpuOpTest, addmv_usual_4) {
+  int rowCount = GenerateScalar<int>(5, 15);
+  int columnCount = GenerateScalar<int>(10, 20);
+  GenerateInputs(
+      3,
+      {{rowCount}, {rowCount, columnCount}, {columnCount}},
+      {torch::kBFloat16});
+
+  auto& inputCPU = GetCpuInput(0);
+  inputCPU[0] = NAN;
+
+  auto& inputHPU = GetHpuInput(0);
+  inputHPU[0] = NAN;
+
+  auto expected = torch::addmv(
+      inputCPU,
+      GetCpuInput(1),
+      GetCpuInput(2),
+      /*beta*/ 0.0,
+      /*alpha*/ 1.0);
+  auto result = torch::addmv(
+      inputHPU,
+      GetHpuInput(1),
+      GetHpuInput(2),
+      /*beta*/ 0.0,
+      /*alpha*/ 1.0);
+  Compare(expected, result, 1e-2, 1e-2);
+}
+
 TEST_F(HpuOpTest, addmv_usual_broadcast_1) {
   int rowCount = GenerateScalar<int>(50, 150);
   int columnCount = GenerateScalar<int>(20, 45);

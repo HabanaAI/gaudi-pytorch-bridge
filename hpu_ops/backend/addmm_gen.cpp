@@ -238,16 +238,37 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const float beta_val = stack.at(idxBeta).toScalar().toFloat();
   const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
 
-  auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
-  auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
+  const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
+      alpha_val == 1.0 || alpha_val == 0.0;
 
-  auto addmm = BuildOp(
-      graph,
-      guid_,
-      {syn_in(0), syn_in(1), syn_in(2), beta_tensor.get(), alpha_tensor.get()},
-      {{outshape, ScalarType(), 0}});
+  if (shouldUseParams) {
+    ns_AddmmKernel::Params params{};
+    params.alpha = alpha_val;
+    params.beta = beta_val;
 
-  syn_out(0) = std::move(addmm[0]);
+    auto addmv = BuildOp(
+        graph,
+        guid_,
+        {syn_in(0), syn_in(1), syn_in(2)},
+        {{outshape, ScalarType(), 0}},
+        &params,
+        sizeof(params));
+    syn_out(0) = std::move(addmv[0]);
+  } else {
+    auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
+    auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
+    auto addmm = BuildOp(
+        graph,
+        guid_,
+        {syn_in(0),
+         syn_in(1),
+         syn_in(2),
+         beta_tensor.get(),
+         alpha_tensor.get()},
+        {{outshape, ScalarType(), 0}});
+
+    syn_out(0) = std::move(addmm[0]);
+  }
 }
 
 void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
