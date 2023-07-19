@@ -122,7 +122,7 @@ void BaseCacheFileHandler::evict_recipe_if_needed() {
     return;
   }
 
-  if (!acquire_access_for_eviction()) {
+  if (!acquire_access_for_eviction(true)) {
     PT_HABHELPER_DEBUG(CACHEFILE_LOG, "No access for eviction.");
     return;
   }
@@ -172,8 +172,8 @@ bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
   size_t size = 0;
   bool removed_successfully = false;
 
-  int fd_r = openAndLockFile(r_path.string(), O_RDONLY, false, size);
-  int fd_met = openAndLockFile(met_path.string(), O_RDONLY, false, size);
+  int fd_r = openAndLockFile(r_path.string(), O_RDONLY, true, size);
+  int fd_met = openAndLockFile(met_path.string(), O_RDONLY, true, size);
 
   if (fd_r < 0 || fd_met < 0) {
     PT_HABHELPER_WARN(
@@ -198,13 +198,13 @@ bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
   return removed_successfully;
 }
 
-bool BaseCacheFileHandler::acquire_access_for_eviction() {
+bool BaseCacheFileHandler::acquire_access_for_eviction(bool block) {
   size_t size = 0;
   fs::path cache_dir_path{getCachePath()};
   fs::path eviction_lock_file_path = cache_dir_path / "eviction.lock";
 
   eviction_lock_fd_ = openAndLockFile(
-      eviction_lock_file_path.string(), O_RDWR | O_CREAT, true, size);
+      eviction_lock_file_path.string(), O_RDWR | O_CREAT, block, size);
 
   if (eviction_lock_fd_ >= 0) {
     PT_HABHELPER_DEBUG(CACHEFILE_LOG, "Locked eviction directory successfully");

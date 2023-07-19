@@ -33,8 +33,6 @@ std::string metadata_file_path(
   return path + "/" + cache_id + METADATA_SUFFIX;
 }
 
-struct flock CacheFileHandler::fileLocker;
-
 CacheFileHandler::CacheFileHandler()
     : maxFolderSize(RecipeCacheConfig::get_instance().cache_dir_max_size_mb()) {
   maxFolderSize = maxFolderSize * 1024 * 1024;
@@ -77,33 +75,22 @@ void CacheFileHandler::init(std::string path) {
 }
 
 int CacheFileHandler::fileOpen(const std::string& fname, int flags) {
-  PT_FILE_LOCK_DEBUG(__func__, ": ", fname);
-  return open(fname.c_str(), flags, S_IRUSR | S_IWUSR);
+  return open(fname.c_str(), flags, S_IRWXU | S_IRWXG | S_IRWXO);
 }
 
 int CacheFileHandler::fileClose(int fd) {
-  PT_FILE_LOCK_DEBUG(__func__, ": ", fd);
   // Function that closes the file, effectively removing the flock on it
   return close(fd);
 }
 
 int CacheFileHandler::fileUnLock(int fd) {
-  PT_FILE_LOCK_DEBUG(__func__, ": ", fd);
-  fileLocker.l_type = F_UNLCK;
-  return fcntl(fd, F_SETLK, &fileLocker);
+  return flock(fd, LOCK_UN);
 }
 
-bool CacheFileHandler::fileLock(int fd, bool write) {
-  PT_FILE_LOCK_DEBUG(__func__, " pre fcntl, write: ", write);
-  auto readWrite = write ? F_WRLCK : F_RDLCK;
-  fileLocker.l_type = readWrite; // Exclusive write lock
-  fileLocker.l_whence =
-      SEEK_SET; // Lock starting from the beginning of the file
-  fileLocker.l_start = 0; // Start of the locked region
-  fileLocker.l_len = 0; // Lock the entire file
-  auto retVal = fcntl(fd, F_SETLK, &fileLocker);
+bool CacheFileHandler::fileLock(int fd, bool block) {
+  auto flags = LOCK_EX | (block ? 0 : LOCK_NB);
 
-  PT_FILE_LOCK_DEBUG(__func__, " post fcntl: ", retVal);
+  auto retVal = flock(fd, flags);
   if (retVal == -1) {
     return false;
   }
@@ -111,9 +98,8 @@ bool CacheFileHandler::fileLock(int fd, bool write) {
   return true;
 }
 
-bool CacheFileHandler::fileLock(int fd, bool write, size_t& size) {
-  PT_FILE_LOCK_DEBUG(__func__, ": ", fd, " write: ", write);
-  if (!fileLock(fd, write))
+bool CacheFileHandler::fileLock(int fd, bool block, size_t& size) {
+  if (!fileLock(fd, block))
     return false;
 
   size = lseek(fd, (size_t)0, SEEK_END);
@@ -152,13 +138,13 @@ void CacheFileHandler::addFileInfo(const std::string& cache_id) {
 int CacheFileHandler::openAndLockFile(
     const std::string& fname,
     int flags,
-    bool write,
+    bool block,
     size_t& size) {
   int fd = CacheFileHandler::fileOpen(fname, flags);
   if (fd < 0)
     return fd;
 
-  if (!CacheFileHandler::fileLock(fd, write, size)) {
+  if (!CacheFileHandler::fileLock(fd, block, size)) {
     CacheFileHandler::fileClose(fd);
     return -1;
   }

@@ -48,7 +48,6 @@ static void createModuleLoggersOnDemand(LoggerType) {
           LoggerType::PT_LAZY_EAGER,  LoggerType::PT_MEMLOG,
           LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
           LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
-          LoggerType::PT_FILE_LOCK,   LoggerType::PT_FILE_LOCK,
       },
       default_params);
 
@@ -113,7 +112,6 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_EAGER,
     PT_CUSTOM,
     PT_RECIPE_STATS,
-    PT_FILE_LOCK,
     LOG_MAX)
 // -------------- HL LOG ----------------
 

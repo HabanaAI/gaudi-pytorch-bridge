@@ -46,7 +46,7 @@ class BaseCacheFileHandler : public CacheFileHandler {
     fs::file_time_type created;
   };
 
-  bool acquire_access_for_eviction();
+  bool acquire_access_for_eviction(bool block = false);
   void release_access_for_eviction();
   void evict_recipe_if_needed();
   std::vector<RecipeInfo> get_recipes_list_by_date();
