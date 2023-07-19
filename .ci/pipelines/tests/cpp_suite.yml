@@ -1,12 +1,4 @@
 common:
-  dependencies:
-    - HCL
-    - HL_THUNK
-    - SWTOOLS_SDK
-    - SYNAPSE
-    - SYNAPSE_UTILS
-    - TPC_FUSER
-    - TPC_KERNELS
   config:
     testCommand: run_pytorch_modules_tests
     loadLKD: true
@@ -34,47 +26,30 @@ common:
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
 testsMap:
   Test_pytorch_modules_gaudi_sim_cpp_suite:
-    dependencies:
-      - CORAL_SIM
-      - TPCSIM
     stages:
       Run CPP tests gaudi sim:
         filter: -t cpp_tests
       Run PY tests gaudi sim:
         filter: -t py_tests
   Test_pytorch_modules_gaudi2_sim_cpp_suite:
-    dependencies:
-      - CORAL_SIM
-      - TPC_LLVM
-      - TPCSIM
     stages:
       Run CPP tests gaudi2 sim:
         filter: -t cpp_tests --dut gaudi2
       Run PY tests gaudi2 sim:
         filter: -t py_tests --dut gaudi2
   Test_pytorch_modules_gaudi2_asic_cpp_suite:
-    dependencies:
-      - TPC_LLVM
     stages:
       Run CPP tests gaudi2 asic:
         filter: -t cpp_tests --dut gaudi2
       Run PY tests gaudi2 asic:
         filter: -t py_tests --dut gaudi2
   Test_pytorch_modules_gaudi3_sim_cpp_suite:
-    dependencies:
-      - CORAL_SIM
-      - TPC_LLVM
-      - TPCSIM
     stages:
       Run CPP tests gaudi3 sim:
         filter: -t cpp_tests --dut gaudi3
       Run PY tests gaudi3 sim:
         filter: -t py_tests --dut gaudi3
   Test_pytorch_modules_greco_sim_cpp_suite:
-    dependencies:
-      - CORAL_SIM
-      - TPC_LLVM
-      - TPCSIM
     stages:
       Run CPP tests greco sim:
         filter: -t cpp_tests --dut greco
