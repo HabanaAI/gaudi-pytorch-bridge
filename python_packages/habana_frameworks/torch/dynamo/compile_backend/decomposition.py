@@ -37,6 +37,13 @@ exclusions = [
     "aten.threshold_backward.default",
     "aten.t.default",
 
+    # These are used in UNet and we support them natively.
+    "aten._native_batch_norm_legit.no_stats",
+    "aten._softmax.default",
+    "aten._softmax_backward_data.default",
+    "aten.leaky_relu.default",
+    "aten.leaky_relu_backward.default",
+
     # These decompositions are causing various functional test issues.
     "aten.binary_cross_entropy.default",
     "aten.log_sigmoid_forward.default",
