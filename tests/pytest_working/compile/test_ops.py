@@ -26,7 +26,6 @@ def setup_teardown_env():
         callback=callback
     )
 
-
 @pytest.mark.xfail(reason="Graph compile failed. synStatus 26")
 @pytest.mark.parametrize(
     "dtype",
@@ -76,6 +75,34 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
 
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
+
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
+@pytest.mark.parametrize("dtype, layout, device", [(torch.int, torch.strided, torch.device('hpu')),
+                                                   (None, None, None)])
+def test_new_empty_strided(dtype, layout, device):
+    def fn(tensor, size, stride, dtype, layout, device):
+        return tensor.new_empty_strided(
+            size=size,
+            stride=stride,
+            dtype=dtype,
+            layout=layout,
+            device=device
+        )
+
+    tensor = torch.randn(4, 3, 2, 5)
+    size = (5, 4, 3)
+    stride = (2, 3, 5)
+
+    compiled_cpu = torch.compile(fn)
+    cpu_result = compiled_cpu(tensor, size, stride, dtype, layout, device)
+
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, device)
+
+    assert hpu_result.size() == cpu_result.size()
+    assert hpu_result.stride() == cpu_result.stride()
+    assert hpu_result.dtype == cpu_result.dtype
+    assert hpu_result.layout == cpu_result.layout
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(

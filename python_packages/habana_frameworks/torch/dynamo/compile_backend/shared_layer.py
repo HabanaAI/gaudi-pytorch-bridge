@@ -46,7 +46,6 @@ hpu_fallback_op_list  = [
             "addcmul",
             "index",  # SW-146773
             "split",   # SW-149515
-            "new_empty_strided",   # SW-149882
             "squeeze" # SW-151342
             ]
 

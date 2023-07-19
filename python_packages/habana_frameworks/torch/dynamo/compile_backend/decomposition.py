@@ -20,6 +20,7 @@ from torch._decomp import core_aten_decompositions, get_decompositions, register
 additional_decompositions = get_decompositions(
     [
         # no entries now, example entry: torch.ops.aten.std_mean
+        torch.ops.aten.new_empty_strided.default
     ]
 )
 
