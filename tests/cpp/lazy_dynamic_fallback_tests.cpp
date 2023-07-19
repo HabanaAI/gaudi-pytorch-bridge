@@ -422,9 +422,9 @@ TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
   // Static Maxpool Fwd +BWD
   if (1) {
     torch::Tensor A = torch::randn(
-        {2, 64, 320, 464}, torch::dtype(torch::kFloat).requires_grad(false));
+        {2, 8, 40, 121}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(
-        {2, 64, 160, 232}, torch::dtype(torch::kFloat).requires_grad(false));
+        {2, 8, 20, 61}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hB = B.to(torch::kHPU);
     std::vector<int64_t> kernel_size = {{3, 3}};
@@ -469,9 +469,9 @@ TEST_F(LazyDynamicFallbackTest, maxpool_2d_with_indices_backward) {
   // Dynamic Maxpool Fwd +BWD
   if (1) {
     torch::Tensor A = torch::randn(
-        {2, 120, 321, 489}, torch::dtype(torch::kFloat).requires_grad(false));
+        {2, 16, 41, 123}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor B = torch::randn(
-        {2, 120, 161, 245}, torch::dtype(torch::kFloat).requires_grad(false));
+        {2, 16, 21, 62}, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hB = B.to(torch::kHPU);
     std::vector<int64_t> kernel_size = {{3, 3}};
