@@ -19,8 +19,11 @@ from .logger import get_compile_backend_logger
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
 
-hpu_supported_op_list = ["_to_copy",
-                         "getitem"]
+hpu_supported_op_list = {"_to_copy",
+                         "getitem",
+                         "copy"
+                        }
+
 
 hpu_fallback_op_list  = [
             "zeros",
@@ -50,9 +53,8 @@ hpu_fallback_op_list  = [
             ]
 
 def check_for_default_op_support(op_name):
-    for op in hpu_supported_op_list:
-        if op in op_name:
-            return True
+    if op_name in hpu_supported_op_list:
+        return True
     return False
 
 def check_for_default_fallback(op_name, node):
