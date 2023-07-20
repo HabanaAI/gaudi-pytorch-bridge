@@ -68,6 +68,8 @@ bool GetRefineDynamicShapeStatus() {
 
 void SetRefineDynamicShapeTorchCompile(bool flag) {
   SetRefineDynamicShape(flag, true);
+  // [TODO] disable hybrid sif until SW-153320
+  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, !flag, 1);
 }
 
 } // namespace habana_helpers
