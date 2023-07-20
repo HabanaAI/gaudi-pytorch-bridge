@@ -42,7 +42,7 @@ bool resizeTensor(
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   bool change = false;
-  for (int i = 0; i < tensors.size(); i++) {
+  for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
     changed[i] = false;
     if ((at::kChar == btensor_type || at::kByte == btensor_type) &&
@@ -62,7 +62,7 @@ void restoreTensorsize(
     std::unique_ptr<bool[]>& changed,
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
-  for (int i = 0; i < tensors.size(); i++) {
+  for (size_t i = 0; i < tensors.size(); i++) {
     if (changed[i] == true) {
       tensors[i].resize_(tensors[i].numel() - 1);
       tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -75,8 +75,7 @@ void restoreTensorsize(
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size,
-    const std::chrono::milliseconds& timeout)
+    int size)
     : ProcessGroup(rank, size), store_(store), barrier_cnt_(0) {
   PT_LAZY_DEBUG("Create ProcessGroupLazyHCCL, rank = ", rank, " size = ", size);
   comm_ = habana::HcclCommunicator::Create(
@@ -121,7 +120,8 @@ bool ProcessGroupLazyHCCL::WorkLazy::isSuccess() const {
   return true;
 }
 
-bool ProcessGroupLazyHCCL::WorkLazy::wait(std::chrono::milliseconds timeout) {
+bool ProcessGroupLazyHCCL::WorkLazy::wait(std::chrono::milliseconds timeout
+                                          [[maybe_unused]]) {
   habana_lazy::HbLazyTensor::StepMarker();
   return true;
 }
@@ -181,7 +181,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce_coalesced(
     std::vector<at::Tensor>& tensors,
-    const AllreduceCoalescedOptions& opts) {
+    [[maybe_unused]] const AllreduceCoalescedOptions& opts) {
   at::TensorList at_tensors(tensors);
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
@@ -213,21 +213,19 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
-    const AllgatherOptions& opts) {
+    [[maybe_unused]] const AllgatherOptions& opts) {
   bool change = false;
   size_t tensor_size = outputTensors[0].size();
   std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
       new std::unique_ptr<bool[]>[tensor_size]());
   std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
-  for (int i = 0; i < outputTensors.size(); i++) {
+  for (size_t i = 0; i < outputTensors.size(); i++) {
     changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
     sizeList[i].resize(outputTensors[i].size());
     strideList[i].resize(outputTensors[i].size());
     resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
-  size_t in_tensor_size = inputTensors.size();
-  size_t element_cout = inputTensors[0].numel();
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
@@ -255,33 +253,33 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
   if (change) {
     habana_lazy::HbLazyTensor::StepMarker();
   }
-  for (int i = 0; i < outputTensors.size(); i++) {
+  for (size_t i = 0; i < outputTensors.size(); i++) {
     restoreTensorsize(outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
-    at::Tensor& outputBuffer,
-    at::Tensor& inputBuffer,
-    const AllgatherOptions& opts) {
+    [[maybe_unused]] at::Tensor& outputBuffer,
+    [[maybe_unused]] at::Tensor& inputBuffer,
+    [[maybe_unused]] const AllgatherOptions& opts) {
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
   throw std::runtime_error(
       "allgather_base is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
-    std::vector<std::vector<at::Tensor>>& outputTensorLists,
-    std::vector<at::Tensor>& inputTensors,
-    const AllgatherOptions& opts) {
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& outputTensorLists,
+    [[maybe_unused]] std::vector<at::Tensor>& inputTensors,
+    [[maybe_unused]] const AllgatherOptions& opts) {
   throw std::runtime_error(
       "allgather_coalesced is currently not supported with HCCL");
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
-    std::vector<at::Tensor>& inputTensors,
-    const GatherOptions& opts) {
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& outputTensors,
+    [[maybe_unused]] std::vector<at::Tensor>& inputTensors,
+    [[maybe_unused]] const GatherOptions& opts) {
   throw std::runtime_error("gather is currently not supported with HCCL");
 };
 
@@ -290,7 +288,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
-    const AllToAllOptions& opts) {
+    [[maybe_unused]] const AllToAllOptions& opts) {
   auto data_type = outputTensor.scalar_type();
   bool cast_tensor = !(
       data_type == c10::ScalarType::Float ||
@@ -315,9 +313,9 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
-    std::vector<at::Tensor>& outputTensors,
-    std::vector<std::vector<at::Tensor>>& inputTensors,
-    const ScatterOptions& opts) {
+    [[maybe_unused]] std::vector<at::Tensor>& outputTensors,
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& inputTensors,
+    [[maybe_unused]] const ScatterOptions& opts) {
   throw std::runtime_error("scatter is currently not supported with HCCL");
 };
 
@@ -412,8 +410,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recvAnysource(
-    std::vector<at::Tensor>& tensors,
-    int tag) {
+    [[maybe_unused]] std::vector<at::Tensor>& tensors,
+    [[maybe_unused]] int tag) {
   throw std::runtime_error(
       "recvAnysource is currently not supported with HCCL");
 };
@@ -453,7 +451,7 @@ void ProcessGroupLazyHCCL::hostBarrier() {
 }
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
-    const BarrierOptions& opts) {
+    const BarrierOptions& opts [[maybe_unused]]) {
   hostBarrier();
   habana_lazy::HbLazyTensor::StepMarker();
 
@@ -478,9 +476,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::ProcessGroup>
       processGroupHccl(module, "ProcessGroupHCCL");
 
-  processGroupHccl.def(py::init<
-                       const c10::intrusive_ptr<c10d::Store>&,
-                       int,
-                       int,
-                       std::chrono::milliseconds>());
+  processGroupHccl.def(
+      py::init<const c10::intrusive_ptr<c10d::Store>&, int, int>());
 };

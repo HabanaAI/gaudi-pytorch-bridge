@@ -33,8 +33,7 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
   ProcessGroupLazyHCCL(
       const c10::intrusive_ptr<Store>& store,
       int rank,
-      int size,
-      const std::chrono::milliseconds& timeout);
+      int size);
   virtual ~ProcessGroupLazyHCCL();
 
   class WorkLazy : public Work, public std::enable_shared_from_this<WorkLazy> {

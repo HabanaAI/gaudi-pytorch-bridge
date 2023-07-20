@@ -75,7 +75,7 @@ bool resizeTensor(
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   bool change = false;
-  for (int i = 0; i < tensors.size(); i++) {
+  for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
     changed[i] = false;
     if ((at::kChar == btensor_type || at::kByte == btensor_type) &&
@@ -96,7 +96,7 @@ void restoreTensorsize(
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList,
     c10::intrusive_ptr<Work>& work) {
-  for (int i = 0; i < tensors.size(); i++) {
+  for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
     if ((at::kChar == btensor_type || at::kByte == btensor_type)) {
       work->wait();
@@ -148,7 +148,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
       tensors,
       [rootRank = opts.rootRank, this](
           at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -239,7 +239,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
       allreduce_tensors,
       [reduceOp = opts.reduceOp, this](
           at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -331,7 +331,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
        reduceOp = opts.reduceOp,
        this](
           at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -394,7 +394,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
     std::vector<at::Tensor>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
-    const AllToAllOptions& opts) {
+    [[maybe_unused]] const AllToAllOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   auto flattenedIn = newLikeFlat(inputTensors);
@@ -410,7 +410,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
       inputTensorsFlat,
       outputTensorsFlat,
       [&](at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -460,7 +460,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
     at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
     std::vector<int64_t>& inputSplitSizes,
-    const AllToAllOptions& opts) {
+    [[maybe_unused]] const AllToAllOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
 
@@ -489,7 +489,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
         outputTensors,
         [numRanks = getSize(), rank = getRank(), this](
             at::Tensor& input,
-            at::Tensor& output,
+            [[maybe_unused]] at::Tensor& output,
             const void* send_buffer,
             void* recv_buffer,
             hcclComm_t& hccl_comm,
@@ -529,7 +529,6 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
     c10d::checkSplitSizes(inputSplitSizes, inputTensor, size_);
     c10d::checkSplitSizes(outputSplitSizes, outputTensor, size_);
 
-    size_t numRanks = getSize();
     work = collective(
         inputTensors,
         outputTensors,
@@ -615,7 +614,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
-    const AllgatherOptions& opts) {
+    [[maybe_unused]] const AllgatherOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   bool change = false;
@@ -624,14 +623,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
       new std::unique_ptr<bool[]>[tensor_size]());
   std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
   std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
-  for (int i = 0; i < outputTensors.size(); i++) {
+  for (size_t i = 0; i < outputTensors.size(); i++) {
     changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
     sizeList[i].resize(outputTensors[i].size());
     strideList[i].resize(outputTensors[i].size());
     resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
-  size_t in_tensor_size = inputTensors.size();
-  size_t element_cout = inputTensors[0].numel();
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
@@ -643,7 +640,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
       inputTensors,
       outputFlattened,
       [&](at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -699,7 +696,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
   if (change) {
     habana_lazy::HbLazyTensor::StepMarker();
   }
-  for (int i = 0; i < outputTensors.size(); i++) {
+  for (size_t i = 0; i < outputTensors.size(); i++) {
     restoreTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i], work);
   }
@@ -712,7 +709,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
     at::Tensor& output_tensor,
     at::Tensor& input_tensor,
-    const AllgatherOptions& opts) {
+    [[maybe_unused]] const AllgatherOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
 
@@ -734,7 +731,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
       inputs,
       outputs,
       [&](at::Tensor& input,
-          at::Tensor& output,
+          [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
           hcclComm_t& hccl_comm,
@@ -773,24 +770,24 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_coalesced(
-    std::vector<std::vector<at::Tensor>>& /* unused */,
-    std::vector<at::Tensor>& /* unused */,
-    const AllgatherOptions& /* unused */) {
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& /* unused */,
+    [[maybe_unused]] std::vector<at::Tensor>& /* unused */,
+    [[maybe_unused]] const AllgatherOptions& /* unused */) {
   throw std::runtime_error(
       "ProcessGroupHcclBase does not support allgather_coalesced");
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
-    std::vector<at::Tensor>& inputTensors,
-    const GatherOptions& opts) {
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& outputTensors,
+    [[maybe_unused]] std::vector<at::Tensor>& inputTensors,
+    [[maybe_unused]] const GatherOptions& opts) {
   throw std::runtime_error("ProcessGroupHcclBase does not support gather");
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
-    std::vector<at::Tensor>& /*outputTensors*/,
-    std::vector<std::vector<at::Tensor>>& /*inputTensors*/,
-    const ScatterOptions& /*opts*/) {
+    [[maybe_unused]] std::vector<at::Tensor>& /*outputTensors*/,
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& /*inputTensors*/,
+    [[maybe_unused]] const ScatterOptions& /*opts*/) {
   throw std::runtime_error("ProcessGroupHcclBase does not support scatter");
 }
 
@@ -910,7 +907,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
-    int tag) {
+    [[maybe_unused]] int tag) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();
@@ -960,7 +957,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
-    int tag) {
+    [[maybe_unused]] int tag) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   size_t tensor_size = tensors.size();

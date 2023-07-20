@@ -55,69 +55,6 @@ namespace {
     }                                                  \
   }
 
-void adjustElementcount_int64(
-    c10::ScalarType scalar_type,
-    std::vector<size_t>& send_lengths,
-    std::vector<size_t>& recv_lengths,
-    size_t& ele_size) {
-  if (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) && scalar_type == at::kLong) {
-    for (size_t i = 0; i < send_lengths.size(); i++) {
-      send_lengths[i] = send_lengths[i] * 2;
-      recv_lengths[i] = recv_lengths[i] * 2;
-    }
-  } else {
-    if (scalar_type == at::kLong) {
-      ele_size = ele_size / 2;
-    }
-  }
-}
-
-bool resizeTensor(
-    std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
-    std::vector<std::vector<int64_t>>& sizeList,
-    std::vector<std::vector<int64_t>>& strideList) {
-  bool change = false;
-  for (int i = 0; i < tensors.size(); i++) {
-    auto btensor_type = tensors[i].scalar_type();
-    changed[i] = false;
-    if ((at::kChar == btensor_type || at::kByte == btensor_type) &&
-        tensors[i].numel() % 2 != 0) {
-      changed[i] = true;
-      sizeList[i] = tensors[i].sizes().vec();
-      strideList[i] = tensors[i].strides().vec();
-      tensors[i].resize_(tensors[i].numel() + 1);
-      change = true;
-    }
-  }
-  return change;
-}
-
-void restoreTensorsize(
-    std::vector<at::Tensor>& tensors,
-    std::unique_ptr<bool[]>& changed,
-    std::vector<std::vector<int64_t>>& sizeList,
-    std::vector<std::vector<int64_t>>& strideList,
-    c10::intrusive_ptr<Work>& work) {
-  for (int i = 0; i < tensors.size(); i++) {
-    auto btensor_type = tensors[i].scalar_type();
-    if ((at::kChar == btensor_type || at::kByte == btensor_type)) {
-      work->wait();
-    }
-    if (changed[i] == true) {
-      tensors[i].resize_(tensors[i].numel() - 1);
-      tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
-          sizeList[i], strideList[i]);
-    }
-  }
-}
-bool is_valid_hccl_dtype(hcclDataType_t data_type) {
-  if (data_type == hcclBfloat16 || data_type == hcclFloat) {
-    return true;
-  }
-  return false;
-}
-
 class JobThreadHCCL {
  public:
   static std::shared_ptr<habana_helpers::JobThread> getInstance() {
@@ -203,11 +140,8 @@ std::shared_ptr<hccl_integration::device_context> ProcessGroupHCCL::
 ProcessGroupHCCL::ProcessGroupHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size,
-    const std::chrono::milliseconds& opTimeout)
-    : ProcessGroupHcclBase(store, rank, size),
-      hcclCommCounter_(0),
-      stop_(false) {}
+    int size)
+    : ProcessGroupHcclBase(store, rank, size), hcclCommCounter_(0) {}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
   habana_helpers::AutoNoGIL gil_release;
@@ -265,8 +199,8 @@ bool ProcessGroupHCCL::WorkHCCL::isSuccess() const {
 }
 
 // Same as calling synchronize().
-bool ProcessGroupHCCL::WorkHCCL::wait(
-    std::chrono::milliseconds timeout /*=kNoTimeout*/) {
+bool ProcessGroupHCCL::WorkHCCL::wait(std::chrono::milliseconds timeout
+                                      [[maybe_unused]]) {
   synchronize();
   // Always return true, because abort API is not implemented.
   return true;
@@ -348,8 +282,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
     int peerRank) {
   auto tensors =
       habana_lazy::HbLazyTensorViews::UpdateViewDistributed(tensors_);
-
-  hcclResult_t hccl_result{hcclSuccess};
 
   const auto devices = getDeviceList(tensors);
   auto comms = getCommList(devices);
@@ -560,7 +492,8 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   return work;
 }
 
-c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts) {
+c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts
+                                                   [[maybe_unused]]) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
   std::vector<int> devices;
@@ -657,11 +590,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupHCCL, c10d::ProcessGroup>
       processGroupHccl(module, "ProcessGroupHCCL");
 
-  processGroupHccl.def(py::init<
-                       const c10::intrusive_ptr<c10d::Store>&,
-                       int,
-                       int,
-                       std::chrono::milliseconds>());
+  processGroupHccl.def(
+      py::init<const c10::intrusive_ptr<c10d::Store>&, int, int>());
 
   py::cpp_function cleanup = []() {
     py::object dist = py::module_::import("torch.distributed");

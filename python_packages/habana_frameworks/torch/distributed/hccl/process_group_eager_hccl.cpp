@@ -107,8 +107,7 @@ class CollectiveContext {
 ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size,
-    const std::chrono::milliseconds& timeout)
+    int size)
     : ProcessGroupHcclBase(store, rank, size) {
   PT_EAGER_DEBUG(
       "Create ProcessGroupEagerHCCL, rank = ", rank, " size = ", size);
@@ -164,7 +163,8 @@ bool ProcessGroupEagerHCCL::WorkEager::isSuccess() const {
   return true;
 }
 
-bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout) {
+bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
+                                            [[maybe_unused]]) {
   return true;
 }
 
@@ -239,7 +239,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
     CollectiveFn fn,
-    bool is_allreduce) {
+    [[maybe_unused]] bool is_allreduce) {
   TORCH_CHECK(
       inputs.size() == outputs.size(),
       "Number of inputs has to be the same as num of outputs");
@@ -322,7 +322,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
-    const BarrierOptions& opts) {
+    const BarrierOptions& opts [[maybe_unused]]) {
   PT_DISTRIBUTED_BEGIN;
   hostBarrier();
 
@@ -384,11 +384,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupEagerHCCL, c10d::ProcessGroup>
       processGroupHccl(module, "ProcessGroupHCCL");
 
-  processGroupHccl.def(py::init<
-                       const c10::intrusive_ptr<c10d::Store>&,
-                       int,
-                       int,
-                       std::chrono::milliseconds>());
+  processGroupHccl.def(
+      py::init<const c10::intrusive_ptr<c10d::Store>&, int, int>());
 
   // Destroying all process groups in order to ensure that all events
   // have been handled (all tensors connected with pending events are

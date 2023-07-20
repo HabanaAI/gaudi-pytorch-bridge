@@ -36,8 +36,7 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   ProcessGroupEagerHCCL(
       const c10::intrusive_ptr<Store>& store,
       int rank,
-      int size,
-      const std::chrono::milliseconds& timeout);
+      int size);
   virtual ~ProcessGroupEagerHCCL();
 
   class WorkEager : public Work,

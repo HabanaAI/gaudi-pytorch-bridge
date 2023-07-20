@@ -76,11 +76,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
     friend class ProcessGroupHCCL;
   };
 
-  ProcessGroupHCCL(
-      const c10::intrusive_ptr<Store>& store,
-      int rank,
-      int size,
-      const std::chrono::milliseconds& opTimeout);
+  ProcessGroupHCCL(const c10::intrusive_ptr<Store>& store, int rank, int size);
 
   virtual ~ProcessGroupHCCL();
 
@@ -123,7 +119,6 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   std::vector<synStreamHandle> getCommStreams(const std::vector<int>& devices);
   // Helper function that is called by the destructor
   void destroy();
-  bool stop_;
 
   uint64_t hcclCommCounter_{0};
   std::mutex mutex_;

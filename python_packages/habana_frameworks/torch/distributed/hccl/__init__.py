@@ -115,8 +115,7 @@ def _create_process_group_hccl(store, rank, size, timeout):
     return ProcessGroupHCCL(
         store,
         rank,
-        size,
-        timeout)
+        size)
 
 
 torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl)
