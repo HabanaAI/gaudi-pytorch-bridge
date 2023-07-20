@@ -28,6 +28,26 @@
 #include "habana_lazy/memlog.h"
 
 namespace synapse_helpers {
+
+void device_memory::init_hlml_memory() {
+  try {
+    m_hlml_memory_reporter =
+        std::make_shared<HlMlMemoryReporter>(synDeviceId(device_.id()));
+
+    auto get_used_memory = [&] {
+      MemoryStats stats;
+      get_memory_stats(&stats);
+      return stats.bytes_in_use;
+    };
+
+    m_hlml_memory_updater = std::make_shared<HlMlMemoryUpdater>(
+        m_hlml_memory_reporter, get_used_memory);
+    PT_SYNHELPER_DEBUG("HLML memory reporeter initialized");
+  } catch (const HlMlMemoryReporter::Error& e) {
+    PT_SYNHELPER_WARN("Cannot initialize HLML memory reporter: ", e.what());
+  }
+}
+
 device_memory::device_memory(device& device) : device_{device} {
   pool_size_ = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1) * 1024 * 1024 * 1024;
   pool_strategy_ =
@@ -108,9 +128,14 @@ device_memory::device_memory(device& device) : device_{device} {
     log_DRAM_start(dram_info[0]);
     log_DRAM_size(dram_info[1]);
   }
+
+  init_hlml_memory();
 }
 
 device_memory::~device_memory() {
+  m_hlml_memory_updater.reset();
+  m_hlml_memory_reporter.reset();
+
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     if (!threads_in_defragmenter_critical_section_->empty())
       PT_DEVMEM_DEBUG(

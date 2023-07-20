@@ -19,7 +19,7 @@ target_include_directories(${TARGET_NAME}
 target_include_directories(${TARGET_NAME} INTERFACE "${PYTHON_INCLUDE_DIR}")
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 target_compile_options(${TARGET_NAME} INTERFACE -fopenmp -fpermissive)
-target_link_libraries(${TARGET_NAME} INTERFACE npu::fmt npu::hllogger npu::hcl npu::specs_external pytorch_helpers)
+target_link_libraries(${TARGET_NAME} INTERFACE npu::fmt npu::hllogger npu::hcl npu::specs_external npu::specs_embedded pytorch_helpers)
 target_compile_definitions(${TARGET_NAME} INTERFACE MAX_DEVICES_PER_BOX=8)
 
 add_subdirectory(activity_profiler/csrc)

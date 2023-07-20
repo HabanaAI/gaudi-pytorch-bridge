@@ -48,10 +48,14 @@ add_library(specs_external INTERFACE IMPORTED)
 set_target_properties(specs_external PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 add_library(npu::specs_external ALIAS specs_external)
 
+add_library(specs_embedded INTERFACE IMPORTED)
+set_target_properties(specs_embedded PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EMBEDDED_ROOT}")
+add_library(npu::specs_embedded ALIAS specs_embedded)
+
 add_library(tpc_kernels INTERFACE IMPORTED)
 set_target_properties(tpc_kernels PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                                              "$ENV{TPC_KERNELS_ROOT}/shared_layer/include")
-target_link_libraries(tpc_kernels INTERFACE npu::specs_external)
+target_link_libraries(tpc_kernels INTERFACE npu::specs_external npu::specs_embedded)
 add_library(npu::tpc_kernels ALIAS tpc_kernels)
 
 set_target_properties(SynapseUtils PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "$ENV{SYNAPSE_UTILS_ROOT}/include")

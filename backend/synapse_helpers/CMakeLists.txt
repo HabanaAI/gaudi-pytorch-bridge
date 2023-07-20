@@ -28,6 +28,7 @@ add_library(
   logger_stub.cpp
   lightweight_memory_usage_logger.cpp
   mem_handle.cpp
+  mem_hlml.cpp
   memory_defragmentation.cpp
   memory_mapping.cpp
   pool_allocator/utils.cpp
@@ -53,7 +54,9 @@ target_include_directories(
   pytorch_synapse_helpers SYSTEM
   PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
          $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
-         $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>)
+         $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
+         $<TARGET_PROPERTY:npu::specs_embedded,INTERFACE_INCLUDE_DIRECTORIES>
+         )
 
 target_compile_options(pytorch_synapse_helpers PRIVATE -Wall -Wextra -Werror)
 
@@ -69,6 +72,7 @@ target_link_libraries(
          absl::raw_hash_set
          npu::hllogger
          npu::fmt
+         npu::specs_embedded
   PRIVATE torch
 )
 target_compile_features(pytorch_synapse_helpers PUBLIC cxx_std_14) # still required as this is transitive
@@ -81,9 +85,9 @@ target_compile_definitions(pytorch_synapse_helpers PUBLIC GENERIC_HELPERS)
 
 
 if(MANYLINUX)
-  target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim)
+  target_link_libraries(pytorch_synapse_helpers PUBLIC pytorch_synapse_shim npu::specs_embedded)
 else()
-  target_link_libraries(pytorch_synapse_helpers PUBLIC Synapse)
+  target_link_libraries(pytorch_synapse_helpers PUBLIC Synapse npu::specs_embedded)
 endif()
 
 separate_debug_symbols(pytorch_synapse_helpers)

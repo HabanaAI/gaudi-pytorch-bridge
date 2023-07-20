@@ -242,6 +242,7 @@ list(APPEND misc_tests_src
   inference_pass_tests.cpp
   linear_2d_bwd.cpp
   linear_test.cpp
+  mem_hlml_tests.cpp
   main.cpp
   matmul_bwd.cpp
   misc_utils_tests.cpp

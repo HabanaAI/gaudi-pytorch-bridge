@@ -33,6 +33,7 @@
 #include "backend/synapse_helpers/mem_handle.h"
 #include "backend/synapse_helpers/synapse_error.h"
 #include "backend/synapse_helpers/synchronous_counter.h"
+#include "mem_hlml.h"
 #include "pool_allocator/CoalescedPoolAllocator.h"
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
@@ -134,5 +135,8 @@ class device_memory {
   AllocInfo* get_alloc_info(void* ptr, bool remove = false);
   void insert_events(AllocInfo* alloc_info);
   void process_events(void);
+  void init_hlml_memory();
+  std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
+  std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
 };
 } // namespace synapse_helpers
