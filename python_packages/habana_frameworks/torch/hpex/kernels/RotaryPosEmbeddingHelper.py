@@ -91,6 +91,11 @@ def apply_rotary_pos_emb(
     """
     cos, sin, offset = recalculate_params(cos, sin, position_ids, offset, mode)
 
+    if p.dtype != sin.dtype:
+        sin = sin.to(p.dtype)
+    if p.dtype != cos.dtype:
+        cos = cos.to(p.dtype)
+
     return torch.ops.hpu.rotary_pos_embedding(p, sin, cos, offset, mode.value)
 
 
