@@ -974,6 +974,39 @@ void Fp8KvReorder::AddNode(
   syn_out(0) = std::move(selective_gather[0]);
 }
 
+Fp8IndexCopy_::Fp8IndexCopy_(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_index_copy_", scalar_type, {}, {0}, {}, false) {
+}
+
+void Fp8IndexCopy_::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "Fp8IndexCopy_ must have 4 input arguments");
+
+  StackGetter stackGetter(stack, "IndexCopy::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  int dim = getNextInput<int>(stackGetter);
+  auto index = getNextInput<TensorsPair>(stackGetter);
+  auto source = getNextInput<TensorsPair>(stackGetter);
+
+  std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+  auto shape = self.pt_t.sizes().vec();
+
+  ns_IndexCopy::Params params{};
+  params.axis = dim;
+
+  auto copy = BuildNode(
+      this,
+      graph,
+      {"index_copy_fwd_" + guid_suffix,
+       {self.syn_t, index.syn_t, source.syn_t},
+       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(copy[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1002,4 +1035,5 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
         .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape))
         .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_))
-        .add("hpu::fp8_kv_reorder_", KERNEL_FN_GLOBAL(habana::Fp8KvReorder));
+        .add("hpu::fp8_kv_reorder_", KERNEL_FN_GLOBAL(habana::Fp8KvReorder))
+        .add("hpu::fp8_index_copy_", KERNEL_FN_GLOBAL(habana::Fp8IndexCopy_));

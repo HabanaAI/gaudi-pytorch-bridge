@@ -49,6 +49,7 @@ DEFINE_OP(Fp8Permute)
 DEFINE_OP(Fp8Reshape)
 DEFINE_OP(Fp8Copy_)
 DEFINE_OP(Fp8KvReorder)
+DEFINE_OP(Fp8IndexCopy_)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(Fp8DropoutOutputShape)

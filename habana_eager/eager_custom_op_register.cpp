@@ -501,6 +501,14 @@ at::Tensor& kv_reorder(
   TORCH_CHECK(false, "hpu::kv_reorder is not available in Eager mode.");
 }
 
+at::Tensor& fp8_index_copy_(
+    at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Tensor& source) {
+  TORCH_CHECK(false, "hpu::fp8_index_copy_ is not available in Eager mode.");
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -578,6 +586,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def(
       "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
+  m.def(
+      "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -616,6 +626,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_copy_", fp8_copy_);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);
   m.impl("hpu::kv_reorder_", kv_reorder);
+  m.impl("hpu::fp8_index_copy_", fp8_index_copy_);
 }
 
 } // namespace eager

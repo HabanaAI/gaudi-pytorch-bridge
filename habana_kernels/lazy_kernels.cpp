@@ -7398,4 +7398,20 @@ at::Tensor& kv_reorder_lazy(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
 }
 
+at::Tensor& fp8_index_copy_lazy(
+    at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Tensor& source) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor&> op{
+      "hpu::fp8_index_copy_",
+      {self, dim, index, source},
+      {{self.sizes().vec()}}};
+
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_copy_, op, self)
+}
+
 } // namespace habana_lazy

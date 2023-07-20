@@ -1894,6 +1894,21 @@ at::Tensor& fp8_kv_reorder_wrap(
   }
 }
 
+at::Tensor& fp8_index_copy_wrap(
+    at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index,
+    const at::Tensor& source) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_4ARGS(self, dim, index, source));
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
+    return fp8_index_copy_lazy(self, dim, index, source);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+
 at::Tensor& kv_reorder_wrap(
     at::Tensor& self,
     const at::Tensor start,
@@ -2403,6 +2418,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def(
       "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
+  m.def(
+      "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2447,6 +2464,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_copy_", fp8_copy_wrap);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
   m.impl("hpu::kv_reorder_", kv_reorder_wrap);
+  m.impl("hpu::fp8_index_copy_", fp8_index_copy_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

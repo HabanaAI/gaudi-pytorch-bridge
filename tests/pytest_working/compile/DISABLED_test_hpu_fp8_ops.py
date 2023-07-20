@@ -12,7 +12,7 @@
 import torch
 import pytest
 import numpy as np
-from test_utils import cpu, hpu, is_gaudi1
+from test_utils import cpu, hpu, is_gaudi1, compare_tensors
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8, cast_to_fp8_v2, fp8_gemm, fp8_gemm_v2, fp8_transpose, cast_from_fp8, fp8_gelu, fp8_cast_transpose_fused, fp8_cast_transpose_bgrad_fused, layernorm_fwd_fp8, fp8_cast_transpose_bgrad_dgelu_fused
 
@@ -753,3 +753,38 @@ def test_fp8_kv_reorder(shape):
 
     reference = cast_to_fp8(input_cpu.to(hpu)).cpu()
     np.testing.assert_equal(input_hpu.cpu().numpy(), reference.numpy())
+    assert np.array_equal(self.cpu(), src.cpu())
+
+@pytest.mark.parametrize("shape", [(5, 7), (6, 4, 8), (6, 4, 8, 12)])
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("is_full_shape", [True, False])
+@pytest.mark.parametrize("dtype", [torch.float])
+def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
+    self_tensor = torch.zeros(shape, dtype=dtype)
+    self_tensor_h = cast_to_fp8(self_tensor.to("hpu"))
+    dim_size = shape[dim]
+    updates_shape = list(shape)
+
+    if is_full_shape:
+        idx = np.random.permutation(dim_size)
+    else:
+        updates_shape[dim] = dim_size - 2
+        idx = np.random.choice(dim_size, size=[dim_size - 2], replace=False)
+
+    updates_tensor = (
+        torch.randint(low=-5, high=5, size=updates_shape, dtype=dtype)
+        if dtype == torch.int
+        else torch.randn(updates_shape, dtype=dtype)
+    )
+    updates_tensor_h = cast_to_fp8(updates_tensor.to("hpu"))
+    index_tensor = torch.tensor(idx)
+    index_tensor_h = index_tensor.to("hpu")
+
+    self_tensor.index_copy_(dim, index_tensor, updates_tensor)
+    htcore.mark_step()
+    torch.ops.hpu.fp8_index_copy_(self_tensor_h, dim, index_tensor_h, updates_tensor_h)
+    htcore.mark_step()
+    self_tensor_h = cast_from_fp8(self_tensor_h, out_dtype=torch.float, scale=None)
+
+    self_tensor = cast_from_fp8(cast_to_fp8(self_tensor.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
+    compare_tensors(self_tensor_h, self_tensor, atol=0.0, rtol=0.0)
