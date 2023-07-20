@@ -45,6 +45,18 @@ exclusions = [
     "aten.leaky_relu.default",
     "aten.leaky_relu_backward.default",
 
+    # These are used in Transformer and we support them natively.
+    "aten.embedding.default",
+    "aten.embedding_dense_backward.default",
+    "aten.masked_fill.Scalar",
+    "aten.native_layer_norm.default",
+    "aten.native_layer_norm_backward.default",
+    "aten.transpose.int",
+
+    # These are used in Wav2Vec2 and we support them natively.
+    "aten.gelu.default",
+    "aten.gelu_backward.default",
+
     # These decompositions are causing various functional test issues.
     "aten.binary_cross_entropy.default",
     "aten.log_sigmoid_forward.default",
@@ -69,8 +81,6 @@ exclusions = [
     "aten.softshrink.default",
     "aten.softshrink_backward.default",
     "aten.threshold.default",
-    "aten.embedding.default",
-    "aten.embedding_dense_backward.default",
     "aten.special_entr.default",
     "aten.hardsigmoid.default",
     "aten.hardsigmoid_backward.default",
