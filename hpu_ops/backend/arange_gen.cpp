@@ -13,7 +13,6 @@
 
 #include "hpu_ops/common/arange_gen.h"
 #include "generated/backend/arange.h"
-#include "hpu_ops/arange.h"
 #include "hpu_ops/backend/arange.h"
 
 namespace habana {
@@ -186,11 +185,13 @@ OutputMetaData ArangeDefaultCommonMeta(
     const at::IValue& dtype_opt,
     const at::IValue& layout_opt,
     const at::IValue& device_opt,
-    const at::IValue& pin_memory_opt) {
+    const at::IValue& pin_memory_opt,
+    const bool setToIntegralDType) {
   OutputMetaData meta;
 
   meta.dtype = dtype_opt.toOptional<at::ScalarType>().value_or(
-      torch::get_default_dtype_as_scalartype());
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
   meta.layout = layout_opt.toOptional<at::Layout>().value_or(at::kStrided);
   auto device = device_opt.toOptional<at::Device>().value_or(at::kHPU);
   TORCH_INTERNAL_ASSERT(device.is_hpu());
@@ -208,8 +209,14 @@ OutputMetaDataVector ArangeDefaultEndMeta(const at::Stack& stack) {
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(0).toScalar();
   const int64_t depth = get_arange_depth(defaultStart, end, defaultStep);
+  const bool setToIntegralDType = end.isIntegral(true);
   return {ArangeDefaultCommonMeta(
-      depth, stack.at(1), stack.at(2), stack.at(3), stack.at(4))};
+      depth,
+      stack.at(1),
+      stack.at(2),
+      stack.at(3),
+      stack.at(4),
+      setToIntegralDType)};
 }
 
 OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
@@ -217,8 +224,15 @@ OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(1).toScalar();
   const int64_t depth = get_arange_depth(start, end, defaultStep);
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true);
   return {ArangeDefaultCommonMeta(
-      depth, stack.at(2), stack.at(3), stack.at(4), stack.at(5))};
+      depth,
+      stack.at(2),
+      stack.at(3),
+      stack.at(4),
+      stack.at(5),
+      setToIntegralDType)};
 }
 
 OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
@@ -226,9 +240,16 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
   const c10::Scalar step = stack.at(2).toScalar();
   const c10::Scalar end = stack.at(1).toScalar();
   const int64_t depth = get_arange_depth(start, end, step);
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
 
   return {ArangeDefaultCommonMeta(
-      depth, stack.at(3), stack.at(4), stack.at(5), stack.at(6))};
+      depth,
+      stack.at(3),
+      stack.at(4),
+      stack.at(5),
+      stack.at(6),
+      setToIntegralDType)};
 }
 
 std::shared_ptr<void> FillArangeDefaultCommonParams(
@@ -238,18 +259,15 @@ std::shared_ptr<void> FillArangeDefaultCommonParams(
     c10::ScalarType out_dtype,
     size_t& size) {
   auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-  const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-      internal_out_dtype == c10::ScalarType::Int;
-
   PARAMS_STUB(ns_RangeKernel::Params);
-  if (!is_cast_not_required) {
-    params->start.i = start.to<int>();
-    params->limit.i = end.to<int>();
-    params->delta.i = step.to<int>();
-  } else {
+  if (c10::isFloatingType(internal_out_dtype)) {
     params->start.f = start.to<float>();
     params->limit.f = end.to<float>();
     params->delta.f = step.to<float>();
+  } else {
+    params->start.i = start.to<int>();
+    params->limit.i = end.to<int>();
+    params->delta.i = step.to<int>();
   }
   return params;
 }
@@ -260,10 +278,11 @@ std::shared_ptr<void> FillArangeDefaultEndParams(
   const c10::Scalar defaultStart{0};
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(0).toScalar();
+  const bool setToIntegralDType = end.isIntegral(true);
 
   const auto out_dtype = stack.at(1).toOptional<at::ScalarType>().value_or(
-      torch::get_default_dtype_as_scalartype());
-
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
   return FillArangeDefaultCommonParams(
       defaultStart, end, defaultStep, out_dtype, size);
 }
@@ -275,8 +294,12 @@ std::shared_ptr<void> FillArangeDefaultStartEndParams(
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(1).toScalar();
 
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true);
+
   const auto out_dtype = stack.at(2).toOptional<at::ScalarType>().value_or(
-      torch::get_default_dtype_as_scalartype());
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
 
   return FillArangeDefaultCommonParams(
       start, end, defaultStep, out_dtype, size);
@@ -288,8 +311,12 @@ std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
   const c10::Scalar start = stack.at(0).toScalar();
   const c10::Scalar step = stack.at(2).toScalar();
   const c10::Scalar end = stack.at(1).toScalar();
+
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
   const auto out_dtype = stack.at(3).toOptional<at::ScalarType>().value_or(
-      torch::get_default_dtype_as_scalartype());
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
 
   return FillArangeDefaultCommonParams(start, end, step, out_dtype, size);
 }
@@ -304,16 +331,16 @@ synapse_helpers::tensor ArangeDefaultCommon(
   constexpr int FINAL_RESULT_INDEX = 0;
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;
-
   std::vector<synTensor> inputs = {};
   op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
 
   const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
   const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
       internal_out_dtype == c10::ScalarType::Int;
-
   auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-  auto range_guid = is_cast_not_required ? guid : "range_i32";
+  auto range_guid = is_cast_not_required
+      ? get_guid_with_precision("range", scalar_type)
+      : "range_i32";
   NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
   if (is_cast_not_required)
     out_attr.final_result_index = FINAL_RESULT_INDEX;
@@ -343,15 +370,8 @@ void ArangeDefaultEnd::AddNode(
 
   size_t params_size = 0; // Will be set in FillArangeDefaultParams function
   auto params = FillParams(stack, params_size);
-
   syn_out(0) =
       ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
-}
-
-ArangeDefaultEnd::ArangeDefaultEnd(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "range", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(ArangeDefaultEndMeta);
-  SetFillParams(FillArangeDefaultEndParams);
 }
 
 void ArangeDefaultStartEnd::AddNode(
@@ -366,14 +386,6 @@ void ArangeDefaultStartEnd::AddNode(
       ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
 }
 
-ArangeDefaultStartEnd::ArangeDefaultStartEnd(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "range", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(ArangeDefaultStartEndMeta);
-  SetFillParams(FillArangeDefaultStartEndParams);
-}
-
 void ArangeDefaultStartEndStep::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -386,22 +398,4 @@ void ArangeDefaultStartEndStep::AddNode(
       ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
 }
 
-ArangeDefaultStartEndStep::ArangeDefaultStartEndStep(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(device_id, "range", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(ArangeDefaultStartEndStepMeta);
-  SetFillParams(FillArangeDefaultStartEndStepParams);
-}
-
 } // namespace habana
-
-static const auto& ArangeKernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::arange", KERNEL_FN_GLOBAL(habana::ArangeDefaultEnd))
-        .add(
-            "aten::arange.start",
-            KERNEL_FN_GLOBAL(habana::ArangeDefaultStartEnd))
-        .add(
-            "aten::arange.start_step",
-            KERNEL_FN_GLOBAL(habana::ArangeDefaultStartEndStep));

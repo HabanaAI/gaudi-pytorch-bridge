@@ -34,8 +34,6 @@ def test_arange(dtype, layout, start, step, end):
                 return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-        target_dtype = dtype if dtype is not None else torch.get_default_dtype()
-
         expected = fn(start, layout, step, end, "cpu")
         result = compiled_fn(start, layout, step, end, "hpu").cpu()
         assert torch.equal(result, expected)

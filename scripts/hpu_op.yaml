@@ -1022,6 +1022,40 @@ any.out:
     Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AnyDim
 
+arange:
+  output_meta: ArangeDefaultEndMeta
+  op_backend: ArangeDefaultEnd
+  guid: range
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+  custom_fill_params: FillArangeDefaultEndParams
+  out_ids: [0]
+
+arange.start:
+  output_meta: ArangeDefaultStartEndMeta
+  op_backend: ArangeDefaultStartEnd
+  guid: range
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+  custom_fill_params: FillArangeDefaultStartEndParams
+  out_ids: [0]
+
+arange.start_step:
+  output_meta: ArangeDefaultStartEndStepMeta
+  op_backend: ArangeDefaultStartEndStep
+  guid: range
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+  custom_fill_params: FillArangeDefaultStartEndStepParams
+  out_ids: [0]
+
+
 arange.start_out:
   op_backend: Arange
   op_frontend: ArangeFE

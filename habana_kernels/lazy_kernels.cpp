@@ -4746,7 +4746,7 @@ at::Tensor repeat_inlv_hpu_lazy(
     auto out = repeats_cpu.sum();
     out_size = out.item().toInt();
   }
-  auto input = at::native::arange(
+  auto input = at::arange(
       repeats.sizes()[0],
       c10::ScalarType::
           Int, // c10::optTypeMetaToScalarType(repeats.options().dtype_opt()),
