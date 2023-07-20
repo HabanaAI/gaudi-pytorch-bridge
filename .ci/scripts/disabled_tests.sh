@@ -18,7 +18,6 @@ LING_EAGER_TESTS = (
     "EagerKernelTest.BroadCastIndexTest"
     "EagerKernelTest.BroadCastIndexTest1"
     "EagerKernelTest.IndexTest"
-    "EagerKernelTest.LayerNormForwardWeightDefBiasDefBF16Execute"
     "EagerKernelTest.LinspaceOutNeToPosStep1"
     "EagerKernelTest.SumDimIntOut"
     "GenOps.Fns"
