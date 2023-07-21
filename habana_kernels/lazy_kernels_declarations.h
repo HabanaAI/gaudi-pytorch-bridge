@@ -831,4 +831,10 @@ at::Tensor& fp8_kv_reorder_lazy(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx);
+at::Tensor& kv_reorder_lazy(
+    at::Tensor& self,
+    const at::Tensor start,
+    const at::Tensor end,
+    const at::Tensor beam_idx);
+
 } // namespace habana_lazy

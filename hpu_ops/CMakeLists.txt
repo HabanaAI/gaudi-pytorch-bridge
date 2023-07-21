@@ -133,6 +133,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/isfinite_isinf_isnan_gen.cpp
           backend/isposneginf_gen.cpp
           backend/kthvalue_gen.cpp
+          backend/kv_reorder_gen.cpp
           backend/lazy_cast.cpp
           backend/fp8_ops.cpp
           backend/leakyrelu_gen.cpp

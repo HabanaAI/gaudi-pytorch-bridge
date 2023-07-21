@@ -1937,6 +1937,18 @@ at::Tensor& fp8_kv_reorder_wrap(
   }
 }
 
+at::Tensor& kv_reorder_wrap(
+    at::Tensor& self,
+    const at::Tensor start,
+    const at::Tensor end,
+    const at::Tensor beam_idx) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
+
+  return kv_reorder_lazy(self, start, end, beam_idx);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2429,6 +2441,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
   m.def(
       "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
+  m.def(
+      "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2472,6 +2486,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);
   m.impl("hpu::fp8_copy_", fp8_copy_wrap);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
+  m.impl("hpu::kv_reorder_", kv_reorder_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

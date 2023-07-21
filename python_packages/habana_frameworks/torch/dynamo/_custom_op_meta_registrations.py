@@ -208,6 +208,11 @@ def meta_fp8_kv_reorder_(self, start, end, beam_idx):
     return self
 
 
+@register_meta([torch.ops.hpu.kv_reorder_.default])
+def meta_kv_reorder_(self, start, end, beam_idx):
+    return self
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

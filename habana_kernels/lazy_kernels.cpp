@@ -7430,4 +7430,19 @@ at::Tensor& fp8_kv_reorder_lazy(
 
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_kv_reorder, op, self)
 }
+
+at::Tensor& kv_reorder_lazy(
+    at::Tensor& self,
+    const at::Tensor start,
+    const at::Tensor end,
+    const at::Tensor beam_idx) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor&> op{
+      "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
+
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
+}
+
 } // namespace habana_lazy
