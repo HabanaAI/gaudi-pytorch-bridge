@@ -248,6 +248,24 @@ def meta_fp8_index_copy_(self, src):
     return self
 
 
+@register_meta([torch.ops.hpu.fp8_repeat_v2.default])
+def meta_fp8_repeat_v2(self, repeats):
+    if len(repeats) == 0:
+        return self
+
+    num_new_dimensions = len(repeats) - self.ndim
+    padded_shape = [1] * num_new_dimensions
+    for dim_size in self.shape:
+        padded_shape.append(dim_size)
+
+    target_shape = tuple(
+        padded_size * repeat_size
+        for padded_size, repeat_size in zip(padded_shape, repeats)
+    )
+
+    return self.new_empty(target_shape)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

@@ -1007,6 +1007,83 @@ void Fp8IndexCopy_::AddNode(
   syn_out(0) = std::move(copy[0]);
 }
 
+sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto repeats = stack[1].toIntList();
+
+  int64_t num_new_dimensions = repeats.size() - self.dim();
+  std::vector<int64_t> padded_size(num_new_dimensions, 1);
+  padded_size.insert(
+      padded_size.end(), self.sizes().begin(), self.sizes().end());
+  std::vector<int64_t> outshape(repeats.size());
+  for (size_t i = 0; i < repeats.size(); ++i) {
+    outshape[i] = padded_size[i] * repeats[i];
+  }
+
+  return {outshape};
+}
+
+Fp8RepeatV2::Fp8RepeatV2(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_repeat_v2", scalar_type, {0}, {}, {}, false) {
+  SetComputeOutputShapes(Fp8RepeatV2OutputShape);
+}
+
+void Fp8RepeatV2::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 2, "Fp8RepeatV2 must have 2 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8RepeatV2::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto repeats = getNextInput<std::vector<int64_t>>(stackGetter);
+
+  std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+
+  synTensor self_reshaped_st = self.syn_t;
+  std::optional<synapse_helpers::tensor> self_reshaped_storage;
+  if (repeats.size() > self.pt_t.ndimension()) {
+    int64_t num_new_dimensions = repeats.size() - self.pt_t.dim();
+    std::vector<int64_t> padded_size(num_new_dimensions, 1);
+    padded_size.insert(
+        padded_size.end(), self.pt_t.sizes().begin(), self.pt_t.sizes().end());
+
+    std::vector<synTensor> inputs = {self.syn_t};
+    CreateShapeTensorInput(graph, at::ScalarType::Char, padded_size, inputs);
+
+    self_reshaped_storage = std::move(BuildNode(
+                                          this,
+                                          graph,
+                                          {"reshape",
+                                           inputs,
+                                           {{padded_size,
+                                             at::ScalarType::Char,
+                                             0,
+                                             DATA_TENSOR,
+                                             fp8_syn_type}}})
+                                          .at(0));
+
+    self_reshaped_st = (*self_reshaped_storage).get();
+  }
+
+  ns_TileKernel::ParamsV2 params{};
+  for (int64_t i = 0; i < repeats.size(); ++i) {
+    params.repeat[repeats.size() - i - 1] = repeats[i];
+  }
+
+  auto out_shapes = Fp8RepeatV2OutputShape(stack);
+
+  auto result = OpBackend::BuildNode(
+      this,
+      graph,
+      {"tile_fwd_" + guid_suffix,
+       {self_reshaped_st},
+       {{out_shapes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1036,4 +1113,5 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape))
         .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_))
         .add("hpu::fp8_kv_reorder_", KERNEL_FN_GLOBAL(habana::Fp8KvReorder))
-        .add("hpu::fp8_index_copy_", KERNEL_FN_GLOBAL(habana::Fp8IndexCopy_));
+        .add("hpu::fp8_index_copy_", KERNEL_FN_GLOBAL(habana::Fp8IndexCopy_))
+        .add("hpu::fp8_repeat_v2", KERNEL_FN_GLOBAL(habana::Fp8RepeatV2));

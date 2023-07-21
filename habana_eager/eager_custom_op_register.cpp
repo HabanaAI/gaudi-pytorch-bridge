@@ -560,6 +560,10 @@ at::Tensor& fp8_index_copy_(
   TORCH_CHECK(false, "hpu::fp8_index_copy_ is not available in Eager mode.");
 }
 
+at::Tensor fp8_repeat_v2(const at::Tensor& self, c10::SymIntArrayRef repeats) {
+  TORCH_CHECK(false, "hpu::fp8_repeat_v2 is not available in Eager mode.");
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -641,6 +645,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def(
       "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
+  m.def("hpu::fp8_repeat_v2(Tensor self, SymInt[] repeats) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -681,6 +686,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);
   m.impl("hpu::kv_reorder_", kv_reorder);
   m.impl("hpu::fp8_index_copy_", fp8_index_copy_);
+  m.impl("hpu::fp8_repeat_v2", fp8_repeat_v2);
 }
 
 } // namespace eager

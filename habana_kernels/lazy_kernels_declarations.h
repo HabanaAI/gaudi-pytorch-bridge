@@ -831,4 +831,7 @@ at::Tensor& fp8_index_copy_lazy(
     int64_t dim,
     const at::Tensor& index,
     const at::Tensor& source);
+at::Tensor fp8_repeat_v2_lazy(
+    const at::Tensor& self,
+    c10::SymIntArrayRef repeats);
 } // namespace habana_lazy

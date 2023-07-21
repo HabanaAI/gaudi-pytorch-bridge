@@ -7414,4 +7414,16 @@ at::Tensor& fp8_index_copy_lazy(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_copy_, op, self)
 }
 
+at::Tensor fp8_repeat_v2_lazy(
+    const at::Tensor& self,
+    c10::SymIntArrayRef repeats) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::fp8_repeat_v2", {self, repeats}, Fp8RepeatV2OutputShape};
+  hpu_op.set_scalar_types({at::ScalarType::Char});
+
+  RUN_MAYBE_WITH_ACC_THREAD(fp8_repeat_v2, hpu_op)
+}
+
 } // namespace habana_lazy
