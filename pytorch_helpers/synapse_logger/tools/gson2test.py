@@ -894,6 +894,13 @@ class Flow:
                         args["pStreamHandle"] = entry["result"]["pStreamHandle"]
                         replacements = space.get_args(entry, ("pStreamHandle",))
                         out(Flow.call(entry, replacements))
+                    elif func_def.name == "synDeviceGetNextStreamAffinity":
+                        v = space.add(entry["result"]["streamAffinityMask"], "availAffinity", f"affinity{no}", local=True)
+                        args["pStreamHandle"] = entry["result"]["streamAffinityMask"]
+                        replacements = space.get_args(entry, ("streamAffinityMask",))
+                        out(Flow.call(entry, replacements))
+                    elif func_def.name in ("synStreamSetAffinity"):
+                        out(Flow.call(entry, space.get_args(entry, ("streamAffinityMask",))))
                     elif func_def.name in ("synStreamDestroy", "synStreamSynchronize"):
                         out(Flow.call(entry, space.get_args(entry, ("streamHandle",))))
                     elif func_def.name == "synStreamWaitEvent":

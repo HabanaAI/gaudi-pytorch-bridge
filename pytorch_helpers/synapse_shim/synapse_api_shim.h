@@ -22,6 +22,8 @@
   visitor(synDeviceSynchronize);               \
   visitor(synStreamCreateGeneric);             \
   visitor(synStreamDestroy);                   \
+  visitor(synDeviceGetNextStreamAffinity);     \
+  visitor(synStreamSetAffinity);               \
   visitor(synStreamWaitEvent);                 \
   visitor(synStreamSynchronize);               \
   visitor(synStreamQuery);                     \

@@ -48,6 +48,18 @@ synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
   return syn_api->synStreamDestroy(streamHandle);
 }
 
+synStatus SYN_API_CALL synDeviceGetNextStreamAffinity(
+    const synDeviceId deviceId,
+    uint64_t* availAffinity) {
+  return syn_api->synDeviceGetNextStreamAffinity(deviceId, availAffinity);
+}
+
+synStatus SYN_API_CALL synStreamSetAffinity(
+    const synDeviceId deviceId,
+    const synStreamHandle pStreamHandle,
+    uint64_t availAffinity) {
+  return syn_api->synStreamSetAffinity(deviceId, pStreamHandle, availAffinity);
+}
 synStatus SYN_API_CALL synStreamWaitEvent(
     const synStreamHandle streamHandle,
     synEventHandle eventHandle,

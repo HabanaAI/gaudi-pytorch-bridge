@@ -48,6 +48,8 @@ namespace lib_synapse {
 SYN_API_PTR(synDeviceSynchronize);
 SYN_API_PTR(synStreamCreateGeneric);
 SYN_API_PTR(synStreamDestroy);
+SYN_API_PTR(synDeviceGetNextStreamAffinity);
+SYN_API_PTR(synStreamSetAffinity);
 SYN_API_PTR(synStreamWaitEvent);
 SYN_API_PTR(synStreamSynchronize);
 SYN_API_PTR(synStreamQuery);
@@ -148,6 +150,8 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceSynchronize);
   SYN_API_INIT_PTR(synStreamCreateGeneric);
   SYN_API_INIT_PTR(synStreamDestroy);
+  SYN_API_INIT_PTR(synDeviceGetNextStreamAffinity);
+  SYN_API_INIT_PTR(synStreamSetAffinity);
   SYN_API_INIT_PTR(synStreamWaitEvent);
   SYN_API_INIT_PTR(synStreamSynchronize);
   SYN_API_INIT_PTR(synStreamQuery);
@@ -314,6 +318,36 @@ synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synStreamDestroy, streamHandle)
   API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synDeviceGetNextStreamAffinity(
+    const synDeviceId deviceId,
+    uint64_t* streamAffinityMask) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(deviceId), ARG(streamAffinityMask));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synDeviceGetNextStreamAffinity, deviceId, streamAffinityMask)
+  API_LOG_RESULT(S_ARG(streamAffinityMask));
+
+  return status;
+}
+
+synStatus SYN_API_CALL synStreamSetAffinity(
+    const synDeviceId deviceId,
+    const synStreamHandle streamHandle,
+    uint64_t streamAffinityMask) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(deviceId), ARG(streamHandle), ARG(streamAffinityMask));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synStreamSetAffinity,
+      deviceId,
+      streamHandle,
+      streamAffinityMask)
+  API_LOG_RESULT();
+
   return status;
 }
 
