@@ -826,4 +826,9 @@ at::Tensor retain_softmax_consumer_lazy(
     const at::Tensor& max,
     const at::Tensor& exp_sum_recpr);
 at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src);
+at::Tensor& fp8_kv_reorder_lazy(
+    at::Tensor& self,
+    const at::Tensor start,
+    const at::Tensor end,
+    const at::Tensor beam_idx);
 } // namespace habana_lazy

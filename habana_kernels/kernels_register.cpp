@@ -1911,6 +1911,32 @@ at::Tensor retain_softmax_consumer_wrap(
   return retain_softmax_consumer_lazy(self, max, exp_sum_recpr);
 }
 
+at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_2ARGS(self, src));
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
+    return fp8_copy_lazy(self, src);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+
+at::Tensor& fp8_kv_reorder_wrap(
+    at::Tensor& self,
+    const at::Tensor start,
+    const at::Tensor end,
+    const at::Tensor beam_idx) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
+    return fp8_kv_reorder_lazy(self, start, end, beam_idx);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2085,17 +2111,6 @@ at::Tensor _ragged_softmax_wrap(
     bool half_to_float,
     const at::Tensor& valid_count) {
   return habana_lazy::_ragged_softmax(self, dim, half_to_float, valid_count);
-}
-
-at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_2ARGS(self, src));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_copy_lazy(self, src);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
 }
 
 namespace vision {
@@ -2412,6 +2427,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
   m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
+  m.def(
+      "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2454,6 +2471,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer_wrap);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);
   m.impl("hpu::fp8_copy_", fp8_copy_wrap);
+  m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

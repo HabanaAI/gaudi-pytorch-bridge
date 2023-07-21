@@ -485,6 +485,14 @@ at::Tensor& fp8_copy_(at::Tensor& self, const at::Tensor& src) {
   TORCH_CHECK(false, "hpu::fp8_copy_ is not available in Eager mode.");
 }
 
+at::Tensor& fp8_kv_reorder(
+    at::Tensor& self,
+    const at::Tensor& start,
+    const at::Tensor& end,
+    const at::Tensor& beam_idx) {
+  TORCH_CHECK(false, "hpu::fp8_kv_reorder is not available in Eager mode.");
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -558,6 +566,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "strided_insert_orig_ds_h2d(Tensor self, Tensor other, Tensor stride) -> (Tensor)");
   m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
+  m.def(
+      "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -594,6 +604,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::retain_softmax_producer", retain_softmax_producer);
   m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer);
   m.impl("hpu::fp8_copy_", fp8_copy_);
+  m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);
 }
 
 } // namespace eager

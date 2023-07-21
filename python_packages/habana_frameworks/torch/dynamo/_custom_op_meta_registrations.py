@@ -202,6 +202,12 @@ def meta_retain_softmax_consumer(input, max, exp_sum_recpr):
 def meta_fp8_copy_(self, src):
     return self
 
+
+@register_meta([torch.ops.hpu.fp8_kv_reorder_.default])
+def meta_fp8_kv_reorder_(self, start, end, beam_idx):
+    return self
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

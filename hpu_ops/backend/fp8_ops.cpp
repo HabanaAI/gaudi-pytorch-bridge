@@ -934,6 +934,46 @@ void Fp8Copy_::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(copy[0]);
 }
 
+Fp8KvReorder::Fp8KvReorder(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "fp8_kv_reorder", scalar_type, {}, {0}, {}, false) {}
+
+void Fp8KvReorder::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "Fp8KvReorder must have 4 input arguments");
+
+  StackGetter stackGetter(stack, "Fp8KvReorder::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto start = getNextInput<TensorsPair>(stackGetter);
+  auto end = getNextInput<TensorsPair>(stackGetter);
+  auto beam_idx = getNextInput<TensorsPair>(stackGetter);
+
+  TORCH_CHECK(
+      start.pt_t.dtype() == c10::ScalarType::Int,
+      "Start tensor must be of type Int32");
+  TORCH_CHECK(
+      end.pt_t.dtype() == c10::ScalarType::Int,
+      "End tensor must be of type Int32");
+  TORCH_CHECK(
+      beam_idx.pt_t.dtype() == c10::ScalarType::Byte,
+      "Beam_idx tensor must be of type UInt8");
+  TORCH_CHECK(start.pt_t.dim() == 1, "Start tensor must have dimensions 1");
+  TORCH_CHECK(end.pt_t.dim() == 1, "End tensor must have dimensions 1");
+  TORCH_CHECK(
+      beam_idx.pt_t.dim() == 1, "Beam_idx tensor must have dimensions 1");
+
+  std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+  auto shape = self.pt_t.sizes().vec();
+  auto selective_gather = BuildNode(
+      this,
+      graph,
+      {"selective_gather_fwd_" + guid_suffix,
+       {self.syn_t, start.syn_t, end.syn_t, beam_idx.syn_t},
+       {{shape, at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}}});
+
+  syn_out(0) = std::move(selective_gather[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -961,4 +1001,5 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose))
         .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
         .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape))
-        .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_));
+        .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_))
+        .add("hpu::fp8_kv_reorder_", KERNEL_FN_GLOBAL(habana::Fp8KvReorder));

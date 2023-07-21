@@ -18,6 +18,7 @@ from habana_frameworks.torch.hpex.kernels.Fp8Ops import cast_to_fp8, cast_to_fp8
 
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
+import habana_frameworks.torch.core as htcore
 ht.disable_dynamic_shape()
 
 pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8")
@@ -712,3 +713,29 @@ def test_fp8_copy_(shape):
 
     torch.ops.hpu.fp8_copy_(self, src)
     assert np.array_equal(self.cpu(), src.cpu())
+
+
+@pytest.mark.parametrize("shape", [(1, 4, 1, 32, 1), (4, 4, 8, 256, 32)])
+def test_fp8_kv_reorder(shape):
+    torch.manual_seed(0)
+    input_cpu = torch.rand(shape, dtype=torch.float32)
+    start_cpu = torch.randint(0, 16, (shape[0],), dtype=torch.int32)
+    end_cpu = torch.randint(0, 16, (shape[0],), dtype=torch.int32)
+    beam_idx_cpu = torch.randint(0, 4, (shape[0], 4), dtype=torch.int32)
+
+    input_hpu = cast_to_fp8(input_cpu.to(hpu))
+    start_hpu = start_cpu.to(hpu)
+    end_hpu = (start_cpu + end_cpu).to(hpu)
+    beam_idx_hpu = torch.sum(
+        beam_idx_cpu.to(hpu) * torch.tensor([[64, 16, 4, 1]]).to(hpu), axis=-1
+    ).to(torch.uint8)
+
+    torch.ops.hpu.fp8_kv_reorder_(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
+
+    for i in range(shape[0]):
+        subset = torch.narrow(input_cpu[i], -2, start_cpu[i], end_cpu[i])
+        updated = subset.index_select(0, beam_idx_cpu[i])
+        subset.copy_(updated)
+
+    reference = cast_to_fp8(input_cpu.to(hpu)).cpu()
+    np.testing.assert_equal(input_hpu.cpu().numpy(), reference.numpy())
