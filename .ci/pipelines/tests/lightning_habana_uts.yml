@@ -28,16 +28,48 @@ common:
           pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
           install_pillow_simd
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-          pip install -U habana-media-loader --extra-index-url https://artifactory-kfs.habana-labs.com/artifactory/api/pypi/pypi-virtual/simple
           pip install -U scikit-learn
           build_deepspeed_fork
           pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps
+    Install media loader wheel:
+      command: |
+          pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl
 testsMap:
   Test_pytorch_modules_gaudi2_asic_lightning_habana_uts:
     stages:
       Run Lightning habana unit tests:
-        filter: -t all
+        filter: -t all1
   Test_pytorch_modules_gaudi_asic_lightning_habana_uts:
     stages:
       Run Lightning habana unit tests:
-        filter: -t all
+        filter: -t all1
+  Test_pytorch_modules_gaudi2_sim_lightning_habana_uts:
+    dependencies:
+      - CORAL_SIM
+      - TPCSIM
+    config:
+      lkdSimHealtcheckParams:
+        lkdParam: 'timeout_locked=1000'
+        startNetworkIfs: false
+        checkDmesg: false
+        numOfSimInstances: 8
+        simParams: '-spdlog 4'
+        DRAMAllocation: 4
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1 --dut sim
+  Test_pytorch_modules_gaudi_sim_lightning_habana_uts:
+    dependencies:
+      - CORAL_SIM
+      - TPCSIM
+    config:
+      lkdSimHealtcheckParams:
+        lkdParam: 'timeout_locked=1000'
+        startNetworkIfs: false
+        checkDmesg: false
+        numOfSimInstances: 8
+        simParams: '-spdlog 4'
+        DRAMAllocation: 4
+    stages:
+      Run Lightning habana unit tests:
+        filter: -t all1 --dut sim
