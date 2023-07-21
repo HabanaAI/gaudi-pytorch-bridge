@@ -260,12 +260,19 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
-    [[maybe_unused]] at::Tensor& outputBuffer,
-    [[maybe_unused]] at::Tensor& inputBuffer,
+    at::Tensor& outputBuffer,
+    at::Tensor& inputBuffer,
     [[maybe_unused]] const AllgatherOptions& opts) {
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  throw std::runtime_error(
-      "allgather_base is currently not supported with HCCL");
+  TORCH_CHECK(
+      inputBuffer.dtype() == outputBuffer.dtype(), "buffer types don't match");
+  TORCH_CHECK(
+      inputBuffer.numel() * size_ == outputBuffer.numel(),
+      "incompatible buffer sizes");
+  HOST_SYNC()
+  habana_lazy::allgather_hpu_lazy_out(
+      inputBuffer, comm_->GetId(), outputBuffer);
+  std::vector<at::Tensor> out_tensors = {outputBuffer};
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
