@@ -172,10 +172,8 @@ SharedLayer::Return_t ValidateGuid(
       output_count <= SharedLayer::MAX_TENSOR_NR,
       "Output count passed to Shared Layer exceeds limit");
 
-  auto input_tensors = std::shared_ptr<SharedLayer::Tensor[]>(
-      new SharedLayer::Tensor[input_count]);
-  auto output_tensors = std::shared_ptr<SharedLayer::Tensor[]>(
-      new SharedLayer::Tensor[output_count]);
+  SharedLayer::Tensor input_tensors[input_count];
+  SharedLayer::Tensor output_tensors[output_count];
 
   for (auto i = 0u; i < input_values.size(); ++i) {
     bool result = false;
@@ -209,8 +207,8 @@ SharedLayer::Return_t ValidateGuid(
   }
   params.outputTensorNr = output_values.size();
 
-  params.inputTensors = input_tensors.get();
-  params.outputTensors = output_tensors.get();
+  params.inputTensors = input_tensors;
+  params.outputTensors = output_tensors;
 
   return synSharedLayerValidateGuid(&params);
 }
