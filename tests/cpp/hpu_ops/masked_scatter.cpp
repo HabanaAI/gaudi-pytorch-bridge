@@ -97,3 +97,10 @@ TEST_F(MaskedScatterHpuOpTest, MaskWithAllOnes) {
       {torch::kInt32, torch::kInt32},
       torch::ones({8, 1, 8}).to(torch::kBool));
 }
+
+TEST_F(MaskedScatterHpuOpTest, SelfAndSourceSizesDiffer) {
+  generateSelfSourceApplyMaskAndCompare(
+      {{2, 4, 5}, {2, 4, 1}},
+      {torch::kFloat, torch::kFloat},
+      torch::tensor({0, 1, 0, 0, 0}).to(torch::kBool));
+}
