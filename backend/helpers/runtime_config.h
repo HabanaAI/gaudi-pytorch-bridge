@@ -13,11 +13,15 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace habana_helpers {
 
 void EnableInferenceMode();
 void DisableInferenceMode();
+void EnableConstSectionSerialization(const char* path, bool clear_path);
 bool IsInferenceMode();
-
+bool IsConstSectionSerialization();
+std::string GetConstSectionSerializationPath();
+bool ShouldClearConstSectionPath();
 } // namespace habana_helpers

@@ -319,5 +319,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana::HPUDeviceAllocator::recordStream(
         tensor.storage().data_ptr(), stream);
   });
+  m.def(
+      "enable_const_section_serialization",
+      [](const char* path, bool clear_path) {
+        habana_helpers::EnableConstSectionSerialization(path, clear_path);
+      });
+
   m.doc() = "This module registers hpu backend.";
 }

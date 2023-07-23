@@ -179,6 +179,12 @@ def enable_inference_mode():
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
+def enable_const_section_serialization(path, clear_path):
+    _hpu_C.enable_const_section_serialization(str(path), clear_path)
+
+def disable_const_section_serialization():
+    _hpu_C.enable_const_section_serialization("", False)
+
 def is_bf16_supported():
     r"""Check if bf16 is supported."""
     if is_available():

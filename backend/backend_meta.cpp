@@ -11,8 +11,10 @@
  *******************************************************************************
  */
 #include "backend/backend_meta.h"
+#include <memory>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
+#include "backend/helpers/runtime_config.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
 // c10::BackendMeta in the TensorImpl and we don't have to rely on
@@ -79,6 +81,16 @@ void TensorExtraMeta::update_host_data(
   }
 }
 
+std::shared_ptr<serialization::ConstSectionDataSerialize> TensorExtraMeta::
+    get_const_section_data_serializer() {
+  if (habana_helpers::IsConstSectionSerialization() &&
+      const_section_data_ == nullptr) {
+    const_section_data_ =
+        std::make_shared<serialization::ConstSectionDataSerialize>();
+  }
+  return const_section_data_;
+}
+
 void TensorExtraMeta::set_const_tensor(
     const at::Tensor& tensor,
     bool is_const_tensor,
@@ -98,22 +110,30 @@ void TensorExtraMeta::set_const_tensor(
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
     auto& device = HPURegistrar::get_device();
     void* host_ptr{};
-    auto status = device.get_host_memory().malloc(
-        &host_ptr, tensor.numel() * tensor.itemsize());
+    auto size = tensor.numel() * tensor.itemsize();
+    auto status = device.get_host_memory().malloc(&host_ptr, size);
     HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
     tmeta->set_host_ptr(host_ptr);
-    std::atomic<bool> copyDone{false};
-    device.copy_data_to_host(
-        reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
-        tmeta->get_host_ptr(),
-        reinterpret_cast<synapse_helpers::device_ptr>(
-            tensor.storage().data_ptr().get()),
-        habana_helpers::GetNBytes(tensor),
-        [&copyDone]() { copyDone = true; },
-        true);
-    // wait for copy completion
-    while (!copyDone) {
-      std::this_thread::yield();
+    tmeta->set_host_size(size);
+    if (habana_helpers::IsConstSectionSerialization() &&
+        tmeta->get_const_section_data_serializer()->isSerialized(
+            tmeta->get_const_id())) {
+      tmeta->get_const_section_data_serializer()->deserialize(
+          tmeta->get_host_ptr(), tmeta->get_host_size(), tmeta->get_const_id());
+    } else {
+      std::atomic<bool> copyDone{false};
+      device.copy_data_to_host(
+          reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
+          tmeta->get_host_ptr(),
+          reinterpret_cast<synapse_helpers::device_ptr>(
+              tensor.storage().data_ptr().get()),
+          habana_helpers::GetNBytes(tensor),
+          [&copyDone]() { copyDone = true; },
+          true);
+      // wait for copy completion
+      while (!copyDone) {
+        std::this_thread::yield();
+      }
     }
     tmeta->set_data_in_host_memory(true);
     PT_LAZY_DEBUG(

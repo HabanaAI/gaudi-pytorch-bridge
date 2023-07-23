@@ -47,7 +47,7 @@ static void createModuleLoggersOnDemand(LoggerType) {
        LoggerType::PT_LAZY_EAGER,  LoggerType::PT_MEMLOG,
        LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
        LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
-       LoggerType::PT_HPUGRAPH},
+       LoggerType::PT_HPUGRAPH,    LoggerType::PT_CONST_SECTION},
       default_params);
 
   trace_params.logFileName = "pytorch_log.txt";
@@ -112,6 +112,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_CUSTOM,
     PT_RECIPE_STATS,
     PT_HPUGRAPH,
+    PT_CONST_SECTION,
     LOG_MAX)
 // -------------- HL LOG ----------------
 

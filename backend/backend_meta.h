@@ -15,11 +15,14 @@
 
 #include <c10/core/TensorImpl.h>
 #include <synapse_common_types.h>
+#include <memory>
+#include <string>
 #include <tuple>
 
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/layout_utils.h"
+#include "habana_helpers/habana_serialization/include/habana_serialization/const_section.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana_lazy {
@@ -287,6 +290,9 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     host_ptr_ = host_ptr;
   }
 
+  std::shared_ptr<serialization::ConstSectionDataSerialize>
+  get_const_section_data_serializer();
+
   void* get_compile_host_ptr() const {
     return compile_host_ptr_;
   }
@@ -412,6 +418,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   void* host_ptr_{nullptr};
   void* compile_host_ptr_{nullptr};
+  std::shared_ptr<serialization::ConstSectionDataSerialize> const_section_data_;
   size_t size_{0};
   size_t el_size_{0};
   HostDataType dt_type_{HostDataType::INVALID_T};

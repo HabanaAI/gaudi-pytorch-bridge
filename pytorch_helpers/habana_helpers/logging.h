@@ -63,6 +63,7 @@ enum class LoggerType {
   PT_CUSTOM, // Don't use it in checkin code.
   PT_RECIPE_STATS,
   PT_HPUGRAPH,
+  PT_CONST_SECTION,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -118,6 +119,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_RECIPE_STATS, "PT_RECIPE_STATS"},
       {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
       {HlLogger::LoggerType::PT_HPUGRAPH, "PT_HPUGRAPH"},
+      {HlLogger::LoggerType::PT_CONST_SECTION, "PT_CONST_SECTION"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
@@ -344,6 +346,7 @@ class PTFuncLog {
 #define PT_DYNAMIC_SHAPE_FATAL(...) PT_MOD_FATAL(PT_DYNAMIC_SHAPE, __VA_ARGS__)
 #define PT_LAZY_EAGER_FATAL(...) PT_MOD_FATAL(PT_LAZY_EAGER, __VA_ARGS__)
 #define PT_EAGER_FATAL(...) PT_MOD_FATAL(PT_EAGER, __VA_ARGS__)
+#define PT_CONST_SECTION_FATAL(...) PT_MOD_FATAL(PT_CONST_SECTION, __VA_ARGS__)
 
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...) \
@@ -361,6 +364,7 @@ class PTFuncLog {
 #define PT_DISTRIBUTED_WARN(...) PT_MOD_WARN(PT_DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_WARN(...) PT_MOD_WARN(PT_LAZY, __VA_ARGS__)
 #define PT_IRGRAPH_WARN(...) PT_MOD_WARN(PT_IRGRAPH, __VA_ARGS__)
+#define PT_CONST_SECTION_WARN(...) PT_MOD_WARN(PT_CONST_SECTION, __VA_ARGS__)
 #define PT_FALLBACK_WARN(...) \
   PT_MOD_WARN_WITHOUT_LINE_FILE(PT_FALLBACK, __VA_ARGS__)
 #define PT_TEST_WARN(...) PT_MOD_WARN_WITHOUT_LINE_FILE(PT_TEST, __VA_ARGS__)
@@ -455,6 +459,7 @@ class PTFuncLog {
 #define PT_BRIDGE_DEBUG(...) PT_MOD_DEBUG(PT_BRIDGE, __VA_ARGS__)
 #define PT_CUSTOM_DEBUG(...) PT_MOD_DEBUG(PT_CUSTOM, __VA_ARGS__)
 #define PT_HPUGRAPH_DEBUG(...) PT_MOD_DEBUG(PT_HPUGRAPH, __VA_ARGS__)
+#define PT_CONST_SECTION_DEBUG(...) PT_MOD_DEBUG(PT_CONST_SECTION, __VA_ARGS__)
 #define PT_DEVICE_DEBUG(...) PT_MOD_DEBUG(PT_DEVICE, __VA_ARGS__)
 #define PT_DEVMEM_DEBUG(...) PT_MOD_DEBUG(PT_DEVMEM, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) PT_MOD_DEBUG(PT_DISTRIBUTED, __VA_ARGS__)

@@ -14,8 +14,15 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h"
 
+#include <string>
+
 namespace habana_helpers {
 bool enable_inference_mode{GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)};
+
+// if a proper path is set,const section serialization will be enabled.
+std::string const_section_serialize_path = "";
+// if true, remove all existingconst section files in given path.
+bool clear_const_section_path = false;
 
 void EnableInferenceMode() {
   enable_inference_mode = true;
@@ -25,8 +32,24 @@ void DisableInferenceMode() {
   enable_inference_mode = false;
 }
 
+void EnableConstSectionSerialization(const char* path, bool clear_path) {
+  const_section_serialize_path = std::string(path);
+  clear_const_section_path = clear_path;
+}
+
 bool IsInferenceMode() {
   return enable_inference_mode;
 }
 
+std::string GetConstSectionSerializationPath() {
+  return habana_helpers::const_section_serialize_path;
+}
+
+bool IsConstSectionSerialization() {
+  return habana_helpers::const_section_serialize_path != "";
+}
+
+bool ShouldClearConstSectionPath() {
+  return habana_helpers::clear_const_section_path;
+}
 } // namespace habana_helpers
