@@ -129,3 +129,11 @@ launchers:
   silentMode: false
   gerritTriggerMap:
   - repository: lightning-habana-fork
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_lightning_habana_uts
+  silentMode: true
+  gerritTriggerMap:
+  - repository: lightning-habana-fork
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_lightning_habana_uts
+  silentMode: true
+  gerritTriggerMap:
+  - repository: lightning-habana-fork
