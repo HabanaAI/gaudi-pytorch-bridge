@@ -959,3 +959,22 @@ def test_hpu_repeat(shape, repeats):
         cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None
     ).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
+
+@pytest.mark.parametrize("shape, dim, index", [
+    ([2, 3, 4], 0, [1]),
+    ([2, 3, 4], 1, [1, 2]),
+    ([2, 3, 4], 2, [0, 3]),
+    ([2, 3, 4], -1, [0, 3]),
+])
+def test_hpu_index_select(shape, dim, index):
+    self = torch.rand(shape, dtype=torch.float)
+    self_h = cast_to_fp8(self.to("hpu"))
+    index = torch.tensor(index, dtype=torch.int)
+    index_h = index.to("hpu")
+
+    out = torch.index_select(self, dim, index)
+    out_h = torch.ops.hpu.fp8_index_select_v2(self_h, dim, index_h)
+
+    out_h = cast_from_fp8(out_h, out_dtype=torch.float, scale=None)
+    out = cast_from_fp8(cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
+    compare_tensors(out_h, out, atol=0.0, rtol=0.0)

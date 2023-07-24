@@ -266,6 +266,14 @@ def meta_fp8_repeat_v2(self, repeats):
     return self.new_empty(target_shape)
 
 
+@register_meta([torch.ops.hpu.fp8_index_select_v2.default])
+def meta_fp8_index_select_v2(self, dim, index):
+    result_size = list(self.size())
+    if self.dim() > 0:
+        result_size[dim] = index.numel()
+    return self.new_empty(result_size)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

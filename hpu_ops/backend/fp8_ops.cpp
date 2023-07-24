@@ -1084,6 +1084,63 @@ void Fp8RepeatV2::AddNode(
   syn_out(0) = std::move(result[0]);
 }
 
+sizes_vec Fp8IndexSelectV2OutputShape(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  int dim = stack[1].toInt();
+  auto index = stack_tensor(stack, 2);
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+
+  std::vector<int64_t> outshape(self.sizes().vec());
+  if (self.dim() > 0) {
+    outshape[dim] = index.numel();
+  }
+
+  return {outshape};
+}
+
+Fp8IndexSelectV2::Fp8IndexSelectV2(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_index_select_v2",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {
+  SetComputeOutputShapes(Fp8IndexSelectV2OutputShape);
+}
+
+void Fp8IndexSelectV2::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 3, "Fp8IndexSelectV2 must have 3 input arguments");
+
+  StackGetter stackGetter(stack, "FpIndexSelectV2::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  int dim = getNextInput<int>(stackGetter);
+  auto index = getNextInput<TensorsPair>(stackGetter);
+  dim = at::maybe_wrap_dim(dim, self.pt_t.dim(), /*wrap_scalar=*/true);
+
+  std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+
+  auto out_shapes = Fp8IndexSelectV2OutputShape(stack);
+
+  ns_GatherKernel::Params params{};
+  params.axis = self.pt_t.dim() - dim - 1;
+
+  auto result = OpBackend::BuildNode(
+      this,
+      graph,
+      {"gather_fwd_" + guid_suffix,
+       {self.syn_t, index.syn_t},
+       {{out_shapes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1114,4 +1171,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_copy_", KERNEL_FN_GLOBAL(habana::Fp8Copy_))
         .add("hpu::fp8_kv_reorder_", KERNEL_FN_GLOBAL(habana::Fp8KvReorder))
         .add("hpu::fp8_index_copy_", KERNEL_FN_GLOBAL(habana::Fp8IndexCopy_))
-        .add("hpu::fp8_repeat_v2", KERNEL_FN_GLOBAL(habana::Fp8RepeatV2));
+        .add("hpu::fp8_repeat_v2", KERNEL_FN_GLOBAL(habana::Fp8RepeatV2))
+        .add(
+            "hpu::fp8_index_select_v2",
+            KERNEL_FN_GLOBAL(habana::Fp8IndexSelectV2));

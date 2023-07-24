@@ -7426,4 +7426,19 @@ at::Tensor fp8_repeat_v2_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(fp8_repeat_v2, hpu_op)
 }
 
+at::Tensor fp8_index_select_v2_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::fp8_index_select_v2",
+      {self, dim, index},
+      Fp8IndexSelectV2OutputShape};
+  hpu_op.set_scalar_types({at::ScalarType::Char});
+
+  RUN_MAYBE_WITH_ACC_THREAD(fp8_index_select_v2, hpu_op)
+}
+
 } // namespace habana_lazy

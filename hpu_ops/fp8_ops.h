@@ -51,6 +51,7 @@ DEFINE_OP(Fp8Copy_)
 DEFINE_OP(Fp8KvReorder)
 DEFINE_OP(Fp8IndexCopy_)
 DEFINE_OP(Fp8RepeatV2)
+DEFINE_OP(Fp8IndexSelectV2)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(Fp8DropoutOutputShape)
@@ -60,6 +61,7 @@ OUTSHAPE_DECL(Fp8BgradDgeluOutputShape)
 OUTSHAPE_DECL(Fp8FastSoftmaxOutputShape)
 OUTSHAPE_DECL(Fp8ReshapeOutputShape)
 OUTSHAPE_DECL(Fp8RepeatV2OutputShape)
+OUTSHAPE_DECL(Fp8IndexSelectV2OutputShape)
 
 const synDataType fp8_syn_type =
     GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
