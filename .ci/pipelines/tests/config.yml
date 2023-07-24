@@ -55,6 +55,8 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
+          sim:
       gaudi:
         hwType:
           asic:
+          sim:
