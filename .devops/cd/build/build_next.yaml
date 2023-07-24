@@ -1,0 +1,54 @@
+---
+
+version: 1
+
+sourceControl:
+  repos:
+    - 3rd-parties
+    - automation
+    - devops/cd_release
+    - hcl
+    - huda
+    - media
+    - pytorch-integration
+    - pytorch-next
+    - pytorch-training-tests
+    - pytorch-vision-fork
+    - specs_external
+    - swtools_sdk
+    - synapse
+    - synapse_profiler
+    - synapse_utils
+    - third_party/github.com/kineto
+    - tpc_kernels
+
+steps:
+  preBuild:
+    - name: prepare pytorch repo
+      cmd: rm -rf ${SOURCE_DIR}/pytorch-fork && mv ${SOURCE_DIR}/pytorch-next ${SOURCE_DIR}/pytorch-fork
+    - name: install build dependencies
+      cmd: cd ${BUILD_DIR} && make init-sw-deps RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: init Python
+      cmd: cd ${BUILD_DIR} && make init-python RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+  build:
+    - name: pytorch Fork
+      cmd: cd ${BUILD_DIR} && make build-fork RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: install pytorch fork
+      cmd: cd ${BUILD_DIR} && make install-fork RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: vision
+      cmd: cd ${BUILD_DIR} && make build-vision RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: modules
+      cmd: cd ${BUILD_DIR} && make build-modules RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: plugin
+      cmd: cd ${BUILD_DIR} && make build-plugin RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: GPU Migration
+      cmd: cd ${BUILD_DIR} && make build-gpu_migration RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: audio
+      cmd: cd ${BUILD_DIR} && make build-audio RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: data
+      cmd: cd ${BUILD_DIR} && make build-data RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: text
+      cmd: cd ${BUILD_DIR} && make build-text RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+  postBuild:
+    - name: archive PT
+      cmd: cd ${BUILD_DIR} && make archive-next RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}

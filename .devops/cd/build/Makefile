@@ -181,6 +181,7 @@ build-%: validate init
 	'source /npu-stack/cd_release/scripts/build/compile.sh $*'
 
 archive-next: CSV_FILE_SUFFIX = next
+archive-next: PT_VERSION = $(shell jq -rj '.pt_versions.next.version' $(SRC_DIR)/pytorch-integration/.devops/build_profiles/profiles.json)
 archive-next: archive
 
 archive: validate init ## archive all whls to tgz package
