@@ -27,39 +27,6 @@ using namespace at;
 
 class LazyBasicKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyBasicKernelTest, DISABLED_BasicThreadSafety) {
-  torch::Tensor A = torch::rand({20});
-  torch::Tensor hA = A.to("hpu");
-
-  auto t = std::thread([&]() {
-    torch::Tensor g = torch::ones({5});
-    torch::Tensor hg = g.to("hpu");
-    Tensor Out = A.narrow(0, 2, 5);
-    Tensor hOut = hA.narrow(0, 2, 5);
-    Out.copy_(g.view({-1}), true);
-    hOut.copy_(hg.view({-1}), true);
-    HbLazyTensor::StepMarker({});
-  });
-
-  auto t2 = std::thread([&]() {
-    torch::Tensor hg2, g2 = torch::zeros({5});
-    hg2 = g2.to("hpu");
-    Tensor Out2 = A.narrow(0, 8, 5);
-    Tensor hOut2 = hA.narrow(0, 8, 5);
-    Out2.copy_(g2.view({-1}), true);
-    hOut2.copy_(hg2.view({-1}), true);
-    HbLazyTensor::StepMarker({});
-  });
-  t.join();
-  t2.join();
-
-  A = A.div_(2);
-  hA = hA.div_(2);
-
-  HbLazyTensor::StepMarker({});
-  EXPECT_EQ(allclose(A, hA.to("cpu"), 0.001, 0.001), true);
-}
-
 TEST_F(LazyBasicKernelTest, DoubleCopyTest) {
   at::TensorOptions opts =
       at::TensorOptions().dtype(c10::ScalarType::Double).requires_grad(false);
