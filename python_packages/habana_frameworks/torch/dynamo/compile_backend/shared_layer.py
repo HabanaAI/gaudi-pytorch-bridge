@@ -114,4 +114,9 @@ def is_eager_fallback_required(node: torch.fx.Node) -> bool:
                 do_fallback = True
 
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
+
+    assert (
+        configuration_flags["use_eager_fallback"] or do_fallback == False
+    ), f"Node: {node} requires fallback: {do_fallback}"
+
     return do_fallback

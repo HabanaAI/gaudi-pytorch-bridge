@@ -17,4 +17,6 @@ configuration_flags = {
     "keep_input_mutations": False,
     "use_core_aten_decomp": True,
     "use_hpu_decomp": True,
-    "use_decomp_exclusions": True}
+    "use_decomp_exclusions": True,
+    "use_eager_fallback": True,
+}
