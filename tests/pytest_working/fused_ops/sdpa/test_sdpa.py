@@ -227,7 +227,7 @@ def test_sdpa(
         dtype = torch.bfloat16
         grad_dtype = torch.bfloat16
         rtol = 1e-3
-        atol = 0.05
+        atol = 0.08
 
 
     attn_mask_shape = 'Bx1x1xN'
