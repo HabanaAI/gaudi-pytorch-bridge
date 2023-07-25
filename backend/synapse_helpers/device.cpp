@@ -284,6 +284,14 @@ device::device(
   ReleaseFreeMemory();
   DisableDynamicShapeGaudi3();
   dumpEnvSettings();
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
+    HABANA_ASSERT(
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES),
+        "PT_HPU_ENABLE_LAZY_COLLECTIVES==true required when PT_HPU_ENABLE_SFG==true");
+    HABANA_ASSERT(
+        type_ != synDeviceGaudi,
+        "PT_HPU_ENABLE_SFG==true cannot be used on Gaudi1");
+  }
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
       GET_ENV_FLAG_NEW(PT_ENABLE_HCL_STREAM);

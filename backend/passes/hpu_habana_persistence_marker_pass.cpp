@@ -181,7 +181,9 @@ void PersistenceMarkerPass::RunMetaDataAdjustmentPasses(
   // This pass marks tensors external if they are used as input tensors for
   // collective ops. Used for Signal From Graph to signal the tensor data is
   // ready prior to recipe completion
-  ExternalMarkingPass(graph_nodes);
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
+    ExternalMarkingPass(graph_nodes);
+  }
 }
 
 std::unique_ptr<PersistenceMarkerPassData> PersistenceMarkerPass::VisitGraph(
