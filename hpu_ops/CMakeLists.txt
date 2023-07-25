@@ -194,7 +194,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/scaled_masked_softmax.cpp
           backend/scatter_gen.cpp
           backend/select_backward_gen.cpp
-          backend/scatter_reduce_gen.cpp
           backend/select_gen.cpp
           backend/shrink_gen.cpp
           backend/slice_backward_gen.cpp
