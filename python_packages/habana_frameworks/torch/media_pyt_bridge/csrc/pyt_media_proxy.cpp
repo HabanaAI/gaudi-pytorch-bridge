@@ -21,16 +21,18 @@ namespace torch_hpu {
 PytMediaProxy::PytMediaProxy(int device_id) : device_id_(device_id) {}
 
 PytMediaProxy::~PytMediaProxy() {
-  // print unrelease memory details before throw error
+  if (!habana::HPURegistrar::get_hpu_registrar().is_initialized()) {
+    return; // Nothing to do
+  }
+  auto& device = habana::HPURegistrar::get_device(device_id_);
+  // print unrelease memory details
   for (auto elem : buffer_to_address_) {
     PT_BRIDGE_WARN("Unreleased buffer found, address = ", elem.first);
+    device.get_device_memory().free(elem.second);
   }
   for (auto elem : buffer_to_output_tensor_) {
     PT_BRIDGE_WARN("Unreleased tensor found, address = ", elem.first);
   }
-  // buffers and pt tensor make sure release from media pipe
-  HABANA_ASSERT(buffer_to_address_.size() == 0);
-  HABANA_ASSERT(buffer_to_output_tensor_.size() == 0);
 }
 
 uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
