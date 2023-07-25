@@ -84,6 +84,18 @@ struct HandleDynamicOpsPass {
     m_value_ivalue_map[node_vals[0]] = ival;
   }
 
+  void handlePrimListUnpackNode(torch::jit::Node* node) {
+    auto node_vals = node->outputs();
+    for (const auto& input : node->inputs()) {
+      const auto& name = input->debugName();
+      auto tensors = (*m_value_ivalue_map[input]).toTensorList();
+      for (int i = 0; i < tensors.size(); ++i) {
+        const at::Tensor& tensor = tensors[i];
+        m_value_ivalue_map[node_vals[i]] = std::make_shared<IVal>(tensor);
+      }
+    }
+  }
+
   void dumpValueIValueMap() {
     PT_EAGER_DEBUG("Map m_value_ivalue_map size :", m_value_ivalue_map.size());
     for (auto it : m_value_ivalue_map) {
@@ -115,6 +127,9 @@ struct HandleDynamicOpsPass {
         continue;
       } else if (node->kind() == torch::jit::prim::ListConstruct) {
         handlePrimListConstructNode(node);
+        continue;
+      } else if (node->kind() == torch::jit::prim::ListUnpack) {
+        handlePrimListUnpackNode(node);
         continue;
       }
 

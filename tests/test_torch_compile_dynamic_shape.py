@@ -423,6 +423,23 @@ def test_dynamic_shape_mult_module_split():
             out_c = raw_function(t1, t2)
             assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
+def test_unbind():
+    print("Starting...................")
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+
+        import habana_frameworks.torch.core as htcore
+        print("Starting the test.................")
+        input = [1, 4]
+
+        def raw_function(input_tensor):
+            out = torch.unbind(input_tensor, 0)
+            return out
+
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+        t1 = torch.randn(input, requires_grad = False)
+        t1_hpu = t1.to("hpu")
+        result_compile_train = compiled_function_training(t1_hpu)
+
 def test_dynamic_shape_as_strided_ratio_flow_lazy():
     print("Starting...................")
     with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
