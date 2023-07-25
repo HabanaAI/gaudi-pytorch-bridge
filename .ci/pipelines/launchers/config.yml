@@ -102,6 +102,7 @@ launchers:
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype
   silentMode: false
