@@ -510,6 +510,33 @@ def test_bernoulli_half():
         t_hpu = t_half.to("hpu")
         result_compile_train = compiled_function_training(t_hpu)
 
+def test_dynamic_shape_chunk():
+    print("Starting...................")
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0",
+                           "PT_COMPILATION_STATS_PATH": "/tmp/chunk_stats"}):
+        import habana_frameworks.torch.core as htcore
+        print("Starting the test.................")
+        input_shapes = [
+            (3, 128, 128),
+            (3, 4832, 166),
+            (3, 5316, 128),
+        ]
+
+        def raw_function(input_tensor):
+            out = torch.chunk(input_tensor, 3, 2) # chunks=3, dim=2
+            return out
+
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+        i = 0
+
+        for s in input_shapes:
+            t1 = torch.randn(s, requires_grad = False)
+            t1_hpu = t1.to("hpu")
+            result_compile_train = compiled_function_training(t1_hpu)
+            outs_c = raw_function(t1)
+            for out_c, out_h in zip(outs_c, result_compile_train):
+              assert torch.allclose(out_h.to("cpu"), out_c)
+
 if __name__ == '__main__':
     test_relu_mixed()
     test_reshape_symlnt()
@@ -526,4 +553,5 @@ if __name__ == '__main__':
     test_dynamic_shape_mult_module_split()
     test_dynamic_shape_as_strided_lazy()
     test_dynamic_shape_as_strided_ratio_flow_lazy()
+    test_dynamic_shape_chunk()
 
