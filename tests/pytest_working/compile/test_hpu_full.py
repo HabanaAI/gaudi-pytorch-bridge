@@ -13,6 +13,7 @@ import torch
 import pytest
 import random
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.dynamo.compile_backend
 from pytest_working.test_utils import env_var_in_scope
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32])
