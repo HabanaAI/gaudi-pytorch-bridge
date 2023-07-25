@@ -46,8 +46,14 @@
       "default_source": "build"
     },
     "next": {
-      "version": "2.0.0",
-      "default_source": "-r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pt2.0.txt"
+      "version": "2.1.0",
+      "default_source": "build",
+      "extras" : {
+          "torchvision": "0.15.1",
+          "torchaudio": "2.0.1",
+          "torchtext": "0.15.2",
+          "torchdata": "0.6.1"
+      }
     },
     "rc": {
       "version": null,
