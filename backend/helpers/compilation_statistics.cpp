@@ -172,11 +172,14 @@ void CompilationStatistics::LogShapes(
     uint64_t step) {
   for (size_t j = 0; j < jit_ir_graph->inputs().size(); j++) {
     auto value_input = jit_ir_graph->inputs().at(j);
-    std::string tensor_name =
-        std::to_string(j) + std::string("_") + value_input->debugName();
-    auto tensor_shape = shapes.at(j);
-    bool kind = habana_helpers::is_shape_tensor(tensor_shape.get_tensor_type());
-    LogShape(tensor_name, tensor_shape, kind ? "shape tensor" : "", step);
+    if (shapes.count(j)) {
+      std::string tensor_name =
+          std::to_string(j) + std::string("_") + value_input->debugName();
+      auto tensor_shape = shapes.at(j);
+      bool kind =
+          habana_helpers::is_shape_tensor(tensor_shape.get_tensor_type());
+      LogShape(tensor_name, tensor_shape, kind ? "shape tensor" : "", step);
+    }
   }
 }
 void CompilationStatistics::LogCompilation(
