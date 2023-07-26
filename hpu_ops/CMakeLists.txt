@@ -194,6 +194,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/scatter_gen.cpp
           backend/searchsorted_gen.cpp
           backend/select_backward_gen.cpp
+          backend/scatter_reduce_gen.cpp
           backend/select_gen.cpp
           backend/shrink_gen.cpp
           backend/signbit_gen.cpp

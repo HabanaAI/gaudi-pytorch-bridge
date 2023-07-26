@@ -6206,6 +6206,130 @@ scatter_add:
   override_fn: scatter_add_src_hpu_lazy
   acc_thread: true
 
+scatter_reduce:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+  out_ids: [0]
+
+scatter_reduce_:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+  inplace_ids: [0]
+
+scatter_reduce.out:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+  guid: scatter_reduce_fwd
+
+scatter_reduce.two:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+  out_ids: [0]
+
+scatter_reduce_.two:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+  inplace_ids: [0]
+
+scatter_reduce.two_out:
+  custom_fill_params: ScatterReduceParams
+  force_default: false
+  output_meta: ScatterReduceMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
+
 searchsorted.Tensor:
   custom_fill_params: FillSearchSortedParams
   dtypes:
