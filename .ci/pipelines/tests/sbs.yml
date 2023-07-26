@@ -1,4 +1,12 @@
 common:
+  dependencies:
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
   config:
     testCommand: run_pytorch_qa_tests
     loadLKD: true
