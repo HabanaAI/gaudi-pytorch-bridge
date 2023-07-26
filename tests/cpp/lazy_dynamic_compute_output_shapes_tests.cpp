@@ -176,6 +176,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Conv2DTransposeBiasTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Fill) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
   auto hout = hA.fill_(1.0);
@@ -210,6 +211,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SiluBwdTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
@@ -266,6 +268,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, UpsampleNearest2DBwdTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SqueezeTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int C = 3;
   const int N = 16;
   int H = 16;
@@ -343,6 +346,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AllReduceStridedViewTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, EqScalarTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
   auto out_cpu = torch::eq(A, compVal);
@@ -356,6 +360,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, EqScalarTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, ge) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto cpu_in1 = torch::randn({42}).to(at::kBFloat16);
   auto cpu_in2 = torch::randn({2, 42});
 
@@ -367,6 +372,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ge) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Maximum) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
 
@@ -378,6 +384,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Maximum) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, Minimum) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
 
@@ -389,6 +396,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, Minimum) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_fwd_scale) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 7, 3, 4});
   torch::Tensor input1hpu = input1.to("hpu");
   std::vector<double> scale_factor = {1.999, 2.999};
@@ -408,6 +416,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_fwd_scale) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_bwd_size) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({4, 3, 12, 64});
   torch::Tensor input1hpu = input1.to("hpu");
   std::vector<int64_t> output_size = {12, 64};
@@ -422,6 +431,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, upsample_bicubic2d_bwd_size) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, sigmoid) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor cpu_in = torch::randn({4, 3, 12, 64});
   torch::Tensor hpu_in = cpu_in.to("hpu");
 
@@ -429,6 +439,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, sigmoid) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SigmoidBwdTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto input_tensor =
       torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 2, 2});
@@ -449,6 +460,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, SigmoidBwdTest) {
 
 // index_select is supported as manual op
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
@@ -473,6 +485,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select_1) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto max_value = 28;
   auto datatype = torch::kInt;
   auto index_value = 5;
@@ -500,6 +513,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select_1) {
 
 // index_select_out is supported as auto gen op
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
@@ -527,6 +541,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out_1) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto max_value = 28;
   auto datatype = torch::kInt;
   auto index_value = 5;
@@ -554,6 +569,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, index_select_out_1) {
 
 // Also validates ComputeOutputShape for for Reshape/View
 TEST_F(LazyDynamicComputeOutputShapesTest, ReshapeTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int N = 2;
   const int C = 4;
   const int H = 8;
@@ -574,6 +590,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ReshapeTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, squeezeCmptOpTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto x = torch::randn({4});
   auto hx = x.to(torch::kHPU);
 
@@ -584,6 +601,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, squeezeCmptOpTest) {
 }
 
 TEST_F(LazyDynamicComputeOutputShapesTest, SliceTest_CmptOtShp) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -624,6 +642,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, AddInplaceViewTest) {
 
 // Also validates ComputeOutputShape for ArangeHtF32
 TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestFloatHt) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
@@ -653,6 +672,7 @@ TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestFloatHt) {
 
 // Also validates ComputeOutputShape for ArangeHtI32
 TEST_F(LazyDynamicComputeOutputShapesTest, ArangeTestHt) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // std::vector<int> start_sizes{1, 1, 1, 1};
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
@@ -753,6 +773,7 @@ void repeatInlvTest(
     int64_t dim = -1);
 
 TEST_F(LazyDynamicComputeOutputShapesTest, repeatInlv) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   repeatInlvTest(torch::tensor({4, 5}), {10, 7});
   repeatInlvTest(torch::randn({4, 5}), {2, 1, 1, 1, 1}, 1);

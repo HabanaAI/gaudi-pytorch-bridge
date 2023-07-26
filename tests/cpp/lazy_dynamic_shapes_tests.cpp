@@ -246,6 +246,7 @@ void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -494,6 +495,7 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
 
 // Reproducer for https://jira.habana-labs.com/browse/SW-94443
 TEST_F(LazyDynamicShapesTest, SingleOpAdd) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<std::vector<int64_t>> in1 = {{10, 20, 30}, {10, 50, 30}};
   std::vector<std::vector<int64_t>> in2 = {{10, 1, 1}, {10, 50, 30}};
 
@@ -598,6 +600,7 @@ TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -633,6 +636,7 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -671,6 +675,7 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -824,6 +829,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucket) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 24;
   std::vector<int> W_values{16, 18, 20};
   std::vector<int> in_start{0, 2, 3};
@@ -1295,6 +1301,7 @@ void compute_iou(
 }
 
 TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::manual_seed(0);
 
   auto num_boxes = 10;
@@ -2374,6 +2381,7 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
 }
 
 TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto bucket = torch::randn({64});
   auto hbucket = bucket.to(torch::kHPU);
 

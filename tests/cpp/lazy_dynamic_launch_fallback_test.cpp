@@ -22,6 +22,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 // In this class both the pass fallback and compilation fallback is enabled
@@ -45,6 +46,7 @@ class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
 
 // Also validates ComputeOutputShape for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -71,6 +73,7 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
 // This test requires fallback
 // Also validates ComputeOutputShape for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }

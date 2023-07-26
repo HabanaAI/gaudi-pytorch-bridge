@@ -111,6 +111,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceView) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -166,6 +167,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
 }
 
 TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   bool min_max_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
   if (!min_max_enabled) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT, "1", 1);
@@ -217,6 +219,7 @@ TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
 }
 
 TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   {
     SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "1", 1);
     habana_helpers::DynamicBucketInfo bucket_info;

@@ -63,6 +63,7 @@ class LazyDynamicFallbackTest : public habana_lazy_test::LazyTest {
 //                           out
 
 TEST_F(LazyDynamicFallbackTest, DynamicShapeTest4) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -199,6 +200,7 @@ TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
 
 // Its places here only because its getting bucket hit and max calculation fail.
 TEST_F(LazyDynamicFallbackTest, ViewTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2;
   int C = 4;
   at::Scalar alpha = 1.0;
@@ -333,6 +335,7 @@ TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, ArangeTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // std::vector<int> start_sizes{1, 1, 1, 1};
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 18, 16};
@@ -360,6 +363,7 @@ TEST_F(LazyDynamicFallbackTest, ArangeTest) {
 }
 
 TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> start_sizes{0, 2, 3, 4};
   std::vector<int> end_sizes{5, 10, 15, 18};
   std::vector<int> step_sizes{1, 2, 3, 2};
