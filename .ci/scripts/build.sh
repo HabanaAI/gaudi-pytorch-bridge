@@ -29,6 +29,7 @@ function pytorch_functions_help()
     echo -e "run_pytorch_modules_tests      -   Run pytorch modules tests"
     echo -e "run_habana_lightning_tests     -   Run habana lightning plugin tests"
     echo -e "run_lightning_habana_fw_tests  -   Run Lightning Habana tests"
+    echo -e "build_pytorch_vision           -   Build the habana pytorch vision"
 }
 
 function pytorch_usage()
@@ -265,6 +266,20 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --py-version           Python version"
         echo -e "       --pt-audio-version     PytorchAudio version"
+        echo -e "  -h,  --help                 Prints this help"
+    fi
+    if [ $1 == "build_pytorch_vision" ]; then
+        echo -e "\n usage: $1 [options]\n"
+
+        echo -e "options:\n"
+        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
+        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
+        echo -e "  -r,  --release              Python only code, option ignored"
+        echo -e "  -d,  --debug                Python only code, option ignored"
+        echo -e "       --install              will install the package"
+        echo -e "       --dist                 create a wheel distribution/default"
+        echo -e "       --py-version           Python version"
+        echo -e "       --pt-vision-version    Pytorch Vision version"
         echo -e "  -h,  --help                 Prints this help"
     fi
 }
@@ -2318,6 +2333,94 @@ build_pytorch_audio()
         rm -rf $PYTORCH_AUDIO_BUILD/pkgs
         mkdir -p $PYTORCH_AUDIO_BUILD/pkgs
         cp -f ${PTA_WHL_PATH}/*.whl $PYTORCH_AUDIO_BUILD/pkgs
+    fi
+
+    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
+    restore_python_version
+    return $__result
+}
+
+build_pytorch_vision()
+{
+    SECONDS=0
+    local __scriptname=$(__get_func_name)
+    local __env_vars=""
+    local __configure=""
+    local __whl_params=" bdist_wheel"
+    local __result
+    local __set_py_vers="false"
+    local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
+    local __pt_vision_version
+    # parameter while-loop
+    while [ -n "$1" ];
+    do
+        case $1 in
+        -j  | --jobs )
+            __env_vars+=" MAX_JOBS=$2"
+            shift
+            ;;
+        -c  | --configure )
+             __configure="yes"
+            ;;
+        -r  | --release )
+            ;;
+        -d  | --debug )
+            ;;
+        --dist )
+            __whl_params=" bdist_wheel"
+            ;;
+        --install )
+            __whl_params=" install"
+            ;;
+        --py-version )
+            set_python_version $2
+            __set_py_vers="true"
+            shift
+            ;;
+        --pt-vision-version )
+            __pt_vision_version="$2"
+            shift
+            ;;
+        -h  | --help )
+            usage $__scriptname
+            restore_python_version
+            return 0
+            ;;
+        esac
+        shift
+    done
+
+    rm -rf $PYTORCH_VISION_ROOT
+    mkdir -p $PYTORCH_VISION_ROOT
+    pushd $PYTORCH_VISION_ROOT
+
+    # checkout github torch vision repo
+    if [ -z ${__pt_vision_version} ]; then
+        __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision current)
+    fi
+    echo "get torch vision from github (tag: $__pt_vision_version)"
+    git clone https://github.com/pytorch/vision --branch v$__pt_vision_version --single-branch --depth 1 .
+    git submodule update --init --recursive
+
+    if [ -n "$__configure" ]; then
+        $__python_cmd setup.py clean
+        git clean -fd
+    fi
+
+    echo "Build parameters ${__whl_params}"
+
+    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
+    __result=$?
+    if [ $__result -ne 0 ]; then
+        echo "Pytorch torch vision build failed!"
+    fi
+    PTV_WHL_PATH="$PYTORCH_VISION_ROOT/dist/"
+
+    popd
+    if [[ "$__whl_params" = " bdist_wheel" ]]; then
+        rm -rf $PYTORCH_VISION_BUILD/pkgs
+        mkdir -p $PYTORCH_VISION_BUILD/pkgs
+        cp -f ${PTV_WHL_PATH}/*.whl $PYTORCH_VISION_BUILD/pkgs
     fi
 
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
