@@ -1,4 +1,14 @@
 common:
+  dependencies:
+    - CODEC
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - MEDIA
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
   config:
     testCommand: run_pytorch_qa_tests
     loadLKD: true
@@ -37,6 +47,8 @@ testsMap:
       Run RN50 Graph bf16 1c training functional:
         filter: -t rn50_graph_1c
   Test_pytorch_modules_gaudi_asic_topology:
+    dependencies:
+      - AEON
     stages:
       Run toplogy tests on gaudi asic:
         filter: -t topology_ci -a smoke
