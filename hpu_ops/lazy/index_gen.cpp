@@ -57,17 +57,17 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   bool advanced_indexing = false;
   advanced_indexing = check_for_adv_indexing(indices_in_orig);
 
-    has_bool_mask = handle_bool_mask_indices(
-        indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
-    if (has_bool_mask) {
-      indices_in = indices_in_ivals_vec;
-      c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
-      inputs_vec.clear();
-      inputs_vec.emplace_back(sub_inputs.at(0));
-      inputs_vec.emplace_back(c10::IValue(bool_mask_indices));
-    } else {
-      indices_in = indices_in_orig;
-    }
+  has_bool_mask = handle_bool_mask_indices(
+      indices_in_orig, indices_in_ivals_vec, bool_indices_vec);
+  if (has_bool_mask) {
+    indices_in = indices_in_ivals_vec;
+    c10::List<c10::optional<at::Tensor>> bool_mask_indices(bool_indices_vec);
+    inputs_vec.clear();
+    inputs_vec.emplace_back(sub_inputs.at(0));
+    inputs_vec.emplace_back(c10::IValue(bool_mask_indices));
+  } else {
+    indices_in = indices_in_orig;
+  }
 
     at::Tensor self_permuted = self;
     std::vector<int64_t> self_permute_dims;

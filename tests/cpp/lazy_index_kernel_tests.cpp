@@ -969,3 +969,25 @@ TEST_F(LazyIndexKernelTest, IndexMixedTest2) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyIndexKernelTest, IndexMultiDimTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
+  torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  std::vector<torch::Tensor> vec_cpu;
+  torch::Tensor index_t_cpu = torch::tensor({{0}});
+  /*Index as input[bmask_cpu, index_t_cpu]*/
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  indices_cpu.emplace_back(index_t_cpu);
+
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  indices_list.push_back(c10::make_optional(index_t_cpu.to(torch::kHPU)));
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+
+  auto out_hpu = at::index(input_hpu, indices_list);
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}

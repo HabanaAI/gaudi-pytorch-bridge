@@ -308,9 +308,10 @@ void IndexHabanaOperator::AddNode(
       std::vector<synTensor> index_maybe_multidim_synTensor{syn_in(i + 1)};
       std::unique_ptr<synapse_helpers::tensor> index_maybe_multidim_shTensor;
       bool reshape_before_bcast = false;
-      if (num_elems > 1)
+      if (num_elems > 1 || (num_elems == 1 && num_dims > 1))
         reshape_before_bcast = true;
-      if ((num_elems > 1) && (num_elems < max_num_elems)) {
+      if (((num_elems > 1) && (num_elems < max_num_elems)) ||
+          (num_elems == 1 && num_dims > 1)) {
         std::vector<int64_t> reshape_outshape(max_dims, 1);
         for (int i = max_dims - num_dims; i < max_dims; i++) {
           reshape_outshape[i] = t_sz[i - (max_dims - num_dims)];
