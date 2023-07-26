@@ -64,6 +64,15 @@ def full_like(
         requires_grad=requires_grad,
     )
 
+@register_decomposition(torch.ops.aten.squeeze.dim, additional_decompositions)
+def squeeze(input, dim):
+    return torch.squeeze(input, [dim])
+
+@register_decomposition(torch.ops.aten.squeeze.default, additional_decompositions)
+def squeeze(input):
+    inp_size = len(input.size())
+    dim_list = list(range(0, inp_size))
+    return torch.squeeze(input, dim_list)
 
 @register_decomposition(torch.ops.aten.bernoulli.p, additional_decompositions)
 def bernoulli(input, p, *, generator=None):

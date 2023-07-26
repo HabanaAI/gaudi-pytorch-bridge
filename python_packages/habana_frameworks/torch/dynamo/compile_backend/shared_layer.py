@@ -48,7 +48,6 @@ hpu_fallback_op_list = [
     "slice_backward",  # SW-146680
     "addcmul",
     "index",  # SW-146773
-    "squeeze",  # SW-151342
 ]
 
 

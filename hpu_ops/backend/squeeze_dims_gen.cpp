@@ -57,10 +57,7 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   if (valid_dims.empty() || rank == 1) {
     auto out = BuildOp(
-        graph,
-        "identity",
-        {self.syn_t},
-        {{self.pt_t.sizes().vec(), ScalarType(), 0}});
+        graph, "identity", {self.syn_t}, {{intermediate_shape, dtype, 0}});
     syn_out(0) = std::move(out[0]);
     return;
   }
