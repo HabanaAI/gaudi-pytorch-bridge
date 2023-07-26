@@ -65,45 +65,56 @@ launchers:
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
-  - repository: pytorch-vision-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
-  - repository: pytorch-vision-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_single_op_dynamic
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
-  - repository: pytorch-vision-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_compile
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_compile
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_compile
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_eager
   silentMode: false
   gerritTriggerMap:
+  - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_precommit_compile_dynamic
   silentMode: false
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-integration
+  - repository: pytorch-vision-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_sim_promote_training_suite_dtype
   silentMode: false
   gerritTriggerMap:
