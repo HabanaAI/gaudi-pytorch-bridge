@@ -2105,9 +2105,9 @@ void RecipeCacheLRU::ResetDiskCache() {
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
-void RecipeCacheLRU::SyncDiskCache() {
+void RecipeCacheLRU::FlushDiskCache() {
   if (disk_cache_) {
-    disk_cache_->sync();
+    disk_cache_->flush();
   }
 }
 
@@ -2363,8 +2363,8 @@ void DiskCache::Add(
   }
 }
 
-void DiskCache::sync() {
-  recipe_cache_.sync();
+void DiskCache::flush() {
+  recipe_cache_.flush();
 }
 
 std::shared_ptr<RecipeValueSpec> DiskCache::Find(

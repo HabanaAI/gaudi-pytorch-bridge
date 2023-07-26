@@ -50,7 +50,7 @@ class RecipeCache {
   std::string get_cache_path() const {
     return cache_path_;
   }
-  void sync();
+  void flush();
 
  private:
   std::string cache_path_;

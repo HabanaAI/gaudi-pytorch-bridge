@@ -155,4 +155,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("dump_memory_reporter", []() {
     return habana::HPUDeviceAllocator::dump_memory_reporter();
   });
+  m.def("_disk_cache_flush", []() {
+    habana::RecipeCacheLRU::get_cache().FlushDiskCache();
+  });
 }

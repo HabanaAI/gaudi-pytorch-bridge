@@ -137,7 +137,7 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
     habana_lazy::HbLazyTensor::StepMarker({});
 
     // ensure that disk cache thread stored recipes on disk
-    RecipeCacheLRU::get_cache().SyncDiskCache();
+    RecipeCacheLRU::get_cache().FlushDiskCache();
 
     int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
     if (i < 4) {
@@ -191,7 +191,7 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
     habana_lazy::HbLazyTensor::StepMarker({});
 
     // ensure that disk cache thread stored recipes on disk
-    RecipeCacheLRU::get_cache().SyncDiskCache();
+    RecipeCacheLRU::get_cache().FlushDiskCache();
 
     int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
     if (i == 0) {

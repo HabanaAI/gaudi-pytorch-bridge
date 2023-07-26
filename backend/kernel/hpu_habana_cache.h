@@ -491,7 +491,7 @@ class DiskCache {
   std::shared_ptr<RecipeValueSpec> Find(const RecipeArgumentSpec& spec);
   // in case RecipeValueSpec creation failed, DiskCache is leaving lock files on
   // disk. This ensures a cleanup.
-  void sync();
+  void flush();
 
  private:
   serialization::RecipeCache recipe_cache_;
@@ -552,7 +552,7 @@ class RecipeCacheLRU {
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
-  void SyncDiskCache();
+  void FlushDiskCache();
   void Serialize(std::string recipe_cache_path);
   void Deserialize(std::string recipe_cache_path);
 

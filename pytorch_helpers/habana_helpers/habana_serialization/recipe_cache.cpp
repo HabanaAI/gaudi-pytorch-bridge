@@ -46,13 +46,13 @@ absl::optional<synRecipeHandle> get_recipe_handle(
   {
     std::ifstream metadata_file(metadata_path.c_str(), std::ifstream::binary);
     if (!metadata_file) {
-      PT_HABHELPER_TRACE("Failed to open metadata file ", metadata_path);
+      PT_HABHELPER_WARN("Failed to open metadata file ", metadata_path);
       return {};
     }
     metadata << metadata_file.rdbuf();
 
     if (!metadata_file) {
-      PT_HABHELPER_TRACE("Failed to open metadata file ", metadata_path);
+      PT_HABHELPER_WARN("Failed to open metadata file ", metadata_path);
       return {};
     }
   }
@@ -63,14 +63,14 @@ absl::optional<synRecipeHandle> get_recipe_handle(
     synRecipeHandle recipeHandle;
     auto status = synRecipeDeSerialize(&recipeHandle, recipe_path.c_str());
     if (status != synSuccess) {
-      PT_HABHELPER_TRACE(
+      PT_HABHELPER_WARN(
           Logger::formatStatusMsg(status), "Failed to deserialize recipe");
       return {};
     }
-    PT_HABHELPER_TRACE("Found cache entry with recipe: ", recipe_path);
+    PT_HABHELPER_DEBUG("Found cache entry with recipe: ", recipe_path);
     return recipeHandle;
   } else {
-    PT_HABHELPER_TRACE(
+    PT_HABHELPER_DEBUG(
         "Found cache entry without recipe: ",
         recipe_path,
         "- probably empty recipe cached.");
@@ -93,9 +93,9 @@ RecipeCache::RecipeCache(std::string cache_path)
   struct stat info {};
   if (stat(cache_path_.c_str(), &info) != 0 ||
       !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
-    PT_HABHELPER_DEBUG("Cannot create cache directory ", cache_path_);
+    PT_HABHELPER_WARN("Cannot create cache directory ", cache_path_);
   } else {
-    PT_HABHELPER_DEBUG("Cache directory(", cache_path_, ") set up properly.");
+    PT_HABHELPER_INFO("Cache directory(", cache_path_, ") set up properly.");
     is_cache_valid_ = true;
   }
 
@@ -120,7 +120,7 @@ RecipeCache::~RecipeCache() {
   cache_thread_ = nullptr;
 }
 
-void RecipeCache::sync() {
+void RecipeCache::flush() {
   // wait until cache thread finished its job
   if (cache_thread_) {
     while (cache_thread_->jobCounter() > 0) {
@@ -145,12 +145,14 @@ void RecipeCache::store_task(
     return;
   }
   bool locked = cf_handler_->fileLock(fd, true, size);
-  if (!locked)
+  if (!locked) {
     PT_HABHELPER_WARN(
         "Error when locking the metadata file ",
         metadata_path,
         ", err: ",
         strerror(errno));
+    return;
+  }
 
   if (size == 0 && recipeHandle &&
       recipeHandle->syn_recipe_handle_ != nullptr) {
@@ -236,49 +238,44 @@ absl::optional<synRecipeHandle> RecipeCache::lookup(
 
   auto try_lock_and_read = [&,
                             this](int fd) -> absl::optional<synRecipeHandle> {
-    // VLOG(10) << "Trying to lock exclusively metadata file " << metadata_path;
     size_t size;
     bool locked = cf_handler_->fileLock(fd, true, size);
-    if (!locked)
+    if (!locked) {
       PT_HABHELPER_WARN(
           "Error when locking the metadata file ",
           metadata_path,
           ", err: ",
           strerror(errno));
+      return {};
+    }
 
     if (size == 0) {
-      PT_HABHELPER_DEBUG(
-          "Metadata is empty. This process can compile recipe. Saving fd for metadata file ",
-          metadata_path);
-      cf_handler_->fileUnLock(fd);
-      cf_handler_->fileClose(fd);
+      PT_HABHELPER_WARN("Metadata is empty: ", metadata_path);
       fs::remove(metadata_path);
+      cf_handler_->fileUnLock(fd);
       return {};
     } else {
       PT_HABHELPER_DEBUG(
           "Metadata file ",
           metadata_path,
           " is not empty. Found valid cache entry.");
-      cf_handler_->fileUnLock(fd);
-      cf_handler_->fileClose(fd);
       PT_HABHELPER_DEBUG("Deserializing cache entry for id ", cache_id);
-      return get_recipe_handle(metadata_path, metadata, recipe_path);
+      auto recipe = get_recipe_handle(metadata_path, metadata, recipe_path);
+      cf_handler_->fileUnLock(fd);
+      return recipe;
     }
   };
 
-  PT_HABHELPER_DEBUG(
-      "Trying to exclusively create or open metadata file ", metadata_path);
-  int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDWR | O_CREAT);
-  if (fd < 0 && errno == EACCES) {
-    fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
-  }
+  int fd = cf_handler_->fileOpen(metadata_path.c_str(), O_RDONLY);
   if (fd >= 0) {
-    return try_lock_and_read(fd);
+    auto recipe = try_lock_and_read(fd);
+    cf_handler_->fileClose(fd);
+    return recipe;
   } else {
-    PT_HABHELPER_WARN(
-        "Could not open existing metadata file ",
+    PT_HABHELPER_DEBUG(
+        "Can't read metadata file ",
         metadata_path,
-        ", err: ",
+        ", errno: ",
         strerror(errno));
   }
 
