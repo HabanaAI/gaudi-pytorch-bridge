@@ -565,7 +565,19 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     hpu_stream = ++stream_index_;
     if (stream_index_ <= GENERIC_STREAM_LIMIT) {
+      uint64_t availAffinity;
+      auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
+      if (synStatus::synSuccess != status) {
+        PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status),
+            "synDeviceGetNextStreamAffinity failed.");
+      }
       streams_[hpu_stream] = absl::make_unique<stream>(*this);
+      status = synStreamSetAffinity(id_, *streams_[hpu_stream], availAffinity);
+      if (synStatus::synSuccess != status) {
+        PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
+      }
     }
     PT_SYNHELPER_DEBUG(
         "STREAM:: New device stream created with index", stream_index_);
@@ -837,19 +849,46 @@ void device::synchronize_default_stream() {
 
 void device::create_default_stream() {
   std::unique_lock<std::mutex> lock(stream_mutex_);
+  uint64_t availAffinity;
+  auto status = synDeviceGetNextStreamAffinity(id_, &availAffinity);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status),
+        "synDeviceGetNextStreamAffinity failed.");
+  }
   default_streams_[COMPUTE] = absl::make_unique<stream>(*this);
 
   PT_SYNHELPER_DEBUG(
       "STREAM:: compute stream handle", *default_streams_[COMPUTE]);
+  status = synStreamSetAffinity(id_, *default_streams_[COMPUTE], availAffinity);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
+  }
   default_streams_[DMA_D2D] = absl::make_unique<stream>(*this);
   PT_SYNHELPER_DEBUG(
       "STREAM:: DMA_D2D stream handle", *default_streams_[DMA_D2D]);
+  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2D], availAffinity);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
+  }
   default_streams_[DMA_H2D] = absl::make_unique<stream>(*this);
   PT_SYNHELPER_DEBUG(
       "STREAM:: DMA_H2D stream handle", *default_streams_[DMA_H2D]);
+  status = synStreamSetAffinity(id_, *default_streams_[DMA_H2D], availAffinity);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
+  }
   default_streams_[DMA_D2H] = absl::make_unique<stream>(*this);
   PT_SYNHELPER_DEBUG(
       "STREAM:: DMA_D2H stream handle", *default_streams_[DMA_D2H]);
+  status = synStreamSetAffinity(id_, *default_streams_[DMA_D2H], availAffinity);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
+  }
 }
 
 stream& device::get_stream(hpuStream_t id, default_stream_type stream_type) {

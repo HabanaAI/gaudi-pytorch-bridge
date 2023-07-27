@@ -44,25 +44,12 @@ stream::stream(class device& device)
       handle_{nullptr} {
   pending_cleanups_.push({});
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
-  uint64_t availAffinity;
-  auto status = synDeviceGetNextStreamAffinity(device_.id(), &availAffinity);
-  if (synStatus::synSuccess != status)
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status),
-        "synDeviceGetNextStreamAffinity failed.");
-  status = synStreamCreateGeneric(&handle_, device_.id(), STREAM_EMPTY_FLAGS);
+  auto status =
+      synStreamCreateGeneric(&handle_, device_.id(), STREAM_EMPTY_FLAGS);
   if (synStatus::synSuccess != status)
     PT_SYNHELPER_FATAL(
         Logger::formatStatusMsg(status), "Stream creation failed.");
-  status = synStreamSetAffinity(device_.id(), handle_, availAffinity);
-  if (synStatus::synSuccess != status)
-    PT_SYNHELPER_FATAL(
-        Logger::formatStatusMsg(status), "synStreamSetAffinity failed.");
-  PT_SYNHELPER_DEBUG(
-      "Stream creation with handle: ",
-      handle_,
-      " with affinity",
-      availAffinity);
+  PT_SYNHELPER_DEBUG("Stream creation with handle: ", handle_);
 }
 
 void stream::register_pending_event(
