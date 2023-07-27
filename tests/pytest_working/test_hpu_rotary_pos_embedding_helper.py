@@ -21,7 +21,7 @@ from habana_frameworks.torch.hpex.kernels import (
     apply_rotary_pos_emb,
 )
 
-apply_rotary_pos_emb_gptneox_v1_test_case_list = [
+apply_rotary_pos_emb_v1_test_case_list = [
     # p_size, cos_sin_size, offset
     ((64, 8, 64), (64, 1, 64), 0),
     ((64, 8, 64), (64, 1, 64), 2),
@@ -29,7 +29,7 @@ apply_rotary_pos_emb_gptneox_v1_test_case_list = [
     ((8, 1, 32, 8), (8, 1, 1, 8), 2),
 ]
 
-apply_rotary_pos_emb_gptneox_v2_test_case_list = [
+apply_rotary_pos_emb_v2_test_case_list = [
     # p_size, cos_sin_size
     ((1, 32, 133, 32), (1, 1, 4096, 32)),
     ((1, 32, 1, 32), (1, 1, 4096, 32)),
@@ -55,7 +55,7 @@ def rotate_half(x):
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_rotary_pos_emb_gptneox_v1_ref(
+def apply_rotary_pos_emb_v1_ref(
     p: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
@@ -71,20 +71,34 @@ def apply_rotary_pos_emb_gptneox_v1_ref(
     return (p * cos) + (rotate_half(p) * sin)
 
 
-def apply_rotary_pos_emb_gptneox_v2_ref(
+def apply_rotary_pos_emb_v2_ref(
     p: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
     position_ids: torch.LongTensor,
+    squeeze_dims: bool,
 ) -> torch.Tensor:
-    """
-    Based on apply_rotary_pos_emb() from the GPT-NeoX model in Transformer version greater than 4.27.4
-    Used, for example, in the StableLM model.
-    """
-    gather_indices = position_ids[:, None, :, None]
-    gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
-    cos = torch.gather(cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
-    sin = torch.gather(sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
+    if squeeze_dims:
+        """
+        Based on apply_rotary_pos_emb() from the LLaMA model in Transformer.
+        The first two dimensions of cos and sin are always 1, so we can squeeze them.
+        """
+        cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
+        sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
+        cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+        sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+    else:
+        """
+        Based on apply_rotary_pos_emb() from the GPT-NeoX model in Transformer version greater than 4.27.4
+        """
+        gather_indices = position_ids[:, None, :, None]
+        gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
+        cos = torch.gather(
+            cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
+        )
+        sin = torch.gather(
+            sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
+        )
 
     return (p * cos) + (rotate_half(p) * sin)
 
@@ -149,10 +163,10 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size, offset",
-    apply_rotary_pos_emb_gptneox_v1_test_case_list,
+    apply_rotary_pos_emb_v1_test_case_list,
 )
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_gptneox_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
+def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     if (
         dtype == torch.float16
         and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
@@ -164,7 +178,7 @@ def test_apply_rotary_pos_emb_gptneox_v1_fwd_bwd(p_size, cos_sin_size, offset, d
     )
 
     # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_gptneox_v1_ref(p, cos, sin, offset)
+    p_embed_ref = apply_rotary_pos_emb_v1_ref(p, cos, sin, offset)
     loss_ref = p_embed_ref.sum()
     loss_ref.backward()
 
@@ -197,10 +211,11 @@ def test_apply_rotary_pos_emb_gptneox_v1_fwd_bwd(p_size, cos_sin_size, offset, d
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size",
-    apply_rotary_pos_emb_gptneox_v2_test_case_list,
+    apply_rotary_pos_emb_v2_test_case_list,
 )
+@pytest.mark.parametrize("squeeze_dims", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_gptneox_v2_fwd_bwd(p_size, cos_sin_size, dtype):
+def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
     if (
         dtype == torch.float16
         and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
@@ -216,7 +231,7 @@ def test_apply_rotary_pos_emb_gptneox_v2_fwd_bwd(p_size, cos_sin_size, dtype):
     )
 
     # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_gptneox_v2_ref(p, cos, sin, position_ids)
+    p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, squeeze_dims)
     loss_ref = p_embed_ref.sum()
     loss_ref.backward()
 

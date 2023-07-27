@@ -27,14 +27,10 @@ def recalculate_params(
 ):
     if mode == RotaryPosEmbeddingMode.BLOCKWISE:
         if position_ids is not None:
-            gather_indices = position_ids[:, None, :, None]
-            gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
-            cos = torch.gather(
-                cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
-            )
-            sin = torch.gather(
-                sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
-            )
+            cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
+            sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
+            cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
+            sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
 
     return cos, sin, offset
 
@@ -137,7 +133,7 @@ class RotaryPosEmbeddingHelperV1(torch.autograd.Function):
 
 class RotaryPosEmbeddingHelperV2(torch.autograd.Function):
     """
-    Based on apply_rotary_pos_emb() from the GPT-NeoX model in Transformer version greater than 4.27.4
+    Based on apply_rotary_pos_emb() from Transformer version greater than 4.27.4
     Used, for example, in the StableLM model.
     """
 
