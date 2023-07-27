@@ -1664,10 +1664,9 @@ void StridedViewOperator::compute_params(
         inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
     TORCH_CHECK(
         inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
-    TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 needs to be of scalar type");
     size = inputs[1].toIntVector();
     strides = inputs[2].toIntVector();
-    offset = inputs[3].toInt();
+    offset = inputs[3].isNone() ? 0 : inputs[3].toInt();
   }
 
   // For Dynamic case fill strides/offset params with max size

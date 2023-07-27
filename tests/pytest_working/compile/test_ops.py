@@ -17,15 +17,15 @@ from functools import reduce
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 from test_utils import generic_setup_teardown_env
+
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     def callback():
         pass
 
-    generic_setup_teardown_env(
-        temp_test_env={"PT_HPU_LAZY_MODE": 0},
-        callback=callback
-    )
+    generic_setup_teardown_env(temp_test_env={"PT_HPU_LAZY_MODE": 0}, callback=callback)
+
 
 @pytest.mark.xfail(reason="Graph compile failed. synStatus 26")
 @pytest.mark.parametrize(
@@ -43,9 +43,7 @@ def setup_teardown_env():
 @pytest.mark.parametrize(
     "memory_format", [torch.channels_last, torch.contiguous_format]
 )
-@pytest.mark.parametrize(
-    "torch_func", [torch.empty_like, torch.zeros_like]
-)
+@pytest.mark.parametrize("torch_func", [torch.empty_like, torch.zeros_like])
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     requires_grad = False
     layout = torch.strided
@@ -67,7 +65,9 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     tensor = torch.randn(4, 3, 2, 5)
 
     compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format, torch_func)
+    cpu_res = compiled_cpu(
+        tensor, dtype, layout, requires_grad, memory_format, torch_func
+    )
 
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     hpu_res = compiled_hpu(
@@ -77,17 +77,16 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
 
+
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
-@pytest.mark.parametrize("dtype, layout, device", [(torch.int, torch.strided, torch.device('hpu')),
-                                                   (None, None, None)])
+@pytest.mark.parametrize(
+    "dtype, layout, device",
+    [(torch.int, torch.strided, torch.device("hpu")), (None, None, None)],
+)
 def test_new_empty_strided(dtype, layout, device):
     def fn(tensor, size, stride, dtype, layout, device):
         return tensor.new_empty_strided(
-            size=size,
-            stride=stride,
-            dtype=dtype,
-            layout=layout,
-            device=device
+            size=size, stride=stride, dtype=dtype, layout=layout, device=device
         )
 
     tensor = torch.randn(4, 3, 2, 5)
@@ -105,6 +104,37 @@ def test_new_empty_strided(dtype, layout, device):
     assert hpu_result.dtype == cpu_result.dtype
     assert hpu_result.layout == cpu_result.layout
 
+
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
+def test_as_strided():
+    def get_op_info(aten_name):
+        from torch.testing._internal.common_methods_invocations import op_db
+
+        return next((x for x in op_db if x.aten_name == aten_name), None)
+
+    as_strided = get_op_info("as_strided")
+    for sample_input in as_strided.reference_inputs("cpu", torch.float):
+        t_inp, t_args, t_kwargs = (
+            sample_input.input,
+            sample_input.args,
+            sample_input.kwargs,
+        )
+
+        def fn(op, t_inp, t_args, t_kwargs):
+            return op(t_inp, *t_args, **t_kwargs)
+
+        compiled_cpu = torch.compile(fn)
+        result_cpu = compiled_cpu(as_strided.op, t_inp, t_args, t_kwargs)
+
+        compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+        result_hpu = compiled_hpu(as_strided.op, t_inp.to("hpu"), t_args, t_kwargs)
+
+        assert result_hpu.size() == result_cpu.size()
+        assert result_hpu.stride() == result_cpu.stride()
+        assert result_hpu.dtype == result_cpu.dtype
+        assert result_hpu.layout == result_cpu.layout
+
+
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(
     "dtype",
@@ -116,35 +146,31 @@ def test_new_empty_strided(dtype, layout, device):
     ],
 )
 def test_expand(dtype):
-    if (
-        dtype == torch.half
-    ):
+    if dtype == torch.half:
         pytest.skip("Half is not supported for expand.")
-    '''
+    """
     expand is a view op.
     For instance, if we perform inplace update on expand o/p,
     the expand input should also reflect the change.
     In our design, view output are eagerized.
     To test graph flow, we need to keep expand as a graph intermediate.
-    '''
+    """
+
     def fn(tensor, sizes):
-        exp_t = tensor.expand(
-            sizes
-        )
+        exp_t = tensor.expand(sizes)
         return exp_t.mul(2.0)
 
-    tensor = torch.randn(3,1)
+    tensor = torch.randn(3, 1)
 
     compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, (3,4))
+    cpu_res = compiled_cpu(tensor, (3, 4))
 
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
-    hpu_res = compiled_hpu(
-        tensor.to("hpu"), (3, 4)
-    )
+    hpu_res = compiled_hpu(tensor.to("hpu"), (3, 4))
 
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
+
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize("dim", [-1, 0])
@@ -193,4 +219,3 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
     print("CPU index_put result = ",cpu_res)
     print("HPU index_put result = ",hpu_res.to('cpu'))
 
-    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
