@@ -36,6 +36,7 @@ PytMediaProxy::~PytMediaProxy() {
 }
 
 uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   PT_BRIDGE_DEBUG("allocatePersistentBuffer size = ", size);
   void* address{nullptr};
   auto& device = habana::HPURegistrar::get_device(device_id_);
@@ -49,6 +50,7 @@ uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
 }
 
 void PytMediaProxy::freePersistentBuffer(uintptr_t real_address) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   PT_BRIDGE_DEBUG("freePersistentBuffer addr = ", std::hex, real_address);
   auto it = buffer_to_address_.find(real_address);
   HABANA_ASSERT(it != buffer_to_address_.end());
@@ -60,6 +62,7 @@ void PytMediaProxy::freePersistentBuffer(uintptr_t real_address) {
 uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   torch::Tensor tensor = torch::empty(shape.get_dims(), dtype);
   auto tensor_data_ptr = reinterpret_cast<uintptr_t>(tensor.data_ptr());
   auto iterator_emplaced_pair =
@@ -73,6 +76,7 @@ uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
 uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   torch::Tensor tensor = torch::empty(shape.get_dims(), dtype).to(torch::kHPU);
   auto& device = habana::HPURegistrar::get_device(device_id_);
   auto tensor_data_ptr = reinterpret_cast<uintptr_t>(
@@ -87,6 +91,7 @@ uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
 }
 
 void PytMediaProxy::freeFrameworkOutputTensor(uint64_t addr) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   PT_BRIDGE_DEBUG("freeFrameworkOutputTensor addr = ", std::hex, addr);
   auto it = buffer_to_output_tensor_.find(addr);
   HABANA_ASSERT(it != buffer_to_output_tensor_.end());
@@ -107,6 +112,7 @@ synStreamHandle PytMediaProxy::getComputeStream() {
 }
 
 torch::Tensor PytMediaProxy::getFrameworkOutputTensor(uintptr_t addr) {
+  std::unique_lock<std::mutex> lock(m_mutex);
   PT_BRIDGE_DEBUG("getFrameworkOutputTensor addr = ", std::hex, addr);
   auto it = buffer_to_output_tensor_.find(addr);
   HABANA_ASSERT(it != buffer_to_output_tensor_.end());

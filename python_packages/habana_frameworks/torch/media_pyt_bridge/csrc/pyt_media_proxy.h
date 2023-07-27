@@ -13,6 +13,7 @@
 #pragma once
 
 // #include "absl/container/flat_hash_map.h"
+#include <mutex>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "imedia_proxy.h"
@@ -37,6 +38,7 @@ class PytMediaProxy final : public IMediaProxy {
   torch::Tensor getFrameworkOutputTensor(uintptr_t addr) override;
 
  private:
+  std::mutex m_mutex;
   std::unordered_map<uintptr_t, void*> buffer_to_address_;
   std::unordered_map<uintptr_t, torch::Tensor> buffer_to_output_tensor_;
   int device_id_;
