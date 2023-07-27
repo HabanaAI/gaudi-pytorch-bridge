@@ -11,35 +11,28 @@
 ###############################################################################
 import torch
 import pytest
-import habana_frameworks.torch.utils.experimental as htexp
 from functools import reduce
+from torch.testing._internal.common_methods_invocations import op_db
 
-pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
-
-from test_utils import generic_setup_teardown_env
-
-
-@pytest.fixture(autouse=True, scope="module")
-def setup_teardown_env():
-    def callback():
-        pass
-
-    generic_setup_teardown_env(temp_test_env={"PT_HPU_LAZY_MODE": 0}, callback=callback)
+import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
+import habana_frameworks.torch.utils.experimental as htexp
 
 
-@pytest.mark.xfail(reason="Graph compile failed. synStatus 26")
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        torch.bfloat16,
-        torch.float,
-        torch.half,
-        torch.int,
-        torch.int16,
-        torch.int8,
-        torch.bool,
-    ],
-)
+all_dtypes = [
+    torch.bfloat16,
+    torch.float,
+    torch.int,
+    torch.int16,
+    torch.int8,
+    torch.bool,
+]
+
+
+if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
+    all_dtypes += [torch.half]
+
+
+@pytest.mark.parametrize("dtype", all_dtypes)
 @pytest.mark.parametrize(
     "memory_format", [torch.channels_last, torch.contiguous_format]
 )
@@ -47,11 +40,6 @@ def setup_teardown_env():
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     requires_grad = False
     layout = torch.strided
-    if (
-        dtype == torch.half
-        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-    ):
-        pytest.skip("Half is not supported on Gaudi.")
 
     def fn(tensor, dtype, layout, requires_grad, memory_format, torch_func):
         return torch_func(
@@ -78,7 +66,6 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     assert cpu_res.dtype == hpu_res.dtype
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(
     "dtype, layout, device",
     [(torch.int, torch.strided, torch.device("hpu")), (None, None, None)],
@@ -105,15 +92,13 @@ def test_new_empty_strided(dtype, layout, device):
     assert hpu_result.layout == cpu_result.layout
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
-def test_as_strided():
+def run_test(aten_name, dtype):
     def get_op_info(aten_name):
-        from torch.testing._internal.common_methods_invocations import op_db
-
         return next((x for x in op_db if x.aten_name == aten_name), None)
 
-    as_strided = get_op_info("as_strided")
-    for sample_input in as_strided.reference_inputs("cpu", torch.float):
+    opinfo = get_op_info(aten_name)
+    results = []
+    for sample_input in opinfo.reference_inputs("cpu", dtype):
         t_inp, t_args, t_kwargs = (
             sample_input.input,
             sample_input.args,
@@ -124,30 +109,47 @@ def test_as_strided():
             return op(t_inp, *t_args, **t_kwargs)
 
         compiled_cpu = torch.compile(fn)
-        result_cpu = compiled_cpu(as_strided.op, t_inp, t_args, t_kwargs)
+        result_cpu = compiled_cpu(opinfo.op, t_inp, t_args, t_kwargs)
 
         compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
-        result_hpu = compiled_hpu(as_strided.op, t_inp.to("hpu"), t_args, t_kwargs)
+        result_hpu = compiled_hpu(
+            opinfo.op,
+            t_inp.to("hpu"),
+            (
+                *(
+                    arg.to("hpu") if isinstance(arg, torch.Tensor) else arg
+                    for arg in t_args
+                ),
+            ),
+            t_kwargs,
+        )
 
+        results.append((result_cpu, result_hpu))
+    return results
+
+
+@pytest.mark.parametrize("dtype", all_dtypes)
+def test_as_strided(dtype):
+    results = run_test("as_strided", dtype)
+    for result_cpu, result_hpu in results:
         assert result_hpu.size() == result_cpu.size()
         assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        torch.bfloat16,
-        torch.float,
-        torch.half,
-        torch.int,
-    ],
-)
+@pytest.mark.parametrize("dtype", all_dtypes)
+def test_as_strided_scatter(dtype):
+    results = run_test("as_strided_scatter", dtype)
+    for result_cpu, result_hpu in results:
+        assert result_hpu.size() == result_cpu.size()
+        assert result_hpu.stride() == result_cpu.stride()
+        assert result_hpu.dtype == result_cpu.dtype
+        assert result_hpu.layout == result_cpu.layout
+
+
+@pytest.mark.parametrize("dtype", all_dtypes)
 def test_expand(dtype):
-    if dtype == torch.half:
-        pytest.skip("Half is not supported for expand.")
     """
     expand is a view op.
     For instance, if we perform inplace update on expand o/p,
@@ -158,9 +160,9 @@ def test_expand(dtype):
 
     def fn(tensor, sizes):
         exp_t = tensor.expand(sizes)
-        return exp_t.mul(2.0)
+        return exp_t.clone()
 
-    tensor = torch.randn(3, 1)
+    tensor = torch.randn(3, 1).to(dtype)
 
     compiled_cpu = torch.compile(fn)
     cpu_res = compiled_cpu(tensor, (3, 4))
@@ -172,16 +174,16 @@ def test_expand(dtype):
     assert cpu_res.dtype == hpu_res.dtype
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
+@pytest.mark.parametrize("dtype", all_dtypes)
 @pytest.mark.parametrize("dim", [-1, 0])
-def test_unsqueeze(dim):
+def test_unsqueeze(dtype, dim):
     def raw_function(x):
         x = x * 2
         b = x.unsqueeze(dim)
-        c = b.relu()
+        c = b.clone()
         return c
 
-    cpu_tensor = torch.randn(96)
+    cpu_tensor = torch.randn(96).to(dtype)
     hpu_tensor = cpu_tensor.to("hpu")
 
     compiled_cpu = torch.compile(raw_function)
@@ -190,23 +192,23 @@ def test_unsqueeze(dim):
     compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
     hpu_res = compiled_hpu(hpu_tensor)
 
-    assert torch.allclose(cpu_res, hpu_res.to('cpu'), rtol=1e-3, atol=1e-3)
+    assert torch.equal(cpu_res, hpu_res.to("cpu"))
+
 
 @pytest.mark.parametrize("self_shape", [(6,), (4, 6)])
 @pytest.mark.parametrize("indices_shape", [(6,), (4, 6)])
-@pytest.mark.parametrize(
-    "accumulate", [False, True]
-)
+@pytest.mark.parametrize("accumulate", [False, True])
 def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
     def fn(tensor, bool_mask, value, accumulate):
         return tensor.index_put([bool_mask], value, accumulate)
-    if (len(self_shape) < len(indices_shape)):
+
+    if len(self_shape) < len(indices_shape):
         pytest.skip("Invalid case self.dim() < indices.dim()")
-    self_numel = reduce(lambda x, y: x*y, list(self_shape))
-    indices_numel = reduce(lambda x, y: x*y, list(indices_shape))
+    self_numel = reduce(lambda x, y: x * y, list(self_shape))
+    indices_numel = reduce(lambda x, y: x * y, list(indices_shape))
     tensor = torch.arange(self_numel).view(self_shape)
     mask_in = torch.arange(indices_numel).view(indices_shape)
-    bool_mask = mask_in > indices_numel/3
+    bool_mask = mask_in > indices_numel / 3
     values = torch.tensor([-100])
 
     compiled_cpu = torch.compile(fn)
@@ -216,6 +218,4 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
     hpu_res = compiled_hpu(
         tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
     )
-    print("CPU index_put result = ",cpu_res)
-    print("HPU index_put result = ",hpu_res.to('cpu'))
-
+    assert torch.equal(cpu_res, hpu_res.to("cpu"))

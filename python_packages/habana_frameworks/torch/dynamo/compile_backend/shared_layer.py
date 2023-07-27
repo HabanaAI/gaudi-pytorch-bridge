@@ -22,6 +22,7 @@ from ._shared_layer_C import check_cpu_fallback_op
 hpu_supported_op_list = {
     "_to_copy",
     "as_strided",
+    "as_strided_scatter",
     "copy",
     "full",
     "getitem",
