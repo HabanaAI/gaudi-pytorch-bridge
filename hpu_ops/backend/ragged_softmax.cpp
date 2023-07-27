@@ -15,7 +15,7 @@ struct RaggedSoftmax : OpBackend {
   RaggedSoftmax(int device_id, c10::ScalarType scalar_type)
       : OpBackend(
             device_id,
-            "ragged_softmax_fwd_",
+            "ragged_softmax_fwd",
             scalar_type,
             {0},
             {},
