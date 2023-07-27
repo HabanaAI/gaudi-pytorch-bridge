@@ -297,7 +297,7 @@ TEST_F(LazyBasicKernelTest, SliceOnChlastInput) {
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(B, hB.cpu()), true);
 }
-TEST_F(LazyBasicKernelTest, DISABLED_SliceOnChlast6dInput) {
+TEST_F(LazyBasicKernelTest, SliceOnChlast6dInput) {
   torch::Tensor A = torch::randn({2, 4, 3, 5, 6, 7})
                         .contiguous(c10::MemoryFormat::Contiguous);
   auto hA = A.to(torch::kHPU);

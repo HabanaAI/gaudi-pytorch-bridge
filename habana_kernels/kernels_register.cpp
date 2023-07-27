@@ -2306,7 +2306,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
   m.def("view(Tensor input, Tensor shape) -> Tensor");
-  m.def("slice(Tensor input, Tensor shape, Tensor host_tensor) -> (Tensor)");
+  m.def(
+      "slice(Tensor input, Tensor shape, Tensor step,  Tensor start) -> (Tensor)");
   m.def(
       "hpu::expand(Tensor(a) self, int[] sizes, *, bool implicit=False) -> Tensor(a)");
   m.def(

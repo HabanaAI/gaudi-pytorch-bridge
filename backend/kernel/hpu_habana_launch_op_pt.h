@@ -577,24 +577,10 @@ class HabanaLaunchOpPT {
 
   // Dynamic shape specific functions
   size_t current_bucket_id_{};
-  bool update_max = false;
-
-  void FillMaxValues(
-      const HabanaOperatorPtr& habana_op,
-      const torch::jit::Stack& input_stack,
-      std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues);
-
-  void UpdateMaxValues(
-      const HabanaOperatorPtr& habana_op,
-      const torch::jit::Stack& input_stack,
-      std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues);
-
-  void UpdatePTStack(DynamicShapeInfo& graph_input_info);
-
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
-  void CreateStaticCompilationDBI(size_t graph_key_with_perm);
+  void CreateStaticComplationDBI(size_t graph_key_with_perm);
 
   void CreateDynamicBucketInputShapes(
       habana_helpers::InpTensorShapes& shape_map);
