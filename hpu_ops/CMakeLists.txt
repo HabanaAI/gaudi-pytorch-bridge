@@ -270,7 +270,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/fill_gen.cpp
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
-          lazy/kthvalue_gen.cpp
           lazy/logical_gen.cpp
           lazy/max_min_gen.cpp
           lazy/maxpool_gen.cpp

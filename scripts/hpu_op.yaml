@@ -3594,24 +3594,23 @@ kl_div:
 
 kthvalue:
   force_default: false
-  custom_output_shape: KthvalueOutputShape
   custom_fill_params: FillKthvalueParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: kthvalue_fwd
-  op_frontend: LazyKthvalue
+  output_meta: KthvalueMeta
   out_ids: [0, 0]
 
 kthvalue.values:
-  custom_output_shape: KthvalueOutputShape
   custom_fill_params: FillKthvalueParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: kthvalue_fwd
+  output_meta: KthvalueMeta
   # op_validator: check-node-with-shared-layer
 
 index_add_:

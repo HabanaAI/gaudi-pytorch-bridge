@@ -16,14 +16,12 @@
 
 namespace habana {
 
-sizes_vec KthvalueOutputShape(const at::Stack& stack) {
+std::vector<int64_t> KthvalueOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int axis = stack.at(2).toInt();
   bool keep_dims = stack.at(3).toBool();
 
-  auto shapes = ReductionOutputShape(self, axis, keep_dims);
-
-  return {shapes[0], shapes[0]};
+  return ReductionOutputShape(self, axis, keep_dims)[0];
 }
 
 std::shared_ptr<void> FillKthvalueParams(const at::Stack& stack, size_t& size) {
@@ -34,6 +32,18 @@ std::shared_ptr<void> FillKthvalueParams(const at::Stack& stack, size_t& size) {
   params->keep_dims = stack.at(3).toBool();
 
   return params;
+}
+
+OutputMetaDataVector KthvalueMeta(const at::Stack& stack) {
+  auto input = stack_tensor(stack, 0);
+  auto output_shape = KthvalueOutputShape(stack);
+
+  OutputMetaData values_meta, indices_meta;
+  values_meta.dtype = input.scalar_type();
+  values_meta.shape = output_shape;
+  indices_meta.dtype = c10::ScalarType::Long;
+  indices_meta.shape = output_shape;
+  return {values_meta, indices_meta};
 }
 
 } // namespace habana

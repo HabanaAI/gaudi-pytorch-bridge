@@ -46,7 +46,7 @@ def test_hpu_kthvalue(self_shape, k_value, axis, keepdim, dtype):
     if not keepdim:
         hpu_indices = torch.unsqueeze(hpu_indices, axis)
         cpu_values = torch.unsqueeze(cpu_values, axis)
-    gathered_values = torch.gather(original_tensor, axis, hpu_indices)
+    gathered_values = torch.gather(original_tensor.to("hpu"), axis, hpu_indices)
 
     compare_tensors(
         gathered_values, cpu_values, atol=0, rtol=0, assert_enable=True
