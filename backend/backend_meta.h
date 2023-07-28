@@ -38,6 +38,7 @@ struct ShapeTensorStruct {
 
   void set_strides_tensor_shape(std::vector<int64_t> input_strides) {
     contains_data = true;
+    strides.clear();
     int len = input_strides.size();
     for (int i = 0; i < len; i++) {
       strides.push_back(input_strides[i]);

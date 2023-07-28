@@ -212,6 +212,11 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     tmeta_offset->get_shape_struct().set_strides_tensor_shape(stride_sizes);
     tmeta_offset->get_shape_struct().set_stride_ratio(stride_ratios);
     PT_DYNAMIC_SHAPE_DEBUG(
+        "Frontend self strides = ",
+        self_strides,
+        " view strides = ",
+        stride_sizes);
+    PT_DYNAMIC_SHAPE_DEBUG(
         "Setting stride ratio = ", stride_ratios, " offset = ", offset_value);
     auto iv_st_offset_tensor = torch::jit::IValue(st_tensor_offset);
     std::vector<int64_t> scalar_indexes_offset;

@@ -257,9 +257,9 @@ def test_dynamic_shape_topk_lazy():
             return hpu_value0
         i = 0
         for s in sizes:
-            t1 = torch.randn(s).to("hpu")
+            t = torch.randn(s)
+            t1 = t.to("hpu")
             result_compile_train = raw_function(t1, K[i])
-            i = i + 1
             out_cpu = raw_function(t, K[i])
             i = i + 1
             assert torch.allclose(result_compile_train.to("cpu"), out_cpu)
