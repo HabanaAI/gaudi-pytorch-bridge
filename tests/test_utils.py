@@ -286,3 +286,73 @@ def _is_simulator():
         stdout, _ = out.communicate()
         status = ("SIM".lower() in str(stdout).lower())
     return status
+
+
+class TcLimitedFormatter:
+    def __init__(self, limit_array=None, limit_str=None):
+        self.limit_array = limit_array
+        self.limit_str = limit_str
+        self.counter = 0
+
+    def format_tc_common(self, val, limit_array=None, limit_str=None):
+        """Formats test case parametrization argument. Function intended to use with tc params, to
+        print them clearly in pytest --collect-only. If function not used params in printed not by value
+        but with appended integer. For example it would be dims0, dims1, etc."""
+        if isinstance(val, np.ndarray):
+            val = val.tolist()
+
+        if isinstance(val, torch.dtype):  # pylint: disable=no-member
+            ret = repr(val)
+            return ret.split(sep=".")[1]
+        elif isinstance(val, tuple):
+            if len(val) == 0:
+                ret = 0
+            else:
+                assert val
+                ret = self.format_tc_common(val[0], limit_array)
+            for i in range(1, len(val)):
+                ret = "{}x{}".format(ret, self.format_tc_common(val[i], limit_array))
+            return "[{}]".format(ret)
+        elif isinstance(val, list):
+            if len(val) == 0:
+                return "[]"
+            limited = limit_array is not None and len(val) > 2 * limit_array
+            ret = f"[{self.format_tc_common(val[0], limit_array)}"
+            for i in range(1, len(val)):
+                current_value = val[i]
+                if limited:
+                    if i == limit_array:
+                        current_value = "_INNER{}_".format(self.counter)
+                        self.counter += 1
+                    elif i > limit_array and i < len(val) - limit_array:
+                        continue
+                ret = "{},{}".format(ret, self.format_tc_common(current_value, limit_array))
+            ret = "{}]".format(ret)
+            if limit_str is not None and len(ret) > limit_str:
+                ret = ret[0:limit_str] + "___{}".format(self.counter)
+                self.counter += 1
+            return ret
+        elif val is None:
+            return "_None_"
+        else:
+            s = str(val)
+
+            pref_to_find = "<class '"
+            prefix = s.find(pref_to_find)
+            suffix = s.find("'>")
+            if prefix >= 0 and suffix >= 0:
+                s = s[prefix + len(pref_to_find) : suffix]
+
+            s = s.replace("numpy", "np")
+
+            return s
+
+    def __call__(self, val):
+        return self.format_tc_common(val, self.limit_array, self.limit_str)
+
+
+def format_tc(val):
+    """Formats test case parametrization argument. Function intended to use with tc params, to
+    print them clearly in pytest --collect-only. If function not used params in printed not by value
+    but with appended integer. For example it would be dims0, dims1, etc."""
+    return TcLimitedFormatter()(val)
