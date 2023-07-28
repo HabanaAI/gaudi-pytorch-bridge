@@ -87,8 +87,8 @@ synapse_helpers::tensor ArangeCommon(
     c10::Scalar end,
     c10::Scalar step,
     c10::ScalarType out_dtype,
-    synTensor syn_in0,
-    synTensor syn_in1,
+    std::optional<synTensor> syn_in0,
+    std::optional<synTensor> syn_in1,
     std::string guid,
     std::vector<int64_t> outshape,
     std::shared_ptr<void> params,
@@ -96,8 +96,10 @@ synapse_helpers::tensor ArangeCommon(
     c10::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {};
   if (can_use_dynamic_shapes(start, end, step)) {
-    inputs.emplace_back(syn_in1);
-    inputs.emplace_back(syn_in0);
+    // It is assumend that syn_in1 and syn_in0 are non empty optionals when
+    // can_use_dynamic_shapes returns ture
+    inputs.emplace_back(syn_in1.value());
+    inputs.emplace_back(syn_in0.value());
     const bool is_cast_not_required =
         habana_helpers::getInternalDtype(out_dtype) == c10::ScalarType::Int;
     NodeAttr::NodeOutputAttr out_attr = {outshape, c10::ScalarType::Int};
@@ -118,7 +120,7 @@ synapse_helpers::tensor ArangeCommon(
           out_dtype,
           final_result_index);
 
-      return std::move(cast_to_out_type);
+      return cast_to_out_type;
     }
   } else {
     op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
@@ -146,7 +148,7 @@ synapse_helpers::tensor ArangeCommon(
           c10::ScalarType::Int,
           out_dtype,
           final_result_index);
-      return std::move(cast_to_out_type);
+      return cast_to_out_type;
     }
   }
 }
@@ -159,11 +161,12 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto end = stack.at(1).toScalar();
   auto step = stack.at(2).toScalar();
   auto out_dtype = stack.back().toTensor().scalar_type();
-  synTensor s0, s1;
-  synTensor syn_in0 =
-      (can_use_dynamic_shapes(start, end, step)) ? syn_in(0) : s0;
-  synTensor syn_in1 =
-      (can_use_dynamic_shapes(start, end, step)) ? syn_in(1) : s1;
+  std::optional<synTensor> syn_in0 = can_use_dynamic_shapes(start, end, step)
+      ? std::make_optional(syn_in(0))
+      : std::nullopt;
+  std::optional<synTensor> syn_in1 = can_use_dynamic_shapes(start, end, step)
+      ? std::make_optional(syn_in(1))
+      : std::nullopt;
   syn_out(0) = ArangeCommon(
       this,
       graph,
@@ -324,7 +327,6 @@ std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
 synapse_helpers::tensor ArangeDefaultCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    std::string guid,
     const OutputMetaDataVector& meta,
     std::shared_ptr<void> params,
     size_t params_size) {
@@ -359,7 +361,7 @@ synapse_helpers::tensor ArangeDefaultCommon(
         c10::ScalarType::Int,
         out_dtype,
         FINAL_RESULT_INDEX);
-    return std::move(cast_to_out_type);
+    return cast_to_out_type;
   }
 }
 
@@ -370,8 +372,7 @@ void ArangeDefaultEnd::AddNode(
 
   size_t params_size = 0; // Will be set in FillArangeDefaultParams function
   auto params = FillParams(stack, params_size);
-  syn_out(0) =
-      ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
 }
 
 void ArangeDefaultStartEnd::AddNode(
@@ -382,8 +383,7 @@ void ArangeDefaultStartEnd::AddNode(
   size_t params_size = 0; // Will be set in FillArangeDefaultParams function
   auto params = FillParams(stack, params_size);
 
-  syn_out(0) =
-      ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
 }
 
 void ArangeDefaultStartEndStep::AddNode(
@@ -394,8 +394,7 @@ void ArangeDefaultStartEndStep::AddNode(
   size_t params_size = 0; // Will be set in FillArangeDefaultParams function
   auto params = FillParams(stack, params_size);
 
-  syn_out(0) =
-      ArangeDefaultCommon(this, graph, guid_, meta, params, params_size);
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
 }
 
 } // namespace habana
