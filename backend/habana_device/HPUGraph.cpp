@@ -164,11 +164,11 @@ void HPUGraph::mark_step() {
   PT_IRGRAPH_DEBUG(
       (captured_graph->graph_ ? (captured_graph->graph_->dump(), "")
                               : "null graph"));
-  PT_DEVICE_DEBUG(
+  PT_HPUGRAPH_DEBUG(
       "GRAPH:: captured input size ", captured_graph->input_vals_.size());
-  PT_DEVICE_DEBUG(
+  PT_HPUGRAPH_DEBUG(
       "GRAPH:: captured output size ", captured_graph->output_vals_.size());
-  PT_DEVICE_DEBUG(
+  PT_HPUGRAPH_DEBUG(
       "GRAPH:: captured hblazy_tensors_out_ size ",
       captured_graph->hblazy_tensors_out_.size());
   context->getSeedTensorMap().clear();
@@ -178,6 +178,7 @@ void HPUGraph::mark_step() {
 void HPUGraph::replay(bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
+  PT_HPUGRAPH_DEBUG("Replay Async = ", async)
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
@@ -240,6 +241,7 @@ std::unordered_set<int64_t> get_hb_base_tensor_id_list_if_view(
 void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
+  PT_HPUGRAPH_DEBUG("mark_user_outputs with outputs size = ", outputs.size());
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
@@ -373,6 +375,8 @@ void HPUGraph::replayV3(
     bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
+  PT_HPUGRAPH_DEBUG(
+      "replayV3 with inputs size = ", inputs.size(), " aysnc = ", async);
   if (capturing_ == true) {
     // if capturing is in progress, replay is not allowed.
     PT_DEVICE_FATAL("GRAPH:: Capture in progress");
@@ -406,6 +410,8 @@ void HPUGraph::replayV3(
 void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
+  PT_HPUGRAPH_DEBUG(
+      "mark_user_inputs with static_inputs size = ", static_inputs.size());
   if (capturing_ == false) {
     // if capturing is not in progress, mark_user_inputs is not allowed.
     PT_DEVICE_FATAL(
@@ -521,7 +527,7 @@ void SingleHPUGraph::replay(bool async) {
 void SingleHPUGraph::replayV3(
     std::vector<at::Tensor>& inputs,
     bool async) {
-  PT_DEVICE_DEBUG(
+  PT_HPUGRAPH_DEBUG(
       "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
   if (graph_) {
@@ -551,7 +557,7 @@ void SingleHPUGraph::replayV2(
     std::vector<at::Tensor>& static_inputs,
     std::vector<at::Tensor>& inputs,
     bool async) {
-  PT_DEVICE_DEBUG(
+  PT_HPUGRAPH_DEBUG(
       "In HPUGraph::replayV2 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");
   if (graph_) {

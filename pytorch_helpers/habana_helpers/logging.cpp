@@ -35,20 +35,19 @@ static void createModuleLoggersOnDemand(LoggerType) {
   default_params.logFileName = "pytorch_log.txt";
   default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_LOG_FILE_AMOUNT);
   hl_logger::createLoggersOnDemand(
-      {
-          LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
-          LoggerType::PT_BRIDGE,      LoggerType::PT_SYNHELPER,
-          LoggerType::PT_DISTRIBUTED, LoggerType::PT_LAZY,
-          LoggerType::PT_FALLBACK,    LoggerType::PT_STATS,
-          LoggerType::PT_TEST,        LoggerType::PT_DYNAMIC_SHAPE,
-          LoggerType::PT_DEVMEM,      LoggerType::PT_HABHELPER,
-          LoggerType::PT_IRGRAPH,     LoggerType::PT_VIEWTABLE,
-          LoggerType::PT_REFINEMENT,  LoggerType::PT_HOSTSTAT,
-          LoggerType::PT_LAYOUTS,     LoggerType::PT_PARALLEL_ACC,
-          LoggerType::PT_LAZY_EAGER,  LoggerType::PT_MEMLOG,
-          LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
-          LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
-      },
+      {LoggerType::PT_DEVICE,      LoggerType::PT_KERNEL,
+       LoggerType::PT_BRIDGE,      LoggerType::PT_SYNHELPER,
+       LoggerType::PT_DISTRIBUTED, LoggerType::PT_LAZY,
+       LoggerType::PT_FALLBACK,    LoggerType::PT_STATS,
+       LoggerType::PT_TEST,        LoggerType::PT_DYNAMIC_SHAPE,
+       LoggerType::PT_DEVMEM,      LoggerType::PT_HABHELPER,
+       LoggerType::PT_IRGRAPH,     LoggerType::PT_VIEWTABLE,
+       LoggerType::PT_REFINEMENT,  LoggerType::PT_HOSTSTAT,
+       LoggerType::PT_LAYOUTS,     LoggerType::PT_PARALLEL_ACC,
+       LoggerType::PT_LAZY_EAGER,  LoggerType::PT_MEMLOG,
+       LoggerType::PT_EXEC_THREAD, LoggerType::PT_EAGER,
+       LoggerType::PT_CUSTOM,      LoggerType::PT_RECIPE_STATS,
+       LoggerType::PT_HPUGRAPH},
       default_params);
 
   trace_params.logFileName = "pytorch_log.txt";
@@ -112,6 +111,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_EAGER,
     PT_CUSTOM,
     PT_RECIPE_STATS,
+    PT_HPUGRAPH,
     LOG_MAX)
 // -------------- HL LOG ----------------
 

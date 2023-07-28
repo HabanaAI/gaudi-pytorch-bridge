@@ -158,4 +158,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("_disk_cache_flush", []() {
     habana::RecipeCacheLRU::get_cache().FlushDiskCache();
   });
+  m.def("hg_print", [](std::string msg) { PT_HPUGRAPH_DEBUG(msg); });
 }

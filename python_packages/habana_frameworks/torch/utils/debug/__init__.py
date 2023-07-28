@@ -128,6 +128,10 @@ def _mem_log(msg) -> bool:
     return _debug_C.mem_log(msg)
 
 
+def _hg_print(msg) -> None:
+    _debug_C.hg_print(msg)
+
+
 if is_lazy():
     from habana_frameworks.torch.utils import _debug_lazy_C
     def _bridge_cleanup():

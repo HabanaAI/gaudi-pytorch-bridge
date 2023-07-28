@@ -9,6 +9,13 @@ import torch
 import warnings
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch import _hpu_C
+from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
+
+def stringify(*args):
+    string = ""
+    for item in args :
+        string = string + " " + str(item)
+    return string
 
 class HPUGraph(object):
     r"""
@@ -167,6 +174,8 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
         Defaults to False.
 
     '''
+    printvar = stringify("make_graphed_callables", "Warmups", warmups, "allow_unused_input", allow_unused_input, "asynchronous", asynchronous, "disable_tensor_cache", disable_tensor_cache)
+    hpu_graph_print(printvar)
     just_one_callable = False
 
     if not isinstance(callables, tuple):

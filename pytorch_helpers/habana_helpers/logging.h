@@ -62,6 +62,7 @@ enum class LoggerType {
   PT_EAGER,
   PT_CUSTOM, // Don't use it in checkin code.
   PT_RECIPE_STATS,
+  PT_HPUGRAPH,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -116,6 +117,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_EAGER, "PT_EAGER"},
       {HlLogger::LoggerType::PT_RECIPE_STATS, "PT_RECIPE_STATS"},
       {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
+      {HlLogger::LoggerType::PT_HPUGRAPH, "PT_HPUGRAPH"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
@@ -452,6 +454,7 @@ class PTFuncLog {
 
 #define PT_BRIDGE_DEBUG(...) PT_MOD_DEBUG(PT_BRIDGE, __VA_ARGS__)
 #define PT_CUSTOM_DEBUG(...) PT_MOD_DEBUG(PT_CUSTOM, __VA_ARGS__)
+#define PT_HPUGRAPH_DEBUG(...) PT_MOD_DEBUG(PT_HPUGRAPH, __VA_ARGS__)
 #define PT_DEVICE_DEBUG(...) PT_MOD_DEBUG(PT_DEVICE, __VA_ARGS__)
 #define PT_DEVMEM_DEBUG(...) PT_MOD_DEBUG(PT_DEVMEM, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) PT_MOD_DEBUG(PT_DISTRIBUTED, __VA_ARGS__)
