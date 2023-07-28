@@ -76,39 +76,6 @@ OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
       c10::nullopt)};
 }
 
-OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {
-  const at::Tensor& self = stack_tensor(stack, 0);
-  auto size = self.sizes().vec();
-  auto dtype =
-      stack.at(1).toOptional<at::ScalarType>().value_or(self.scalar_type());
-  auto layout = stack[2].toOptional<at::Layout>().value_or(self.layout());
-  auto device = stack.at(3).toOptional<at::Device>().value_or(at::kHPU);
-  auto pin_memory = stack.at(4);
-  auto memory_format = stack[5].toOptional<at::MemoryFormat>().value_or(
-      self.suggest_memory_format());
-  std::vector<int64_t> strides;
-  switch (memory_format) {
-    case at::MemoryFormat::ChannelsLast:
-      strides = at::get_channels_last_strides_2d(size);
-      break;
-    case at::MemoryFormat::ChannelsLast3d:
-      strides = at::get_channels_last_strides_3d(size);
-      break;
-    default:
-      strides = self.strides().vec();
-      break;
-  }
-
-  return {empty_meta(
-      std::move(size),
-      std::move(strides),
-      dtype,
-      layout,
-      device,
-      pin_memory,
-      memory_format)};
-}
-
 static auto empty_impl(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -128,10 +95,6 @@ void EmptyStrided::AddNode(
   syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
 }
 
-void EmptyLike::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
-}
-
 Empty::Empty(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyMeta);
@@ -142,14 +105,9 @@ EmptyStrided::EmptyStrided(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(EmptyStridedMeta);
 }
 
-EmptyLike::EmptyLike(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(EmptyLikeMeta);
-}
 } // namespace habana
 
 static const auto& EmptyKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::empty_like", KERNEL_FN_GLOBAL(habana::EmptyLike))
         .add("aten::empty.memory_format", KERNEL_FN_GLOBAL(habana::Empty))
         .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided));
