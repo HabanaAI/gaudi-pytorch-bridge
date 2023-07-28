@@ -63,8 +63,23 @@ struct HandleDynamicOpsPass {
   }
 
   void executeNode(const torch::jit::Node* node, torch::jit::Stack& inputs) {
-    torch::jit::Operator jit_op = node->getOperator();
-    jit_op.getOperation()(inputs);
+    try {
+      torch::jit::Operator jit_op = node->getOperator();
+      jit_op.getOperation()(inputs);
+    } catch (std::exception& e) {
+      // catch runtime error due to non-implmentation/mismatch
+      PT_EAGER_DEBUG("Catch Exception in DS executeNode ", e.what());
+      auto input_tensor = inputs[0].toTensor();
+      torch::jit::drop(inputs, node->inputs().size());
+      auto node_outs = node->outputs();
+      for (int i = 0; i < node_outs.size(); i++) {
+        auto output_val = node_outs[i];
+        if (output_val->type()->kind() == c10::TypeKind::TensorType) {
+          auto result = input_tensor.clone();
+          torch::jit::pack(inputs, std::move(result));
+        }
+      }
+    }
   }
 
   void handlePrimConstantNode(torch::jit::Node* node) {

@@ -492,6 +492,24 @@ def test_dynamic_shape_as_strided_lazy():
             t1_hpu = t1.to("hpu")
             result_compile_train = compiled_function_training(t1_hpu)
 
+def test_bernoulli_half():
+    print("Starting...................")
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+
+        import habana_frameworks.torch.core as htcore
+        print("Starting the test.................")
+        input = [2, 3, 4, 4]
+
+        def raw_function(input_tensor):
+            out = torch.bernoulli(input_tensor)
+            return out
+
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+        t = torch.randn(input, requires_grad = False)
+        t_half = t1.to(torch.half)
+        t_hpu = t_half.to("hpu")
+        result_compile_train = compiled_function_training(t_hpu)
+
 if __name__ == '__main__':
     test_relu_mixed()
     test_reshape_symlnt()
