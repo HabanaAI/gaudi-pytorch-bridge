@@ -6357,6 +6357,7 @@ sign_:
   op_validator: check-node-with-shared-layer
 
 signbit:
+  output_meta: SignbitMeta
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
@@ -6368,6 +6369,7 @@ signbit:
   # op_validator: check-node-with-shared-layer
 
 signbit.out:
+  output_meta: SignbitMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
