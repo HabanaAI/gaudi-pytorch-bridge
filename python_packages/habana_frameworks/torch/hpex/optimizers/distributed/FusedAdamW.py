@@ -1,15 +1,3 @@
-###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
-# All Rights Reserved.
-#
-# Unauthorized copying of this file or any element(s) within it, via any medium
-# is strictly prohibited.
-# This file contains Habana Labs, Ltd. proprietary and confidential information
-# and is subject to the confidentiality and license agreements under which it
-# was provided.
-#
-###############################################################################
-
 import math
 from typing import Callable, Iterable, Tuple
 
@@ -33,6 +21,9 @@ from torch import Tensor
 # parameters without data traces on accumulating to the same .grad.
 # NOTE: This should be only used by distributed optimizer internals
 # and not meant to expose to the user.
+
+
+from habana_frameworks.torch import _hpex_C
 
 #@torch.jit.script # Do not use Torch script for Habana impl.
 
@@ -187,15 +178,15 @@ class FusedAdamW(object):
         eps = self.defaults['eps'] #group["eps"],
 
         with torch.no_grad():
-            torch.ops.hpu.optimizer_adamw(
+            _hpex_C.fused_adamw(
                 grads, #grad_list,
                 params_with_grad,#wt_list,
                 exp_avgs, #exp_avg_list,
                 exp_avg_sqs, #exp_avg_sq_list,
+                self.defaults['lr'],
                 neg_step_t,
                 beta1,
                 beta2,
                 eps,
-                torch.tensor(modified_wd, device=params[0].device),
-                modified_wd != 1.0,
+                modified_wd,
             )

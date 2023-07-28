@@ -28,8 +28,6 @@
 using namespace torch;
 using namespace habana;
 
-namespace sh = synapse_helpers;
-
 // Input tensors
 // 1    Gradient        FP32/FP16/BF16  2D
 // 2    Weights         FP32            2D
@@ -44,7 +42,7 @@ namespace sh = synapse_helpers;
 // 2    Moments         FP32            2D
 #if 1 // TODO: TPC kernel seems to give wrong results.
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
-    sh::graph& graph,
+    synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -90,7 +88,7 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
 #endif
 
 void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
-    sh::graph& graph,
+    synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -133,8 +131,216 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    const OutputMetaDataVector& output_metadata) {
+  static_cast<void>(output_metadata);
+  TORCH_CHECK(
+      inputs.size() == 11,
+      "Incorrect size of inputs for adamw optimizer graph creation call");
+
+  auto gradients = inputs[0].toTensorList();
+  auto weights = inputs[1].toTensorList();
+  auto exp_avg = inputs[2].toTensorList();
+  auto exp_avg_sq = inputs[3].toTensorList();
+  [[maybe_unused]] auto lr = inputs[4].toTensor();
+  auto neg_step_size = inputs[5].toTensor();
+  auto beta1 = inputs[6].toScalar();
+  auto beta2 = inputs[7].toScalar();
+  auto epsilon = inputs[8].toScalar();
+  auto modified_wd_t = inputs[9].toTensor();
+  auto is_wd_modified = inputs[10].toScalar();
+
+  /*  This are the operations we need to perform per parameter
+      exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+      exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+      denom = exp_avg_sq.sqrt().add_(group["eps"])
+      ratio = torch.div(exp_avg, denom)
+      scaled_ratio = torch.mul(ratio, step_size)
+      p.data.sub_(scaled_ratio)
+      if group["weight_decay"] > 0.0:
+        p.data.add_(p.data, alpha=-group["lr"] * group["weight_decay"])
+  */
+  auto device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+  auto num_params = static_cast<unsigned int>(weights.size());
+  torch::jit::Stack stack;
+
+  for (unsigned int i = 0; i < num_params; i++) {
+    // Synapse Graph for single parameter update to be created here
+    // All synapse input tensor references are there in a single std::vector
+    // gradients ; weights ; exp_avg ; exp_avg_sq ; lr ; neg_step_size
+
+    // if group["weight_decay"] > 0.0:
+    //  p.data.add_(p.data, alpha=-group["lr"] *
+    //  group["weight_decay"])
+    // Since kernel receives modified_wd = 1-group["weight_decay"]*group["lr"]
+    // therefore  p.data.mul_(modified_wd)
+
+    auto mul_wt_wd =
+        make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
+
+    if (is_wd_modified.toBool()) {
+      // Weight tensor index == weight tensor list index + curr location i in
+      // tensor list
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      // Weight decay tensor index == after 4 tensor lists + 2 tensors
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 2]);
+
+      stack.emplace_back(IValue(weights.get(i)));
+      stack.emplace_back(IValue(modified_wd_t));
+      mul_wt_wd->AllocateAndAddSynapseNode(
+          graph, stack, OutputMetaDataVector(1));
+      stack.clear();
+    }
+
+    // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+    auto mul_exp_avg =
+        make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
+    mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    stack.emplace_back(IValue(exp_avg.get(i)));
+    stack.emplace_back(IValue(beta1));
+    mul_exp_avg->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto add_exp_avg =
+        make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
+    synapse_helpers::tensor& syn_in_11 =
+        add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
+    add_exp_avg->SetSynapseInput(p_context_->syn_inputs_[i]);
+    stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(Scalar(1.0 - beta1.toDouble())));
+    add_exp_avg->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    // exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+    auto mul_exp_avg_sq =
+        make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
+    mul_exp_avg_sq->SetSynapseInput(
+        p_context_->syn_inputs_[3 * num_params + i]);
+    stack.emplace_back(IValue(exp_avg_sq.get(i)));
+    stack.emplace_back(IValue(beta2));
+    mul_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto addcmul_exp_avg_sq =
+        make_operator<habana::AddcmulInplaceOperator>(device_id, scalar_type);
+    synapse_helpers::tensor& syn_in_14 =
+        addcmul_exp_avg_sq->SetSynapseInput(mul_exp_avg_sq->GetSynOutputs()[0]);
+    addcmul_exp_avg_sq->SetSynapseInput(p_context_->syn_inputs_[i]);
+    // Internally we are going to use "pow" instead of "mul",
+    // therefore 3rd synapse tensor will be unused. We can give
+    // a dummy tensor
+    auto syn_in_3 = habana_helpers::create_tensor(
+        gradients.get(i), graph, true, false, c10::nullopt);
+    addcmul_exp_avg_sq->SetSynapseInput(syn_in_3);
+    stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(Scalar(1.0 - beta2.toDouble())));
+    addcmul_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    // denom = exp_avg_sq.sqrt().add_(group["eps"])
+    // we will actually do "add" instead of "add_". Inplace not strictly
+    // required here
+    auto sqrt_exp_avg_sq = make_operator<SqrtOperator>(device_id, scalar_type);
+    synapse_helpers::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
+        addcmul_exp_avg_sq->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
+    sqrt_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto add_exp_avg_sq =
+        make_operator<habana::AddOperator>(device_id, scalar_type);
+    add_exp_avg_sq->SetSynapseInput(sqrt_exp_avg_sq->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(sqrt_exp_avg_sq->GetOutputs()[0]));
+    stack.emplace_back(IValue(epsilon));
+    stack.emplace_back(IValue(1.0));
+    add_exp_avg_sq->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    // Replaced addcdiv with following OPs, so that -step_size
+    // can be used as a tensor
+    // ratio = torch.div(exp_avg, denom)
+    // scaled_ratio = torch.mul(ratio, -step_size)
+    // p.data.add_(scaled_ratio)
+    auto div_wt = make_operator<habana::DivOperator>(device_id, scalar_type);
+    synapse_helpers::tensor& syn_in_17 =
+        div_wt->SetSynapseInput(add_exp_avg->GetSynOutputs()[0]);
+    div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
+    stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
+    stack.emplace_back(IValue(add_exp_avg_sq->GetOutputs()[0]));
+    div_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
+    mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
+    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
+    stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
+    stack.emplace_back(IValue(neg_step_size));
+    mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto add_wt =
+        make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
+
+    if (!is_wd_modified.toBool()) {
+      // in this case weight directly comes as input to the fused kernel
+      add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
+
+      stack.emplace_back(IValue(weights.get(i)));
+      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
+      stack.emplace_back(IValue(1.0));
+      add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      stack.clear();
+    } else {
+      // use the updated weight tensor after  weight decay operation
+      add_wt->SetSynapseInput(mul_wt_wd->GetSynOutputs()[0]);
+      stack.emplace_back(IValue(mul_wt_wd->GetOutputs()[0]));
+
+      add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
+
+      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
+      stack.emplace_back(IValue(1.0));
+      add_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      stack.clear();
+    }
+
+    // Note that these outputs are being filled just to keep GC
+    // runtime happy No need to return these since updates on
+    // weights, exp_avg, exp_avg_sq are all inplace
+    if (is_wd_modified.toBool()) {
+      p_context_->syn_outputs_.emplace_back(
+          std::move(mul_wt_wd->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(mul_wt_wd->GetOutputs()[0]);
+    }
+
+    p_context_->syn_outputs_.emplace_back(syn_in_11);
+    p_context_->pt_outputs_.emplace_back(mul_exp_avg->GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(syn_in_17);
+    p_context_->pt_outputs_.emplace_back(add_exp_avg->GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(syn_in_14);
+    p_context_->pt_outputs_.emplace_back(mul_exp_avg_sq->GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(syn_in_15);
+    p_context_->pt_outputs_.emplace_back(addcmul_exp_avg_sq->GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(add_wt->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(add_wt->GetOutputs()[0]);
+  }
+}
+
 void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
-    sh::graph& graph,
+    synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
@@ -183,7 +389,7 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
-    sh::graph& graph,
+    synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -749,6 +955,7 @@ static auto& OptimizerKernelsKernelRegistry =
         .add(
             "hpu::habanaOptimizerSparseAdagrad",
             KERNEL_FN(OptimizerSparseAdagradOperator))
+        .add("hpu::habanaOptimizerAdamW", KERNEL_FN(OptimizerAdamwOperator))
         .add(
             "hpu::habanaOptimizerFusedAdagrad",
             KERNEL_FN(OptimizerFusedAdagradOperator))

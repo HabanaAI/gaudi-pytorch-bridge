@@ -14,6 +14,7 @@
 #include "lazy_optimizer_kernels.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/view_utils.h"
 
 using namespace at;
@@ -77,6 +78,119 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
       {weights_in.sizes().vec(), moments_in.sizes().vec()}};
 
   return k.call(::std::tuple<at::Tensor&, at::Tensor&>(weights_in, moments_in));
+}
+
+void optimizer_adamw_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& exp_avg,
+    TensorList& exp_avg_sq,
+    at::Tensor& lr_t,
+    at::Tensor& neg_step_t,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const float modified_wd) {
+  PT_LAZY_TRACE;
+  std::vector<at::Tensor> gradients_v;
+  std::vector<at::Tensor> weights_v;
+  std::vector<at::Tensor> exp_avg_v;
+  std::vector<at::Tensor> exp_avg_sq_v;
+
+  std::copy(
+      gradients.begin(), gradients.end(), std::back_inserter(gradients_v));
+  std::copy(weights.begin(), weights.end(), std::back_inserter(weights_v));
+  std::copy(exp_avg.begin(), exp_avg.end(), std::back_inserter(exp_avg_v));
+  std::copy(
+      exp_avg_sq.begin(), exp_avg_sq.end(), std::back_inserter(exp_avg_sq_v));
+
+  handle_collective(gradients_v);
+  handle_collective(weights_v);
+  handle_collective(exp_avg_v);
+  handle_collective(exp_avg_sq_v);
+  at::Tensor modified_wd_t = get_tensor_for_scalar(modified_wd);
+
+  bool is_wd_modified = modified_wd != 1.0;
+  auto func = [gradients_v = std::move(gradients_v),
+               weights_v = std::move(weights_v),
+               exp_avg_v = std::move(exp_avg_v),
+               exp_avg_sq_v = std::move(exp_avg_sq_v),
+               lr_t,
+               neg_step_t,
+               beta1,
+               beta2,
+               epsilon,
+               modified_wd_t,
+               is_wd_modified]() mutable {
+    TensorList gradients = gradients_v;
+    TensorList weights = weights_v;
+    TensorList exp_avg = exp_avg_v;
+    TensorList exp_avg_sq = exp_avg_sq_v;
+
+    auto hl_lr_t = GetHbLazyTensor(lr_t);
+    auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
+    auto hl_modified_wd_t = GetHbLazyTensor(modified_wd_t);
+
+    ir::NodePtr node = std::make_shared<ir::OptimizerFusedAdamw>(
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        lr_t,
+        neg_step_t,
+        beta1,
+        beta2,
+        epsilon,
+        modified_wd_t,
+        is_wd_modified);
+
+    int64_t out_index = 0;
+
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[0]);
+    node->set_as_output_tensor_list();
+    habana_lazy::ir::Value& out = hlweight.IrSetNode(node);
+
+    habana_lazy::ir::NodePtr node_unpack =
+        std::make_shared<habana_lazy::ir::ListUnpack>(out);
+
+    for (size_t i = 0; i < weights.size(); i++) {
+      if (is_wd_modified) {
+        auto hl_wd = GetHbLazyTensor(weights[i]);
+        hl_wd.IrSetNode(node_unpack, out_index++);
+      }
+
+      auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
+      hl_exp_avg.IrSetNode(node_unpack, out_index++);
+
+      auto hl_exp_avg_1 = GetHbLazyTensor(exp_avg[i]);
+      hl_exp_avg_1.IrSetNode(node_unpack, out_index++);
+
+      auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
+      hl_exp_avg_sq.IrSetNode(node_unpack, out_index++);
+
+      auto hl_exp_avg_sq_1 = GetHbLazyTensor(exp_avg_sq[i]);
+      hl_exp_avg_sq_1.IrSetNode(node_unpack, out_index++);
+
+      HbLazyTensorViews::CustomKernelAddNodeInplace(
+          weights[i], node_unpack, out_index);
+    }
+
+    flush_op();
+  };
+  auto vector_of_inputs = std::vector<c10::IValue>{
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      lr_t,
+      neg_step_t,
+      beta1,
+      beta2,
+      epsilon,
+      modified_wd_t,
+      is_wd_modified};
+  RUNNING_HASH_COMBINE_OPERATOR(hpu::habanaOptimizerAdamW, vector_of_inputs);
+  RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
 
 void optimizer_adagrad_hpu_lazy(

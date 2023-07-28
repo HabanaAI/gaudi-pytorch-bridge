@@ -49,6 +49,20 @@ class OptimizerSparseAdagradOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
+class OptimizerAdamwOperator : public HabanaOperator {
+ public:
+  OptimizerAdamwOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            get_guid_with_precision("optimizer_adamw", scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      const OutputMetaDataVector& output_metadata) override;
+};
+
 class OptimizerAdagradOperator : public HabanaOperator {
  public:
   OptimizerAdagradOperator(int device_id, c10::ScalarType scalar_type)

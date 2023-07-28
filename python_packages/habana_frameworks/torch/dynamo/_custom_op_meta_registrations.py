@@ -172,23 +172,6 @@ def meta_optimizer_optimizer_ema(model_inputs, updated_ema, decay):
     return
 
 
-@register_meta([torch.ops.hpu.optimizer_adamw.default])
-def meta_optimizer_adamw(
-    gradient_vec,
-    weight_vec,
-    exp_avg_vec,
-    exp_avg_sq_vec,
-    lr,
-    neg_step_t,
-    beta1,
-    beta2,
-    epsilon,
-    weight_decay,
-    has_weight_decay,
-):
-    return
-
-
 @register_meta([torch.ops.hpu.masked_batch_gemm.default])
 def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
     shape_a = a.shape

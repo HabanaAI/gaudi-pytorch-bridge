@@ -298,6 +298,20 @@ at::Tensor& recv_hpu_lazy_(
 
 } // namespace habana_lazy
 
+void optimizer_adamw_hpu_wrap(
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& exp_avg_vec,
+    TensorList& exp_avg_sq_vec,
+    const float lr,
+    at::Tensor& neg_step_t,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const float weight_decay) {
+  EAGER_NOT_SUPPORTED;
+}
+
 void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
