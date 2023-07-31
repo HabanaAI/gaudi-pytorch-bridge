@@ -67,6 +67,7 @@ class device_memory {
   synStatus free(void* ptr);
   synStatus free_with_stream(void* ptr);
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
+  synStatus workspace_free(void* ptr);
   device_ptr fix_address(void* ptr);
   void record_param(
       const std::string& name,
@@ -106,7 +107,6 @@ class device_memory {
   std::mutex mutex_;
   std::mutex defragmentation_mutex_;
   bool update_on_defragment_ = false;
-  device_ptr workspace_allocation_;
   HandlesMap handle2pointer_;
   device_ptr get_pointer(mem_handle);
   synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);

@@ -348,13 +348,6 @@ synStatus device_memory::free(void* free_ptr) {
   }
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
-    if (reinterpret_cast<uint64_t>(free_ptr) == workspace_allocation_) {
-      status = deallocate(free_ptr);
-      log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
-      record(free_ptr, 0, false);
-      return status;
-    }
-
     auto h = mem_handle::reinterpret_from_pointer(
         reinterpret_cast<uint64_t>(free_ptr));
     if (h.offset() != 0) {
@@ -479,12 +472,10 @@ void* device_memory::workspace_alloc(
       }
 
       if (v_ptr != nullptr) {
-        workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
         ws_size = block_align(req_size);
         record(v_ptr, req_size - ws_size, true);
         log_synDeviceMemStats(*this);
       } else {
-        workspace_allocation_ = 0;
         suballoc_->print_pool_stats();
         MemoryStats stats;
         get_memory_stats(&stats);
@@ -497,6 +488,13 @@ void* device_memory::workspace_alloc(
       return v_ptr;
     }
   }
+}
+
+synStatus device_memory::workspace_free(void* ptr) {
+  auto status = deallocate(ptr);
+  log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
+  record(ptr, 0, false);
+  return status;
 }
 
 device_ptr device_memory::fix_address(void* ptr) {

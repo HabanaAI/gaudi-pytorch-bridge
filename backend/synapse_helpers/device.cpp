@@ -516,7 +516,7 @@ void device::cleanup() {
   // free workspace buffer
   {
     std::unique_lock<std::mutex> lock(ws_mutex_);
-    device_memory_.free(reinterpret_cast<void*>(workspace_buffer_));
+    device_memory_.workspace_free(reinterpret_cast<void*>(workspace_buffer_));
   }
 
   framework_specific_cleanup_();
@@ -1549,7 +1549,7 @@ void device::cleanup_workspace_buffer() {
   while (recipe_counter.get_count() > 1) {
     recipe_counter.wait_for_next_decrease_call();
   }
-  device_memory_.free(reinterpret_cast<void*>(workspace_buffer_));
+  device_memory_.workspace_free(reinterpret_cast<void*>(workspace_buffer_));
   workspace_buffer_ = 0;
   workspace_size_ = 0;
 }
