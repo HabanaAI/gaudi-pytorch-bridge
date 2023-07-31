@@ -843,19 +843,28 @@ sh::tensor OpBackend::BuildConstant(
 
   at::ScalarType valtype =
       force_type.has_value() ? force_type.value() : val.type();
-
-  ns_ConstantKernel::Params params{};
-  if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
-    get<int>(params.constant) = val.to<int>();
-    if (habana_helpers::is_downcast_to_int_needed(valtype)) {
-      valtype = c10::ScalarType::Int;
-    }
-  } else {
-    get<float>(params.constant) = val.to<float>();
+  if (habana_helpers::is_downcast_to_int_needed(valtype)) {
+    valtype = c10::ScalarType::Int;
   }
 
   std::vector<synTensor> input;
   op->CreateShapeTensorInput(graph, valtype, constant_outshape, input);
+
+  if (val.equal(0)) {
+    return std::move(BuildNode(
+        op,
+        graph,
+        {"memset",
+         input,
+         {{constant_outshape, valtype, final_result_index}}})[0]);
+  }
+
+  ns_ConstantKernel::Params params{};
+  if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
+    get<int>(params.constant) = val.to<int>();
+  } else {
+    get<float>(params.constant) = val.to<float>();
+  }
 
   auto constant = BuildNode(
       op,
