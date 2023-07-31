@@ -2280,6 +2280,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "slice_insert_ds(Tensor self, Tensor other, Tensor steps, Tensor start) -> (Tensor)");
   m.def(
+      "slice_insert_ds_ht(Tensor self, Tensor other, Tensor host_tensor) -> (Tensor)");
+  m.def(
       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
   m.def(
       "strided_insert_cl(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
@@ -2310,6 +2312,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("view(Tensor input, Tensor shape) -> Tensor");
   m.def(
       "slice(Tensor input, Tensor shape, Tensor step,  Tensor start) -> (Tensor)");
+  m.def("slice_ht(Tensor input, Tensor shape, Tensor host_tensor) -> (Tensor)");
   m.def(
       "hpu::expand(Tensor(a) self, int[] sizes, *, bool implicit=False) -> Tensor(a)");
   m.def(

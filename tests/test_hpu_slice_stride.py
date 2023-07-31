@@ -46,3 +46,17 @@ def test_hpu_slice_stride():
 
   assert(torch.allclose(hpu1,cpu1,0.001,0.001))
   assert(torch.allclose(hpu2,cpu2,0.001,0.001))
+
+  def func4(dev, k):
+    t = torch.zeros(32, 32).to(dev)
+    t[0: 9: k, 4: 9: k].add_(1)
+    return t
+
+  def run_func4(k):
+    cpu = func4("cpu", k).to("cpu")
+    hpu = func4("hpu", k).to("hpu")
+    assert(torch.allclose(hpu, cpu, 0.001, 0.001))
+
+  run_func4(2)
+  run_func4(3)
+  run_func4(4)

@@ -797,6 +797,8 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
 }
 
 TEST_F(LazyIndexKernelTest, SelectNDimsTest) {
+  // Slice H2D flow only supports max 5dims : SW-153474
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE, false, 1);
   torch::Tensor a =
       torch::randn({2, 3, 4, 5, 6, 4}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
@@ -808,6 +810,7 @@ TEST_F(LazyIndexKernelTest, SelectNDimsTest) {
   auto cout = torch::select(a, dim, 3);
 
   EXPECT_EQ(allclose(h_cout, cout), true);
+  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE);
 }
 
 TEST_F(LazyIndexKernelTest, squeezeTest) {

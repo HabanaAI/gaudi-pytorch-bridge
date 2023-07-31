@@ -43,12 +43,14 @@ class SliceOperator : public HabanaOperator {
       int64_t& end,
       int64_t& step,
       const OutputMetaData& output_metadata);
+
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
       int64_t& dim,
       int64_t& start,
       int64_t& end,
       int64_t& step);
+
   void ValidateSliceInputs(
       std::vector<int64_t>& inp_shape,
       std::vector<int64_t>& out_shape,
@@ -57,6 +59,25 @@ class SliceOperator : public HabanaOperator {
 
   virtual OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
+
+  static std::vector<int64_t> GetH2DTensorData(
+      const at::Tensor& host_tensor,
+      bool is_dry_run,
+      bool is_min_shape_inference);
+
+  static std::vector<int64_t> ComputeParamsfromH2DTensor(
+      const at::Tensor& host_tensor);
+
+  static std::vector<int64_t> get_step_tensor(std::vector<int64_t> h2d_vec);
+  static std::vector<int64_t> get_start_tensor(std::vector<int64_t> h2d_vec);
+
+  void UpdateMaxPassSliceInputs(
+      std::vector<int64_t>& inp_shape,
+      std::vector<int64_t>& out_shape,
+      std::vector<int64_t>& step,
+      std::vector<int64_t>& start,
+      std::vector<int64_t>& min,
+      std::vector<int64_t>& max);
 };
 
 //

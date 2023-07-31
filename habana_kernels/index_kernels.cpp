@@ -1901,20 +1901,30 @@ void SliceOperator::ValidateSliceInputs(
 
     TORCH_CHECK(
         (end_val <= inp_shape[i]),
-        "Slice invalid end param, which is greater or equal to the dimension",
+        "Slice invalid end param, which is greater or equal to the dimension ",
         end_val,
         " ",
         inp_shape[i]);
   }
+
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "SliceOperator validated for inp_shape::",
+      inp_shape,
+      ", out_shape::",
+      out_shape,
+      ", step::",
+      step,
+      ", start::",
+      start);
 }
 
 OutputShapeInfRetType SliceOperator::ComputeOutputShape(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> out_shape;
-  bool have_shape_tensor = inputs[2].isTensor();
+  bool has_shape_tensor = inputs[2].isTensor();
 
-  if (have_shape_tensor) {
+  if (has_shape_tensor) {
     std::vector<int64_t> inp_shape = inputs[0].toTensor().sizes().vec();
     out_shape = inputs[1].toTensor().sizes().vec();
 
@@ -1944,11 +1954,112 @@ OutputShapeInfRetType SliceOperator::ComputeOutputShape(
   OutputShapeInfRetType out;
   out.AddOutputTensor(metaData);
 
-  if (!have_shape_tensor) {
+  if (!has_shape_tensor) {
     out.AddShapeTensor(metaData);
   }
 
   return out;
+}
+
+std::vector<int64_t> SliceOperator::GetH2DTensorData(
+    const at::Tensor& host_tensor,
+    bool is_dry_run,
+    bool is_min_shape_inference) {
+  auto tmeta{get_tensor_extra_meta(host_tensor)};
+
+  void* host_ptr = nullptr;
+  if (is_dry_run) {
+    host_ptr = tmeta->get_compile_host_ptr();
+  } else {
+    host_ptr = tmeta->get_host_ptr();
+  }
+
+  size_t h2d_data_size = tmeta->get_host_size();
+  if (is_min_shape_inference) {
+    size_t data_size = h2d_data_size * tmeta->get_host_el_size();
+    host_ptr = static_cast<char*>(host_ptr) + data_size;
+  }
+
+  std::vector<int64_t> params;
+  uint64_t* h2d_data = static_cast<uint64_t*>(host_ptr);
+  for (size_t i = 0; i < h2d_data_size; i++) {
+    params.push_back(*h2d_data++);
+  }
+
+  return params;
+}
+
+std::vector<int64_t> SliceOperator::ComputeParamsfromH2DTensor(
+    const at::Tensor& host_tensor) {
+  bool is_dry_run = false;
+  if (habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE ||
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    is_dry_run = true;
+  }
+
+  bool is_min_shape_inference = false;
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    is_min_shape_inference = true;
+  }
+
+  return GetH2DTensorData(host_tensor, is_dry_run, is_min_shape_inference);
+}
+
+std::vector<int64_t> SliceOperator::get_start_tensor(
+    std::vector<int64_t> h2d_vec) {
+  std::vector<int64_t> start(
+      h2d_vec.rbegin() + SYN_MAX_TENSOR_DIM - h2d_vec[0],
+      h2d_vec.rbegin() + SYN_MAX_TENSOR_DIM);
+  return start;
+}
+
+std::vector<int64_t> SliceOperator::get_step_tensor(
+    std::vector<int64_t> h2d_vec) {
+  std::vector<int64_t> step(
+      h2d_vec.rend() - h2d_vec[0] - 1, h2d_vec.rend() - 1);
+  return step;
+}
+
+void SliceOperator::UpdateMaxPassSliceInputs(
+    std::vector<int64_t>& inp_shape,
+    std::vector<int64_t>& out_shape,
+    std::vector<int64_t>& step,
+    std::vector<int64_t>& start,
+    std::vector<int64_t>& min,
+    std::vector<int64_t>& max) {
+  for (uint64_t i = 0; i < inp_shape.size(); i++) {
+    out_shape[i] = out_shape[i] < inp_shape[i] ? out_shape[i] : inp_shape[i];
+    /*
+    (end - start)/step = output
+    Assuming end max is input
+    (input - start)/step = output
+    input - start = output * step
+    start = input - output * step
+    */
+
+    // start shape tensor is updated, so change the buckets as well if
+    // start is there in bucket
+    if (out_shape[i] != 0) {
+      auto old_start = start[i];
+      start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+      if (old_start != start[i]) {
+        // If the newly calculated value is less than current value keep the
+        // current value Since the current value is not available in
+        // AllocateAndAdd, used a hack to find it from the max value
+        HABANA_ASSERT(min.size() == max.size());
+        if (min.size() && (min[i] != max[i])) {
+          auto curr_val = max[i] /
+              habana_helpers::DynamicBucketInfo::default_max_multiplier_;
+          if (start[i] < curr_val) {
+            start[i] = curr_val;
+          }
+        }
+      }
+    }
+  }
 }
 
 void SliceOperator::AllocateAndAddSynapseNode(
@@ -1960,8 +2071,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
   int64_t dim, start, end, step;
   std::vector<int64_t> shape;
 
-  bool have_shape_tensor = inputs[2].isTensor();
-  if (have_shape_tensor) {
+  bool has_shape_tensor = inputs[2].isTensor();
+  if (has_shape_tensor && inputs.size() == 4) {
     TORCH_CHECK(
         inputs.size() == 4,
         "Incorrect size of inputs expected for slice operator");
@@ -1988,40 +2099,9 @@ void SliceOperator::AllocateAndAddSynapseNode(
       synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
       std::tie(min, max) =
           habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
-      for (uint64_t i = 0; i < inp_shape.size(); i++) {
-        out_shape[i] =
-            out_shape[i] < inp_shape[i] ? out_shape[i] : inp_shape[i];
-        /*
-        (end - start)/step = output
-        Assuming end max is input
-        (input - start)/step = output
-        input - start = output * step
-        start = input - output * step
-        */
 
-        // start shape tensor is updated, so change the buckets as well if
-        // start is there in bucket
-        if (out_shape[i] != 0) {
-          auto old_start = start[i];
-          start[i] = inp_shape[i] - (out_shape[i] * step[i]);
-          if (old_start != start[i]) {
-            // If the newly calculated value is less than current value keep the
-            // current value Since the current value is not available in
-            // AllocateAndAdd, used a hack to find it from the max value
-            HABANA_ASSERT(min.size() == max.size());
-            if (min.size() &&
-                (habana::ShapeInference::GetMaxPolicyInUse() ==
-                 habana_helpers::DynamicDimsPolicy::CALCULATED) &&
-                (min[i] != max[i])) {
-              auto curr_val = max[i] /
-                  habana_helpers::DynamicBucketInfo::default_max_multiplier_;
-              if (start[i] < curr_val) {
-                start[i] = curr_val;
-              }
-            }
-          }
-        }
-      }
+      UpdateMaxPassSliceInputs(inp_shape, out_shape, step, start, min, max);
+
       // Modify the start and output shape in name shape map to create valid
       // ranges
       synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
@@ -2030,6 +2110,68 @@ void SliceOperator::AllocateAndAddSynapseNode(
       habana::ShapeInference::UpdateShapeInfo(
           graph, syn_tensor_start.id(), start);
       shape = out_shape;
+    }
+    ValidateSliceInputs(inp_shape, out_shape, step, start);
+  } else if (has_shape_tensor && inputs.size() == 3) {
+    TORCH_CHECK(
+        inputs.size() == 3,
+        "Incorrect size of inputs expected for slice operator");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[1].ref().is_shape_tensor(),
+        "Synapse input2 type expected to be shape tensor");
+    TORCH_CHECK(
+        p_context_->syn_inputs_[2].ref().is_host_to_device_tensor(),
+        "Synapse input3 type expected to be host to device tensor");
+    shape = p_context_->syn_inputs_[1].ref().pt_shape();
+    auto inp_shape = self.sizes().vec();
+    auto out_shape = inputs[1].toTensor().sizes().vec();
+    auto host_tensor = inputs[2].toTensor();
+    auto params_vec = ComputeParamsfromH2DTensor(host_tensor);
+
+    std::vector<int64_t> start, step;
+    start = get_start_tensor(params_vec);
+    step = get_step_tensor(params_vec);
+
+    if ((habana::ShapeInference::GetCurrentPass() ==
+         habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+        (habana::ShapeInference::GetMaxPolicyInUse() ==
+         habana_helpers::DynamicDimsPolicy::CALCULATED)) {
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "SliceOperator max pass before update: inp_shape::",
+          inp_shape,
+          ", out_shape::",
+          out_shape,
+          ", step::",
+          step,
+          ", start::",
+          start);
+
+      auto max = start;
+      auto min_shape_params = GetH2DTensorData(host_tensor, true, true);
+      auto min = get_start_tensor(min_shape_params);
+
+      UpdateMaxPassSliceInputs(inp_shape, out_shape, step, start, min, max);
+
+      // Modify the start and output shape in name shape map to create valid
+      // ranges
+      synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
+      habana::ShapeInference::UpdateShapeInfo(
+          graph, syn_tensor_output.id(), out_shape);
+      std::vector<uint64_t> new_params_vec(
+          params_vec.begin(), params_vec.end());
+      std::copy(start.rbegin(), start.rend(), new_params_vec.begin() + 6);
+      auto tmeta{get_tensor_extra_meta(host_tensor)};
+      tmeta->set_max<uint64_t>(new_params_vec);
+      shape = out_shape;
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "SliceOperator max pass after update: inp_shape::",
+          inp_shape,
+          ", out_shape::",
+          out_shape,
+          ", step::",
+          step,
+          ", start::",
+          start);
     }
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {
@@ -2057,7 +2199,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  if (have_shape_tensor) {
+  if (has_shape_tensor) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     // Allocate Shape tensor
@@ -2932,6 +3074,7 @@ static auto& IndexKernelsKernelRegistry =
         .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))
+        .add("hpu::slice_ht", KERNEL_FN(SliceOperator))
         .add("aten::index_add", KERNEL_FN(IndexAddOperator))
         .add("hpu::index_add", KERNEL_FN(IndexAddV2Operator))
         .add("hpu::_unique2", KERNEL_FN(UniqueOperator))

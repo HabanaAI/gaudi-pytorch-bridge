@@ -757,7 +757,7 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
 
     TORCH_CHECK(
         (end_val <= inp_shape[i]),
-        "SliceInsert invalid end param, which is greater or equal to the dimension",
+        "SliceInsert invalid end param, which is greater or equal to the dimension ",
         end_val,
         " ",
         inp_shape[i]);
@@ -770,8 +770,8 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   auto self = inputs[0].toTensor();
-  bool have_shape_tensor = inputs[2].isTensor();
-  if (have_shape_tensor) {
+  bool has_shape_tensor = inputs[2].isTensor();
+  if (has_shape_tensor && inputs.size() == 4) {
     TORCH_CHECK(
         inputs.size() == 4,
         "Incorrect size of inputs expected for slice_insert operator");
@@ -787,6 +787,19 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     auto step = inputs[2].toTensor().sizes().vec();
     auto start = inputs[3].toTensor().sizes().vec();
 
+    ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
+  } else if (has_shape_tensor && inputs.size() == 3) {
+    TORCH_CHECK(
+        p_context_->syn_inputs_[2].ref().is_host_to_device_tensor(),
+        "Synapse input3 type expected to be host to device tensor");
+    auto inp_shape = self.sizes().vec();
+    auto out_shape = inputs[1].toTensor().sizes().vec();
+    auto host_tensor = inputs[2].toTensor();
+    auto params_vec = SliceOperator::ComputeParamsfromH2DTensor(host_tensor);
+
+    std::vector<int64_t> start, step;
+    start = SliceOperator::get_start_tensor(params_vec);
+    step = SliceOperator::get_step_tensor(params_vec);
     ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
   } else {
     TORCH_CHECK(
@@ -805,7 +818,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
       output_metadata.at(0).persistent);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
-  if (have_shape_tensor) {
+  if (has_shape_tensor) {
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     // Allocate Shape tensor
@@ -1804,6 +1817,7 @@ static auto& BasicKernelsKernelRegistry =
             KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
+        .add("hpu::slice_insert_ds_ht", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(

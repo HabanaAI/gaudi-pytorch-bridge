@@ -181,7 +181,9 @@ struct SliceInsert : public ir::Node {
       at::IntArrayRef params)
       : Node(
             habana_helpers::GetRefineDynamicShapeStatus()
-                ? c10::Symbol::fromQualString("hpu::slice_insert_ds")
+                ? GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)
+                    ? c10::Symbol::fromQualString("hpu::slice_insert_ds_ht")
+                    : c10::Symbol::fromQualString("hpu::slice_insert_ds")
                 : c10::Symbol::fromQualString("hpu::slice_insert")) {
     auto hl_orig = habana_lazy::GetOrCreateHbLazyTensor(orig_t, c10::kHPU);
     AddInput(hl_orig.GetIrValue());
@@ -192,41 +194,81 @@ struct SliceInsert : public ir::Node {
     std::vector<at::Tensor> input_pt_vec{orig_t, insert_t};
 
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
-      auto dims = orig_t.dim();
-      std::vector<int64_t> step_vec(dims, 1);
-      std::vector<int64_t> start_vec(dims, 0);
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
+        std::vector<int64_t> host_params{
+            orig_t.dim(), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
+        int num_slice_params = params.size() / 4;
+        int index = 0;
 
-      int num_slice_params = params.size() / 4;
-      for (int i = 0; i < num_slice_params; i++) {
-        int64_t dim = params[i * 4];
-        int64_t start = params[i * 4 + 1];
-        int64_t end = params[i * 4 + 2];
-        int64_t step = params[i * 4 + 3];
+        for (int i = 0; i < num_slice_params; i++) {
+          int64_t dim = params[i * 4];
+          int64_t start = params[i * 4 + 1];
+          int64_t end = params[i * 4 + 2];
+          int64_t step = params[i * 4 + 3];
 
-        // one place to wrap all dim, start and end indicies
-        habana::SliceOperator::compute_output_shape(
-            orig_t, dim, start, end, step);
-        start_vec[dim] = start;
-        step_vec[dim] = step;
+          // one place to wrap all dim, start and end indicies
+          habana::SliceOperator::compute_output_shape(
+              orig_t, dim, start, end, step);
+          index = orig_t.dim() - dim;
+          host_params[index] = step;
+          host_params[index + 5] = start;
+        }
+        auto host_tensor = empty_hpu_lazy(
+            host_params.size() * 2,
+            orig_t.options(),
+            orig_t.suggest_memory_format(),
+            false,
+            HOST_TO_DEVICE_TENSOR);
+        auto hl_param_tensor = GetOrCreateHbLazyTensor(host_tensor, c10::kHPU);
+        auto hl_param_tensor_internal =
+            hl_param_tensor.CurrentTensorAttached().value();
+        auto host_tmeta{
+            habana::get_tensor_extra_meta(hl_param_tensor_internal)};
+        host_tmeta->set_host_data(
+            host_params.data(),
+            host_params.size(),
+            sizeof(uint64_t),
+            habana::HostDataType::UINT64_T);
+        host_tmeta->set_H2D_data_for_bucketing();
+        AddInput(hl_param_tensor.GetIrValue());
+        input_pt_vec.emplace_back(host_tensor);
+      } else {
+        auto dims = orig_t.dim();
+        std::vector<int64_t> step_vec(dims, 1);
+        std::vector<int64_t> start_vec(dims, 0);
+
+        int num_slice_params = params.size() / 4;
+        for (int i = 0; i < num_slice_params; i++) {
+          int64_t dim = params[i * 4];
+          int64_t start = params[i * 4 + 1];
+          int64_t end = params[i * 4 + 2];
+          int64_t step = params[i * 4 + 3];
+
+          // one place to wrap all dim, start and end indicies
+          habana::SliceOperator::compute_output_shape(
+              orig_t, dim, start, end, step);
+          start_vec[dim] = start;
+          step_vec[dim] = step;
+        }
+        auto step_t = empty_hpu_lazy(
+            c10::IntArrayRef(step_vec.data(), step_vec.size()),
+            orig_t.options(),
+            c10::MemoryFormat::Contiguous,
+            false,
+            SHAPE_TENSOR);
+        auto hl_step = GetOrCreateHbLazyTensor(step_t, c10::kHPU);
+        AddInput(hl_step.GetIrValue());
+        input_pt_vec.emplace_back(step_t);
+        auto start_t = empty_hpu_lazy(
+            c10::IntArrayRef(start_vec.data(), start_vec.size()),
+            orig_t.options(),
+            c10::MemoryFormat::Contiguous,
+            false,
+            SHAPE_TENSOR);
+        auto hl_start = GetOrCreateHbLazyTensor(start_t, c10::kHPU);
+        AddInput(hl_start.GetIrValue());
+        input_pt_vec.emplace_back(start_t);
       }
-      auto step_t = empty_hpu_lazy(
-          c10::IntArrayRef(step_vec.data(), step_vec.size()),
-          orig_t.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      auto hl_step = GetOrCreateHbLazyTensor(step_t, c10::kHPU);
-      AddInput(hl_step.GetIrValue());
-      input_pt_vec.emplace_back(step_t);
-      auto start_t = empty_hpu_lazy(
-          c10::IntArrayRef(start_vec.data(), start_vec.size()),
-          orig_t.options(),
-          c10::MemoryFormat::Contiguous,
-          false,
-          SHAPE_TENSOR);
-      auto hl_start = GetOrCreateHbLazyTensor(start_t, c10::kHPU);
-      AddInput(hl_start.GetIrValue());
-      input_pt_vec.emplace_back(start_t);
     } else {
       m_meta_data.set(
           params, static_cast<size_t>(SliceInsertParams::PARAMS_INDEX));
@@ -237,14 +279,21 @@ struct SliceInsert : public ir::Node {
   std::string ToString() const override {
     std::stringstream ss;
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
-      auto& start = m_inputs[3];
-      HABANA_ASSERT(start.DataPtrValidAndNotExpired());
-      std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
-      ss << ", start=" << data_start->sizes;
-      auto& step = m_inputs[2];
-      HABANA_ASSERT(step.DataPtrValidAndNotExpired());
-      std::shared_ptr<Data> data_step = step.m_data_ptr.lock();
-      ss << ", step=" << data_step->sizes;
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
+        auto& params = m_inputs[2];
+        HABANA_ASSERT(params.DataPtrValidAndNotExpired());
+        std::shared_ptr<Data> params_ = params.m_data_ptr.lock();
+        ss << ", params=" << params_->sizes;
+      } else {
+        auto& start = m_inputs[3];
+        HABANA_ASSERT(start.DataPtrValidAndNotExpired());
+        std::shared_ptr<Data> data_start = start.m_data_ptr.lock();
+        ss << ", start=" << data_start->sizes;
+        auto& step = m_inputs[2];
+        HABANA_ASSERT(step.DataPtrValidAndNotExpired());
+        std::shared_ptr<Data> data_step = step.m_data_ptr.lock();
+        ss << ", step=" << data_step->sizes;
+      }
     } else {
       ss << Node::ToString() << ", slice_params(dim, start, end, step)="
          << m_meta_data.get(
