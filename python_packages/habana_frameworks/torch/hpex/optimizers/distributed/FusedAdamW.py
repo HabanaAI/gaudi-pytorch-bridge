@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import math
 from typing import Callable, Iterable, Tuple
 
@@ -22,10 +34,8 @@ from torch import Tensor
 # NOTE: This should be only used by distributed optimizer internals
 # and not meant to expose to the user.
 
+# @torch.jit.script # Do not use Torch script for Habana impl.
 
-from habana_frameworks.torch import _hpex_C
-
-#@torch.jit.script # Do not use Torch script for Habana impl.
 
 class FusedAdamW(object):
     def __init__(
@@ -33,22 +43,28 @@ class FusedAdamW(object):
         params: List[Tensor],
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
-        eps: float = 1e-6, # Habana Impl. Modified from PT default of 1e-8
-        weight_decay: float = 0.0, # Habana Impl. Modified from PT default of 1e-2
-        #amsgrad: bool = False, # Habana Impl does not support
-        #maximize: bool = False, # Habana Impl does not support
-        _allow_empty_param_list: bool = False, # retained for PT compatibility
+        eps: float = 1e-6,  # Habana Impl. Modified from PT default of 1e-8
+        weight_decay: float = 0.0,  # Habana Impl. Modified from PT default of 1e-2
+        # amsgrad: bool = False, # Habana Impl does not support
+        # maximize: bool = False, # Habana Impl does not support
+        _allow_empty_param_list: bool = False,  # retained for PT compatibility
     ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {}".format(eps))
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(
+                "Invalid beta parameter at index 0: {}".format(betas[0])
+            )
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+            raise ValueError(
+                "Invalid beta parameter at index 1: {}".format(betas[1])
+            )
         if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(
+                "Invalid weight_decay value: {}".format(weight_decay)
+            )
 
         # Habana impl. does not support True for these as of now
         amsgrad = False
@@ -63,7 +79,7 @@ class FusedAdamW(object):
         }
         self.amsgrad = amsgrad
         self.maximize = maximize
-        #self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {}) # Torch script not used for Habana
+        # self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {}) # Torch script not used for Habana
         self.state: Dict[torch.Tensor, Dict[str, torch.Tensor]] = dict()
 
         if len(params) == 0 and not _allow_empty_param_list:
@@ -72,7 +88,8 @@ class FusedAdamW(object):
         # NOTE: we only have one param_group and don't allow user to add additional
         # param group as it's not a common use case.
         self.param_group = {"params": params}
-        self.neg_step_list = [] # For Habana Impl
+        self.neg_step_list = []  # For Habana Impl
+        self.modified_wd_list = []
 
     def step_param(self, param: Tensor, grad: Optional[Tensor]):
         params_with_grad = []
@@ -88,32 +105,40 @@ class FusedAdamW(object):
         if param not in self.state:
             self.state[param] = {}
             state = self.state[param]
-            state['step'] = torch.tensor(0.0)
+            state["step"] = torch.tensor(0.0)
             # Exponential moving average of gradient values
-            state['exp_avg'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+            state["exp_avg"] = torch.zeros_like(
+                param, memory_format=torch.preserve_format
+            )
             # Exponential moving average of squared gradient values
-            state['exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+            state["exp_avg_sq"] = torch.zeros_like(
+                param, memory_format=torch.preserve_format
+            )
             if self.amsgrad:
                 # Maintains max of all exp. moving avg. of sq. grad. values
-                state['max_exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                state["max_exp_avg_sq"] = torch.zeros_like(
+                    param, memory_format=torch.preserve_format
+                )
 
         state = self.state[param]
 
-        exp_avgs.append(state['exp_avg'])
-        exp_avg_sqs.append(state['exp_avg_sq'])
+        exp_avgs.append(state["exp_avg"])
+        exp_avg_sqs.append(state["exp_avg_sq"])
 
         if self.amsgrad:
-            max_exp_avg_sqs.append(state['max_exp_avg_sq'])
+            max_exp_avg_sqs.append(state["max_exp_avg_sq"])
 
         # update the steps for each param group update
-        state['step'] += 1
+        state["step"] += 1
         # record the step after step update
-        state_steps.append(state['step'].item())
+        state_steps.append(state["step"].item())
         with torch.no_grad():
-            raise RuntimeError("This AdamW optimizer does not support step_param() as of now")
+            raise RuntimeError(
+                "This AdamW optimizer does not support step_param() as of now"
+            )
 
     def step(self, gradients: List[Optional[Tensor]]):
-        params = self.param_group['params']
+        params = self.param_group["params"]
         params_with_grad = []
         grads = []
         exp_avgs = []
@@ -121,6 +146,7 @@ class FusedAdamW(object):
         max_exp_avg_sqs = []
         state_steps: List[int] = []
         self.neg_step_list.clear()
+        self.modified_wd_list.clear()
 
         if len(params) != len(gradients):
             raise ValueError(
@@ -129,7 +155,7 @@ class FusedAdamW(object):
                 + f"Gradients length: {len(gradients)}"
             )
 
-        for param, gradient in zip(self.param_group['params'], gradients):
+        for param, gradient in zip(self.param_group["params"], gradients):
             if gradient is not None:
                 params_with_grad.append(param)
                 grads.append(gradient)
@@ -137,56 +163,70 @@ class FusedAdamW(object):
                 if param not in self.state:
                     self.state[param] = {}
                     state = self.state[param]
-                    state['step'] = torch.tensor(0.0)
+                    state["step"] = torch.tensor(0.0)
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                    state["exp_avg"] = torch.zeros_like(
+                        param, memory_format=torch.preserve_format
+                    )
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                    state["exp_avg_sq"] = torch.zeros_like(
+                        param, memory_format=torch.preserve_format
+                    )
                     if self.amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                        state["max_exp_avg_sq"] = torch.zeros_like(
+                            param, memory_format=torch.preserve_format
+                        )
 
                 state = self.state[param]
 
-                exp_avgs.append(state['exp_avg'])
-                exp_avg_sqs.append(state['exp_avg_sq'])
+                exp_avgs.append(state["exp_avg"])
+                exp_avg_sqs.append(state["exp_avg_sq"])
 
                 if self.amsgrad:
-                    max_exp_avg_sqs.append(state['max_exp_avg_sq'])
+                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
 
                 # update the steps for each param group update
-                state['step'] += 1
+                state["step"] += 1
                 # record the step after step update
-                state_steps.append(state['step'].item())
+                state_steps.append(state["step"].item())
 
         # For Habana Impl
-        beta1=self.defaults['beta1']
-        beta2=self.defaults['beta2']
-        step_size = self.defaults['lr']
-        bias_correction1 = 1.0 - pow(beta1, state_steps[0]) # Take step value from the step value of first parm in the list.
+        beta1 = self.defaults["beta1"]
+        beta2 = self.defaults["beta2"]
+        step_size = self.defaults["lr"]
+        bias_correction1 = 1.0 - pow(
+            beta1, state_steps[0]
+        )  # Take step value from the step value of first parm in the list.
         bias_correction2 = 1.0 - pow(beta2, state_steps[0])
         step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
         neg_step = -step_size
         neg_step_t = torch.tensor(
-                [neg_step], dtype=torch.float, requires_grad=False
-            ).to(params[0].device, non_blocking=True)
+            [neg_step], dtype=torch.float, requires_grad=False
+        ).to(params[0].device, non_blocking=True)
         self.neg_step_list.append(neg_step_t)
+
         # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
         # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
         # perform weight decay unconditonally.
-        modified_wd = 1.0 -self.defaults['weight_decay']*self.defaults['lr']
-        eps = self.defaults['eps'] #group["eps"],
+        modified_wd = 1.0 - self.defaults["weight_decay"] * self.defaults["lr"]
+        modified_wd_t = torch.tensor(
+            [modified_wd], dtype=torch.float, requires_grad=False
+        ).to(params[0].device, non_blocking=True)
+        self.modified_wd_list.append(modified_wd_t)
+
+        eps = self.defaults["eps"]  # group["eps"],
 
         with torch.no_grad():
-            _hpex_C.fused_adamw(
-                grads, #grad_list,
-                params_with_grad,#wt_list,
-                exp_avgs, #exp_avg_list,
-                exp_avg_sqs, #exp_avg_sq_list,
-                self.defaults['lr'],
+            torch.ops.hpu.optimizer_adamw(
+                grads,  # grad_list,
+                params_with_grad,  # wt_list,
+                exp_avgs,  # exp_avg_list,
+                exp_avg_sqs,  # exp_avg_sq_list,
                 neg_step_t,
                 beta1,
                 beta2,
                 eps,
-                modified_wd,
+                modified_wd_t,
+                modified_wd != 1.0,
             )

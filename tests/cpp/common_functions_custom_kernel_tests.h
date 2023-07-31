@@ -62,6 +62,21 @@ void runLarsOptTest(
         3, 8, 1, {1, 1, 0}, 0.9, 0.8, 0.1, 0.7, false, false, ENA_VW); \
   }
 
+void runAdamwOptTest(
+    int num_params,
+    int M,
+    int N,
+    double modified_weight_decay,
+    bool enable_views);
+
+#define ADAMW_OPT_TEST(BASE, ENA_VW)       \
+  TEST_F(BASE, AdamwOptTestWd) {           \
+    runAdamwOptTest(2, 4, 4, 0.9, ENA_VW); \
+  }                                        \
+  TEST_F(BASE, AdamwOptTestNoWd) {         \
+    runAdamwOptTest(2, 4, 4, 1.0, ENA_VW); \
+  }
+
 void runLambPhase2OptimizerTest(
     int num_params,
     int M,

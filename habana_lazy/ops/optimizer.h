@@ -25,10 +25,10 @@ namespace ir {
 class OptimizerFusedAdamw : public Node {
  public:
   enum class OptimizerFusedAdamwIndex {
-    kbeta1Idx = 6,
+    kbeta1Idx = 5,
     kbeta2Idx,
     kepsIdx,
-    kwdIdx = 10
+    kwdIdx = 9
   };
   OptimizerFusedAdamw() = delete;
   OptimizerFusedAdamw(
@@ -36,21 +36,17 @@ class OptimizerFusedAdamw : public Node {
       at::TensorList& weights,
       at::TensorList& exp_avg,
       at::TensorList& exp_avg_sq,
-      at::Tensor& lr_t,
-      at::Tensor& neg_step_t,
+      const at::Tensor& neg_step_t,
       const float beta1,
       const float beta2,
       const float epsilon,
-      at::Tensor& weight_decay_t,
+      const at::Tensor& weight_decay_t,
       const bool is_wd_modified)
       : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerAdamW")) {
     AddInputVec(gradients);
     AddInputVec(weights);
     AddInputVec(exp_avg);
     AddInputVec(exp_avg_sq);
-
-    auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHPU);
-    AddInput(hl_lr_t.GetIrValue());
 
     auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
     AddInput(hl_neg_step_t.GetIrValue());

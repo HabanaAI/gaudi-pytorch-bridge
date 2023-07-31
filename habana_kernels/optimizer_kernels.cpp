@@ -28,6 +28,8 @@
 using namespace torch;
 using namespace habana;
 
+namespace sh = synapse_helpers;
+
 // Input tensors
 // 1    Gradient        FP32/FP16/BF16  2D
 // 2    Weights         FP32            2D
@@ -42,7 +44,7 @@ using namespace habana;
 // 2    Moments         FP32            2D
 #if 1 // TODO: TPC kernel seems to give wrong results.
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -88,7 +90,7 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
 #endif
 
 void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -132,25 +134,24 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
   TORCH_CHECK(
-      inputs.size() == 11,
+      inputs.size() == 10,
       "Incorrect size of inputs for adamw optimizer graph creation call");
 
   auto gradients = inputs[0].toTensorList();
   auto weights = inputs[1].toTensorList();
   auto exp_avg = inputs[2].toTensorList();
   auto exp_avg_sq = inputs[3].toTensorList();
-  [[maybe_unused]] auto lr = inputs[4].toTensor();
-  auto neg_step_size = inputs[5].toTensor();
-  auto beta1 = inputs[6].toScalar();
-  auto beta2 = inputs[7].toScalar();
-  auto epsilon = inputs[8].toScalar();
-  auto modified_wd_t = inputs[9].toTensor();
-  auto is_wd_modified = inputs[10].toScalar();
+  auto neg_step_size = inputs[4].toTensor();
+  auto beta1 = inputs[5].toScalar();
+  auto beta2 = inputs[6].toScalar();
+  auto epsilon = inputs[7].toScalar();
+  auto modified_wd_t = inputs[8].toTensor();
+  auto is_wd_modified = inputs[9].toScalar();
 
   /*  This are the operations we need to perform per parameter
       exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
@@ -185,8 +186,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
       // Weight tensor index == weight tensor list index + curr location i in
       // tensor list
       mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
-      // Weight decay tensor index == after 4 tensor lists + 2 tensors
-      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 2]);
+      // Weight decay tensor index == after 4 tensor lists + 1 tensors
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
 
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(modified_wd_t));
@@ -207,7 +208,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto add_exp_avg =
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
-    synapse_helpers::tensor& syn_in_11 =
+    sh::tensor& syn_in_11 =
         add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
     add_exp_avg->SetSynapseInput(p_context_->syn_inputs_[i]);
     stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
@@ -230,7 +231,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto addcmul_exp_avg_sq =
         make_operator<habana::AddcmulInplaceOperator>(device_id, scalar_type);
-    synapse_helpers::tensor& syn_in_14 =
+    sh::tensor& syn_in_14 =
         addcmul_exp_avg_sq->SetSynapseInput(mul_exp_avg_sq->GetSynOutputs()[0]);
     addcmul_exp_avg_sq->SetSynapseInput(p_context_->syn_inputs_[i]);
     // Internally we are going to use "pow" instead of "mul",
@@ -251,7 +252,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // we will actually do "add" instead of "add_". Inplace not strictly
     // required here
     auto sqrt_exp_avg_sq = make_operator<SqrtOperator>(device_id, scalar_type);
-    synapse_helpers::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
+    sh::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
         addcmul_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
     sqrt_exp_avg_sq->AllocateAndAddSynapseNode(
@@ -274,7 +275,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // scaled_ratio = torch.mul(ratio, -step_size)
     // p.data.add_(scaled_ratio)
     auto div_wt = make_operator<habana::DivOperator>(device_id, scalar_type);
-    synapse_helpers::tensor& syn_in_17 =
+    sh::tensor& syn_in_17 =
         div_wt->SetSynapseInput(add_exp_avg->GetSynOutputs()[0]);
     div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
@@ -284,7 +285,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
     mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
-    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
+    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
     mul_wt->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
@@ -340,7 +341,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   static_cast<void>(output_metadata);
@@ -389,7 +390,7 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
@@ -452,7 +453,7 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
 
 // SGD Optimizer
 void OptimizerSGDOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
@@ -491,7 +492,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
@@ -546,7 +547,7 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
@@ -632,7 +633,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
 }
 
 void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   PT_OTHER_OPS_BEGIN;
@@ -719,7 +720,7 @@ class OptimizerFusedLarsOperatorLazy : public OpBackend {
   }
   static OutputMetaDataVector OptimizerFusedLarsMeta(const at::Stack&);
 
-  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
+  void AddNode(sh::graph& graph, const at::Stack& stack) override;
 };
 
 OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
@@ -740,7 +741,7 @@ OutputMetaDataVector OptimizerFusedLarsOperatorLazy::OptimizerFusedLarsMeta(
 }
 
 void OptimizerFusedLarsOperatorLazy::AddNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const at::Stack& stack) {
   auto params = stack.at(1).toTensorList();
   auto grads = stack.at(0).toTensorList();
@@ -788,7 +789,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
         {{outshape, dtype}});
 
     std::vector<synTensor> reduction_inputs1 = {mul1[0].get()};
-    std::vector<synapse_helpers::tensor> reshape1;
+    std::vector<sh::tensor> reshape1;
 
     if (n_dims > 1) {
       auto reshape_outshape = grad.numel();
@@ -821,7 +822,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
         {{outshape, dtype}});
 
     std::vector<synTensor> reduction_inputs2 = {mul2[0].get()};
-    std::vector<synapse_helpers::tensor> reshape2;
+    std::vector<sh::tensor> reshape2;
 
     if (n_dims > 1) {
       auto reshape_outshape = grad.numel();

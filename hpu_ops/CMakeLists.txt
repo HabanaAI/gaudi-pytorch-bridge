@@ -170,6 +170,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/normal_gen.cpp
           backend/one_hot_gen.cpp
           backend/op_backend.cpp
+          backend/optimizer_adamw_gen.cpp
           backend/optimizer_ema_gen.cpp
           backend/optimizer_lamb_gen.cpp
           backend/optimizer_lars_gen.cpp

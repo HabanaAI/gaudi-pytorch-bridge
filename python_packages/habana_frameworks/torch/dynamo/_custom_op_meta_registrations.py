@@ -78,7 +78,9 @@ def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax):
 
 
 @register_meta([torch.ops.hpu.fp8_fast_softmax.default])
-def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax):
+def meta_fp8_fast_softmax(
+    input, mask, scale, softmax_scale, stochastic, is_amax
+):
     out = input.new_empty(input.shape, dtype=torch.int8)
     amax = input.new_empty((), dtype=torch.float32)
     return out, amax
@@ -118,7 +120,16 @@ def meta_fp8_gemm(
 
 @register_meta([torch.ops.hpu.fp8_gemm_v2.default])
 def meta_fp8_gemm_v2(
-    A, trans_A, B, trans_B, D, out_dtype, A_scale_inv, B_scale_inv, bias, accumulate
+    A,
+    trans_A,
+    B,
+    trans_B,
+    D,
+    out_dtype,
+    A_scale_inv,
+    B_scale_inv,
+    bias,
+    accumulate,
 ):
     batch_dims = A.dim() - 2
     dim_a = batch_dims + (A.shape[1] if trans_A else A.shape[0])
@@ -149,7 +160,9 @@ def meta_optimizer_lamb_fused_norm(grads, scale):
 
 
 @register_meta([torch.ops.hpu.optimizer_resource_apply_momentum.default])
-def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, momentum):
+def meta_optimizer_resource_apply_momentum(
+    params_momentum_buf_list, dp_list, momentum
+):
     return
 
 
@@ -169,6 +182,23 @@ def meta_optimizer_lamb_phase2(
 
 @register_meta([torch.ops.hpu.optimizer_ema.default])
 def meta_optimizer_optimizer_ema(model_inputs, updated_ema, decay):
+    return
+
+
+@register_meta([torch.ops.hpu.optimizer_adamw.default])
+def meta_optimizer_adamw(
+    gradient_vec,
+    weight_vec,
+    exp_avg_vec,
+    exp_avg_sq_vec,
+    lr,
+    neg_step_t,
+    beta1,
+    beta2,
+    epsilon,
+    weight_decay,
+    has_weight_decay,
+):
     return
 
 

@@ -867,6 +867,7 @@ RegisterKernel::add op = hpu::native_batch_norm_inf
 RegisterKernel::add op = hpu::native_batch_norm_training
 RegisterKernel::add op = hpu::nonzero
 RegisterKernel::add op = hpu::normal_
+RegisterKernel::add op = hpu::optimizer_adamw
 RegisterKernel::add op = hpu::optimizer_ema
 RegisterKernel::add op = hpu::optimizer_lamb_fused_norm
 RegisterKernel::add op = hpu::optimizer_lamb_phase1

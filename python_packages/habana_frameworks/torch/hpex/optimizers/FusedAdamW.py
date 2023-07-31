@@ -30,17 +30,25 @@ class FusedAdamW(Optimizer):
         bias_correction: bool = True,
     ):
         if lr < 0.0:
-            raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
+            raise ValueError(
+                "Invalid learning rate: {} - should be >= 0.0".format(lr)
+            )
         if not 0.0 <= betas[0] < 1.0:
             raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[0])
+                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(
+                    betas[0]
+                )
             )
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[1])
+                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(
+                    betas[1]
+                )
             )
         if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {} - should be >= 0.0".format(eps))
+            raise ValueError(
+                "Invalid epsilon value: {} - should be >= 0.0".format(eps)
+            )
         defaults = dict(
             lr=lr,
             betas=betas,
@@ -51,13 +59,14 @@ class FusedAdamW(Optimizer):
         super().__init__(params, defaults)
 
         self.neg_step_list = []
-
+        self.modified_wd_list = []
 
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
             result = step_func(*args, **kwargs)
             htcore.step_closure._mark_step_if_lazy()
             return result
+
         return wrap_
 
     @step_wrap
@@ -68,13 +77,12 @@ class FusedAdamW(Optimizer):
         Arguments:
             closure (:obj:`Callable`, `optional`): A closure that reevaluates the model and returns the loss.
         """
-        from habana_frameworks.torch import _hpex_C
-
         loss = None
         if closure is not None:
             loss = closure()
 
         self.neg_step_list.clear()
+        self.modified_wd_list.clear()
 
         for group in self.param_groups:
             htcore.step_closure._mark_step_if_lazy()
@@ -95,9 +103,13 @@ class FusedAdamW(Optimizer):
                 if len(state) == 0:
                     state["step"] = 0
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    state["exp_avg"] = (
+                        torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    )
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    state["exp_avg_sq"] = (
+                        torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    )
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -118,7 +130,9 @@ class FusedAdamW(Optimizer):
                 if "bias_correction" in group.keys():
                     bias_correction_key = "bias_correction"
                 else:
-                    print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
+                    print(
+                        "FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead"
+                    )
                     print("This might occur when loading old checkpoints.")
                     bias_correction_key = "correct_bias"
 
@@ -128,30 +142,47 @@ class FusedAdamW(Optimizer):
                 if bias_correction:
                     bias_correction1 = 1.0 - pow(beta1, group["step"])
                     bias_correction2 = 1.0 - pow(beta2, group["step"])
-                    step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
+                    step_size = (
+                        step_size
+                        * math.sqrt(bias_correction2)
+                        / bias_correction1
+                    )
 
                 neg_step = -step_size
-                neg_step_t = torch.tensor(
-                    [neg_step], dtype=torch.float, requires_grad=False
-                ).to(wt_list[0].dtype).to(wt_list[0].device, non_blocking=True)
+                neg_step_t = (
+                    torch.tensor(
+                        [neg_step], dtype=torch.float, requires_grad=False
+                    )
+                    .to(wt_list[0].dtype)
+                    .to(wt_list[0].device, non_blocking=True)
+                )
                 self.neg_step_list.append(neg_step_t)
 
                 # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
                 # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
                 # perform weight decay unconditonally.
-                modified_wd = 1.0 -group["weight_decay"]*group["lr"]
+                modified_wd = 1.0 - group["weight_decay"] * group["lr"]
 
-                _hpex_C.fused_adamw(
+                modified_wd_t = (
+                    torch.tensor(
+                        [modified_wd], dtype=torch.float, requires_grad=False
+                    )
+                    .to(wt_list[0].dtype)
+                    .to(wt_list[0].device, non_blocking=True)
+                )
+                self.modified_wd_list.append(modified_wd_t)
+
+                torch.ops.hpu.optimizer_adamw(
                     grad_list,
                     wt_list,
                     exp_avg_list,
                     exp_avg_sq_list,
-                    group["lr"],
                     neg_step_t,
                     beta1,
                     beta2,
                     group["eps"],
-                    modified_wd,
+                    modified_wd_t,
+                    modified_wd != 1.0,
                 )
 
         return loss

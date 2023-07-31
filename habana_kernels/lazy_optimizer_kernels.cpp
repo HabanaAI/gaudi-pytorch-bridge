@@ -81,16 +81,16 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
 }
 
 void optimizer_adamw_hpu_lazy(
-    const TensorList& gradients,
-    TensorList& weights,
-    TensorList& exp_avg,
-    TensorList& exp_avg_sq,
-    at::Tensor& lr_t,
-    at::Tensor& neg_step_t,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const float modified_wd) {
+    const at::TensorList gradients,
+    at::TensorList weights,
+    at::TensorList exp_avg,
+    at::TensorList exp_avg_sq,
+    const at::Tensor& neg_step_t,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const at::Tensor& modified_wd_t,
+    const bool is_wd_modified) {
   PT_LAZY_TRACE;
   std::vector<at::Tensor> gradients_v;
   std::vector<at::Tensor> weights_v;
@@ -108,14 +108,11 @@ void optimizer_adamw_hpu_lazy(
   handle_collective(weights_v);
   handle_collective(exp_avg_v);
   handle_collective(exp_avg_sq_v);
-  at::Tensor modified_wd_t = get_tensor_for_scalar(modified_wd);
 
-  bool is_wd_modified = modified_wd != 1.0;
   auto func = [gradients_v = std::move(gradients_v),
                weights_v = std::move(weights_v),
                exp_avg_v = std::move(exp_avg_v),
                exp_avg_sq_v = std::move(exp_avg_sq_v),
-               lr_t,
                neg_step_t,
                beta1,
                beta2,
@@ -127,7 +124,6 @@ void optimizer_adamw_hpu_lazy(
     TensorList exp_avg = exp_avg_v;
     TensorList exp_avg_sq = exp_avg_sq_v;
 
-    auto hl_lr_t = GetHbLazyTensor(lr_t);
     auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
     auto hl_modified_wd_t = GetHbLazyTensor(modified_wd_t);
 
@@ -136,7 +132,6 @@ void optimizer_adamw_hpu_lazy(
         weights,
         exp_avg,
         exp_avg_sq,
-        lr_t,
         neg_step_t,
         beta1,
         beta2,
@@ -182,7 +177,6 @@ void optimizer_adamw_hpu_lazy(
       weights,
       exp_avg,
       exp_avg_sq,
-      lr_t,
       neg_step_t,
       beta1,
       beta2,

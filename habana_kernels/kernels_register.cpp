@@ -836,53 +836,47 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
 }
 
 void optimizer_adamw_hpu_wrap(
-    const TensorList& gradient_vec,
-    TensorList& weight_vec,
-    TensorList& exp_avg_vec,
-    TensorList& exp_avg_sq_vec,
-    const float lr,
-    at::Tensor& neg_step_t,
-    const float beta1,
-    const float beta2,
-    const float epsilon,
-    const float weight_decay) {
+    const at::TensorList gradient_vec,
+    at::TensorList weight_vec,
+    at::TensorList exp_avg_vec,
+    at::TensorList exp_avg_sq_vec,
+    const at::Tensor& neg_step_t,
+    const double beta1,
+    const double beta2,
+    const double epsilon,
+    const at::Tensor& weight_decay,
+    const bool has_weight_decay) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
-      " gradient_vec=",
-      to_string(gradient_vec),
-      " weight_vec=",
-      to_string(weight_vec),
-      " exp_avg_vec=",
-      to_string(exp_avg_vec),
-      " exp_avg_sq_vec=",
-      to_string(exp_avg_sq_vec),
-      " lr=",
-      to_string(lr),
-      " neg_step_t",
-      to_string(neg_step_t),
-      " beta1",
-      to_string(beta1),
-      " beta2",
-      to_string(beta2),
-      " epsilon",
-      to_string(epsilon),
-      " weight_decay",
-      to_string(weight_decay));
-  TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
-  auto lr_t = get_tensor_for_scalar(lr);
+      DUMP_10ARGS(
+          gradient_vec,
+          weight_vec,
+          exp_avg_vec,
+          exp_avg_sq_vec,
+          neg_step_t,
+          beta1,
+          beta2,
+          epsilon,
+          weight_decay,
+          has_weight_decay));
+
+  TORCH_CHECK(
+      (weight_vec.size() > 0),
+      "optimizer_adamw : can not process empty weight vector");
+
   optimizer_adamw_hpu_lazy(
       gradient_vec,
       weight_vec,
       exp_avg_vec,
       exp_avg_sq_vec,
-      lr_t,
       neg_step_t,
       beta1,
       beta2,
       epsilon,
-      weight_decay);
+      weight_decay,
+      has_weight_decay);
 }
 
 Tensor fused_norm_hpu_wrap(
@@ -2205,7 +2199,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
   m.def(
-      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor(d!) lr_t, Tensor(e!) neg_step_t, float beta1, float beta2, float epsilon, Tensor(f!) weight_decay, bool is_wd_modified) -> ()");
+      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
+  m.def(
+      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(
@@ -2452,6 +2448,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_ema", optimizer_ema_hpu_wrap);
+  m.impl("hpu::optimizer_adamw", optimizer_adamw_hpu_wrap);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding_wrap);
   m.impl(
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
