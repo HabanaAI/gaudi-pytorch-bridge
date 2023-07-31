@@ -201,6 +201,8 @@ void ConvolutionOverrideable::AddNode(
   auto convOp =
       BuildOp(graph, guid, inputs, {node_output_attr}, params.get(), size);
 
+  SetSynapseLayouts({}, {});
+
   if (transposed && bias.defined()) {
     // Reshape bias to match to NCHW output format
     int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
