@@ -616,6 +616,7 @@ build_pytorch_fork()
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
     local __no_conda="false"
+    local __pytorch_next="false"
 
     # parameter while-loop
     while [ -n "$1" ];
@@ -663,6 +664,9 @@ build_pytorch_fork()
             __no_conda="true"
             __build_manylinux_whl="true"
             ;;
+        --pytorch-next )
+            __pytorch_next="true"
+            ;;
         -h  | --help )
             usage $__scriptname
             restore_python_version
@@ -702,7 +706,12 @@ build_pytorch_fork()
 
     unset CMAKE_ROOT  # we're using CMake from requirements files
 
-    pushd $PYTORCH_FORK_ROOT
+    local __pytorch_root=${PYTORCH_FORK_ROOT}
+
+    if [[ "z$__pytorch_next" == "ztrue" ]]; then
+        __pytorch_root=${PYTORCH_NEXT_ROOT}
+    fi
+    pushd $__pytorch_root
     git submodule sync
     __result=$?
     if [ $__result -ne 0 ]; then
@@ -788,10 +797,10 @@ build_pytorch_fork()
 
     if [ "z${__build_manylinux_whl}" == "ztrue" ];then
         __install_auditwheel
-        bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PYTORCH_FORK_ROOT/torch/lib;$__python_cmd $__auditwheel repair $PYTORCH_FORK_ROOT/dist/torch*.whl"
-        TORCH_WHL_PATH="$PYTORCH_FORK_ROOT/wheelhouse/"
+        bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
+        TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
     else
-        TORCH_WHL_PATH="$PYTORCH_FORK_ROOT/dist/"
+        TORCH_WHL_PATH="$__pytorch_root/dist/"
     fi
     if [ -n "$__debug" ]; then
        rm -rf $PYTORCH_FORK_DEBUG_BUILD/pkgs
