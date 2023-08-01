@@ -95,13 +95,7 @@ class HPURegistrar {
     }
 
    private:
-    /* TO DO
-       ENV flag PT_HPU_ENABLE_DETERMINISTIC_MODE will be removed
-       after model script migration to deterministic API.
-
-       bool deterministic_{false};
-    */
-    bool deterministic_ = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DETERMINISTIC_MODE);
+    bool deterministic_{false};
     std::mutex config_lock_{};
   };
 
