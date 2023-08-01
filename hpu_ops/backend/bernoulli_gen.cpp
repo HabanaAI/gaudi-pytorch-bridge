@@ -52,7 +52,7 @@ static auto bernoulli_impl(
 void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
   auto p = syn_in(0); // self is p
-  auto seed = syn_seed();
+  auto seed = stack[1].isTensor() ? syn_in(1) : syn_seed();
   syn_out(0) =
       std::move(bernoulli_impl(this, graph, p, seed, outshape, ScalarType()));
 }
@@ -75,15 +75,5 @@ void BernoulliWithP::AddNode(
   auto seed = syn_in(2);
   syn_out(0) =
       std::move(bernoulli_impl(this, graph, p, seed, outshape, ScalarType()));
-}
-
-void BernoulliWithScalarP::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto outshape = stack_tensor(stack, 0).sizes();
-  auto p = ConstantHelper(graph, stack.at(1).toScalar(), ScalarType());
-  auto seed = syn_seed();
-  syn_out(0) = std::move(
-      bernoulli_impl(this, graph, p.get(), seed, outshape, ScalarType()));
 }
 } // namespace habana

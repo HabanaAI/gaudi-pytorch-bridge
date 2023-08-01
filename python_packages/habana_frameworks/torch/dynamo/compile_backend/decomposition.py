@@ -65,6 +65,11 @@ def full_like(
     )
 
 
+@register_decomposition(torch.ops.aten.bernoulli.p, additional_decompositions)
+def bernoulli(input, p, *, generator=None):
+    return torch.bernoulli(torch.full_like(input, p), generator=generator)
+
+
 # These are OPs that are decomposed by default in core aten list, but we support them natively so
 # we prefer them not being decomposed.
 exclusions = [

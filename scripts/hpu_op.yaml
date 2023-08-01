@@ -1392,18 +1392,10 @@ bernoulli:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: random_bernoulli_fwd
+  op_frontend: GeneratorToSeed
   op_backend: Bernoulli
   out_ids: [0]
-
-bernoulli.p:
-  force_default: false
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  guid: random_bernoulli_fwd
-  op_backend: BernoulliWithScalarP
-  out_ids: [0]
+  schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
 
 bernoulli_.float:
   dtypes:
