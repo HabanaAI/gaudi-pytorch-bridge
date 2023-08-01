@@ -287,10 +287,6 @@ def main(args):
 
     if args.device == 'hpu' and not args.run_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "2"
-    if args.is_hmp:
-        from habana_frameworks.torch.hpex import hmp
-        hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
-                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     if args.apex:
         if sys.version_info < (3, 0):
@@ -627,11 +623,6 @@ def parse_args():
     mixed_precision_group = parser.add_mutually_exclusive_group()
     mixed_precision_group.add_argument('--autocast', dest='is_autocast',
                                        action='store_true', help='enable autocast mode on Gaudi')
-    mixed_precision_group.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
-    parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
-    parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
-    parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
-    parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     parser.add_argument('--synthetic-data', action="store_true",
                         help='If enabled, uses random data as image input and target instead of imagenet data set'
                         'Use associated env vars to set dataset size/num classes if necessary')

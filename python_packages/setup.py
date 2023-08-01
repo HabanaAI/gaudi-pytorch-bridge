@@ -61,8 +61,6 @@ setup(
     version=get_version(),
     zip_safe=False,
     packages=find_namespace_packages(include=["habana_frameworks.*", "torch_hpu"]),
-    package_data={
-        "habana_frameworks.torch.hpex.hmp": ["*.txt"]},
     ext_modules=[
         PrebuiltPtExtension("habana_frameworks.torch", modules_build_dir)],
     cmdclass={"build_ext": InstallHeaders,
