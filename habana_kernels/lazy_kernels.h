@@ -881,7 +881,7 @@ class LazyOp {
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
+          GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
           info_to_lazy_backend) {
         info_to_lazy_backend->set_out_shapes({out_shape});
       }
@@ -975,7 +975,7 @@ class LazyOp {
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
+          GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
           info_to_lazy_backend) {
         info_to_lazy_backend->set_out_shapes({out_shape});
       }

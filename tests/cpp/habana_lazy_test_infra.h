@@ -177,15 +177,15 @@ class EnvHelper {
 
   void EnableShapeAgnostic() {
     m_shape_agnostic_enable =
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH);
+        GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH);
     if (!m_shape_agnostic_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, true, 1);
+      SET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH, true, 1);
     }
   }
 
   void RestoreShapeAgnostic() {
     if (!m_shape_agnostic_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH, false, 1);
+      SET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH, false, 1);
     }
   }
 

@@ -1088,7 +1088,7 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
     optimized_path_jit_ir_and_mdata->SetHPUStream(stream_info.stream);
     if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-        GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+        GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
       // Setting output shapes for the lazy eager shape agnostic graph
       optimized_path_jit_ir_and_mdata->set_output_shapes(
           lazy_eager_info.out_shapes);
@@ -1137,7 +1137,7 @@ void LaunchSyncTensorsGraph(
         launch_info.hlexec.GetOrCreate(launch_info.po_data, launch_info.stack);
 
         if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-            GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+            GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
           // Setting output shapes for the lazy eager shape agnostic graph
           launch_info.hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(
               lazy_eager_info.out_shapes);
@@ -1321,7 +1321,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   std::vector<std::vector<int64_t>> out_shapes{};
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
     if (lazyFrontEndInfo && lazyFrontEndInfo->get_out_shapes().size()) {
       out_shapes = lazyFrontEndInfo->get_out_shapes();
       PT_LAZY_EAGER_DEBUG(
@@ -1423,7 +1423,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       hlexec.GetOrCreate(po_data, stack);
 
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-          GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+          GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
         // Setting output shapes for the lazy eager shape agnostic graph
         hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
       }

@@ -209,10 +209,18 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_caching_ = enable_graph_caching_ || enable_eager_caching_;
 
+  // Eager compiler is supported for Gaudi2 device.
+  const auto& device = HPURegistrar::get_device();
+  const bool is_eager_compiler_enabled = device.type() != synDeviceGaudi &&
+      jit_graph_and_meta_data->get_is_eager_compiler_supported() &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER);
+
+  // Enable shape agnostic caching when in eager mode of execution and
+  // eager compiler is supported and enabled and recipe cache is disabled
   enable_shape_agnostic_caching_ =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
-      !enable_caching_;
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
+      is_eager_compiler_enabled && !enable_caching_;
 
   HABANA_ASSERT(
       !(enable_caching_ && enable_shape_agnostic_caching_),
@@ -874,13 +882,22 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       // created as persistent. Patching table needs to be updated accordingly
       // for such tensors.
       if (use_persistent_tensors || out_tensor_syn.is_persistent()) {
-        auto ti = ProcessPersistentNodeOutput(
-            ivpsh, output_nodes[output_nodes_idx], out_tensor_syn);
+        const auto& out_val = output_nodes[output_nodes_idx];
+        auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
 
         handle_permutes(ti, out_tensor_syn, ivpsh);
 
+        // persistent intermediate synapse tensor i.e. out_tensor_syn
+        if (false == isInGraphOutputs(out_val)) {
+          intermediate_syn_tensors_count++;
+        }
+        // Add node output tinfo i.e. graph output for multiple nodes graph
+        // to get shape via shape inference, for ex strided insert
+        // ToDo: Fix output shape info from frontend for strided insert
+        //       when adding node params patching support.
         constexpr bool use_output_shape = true;
-        constexpr bool shape_agn_flag = false;
+        bool shape_agn_flag = enable_shape_agnostic_caching_ &&
+            (intermediate_syn_tensors_count > 0);
         handle_shape_inf(ti, use_output_shape, shape_agn_flag);
       } else if (enable_shape_agnostic_caching_) {
         // For shape agnostic flow for eager we need non-persistent info as well
@@ -894,6 +911,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         constexpr bool use_output_shape = true;
         handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
         non_persistent_intermediate_tinfos.emplace_back(ti);
+        // non-persistent intermediate synapse tensor
+        intermediate_syn_tensors_count++;
       }
 
       handle_postprocess(
@@ -3173,7 +3192,7 @@ void RecipeValueSpec::create_outdup(
       " duplicate output HbInternal address : %s  storage address : %s",
       habana_helpers::FormatTokens::ImplPtr,
       habana_helpers::FormatTokens::DataPtr);
-  ti.patch(pt_outdup);
+  ti.patch(pt_outdup, is_shape_agnostic_graph);
 
   IValPtrShared ivpsh = std::make_shared<IVal>(pt_outdup);
   aten_outputs->at(output_idx) = ivpsh;
@@ -3227,6 +3246,9 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
   // Validate if output shapes are filled correctly otherwise we can not
   // support shape agnostic graph caching.
   for (auto shape : out_shapes) {
+    // Check for ZST tensor, It is supported for SAG, To Do proper fix
+    if (shape.size() == 1 && shape[0] == 0)
+      continue;
     for (auto size : shape) {
       if (size == 0) {
         jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
@@ -3682,10 +3704,41 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr->get_num_of_nodes());
       }
 
+      /*
+       * Check for non-persistent syn tensors (i.e. added with in habana kernel)
+       * Example Gelu Pytorch Op is unary kernel i.e. 1 input and 1 input
+       * But TPC kernel has two outputs second output is internal to synapse
+       * i.e. non-persitent and is reserved for backward pass calculation.
+       *
+       * Adding fallback for such cases.
+       * This fallback should not occur with views as of today sizes/strides
+       * are cached. Need to fix once params agnostic support is added.
+       * To remove this fallback once shape inference is supported for
+       * non-persistent synapse tensors.
+       */
+      if (jit_graph_and_meta_data->get_is_shape_agnostic_supported() &&
+          ((syn_graph_ptr->get_num_of_tensors() -
+            syn_graph_ptr->get_num_of_const_tensors()) !=
+           pt_to_synapse_tensors.size())) {
+        jit_graph_and_meta_data->set_is_shape_agnostic_supported(false);
+        PT_EAGER_DEBUG(
+            "[SHAPE AGNOSTIC] Shape agnostic not supported for non-persistent"
+            " total number of syn tensors : ",
+            syn_graph_ptr->get_num_of_tensors(),
+            " number of const tensors : ",
+            syn_graph_ptr->get_num_of_const_tensors(),
+            " number of persistent tensors : ",
+            pt_to_synapse_tensors.size(),
+            " number of syn nodes : ",
+            syn_graph_ptr->get_num_of_nodes());
+      }
+
       PT_EAGER_DEBUG(
           "[SHAPE AGNOSTIC] Shape agnostic SIF tinfo map size : ",
-          sif_tidx_to_tinfo_map.size());
-      syn_graph_ptr->set_num_of_inter_tensors(sif_tidx_to_tinfo_map.size());
+          sif_tidx_to_tinfo_map.size(),
+          " intermediate tensors size : ",
+          intermediate_syn_tensors_count);
+      syn_graph_ptr->set_num_of_inter_tensors(intermediate_syn_tensors_count);
 
       if (eager_mode &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
@@ -3771,6 +3824,10 @@ void HabanaLaunchOpPT::run(
       auto new_eager_mode =
           (jit_graph_and_meta_data->GetFrontendType() ==
            habana_helpers::HabanaFrontendTypes::EAGER);
+
+      for (const auto& out_shape : out_shapes) {
+        PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output shape - ", out_shape);
+      }
 
       /*
        * Hybrid SIF is used for shape inference for intermediate tensors

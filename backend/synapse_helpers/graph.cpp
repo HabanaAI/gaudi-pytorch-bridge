@@ -384,7 +384,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
 
-  if (eager_mode_ && GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+  if (eager_mode_ && is_shape_agnostic_graph_) {
     status = synGraphCompile(
         &recipe_handle->syn_recipe_handle_,
         duplicate_graph_handle_,

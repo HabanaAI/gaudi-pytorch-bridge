@@ -953,7 +953,8 @@ void RecipeValueSpec::update_patching_table(
       std::tie(permutation, dont_allow_permutation) =
           habana_helpers::get_tensor_memory_permutation(tensor);
       if (false == tmeta->is_shape_tensor()) {
-        dtensorinfos->at(ridx)->patch_exact(input.toTensor());
+        dtensorinfos->at(ridx)->patch_exact(
+            input.toTensor(), is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
@@ -972,7 +973,7 @@ void RecipeValueSpec::update_patching_table(
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {
-        dtensorinfos->at(ridx)->patch_exact(t);
+        dtensorinfos->at(ridx)->patch_exact(t, is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
         synapse_helpers::layouts::MemoryPermutation permutation;
@@ -1011,7 +1012,7 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < induplicates_index_end; ridx++) {
       size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
       auto parent_ti = dtensorinfos->at(parent_idx);
-      dtensorinfos->at(ridx)->patch(*parent_ti);
+      dtensorinfos->at(ridx)->patch(*parent_ti, is_shape_agnostic_graph);
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
           parent_idx,
@@ -1243,7 +1244,7 @@ void RecipeValueSpec::update_patching_table(
         ridx,
         " output tensor storage data pointer : ",
         pt_output.storage().data_ptr().get());
-    ti.patch(pt_output);
+    ti.patch(pt_output, is_shape_agnostic_graph);
   }
 
   PT_EAGER_DEBUG(

@@ -210,3 +210,194 @@ TEST_F(ShapeAgnosticTest, ScalarAdd) {
     EXPECT_EQ(allclose(B, hB.cpu(), 0, 0), true);
   }
 }
+
+TEST_F(ShapeAgnosticTest, ResizeZST) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor input = torch::randn(
+          {in_shapes[i], in_shapes[i]}, torch::dtype(torch::kFloat));
+      // empty zst tensors
+      torch::Tensor values = torch::empty(0, torch::dtype(torch::kFloat));
+      torch::Tensor indices = torch::empty(0, torch::dtype(torch::kLong));
+
+      auto input_hpu = input.to(torch::kHPU);
+      auto indices_hpu = indices.to(torch::kHPU);
+      auto values_hpu = values.to(torch::kHPU);
+
+      torch::zero_(values);
+      torch::zero_(indices);
+      torch::median_outf(input, 0, false, values, indices);
+
+      // InplaceOut -> torch.median(input, 0, out=(values, indices))
+      // resize is called on zst tensors
+      torch::zero_(values_hpu);
+      torch::zero_(indices_hpu);
+      torch::median_outf(input_hpu, 0, false, values_hpu, indices_hpu);
+
+      EXPECT_EQ(allclose(indices, indices_hpu.cpu(), 0.01, 0.01), true);
+      EXPECT_EQ(allclose(values, values_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, CopyD2HView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 =
+          torch::arange(in_shapes[i], torch::dtype(torch::kInt32));
+      // non contiguous view
+      auto in1 = in0.as_strided({4, 4}, {1, 4}, 0);
+
+      // .cpu() -> calls strided_view + copy D2H
+      auto in0_hpu = in0.to(torch::kHPU);
+      auto in1_cpu = in0_hpu.as_strided({4, 4}, {1, 4}, 0).cpu();
+
+      EXPECT_EQ(allclose(in1, in1_cpu, 0, 0), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, CopyH2DView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      // input is non contiguous view
+      torch::Tensor in0 =
+          torch::arange(in_shapes[i], torch::dtype(torch::kInt32))
+              .as_strided({4, 4}, {1, 4}, 0);
+
+      // .hpu() -> calls copy H2D + strided_insert
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      // .cpu() -> calls strided_view + copy D2H
+      auto in0_cpu = in0_hpu.to(torch::kCPU);
+
+      EXPECT_EQ(allclose(in0, in0_cpu, 0, 0), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, CopyD2DView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      // input is non contiguous view
+      torch::Tensor in0 =
+          torch::arange(in_shapes[i], torch::dtype(torch::kInt32))
+              .as_strided({4, 4}, {1, 4}, 0);
+
+      // .hpu() -> calls copy H2D + strided_insert
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      // clone() -> calls D2D copy with strided_insert
+      auto in1_hpu = in0_hpu.clone();
+
+      EXPECT_EQ(allclose(in0, in1_hpu.cpu(), 0, 0), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, CopyD2DOffsetView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    std::vector<int> in_offsets = {4, 8};
+
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 =
+          torch::arange(in_shapes[i], torch::dtype(torch::kInt32));
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      // contiguous view with offset
+      auto in1 = in0.as_strided({in_offsets[i]}, {1}, in_offsets[i]);
+      auto in1_hpu = in0_hpu.as_strided({in_offsets[i]}, {1}, in_offsets[i]);
+
+      // clone copies to new tensor w.r.t offset
+      // shape agnostic cache hit for copy takes care of new offset
+      auto in2_hpu = in1_hpu.clone();
+
+      EXPECT_EQ(allclose(in1, in2_hpu.cpu(), 0, 0), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, AddView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 = torch::randn({in_shapes[i]});
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      auto in1 = in0.as_strided({4, 4}, {1, 4}, 0);
+      in1.add_(1.0);
+
+      // graph -> strided_view + add + strided_insert
+      auto in1_hpu = in0_hpu.as_strided({4, 4}, {1, 4}, 0);
+      in1_hpu.add_(1.0);
+
+      EXPECT_EQ(allclose(in1, in1_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, Gelu) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto input = torch::randn({in_shapes[i]}, torch::dtype(torch::kFloat));
+      auto input_hpu = input.to(torch::kHPU);
+
+      auto output = torch::empty(0, torch::dtype(torch::kFloat));
+      auto output_hpu = output.to(torch::kHPU);
+
+      torch::gelu_outf(input, "tanh", output);
+      torch::gelu_outf(input_hpu, "tanh", output_hpu);
+
+      EXPECT_EQ(allclose(output, output_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, GeluView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {32, 64};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 = torch::randn({in_shapes[i]});
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      auto in1 = in0.as_strided({4, 4}, {1, 4}, 0);
+      in1 = torch::gelu_(in1);
+
+      // graph -> strided_view + gelu_ + strided_insert
+      auto in1_hpu = in0_hpu.as_strided({4, 4}, {1, 4}, 0);
+      in1_hpu = torch::gelu_(in1_hpu);
+
+      EXPECT_EQ(allclose(in1, in1_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}

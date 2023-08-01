@@ -130,9 +130,12 @@ at::Tensor _copy_from_d2h(
       .JoinPendingLoweringThread();
   if (is_view_op_needed(self)) {
     auto base = habana::eager::create_base(self);
+    constexpr int out_index = 0;
     habana::eager::EagerOp<at::Tensor> hpu_op{
         "aten::as_strided",
-        {base, self.sizes(), self.strides(), self.storage_offset()}};
+        {base, self.sizes(), self.strides(), self.storage_offset()},
+        {self.sizes().vec()},
+        out_index};
     hpu_op.dont_preallocate_outputs();
     self_ = hpu_op.call();
     // restride cpu tensor since synapse will always return contiguous tensor

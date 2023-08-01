@@ -184,24 +184,32 @@ class PtTensorInfo {
   // Note :
   //   For inputs both storage and data ptrs are updated.
   //   For the rest of the tensors offset will be used to calculate the buffer.
-  void patch_exact(const at::Tensor& pt_tensor) {
+  void patch_exact(
+      const at::Tensor& pt_tensor,
+      bool skip_offset_check = false) {
     buffer_ = pt_tensor.data_ptr();
     buffer_start_ = pt_tensor.storage().data_ptr().get();
     auto new_offset = get_buffer_syn() - get_buffer_start_syn();
     TORCH_CHECK(
-        offset_ == new_offset,
+        skip_offset_check || offset_ == new_offset,
         "offset_ ",
         offset_,
         "is not matching with the offset of new tensor ",
         new_offset);
   }
-  void patch(const PtTensorInfo& t) {
+  void patch(const PtTensorInfo& t, bool skip_offset_check = false) {
     buffer_start_ = t.buffer_start_;
-    buffer_ = (void*)(get_buffer_start_syn() + offset_);
+    if (!skip_offset_check)
+      buffer_ = (void*)(get_buffer_start_syn() + offset_);
+    else
+      buffer_ = t.buffer_;
   }
-  void patch(const at::Tensor& pt_tensor) {
+  void patch(const at::Tensor& pt_tensor, bool skip_offset_check = false) {
     buffer_start_ = pt_tensor.storage().data_ptr().get();
-    buffer_ = (void*)(get_buffer_start_syn() + offset_);
+    if (!skip_offset_check)
+      buffer_ = (void*)(get_buffer_start_syn() + offset_);
+    else
+      buffer_ = pt_tensor.data_ptr();
   }
 
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);

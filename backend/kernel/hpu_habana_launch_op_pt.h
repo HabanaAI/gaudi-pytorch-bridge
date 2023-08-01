@@ -372,6 +372,10 @@ class HabanaLaunchOpPT {
 
   std::optional<std::vector<at::Tensor>> allocated_outputs_;
 
+  // Count for intermediate synapse tensors in a graph
+  // intermediates syn tensors can be both persistent and non-persistent
+  int64_t intermediate_syn_tensors_count{0};
+
   // Utilies for marking constant tensors in JIT graph as consts in
   // Synapse graph. It works when parameter marking is done
   // from the model
