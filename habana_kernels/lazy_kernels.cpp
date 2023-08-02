@@ -4671,9 +4671,7 @@ at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   RUN_MAYBE_WITH_ACC_THREAD(repeat, k)
 }
 
-at::Tensor repeat_hpu_lazy(
-    const at::Tensor& self,
-    at::SymIntArrayRef _repeats) {
+at::Tensor repeat_hpu(const at::Tensor& self, at::SymIntArrayRef _repeats) {
   PT_LAZY_TRACE;
   auto repeats = C10_AS_INTARRAYREF_SLOW(_repeats);
   if (habana_helpers::GetRefineDynamicShapeStatus()) {

@@ -319,7 +319,7 @@ at::Tensor& bernoulli_scalar_hpu_lazy(
     at::Tensor& self,
     double p,
     c10::optional<at::Generator> gen = c10::nullopt);
-at::Tensor repeat_hpu_lazy(const at::Tensor& self, c10::SymIntArrayRef repeats);
+at::Tensor repeat_hpu(const at::Tensor& self, c10::SymIntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);

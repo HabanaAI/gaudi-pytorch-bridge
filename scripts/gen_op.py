@@ -1448,6 +1448,7 @@ eager_ops_override_fns_whitelist = [
     "set_source_Storage_storage_offset",
     "view_hpu",
     "_local_scalar_dense_hpu",
+    "repeat_hpu",
 ]
 
 eager_custom_frontends_whitelist = [
@@ -1778,6 +1779,7 @@ non_mandatory_ops_whitelist = [
     "convolution_backward_overrideable",
     "is_pinned",
     "native_layer_norm",
+    "repeat",
 ]
 
 

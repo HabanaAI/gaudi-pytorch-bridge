@@ -5568,7 +5568,7 @@ repeat:
     Gaudi: [BFloat16, Float, Int, Char]
     Gaudi2: [BFloat16, Float, Int, Half, Char]
     Gaudi3: [BFloat16, Float, Int, Half, Char]
-  override_fn: repeat_hpu_lazy
+  override_fn: repeat_hpu
   acc_thread: true
 
 replication_pad1d:

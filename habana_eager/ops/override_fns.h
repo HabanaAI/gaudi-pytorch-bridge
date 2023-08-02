@@ -16,5 +16,6 @@
 #include "complex.h"
 #include "copy_from.h"
 #include "local_scalar_dense.h"
+#include "repeat.h"
 #include "set.h"
 #include "view.h"
