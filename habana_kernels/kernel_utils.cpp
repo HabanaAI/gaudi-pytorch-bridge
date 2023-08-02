@@ -25,7 +25,6 @@
 #include "habana_kernels/compare_kernels.h"
 #include "hpu_ops/lazy_cast.h"
 #include "kernel_utils.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 #include <string_view>
 
@@ -151,19 +150,34 @@ static auto get_platform_cast_map() {
       break;
   }
 
-#if HAVE_FP8R152_SUPPORT
+#if HAVE_FP8_SUPPORT
   if (synapse_helpers::device_supports_fp8(type)) {
-    // fp8r152
+    // float8_e5m2
     cast_map.insert(
-        {{c10::ScalarType::Float, c10::ScalarType::Fp8r152}, "cast_f32_to_f8"});
+        {{c10::ScalarType::Float, c10::ScalarType::Float8_e5m2},
+         "cast_f32_to_f8"});
     cast_map.insert(
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Fp8r152},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e5m2},
          "cast_bf16_to_f8"});
     cast_map.insert(
-        {{c10::ScalarType::Fp8r152, c10::ScalarType::Float}, "cast_f8_to_f32"});
+        {{c10::ScalarType::Float8_e5m2, c10::ScalarType::Float},
+         "cast_f8_to_f32"});
     cast_map.insert(
-        {{c10::ScalarType::Fp8r152, c10::ScalarType::BFloat16},
+        {{c10::ScalarType::Float8_e5m2, c10::ScalarType::BFloat16},
          "cast_f8_to_bf16"});
+    // float8_e4m3fn
+    cast_map.insert(
+        {{c10::ScalarType::Float, c10::ScalarType::Float8_e4m3fn},
+         "cast_f32_to_hf8"});
+    cast_map.insert(
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float8_e4m3fn},
+         "cast_bf16_to_hf8"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::Float},
+         "cast_hf8_to_f32"});
+    cast_map.insert(
+        {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::BFloat16},
+         "cast_hf8_to_bf16"});
   }
 #endif
   return cast_map;

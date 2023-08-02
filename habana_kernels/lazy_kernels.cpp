@@ -6412,22 +6412,6 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res_vec)
 }
 
-#if HAVE_FP8R152_SUPPORT
-at::Tensor habana_cast_to_fp8_lazy(
-    const at::Tensor& input,
-    bool stochastic_rounding,
-    int seed) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k_{
-      "hpu::habana_cast_sr_mode",
-      {input, c10::ScalarType::Fp8r152, stochastic_rounding, seed},
-      {input.sizes().vec()}};
-  k_.set_scalar_types({c10::ScalarType::Fp8r152});
-  RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8, k_)
-}
-#endif
-
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

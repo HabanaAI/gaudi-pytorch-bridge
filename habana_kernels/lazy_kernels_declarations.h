@@ -588,12 +588,6 @@ std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
     const c10::optional<at::Tensor>& bias_opt,
     const c10::optional<at::Tensor>& bias_grad_opt = c10::nullopt,
     const c10::optional<at::ScalarType> dtype = c10::nullopt);
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-at::Tensor habana_cast_to_fp8_lazy(
-    const at::Tensor& input,
-    bool stochastic_rounding,
-    int seed);
-#endif
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

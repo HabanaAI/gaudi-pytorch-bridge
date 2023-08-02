@@ -250,11 +250,6 @@ void dumpEnvSettings() {
           "Wrong PT plugin library loaded in the system. Expected LAZY, got EAGER.");
     }
 
-    if (GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) {
-      PT_BRIDGE_WARN(
-          "PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING is enabled. Casts to torch.fp8 will be executed "
-          "in stochastic rounding mode.");
-    }
     auto keep_input_mutations = std::getenv("PT_HPU_KEEP_INPUT_MUTATIONS");
     if (keep_input_mutations) {
       std::clog << " PT_HPU_KEEP_INPUT_MUTATIONS = " << keep_input_mutations

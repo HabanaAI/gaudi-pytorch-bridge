@@ -21,6 +21,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/logging_pt.h"
@@ -29,8 +30,6 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/hlexec.h"
-#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 using namespace torch;
 using namespace habana;
@@ -297,8 +296,9 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::Short:
     case c10::ScalarType::Bool:
     case c10::ScalarType::Half:
-#if HAVE_FP8R152_SUPPORT
-    case c10::ScalarType::Fp8r152:
+#if HAVE_FP8_SUPPORT
+    case c10::ScalarType::Float8_e5m2:
+    case c10::ScalarType::Float8_e4m3fn:
 #endif
       return true;
     default:

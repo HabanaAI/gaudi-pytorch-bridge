@@ -785,31 +785,8 @@ sh::tensor OpBackend::BuildCast(
         habana_helpers::CastTypeToDataType(cast_sequence.at(i).to_);
     const auto cast_guid = BuildCastGuid(src, dst);
 
-    c10::variant<ns_CastKernel::Params, ns_CastKernel::ParamsV2> params;
-
-#if HAVE_FP8R152_SUPPORT
-    bool use_explicit_seed = (0 != sr_seed) && to == at::kFp8r152;
-#else
-    bool use_explicit_seed = false;
-#endif
-
-    if (use_explicit_seed) {
-      // Usage of ParamsV2 type induces explicit seed mode in TPC
-      params.emplace<ns_CastKernel::ParamsV2>();
-      c10::get<ns_CastKernel::ParamsV2>(params).seed = sr_seed;
-    } else {
-      params.emplace<ns_CastKernel::Params>();
-    }
-
-    void* params_ptr = c10::visit(
-        [to, stochastic_rounding_override](auto& var) {
-          var.round_mode = habana_helpers::get_cast_rounding_mode(
-              to, stochastic_rounding_override);
-          return reinterpret_cast<void*>(&var);
-        },
-        params);
-    size_t params_size =
-        c10::visit([](const auto& var) { return sizeof(var); }, params);
+    ns_CastKernel::Params params;
+    params.round_mode = habana_helpers::get_cast_rounding_mode(to);
 
     auto is_last = (i + 1) == cast_sequence.size();
     auto output_index = is_last ? final_result_index : c10::nullopt;
@@ -817,8 +794,8 @@ sh::tensor OpBackend::BuildCast(
         cast_guid,
         {*input},
         {{sizes, dst, output_index}},
-        params_ptr,
-        params_size};
+        &params,
+        sizeof(params)};
     auto cast = BuildNode(op, graph, std::move(castnode));
     casts.emplace_back(std::move(cast.at(0)));
     input = &casts.back().get();

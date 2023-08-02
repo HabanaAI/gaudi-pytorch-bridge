@@ -21,10 +21,10 @@
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 
 #include "backend/helpers/graph.h"
-#include "habana_helpers/pt_version_check.h"
 
 #include "backend/helpers/tensor_utils.h"
 
@@ -682,8 +682,9 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
       return false;
     }
-#if HAVE_FP8R152_SUPPORT
-    case c10::ScalarType::Fp8r152: {
+#if HAVE_FP8_SUPPORT
+    case c10::ScalarType::Float8_e5m2:
+    case c10::ScalarType::Float8_e4m3fn: {
       return synapse_helpers::device_supports_fp8(
           habana::HPURegistrar::get_device().type());
     }

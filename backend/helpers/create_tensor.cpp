@@ -20,6 +20,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/lazy_to_backend.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
@@ -856,8 +857,9 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
         {c10::ScalarType::Double, synDataType::syn_type_float},
         {c10::ScalarType::Bool, synDataType::syn_type_int8},
         {c10::ScalarType::BFloat16, synDataType::syn_type_bf16},
-#if HAVE_FP8R152_SUPPORT
-        {c10::ScalarType::Fp8r152, synDataType::syn_type_fp8_152},
+#if HAVE_FP8_SUPPORT
+        {c10::ScalarType::Float8_e5m2, synDataType::syn_type_fp8_152},
+        {c10::ScalarType::Float8_e4m3fn, synDataType::syn_type_fp8_143},
 #endif
   };
 

@@ -678,6 +678,9 @@ synapse_error_v<std::string_view> graph::name_suffix_from_type(
     case synDataType::syn_type_fp8_152: {
       return "f8"sv;
     }
+    case synDataType::syn_type_fp8_143: {
+      return "hf8"sv;
+    }
     case synDataType::syn_type_int8: {
       return "i8"sv;
     }

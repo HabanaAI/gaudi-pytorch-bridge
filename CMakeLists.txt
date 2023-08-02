@@ -393,10 +393,6 @@ if (BUILD_PKGS)
     habana_frameworks/torch/hpex/csrc/embedding_bag_preproc_main.cpp
     habana_frameworks/torch/hpex/csrc/embedding_bag_preproc.cpp
     habana_frameworks/torch/hpex/csrc/radix_sort.h
-    habana_frameworks/torch/hpex/experimental/fp8_autocast/__init__.py
-    habana_frameworks/torch/hpex/experimental/fp8_autocast/Fp8Autocast.py
-    habana_frameworks/torch/hpex/experimental/fp8_autocast/LinearFp8.py
-    habana_frameworks/torch/hpex/experimental/fp8_autocast/MatmulFp8.py
     habana_frameworks/torch/hpex/hmp/__init__.py
     habana_frameworks/torch/hpex/hmp/config.py
     habana_frameworks/torch/hpex/hmp/hmp.py
@@ -408,7 +404,6 @@ if (BUILD_PKGS)
     habana_frameworks/torch/hpex/hmp/ops_multi_inputs.txt
     habana_frameworks/torch/hpex/hmp/utils.py
     habana_frameworks/torch/hpex/kernels/__init__.py
-    habana_frameworks/torch/hpex/kernels/CastToFp8.py
     habana_frameworks/torch/hpex/kernels/CustomNms.py
     habana_frameworks/torch/hpex/kernels/CustomRoiAlign.py
     habana_frameworks/torch/hpex/kernels/EmbeddingBag.py

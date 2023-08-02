@@ -30,6 +30,7 @@ namespace habana_helpers {
   ENTRY( i64)                                 \
   ENTRY(  u8)                                 \
   ENTRY(  f8)                                 \
+  ENTRY( hf8)                                 \
   ENTRY(fp16)
 // clang-format on
 
@@ -56,7 +57,5 @@ at::ScalarType CastTypeToDataType(CastType ct);
 
 std::vector<CastTypes> get_cast_sequence(CastTypes cast_types);
 
-CastF32RoundMode_t get_cast_rounding_mode(
-    c10::ScalarType dst_dtype,
-    const bool stochastic_rounding_override = false);
+CastF32RoundMode_t get_cast_rounding_mode(c10::ScalarType dst_dtype);
 } // namespace habana_helpers

@@ -1129,29 +1129,6 @@ Tensor batched_nms_hpu_wrap(
   return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
 }
 
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-Tensor habana_cast_to_fp8_wrap(
-    const at::Tensor& input,
-    bool stochastic_rounding,
-    int seed) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " habana_cast_to_fp8:",
-      " input=",
-      to_string(input),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding),
-      ", seed=",
-      to_string(seed));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return habana_cast_to_fp8_lazy(input, stochastic_rounding, seed);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
-}
-#endif
-
 std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

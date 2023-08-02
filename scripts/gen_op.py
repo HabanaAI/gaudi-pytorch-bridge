@@ -1900,9 +1900,6 @@ def generate_dtype_macro(dtypes, check_implicit_types=True):
                     "dtype, Double is added as a supported dtype by the script."
                 )
 
-            # TODO: Workaround for Fp8r152 in upstream. Needs to be fixed elsewhere.
-            if Version(torch.__version__) > Version("1.13") and "Fp8r152" in dtypes:
-                dtypes.remove("Fp8r152")
             if "Float" in dtypes and "Double" not in dtypes:
                 dtypes.append("Double")
             if "Char" in dtypes and "Bool" not in dtypes:

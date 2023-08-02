@@ -15,8 +15,9 @@
 #include <ATen/Tensor.h>
 #include <c10/core/DefaultDtype.h>
 #include "backend/helpers/get_n_bytes.h"
-#ifndef HAVE_FP8R152_SUPPORT
-#define HAVE_FP8R152_SUPPORT IS_PYTORCH_FORK_AT_LEAST(1, 0)
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#ifndef HAVE_FP8_SUPPORT
+#define HAVE_FP8_SUPPORT IS_PYTORCH_FORK_AT_LEAST(1, 1)
 #endif
 
 namespace habana_helpers {

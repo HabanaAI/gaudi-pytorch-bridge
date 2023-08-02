@@ -1803,8 +1803,8 @@ bmm:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Fp8r152]
-    Gaudi3: [BFloat16, Float, Half, Fp8r152]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
   out_ids: [0]
@@ -1813,8 +1813,8 @@ bmm:
 bmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Fp8r152]
-    Gaudi3: [BFloat16, Float, Half, Fp8r152]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
   # op_validator: check-node-with-shared-layer
@@ -4660,8 +4660,8 @@ mm:
   force_default: false
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Fp8r152]
-    Gaudi3: [BFloat16, Float, Half, Fp8r152]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: gemm
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
@@ -4671,8 +4671,8 @@ mm.out:
   custom_output_shape: MmOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Fp8r152]
-    Gaudi3: [BFloat16, Float, Half, Fp8r152]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: gemm
   # op_validator: check-node-with-shared-layer
 

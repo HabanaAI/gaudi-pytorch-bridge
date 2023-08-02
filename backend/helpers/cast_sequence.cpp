@@ -16,7 +16,7 @@
 
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/enum_mapping_table.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 namespace habana_helpers {
 
@@ -71,75 +71,91 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // ======== gaudi2 ========
 
   // cast
-  // fr/to f32 bf16 i8 i16 i32 i64 u8 f16
-  // f32     *    X  X   X   X   -  X   X
-  // bf16    X    *  X   X   X   -  X   X
-  // i8      X    X  *   X   X   -  X   X
-  // i16     X    X  -   *   X   -  -   X
-  // i32     X    X  X   X   *   X  X   X
-  // i64     -    -  -   -   X   *  -   -
-  // u8      X    X  X   -   X   -  *   X
-  // f16     X    X  X   X   X   -  X   *
+  // fr/to f32 bf16 i8 i16 i32 i64 u8 f8 hf8 f16
+  // f32     *    X  X   X   X   -  X  X   X   X
+  // bf16    X    *  X   X   X   -  X  X   X   X
+  // i8      X    X  *   X   X   -  X  -   -   X
+  // i16     X    X  -   *   X   -  -  -   -   X
+  // i32     X    X  X   X   *   X  X  -   -   X
+  // i64     -    -  -   -   X   *  -  -   -   -
+  // u8      X    X  X   -   X   -  *  -   -   X
+  // f8      X    X  -   -   -   -  -  *   -   -
+  // hf8     X    X  -   -   -   -  -  -   *   -
+  // f16     X    X  X   X   X   -  X  -   -   *
 
   // clang-format off
-#define OK  CastStage {}
-#define I32 CastStage { CastType::i32 }
+#define OK   CastStage {}
+#define BF16 CastStage { CastType::bf16 }
+#define F32  CastStage { CastType::f32  }
+#define I32  CastStage { CastType::i32  }
   // clang-format on
 
   // TODO: SW-35847 Remove indirect casting
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi2 = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32  i64   u8  f16
-      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32, I32,  OK },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK,  OK },
-      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32, I32 },
-      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK, I32,  OK,  OK },
-      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      //              to:    f32  bf16    i8   i16  i32  i64    u8    f8   hf8   f16
+      /* from  f32 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,   OK,   OK },
+      /* from bf16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,   OK,   OK },
+      /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
+      /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16, BF16,   OK },
+      /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  F32,   OK },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
+      /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16, BF16,   OK },
+      /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK, BF16, BF16 },
+      /* from  hf8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16, BF16,   OK, BF16 },
+      /* from  f16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
       // clang-format on
   };
 
 #undef I32
+#undef F32
+#undef BF16
 #undef OK
 
   // ======== gaudi3 ========
 
   // cast
-  // fr/to f32 bf16 i8 i16 i32 i64 u8 f16
-  // f32     *    X  X   X   X   -  X   X
-  // bf16    X    *  X   X   X   -  X   X
-  // i8      X    X  *   X   X   -  X   X
-  // i16     X    X  -   *   X   -  -   X
-  // i32     X    X  X   X   *   X  X   X
-  // i64     -    -  -   -   X   *  -   -
-  // u8      X    X  X   -   X   -  *   X
-  // f16     X    X  X   X   X   -  X   *
+  // fr/to f32 bf16 i8 i16 i32 i64 u8 f8 hf8 f16
+  // f32     *    X  X   X   X   -  X  X   -   X
+  // bf16    X    *  X   X   X   -  X  X   -   X
+  // i8      X    X  *   X   X   -  X  -   -   X
+  // i16     X    X  -   *   X   -  -  -   -   X
+  // i32     X    X  X   X   *   X  X  -   -   X
+  // i64     -    -  -   -   X   *  -  -   -   -
+  // u8      X    X  X   -   X   -  *  -   -   X
+  // f8      X    X  -   -   -   -  -  *   -   -
+  // hf8     -    -  -   -   -   -  -  -   *   -
+  // f16     X    X  X   X   X   -  X  -   -   *
 
   // clang-format off
-#define OK  CastStage {}
-#define I32 CastStage { CastType::i32 }
+#define OK   CastStage {}
+#define BF16 CastStage { CastType::bf16 }
+#define F32  CastStage { CastType::f32  }
+#define I32  CastStage { CastType::i32  }
   // clang-format on
 
   // TODO: SW-35847 Remove indirect casting
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi3 = {
       // clang-format off
-      //              to:    f32  bf16   i8  i16  i32  i64   u8  f16
-      /* from  f32 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from bf16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from   i8 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
-      /* from  i16 */ LineT{  OK,   OK, I32,  OK,  OK, I32, I32,  OK },
-      /* from  i32 */ LineT{  OK,   OK,  OK,  OK,  OK,  OK,  OK,  OK },
-      /* from  i64 */ LineT{ I32,  I32, I32, I32,  OK,  OK, I32, I32 },
-      /* from   u8 */ LineT{  OK,   OK,  OK, I32,  OK, I32,  OK,  OK },
-      /* from  f16 */ LineT{  OK,   OK,  OK,  OK,  OK, I32,  OK,  OK },
+      //              to:    f32  bf16    i8   i16  i32  i64    u8    f8  hf8   f16
+      /* from  f32 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK,   OK },
+      /* from bf16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK,   OK },
+      /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16,  OK,   OK },
+      /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16,  OK,   OK },
+      /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  OK,   OK },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  OK,  I32 },
+      /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16,  OK,   OK },
+      /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK,  OK, BF16 },
+      /* from  hf8 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,   OK,  OK,   OK },
+      /* from  f16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16,  OK,   OK },
       // clang-format on
   };
 
 #undef I32
+#undef F32
+#undef BF16
 #undef OK
 
   EnumMappingTable<CastType, LineT> cast_stage_matrix;
@@ -184,9 +200,11 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
       return CastType::bf16;
     case at::ScalarType::Half:
       return CastType::fp16;
-#if HAVE_FP8R152_SUPPORT
-    case at::ScalarType::Fp8r152:
+#if HAVE_FP8_SUPPORT
+    case at::ScalarType::Float8_e5m2:
       return CastType::f8;
+    case at::ScalarType::Float8_e4m3fn:
+      return CastType::hf8;
 #endif
     case at::ScalarType::Char:
     case at::ScalarType::Bool:
@@ -213,9 +231,11 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::BFloat16;
     case CastType::fp16:
       return at::ScalarType::Half;
-#if HAVE_FP8R152_SUPPORT
+#if HAVE_FP8_SUPPORT
     case CastType::f8:
-      return at::ScalarType::Fp8r152;
+      return at::ScalarType::Float8_e5m2;
+    case CastType::hf8:
+      return at::ScalarType::Float8_e4m3fn;
 #endif
     case CastType::i8:
       return at::ScalarType::Char;
@@ -255,19 +275,7 @@ std::vector<CastTypes> get_cast_sequence(CastTypes cast_types) {
   return get_cast_sequence(cast_types, device.type());
 }
 
-CastF32RoundMode_t get_cast_rounding_mode(
-    c10::ScalarType dst_dtype,
-    const bool stochastic_rounding_override) {
-#if HAVE_FP8R152_SUPPORT
-  if ((stochastic_rounding_override ||
-       GET_ENV_FLAG_NEW(PT_ENABLE_FP8_CAST_STOCHASTIC_ROUNDING)) &&
-      dst_dtype == at::kFp8r152) {
-    return CAST_ROUND_SR;
-  }
-#else
-  (void)stochastic_rounding_override;
-#endif
-
+CastF32RoundMode_t get_cast_rounding_mode(c10::ScalarType dst_dtype) {
   if (c10::isIntegralType(dst_dtype, true)) {
     return CAST_ROUND_ZERO;
   }

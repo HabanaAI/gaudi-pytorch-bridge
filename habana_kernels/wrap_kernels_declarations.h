@@ -237,13 +237,6 @@ at::Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& scores,
     double iou_threshold);
 
-#if IS_PYTORCH_FORK_AT_LEAST(1, 0)
-at::Tensor habana_cast_to_fp8_wrap(
-    const at::Tensor& input,
-    bool stochastic_rounding,
-    int seed);
-#endif
-
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
