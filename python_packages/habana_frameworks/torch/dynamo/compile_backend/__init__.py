@@ -20,11 +20,8 @@ def setup_env_config(env_name, config_name):
         configuration_flags[config_name] = False
 
 setup_env_config("PT_HPU_COMPILE_USE_RECIPES",             "use_compiled_recipes")
+setup_env_config("PT_HPU_COMPILE_USE_DECOMPS",             "use_decompositions")
 setup_env_config("PT_HPU_COMPILE_VERBOSE",                 "verbose")
-setup_env_config("PT_HPU_USE_CORE_ATEN_DECOMP",            "use_core_aten_decomp")
-setup_env_config("PT_HPU_USE_HPU_DECOMP",                  "use_hpu_decomp")
-setup_env_config("PT_HPU_USE_DECOMP_EXCLUSIONS",           "use_decomp_exclusions")
-setup_env_config("PT_HPU_DTYPE_PROP_IN_BACKEND",           "dtype_propagation_in_backend")
 setup_env_config("PT_HPU_KEEP_INPUT_MUTATIONS",            "keep_input_mutations")
 setup_env_config("PT_HPU_USE_EAGER_FALLBACK",              "use_eager_fallback")
 

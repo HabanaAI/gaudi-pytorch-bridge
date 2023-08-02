@@ -13,10 +13,7 @@
 
 configuration_flags = {
     "use_compiled_recipes": True,
+    "use_decompositions": True,
     "verbose": False,
     "keep_input_mutations": False,
-    "use_core_aten_decomp": True,
-    "use_hpu_decomp": True,
-    "use_decomp_exclusions": True,
-    "use_eager_fallback": True,
-}
+    "use_eager_fallback": True}
