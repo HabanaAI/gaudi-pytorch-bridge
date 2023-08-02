@@ -2264,7 +2264,7 @@ cumprod:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
-  op_frontend: LazyCumsum
+  output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   out_ids: [0]
 
@@ -2290,7 +2290,7 @@ cumsum:
     Gaudi2: [BFloat16, Float, Int, Half, Char]
     Gaudi3: [BFloat16, Float, Int, Half, Char]
   guid: cumsum_fwd
-  op_frontend: LazyCumsum
+  output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   out_ids: [0]
 

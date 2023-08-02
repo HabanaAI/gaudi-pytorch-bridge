@@ -16,6 +16,23 @@
 
 namespace habana {
 
+OutputMetaDataVector CumsumMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.mem_format = self.suggest_memory_format();
+
+  if (stack.at(2).isNone()) {
+    if (isIntegralType(self.scalar_type(), true))
+      meta.dtype = c10::ScalarType::Long;
+    else
+      meta.dtype = self.scalar_type();
+  } else
+    meta.dtype = stack.at(2).toScalarType();
+
+  return {meta};
+}
+
 std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_CumSumKernel::Params);
   auto self = stack.at(0).toTensor();
@@ -28,6 +45,7 @@ std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
 void CumsumHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  auto meta = CumsumMeta(stack)[0];
   at::ScalarType dtype =
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
 
@@ -48,15 +66,13 @@ void CumsumHabanaOperator::AddNode(
     return OpBackend::AddNode(graph, stack);
   }
 
-  const auto& outshape = stack_tensor(stack, 0).sizes();
-  auto cast = CastHelper(graph, syn_in(0), outshape, ScalarType(), dtype);
-
+  auto cast = CastHelper(graph, syn_in(0), meta.shape, ScalarType(), dtype);
   size_t size = 0;
   const auto& params = FillCumsumParams(stack, size);
   update_guid_dtype(guid_, dtype);
 
   auto op = BuildOp(
-      graph, guid_, {cast.get()}, {{outshape, dtype, 0}}, params.get(), size);
+      graph, guid_, {cast.get()}, {{meta.shape, dtype, 0}}, params.get(), size);
   syn_out(0) = std::move(op.at(0));
 }
 

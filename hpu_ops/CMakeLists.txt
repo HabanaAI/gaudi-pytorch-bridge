@@ -267,7 +267,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/compare_gen.cpp
           lazy/convolution_overrideable_gen.cpp
           lazy/convolution_backward_overrideable_gen.cpp
-          lazy/cumsum_gen.cpp
           lazy/div_round_gen.cpp
           lazy/embedding_gen.cpp
           lazy/fill_gen.cpp
