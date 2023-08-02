@@ -13,6 +13,7 @@
 #include "backend/synapse_helpers/device.h"
 
 #include <absl/types/variant.h>
+#include <hl_logger/hllog_core.hpp>
 #include <stdlib.h>
 #include <algorithm>
 #include <chrono>
@@ -367,9 +368,16 @@ synapse_error_v<device_handle> device::get_by_id(synDeviceId requested_id) {
 
 synapse_error_v<device_handle> device::create(
     const std::set<synDeviceType>& allowed_device_types) {
-  PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
   synStatus status{synStatus::synSuccess};
+
+  // At this point the assumption is that ID variable (used by hl_logger to
+  // determine the node specific log directory) is configured on script side, so
+  // all loggers file sinks can be reinitialized to write logs to node-specific
+  // habana logs dirs.
+  hl_logger::setLogsFolderPathFromEnv();
+
+  PT_SYNHELPER_DEBUG("synHPU Init");
 
   auto synapse_session_create_result{synapse_helpers::session::get_or_create()};
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
