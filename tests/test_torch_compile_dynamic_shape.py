@@ -161,13 +161,13 @@ def test_dynamic_shape_simple():
             tmp1 = t3 - 1
             return torch.relu(tmp1)
 
+        compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
         for s in input_shapes:
             t1 = torch.randn(s, requires_grad = False)
             t2 = torch.randn(s, requires_grad = False)
-            out_c = raw_function(t1, t2)
             t1_h = t1.to("hpu")
             t2_h = t2.to("hpu")
-            compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+            out_c = raw_function(t1, t2)
             result_compile_train = compiled_function_training(t1_h, t2_h)
             assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
@@ -460,6 +460,7 @@ def test_dynamic_shape_as_strided_ratio_flow_lazy():
             strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
             out = torch.add(strided_tensor, strided_tensor)
             return out
+
         compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
         i = 0
         for s in input_shapes:
@@ -485,6 +486,7 @@ def test_dynamic_shape_as_strided_lazy():
             strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
             out = torch.add(strided_tensor, strided_tensor)
             return out
+
         compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
         i = 0
         for s in input:

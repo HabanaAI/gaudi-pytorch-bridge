@@ -61,7 +61,8 @@ void ComputeGraphHashCode(
     std::string& op_strs,
     size_t& graphHashCode,
     uint64_t unique_graph_cntr,
-    std::vector<bool> node_bcast_details) {
+    std::vector<bool> node_bcast_details,
+    bool dynamic_graph) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -183,7 +184,7 @@ void ComputeGraphHashCode(
     graphHashCode =
         at::hash_combine(graphHashCode, hash_bcast(node_bcast_details));
   }
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
+  if (dynamic_graph) {
     graphHashCode =
         at::hash_combine(graphHashCode, GetWeightHash(input_refs, irgraph));
   }
@@ -215,10 +216,12 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     uint64_t ug_cntr,
     std::vector<bool> bcast_details,
-    const std::string& id)
+    const std::string& id,
+    const bool dynamic)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
-      node_bcast_details(bcast_details) {
+      node_bcast_details(bcast_details),
+      dynamic_graph(dynamic) {
   // Compute the graph hash
   ComputeGraphHashCode(JitGraphToLowering, input_refs, id);
 }
@@ -236,7 +239,8 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       opstrs,
       graphKey,
       unique_graph_cntr,
-      node_bcast_details);
+      node_bcast_details,
+      dynamic_graph);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {

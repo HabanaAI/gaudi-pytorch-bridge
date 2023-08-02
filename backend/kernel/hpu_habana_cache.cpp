@@ -1895,8 +1895,7 @@ void RecipeCacheLRU::insert(
 
   size_t rcnt{0};
   bool dropped{true};
-  const bool is_ds_enabled = habana_helpers::GetRefineDynamicShapeStatus();
-  if (!is_ds_enabled) {
+  if (!val->dynamic_graph) {
     while (
         !map_.empty() && dropped &&
         (map_.size() >= max_size_ || habana::IsHostMemoryThresholdReached())) {

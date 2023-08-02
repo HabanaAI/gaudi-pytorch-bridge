@@ -463,9 +463,7 @@ class DynamicBucketInfo {
   DynamicBucketInfo(DynamicDimsPolicy min_policy, DynamicDimsPolicy max_policy)
       : min_policy_(min_policy),
         max_policy_(max_policy),
-        split_policy_(SplitPolicy::DYNAMIC) {
-    refine_enabled_ = habana_helpers::GetRefineDynamicShapeStatus();
-  };
+        split_policy_(SplitPolicy::DYNAMIC){};
 
   using DimMultipliers =
       std::map<int64_t, std::map<int64_t, std::pair<int64_t, int64_t>>>;

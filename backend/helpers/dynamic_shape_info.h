@@ -23,10 +23,10 @@ void EnableRefineDynamicShape();
 
 void DisableRefineDynamicShape();
 
-void SetRefineDynamicShape(bool flag, bool compile = false);
+void SetRefineDynamicShape(bool flag);
 
 bool GetRefineDynamicShapeStatus();
 
-void SetRefineDynamicShapeTorchCompile(bool flag);
+void SetHybridSIFTorchCompile(bool flag);
 
 } // namespace habana_helpers

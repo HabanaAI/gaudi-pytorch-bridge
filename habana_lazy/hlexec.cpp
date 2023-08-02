@@ -163,9 +163,12 @@ void HlExec::Launch(
 
   auto graphIndex =
       GetGraphIndex(m_g_hash_, torch::jit::last(stack, mp_g_->inputs().size()));
+  bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
   mp_g_and_meta_data_->SetGraphIndex(graphIndex);
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
+  mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+
   auto launcher =
       CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
   try {
@@ -499,9 +502,10 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
 
         at::ArrayRef<torch::jit::IValue> input_refs =
             torch::jit::last(stack, mp_g_->inputs().size());
+        const bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
         mp_g_and_meta_data_ =
             std::make_shared<habana::OptimizedJITGraphAndMetaData>(
-                mp_g_, input_refs, unique_cntr, node_bcast_map_);
+                mp_g_, input_refs, unique_cntr, node_bcast_map_, "", isDynamic);
         mp_g_and_meta_data_->set_fwd_graph_builder_stack_map(
             m_fwd_graph_stack_map_);
         IdentifyAndSetGraphNodes(po_data.post_order);
@@ -569,6 +573,7 @@ void HlExec::GetOrCreate(ir::PostOrderData& po_data, torch::jit::Stack& stack) {
     }
 
     if (habana_helpers::GetRefineDynamicShapeStatus()) {
+      mp_g_and_meta_data_->SetDynamicGraph(true);
       at::ArrayRef<torch::jit::IValue> input_refs =
           torch::jit::last(stack, mp_g_->inputs().size());
       mp_g_and_meta_data_->ComputeGraphHashCode(mp_g_, input_refs);

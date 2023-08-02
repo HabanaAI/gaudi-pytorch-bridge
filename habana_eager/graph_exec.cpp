@@ -81,7 +81,7 @@ GraphExec::GraphExec(
   LogRecipeInfo(example_inputs);
 
   torch::jit::Stack in_stack = example_inputs;
-  if (m_dynamic) {
+  if (IsDynamicGraph()) {
     ProcessDynamicGraph(example_inputs);
     in_stack = ProcessDynamicStack(example_inputs, false);
   }
@@ -94,7 +94,8 @@ GraphExec::GraphExec(
       input_refs,
       0ull /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
-      m_graph_name);
+      m_graph_name,
+      IsDynamicGraph());
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetFrontendType(
@@ -102,6 +103,12 @@ GraphExec::GraphExec(
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
 };
+
+bool GraphExec::IsDynamicGraph() {
+  bool is_refine_dynamic =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  return m_dynamic && is_refine_dynamic;
+}
 
 void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
@@ -156,13 +163,15 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
 
   torch::jit::Stack in_stack = original_stack;
-  if (m_dynamic) {
+  if (IsDynamicGraph()) {
     in_stack = ProcessDynamicStack(original_stack, is_first_launch);
-    if (is_first_launch)
+    if (is_first_launch) {
       is_first_launch = false;
+    }
+
+    // [TODO] Disable hybrid sif until SW-153320
+    habana_helpers::SetHybridSIFTorchCompile(false);
   }
-  // TODO SW-152610
-  habana_helpers::SetRefineDynamicShapeTorchCompile(m_dynamic);
 
   torch::jit::Stack stack =
       habana::eager::convert_inputs_to_backend_tensors(in_stack);
@@ -192,7 +201,8 @@ torch::jit::Stack GraphExec::launch(torch::jit::Stack& original_stack) {
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{m_graph_and_meta};
     habana_launch_op_.run(stack);
-    habana_helpers::SetRefineDynamicShapeTorchCompile(false);
+    // [TODO] Disable hybrid sif until SW-153320
+    habana_helpers::SetHybridSIFTorchCompile(true);
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());

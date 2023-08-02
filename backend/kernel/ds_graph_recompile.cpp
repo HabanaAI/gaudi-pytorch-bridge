@@ -142,6 +142,8 @@ bool habana::CompileGraphWithRange(
     jit_ir_graph_and_mdata->SetGraphIndex(graphIndex);
     jit_ir_graph_and_mdata->SetOpName(graphName);
     jit_ir_graph_and_mdata->set_cached_opstrs(opStr);
+    jit_ir_graph_and_mdata->SetDynamicGraph(true);
+
     habana::HabanaLaunchOpPT habanaFusedOp{jit_ir_graph_and_mdata};
     try {
       habanaFusedOp.CompileGraphWithRange(

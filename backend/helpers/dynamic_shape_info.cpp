@@ -23,24 +23,16 @@ namespace habana_helpers {
 thread_local bool m_enable_refine_dynamic_shape{
     GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
 
-// As the current graph mode perform lowering on the main thread itself and
-// eager do lowering on separate thread, the thread local setting will help to
-// disable dynamic shape fully for eager mode. However, this configuration
-// settings have to be revisited with SW-152610 to support pipeline
-// architecture.
-thread_local bool m_enable_torch_compile_dynamic_shape{false};
-
-void SetRefineDynamicShape(bool flag, bool compile) {
+void SetRefineDynamicShape(bool flag) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
     m_enable_refine_dynamic_shape = flag;
     if (lazy_to_backend::is_lazy_inference_call_context()) {
       SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
     }
-  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-    // TODO SW-152610
-    if (compile && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)) {
-      m_enable_torch_compile_dynamic_shape = flag;
-    }
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "PT2.0: SetRefineDynamicShape expected to call only for lazy mode, value:",
+        flag);
   }
 }
 
@@ -53,24 +45,23 @@ void DisableRefineDynamicShape() {
 }
 
 bool GetRefineDynamicShapeStatus() {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-    if (!lazy_to_backend::is_lazy_inference_call_context()) {
-      return m_enable_refine_dynamic_shape;
-    }
-    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-    // TODO SW-152610
-    return m_enable_torch_compile_dynamic_shape;
-  } else {
+  // This function has to be called only in lazy mode.
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) {
+    PT_DYNAMIC_SHAPE_WARN(
+        "PT2.0: GetRefineDynamicShapeStatus expected to call only for lazy mode");
     return false;
   }
+
+  if (!lazy_to_backend::is_lazy_inference_call_context()) {
+    return m_enable_refine_dynamic_shape;
+  }
+  return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 }
 
-void SetRefineDynamicShapeTorchCompile(bool flag) {
-  SetRefineDynamicShape(flag, true);
-  // [TODO] disable hybrid sif until SW-153320
-  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, !flag, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, !flag, 1);
+void SetHybridSIFTorchCompile(bool flag) {
+  // [TODO] Disable hybrid sif until SW-153320
+  SET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF, flag, 1);
+  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, flag, 1);
 }
 
 } // namespace habana_helpers

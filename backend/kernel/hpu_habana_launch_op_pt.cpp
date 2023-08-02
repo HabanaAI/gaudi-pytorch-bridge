@@ -148,7 +148,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       graph_index(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph(optimized_jit_graph_and_meta_data->get_cached_graph()),
       debug(optimized_jit_graph_and_meta_data->GetDbgFlag()) {
-  refine_ds_enabled_ = habana_helpers::GetRefineDynamicShapeStatus();
+  refine_ds_enabled_ = optimized_jit_graph_and_meta_data->GetDynamicGraph();
   enable_fast_shape_inf_ =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE) &&
       refine_ds_enabled_;
@@ -3982,7 +3982,7 @@ void HabanaLaunchOpPT::run(
   }
   // shape agnostic caching :: end
   if (!eager_mode && ref_input_shape_map.count(graph_key_with_perm) &&
-      habana_helpers::GetRefineDynamicShapeStatus()) {
+      refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key,
@@ -4002,7 +4002,8 @@ void HabanaLaunchOpPT::run(
   // Note that this needs to be done before execution of graph, otherwise
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
-  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
+
+  if (!eager_mode && refine_ds_enabled_) {
     CreateStaticCompilationDBI(graph_key_with_perm);
   }
 

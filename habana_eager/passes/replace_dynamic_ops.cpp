@@ -206,7 +206,7 @@ struct HandleDynamicOpsPass {
         continue;
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
       std::vector<at::Tensor> in_tensors = getInputTensers(node);
-      bool changed = dsOp->ReplaceWithDynamicHPUOp(
+      changed = dsOp->ReplaceWithDynamicHPUOp(
           node, org_stack, org_stack_index_map, in_tensors, m_dmeta);
     }
 

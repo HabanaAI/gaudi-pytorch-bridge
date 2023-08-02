@@ -31,7 +31,8 @@ void ComputeGraphHashCode(
     std::string& op_strs,
     size_t& graphHashCode,
     uint64_t unique_graph_cntr = 0,
-    std::vector<bool> node_bcast_details = {});
+    std::vector<bool> node_bcast_details = {},
+    bool dynamic_graph = false);
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
@@ -95,7 +96,8 @@ struct OptimizedJITGraphAndMetaData {
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       uint64_t ug_cntr = 0,
       std::vector<bool> node_bcast_details = {},
-      const std::string& id = "");
+      const std::string& id = "",
+      const bool dynamic = false);
 
   void ComputeGraphHashCode(
       const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
@@ -229,6 +231,14 @@ struct OptimizedJITGraphAndMetaData {
     return is_eager_compiler_supported;
   }
 
+  void SetDynamicGraph(bool flag) {
+    dynamic_graph = flag;
+  }
+
+  bool GetDynamicGraph() {
+    return dynamic_graph;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -236,6 +246,7 @@ struct OptimizedJITGraphAndMetaData {
   bool dbg = false;
   size_t graph_index = 0;
   uint64_t unique_graph_cntr = 0;
+  bool dynamic_graph = false;
   std::vector<bool> node_bcast_details;
   std::string op_name = std::string();
   bool isOptimizedLazyEager = false;

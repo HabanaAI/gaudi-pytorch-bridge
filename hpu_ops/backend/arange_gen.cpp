@@ -23,6 +23,7 @@ static bool can_use_dynamic_shapes(
     const c10::Scalar& step) {
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
+  // [TODO] Currently Arange is not supporting dynamic shape SW-144402.
   return (
       (habana_helpers::GetRefineDynamicShapeStatus() &&
        GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)) &&

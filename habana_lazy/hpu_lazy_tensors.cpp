@@ -1087,12 +1087,15 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetOpName(lazy_eager_info.lazyOpName);
     optimized_path_jit_ir_and_mdata->SetOptimizedLazyEagerFlag(true);
     optimized_path_jit_ir_and_mdata->SetHPUStream(stream_info.stream);
+    bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
+    optimized_path_jit_ir_and_mdata->SetDynamicGraph(isDynamic);
     if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
         GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
       // Setting output shapes for the lazy eager shape agnostic graph
       optimized_path_jit_ir_and_mdata->set_output_shapes(
           lazy_eager_info.out_shapes);
     }
+
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
       auto& input_values = lazy_eager_info.lazyFrontEndInfo->get_input_values();
