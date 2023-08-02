@@ -20,6 +20,8 @@
 #else
 #include "habana_lazy/tensor_impl.h"
 #endif
+#include "common/utils.h"
+#include "habana_kernels/kernel_utils.h"
 
 namespace habana {
 
@@ -142,74 +144,104 @@ std::string ToString(const StorageExtraMetaMap& map) {
   return sstr.str();
 }
 
-StorageExtraMeta* get_storage_extra_meta(
-    const c10::TensorImpl* tensor_impl,
-    at::optional<size_t> nbytes) {
-  HABANA_ASSERT(
+habana::HPUAllocationContext* get_hpu_alloc_context(
+    const c10::TensorImpl* tensor_impl) {
+  TORCH_CHECK(
       tensor_impl->device().type() == c10::DeviceType::HPU,
       "StorageExtraMeta available only on HPU Tensors.");
-  if (tensor_impl->has_storage()) {
-    auto alloc_ctx = reinterpret_cast<habana::HPUAllocationContext*>(
-        tensor_impl->storage().data_ptr().get_context());
-    if (!alloc_ctx) {
-      // i.e. when allocation is 0 bytes, we do not create HPUAllocationContext
-      PT_BRIDGE_DEBUG(
-          "Trying to get StorageExtraMeta from TensorImpl ",
-          tensor_impl,
-          " without an Allocation Context. Returning nullptr..");
-      return nullptr;
-    }
-    if (nbytes.has_value() && nbytes.value() > alloc_ctx->num_bytes) {
-      // It's possible for i.e. as_strided() called with bigger size than the
-      // original buffer.
-      PT_BRIDGE_DEBUG(
-          "Retrieving StorageExtraMeta for tensor with nbytes(",
-          nbytes.value(),
-          ") which is more than num_bytes allocated(",
-          alloc_ctx->num_bytes,
-          ") for HPUAllocationContext ",
-          alloc_ctx,
-          " and data_ptr: ",
-          tensor_impl->data());
-    }
-    if (nbytes.has_value() && nbytes.value() < alloc_ctx->num_bytes) {
-      // It is intended to access the map with [], as we always want to get an
-      // entry for new storage offset (either create or lookup is fine)
-      // TODO: Add assert for overlapping views
-      StorageExtraMeta* ptr =
-          &(alloc_ctx->meta_map[tensor_impl->storage_offset()]);
-      PT_BRIDGE_DEBUG(
-          "Accessing HPUAllocationContext ",
-          alloc_ctx,
-          " and StorageExtraMeta ",
-          ptr,
-          " for offset: ",
-          tensor_impl->storage_offset(),
-          " with ",
-          ToString(alloc_ctx->meta_map));
-      return ptr;
-    } else {
-      if (tensor_impl->storage_offset() != 0) {
-        // There should be no offset for accessing StorageMeta of tensor
-        // allocated for >= num_bytes, but it's possible for i.e. as_strided op.
-        PT_BRIDGE_DEBUG(
-            "Non-zero storage_offset(",
-            tensor_impl->storage_offset(),
-            ") when accessing base StorageExtraMeta.");
-      }
-      PT_BRIDGE_DEBUG(
-          "Accessing HPUAllocationContext ",
-          alloc_ctx,
-          " and base StorageExtraMeta ",
-          &alloc_ctx->base_meta,
-          " with ",
-          ToString(alloc_ctx->meta_map));
-      return &alloc_ctx->base_meta;
-    }
-  } else {
+
+  if (!tensor_impl->has_storage()) {
     PT_BRIDGE_DEBUG(
         "No StorageExtraMeta available - TensorImpl has no storage. Returning nullptr..");
     return nullptr;
+  }
+
+  auto alloc_ctx = reinterpret_cast<habana::HPUAllocationContext*>(
+      tensor_impl->storage().data_ptr().get_context());
+  return alloc_ctx;
+}
+
+StorageExtraMeta* get_storage_extra_meta(
+    const c10::TensorImpl* tensor_impl,
+    at::optional<size_t> nbytes,
+    bool is_contiguous) {
+  auto alloc_ctx = get_hpu_alloc_context(tensor_impl);
+  if (!alloc_ctx) {
+    // i.e. when allocation is 0 bytes, we do not create HPUAllocationContext
+    PT_BRIDGE_DEBUG(
+        "Trying to get StorageExtraMeta from TensorImpl ",
+        tensor_impl,
+        " without an Allocation Context. Returning nullptr..");
+    return nullptr;
+  }
+  if (nbytes.has_value() && nbytes.value() > alloc_ctx->num_bytes) {
+    // It's possible for i.e. as_strided() called with bigger size than the
+    // original buffer.
+    PT_BRIDGE_DEBUG(
+        "Retrieving StorageExtraMeta for tensor with nbytes(",
+        nbytes.value(),
+        ") which is more than num_bytes allocated(",
+        alloc_ctx->num_bytes,
+        ") for HPUAllocationContext ",
+        alloc_ctx,
+        " and data_ptr: ",
+        tensor_impl->data());
+  }
+
+  // The is_contiguous() helps with the corner case torch.expand where the
+  // view can be bigger than the base The assumption is that whenever such
+  // expansions happen the view won't be contiguous
+  if (nbytes.has_value() && (nbytes.value() < alloc_ctx->num_bytes) ||
+      (!is_contiguous)) {
+    // It is intended to access the map with [], as we always want to get an
+    // entry for new storage offset (either create or lookup is fine)
+    // TODO: Add assert for overlapping views
+    StorageExtraMeta* ptr =
+        &(alloc_ctx->meta_map[tensor_impl->storage_offset()]);
+    PT_BRIDGE_DEBUG(
+        "Accessing HPUAllocationContext ",
+        alloc_ctx,
+        " and StorageExtraMeta ",
+        ptr,
+        " for offset: ",
+        tensor_impl->storage_offset(),
+        " with ",
+        ToString(alloc_ctx->meta_map));
+    return ptr;
+  } else {
+    if (nbytes.has_value()) {
+      TORCH_CHECK(
+          tensor_impl->storage_offset() == 0,
+          " non-zero storage offset not expected when accessing base meta. offset: ",
+          tensor_impl->storage_offset());
+
+      /* In lazy mode for int64, we internally treat it as int32. So during
+      resize/set operations, the a new storage is not allocated.
+      // ref: TEST_F(LazyTensorShapeKernelTest, Resize)
+      In this case alloc_ctx->num_bytes can differ from that of
+      tensor_impl->storage().nbytes() */
+      if (nbytes.value() != tensor_impl->storage().nbytes()) {
+        PT_BRIDGE_DEBUG(
+            " Accessing base meta. Nbytes: ",
+            nbytes.value(),
+            " alloc_ctx->num_bytes: ",
+            alloc_ctx->num_bytes,
+            " storage nbytes ",
+            tensor_impl->storage().nbytes());
+        TORCH_CHECK(
+            common::getLoadedLibraryType() == common::LibraryType::LAZY,
+            " when accessing base meta, tensor size should match the storage size");
+      }
+    }
+
+    PT_BRIDGE_DEBUG(
+        "Accessing HPUAllocationContext ",
+        alloc_ctx,
+        " and base StorageExtraMeta ",
+        &alloc_ctx->base_meta,
+        " with ",
+        ToString(alloc_ctx->meta_map));
+    return &alloc_ctx->base_meta;
   }
 }
 
@@ -219,7 +251,58 @@ StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor) {
       tensor.toString(),
       ", sizes: ",
       tensor.sizes());
-  return get_storage_extra_meta(tensor.unsafeGetTensorImpl(), tensor.nbytes());
+  return get_storage_extra_meta(
+      tensor.unsafeGetTensorImpl(), tensor.nbytes(), tensor.is_contiguous());
+}
+
+StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor) {
+  auto tensor_impl = tensor.unsafeGetTensorImpl();
+  auto alloc_ctx = get_hpu_alloc_context(tensor_impl);
+  if (!alloc_ctx) {
+    // i.e. when allocation is 0 bytes, we do not create HPUAllocationContext
+    PT_BRIDGE_DEBUG(
+        "Trying to get StorageBaseMeta from TensorImpl ",
+        tensor_impl,
+        " without an Allocation Context. Returning nullptr..");
+    return nullptr;
+  }
+
+  return &alloc_ctx->base_meta;
+}
+
+bool is_view_lowering(const at::Tensor& tensor) {
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  if (!tmeta->is_view_tensor())
+    return false;
+  if (tmeta->is_maybe_grad_view())
+    return false;
+  auto base_smeta{habana::get_storage_base_meta(tensor)};
+  auto smeta{habana::get_storage_extra_meta(tensor)};
+  return (
+      (base_smeta->get_memory_permutation().size() != 0) ||
+      (smeta->get_memory_permutation().size() != 0));
+}
+
+std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
+  // check if it is a view output
+  auto smeta{habana::get_storage_extra_meta(tensor)};
+  if (smeta->get_base_tensor_size().size()) {
+    return smeta->get_base_tensor_size();
+  }
+
+  // check base meta
+  auto basemeta{habana::get_storage_base_meta(tensor)};
+
+  if (basemeta->get_base_tensor_size().size()) {
+    return basemeta->get_base_tensor_size();
+  }
+
+  auto elem_size =
+      c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
+  auto total_num_elements = (int64_t)(
+      habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
+  std::vector<int64_t> base_size({total_num_elements});
+  return base_size;
 }
 
 } // namespace habana

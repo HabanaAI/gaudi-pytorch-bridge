@@ -135,14 +135,27 @@ struct StorageExtraMeta {
   synapse_helpers::layouts::MemoryPermutation memory_permutation_{};
   bool dont_allow_permutation_{false};
   // view meta
-  std::vector<int64_t> base_sizes_{0};
+  std::vector<int64_t> base_sizes_{};
 };
 
 StorageExtraMeta* get_storage_extra_meta(const at::Tensor& tensor);
 
 StorageExtraMeta* get_storage_extra_meta(
     const c10::TensorImpl* tensor_impl,
-    at::optional<size_t> nbytes = c10::nullopt);
+    at::optional<size_t> nbytes = c10::nullopt,
+    bool is_contiguous = true);
+
+StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor);
+
+/* Decides if the tensor needs to be lowered in the eager jit ir pass
+cases in which it is lowered 1. View tensor 2. Not marked as a grad view 3. have
+a valid permutation in storage meta or base meta*/
+bool is_view_lowering(const at::Tensor& tensor);
+
+/* Base tensor size can be different for the following cases:
+1. View output with a non default permutation 2. View tensor whose base is
+having non default permutation 3. 1D for other cases*/
+std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor);
 
 enum class ParamType { INVALID = 0, WEIGHT = 1, BIAS = 2, OTHERS = 3 };
 
@@ -378,12 +391,12 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_view_ = true;
   }
 
-  bool& is_view_lowering() {
-    return is_view_lowering_;
+  bool is_maybe_grad_view() {
+    return is_maybe_grad_view_;
   }
 
-  void set_view_lowering(bool is_lowering) {
-    is_view_lowering_ = is_lowering;
+  void set_maybe_grad_view() {
+    is_maybe_grad_view_ = true;
   }
 
  private:
@@ -409,7 +422,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   int total_elem_{0};
   // view meta
   bool is_view_{false};
-  bool is_view_lowering_{false};
+  bool is_maybe_grad_view_{false};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

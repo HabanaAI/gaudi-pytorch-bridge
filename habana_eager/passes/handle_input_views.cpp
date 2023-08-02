@@ -50,9 +50,9 @@ struct HandleInputViewsPass {
       }
       torch::Tensor input_tensor{example_inputs[input_idx].toTensor()};
       auto storage_meta{habana::get_storage_extra_meta(input_tensor)};
-      auto tensor_meta{habana::get_tensor_extra_meta(input_tensor)};
 
-      if (tensor_meta->is_view_lowering() || !input_tensor.is_contiguous()) {
+      if (habana::is_view_lowering(input_tensor) ||
+          !input_tensor.is_contiguous()) {
         auto& first_use{input->uses()[0]};
         torch::jit::Node* user{first_use.user};
 
@@ -111,11 +111,7 @@ struct HandleInputViewsPass {
     jit_node->output(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(), input_tensor.device(), p->getViewSizes()));
 
-    if (input_smeta && input_smeta->get_memory_permutation().size()) {
-      base_sizes_to_set = input_smeta->get_base_tensor_size();
-    } else {
-      base_sizes_to_set = {p->getTotalElements()};
-    }
+    base_sizes_to_set = habana::get_base_tensor_size(input_tensor);
 
     jit_node->input(0)->setType(c10::TensorType::createContiguous(
         input_tensor.scalar_type(),

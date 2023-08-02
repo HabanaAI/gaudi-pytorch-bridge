@@ -387,6 +387,10 @@ ENV_STRUCT_DEFINITION(PT_HPU_FORCE_USE_DEFAULT_STREAM, bool, false);
 // gradient bucket feature
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_GRADIENT_VIEW_LAYOUT_OPT, bool, false);
 
+// Allow permutations on all reduce gradient bucket view outputs for PT2.0. This
+// is to improve multinode performance
+ENV_STRUCT_DEFINITION(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT, bool, true);
+
 // Allow stitching together of ops in PT Bridge Lowering
 ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS, bool, true);
 
