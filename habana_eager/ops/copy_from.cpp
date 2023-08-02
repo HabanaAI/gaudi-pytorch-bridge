@@ -114,8 +114,7 @@ at::Tensor _copy_from_and_resize(
 }
 
 bool is_view_op_needed(const at::Tensor& t) {
-  auto tmeta{habana::get_tensor_extra_meta(t)};
-  return (tmeta->is_view_lowering() || (!t.is_contiguous()));
+  return (habana::is_view_lowering(t) || (!t.is_contiguous()));
 }
 
 at::Tensor _copy_from_d2h(
@@ -138,6 +137,7 @@ at::Tensor _copy_from_d2h(
         out_index};
     hpu_op.dont_preallocate_outputs();
     self_ = hpu_op.call();
+
     // restride cpu tensor since synapse will always return contiguous tensor
     dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
     dst.unsafeGetTensorImpl()->set_storage_offset(0);

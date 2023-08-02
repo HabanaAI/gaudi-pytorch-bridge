@@ -1812,6 +1812,16 @@ void HabanaLaunchOpPT::validateOutputShape(
   }
 }
 
+bool is_allow_view_output_permutation(const at::Tensor& t) {
+  auto tmeta{habana::get_tensor_extra_meta(t)};
+  if (!tmeta->is_view_tensor())
+    return true;
+  if (tmeta->is_maybe_grad_view()) {
+    PT_BRIDGE_DEBUG("Allowed view output permutation. sizes: ", t.sizes())
+    return true;
+  } else
+    return false;
+}
 void HabanaLaunchOpPT::setSynapsePermuteFlag(
     synapse_helpers::tensor& out_syntensor,
     PtTensorInfoShared& ti,
@@ -1827,9 +1837,8 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 
   auto rank = out_syntensor.pt_shape().size();
-  auto is_partial_view =
-      (ivpsh->toTensor().nbytes() != ivpsh->toTensor().storage().nbytes());
-  if ((rank >= 2) & !is_partial_view) {
+  auto is_allow = is_allow_view_output_permutation(ivpsh->toTensor());
+  if ((rank >= 2) && is_allow) {
     PT_BRIDGE_DEBUG(
         "Setting synapse allow permutation on tensor: ",
         out_syntensor.id(),
@@ -2507,8 +2516,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " because it is 0D/1D");
           continue;
         }
-        auto& t = ival->toTensor();
-        if (t.nbytes() != t.storage().nbytes()) {
+        if (!is_allow_view_output_permutation(ival->toTensor())) {
           PT_BRIDGE_DEBUG(
               "Not setting synapse allow permutation on tensor: ",
               out_syntensor.ref().id(),
@@ -2558,8 +2566,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
               " because it is 0D/1D");
           continue;
         }
-        auto& t = ival->toTensor();
-        if (t.nbytes() != t.storage().nbytes()) {
+        if (!is_allow_view_output_permutation(ival->toTensor())) {
           PT_BRIDGE_DEBUG(
               "Not setting synapse allow permutation on tensor: ",
               out_syntensor.ref().id(),
@@ -3208,9 +3215,18 @@ void RecipeValueSpec::create_outdup(
       // inplace op
       pt_outdup = parent_tensor;
     } else {
-      // view
-      pt_outdup =
-          at::as_strided(parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+      // view. avoid invoking torch/aten operators from lowering context
+      // pt_outdup = at::as_strided(parent_tensor, pt_sizes, pt_strides,
+      // pt_opt_offset);
+      pt_outdup = at::detail::make_tensor<at::TensorImpl>(
+          c10::TensorImpl::VIEW,
+          c10::Storage(parent_tensor.storage()),
+          parent_tensor.key_set(),
+          parent_tensor.dtype());
+      c10::IntArrayRef size_vec(pt_sizes);
+      c10::IntArrayRef stride_vec(pt_strides);
+      at::native::setStrided(
+          pt_outdup, size_vec, stride_vec, pt_opt_offset.value());
     }
   }
 
