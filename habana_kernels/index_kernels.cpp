@@ -2038,11 +2038,13 @@ void SliceOperator::AllocateAndAddSynapseNode(
         "Incorrect size of inputs expected for slice operator");
     TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
     TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
-    TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
+    TORCH_CHECK(
+        inputs[3].isNone() || inputs[3].isInt(),
+        "Input arg4 type expected to be optional integer");
     TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be integer");
     dim = inputs[1].toInt();
     start = inputs[2].toInt();
-    end = inputs[3].toInt();
+    end = inputs[3].isNone() ? INT64_MAX : inputs[3].toInt();
     step = inputs[4].toInt();
     shape = compute_output_shape(self, dim, start, end, step);
   }
