@@ -367,6 +367,37 @@ def test_multiple_graph_capture_with_views():
     loss_hpu_vec = []
     loss_cpu_vec = []
 
+def test_wrap_hpugraphs_max_graphs():
+    D_in, H, D_out, inner = 2, 2, 2, 4
+    N = [1, 2, 3, 4, 5]
+    module1_cpu = Model(D_in, H, inner).to('cpu')
+    module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
+    loss_fn = torch.nn.MSELoss()
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, max_graphs=2)
+    ITER = 20
+    real_inputs_cpu = []
+    real_targets_cpu = []
+    for n in N:
+        x_cpu = torch.randn(n, D_in, device='cpu')
+        inp_samples = [torch.rand_like(x_cpu) for _ in range(ITER)]
+        real_inputs_cpu.extend(inp_samples)
+        tgt_samples = [torch.randn(n, D_out, device="cpu") for _ in range(ITER)]
+        real_targets_cpu.extend(tgt_samples)
+    real_inputs_hpu = [input.to('hpu') for input in real_inputs_cpu]
+    real_targets_hpu = [target.to('hpu') for target in real_targets_cpu]
+    loss_hpu_vec = []
+    loss_cpu_vec = []
+
+    for data, target in zip(real_inputs_hpu, real_targets_hpu):
+        loss_hpu = wrapped_func(data, target, module1_hpu, loss_fn)
+        loss_hpu_vec.append(loss_hpu)
+        ht.core.mark_step()
+
+    for data, target in zip(real_inputs_cpu, real_targets_cpu):
+        loss_cpu = wrapped_func(data, target, module1_cpu, loss_fn)
+        loss_cpu_vec.append(loss_cpu)
+    compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
+
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
@@ -380,3 +411,4 @@ if __name__ == "__main__":
     test_cached_module_training(disable_tensor_cache=True)
     test_graph_capture_scalar(disable_tensor_cache=True)
     test_multiple_graph_capture_with_views()
+    test_wrap_hpugraphs_max_graphs()

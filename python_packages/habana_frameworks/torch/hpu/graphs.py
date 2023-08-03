@@ -87,14 +87,14 @@ class HPUGraph(object):
         """
         _hpu_C.mark_user_inputs(self.hpu_graph, static_tlist)
 
-    def destroy(self):
+    def reset(self):
         r"""
         Destroys and free up memory of captured HPU graph.
         """
         _hpu_C.destroy(self.hpu_graph)
 
     def __del__(self):
-        self.destroy()
+        self.reset()
 
     def get_user_input_match_indices(self):
         return(_hpu_C.get_user_input_match_indices(self.hpu_graph))
@@ -448,7 +448,7 @@ def get_tensor_info(tensor):
     return {'shape': tensor.shape, 'dtype': tensor.dtype, 'device': tensor.device}
 
 
-def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run):
+def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs):
     """
     Wrapped forward method that captures and replays the HPU graph.
 
@@ -461,6 +461,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         disable_tensor_cache (bool): Specifies whether to use tensor cache during graph replay.
         asynchronous (bool): Specifies whether the graph replay should be asynchronous.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
+        max_graphs: maximum graphs which will be cached
 
     Returns:
         The output of the original forward method.
@@ -490,6 +491,9 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     dry_run = True if disable_tensor_cache else dry_run
 
     if cached is None:
+        if len(cache) == max_graphs:
+            return orig_fwd(*args, **kwargs)
+
         with htorch.hpu.stream(stream):
             graph = htorch.hpu.HPUGraph()
             graph.capture_begin(dry_run=dry_run)
@@ -543,7 +547,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     # print("Graph count: ", len(cache), htorch.hpu.memory.memory_stats())
     return out
 
-def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False):
+def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=10):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -554,6 +558,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
         disable_tensor_cache (bool, optional): Specifies whether to use tensor cache during graph replay.
             Defaults to False.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
+        max_graphs: maximum graphs which will be cached
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -578,7 +583,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
         return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run)
     return forward
 
-def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False):
+def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=10):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -589,6 +594,7 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
         disable_tensor_cache (bool, optional): Specifies whether to cache tensors during graph replay.
             Defaults to False.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
+        max_graphs: maximum graphs which will be cached
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -611,7 +617,7 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
 
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run)
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
 
     module.forward = forward
 
