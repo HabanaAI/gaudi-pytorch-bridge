@@ -660,3 +660,13 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
 
   EXPECT_EQ(defragmentationCount, 1);
 }
+
+TEST_F(SynapseHelpersMemoryTest, Verify_Reset_pool) {
+  auto& device = habana::HPURegistrar::get_device().syn_device();
+  size_t ws = device.get_workspace_size();
+  // allocate workspace buffer 2GB, so we leave 1GB for the remaining
+  // allocations in the test
+  device.get_workspace_buffer(GB_2);
+  size_t ws1 = device.get_workspace_size();
+  EXPECT_EQ(ws1, GB_2);
+}

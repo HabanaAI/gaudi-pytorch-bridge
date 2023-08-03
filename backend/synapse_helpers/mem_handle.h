@@ -118,7 +118,7 @@ class HandlesMap {
   void Erase(mem_handle::id_t id);
   void MarkMemoryFixed(mem_handle::id_t id);
   bool checkIdIsReset(mem_handle::id_t id);
-  void ResetHandlesMap();
+  void ResetHandlesMap(mem_handle::id_t id);
   bucket_type getBucketIndexForGivenTensorSize(size_t size);
   struct MemoryRecord {
     mem_handle::id_t id_;

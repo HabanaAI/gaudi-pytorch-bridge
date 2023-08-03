@@ -283,16 +283,14 @@ bool HandlesMap::checkIdIsReset(mem_handle::id_t id) {
   return reset;
 }
 
-void HandlesMap::ResetHandlesMap() {
-  for (int bucketIndex = 0; bucketIndex < (int)bucketInfo.size();
-       bucketIndex++) {
-    for (size_t i = 1; i < handles_[bucketIndex].size() - 1; i++) {
-      if (handles_[bucketIndex][i].active_) {
-        handles_[bucketIndex][i].reset_ = true;
-        handles_[bucketIndex][i].ptr_size_.size_ = 0;
-        handles_[bucketIndex][i].ptr_size_.ptr_ = nullptr;
-      }
-    }
+void HandlesMap::ResetHandlesMap(mem_handle::id_t id) {
+  bucket_type bucketIndex = get_bucket_index(id);
+  uint64_t handle_index = get_handle_index(id);
+  CheckId(handle_index, bucketIndex);
+  if (handles_[bucketIndex][handle_index].active_) {
+    handles_[bucketIndex][handle_index].reset_ = true;
+    handles_[bucketIndex][handle_index].ptr_size_.size_ = 0;
+    handles_[bucketIndex][handle_index].ptr_size_.ptr_ = nullptr;
   }
 }
 } // namespace synapse_helpers

@@ -136,7 +136,11 @@ void device_memory::reset_pool() {
   if (suballoc_) {
     suballoc_->pool_destroy();
   }
-  handle2pointer_.ResetHandlesMap();
+  for (auto const& h2p : handle2pointer_) {
+    if (h2p.ptr_size_.ptr_ == nullptr)
+      continue;
+    handle2pointer_.ResetHandlesMap(h2p.id_);
+  }
 
   pool_size_ = GET_ENV_FLAG_NEW(PT_HABANA_POOL_SIZE, 1) * 1024 * 1024 * 1024;
   if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
