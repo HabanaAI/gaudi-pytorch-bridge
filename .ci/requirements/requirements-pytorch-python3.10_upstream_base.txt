@@ -7,5 +7,8 @@ torch==1.12.1
 torchvision==0.13.1
 --extra-index-url https://download.pytorch.org/whl/cpu
 tensorboard==2.9.1
-lightning==2.0.4
-lightning-habana==1.0.0
+lightning==2.0.7
+lightning-habana==1.0.1
+
+#torch compile with lightning
+torchmetrics>=0.8.0
