@@ -19,6 +19,9 @@ using namespace synapse_helpers::layouts;
 
 namespace habana {
 
+using SynapseLayouts =
+    std::vector<synapse_helpers::layouts::SynapseLayoutFormat>;
+
 static std::shared_ptr<void> ConvolutionOverrideable3dParams(
     const at::IntArrayRef& weight, // DHWCK
     const at::IntArrayRef& stride, // DHW
@@ -141,6 +144,26 @@ sizes_vec ConvolutionOverrideableOutputShape(const at::Stack& stack) {
   return {out_shape};
 }
 
+static std::pair<SynapseLayouts, SynapseLayouts> MakeLayouts(
+    bool is_conv_3d,
+    bool transposed) {
+  const auto input_layout = is_conv_3d
+      ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
+      : synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
+  const auto weight_layout = is_conv_3d
+      ? synapse_helpers::layouts::SynapseLayoutFormat::SRQCK
+      : synapse_helpers::layouts::SynapseLayoutFormat::SRCK;
+
+  SynapseLayouts in_layouts{input_layout, weight_layout};
+  SynapseLayouts out_layouts{input_layout};
+
+  in_layouts.push_back(
+      transposed ? input_layout
+                 : synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE);
+
+  return std::make_pair(in_layouts, out_layouts);
+}
+
 void ConvolutionOverrideable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -160,19 +183,8 @@ void ConvolutionOverrideable::AddNode(
   const uint64_t DIM5 = 5;
   const bool is_conv_3d = input.dim() == DIM5;
 
-  if (is_conv_3d) {
-    SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::SRQCK,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
-  } else {
-    SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  }
+  auto [in_layouts, out_layouts] = MakeLayouts(is_conv_3d, transposed);
+  SetSynapseLayouts(in_layouts, out_layouts);
 
   std::string guid = transposed ? "dedx" : "spatial_convolution";
   if (is_conv_3d)
