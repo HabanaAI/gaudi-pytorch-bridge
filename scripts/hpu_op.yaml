@@ -4360,21 +4360,20 @@ max:
 max.dim:
   force_default: false
   custom_fill_params: FillMinMaxParams
-  custom_output_shape: MinMaxOutputShape
   dtypes: [BFloat16, Float, Int, Long]
   guid: reduce_max_fwd
-  op_frontend: LazyMinMax
+  output_meta: MinMaxMeta
   op_backend: MaxDimOp
   out_ids: [0, 0]
 
 max.dim_max:
-  custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: reduce_max_fwd
+  output_meta: MinMaxMeta
   op_backend: MinMaxOut
 
 maximum:
@@ -4590,24 +4589,23 @@ min:
 min.dim:
   force_default: false
   custom_fill_params: FillMinMaxParams
-  custom_output_shape: MinMaxOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
-  op_frontend: LazyMinMax
+  output_meta: MinMaxMeta
   op_backend: MinMaxOut
   out_ids: [0, 0]
 
 min.dim_min:
-  custom_output_shape: MinMaxOutputShape
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
     Gaudi3: [BFloat16, Float, Int, Half]
   guid: reduce_min_fwd
+  output_meta: MinMaxMeta
   op_backend: MinMaxOut
 
 minimum:

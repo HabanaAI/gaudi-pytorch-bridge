@@ -32,6 +32,24 @@ sizes_vec MinMaxOutputShape(const at::Stack& stack) {
   return {shapes, shapes};
 }
 
+OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  auto outputShape = MinMaxOutputShape(stack)[0];
+  auto memoryFormat = self.suggest_memory_format();
+
+  OutputMetaData metaMinMax;
+  metaMinMax.shape = outputShape;
+  metaMinMax.mem_format = memoryFormat;
+  metaMinMax.dtype = self.scalar_type();
+
+  OutputMetaData metaIndices;
+  metaIndices.shape = outputShape;
+  metaIndices.mem_format = memoryFormat;
+  metaIndices.dtype = c10::ScalarType::Long;
+
+  return {metaMinMax, metaIndices};
+}
+
 std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_Reduction::Params);
   auto dim = stack.at(1).toInt();
@@ -61,9 +79,9 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
   auto shape = MinMaxOutputShape(stack)[0];
-
+  auto meta = MinMaxMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {shape, ScalarType(), 0}, {shape, indices_type(), 1}};
+      {meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}};
 
   auto reduce_max = HandleReductionDimAndKeepdim(
       this, graph, self, {syn_in(0)}, dim, keepdim, guid_, output_attrs);
@@ -76,12 +94,13 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto dim = stack.at(1).toInt();
   bool keepdim = stack.at(2).toBool();
-  auto outshape = MinMaxOutputShape(stack)[0];
+  auto meta = MinMaxMeta(stack);
   size_t size = 0;
   const auto& params = FillMinMaxParams(stack, size);
+
   if (self.dim() == 0) {
-    auto res =
-        BuildOp(graph, "memcpy", {syn_in(0)}, {{outshape, ScalarType(), 0}});
+    auto res = BuildOp(
+        graph, "memcpy", {syn_in(0)}, {{meta[0].shape, meta[0].dtype, 0}});
     syn_out(0) = std::move(res[0]);
     syn_out(1) = std::move(res[0]);
   } else {
@@ -90,7 +109,8 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
           graph,
           guid_,
           {syn_in(0)},
-          {{outshape, ScalarType(), 0}, {outshape, c10::ScalarType::Int, 1}},
+          {{meta[0].shape, meta[0].dtype, 0},
+           {meta[1].shape, meta[1].dtype, 1}},
           params.get(),
           size);
 
@@ -105,13 +125,14 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
           graph,
           guid_,
           {syn_in(0)},
-          {{shape, ScalarType()}, {shape, c10::ScalarType::Int}},
+          {{shape, meta[0].dtype}, {shape, meta[1].dtype}},
           params.get(),
           size);
-      auto max =
-          ReshapeHelper(graph, max_dim[0].get(), outshape, ScalarType(), 0);
+      auto max = ReshapeHelper(
+          graph, max_dim[0].get(), meta[0].shape, meta[0].dtype, 0);
       auto max_indices = ReshapeHelper(
-          graph, max_dim[1].get(), outshape, c10::ScalarType::Int, 1);
+          graph, max_dim[1].get(), meta[1].shape, meta[1].dtype, 1);
+
       syn_out(0) = std::move(max);
       syn_out(1) = std::move(max_indices);
     }
