@@ -437,3 +437,13 @@ def test_geometric():
     hav_cpu = hav.cpu()
 
     torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+
+def test_lognormal():
+    torch.manual_seed(0)
+    ha1 = torch.empty([3, 2], dtype = torch.float32).to('hpu')
+    ha1.permute(0,1).log_normal_()
+    torch.manual_seed(0)
+    ha2 = torch.empty([3, 2], dtype = torch.float32).to('hpu')
+    ha2.permute(0,1).log_normal_()
+
+    assert torch.allclose(ha1.cpu(), ha2.cpu(), atol = 0.001, rtol = 0.001)

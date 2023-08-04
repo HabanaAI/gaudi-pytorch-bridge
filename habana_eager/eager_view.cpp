@@ -31,7 +31,8 @@ std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "hpu::uniform_",
     "hpu::random_",
     "hpu::normal_",
-    "hpu::geometric_"};
+    "hpu::geometric_",
+    "hpu::log_normal_"};
 
 void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
