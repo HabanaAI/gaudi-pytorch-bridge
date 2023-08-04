@@ -312,6 +312,15 @@ def full_like(
 def bernoulli(input, p, *, generator=None):
     return torch.bernoulli(torch.full_like(input, p), generator=generator)
 
+@register_custom_decomposition(aten.sort, hpu_backend_decompositions_common)
+def sort(
+    a: utils.Tensor,
+    dim: int = -1,
+    descending: bool = False,
+) -> utils.Tuple[utils.Tensor, utils.Tensor]:
+    k = a.size(dim)
+    return torch.topk(a, k, dim, descending)
+
 def get_hpu_decompositions(is_training: bool):
     if configuration_flags["use_decompositions"]:
         if is_training:
