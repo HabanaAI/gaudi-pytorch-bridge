@@ -2547,10 +2547,10 @@ embedding_dense_backward:
       grad_output: [BFloat16, Float]
       indices: [Int]
     Gaudi2:
-      grad_output: [BFloat16, Float]
+      grad_output: [BFloat16, Float, Half]
       indices: [Int]
     Gaudi3:
-      grad_output: [BFloat16, Float]
+      grad_output: [BFloat16, Float, Half]
       indices: [Int]
   fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
   custom_output_shape: EmbeddingDenseBwdOutputShape
