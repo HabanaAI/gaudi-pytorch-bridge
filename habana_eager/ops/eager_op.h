@@ -408,7 +408,8 @@ class EagerOp : public EagerOpBase {
           result.scalar_type(), result.device(), result.sizes().vec()};
       auto stack = run({out_spec});
       HABANA_ASSERT(stack.size() == 1); // single output only
-      return stack.at(0).toTensor();
+      return HbEagerTensorPool::getInstance().get_backend_tensor(
+          stack.at(0).toTensor());
     }
   }
 
