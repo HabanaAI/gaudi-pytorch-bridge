@@ -153,6 +153,10 @@ at::Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,
     float norm_type = 2.0);
+void fused_clip_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    const at::Tensor& max_norm,
+    const double norm_type = 2.0);
 void optimizer_adagrad_hpu_wrap(
     const at::TensorList& gradients,
     at::TensorList& weights,

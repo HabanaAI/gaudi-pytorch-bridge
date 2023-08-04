@@ -12,16 +12,14 @@
 
 import torch
 from typing import Iterable
-from habana_frameworks.torch import _hpex_C
 
 import habana_frameworks.torch.core as htcore
-
 
 class FusedClipNorm:
     def __init__(self, parameters: Iterable[torch.nn.parameter.Parameter], max_norm):
         self.max_norm_t = (torch.ones((1)) * max_norm).to(torch.device("hpu"))
 
-        self.fused_clip_norm = _hpex_C.fused_norm
+        self.fused_clip_norm = torch.ops.hpu.fused_clip_norm
 
         self.norm_type = 2.0
         super(FusedClipNorm, self).__init__()
@@ -36,14 +34,18 @@ class FusedClipNorm:
             for p in parameters:
                 if p.grad is not None:
                     norm_list.append(p.grad)
+
         if len(norm_list) == 0:
             return torch.tensor(0.)
 
+        # append a tensor to the grad list that will
+        # serve as a total norm result placeholder
+        norm_list.append(torch.zeros(1).to("hpu"))
         with torch.no_grad():
-            total_norm = self.fused_clip_norm(
+            self.fused_clip_norm(
                 norm_list, self.max_norm_t, self.norm_type
             )
 
         htcore.step_closure._mark_step_if_lazy()
 
-        return total_norm
+        return norm_list[-1]

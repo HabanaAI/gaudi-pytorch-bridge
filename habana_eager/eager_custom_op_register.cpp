@@ -18,6 +18,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/fused_clip_norm.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -692,6 +693,27 @@ void optimizer_adamw(
   hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
 }
 
+void fused_clip_norm(
+    const std::vector<at::Tensor>& grad, // inplace
+    const at::Tensor& max_norm,
+    const double norm_type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("fused_clip_norm :", DUMP_3ARGS(grad, max_norm, norm_type));
+
+  TORCH_CHECK(
+      (grad.size() > 0),
+      "fused_clip_norm : can not process empty grad vector (eager)");
+
+  eager::EagerOp<void> hpu_op{
+      "hpu::fused_clip_norm", {grad, max_norm, norm_type}};
+  hpu_op.SetOutputMetaFn(FusedClipNormOp::FusedClipNormMeta);
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::fused_clip_norm", {0}});
+
+  hpu_op.call(grad);
+}
+
 at::Tensor rotary_pos_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
@@ -953,6 +975,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
+      "hpu::fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> ()");
+  m.def(
       "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def(
       "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor lr) -> ()");
@@ -1055,6 +1079,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       scaled_masked_triangular_softmax);
   m.impl("hpu::in_place_interleave_", in_place_interleave_);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
+  m.impl("hpu::fused_clip_norm", fused_clip_norm);
 }
 
 } // namespace eager
