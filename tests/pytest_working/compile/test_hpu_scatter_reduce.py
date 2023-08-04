@@ -14,7 +14,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 import torch
-from utils import env_var_in_scope
+from pytest_working.test_utils import env_var_in_scope
 
 @pytest.mark.xfail(reason="CI problem: undefined symbol: _ZN6habana5graph12GraphStorage3getEv [SW-150162]")
 @pytest.mark.parametrize(
@@ -44,12 +44,10 @@ def test_scatter_reduce(dim_shape_deterministic, reduction, include_self, dtype)
             f'cases variables are not reloaded. This causes sporadic failures. To '
             f'test deterministic_mode, remove the skip macro and run the test '
             f'filtering deterministic tests only ')
-
     with env_var_in_scope(
-        PT_HPU_LAZY_MODE="0",
-        PT_HPU_DETERMINISTIC_ENABLE="0" if not deterministic else "1",
-        PT_HPU_COMPILE_USE_RECIPES=True,
-    ):
+        {"PT_HPU_LAZY_MODE":"0",
+        "PT_HPU_DETERMINISTIC_ENABLE":"0" if not deterministic else "1",
+        "PT_HPU_COMPILE_USE_RECIPES":True}):
         if deterministic:
             torch.use_deterministic_algorithms(True)
         else:
