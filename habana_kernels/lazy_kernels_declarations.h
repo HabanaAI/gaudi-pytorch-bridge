@@ -593,7 +593,8 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax);
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -630,7 +631,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
     double p,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax);
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -642,14 +644,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax);
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
     const at::Tensor& grad,
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
-    bool is_amax);
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
     const at::Tensor& input,
     const at::Tensor& mask,

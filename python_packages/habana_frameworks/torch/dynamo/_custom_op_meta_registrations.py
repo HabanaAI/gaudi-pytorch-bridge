@@ -26,8 +26,9 @@ def meta_cast_to_fp8(input, scale, stochastic, out, amax):
 
 
 @register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
-def meta_cast_to_fp8_v2(input, scale, stochastic, is_amax):
-    out = input.new_empty(input.shape, dtype=torch.int8)
+def meta_cast_to_fp8_v2(input, scale, stochastic, is_amax, dtype):
+    out_dtype = dtype if dtype else torch.int8
+    out = input.new_empty(input.shape, dtype=out_dtype)
     amax = input.new_empty((), dtype=torch.float32)
     return out, amax
 
@@ -57,8 +58,9 @@ def meta_cast_from_fp8(input, scale, out_dtype):
 
 
 @register_meta([torch.ops.hpu.fp8_dropout.default])
-def meta_fp8_dropout(input, p, scale, stochastic_rounding, is_amax):
-    out = input.new_empty(input.shape, dtype=torch.int8)
+def meta_fp8_dropout(input, p, scale, stochastic_rounding, is_amax, dtype):
+    out_dtype = dtype if dtype else torch.int8
+    out = input.new_empty(input.shape, dtype=out_dtype)
     mask = input.new_empty(input.shape, dtype=torch.int8)
     amax = input.new_empty((), dtype=torch.float32)
     return out, mask, amax
@@ -70,8 +72,9 @@ def meta_fp8_gelu(input, scale, stochastic, out, retain, amax):
 
 
 @register_meta([torch.ops.hpu.fp8_bgrad_dgelu.default])
-def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax):
-    out = input.new_empty(input.shape, dtype=torch.int8)
+def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax, dtype):
+    out_dtype = dtype if dtype else torch.int8
+    out = input.new_empty(input.shape, dtype=out_dtype)
     bgrad = input.new_empty(input.shape[1], dtype=input.dtype)
     amax = input.new_empty((), dtype=torch.float32)
     return out, bgrad, amax
@@ -85,8 +88,9 @@ def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax
 
 
 @register_meta([torch.ops.hpu.fp8_gelu_v2.default])
-def meta_fp8_gelu_v2(input, scale, stochastic, is_amax):
-    out = input.new_empty(input.shape, dtype=torch.int8)
+def meta_fp8_gelu_v2(input, scale, stochastic, is_amax, dtype):
+    out_dtype = dtype if dtype else torch.int8
+    out = input.new_empty(input.shape, dtype=out_dtype)
     retain = input.new_empty(input.shape)
     amax = input.new_empty((), dtype=torch.float32)
     return out, retain, amax

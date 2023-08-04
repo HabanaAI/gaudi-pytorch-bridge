@@ -16,6 +16,16 @@
 
 namespace habana {
 
+static auto GetFp8Dtypes(const at::IValue& dtype) {
+  auto pt_dtype =
+      dtype.toOptional<at::ScalarType>().value_or(at::ScalarType::Char);
+  auto syn_dtype = pt_dtype == at::ScalarType::Char
+      ? fp8_syn_type
+      : habana_helpers::pytorch_to_synapse_type(pt_dtype);
+
+  return std::make_pair(pt_dtype, syn_dtype);
+}
+
 CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_to_fp8", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(2);
@@ -94,14 +104,14 @@ CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
 void CastToFp8V2::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "CastToFp8V2 must have 4 input arguments");
+  TORCH_CHECK(stack.size() == 5, "CastToFp8V2 must have 5 input arguments");
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
-  auto dst_type = at::ScalarType::Char;
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
 
   std::string guid = src_type == at::ScalarType::Float ? "convert_to_fp8_f32"
                                                        : "convert_to_fp8_bf16";
@@ -112,7 +122,7 @@ void CastToFp8V2::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shapes[0], dst_type, 0, DATA_TENSOR, fp8_syn_type}};
+      {out_shapes[0], dst_type, 0, DATA_TENSOR, dst_syn_type}};
   if (is_amax) {
     output_attrs.push_back({out_shapes[1], at::ScalarType::Float, 1});
   }
@@ -374,7 +384,7 @@ Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
 void Fp8Dropout::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 5, "Fp8Dropout must have 5 input arguments");
+  TORCH_CHECK(stack.size() == 6, "Fp8Dropout must have 6 input arguments");
 
   StackGetter stackGetter(stack, "Fp8Dropout::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
@@ -382,7 +392,7 @@ void Fp8Dropout::AddNode(
   auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool stochastic_rounding = getNextInput<bool>(stackGetter);
   bool is_amax = getNextInput<bool>(stackGetter);
-  auto dst_type = at::ScalarType::Char;
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[5]);
   auto sizes = self.pt_t.sizes().vec();
   std::vector<int64_t> amax_size{1};
 
@@ -399,7 +409,8 @@ void Fp8Dropout::AddNode(
     syn_inputs.push_back(scaleOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type}, {sizes, dst_type, 1}};
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
+      {sizes, at::ScalarType::Char, 1}};
   if (is_amax) {
     output_attrs.push_back({amax_size, at::ScalarType::Float, 2});
   }
@@ -483,13 +494,14 @@ Fp8GeluV2::Fp8GeluV2(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "Fp8GeluV2 must have 4 input arguments");
+  TORCH_CHECK(stack.size() == 5, "Fp8GeluV2 must have 5 input arguments");
 
   StackGetter stackGetter(stack, "Fp8GeluV2::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool stochastic_rounding = getNextInput<bool>(stackGetter);
   bool is_amax = getNextInput<bool>(stackGetter);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
 
   auto src_dtype = self.pt_t.scalar_type();
 
@@ -505,7 +517,7 @@ void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(scaleOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {output_shapes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type},
+      {output_shapes[0], dst_type, 0, DATA_TENSOR, dst_syn_type},
       {output_shapes[1], src_dtype, 1}};
   if (is_amax) {
     output_attrs.push_back({output_shapes[2], at::ScalarType::Float, 2});
@@ -541,7 +553,7 @@ Fp8BgradDgelu::Fp8BgradDgelu(int device_id, c10::ScalarType scalar_type)
 void Fp8BgradDgelu::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 6, "Fp8BgradDgelu must have 6 input arguments");
+  TORCH_CHECK(stack.size() == 7, "Fp8BgradDgelu must have 7 input arguments");
 
   StackGetter stackGetter(stack, "Fp8eBgradDgelu::AddNode");
   auto grad = getNextInput<TensorsPair>(stackGetter);
@@ -550,6 +562,7 @@ void Fp8BgradDgelu::AddNode(
   auto retainOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto stochastic_rounding = getNextInput<bool>(stackGetter);
   auto is_amax = getNextInput<bool>(stackGetter);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[6]);
 
   auto out_sizes = Fp8BgradDgeluOutputShape(stack);
 
@@ -568,7 +581,7 @@ void Fp8BgradDgelu::AddNode(
     syn_inputs.push_back(retainOpt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type},
+      {out_sizes[0], dst_type, 0, DATA_TENSOR, dst_syn_type},
       {out_sizes[1], ScalarType(), 1}};
   if (is_amax) {
     output_attrs.push_back({out_sizes[2], at::ScalarType::Float, 2});

@@ -81,8 +81,8 @@ class Fp8GeluTest
                           (input + 0.044715 * torch::pow(input, 3)))
                           .to(dtype);
 
-    const auto [gelu_scaled, retain, amax] =
-        fp8_gelu_v2_wrap(input.to("hpu"), scale_hpu, stochastic, is_amax);
+    const auto [gelu_scaled, retain, amax] = fp8_gelu_v2_wrap(
+        input.to("hpu"), scale_hpu, stochastic, is_amax, c10::nullopt);
     auto gelu_unscaled = cast_from_fp8_wrap(gelu_scaled, scale_inv_hpu, dtype);
 
     double rtol = stochastic ? 0.26 : 0.0;

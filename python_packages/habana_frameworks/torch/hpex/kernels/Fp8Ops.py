@@ -40,13 +40,14 @@ def cast_to_fp8(input: torch.Tensor,
 def cast_to_fp8_v2(input: torch.Tensor,
                   scale: Optional[torch.Tensor] = None,
                   stochastic = False,
-                  is_amax = False) -> torch.Tensor:
+                  is_amax = False,
+                  out_dtype = None) -> torch.Tensor:
     # Error checking
     dtype = input.dtype
     if dtype != torch.bfloat16 and dtype != torch.float32:
         raise TypeError(f"Only float32 and bfloat16 can be casted to fp8, got: {dtype}")
 
-    out, amax = torch.ops.hpu.cast_to_fp8_v2(input, scale, stochastic, is_amax)
+    out, amax = torch.ops.hpu.cast_to_fp8_v2(input, scale, stochastic, is_amax, out_dtype)
 
     return out, amax
 
@@ -243,19 +244,17 @@ def fp8_gemm(A: torch.Tensor,
              out: Optional[torch.Tensor] = None,
              bias: Optional[torch.Tensor] = None,
              use_bias: bool = False) -> torch.Tensor:
-    A_dtype = A.dtype
-    B_dtype = B.dtype
-    if A_dtype != torch.int8 or B_dtype != torch.int8:
-        raise TypeError(f"Input tensors must have torch.uint8 dtype, got {A_dtype} and {B_dtype}")
-
     if out_dtype not in (torch.float, torch.bfloat16):
         raise TypeError(f"Output tensor must have torch.float or torch.bfloat16 dtype, got {out_dtype}")
 
     return_output = False
     if out is None:
+        shapeA = A.shape
+        shapeB = B.shape
+        rank = len(shapeA)
+        out_shape = shapeA[0 : (rank - 2)] + (shapeA[-1],) + (shapeB[-1],)
         out = torch.empty(
-            A.shape[-1],
-            B.shape[-1],
+            out_shape,
             dtype=out_dtype,
             device=A.device,
         )
@@ -275,11 +274,6 @@ def fp8_gemm_v2(A: torch.Tensor,
                 accumulate_to: Optional[torch.Tensor] = None,
                 bias: Optional[torch.Tensor] = None,
                 use_bias: bool = False) -> torch.Tensor:
-    A_dtype = A.dtype
-    B_dtype = B.dtype
-    if A_dtype != torch.int8 or B_dtype != torch.int8:
-        raise TypeError(f"Input tensors must have torch.uint8 dtype, got {A_dtype} and {B_dtype}")
-
     if out_dtype not in (torch.float, torch.bfloat16):
         raise TypeError(f"Output tensor must have torch.float or torch.bfloat16 dtype, got {out_dtype}")
 

@@ -1130,22 +1130,17 @@ std::tuple<Tensor, Tensor> cast_to_fp8_v2_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " cast_to_fp8_v2:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding),
-      ", is_amax=",
-      to_string(is_amax));
+      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
   if (synapse_helpers::device_supports_fp8(
           habana::HPURegistrar::get_device().type())) {
-    return cast_to_fp8_v2_lazy(input, scale, stochastic_rounding, is_amax);
+    return cast_to_fp8_v2_lazy(
+        input, scale, stochastic_rounding, is_amax, dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -1261,23 +1256,16 @@ std::tuple<Tensor, Tensor, Tensor> fp8_dropout_wrap(
     double p,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " fp8_dropout:",
-      " input=",
-      to_string(input),
-      ", p=",
-      to_string(p),
-      " scale=",
-      to_string(scale),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding),
-      ", is_amax=",
-      to_string(is_amax));
+      DUMP_6ARGS(input, p, scale, stochastic_rounding, is_amax, dtype));
   if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_dropout_lazy(input, p, scale, stochastic_rounding, is_amax);
+    return fp8_dropout_lazy(
+        input, p, scale, stochastic_rounding, is_amax, dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -1309,14 +1297,16 @@ std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_gelu_v2:", DUMP_4ARGS(input, scale, stochastic_rounding, is_amax));
+      " fp8_gelu_v2:",
+      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
   if (synapse_helpers::device_supports_fp8(
           habana::HPURegistrar::get_device().type())) {
-    return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax);
+    return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -1327,21 +1317,18 @@ std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
     const c10::optional<at::Tensor>& scale,
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " fp8_bgrad_dgelu:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding));
+      DUMP_7ARGS(
+          grad, input, scale, retain, stochastic_rounding, is_amax, dtype));
   if (synapse_helpers::device_supports_fp8(
           habana::HPURegistrar::get_device().type())) {
     return fp8_bgrad_dgelu_lazy(
-        grad, input, scale, retain, stochastic_rounding, is_amax);
+        grad, input, scale, retain, stochastic_rounding, is_amax, dtype);
   } else {
     TORCH_CHECK(false, "FP8 data type is not available on this device.")
   }
@@ -2386,7 +2373,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::fp8_cast_transpose(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
@@ -2396,13 +2383,13 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype) -> Tensor");
   m.def(
-      "hpu::fp8_dropout(Tensor input, float p, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_dropout(Tensor input, float p, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_gelu(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
-      "hpu::fp8_gelu_v2(Tensor input, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_gelu_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
   m.def(

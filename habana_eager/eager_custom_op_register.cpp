@@ -17,6 +17,7 @@
 #include "common/dump_args.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -36,8 +37,19 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
-  TORCH_CHECK(false, "hpu::cast_to_fp8_v2 is not available in Eager mode.");
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  TORCH_CHECK(
+      dtype.has_value(),
+      "hpu::cast_to_fp8_v2 without specified dtype is not available in Eager mode.");
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::cast_to_fp8_v2",
+      {input, scale, stochastic_rounding, is_amax, dtype},
+      CastToFp8V2OutputShape};
+  hpu_op.set_scalar_types({dtype.value(), at::ScalarType::Float});
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::cast_to_fp8_v2", {}});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose(
@@ -79,17 +91,42 @@ fp8_cast_transpose_bgrad_dgelu(
       "hpu::fp8_cast_transpose_bgrad_dgelu is not available in Eager mode.");
 }
 
-at::Tensor cast_from_fp8(const at::Tensor&, const at::Tensor&, at::ScalarType) {
-  TORCH_CHECK(false, "hpu::cast_from_fp8 is not available in Eager mode.");
+at::Tensor cast_from_fp8(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    at::ScalarType out_dtype) {
+  TORCH_CHECK(
+      input.scalar_type() != at::ScalarType::Char,
+      "hpu::cast_from_fp8 with int8 input is not available in Eager mode.");
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::cast_from_fp8", {input, scale, out_dtype}};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::cast_from_fp8", {0}});
+  hpu_op.set_scalar_types({out_dtype});
+  return hpu_op.call();
 }
 
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_dropout(
-    const at::Tensor&,
-    double,
-    const c10::optional<at::Tensor>&,
-    bool,
-    bool) {
-  TORCH_CHECK(false, "hpu::fp8_dropout is not available in Eager mode.");
+std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout(
+    const at::Tensor& input,
+    double p,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  TORCH_CHECK(
+      dtype.has_value(),
+      "hpu::fp8_dropout without specified dtype is not available in Eager mode.");
+  std::vector<int64_t> amax_size{1};
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::fp8_dropout",
+      {input, p, scale, stochastic_rounding, is_amax, dtype},
+      {input.sizes().vec(), input.sizes().vec(), amax_size},
+      0};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_dropout", {}});
+  hpu_op.set_scalar_types(
+      {dtype.value(), c10::ScalarType::Char, c10::ScalarType::Float});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu(
@@ -103,11 +140,25 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu(
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
-    const at::Tensor&,
-    const at::Tensor&,
-    bool,
-    bool) {
-  TORCH_CHECK(false, "hpu::fp8_gelu_v2 is not available in Eager mode.");
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  TORCH_CHECK(
+      dtype.has_value(),
+      "hpu::fp8_gelu_v2 without specified dtype is not available in Eager mode.");
+  std::vector<int64_t> amax_size{1};
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::fp8_gelu_v2",
+      {input, scale, stochastic_rounding, is_amax, dtype},
+      {input.sizes().vec(), input.sizes().vec(), amax_size},
+      0};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_gelu_v2", {}});
+  hpu_op.set_scalar_types(
+      {dtype.value(), input.scalar_type(), c10::ScalarType::Float});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&> fp8_layernorm(
@@ -125,18 +176,37 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&> fp8_layernorm(
 }
 
 at::Tensor& fp8_gemm(
-    const at::Tensor&,
-    bool,
-    const at::Tensor&,
-    bool,
-    const at::Tensor&,
-    at::ScalarType,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    const c10::optional<at::Tensor>&,
-    bool,
-    at::Tensor&) {
-  TORCH_CHECK(false, "hpu::fp8_gemm is not available in Eager mode.");
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const at::Tensor& D,
+    at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate,
+    at::Tensor& out) {
+  TORCH_CHECK(
+      A.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_gemm with int8 is not available in Eager mode.");
+  eager::EagerOp<at::Tensor&> hpu_op{
+      "hpu::fp8_gemm",
+      {A,
+       trans_A,
+       B,
+       trans_B,
+       D,
+       out_dtype,
+       A_scale_inv,
+       B_scale_inv,
+       bias,
+       accumulate,
+       out},
+      Fp8GemmV2OutputShape};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::fp8_gemm", {10}});
+  return hpu_op.call(out);
 }
 
 at::Tensor fp8_gemm_v2(
@@ -150,7 +220,26 @@ at::Tensor fp8_gemm_v2(
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate) {
-  TORCH_CHECK(false, "hpu::fp8_gemm_v2 is not available in Eager mode.");
+  TORCH_CHECK(
+      A.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_gemm_v2 with int8 is not available in Eager mode.");
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::fp8_gemm_v2",
+      {A,
+       trans_A,
+       B,
+       trans_B,
+       D,
+       out_dtype,
+       A_scale_inv,
+       B_scale_inv,
+       bias,
+       accumulate},
+      Fp8GemmV2OutputShape};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_gemm_v2", {}});
+  hpu_op.set_scalar_types({out_dtype});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
@@ -159,8 +248,24 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
     const c10::optional<at::Tensor>& scale,
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
-    bool is_amax) {
-  TORCH_CHECK(false, "hpu::fp8_bgrad_dgelu is not available in Eager mode.");
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  TORCH_CHECK(
+      dtype.has_value(),
+      "hpu::fp8_bgrad_dgelu without specified dtype is not available in Eager mode.");
+  std::vector<int64_t> out_size = input.sizes().vec();
+  std::vector<int64_t> bgrad_size{out_size[1]};
+  std::vector<int64_t> amax_size{1};
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::fp8_bgrad_dgelu",
+      {grad, input, scale, retain, stochastic_rounding, is_amax, dtype},
+      {out_size, bgrad_size, amax_size},
+      0};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_bgrad_dgelu", {}});
+  hpu_op.set_scalar_types(
+      {dtype.value(), input.scalar_type(), c10::ScalarType::Float});
+  return hpu_op.call();
 }
 
 std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax(
@@ -595,7 +700,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::fp8_cast_transpose(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
@@ -603,15 +708,15 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
-      "hpu::cast_from_fp8(Tensor input, Tensor scale, ScalarType out_dtype) -> Tensor");
+      "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype) -> Tensor");
   m.def(
-      "hpu::fp8_dropout(Tensor input, float p, Tensor? scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_dropout(Tensor input, float p, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_gelu(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
-      "hpu::fp8_gelu_v2(Tensor input, Tensor scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_gelu_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor, Tensor)");
+      "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
   m.def(

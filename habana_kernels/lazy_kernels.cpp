@@ -6402,14 +6402,16 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::cast_to_fp8_v2",
-      {input, scale, stochastic_rounding, is_amax},
+      {input, scale, stochastic_rounding, is_amax, dtype},
       CastToFp8V2OutputShape};
-  hpu_op.set_scalar_types({at::ScalarType::Char, at::ScalarType::Float});
+  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
+  hpu_op.set_scalar_types({out_dtype, at::ScalarType::Float});
 
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op)
 }
@@ -6512,16 +6514,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
     double p,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_dropout",
-      {input, p, scale, stochastic_rounding, is_amax},
+      {input, p, scale, stochastic_rounding, is_amax, dtype},
       {input.sizes().vec(), input.sizes().vec(), amax_size}};
+  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
   hpu_op.set_scalar_types(
-      {c10::ScalarType::Char, c10::ScalarType::Char, c10::ScalarType::Float});
+      {out_dtype, c10::ScalarType::Char, c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_dropout, hpu_op)
 }
@@ -6549,16 +6553,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_gelu_v2",
-      {input, scale, stochastic_rounding, is_amax},
+      {input, scale, stochastic_rounding, is_amax, dtype},
       {input.sizes().vec(), input.sizes().vec(), amax_size}};
+  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
   hpu_op.set_scalar_types(
-      {c10::ScalarType::Char, input.scalar_type(), c10::ScalarType::Float});
+      {out_dtype, input.scalar_type(), c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_gelu_v2, hpu_op)
 }
@@ -6569,7 +6575,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
     const c10::optional<at::Tensor>& scale,
     const c10::optional<at::Tensor>& retain,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> out_size = input.sizes().vec();
@@ -6577,10 +6584,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_bgrad_dgelu",
-      {grad, input, scale, retain, stochastic_rounding, is_amax},
+      {grad, input, scale, retain, stochastic_rounding, is_amax, dtype},
       {out_size, bgrad_size, amax_size}};
+  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
   hpu_op.set_scalar_types(
-      {c10::ScalarType::Char, input.scalar_type(), c10::ScalarType::Float});
+      {out_dtype, input.scalar_type(), c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_bgrad_dgelu, hpu_op)
 }
