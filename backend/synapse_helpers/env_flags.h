@@ -259,7 +259,6 @@ ENV_STRUCT_DEFINITION(
     unsigned,
     DEFAULT_HCCL_SLICE_SIZE_MB);
 ENV_STRUCT_DEFINITION(PT_HABANA_MAX_RECIPE_HIT_COUNT, unsigned, 0);
-ENV_STRUCT_DEFINITION(PT_HPU_ENABLE_SYNC_OUTPUT_HOST, bool, false);
 // enable PT_STORE_SYNC if cs-timeouts are seen to perform host synchronization
 // before collectives
 ENV_STRUCT_DEFINITION(PT_HPU_USE_PT_STORE_SYNC, bool, false);

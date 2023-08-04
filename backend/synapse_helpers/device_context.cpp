@@ -278,9 +278,6 @@ hcclResult_t device_context::synchronize_output(
 
   HABANA_ASSERT(nullptr != device_);
   device_->wait_for_future(output_address);
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
-    device_->wait_until_address_ready(output_address);
-  }
   return hcclSuccess;
 }
 hcclResult_t device_context::synchronize_output(
@@ -296,9 +293,6 @@ hcclResult_t device_context::synchronize_output(
   dev_handle->wait_for_future(output_address);
   dev_handle->add_wait_events_on_stream(
       {output_address}, dev_handle->get_stream(current_stream));
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
-    dev_handle->wait_until_address_ready(output_address);
-  }
   return hcclSuccess;
 }
 
