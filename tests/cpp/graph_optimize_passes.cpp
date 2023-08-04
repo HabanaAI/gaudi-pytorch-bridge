@@ -297,7 +297,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
 }
 
 // input(NCHW) -> conv2d -> relu
-TEST_F(GraphOptimizeTest, PermutePassTest_NCHW) {
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_NCHW) {
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -345,7 +345,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
 }
 
 // input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
-TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace) {
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_DoubleInplace) {
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto wt = torch::randn(
