@@ -16,6 +16,14 @@
 
 namespace habana {
 
+OutputMetaDataVector ExponentialMeta(const at::Stack& stack) {
+  const auto& self = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
+}
+
 std::shared_ptr<void> FillExponentialParams(
     const at::Stack& stack,
     size_t& size) {
@@ -32,23 +40,22 @@ std::shared_ptr<void> FillExponentialParams(
 void ExponentialSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  if (!isMetaMode()) {
-    // Discard self tensor, input is seed tensor only
-    p_context_->syn_inputs_.pop_front();
-    HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
-  }
-  auto outshape = stack_tensor(stack, 0).sizes();
+  auto meta = ExponentialMeta(stack)[0];
   size_t size = 0;
   auto params = FillExponentialParams(stack, size);
+  std::vector<synTensor> inputs;
 
-  std::vector<synTensor> inputs = {syn_in(0)};
-  CreateShapeTensorInput(graph, ScalarType(), outshape, inputs);
+  if (stack.at(2).isTensor())
+    inputs.push_back(syn_in(1));
+  else
+    inputs.push_back(syn_seed());
 
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto exponential = BuildOp(
       graph,
-      get_guid_with_precision("random_exponential_fwd", ScalarType()),
+      get_guid_with_precision("random_exponential_fwd", meta.dtype),
       inputs,
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
   syn_out(0) = std::move(exponential[0]);

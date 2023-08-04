@@ -2785,6 +2785,7 @@ exponential:
   op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
+  output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
 
 exponential_:
@@ -2801,6 +2802,7 @@ exponential.out:
   dtypes: [BFloat16, Float]
   op_frontend: GeneratorToSeedOut
   op_backend: ExponentialSeedTensorInput
+  output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 exponential.functional:
@@ -2810,6 +2812,7 @@ exponential.functional:
   op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   out_ids: [0]
+  output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
 
 eye.out:
