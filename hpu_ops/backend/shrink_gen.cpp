@@ -19,8 +19,10 @@ static std::shared_ptr<void> FillshrinkParams(
     size_t& size,
     ShrinkMode_t mode_t,
     int index_lambda) {
-  PARAMS_STUB(ns_ShrinkKernel::TrainingParams);
+  PARAMS_STUB(ns_ShrinkKernel::ParamsV2);
   float lambda = stack.at(index_lambda).toScalar().to<float>();
+  params->lambda = lambda;
+  params->bias = 0;
   params->lowerBound = -lambda;
   params->upperBound = lambda;
   params->mode = mode_t;
@@ -54,8 +56,8 @@ void HardShrinkFwd::AddNode(
     syn_out(0) = std::move(out[0]);
     return;
   }
-  ns_ShrinkKernel::TrainingParams params{
-      -lambda, lambda, ShrinkMode_t::HARD_SHRINK};
+  ns_ShrinkKernel::ParamsV2 params{
+      {lambda, 0.0}, -lambda, lambda, ShrinkMode_t::HARD_SHRINK};
   auto out = OpBackend::BuildOp(
       graph,
       guid_,
@@ -82,8 +84,8 @@ void HardShrinkBwd::AddNode(
     syn_out(0) = std::move(out[0]);
     return;
   }
-  ns_ShrinkKernel::TrainingParams params{
-      -lambda, lambda, ShrinkMode_t::HARD_SHRINK};
+  ns_ShrinkKernel::ParamsV2 params{
+      {lambda, 0.0}, -lambda, lambda, ShrinkMode_t::HARD_SHRINK};
   auto out = OpBackend::BuildOp(
       graph,
       guid_,
