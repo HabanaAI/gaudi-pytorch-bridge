@@ -76,6 +76,43 @@ void PtTensorInferenceData::update_map(std::string src, std::string dst) {
   }
 }
 
+void PtTensorInferenceData::duplicate_key(std::string old, std::string now) {
+  if (inference_tensor_map.find(old) != inference_tensor_map.end()) {
+    auto stats = inference_tensor_map[old];
+    SetInferenceTensorRange(now, stats.first, stats.second);
+    PT_BRIDGE_DEBUG(" Old key: ", old, " duplicated to new key: ", now);
+  } else {
+    PT_BRIDGE_DEBUG(" Old Key: ", old, " does not exist.");
+  }
+}
+
+std::string PtTensorInferenceData::extract_key_name(
+    std::string tensor_name,
+    const std::string token) {
+  auto string_pos = tensor_name.find(token, 1);
+  string_pos = (string_pos == std::string::npos) ? 1 : (string_pos + 1);
+  auto name = tensor_name.substr(string_pos, tensor_name.length() - string_pos);
+  return name;
+}
+
+void PtTensorInferenceData::update_entry(
+    std::string tensor_name,
+    float min,
+    float max,
+    bool align) {
+  auto name = tensor_name;
+  if (align == true) {
+    name = extract_key_name(tensor_name, "/");
+  }
+  if (inference_tensor_map.find(name) != inference_tensor_map.end()) {
+    PT_BRIDGE_DEBUG(" Update entry for Key: ", name);
+    inference_tensor_map.erase(name);
+  } else {
+    PT_BRIDGE_DEBUG(" Add new entry for Key: ", name);
+  }
+  SetInferenceTensorRange(name.c_str(), min, max);
+}
+
 std::string habana_helpers::DebugString(const at::Tensor& t, bool print_data) {
   std::stringstream O;
 

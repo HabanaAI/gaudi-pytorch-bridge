@@ -42,6 +42,15 @@ def _read_min_max_overwrite():
                 line = line.split()
                 _record_quant_param(line[0], float(line[1]), float(line[2]))
 
+def adjust_name(name):
+    # name = name.replace(".bmm.",".baddbmm.")
+    # name = name.replace(".bmm2.",".bmm.")
+    name = name.replace(".min_val","")
+    name = name.replace(".max_val","")
+    name = name.replace("layernorm.norm","layernorm")
+    # print(f"[name after adjustment] := {name}", flush=True)
+    return name
+
 def _handle_quant_stats(model=None):
     if model is not None:
         min_calibration_data = dict()
@@ -49,9 +58,11 @@ def _handle_quant_stats(model=None):
         placeholder_dict = dict()
         for name, param in model._buffers['ranges']['outputs'].items():
             if name.endswith('.min_val'):
-                min_calibration_data[name.replace(".min_val","")] = param.item()
+                name = adjust_name(name)
+                min_calibration_data[name] = param.item()
             if name.endswith('.max_val'):
-                max_calibration_data[name.replace(".max_val","")] = param.item()
+                name = adjust_name(name)
+                max_calibration_data[name] = param.item()
         for name, param in placeholder_dict.items():
             if name in min_calibration_data.keys():
                 min_calibration_data[param] = min_calibration_data[name]

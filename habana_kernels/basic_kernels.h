@@ -48,6 +48,7 @@ class MemCopyOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     kernel_meta_data_.tpc_input_order = {0};
     this->CreateSynContext(device_id);
+    this->setNoComputeFlag();
   }
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;
@@ -66,6 +67,7 @@ class IdentityOperator : public habana::HabanaOperator {
       : HabanaOperator("identity") {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
+    this->setNoComputeFlag();
   }
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;

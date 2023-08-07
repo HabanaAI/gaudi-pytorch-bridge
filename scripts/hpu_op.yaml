@@ -1951,6 +1951,7 @@ clone:
   guid: identity
   output_meta: CloneMeta
   out_ids: [0]
+  no_compute_flag: true
 
 complex:
   override_fn: complex_hpu
@@ -5161,6 +5162,7 @@ one_hot:
 permute:
   override_fn: permute_hpu_lazy
   acc_thread: true
+  no_compute_flag: true
 
 poisson:
   custom_fill_params: FillPoissonParams
@@ -6805,6 +6807,7 @@ trace:
 transpose.int:
   override_fn: transpose_hpu_lazy
   acc_thread: true
+  no_compute_flag: true
 
 tril:
   custom_fill_params: FillTrilParams

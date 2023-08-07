@@ -20,34 +20,62 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "backend/helpers/runtime_config.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_helpers/dtype_helpers.h"
-
-#include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
 
-std::string get_tensor_range(
-    synTensor tensor_,
-    synapse_helpers::graph& graph_) {
+void set_output_drange_from_input(
+    synTensor from_tensor,
+    const std::string from_tensor_name,
+    const std::string output_name) {
+  if ((output_name.size() > 0) &&
+      (from_tensor_name.find("placeholder") == std::string::npos)) {
+    /* Get input tensor quant range */
+    PT_BRIDGE_DEBUG(
+        " [Inference] Get input quant range from tensor: ", from_tensor_name);
+    synQuantDynamicRange dynamic_range_{0, 0};
+    auto status = synTensorGetQuantizationData(
+        from_tensor,
+        SYN_QUANT_DYNAMIC_RANGE,
+        &dynamic_range_,
+        sizeof(synQuantDynamicRange));
+    /* Set output tensor quant range */
+    PT_BRIDGE_DEBUG(
+        " [Inference] Set output quant range for tensor: ",
+        output_name,
+        ", ",
+        dynamic_range_.min,
+        ", ",
+        dynamic_range_.max);
+    if (status == synStatus::synSuccess) {
+      PtTensorInferenceData::get_instance().update_entry(
+          output_name, dynamic_range_.min, dynamic_range_.max, true);
+    }
+  }
+}
+
+std::string get_input_tensor_range_and_name(synTensor tensor) {
   synStatus status = synSuccess;
 
-  char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
-  status = synTensorGetName(tensor_, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
+  char tensor_name[ENQUEUE_TENSOR_NAME_MAX_SIZE];
+  status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensor_name);
 
   synQuantDynamicRange dynamic_range_{0, 0};
   status = synTensorGetQuantizationData(
-      tensor_,
+      tensor,
       SYN_QUANT_DYNAMIC_RANGE,
       &dynamic_range_,
       sizeof(synQuantDynamicRange));
+
   if (status == synStatus::synSuccess) {
     PtTensorInferenceData::get_instance().SetInferenceTensorRange(
-        tensorName, dynamic_range_.min, dynamic_range_.max);
+        tensor_name, dynamic_range_.min, dynamic_range_.max);
   }
 
-  return tensorName;
+  return tensor_name;
 }
 
 synapse_helpers::tensor create_tensor(
@@ -131,6 +159,8 @@ synapse_helpers::tensor create_tensor(
     const c10::optional<c10::ScalarType> dtype,
     const std::string& name,
     const std::string& inference_name) {
+  PT_BRIDGE_DEBUG("[create_tensor-1] name: ", name);
+  PT_BRIDGE_DEBUG("[create_tensor-1] inference_name: ", inference_name);
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -230,7 +260,7 @@ synapse_helpers::tensor create_tensor(
 
   bool const_section = false;
   void* host_ptr = nullptr;
-  if (IsInferenceMode() && tensor.has_storage()) {
+  if (habana_helpers::IsInferenceMode() && tensor.has_storage()) {
     auto tmeta{habana::get_tensor_extra_meta(tensor)};
     const_section = tmeta->is_const_tensor();
     if (const_section) {
@@ -251,26 +281,32 @@ synapse_helpers::tensor create_tensor(
           .mark_const_section(const_section, host_ptr)
           .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
   // Add a check to validate the inference_range
-  if (IsInferenceMode()) {
+  if (habana_helpers::IsInferenceMode()) {
+    bool range_found_with_module_name = false;
     bool range_found = false;
+    std::string module_name = std::string();
     PtTensorInferenceData::InferenceRangePair inference_range;
     if (name.size() > 0 &&
         inference_name.find("placeholder") == std::string::npos) {
-      auto string_pos = name.find('/', 1);
-      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
-      auto module_name = name.substr(string_pos, name.length() - string_pos);
-
+      module_name =
+          PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found);
+              module_name.c_str(), range_found_with_module_name);
     }
-    if (!range_found)
+    if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
               inference_name.c_str(), range_found);
-    if (range_found)
+      if (range_found && (name.size() > 0)) {
+        PtTensorInferenceData::get_instance().duplicate_key(
+            inference_name.c_str(), name.c_str());
+      }
+    }
+    if (range_found_with_module_name || range_found) {
       builder = builder.with_inference_range(
           inference_range.first, inference_range.second);
+    }
   }
 
   if (!name.empty()) {
@@ -332,6 +368,8 @@ synapse_helpers::tensor create_tensor(
     const synDataType synType,
     const std::string& name,
     const std::string& inference_name) {
+  PT_BRIDGE_DEBUG("[create_tensor-2] name: ", name);
+  PT_BRIDGE_DEBUG("[create_tensor-2] inference_name: ", inference_name);
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -409,26 +447,32 @@ synapse_helpers::tensor create_tensor(
           .with_dont_allow_permutation(dont_allow_permutation)
           .with_is_shape_agnostic_on(graph.is_shape_agnostic_graph());
 
-  if (IsInferenceMode()) {
+  if (habana_helpers::IsInferenceMode()) {
+    bool range_found_with_module_name = false;
     bool range_found = false;
+    std::string module_name = std::string();
     PtTensorInferenceData::InferenceRangePair inference_range;
     if (name.size() > 0 &&
         inference_name.find("placeholder") == std::string::npos) {
-      auto string_pos = name.find('/', 1);
-      string_pos = string_pos == std::string::npos ? 1 : string_pos + 1;
-      auto module_name = name.substr(string_pos, name.length() - string_pos);
-
+      module_name =
+          PtTensorInferenceData::get_instance().extract_key_name(name, "/");
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
-              module_name.c_str(), range_found);
+              module_name.c_str(), range_found_with_module_name);
     }
-    if (!range_found)
+    if (!range_found_with_module_name) {
       inference_range =
           PtTensorInferenceData::get_instance().GetInferenceTensorRange(
               inference_name.c_str(), range_found);
-    if (range_found)
+      if (range_found && (name.size() > 0)) {
+        PtTensorInferenceData::get_instance().duplicate_key(
+            inference_name.c_str(), name.c_str());
+      }
+    }
+    if (range_found_with_module_name || range_found) {
       builder = builder.with_inference_range(
           inference_range.first, inference_range.second);
+    }
   }
   if (!name.empty()) {
     builder.use_suffix(name);

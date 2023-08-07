@@ -198,6 +198,7 @@ TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
   static_cast<void>(scalarType);
   this->CreateSynContext(device_id);
+  this->setNoComputeFlag();
 }
 
 std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
@@ -281,6 +282,7 @@ void TransposeOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<synTransposeParamsNDims>(params);
   p_context_->params_size_ = sizeof(params);
+
   AllocateSynapseOutput(graph, out, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -316,6 +318,7 @@ PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
   static_cast<void>(scalarType);
   this->CreateSynContext(device_id);
+  this->setNoComputeFlag();
 }
 
 std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::

@@ -2066,6 +2066,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
+
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   if (has_shape_tensor) {
@@ -2863,6 +2864,7 @@ void SqueezeOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(),
       output_metadata.at(0).persistent);
+
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   if (dim < HABANA_DIM_MAX) {

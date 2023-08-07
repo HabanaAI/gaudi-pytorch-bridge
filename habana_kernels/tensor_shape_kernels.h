@@ -75,6 +75,7 @@ class ReshapeOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.changes_dims = true;
+    this->setNoComputeFlag();
   }
   virtual habana::OutputShapeInfRetType ComputeOutputShape(
       torch::jit::Stack& inputs) override;

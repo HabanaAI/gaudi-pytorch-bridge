@@ -533,6 +533,9 @@ class Op(object):
     def get_op_template(self):
         return self.op.get("op_template", None)
 
+    def get_no_compute_flag(self):
+        return self.op.get("no_compute_flag", False)
+
     def get_custom_fill_params(self):
         return self.op.get("custom_fill_params", None)
 
@@ -1214,6 +1217,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     out_ids = ctxop.get_out_ids()
     inplace_ids = ctxop.get_inplace_ids()
     scalar_ids = ctxop.get_scalar_ids()
+    no_compute_flag = ctxop.get_no_compute_flag()
     custom_fill_params = ctxop.get_custom_fill_params()
     tpc_param = ctxop.get_tpc_param()
     op_backend_class = ctxop.get_op_backend_class()
@@ -1244,6 +1248,9 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         custom_handler = ""
 
     ctor_extra_calls = []
+    if no_compute_flag:
+        ctor_extra_calls.append("setNoComputeFlag();")
+
     synapse_layouts = ctxop.get_synapse_layouts()
     if len(synapse_layouts):
         assert len(synapse_layouts) == 2, "Define both input and output layouts."

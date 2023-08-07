@@ -13,6 +13,7 @@
 
 #include "ir.h"
 #include <absl/strings/str_format.h>
+#include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
 #include "lazy_executor.h"
 
@@ -42,6 +43,12 @@ void setCurrentModuleName(const std::string& name) {
 std::shared_ptr<std::string> getCurrentModuleName() {
   return currentModule;
 }
+
+/*
+ * Initilaize static members from Tracker Class
+ */
+std::size_t Tracker::scope_use_count(0);
+std::string Tracker::previous_scope = std::string();
 
 /*
  * Initilaize static data from Value Class
@@ -88,6 +95,11 @@ Node::Node(c10::Symbol op, bool _is_input)
     static std::atomic<uint64_t> next_id = 0;
     m_id = next_id++;
     m_scope = getCurrentModuleName();
+    if (habana_helpers::IsInferenceMode()) {
+      if (m_scope && !m_scope->empty()) {
+        OverrideScope(m_op.toQualString());
+      }
+    }
   }
 }
 

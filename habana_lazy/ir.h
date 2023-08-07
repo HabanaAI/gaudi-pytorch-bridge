@@ -278,6 +278,11 @@ class MetaData {
   bool m_enable_to_string = false;
 };
 
+struct Tracker {
+  static std::size_t scope_use_count;
+  static std::string previous_scope;
+};
+
 /**
  * Intermediate struct that connects nodes/operators in Graph
  *
@@ -416,6 +421,28 @@ class Node {
     return (!m_scope || m_scope->empty())
         ? m_op.toQualString()
         : *m_scope + "/" + m_op.toQualString();
+  }
+
+  void OverrideScope(std::string opname) {
+    std::string token = "bmm";
+    std::string present_scope = *m_scope;
+    if ((present_scope.find(token) == std::string::npos) &&
+        (opname.find(token) != std::string::npos)) {
+      PT_BRIDGE_DEBUG("previous_scope: ", Tracker::previous_scope);
+      PT_BRIDGE_DEBUG("present_scope: ", present_scope);
+      if (Tracker::previous_scope != present_scope) {
+        Tracker::scope_use_count = 1;
+      } else {
+        Tracker::scope_use_count++;
+      }
+      std::string overridden_scope = present_scope + "/" + token;
+      if (Tracker::scope_use_count > 1) {
+        overridden_scope += std::to_string(Tracker::scope_use_count);
+      }
+      PT_BRIDGE_DEBUG("overridden_scope: ", overridden_scope);
+      m_scope = std::make_shared<std::string>(overridden_scope);
+      Tracker::previous_scope = present_scope;
+    }
   }
 
   std::shared_ptr<std::string> GetScope() const {

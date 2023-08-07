@@ -546,6 +546,14 @@ class HabanaOperator {
     return deterministic;
   }
 
+  void setNoComputeFlag() {
+    no_compute_flag = true;
+  }
+
+  bool getNoComputeFlag() {
+    return no_compute_flag;
+  }
+
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value);
@@ -582,6 +590,7 @@ class HabanaOperator {
   bool deterministic{false};
   habana_helpers::HabanaFrontendTypes execution_mode{
       habana_helpers::HabanaFrontendTypes::INVALID};
+  bool no_compute_flag{false};
 };
 
 class RegisterKernel {

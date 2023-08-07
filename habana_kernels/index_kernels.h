@@ -27,6 +27,7 @@ class SliceOperator : public HabanaOperator {
          LayoutFormat::NCHW,
          LayoutFormat::NCHW});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    this->setNoComputeFlag();
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -468,6 +469,7 @@ class SqueezeOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    this->setNoComputeFlag();
   }
 
   void AllocateAndAddSynapseNode(
@@ -492,6 +494,7 @@ class UnsqueezeOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    this->setNoComputeFlag();
   }
 
   void AllocateAndAddSynapseNode(

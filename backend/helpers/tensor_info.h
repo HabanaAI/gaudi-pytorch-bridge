@@ -98,6 +98,16 @@ class PtTensorInferenceData {
   std::string scope_to_key(std::string src);
   void update_map(std::string src, std::string dst);
 
+  void duplicate_key(std::string old, std::string now);
+  std::string extract_key_name(
+      std::string tensor_name,
+      const std::string token);
+  void update_entry(
+      std::string tensor_name,
+      float min,
+      float max,
+      bool align = false);
+
  private:
   std::unordered_map<std::string, std::pair<float, float>> inference_tensor_map;
 };
