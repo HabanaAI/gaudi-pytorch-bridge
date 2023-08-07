@@ -380,7 +380,9 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
-  syn_graph.set_dynamic_graph(true);
+  if constexpr (DynamicShapes) {
+    syn_graph.set_dynamic_graph(true);
+  }
 
   std::vector<at::Tensor> input_shape_tensors_vec;
   std::vector<at::Tensor> intermediate_shape_tensors_vec;

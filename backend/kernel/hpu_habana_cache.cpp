@@ -694,8 +694,6 @@ inline void RecipeValueSpec::update_new_tensor(
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
-    bool is_eager_mode,
-    std::vector<uint8_t> permute_or_empty,
     std::optional<PtTensorInfoShared> tinfo_opt) {
   PtTensorInfoShared tinfo;
   // tinfo_opt is for passing sif info instead of dtensor info
@@ -741,29 +739,7 @@ inline void RecipeValueSpec::update_new_tensor(
       " allow perm : ",
       tinfo->get_allow_permutation(),
       " output idx : ",
-      tinfo->get_output_index(),
-      " perm : ",
-      VecToString(permute_or_empty));
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
-      !is_eager_mode) {
-    if (tinfo->is_output() && !tinfo->is_duplicate() && !tinfo->is_ZST()) {
-      if (tinfo->get_allow_permutation()) {
-        synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
-        tinfo->setHbInternalPermute(permute_or_empty);
-      }
-      const auto& syn_tensor_id = tinfo->get_syn_tensor_id();
-      PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output syn tensor id : ", syn_tensor_id);
-      output_tensor_ids.at(tinfo->get_output_index()) = syn_tensor_id;
-      output_tensor_alllow_permutations.at(tinfo->get_output_index()) =
-          tinfo->get_allow_permutation();
-    } else if (!tinfo->is_output()) {
-      if (permute_or_empty.size() > 0) {
-        synapse_graph_ptr->setTensorPermutation(new_handle, permute_or_empty);
-        tinfo->setHbInternalPermute(permute_or_empty);
-      }
-    }
-  }
+      tinfo->get_output_index());
 
   if (new_handle) {
     update_tensor_shape(synapse_graph_ptr, new_handle, tinfo, new_shape);
@@ -846,8 +822,7 @@ void RecipeValueSpec::update_patching_table(
     std::vector<std::vector<int64_t>> output_shapes,
     synapse_helpers::graph* synapse_graph_ptr,
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
-    bool is_shape_agnostic_graph,
-    bool is_eager_mode) {
+    bool is_shape_agnostic_graph) {
   PT_BRIDGE_BEGIN;
   PT_EAGER_DEBUG("[SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos->size());
   bool enable_fast_shape_inf =
@@ -934,10 +909,6 @@ void RecipeValueSpec::update_patching_table(
       auto& tensor = input.toTensor();
 
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
-      synapse_helpers::layouts::MemoryPermutation permutation;
-      bool dont_allow_permutation;
-      std::tie(permutation, dont_allow_permutation) =
-          habana_helpers::get_tensor_memory_permutation(tensor);
       if (false == tmeta->is_shape_tensor()) {
         dtensorinfos->at(ridx)->patch_exact(
             input.toTensor(), is_shape_agnostic_graph);
@@ -948,9 +919,7 @@ void RecipeValueSpec::update_patching_table(
               synapse_graph_ptr,
               ridx,
               synapse_orig_to_new_handle,
-              input.toTensor().sizes().vec(),
-              is_eager_mode,
-              permutation);
+              input.toTensor().sizes().vec());
           dtinfos_patched_count++;
         }
       } else {
@@ -962,17 +931,12 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx)->patch_exact(t, is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
-        synapse_helpers::layouts::MemoryPermutation permutation;
-        std::tie(permutation, std::ignore) =
-            habana_helpers::get_tensor_memory_permutation(t);
         if (is_shape_agnostic_graph) {
           update_new_tensor(
               synapse_graph_ptr,
               ridx,
               synapse_orig_to_new_handle,
-              t.sizes().vec(),
-              is_eager_mode,
-              permutation);
+              t.sizes().vec());
           dtinfos_patched_count++;
         }
         ridx++;
@@ -1006,24 +970,8 @@ void RecipeValueSpec::update_patching_table(
           dtensorinfos->at(parent_idx)->get_buffer());
       if (is_shape_agnostic_graph) {
         auto tshape{parent_ti->get_shape()};
-        std::vector<uint8_t> permutation = {};
-        if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
-          if (parent_ti->is_output() && !parent_ti->is_duplicate() &&
-              !parent_ti->is_ZST()) {
-            if (parent_ti->get_allow_permutation()) {
-              permutation = parent_ti->getHbInternalPermute();
-            }
-          } else if (!parent_ti->is_output()) {
-            permutation = parent_ti->getHbInternalPermute();
-          }
-        }
         update_new_tensor(
-            synapse_graph_ptr,
-            ridx,
-            synapse_orig_to_new_handle,
-            tshape,
-            is_eager_mode,
-            permutation);
+            synapse_graph_ptr, ridx, synapse_orig_to_new_handle, tshape);
         dtinfos_patched_count++;
       }
     }
@@ -1200,8 +1148,7 @@ void RecipeValueSpec::update_patching_table(
           synapse_graph_ptr,
           ridx,
           synapse_orig_to_new_handle,
-          output_shapes.at(output_idx),
-          is_eager_mode);
+          output_shapes.at(output_idx));
       dtinfos_patched_count++;
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
@@ -1280,8 +1227,7 @@ void RecipeValueSpec::update_patching_table(
             synapse_graph_ptr,
             ridx,
             synapse_orig_to_new_handle,
-            output_shapes.at(output_idx),
-            is_eager_mode);
+            output_shapes.at(output_idx));
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1346,8 +1292,7 @@ void RecipeValueSpec::update_patching_table(
             synapse_graph_ptr,
             ridx,
             synapse_orig_to_new_handle,
-            output_shapes.at(output_idx),
-            is_eager_mode);
+            output_shapes.at(output_idx));
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1433,8 +1378,6 @@ void RecipeValueSpec::update_patching_table(
           ++ridx, // dummy value
           synapse_orig_to_new_handle,
           new_sizes,
-          is_eager_mode,
-          {},
           t.second);
     }
   }

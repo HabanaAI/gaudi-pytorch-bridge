@@ -3858,10 +3858,6 @@ void HabanaLaunchOpPT::run(
             {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
       }
 
-      auto new_eager_mode =
-          (jit_graph_and_meta_data->GetFrontendType() ==
-           habana_helpers::HabanaFrontendTypes::EAGER);
-
       for (const auto& out_shape : out_shapes) {
         PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output shape - ", out_shape);
       }
@@ -3889,8 +3885,7 @@ void HabanaLaunchOpPT::run(
           out_shapes,
           syn_graph_ptr,
           synapse_orig_to_new_handle,
-          is_shape_agnostic_graph,
-          new_eager_mode);
+          is_shape_agnostic_graph);
 
       // To check if any other members just like ntensorbytes also need to be
       // updated
