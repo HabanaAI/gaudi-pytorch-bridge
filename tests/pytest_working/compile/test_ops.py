@@ -232,6 +232,7 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
     )
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
+
 def test_constant_pad_nd():
     def raw_function(x, device):
         m = nn.ConstantPad2d(2, 3.5).to(device)
@@ -247,3 +248,40 @@ def test_constant_pad_nd():
     hpu_res = compiled_hpu(hpu_tensor, "hpu")
 
     assert torch.allclose(cpu_res, hpu_res.to('cpu'), rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("dtype", all_dtypes)
+@pytest.mark.parametrize("torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or])
+def test_logical_bin_ops(dtype, torch_func):
+    def raw_function(a, b):
+        return torch_func(a, b)
+
+    cpu_tensor_a = torch.randn(16).to(dtype)
+    hpu_tensor_a = cpu_tensor_a.to("hpu")
+
+    cpu_tensor_b = torch.randn(16).to(dtype)
+    hpu_tensor_b = cpu_tensor_b.to("hpu")
+
+    compiled_cpu = torch.compile(raw_function)
+    cpu_res = compiled_cpu(cpu_tensor_a, cpu_tensor_b)
+
+    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(hpu_tensor_a, hpu_tensor_b)
+
+    assert torch.equal(cpu_res, hpu_res.to("cpu"))
+
+@pytest.mark.parametrize("dtype", all_dtypes)
+def test_logical_not(dtype):
+    def raw_function(a):
+        return torch.logical_not(a)
+
+    cpu_tensor = torch.randn(16).to(dtype)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    compiled_cpu = torch.compile(raw_function)
+    cpu_res = compiled_cpu(cpu_tensor)
+
+    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(hpu_tensor)
+
+    assert torch.equal(cpu_res, hpu_res.to("cpu"))
