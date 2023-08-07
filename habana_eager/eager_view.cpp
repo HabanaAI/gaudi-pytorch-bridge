@@ -32,7 +32,16 @@ std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "hpu::random_",
     "hpu::normal_",
     "hpu::geometric_",
-    "hpu::log_normal_"};
+    "hpu::log_normal_",
+    "hpu::exponential_"};
+
+/* below ops modify the o/p dtype in their out of place variant thereby
+ * requiring cast node*/
+std::unordered_set<std::string> ops_needing_cast = {
+    "aten::ge",
+    "aten::le",
+    "aten::gt",
+    "aten::lt"};
 
 void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
@@ -42,6 +51,34 @@ void set_deterministic(JitNode* node) {
     PT_EAGER_DEBUG(
         "Deterministic val during Jit Node creation: ", node->i(one));
   }
+}
+
+void insert_cast_node(
+    std::shared_ptr<JitGraph> graph,
+    JitNode* node,
+    JitNode* insert_after_node,
+    const habana::eager::StridedOutInfo& s) {
+  torch::jit::WithInsertPoint insert_point(node);
+  auto value_in = insert_after_node->output(0);
+  auto op_copy = c10::Symbol::fromQualString("aten::_to_copy");
+  auto dst_dtype = graph->insertConstant(s.dtype);
+  auto dummy_args = graph->insertConstant(torch::jit::IValue());
+  auto non_blocking = graph->insertConstant(false);
+  auto copy_node = graph->create(
+      op_copy,
+      {insert_after_node->output(0),
+       dst_dtype,
+       dummy_args,
+       dummy_args,
+       dummy_args,
+       non_blocking,
+       dummy_args},
+      1);
+  graph->insertNode(copy_node);
+  set_deterministic(copy_node);
+
+  insert_after_node->output(0)->replaceAllUsesAfterNodeWith(
+      copy_node, copy_node->output(0));
 }
 
 void insert_control_edge_node(
@@ -56,7 +93,6 @@ void insert_control_edge_node(
     return;
   }
 
-  auto value_in = insert_after_node->output(0);
   auto op_control_edge = c10::Symbol::fromQualString("hpu::control_edge_");
   auto control_edge_node =
       graph->create(op_control_edge, {insert_after_node->output(0)}, 1);
@@ -209,6 +245,7 @@ void collect_output_view_param(
       s.value = node->input(idx);
       s.param = std::make_unique<ViewParam>();
       s.param->setParam(output_tensor);
+      s.dtype = output_tensor.scalar_type();
       strided_out_info.emplace_back(std::move(s));
       PT_EAGER_DEBUG(
           "[collect_output_view_param] JIT node outputs count = ",
@@ -434,8 +471,14 @@ void HandleInputOutputViews(
         "JIT_IR_Graph_END\n");
 
     for (size_t idx = 0; idx < strided_out_info.size(); idx++) {
-      insert_strided_insert_node(
+      auto si_node = insert_strided_insert_node(
           graph, new_node, eager_op_meta_data, strided_out_info.at(idx));
+
+      if (ops_needing_cast.find(new_node->kind().toQualString()) ==
+          ops_needing_cast.end())
+        continue;
+
+      insert_cast_node(graph, si_node, new_node, strided_out_info.at(idx));
     }
 
     PT_EAGER_DEBUG(

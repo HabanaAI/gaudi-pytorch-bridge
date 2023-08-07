@@ -77,6 +77,7 @@ struct StridedOutInfo {
   at::Tensor tensor;
   JitValue* value;
   std::unique_ptr<ViewParam> param;
+  c10::ScalarType dtype;
 };
 
 void HandleInputOutputViews(

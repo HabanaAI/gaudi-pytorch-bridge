@@ -447,3 +447,31 @@ def test_lognormal():
     ha2.permute(0,1).log_normal_()
 
     assert torch.allclose(ha1.cpu(), ha2.cpu(), atol = 0.001, rtol = 0.001)
+
+def test_ge_inplace():
+    torch.manual_seed(0)
+    a = torch.randn([3, 2])
+    ha = a.to('hpu')
+
+    b = torch.randn([2, 3])
+    hb = b.to('hpu')
+
+    a.transpose(0,1).ge_(b)
+    ha.transpose(0,1).ge_(hb)
+
+    ha_cpu = ha.cpu()
+    assert torch.allclose(ha_cpu, a, atol = 0.001, rtol = 0.001)
+
+def test_lt_inplace():
+    torch.manual_seed(0)
+    a = torch.randn([3, 2])
+    ha = a.to('hpu')
+
+    b = torch.randn([2, 3])
+    hb = b.to('hpu')
+
+    a.permute(1,0).lt_(b)
+    ha.permute(1,0).lt_(hb)
+
+    ha_cpu = ha.cpu()
+    assert torch.allclose(ha_cpu, a, atol = 0.001, rtol = 0.001)
