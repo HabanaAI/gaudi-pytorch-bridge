@@ -21,19 +21,18 @@ def test_hpu_slice_stride():
   assert(torch.allclose(h, c, 0.001, 0.001))
 
   #slice of slice
-  def func2(dev):
-
-    t = torch.rand(12,13,14).to(dev)
+  def func2(t, dev) :
+    t = t.to(dev)
     k = t[1:11:2]
     k[:,2:5].add_(1)
     return k
 
-  cpu = func2("cpu").to("cpu")
-  hpu = func2("hpu").to("cpu")
+  t = torch.rand(12,13,14).to('cpu')
+  hpu = func2(t, "hpu").to("cpu")
+  cpu = func2(t, "cpu").to("cpu")
   assert(torch.allclose(hpu,cpu,0.001,0.001))
 
   def func3(dev, k):
-
     t = torch.zeros(12,13,14).to(dev)
     t[1:11:k].add_(1)
     t[:,1:11:k].add_(1)

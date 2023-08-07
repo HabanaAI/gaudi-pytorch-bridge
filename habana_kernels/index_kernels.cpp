@@ -1929,6 +1929,8 @@ void SliceOperator::UpdateMaxPassSliceInputs(
       }
     }
   }
+  TORCH_CHECK(
+      min <= start, "SliceOperator Start tensor min is greater than max");
 }
 
 void SliceOperator::AllocateAndAddSynapseNode(

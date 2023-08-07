@@ -268,6 +268,27 @@ TEST_F(LazyDynamicFallbackTest, SliceTest2) {
   }
 }
 
+TEST_F(LazyDynamicFallbackTest, SliceTest3) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  int N = 24;
+  std::vector<int> W_values{16, 16};
+  std::vector<int> in_start{0, 1};
+  std::vector<int> in_end{14, 13};
+  std::vector<int> in_step{1, 1};
+  for (int i = 0; i < W_values.size(); i++) {
+    int W = W_values[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({N, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 1;
+    int64_t start = in_start[i];
+    int64_t end = in_end[i];
+    int64_t step = in_step[i];
+    torch::Tensor h_out = torch::slice(hA, dim, start, end, step);
+    auto h_cout = h_out.to(torch::kCPU);
+  }
+}
+
 TEST_F(LazyDynamicFallbackTest, DynamicAvgPoolBkwdTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
