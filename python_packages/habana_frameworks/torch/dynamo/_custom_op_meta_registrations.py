@@ -276,6 +276,10 @@ def meta_scaled_masked_triangular_softmax(
 ):
     return self.new_empty(self.shape)
 
+@register_meta([torch.ops.hpu.in_place_interleave_.default])
+def meta_in_place_interleave_(self):
+    return self
+
 
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}

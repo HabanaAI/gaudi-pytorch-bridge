@@ -480,9 +480,6 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax):
     )
     gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv_hpu, dtype).cpu()
 
-    print(gelu_unscaled.dtype)
-    print(result_cpu.dtype)
-
     if stochastic:
         assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.26, atol=0.01)
     else:
@@ -582,8 +579,6 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
 
 
 # TODO analyze why single elements of outputs differ for torch.bfloat16
-
-
 @pytest.mark.parametrize("shape", [(64, 96)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float])
@@ -986,3 +981,27 @@ def test_hpu_index_select(shape, dim, index):
         cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None
     ).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
+
+
+@pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16, torch.int8]
+)  # torch.int8 is in fact hidden fp8
+def test_in_place_interleave(shape, dtype):
+    torch.manual_seed(12345)
+    input = (
+        torch.randn(shape, dtype=dtype)
+        if dtype == torch.bfloat16
+        else torch.randint(low=-128, high=128, size=shape, dtype=dtype)
+    )
+    input_hpu = input.to("hpu")
+
+    indices = []
+    for i in range(int(shape[0] / 4)):
+        indices += [i] * 4
+    index = torch.tensor(indices)
+
+    torch.ops.hpu.in_place_interleave_(input_hpu)
+    output_ref = torch.index_select(input, 0, index)
+
+    assert torch.equal(input_hpu.cpu(), output_ref)

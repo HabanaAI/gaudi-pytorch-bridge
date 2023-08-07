@@ -1141,6 +1141,49 @@ void Fp8IndexSelectV2::AddNode(
   syn_out(0) = std::move(result[0]);
 }
 
+InPlaceInterleave::InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "in_place_interleave_",
+          scalar_type,
+          {},
+          {0},
+          {},
+          false) {}
+
+void InPlaceInterleave::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(
+      stack.size() == 1, "InPlaceInterleave must have 1 input argument");
+
+  StackGetter stackGetter(stack, "InPlaceInterleave::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto shape = self.pt_t.sizes().vec();
+  TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
+  TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
+
+  auto dtype = self.pt_t.scalar_type();
+  TORCH_CHECK(
+      dtype == c10::ScalarType::Char || dtype == c10::ScalarType::BFloat16,
+      "Input has to be bfloat16 or float8 dtype");
+
+  std::string guid_suffix;
+  if (dtype == c10::ScalarType::BFloat16) {
+    guid_suffix = "bf16";
+  } else {
+    guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
+  }
+  auto output = BuildNode(
+      this,
+      graph,
+      {"in_place_interleave_fwd_" + guid_suffix,
+       {self.syn_t},
+       {{shape, dtype, 0}}});
+
+  syn_out(0) = std::move(output[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1174,4 +1217,7 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_repeat_v2", KERNEL_FN_GLOBAL(habana::Fp8RepeatV2))
         .add(
             "hpu::fp8_index_select_v2",
-            KERNEL_FN_GLOBAL(habana::Fp8IndexSelectV2));
+            KERNEL_FN_GLOBAL(habana::Fp8IndexSelectV2))
+        .add(
+            "hpu::in_place_interleave_",
+            KERNEL_FN_GLOBAL(habana::InPlaceInterleave));

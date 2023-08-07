@@ -826,6 +826,7 @@ at::Tensor& kv_reorder_lazy(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx);
+at::Tensor& in_place_interleave_lazy(at::Tensor& self);
 
 at::Tensor& fp8_index_copy_lazy(
     at::Tensor& self,

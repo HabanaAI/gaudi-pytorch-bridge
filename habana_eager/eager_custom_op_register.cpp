@@ -586,6 +586,11 @@ at::Tensor scaled_masked_triangular_softmax(
       "hpu::scaled_masked_triangular_softmax is not available in Eager mode.");
 }
 
+at::Tensor& in_place_interleave_(at::Tensor& self) {
+  TORCH_CHECK(
+      false, "hpu::in_place_interleave_ is not available in Eager mode.");
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -672,6 +677,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
+  m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -717,6 +723,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
+  m.impl("hpu::in_place_interleave_", in_place_interleave_);
 }
 
 } // namespace eager

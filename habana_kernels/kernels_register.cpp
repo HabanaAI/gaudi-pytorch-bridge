@@ -1960,6 +1960,14 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
       self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode);
 }
 
+at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_ARG(self));
+
+  return in_place_interleave_lazy(self);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2468,6 +2476,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
+  m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2519,6 +2528,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);
+  m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

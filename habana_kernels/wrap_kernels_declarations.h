@@ -490,6 +490,7 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
     int64_t grouped_batch_size,
     bool use_max,
     int64_t mode);
+at::Tensor& in_place_interleave_wrap(at::Tensor& self);
 
 } // namespace ops
 } // namespace vision
