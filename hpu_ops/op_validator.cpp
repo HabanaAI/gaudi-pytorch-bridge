@@ -127,7 +127,12 @@ bool fillGuidParamInfoWithTensor(
   tensor.geometry.dims = t.dim();
   for (int64_t dim = 0; dim < t.dim(); ++dim) {
     int64_t syn_dim = t.dim() - dim - 1;
-    tensor.layout.layout[syn_dim] = t.size(dim);
+    auto sym_dim = t.sym_size(dim);
+    if (sym_dim.is_symbolic()) {
+      tensor.layout.layout[syn_dim] = 1;
+    } else {
+      tensor.layout.layout[syn_dim] = sym_dim.as_int_unchecked();
+    }
   }
   if (tensor.geometry.dims == 0) {
     tensor.geometry.dims = 1;
