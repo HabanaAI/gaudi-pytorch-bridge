@@ -61,8 +61,8 @@ class EagerOpBase {
 
   void SetOutputMetaFn(
       std::function<habana::OutputMetaDataVector(const at::Stack&)>
-          output_meta) {
-    m_output_meta_fn = std::move(output_meta);
+          output_meta_fn) {
+    m_output_meta_fn = std::move(output_meta_fn);
   }
 
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {

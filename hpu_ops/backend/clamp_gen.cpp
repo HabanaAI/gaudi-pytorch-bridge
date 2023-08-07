@@ -17,6 +17,30 @@
 
 namespace habana {
 
+OutputMetaDataVector ClampMeta(const at::Stack& stack) {
+  OutputMetaData meta{};
+  auto self_sizes = stack_tensor(stack, 0).sizes();
+  bool minTensorDefined = stack.at(1).isTensor();
+  bool maxTensorDefined = stack.at(2).isTensor();
+  if (minTensorDefined && maxTensorDefined) {
+    meta.shape = at::infer_size(
+        at::infer_size(self_sizes, stack_tensor(stack, 1).sizes()),
+        stack_tensor(stack, 2).sizes());
+  } else if (minTensorDefined) {
+    meta.shape = at::infer_size(self_sizes, stack_tensor(stack, 1).sizes());
+  } else {
+    meta.shape = at::infer_size(self_sizes, stack_tensor(stack, 2).sizes());
+  }
+
+  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+
+  return {meta};
+}
+
 template <typename ScalarType>
 static std::shared_ptr<void> ClampParams(
     ScalarType min,
@@ -78,24 +102,11 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
-sizes_vec ClampOutputShape(const at::Stack& stack) {
-  auto self_sizes = stack_tensor(stack, 0).sizes();
-  bool minTensorDefined = stack.at(1).isTensor();
-  bool maxTensorDefined = stack.at(2).isTensor();
-  if (minTensorDefined && maxTensorDefined)
-    return {at::infer_size(
-        at::infer_size(self_sizes, stack_tensor(stack, 1).sizes()),
-        stack_tensor(stack, 2).sizes())};
-  else if (minTensorDefined)
-    return {at::infer_size(self_sizes, stack_tensor(stack, 1).sizes())};
-  return {at::infer_size(self_sizes, stack_tensor(stack, 2).sizes())};
-}
-
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
-  auto outshape = ComputeOutputShapes(stack)[0];
+  auto outshape = OutputMeta(stack)[0].shape;
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
   if (minTensorDefined && maxTensorDefined) {

@@ -137,6 +137,38 @@ inline float& get<float>(fint_t& u) {
   return u.f;
 }
 
+template <int type_promotion_kind, bool broadcast, int... indices>
+OutputMetaDataVector PointwiseMeta(const at::Stack& stack) {
+  OutputMetaData meta{};
+  at::Stack inputs;
+  inputs.reserve(sizeof...(indices));
+
+  bool first = true;
+  for (int i : {indices...}) {
+    inputs.emplace_back(stack[i]);
+    if (stack[i].isTensor()) {
+      if (first) {
+        meta.shape = stack_tensor(stack, i).sizes().vec();
+        first = false;
+      } else if (broadcast) {
+        meta.shape = at::infer_size(meta.shape, stack_tensor(stack, i).sizes());
+      }
+    }
+  }
+
+  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      inputs,
+      c10::nullopt,
+      static_cast<habana_helpers::DTypeHelper::DtypePromoteVariant>(
+          type_promotion_kind),
+      false,
+      c10::nullopt,
+      true,
+      true);
+
+  return {meta};
+}
+
 } // namespace habana
 
 #define PARAMS_STUB(structname) \

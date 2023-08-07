@@ -19,6 +19,19 @@
 
 namespace habana {
 
+OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
+  OutputMetaData meta{};
+  const auto& self = stack_tensor(stack, 0);
+  if (stack[1].isScalar()) {
+    meta.shape = self.sizes().vec();
+  } else {
+    meta.shape = at::infer_size(self.sizes(), stack_tensor(stack, 1).sizes());
+  }
+  meta.dtype = GetResultDtype(stack, stack[2].isNone());
+
+  return {meta};
+}
+
 static std::vector<synapse_helpers::tensor> CommonFuncForRoundingModeIntType(
     OpBackend* op,
     synapse_helpers::graph& graph,

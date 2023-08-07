@@ -82,10 +82,6 @@ float self_type_min_for_be(c10::ScalarType type) {
 static void convert_params_to_tensors(
     at::Stack& inputs,
     at::ScalarType compute_dtype) {
-  // For lazy eager Skip scalar handling at FE
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    return;
-  }
   const auto& self = inputs[0].toTensor();
   float min = inputs[1].isScalar() ? inputs[1].toScalar().to<float>()
                                    : self_type_min_for_be(compute_dtype);
@@ -97,19 +93,17 @@ static void convert_params_to_tensors(
       max, self.options().dtype(compute_dtype));
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, ClampFE, -1, at::Tensor) {}
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, ClampFE, at::Tensor) {
+  auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      get_inputs(),
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  convert_params_to_tensors(get_inputs(), dtype);
+}
+
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, ClampFE, at::Tensor&) {
   convert_params_to_tensors(
       get_inputs(), inputs.at(0).toTensor().scalar_type());
 }
-
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(habana_lazy::LazyOp, ClampFE, at::Tensor) {
-  auto& inputs = get_inputs();
-  const auto& dtype = get_scalar_types()[0];
-  convert_params_to_tensors(inputs, dtype);
-  const auto& t = inputs.at(0).toTensor();
-  return habana_lazy::empty_hpu_lazy(
-      t.sizes(), t.options().dtype(dtype), t.suggest_memory_format(), false);
-}
-
 } // namespace habana

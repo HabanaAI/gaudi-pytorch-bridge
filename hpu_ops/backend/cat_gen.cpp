@@ -50,22 +50,32 @@ void ValidateInputParams(
       out_result.sizes());
 }
 
-sizes_vec CatOutOutputShape(const at::Stack& stack) {
-  auto tensors = stack[0].toTensorList().vec();
+OutputMetaDataVector CatMeta(const at::Stack& stack) {
+  auto tensors = stack[0].toTensorList();
   auto dim_ = stack[1].toInt();
+  const at::Tensor& first_tensor = tensors[0];
   int64_t dim = at::maybe_wrap_dim(
       dim_,
-      tensors[0].dim(),
+      first_tensor.dim(),
       /*wrap_scalar=*/true);
 
   auto in_tensor_count = tensors.size();
-  auto first_tensor = tensors[0];
   auto out_size = first_tensor.sizes().vec();
   out_size[dim] = 0;
-  for (unsigned i = 0; i < in_tensor_count; i++) {
-    out_size[dim] += tensors[i].sizes()[dim];
+  for (const at::Tensor& tensor : tensors) {
+    out_size[dim] += tensor.sizes()[dim];
   }
-  return {out_size};
+  auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      {tensors},
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  return {OutputMetaData{
+      dtype,
+      out_size,
+      {},
+      first_tensor.layout(),
+      first_tensor.suggest_memory_format()}};
 }
 
 void CatOutHabanaOperator::AddNode(
@@ -98,7 +108,7 @@ void CatOutHabanaOperator::AddNode(
       cat_input_synTensor.emplace_back(syn_in(i));
     }
   }
-  auto cal_out_size = ComputeOutputShapes(stack)[0];
+  auto cal_out_size = OutputMeta(stack)[0].shape;
   ValidateInputParams(stack, cal_out_size);
 
   synConcatenateParams concat_params{};

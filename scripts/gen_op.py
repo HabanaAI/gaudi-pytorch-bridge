@@ -557,9 +557,6 @@ class Op(object):
     def get_scalar_ids(self):
         return self.op.get("scalar_ids", [])
 
-    def force_default(self):
-        return self.op.get("force_default", None)
-
     def promote_to_common_type(self):
         return self.op.get("promote_to_common_type", [])
 
@@ -931,7 +928,7 @@ def frontend(
     param_vars,
     inplace_op_info,
     meta_vars,
-    lazyop_call_args,
+    fe_call_args,
     sig,
     is_eager_frontend,
     is_check_kernel_support,
@@ -953,22 +950,23 @@ def frontend(
 
     promote_types = promote_to_common_type or promote_int_to_float
     use_compute_type = promote_types or is_reduction
+    dtype_helper_inputs = []
+    type_promo_variant = ""
 
     if use_compute_type:
-        dtype_helper_inputs = []
         if promote_types:
             assert (not promote_to_common_type) ^ (
                 not promote_int_to_float
             ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
 
             if promote_int_to_float:
-                variant = "PromoteIntToFloat"
+                type_promo_variant = "PromoteIntToFloat"
                 dtype_helper_inputs = promote_int_to_float
             else:
-                variant = "PromoteToCommon"
+                type_promo_variant = "PromoteToCommon"
                 dtype_helper_inputs = promote_to_common_type
         else:
-            variant = "Reduction"
+            type_promo_variant = "Reduction"
             dtype_helper_inputs = ["self"]
 
         safe_cast = is_inplace_or_out_op(fname)
@@ -982,10 +980,10 @@ def frontend(
             safe_cast = safe_cast_check
 
         code += (
-            f"  auto&& compute_type = "
+            f"  auto compute_type = "
             f"DTypeHelper::get_compute_dtype({{{', '.join(dtype_helper_inputs)}}}, "
-            f'{lazyop_call_args if lazyop_call_args else "c10::nullopt"}, '
-            f"DTypeHelper::DtypePromoteVariant::k{variant}, "
+            f'{fe_call_args if fe_call_args else "c10::nullopt"}, '
+            f"DTypeHelper::DtypePromoteVariant::k{type_promo_variant}, "
             f"{str(safe_cast).lower()}/*safe_cast*/"
             f'{", dtype" if "dtype" in param_vars else ""});\n'
             f"  static_cast<void>(compute_type);\n\n"
@@ -1004,7 +1002,7 @@ def frontend(
             else "RETURN_IF_UNSUPPORTED_DTYPE"
         )
         if use_compute_type:
-            code += " {}{}{}(compute_type, {}, {}{})\n".format(
+            code += "  {}{}{}(compute_type, {}, {}{})\n".format(
                 fallback_if_prefix,
                 fallback_string,
                 "2" if overload else "",
@@ -1106,6 +1104,17 @@ def frontend(
                 not output_shape_fn
             ), "Remove custom_output_shape as output_meta already provides the shape."
             code += f"  hpu_op.SetOutputMetaFn({output_meta});\n"
+        elif promote_types:
+            input_indices = []
+            for input in dtype_helper_inputs:
+                input_indices.append(param_vars.index(input))
+
+            code += (
+                f"  hpu_op.SetOutputMetaFn("
+                f"PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::k{type_promo_variant}), "
+                f"{str(ctxop.op.get('broadcast', False)).lower()}, "
+                f"{', '.join(map(str, input_indices))}>);\n"
+            )
 
         out_dtypes = ctxop.get_out_dtypes()
         if out_dtypes:
@@ -1129,7 +1138,7 @@ def frontend(
         if not is_eager_frontend and is_acc_thread_supported(fname, ctxop, rtype, sig):
             if is_inplace_or_out_op(fname):
                 if rtype.startswith("::std::tuple<at::Tensor"):
-                    code += "  auto tuple = {};\n".format(lazyop_call_args)
+                    code += "  auto tuple = {};\n".format(fe_call_args)
                     code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(
                         fname
                     )
@@ -1144,12 +1153,12 @@ def frontend(
                         )
                 elif rtype.startswith("const at::Tensor"):
                     code += "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
-                        fname, lazyop_call_args
+                        fname, fe_call_args
                     )
                 else:
                     code += (
                         "  RUN_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
-                            fname, lazyop_call_args
+                            fname, fe_call_args
                         )
                     )
             else:
@@ -1182,7 +1191,7 @@ def frontend(
                 )
                 code += "  hpu_op.set_eager_op_info({});\n".format(code_line)
             code += "  {}hpu_op.call({})".format(
-                "" if rtype == "void" else "return ", lazyop_call_args
+                "" if rtype == "void" else "return ", fe_call_args
             )
         if is_eager_frontend and not is_eager_op_supported:
             code += "  */\n"
@@ -1200,17 +1209,6 @@ def bitwise_ops_alt_guid(guid):
     return code
 
 
-# HACK: Construct tensor from options
-def tril_triu_without_tensor():
-    # row, col, offset, c10::optional<ScalarType> dtype, c10::optional<Layout> layout, c10::optional<Device> device, c10::optional<bool> pin_mem
-    code = (
-        "auto options = at::TensorOptions(at::kHPU).dtype(stack[3].toOptional<c10::ScalarType>());\n"
-        "    at::Tensor t = at::empty(ComputeOutputShapes(stack, true)[0], options);\n"
-        "    stack.emplace_back(t);"
-    )
-    return code
-
-
 def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     guid = ctxop.get_guid()
     out_ids = ctxop.get_out_ids()
@@ -1221,7 +1219,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
-    promote_type = ctxop.promote_to_common_type()
+    promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (
@@ -1242,8 +1240,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
-    elif fname == "tril_indices" or fname == "triu_indices":
-        custom_handler = _CUSTOM_HANDLER.format(body=tril_triu_without_tensor())
     else:
         custom_handler = ""
 
@@ -1274,6 +1270,22 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if output_meta_fn:
         ctor_extra_calls.append("SetOutputMetaFn({});".format(output_meta_fn))
+    elif promote_to_common_type or promote_int_to_float:
+        if promote_int_to_float:
+            type_promo_variant = "PromoteIntToFloat"
+            dtype_helper_inputs = promote_int_to_float
+        else:
+            type_promo_variant = "PromoteToCommon"
+            dtype_helper_inputs = promote_to_common_type
+        input_indices = []
+        for input in dtype_helper_inputs:
+            input_indices.append(param_vars.index(input))
+        ctor_extra_calls.append(
+            f"SetOutputMetaFn("
+            f"PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::k{type_promo_variant}), "
+            f"{str(ctxop.op.get('broadcast', False)).lower()}, "
+            f"{', '.join(map(str, input_indices))}>);"
+        )
     elif output_shape_fn:
         ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
 
@@ -1298,7 +1310,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         )
         ctor_extra_calls.append("SetFillParams({});".format(fill_params))
 
-    if promote_type:
+    if promote_to_common_type:
         ctor_extra_calls.append("EnableTypePromotion();")
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
@@ -1596,11 +1608,11 @@ def generate_code(
         fc
     ), "Cannot find all params specified for {}.".format(fc[0])
 
-    lazyop_call_args = ""
+    fe_call_args = ""
     if len(call_args):
-        lazyop_call_args = "{}".format(", ".join(call_args))
+        fe_call_args = "{}".format(", ".join(call_args))
         if type_core(tree.children[0]) == "::std::tuple":
-            lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
+            fe_call_args = "{}({})".format(rtype, fe_call_args)
 
     if ctxop.custom_schema():
         out_indices = create_outputs_indices_list_by_schema(ctxop.custom_schema())
@@ -1617,7 +1629,7 @@ def generate_code(
         param_vars,
         inplace_op_info,
         meta_param_vars,
-        lazyop_call_args,
+        fe_call_args,
         sig,
         is_eager_frontend,
         is_check_kernel_support,
@@ -1696,9 +1708,6 @@ def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False, is_check_kernel_support
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
 
     if opname in ctx.op_data:
-        if not fndef.dispatch:
-            print("{} has dispatch=False".format(opname))
-
         op_frontend, op_backend, cname, ctxop, fc_params = generate_code(
             ctx,
             tree,
@@ -1730,17 +1739,6 @@ def get_hpu_wrapper(fndef, ctx, is_eager_frontend=False, is_check_kernel_support
                 "lazy",
             )
             ops_lazy_ctx[opname] = {"op_frontend": lazy_op_frontend}
-
-        # Use default flag from pytorch when force_default is not defined or in eager flow
-        if ctxop.force_default() is None or is_eager_frontend:
-            default = fndef.default
-        else:
-            default = ctxop.force_default()
-            if default == fndef.default:
-                print("No need to force it to False for {}".format(opname))
-
-        if default:
-            print("{} has default={}".format(opname, default))
 
     return OpGen(
         tree=tree,

@@ -160,7 +160,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/mm_gen.cpp
           backend/mseloss_gen.cpp
           backend/multinomial_gen.cpp
-          backend/mul_gen.cpp
           backend/mv_gen.cpp
           backend/nansum_gen.cpp
           backend/nantonum_gen.cpp
