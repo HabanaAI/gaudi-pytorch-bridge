@@ -8,8 +8,6 @@ import os
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
-collect_ignore_glob = []
-
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
     import torch
@@ -45,13 +43,10 @@ def pytest_configure(config):
 
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
-        collect_ignore_glob.extend(["lazy/*.py", "compile/*.py"])
     elif pytest.mode == "lazy":
         os.environ["PT_HPU_LAZY_MODE"] = "1"
-        collect_ignore_glob.extend(["eager/*.py", "compile/*.py"])
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
-        collect_ignore_glob.extend(["eager/*.py", "lazy/*.py"])
         # According to Piotr Papierkowski PT_HPU_DETERMINISTIC_ENABLE=1 set's alfa parameter
         # in some graphs/tensors. When using torch.compile such attribute is not defined so
         # this flag shall be ignored by bridge code.
@@ -62,6 +57,8 @@ def pytest_configure(config):
 
     # TODO: assert correct lib was read
 
+def pytest_ignore_collect(collection_path, config):
+    return pytest.mode not in collection_path.parts
 
 def pytest_unconfigure(config):
     os.environ.clear()
