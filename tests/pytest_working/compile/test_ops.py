@@ -10,6 +10,7 @@
 #
 ###############################################################################
 import torch
+import torch.nn as nn
 import pytest
 from functools import reduce
 from torch.testing._internal.common_methods_invocations import op_db
@@ -230,3 +231,23 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
         tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
     )
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
+    print("CPU index_put result = ",cpu_res)
+    print("HPU index_put result = ",hpu_res.to('cpu'))
+
+    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+
+def test_constant_pad_nd():
+    def raw_function(x, device):
+        m = nn.ConstantPad2d(2, 3.5).to(device)
+        return m(x)
+
+    cpu_tensor = torch.randn(1, 2, 2)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    compiled_cpu = torch.compile(raw_function)
+    cpu_res = compiled_cpu(cpu_tensor, "cpu")
+
+    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(hpu_tensor, "hpu")
+
+    assert torch.allclose(cpu_res, hpu_res.to('cpu'), rtol=1e-3, atol=1e-3)

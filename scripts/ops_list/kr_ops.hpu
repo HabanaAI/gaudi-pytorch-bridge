@@ -801,6 +801,7 @@ RegisterKernel::add op = hpu::cast
 RegisterKernel::add op = hpu::cast_from_fp8
 RegisterKernel::add op = hpu::cast_to_fp8
 RegisterKernel::add op = hpu::cat
+RegisterKernel::add op = hpu::constant_pad_nd
 RegisterKernel::add op = hpu::constant_pad_nd_ht
 RegisterKernel::add op = hpu::control_edge_
 RegisterKernel::add op = hpu::control_edge_other_

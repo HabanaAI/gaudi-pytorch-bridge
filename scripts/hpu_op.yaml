@@ -2058,13 +2058,19 @@ complex:
   override_fn: complex_hpu
 
 constant_pad_nd:
+  output_meta: ConstantPadMeta
+  custom_fill_params: FillConstantPadParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long]
     Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte]
-  override_fn: constant_pad_hpu_lazy
   force_default: false
-  acc_thread: true
+  guid: pad_fwd
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: constant_pad_hpu_lazy
+
 
 convolution_overrideable:
   force_default: false

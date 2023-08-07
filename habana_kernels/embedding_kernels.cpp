@@ -514,7 +514,7 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
 
 static auto& EmbeddingKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::constant_pad_nd", KERNEL_FN(PadOperator))
+        .add("hpu::constant_pad_nd", KERNEL_FN(PadOperator))
         .add("hpu::constant_pad_nd_ht", KERNEL_FN(PadOperatorHT))
         .add(
             "aten::embedding_bag_sum_fwd",
