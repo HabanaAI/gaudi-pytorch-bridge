@@ -11,6 +11,7 @@
 ###############################################################################
 import abc
 import atexit
+import os
 from contextlib import contextmanager
 from statistics import mean
 from typing import Sequence, Tuple
@@ -187,6 +188,7 @@ class MemoryDefragmentationMetric(Metric):
             (self._TOTAL_DEFRAGMENTATION_MAX_TAG, max(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0)
         ]
 
+
     def reset(self):
         self._total_defragmentation_count = 0
         self._total_successful_defragmentation_count = 0
@@ -311,6 +313,7 @@ class GraphCompilationMetric(Metric):
     _TOTAL_TIME_TAG = "TotalTime"
     _AVG_TIME_TAG = "AvgTime"
     _DURATION_EVENT_PARAM_NAME = "duration"
+    _RECIPE_PARAM_NAME = "recipe"
 
     def __init__(self):
         super().__init__()
@@ -318,6 +321,8 @@ class GraphCompilationMetric(Metric):
         self._total_time_of_compilation = 0
         self._ed = EventDispatcher.instance()
         self._handle = None
+        self._recipe_names = []
+        self._recipe_durations = []
         self.start()
 
     def _get_event_callback_fn(self):
@@ -325,6 +330,8 @@ class GraphCompilationMetric(Metric):
             event_params = dict(event_params)
             self._total_num_of_compilation += 1
             self._total_time_of_compilation += int(event_params[self._DURATION_EVENT_PARAM_NAME])
+            self._recipe_names.append(event_params[self._RECIPE_PARAM_NAME])
+            self._recipe_durations.append(int(event_params[self._DURATION_EVENT_PARAM_NAME]))
             self.notify(timestamp, event_params)
         return callback_fn
 
@@ -347,6 +354,8 @@ class GraphCompilationMetric(Metric):
             self._AVG_TIME_TAG: float(self._total_time_of_compilation) /
             self._total_num_of_compilation if self._total_num_of_compilation > 0 else 0
         }
+        if "PT_HPU_METRICS_GC_DETAILS" in os.environ and bool_helper(os.getenv("PT_HPU_METRICS_GC_DETAILS")):
+            result[self._RECIPE_PARAM_NAME] = list(map(lambda name, duration : (name, duration), self._recipe_names, self._recipe_durations))
         return [(tag, value) for tag, value in result.items()]
 
     def reset(self):
@@ -366,7 +375,6 @@ def _init_metric_mgr():
     _metric_mgr.register("graph_compilation", GraphCompilationMetric)
     _metric_mgr.register("cpu_fallback", CpuFallbackMetric)
     _metric_mgr.register("memory_defragmentation", MemoryDefragmentationMetric)
-    import os
     if "PT_HPU_ENABLE_CACHE_METRICS" in os.environ and bool_helper(os.getenv("PT_HPU_ENABLE_CACHE_METRICS")):
         _metric_mgr.register("recipe_cache", RecipeCacheMetric)
 
