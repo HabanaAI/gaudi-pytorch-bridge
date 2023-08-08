@@ -29,7 +29,7 @@ hpu_supported_op_list = {
     "slice_scatter",
 }
 
-hpu_fallback_op_list = [
+hpu_fallback_op_list = {
     # Random OPs.
     "seed",
     "manual_seed",
@@ -50,8 +50,7 @@ hpu_fallback_op_list = [
     "slice_backward",  # SW-146680
     "addcmul",
     "index",  # SW-146773
-]
-
+}
 
 def check_for_default_op_support(op_name):
     if op_name in hpu_supported_op_list:
@@ -60,9 +59,8 @@ def check_for_default_op_support(op_name):
 
 
 def check_for_default_fallback(op_name, node):
-    for op in hpu_fallback_op_list:
-        if op in op_name:
-            return True
+    if op_name in hpu_fallback_op_list:
+        return True
     unsupported_types = {"permute": torch.int64}
     if op_name in unsupported_types:
         for output_dtype in node.meta["output_dtypes"]:
