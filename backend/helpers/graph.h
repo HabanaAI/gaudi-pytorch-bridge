@@ -24,13 +24,7 @@ static inline synapse_helpers::graph create_graph(
     bool dry_run = false,
     bool eager_mode = false) {
   auto& device = habana::HPURegistrar::get_device(device_id);
-  auto graph_or_error = synapse_helpers::graph::create(
+  return synapse_helpers::graph::create(
       device.syn_device(), name, dry_run, eager_mode);
-
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(graph_or_error)) {
-    auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);
-    TORCH_HABANA_CHECK(error.status, error.error);
-  }
-  return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
 }
 } // namespace habana_helpers

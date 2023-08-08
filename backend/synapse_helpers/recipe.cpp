@@ -32,36 +32,14 @@ namespace synapse_helpers {
 recipe::recipe(device& device) : device_{device} {}
 
 bool recipe::create(synapse_helpers::graph& graph) {
-  auto&& compile_result{graph.compile()};
-  if (ABSL_PREDICT_FALSE(
-          absl::holds_alternative<synapse_helpers::synapse_error>(
-              compile_result))) {
-    auto& error = absl::get<synapse_helpers::synapse_error>(compile_result);
-    PT_SYNHELPER_FATAL(
-        "syn compile encountered : ",
-        error.error,
-        " ",
-        Logger::formatStatusMsg(error.status));
-  }
-  auto recipe_handle = get_value(std::move(compile_result));
+  auto recipe_handle = graph.compile();
   if (recipe_handle != nullptr) {
     recipe_handle_ = recipe_handle;
     if (!graph.is_empty()) {
       // first time, we need to get workspace size of the recipe, that was
       // compiled
-      auto&& ws_size_result{
-          synapse_helpers::graph::query_workspace_size(*recipe_handle_)};
-      if (ABSL_PREDICT_FALSE(
-              absl::holds_alternative<synapse_helpers::synapse_error>(
-                  ws_size_result))) {
-        auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
-        PT_SYNHELPER_FATAL(
-            "syn query workspace failed: ",
-            error.error,
-            " ",
-            Logger::formatStatusMsg(error.status));
-      }
-      workspace_size_ = get_value(ws_size_result);
+      workspace_size_ =
+          synapse_helpers::graph::query_workspace_size(*recipe_handle_);
     }
   }
   return (recipe_handle != nullptr);
@@ -107,7 +85,7 @@ void recipe::populate_syn_tensor_ids() {
   }
 }
 
-bool recipe::launch(
+void recipe::launch(
     const std::vector<void*>& in_buffers,
     const std::vector<void*>& out_buffers,
     std::unique_ptr<device_ptr_lock>& addr_locked,
@@ -132,24 +110,14 @@ bool recipe::launch(
         tensor_ids[tensor_idx++]});
 
   std::vector<shared_event> ext_events;
-  auto&& error_optional{synapse_helpers::graph::launch(
+  synapse_helpers::graph::launch(
       device_,
       *recipe_handle_,
       workspace_size_,
       syn_info,
       addr_locked,
       ext_events,
-      compute_stream)};
-  if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-    auto& error = error_optional.value();
-    PT_SYNHELPER_FATAL(
-        "syn launch encountered : ",
-        error.error,
-        " ",
-        Logger::formatStatusMsg(error.status));
-    return false;
-  }
-  return true;
+      compute_stream);
 }
 
 std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe::

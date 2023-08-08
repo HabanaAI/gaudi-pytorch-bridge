@@ -106,7 +106,7 @@ CHECK_KPARAMS_SIZE(ns_SoftmaxCrossEntropy, 8)
 graph::graph(device& device, std::string name)
     : device_{device}, name_{std::move(name)} {}
 
-synapse_error_v<graph> graph::create(
+graph graph::create(
     device& device,
     std::string name,
     bool dry_run,
@@ -126,7 +126,10 @@ synapse_error_v<graph> graph::create(
     } else {
       status = synGraphCreate(&syn_graph.graph_handle_, device_type);
     }
-    SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
+    HABANA_ASSERT(
+        status == synStatus::synSuccess,
+        "Graph creation failed. synStatus=",
+        Logger::formatStatusMsg(status));
 
     if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
@@ -134,32 +137,36 @@ synapse_error_v<graph> graph::create(
       synGraphAttribute att[] = {GRAPH_ATTRIBUTE_INFERENCE};
       const uint32_t size = 1;
       status = synGraphSetAttribute(syn_graph.graph_handle_, att, values, size);
-      SYNAPSE_SUCCESS_CHECK("Failed to set graph attributes.", status)
+      HABANA_ASSERT(
+          status == synStatus::synSuccess,
+          "Failed to set graph attributes. synStatus=",
+          Logger::formatStatusMsg(status));
     }
   }
 
   syn_graph.is_valid_ = true;
   PT_SYNHELPER_END;
-  return {std::move(syn_graph)};
+  return syn_graph;
 }
 
-synapse_error_v<graph> graph::create_for_refinement(
-    device& device,
-    std::string name) {
+graph graph::create_for_refinement(device& device, std::string name) {
   PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
   PT_SYNHELPER_DEBUG("Graph Create.");
   synStatus status = synSuccess;
   status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
-  SYNAPSE_SUCCESS_CHECK("Graph creation failed.", status)
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Graph creation failed. synStatus=",
+      Logger::formatStatusMsg(status));
   syn_graph.is_valid_ = true;
   syn_graph.dry_run_ = false;
   PT_SYNHELPER_END;
-  return {std::move(syn_graph)};
+  return syn_graph;
 }
 
-synapse_error_o graph::duplicate(
+void graph::duplicate(
     synTensorHandleMap* tensorsMap,
     synNodeHandleMap* nodesMap) {
   PT_SYNHELPER_BEGIN;
@@ -178,13 +185,15 @@ synapse_error_o graph::duplicate(
     HABANA_ASSERT(
         0 && "Graph Duplicate API is not supposed to be used in lazy mode");
   }
-  SYNAPSE_SUCCESS_CHECK("Graph duplication failed.", status)
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Graph duplication failed. synStatus=",
+      Logger::formatStatusMsg(status));
   graph_is_empty_ = false;
   PT_SYNHELPER_END;
-  return {};
 }
 
-synapse_error_o graph::setTensorGeometry(
+void graph::setTensorGeometry(
     synTensor tensor_handle,
     std::vector<int64_t> shape) {
   PT_SYNHELPER_BEGIN;
@@ -198,12 +207,14 @@ synapse_error_o graph::setTensorGeometry(
 
   status =
       synTensorSetGeometryExt(tensor_handle, &maxGeometry, synGeometrySizes);
-  SYNAPSE_SUCCESS_CHECK("Tensor Set Geometry failed.", status)
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Tensor Set Geometry failed. synStatus=",
+      Logger::formatStatusMsg(status))
   PT_SYNHELPER_END;
-  return {};
 }
 
-synapse_error_o graph::setTensorPermutation(
+void graph::setTensorPermutation(
     synTensor tensor_handle,
     std::vector<uint8_t>& permute_or_empty) {
   PT_SYNHELPER_BEGIN;
@@ -215,9 +226,11 @@ synapse_error_o graph::setTensorPermutation(
   }
 
   status = synTensorSetPermutation(tensor_handle, &perm);
-  SYNAPSE_SUCCESS_CHECK("Tensor Set Permutation failed.", status)
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Tensor Set Permutation failed. synStatus=",
+      Logger::formatStatusMsg(status))
   PT_SYNHELPER_END;
-  return {};
 }
 
 graph::graph(graph&& other) noexcept
@@ -267,22 +280,20 @@ std::ostream& operator<<(std::ostream& out, const V<T, Alloc>& collection) {
   return out;
 }
 
-synapse_error_o graph::add_node(
+void graph::add_node(
     std::vector<synTensor>&& inputs,
     std::vector<synTensor>&& outputs,
     void* const params,
     const unsigned params_size,
-    const synapse_error_v<std::string>& node_type_or_err,
+    const std::string& node_type,
     synNodeId* ret_node_id,
     const char** input_layouts,
     const char** output_layouts,
     bool deterministic) {
   if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
-    return {};
+    return;
   }
-  SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
-  std::string node_type{get_value(node_type_or_err)};
 
   for (auto& tensor : outputs) {
     PT_LAZY_DEBUG(
@@ -293,9 +304,7 @@ synapse_error_o graph::add_node(
     TORCH_HABANA_CHECK(status, "Node " + node_type + "  failed.");
   }
   PT_BRIDGE_DEBUG("\nAdding Node to graph with guid = ", node_type.c_str());
-  if (!in_build_phase_) {
-    return synapse_error{"Graph not in build phase.", synStatus::synFail};
-  }
+  HABANA_ASSERT(in_build_phase_, "Graph not in build phase.");
   static int cnt = 0;
   std::string node_name;
   if (current_op_name_) {
@@ -361,23 +370,22 @@ synapse_error_o graph::add_node(
           "node add synNodeSetDeterministic failed");
     }
   }
-  return {};
 }
 
-synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
-  if (!in_build_phase_) {
-    return synapse_error{"Graph not in build phase.", synStatus::synFail};
-  }
+std::shared_ptr<graph::recipe_handle> graph::compile() {
+  HABANA_ASSERT(in_build_phase_, "Graph not in build phase");
   in_build_phase_ = false;
-  synStatus status;
   if (graph_is_empty_) {
     // Valid case, in some special scenarios Op does not add to graph.
     return {};
   }
   STAT_START(synapse_compilation);
 
-  status = set_synapse_control_edges();
-  SYNAPSE_SUCCESS_CHECK("Setting node dependencies failed.", status);
+  auto status = set_synapse_control_edges();
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Setting node dependencies failed. synStatus=",
+      Logger::formatStatusMsg(status));
 
   TIME_MEASURE_VARS;
   START_TIME_MEASURE;
@@ -406,7 +414,10 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
         nullptr);
   }
 
-  SYNAPSE_SUCCESS_CHECK("Graph compile failed.", status);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Graph compile failed. synStatus=",
+      Logger::formatStatusMsg(status));
   END_TIME_MEASURE("Synapse graph compilation took");
   in_execution_phase_ = true;
   recipe_handle->graph_is_empty_ = graph_is_empty_;
@@ -431,7 +442,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
       recipe_handle->recipe_name_);
   STAT_COLLECT_TIME(synapse_compilation, globalStatPtsEnum::recipe_compile);
 
-  return {std::move(recipe_handle)};
+  return recipe_handle;
 }
 
 std::string to_string(
@@ -451,28 +462,32 @@ std::string to_string(
       });
 }
 
-synapse_error_v<uint64_t> graph::query_workspace_size(
+uint64_t graph::query_workspace_size(
     const graph::recipe_handle& recipe_handle) {
   uint64_t workspace_size;
-  SYNAPSE_SUCCESS_CHECK(
-      "Getting workspace size failed",
-      synWorkspaceGetSize(&workspace_size, recipe_handle.syn_recipe_handle_));
+  auto status =
+      synWorkspaceGetSize(&workspace_size, recipe_handle.syn_recipe_handle_);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Getting workspace size failed. synStatus=",
+      Logger::formatStatusMsg(status));
   return workspace_size;
 }
 
-synapse_error_o graph::query_recipe_tensor_info(
+void graph::query_recipe_tensor_info(
     std::shared_ptr<graph::recipe_handle> recipe_handle,
     std::vector<synRetrievedLaunchTensorInfoExt>& tensor_info_vec) {
-  SYNAPSE_SUCCESS_CHECK(
-      "Getting launch tensor info failed",
-      synTensorRetrieveLaunchInfoByIdExt(
-          recipe_handle->syn_recipe_handle_,
-          tensor_info_vec.size(),
-          tensor_info_vec.data()));
-  return {};
+  auto status = synTensorRetrieveLaunchInfoByIdExt(
+      recipe_handle->syn_recipe_handle_,
+      tensor_info_vec.size(),
+      tensor_info_vec.data());
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Getting launch tensor info failed, synStatus=",
+      Logger::formatStatusMsg(status));
 }
 
-synapse_error_o graph::launch(
+void graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
@@ -492,7 +507,7 @@ synapse_error_o graph::launch(
       active_graph_key);
 }
 
-synapse_error_o graph::launch(
+void graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
@@ -506,12 +521,11 @@ synapse_error_o graph::launch(
 
   if (recipe_handle.graph_is_empty_) {
     // Valid case, in some special scenarios Op does not add to graph.
-    return {};
+    return;
   }
 
-  if (!recipe_handle.in_execution_phase_) {
-    return synapse_error{"Graph not in execution phase.", synStatus::synFail};
-  }
+  HABANA_ASSERT(
+      recipe_handle.in_execution_phase_, "Graph not in execution phase.");
 
   for (synLaunchTensorInfoExt& tensorInfo : inputs_and_outputs_info) {
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
@@ -541,11 +555,12 @@ synapse_error_o graph::launch(
         return false;
       }};
   PT_SYNHELPER_DEBUG("checking input_output patching table");
-  SYNAPSE_RETURN_IF_ERROR(
+  HABANA_ASSERT(
       std::find_if(
           inputs_and_outputs_info.begin(),
           inputs_and_outputs_info.end(),
-          table_checker) == inputs_and_outputs_info.end());
+          table_checker) == inputs_and_outputs_info.end(),
+      "Checking input_output patching table. failed");
 
   std::vector<device_ptr> addresses(
       inputs_and_outputs_info.size(), device_nullptr);
@@ -658,13 +673,16 @@ synapse_error_o graph::launch(
         active_graph_key, tensor_mem, device.get_workspace_size());
     memory_reporter_event_create(device, MEM_REPORTER_GRAPH_AFTER_LAUNCH);
   }
-  SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "synLaunch failed. synStatus=",
+      Logger::formatStatusMsg(status))
   PT_SYNHELPER_END;
 
-  return {};
+  return;
 }
 
-synapse_error_v<std::string_view> graph::name_suffix_from_type(
+std::string_view graph::name_suffix_from_type(
     const synDataType type,
     bool use_int64) {
   std::string kernel_suffix{};
@@ -709,7 +727,8 @@ synapse_error_v<std::string_view> graph::name_suffix_from_type(
       return "bf16"sv;
     }
     default: {
-      return synapse_error{"Unknown type", synStatus::synInvalidArgument};
+      HABANA_ASSERT(
+          false, "Error getting suffix/precision type: Unknown type.");
     }
   }
 }

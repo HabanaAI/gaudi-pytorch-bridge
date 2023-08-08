@@ -31,10 +31,9 @@ const auto BuildCastGuid(
   using namespace std::literals;
   static const std::string_view prefix = "cast_"sv;
   auto get_prec_str = [](const c10::ScalarType& dtype) {
-    return absl::get<std::string_view>(
-        synapse_helpers::graph::name_suffix_from_type(
-            habana_helpers::pytorch_to_synapse_type(dtype),
-            habana_helpers::isLongTypeSupported(prefix)));
+    return synapse_helpers::graph::name_suffix_from_type(
+        habana_helpers::pytorch_to_synapse_type(dtype),
+        habana_helpers::isLongTypeSupported(prefix));
   };
   const auto srcStr = get_prec_str(src);
   const auto dstStr = get_prec_str(dst);
@@ -460,7 +459,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   m_meta_mode = true;
   auto& device = habana::HPURegistrar::get_device(0).syn_device();
-  auto graph = absl::get<sh::graph>(sh::graph::create(device, {}, true));
+  auto graph = sh::graph::create(device, {}, true);
 
   PopulateMetadata(stack, GetOutputMetaData());
 
@@ -713,7 +712,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
       "Missing layouts for synapse outputs");
 
-  auto result = graph.add_node(
+  graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),
       node_attr.params,
@@ -723,14 +722,6 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       input_layouts.empty() ? nullptr : input_layouts.data(),
       output_layouts.empty() ? nullptr : output_layouts.data(),
       op->deterministic);
-
-  HABANA_ASSERT(
-      ok(result),
-      "Adding ",
-      node_attr.guid,
-      " to graph failed with ",
-      get_error(result).error,
-      Logger::synStatusToStr(get_error(result).status));
 
   return outputs;
 }

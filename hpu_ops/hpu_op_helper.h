@@ -109,18 +109,10 @@ inline std::string& update_guid_dtype(
 inline std::string& update_guid_dtype(
     std::string& guid,
     c10::ScalarType dtype) {
-  auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
-      habana_helpers::pytorch_to_synapse_type(dtype),
-      habana_helpers::isLongTypeSupported(guid));
-  HABANA_ASSERT(
-      absl::holds_alternative<std::string_view>(string_or_error),
-      "Error getting suffix/precision type: ",
-      Logger::synStatusToStr(
-          absl::get<synapse_helpers::synapse_error>(string_or_error).status));
   return update_guid_dtype(
       guid,
-      absl::get<std::string_view>(synapse_helpers::graph::name_suffix_from_type(
-          habana_helpers::pytorch_to_synapse_type(dtype))));
+      synapse_helpers::graph::name_suffix_from_type(
+          habana_helpers::pytorch_to_synapse_type(dtype)));
 }
 
 inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {

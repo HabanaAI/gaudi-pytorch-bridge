@@ -194,16 +194,10 @@ std::string habana::get_guid_with_precision(
     return std::string{guid};
   }
 
-  auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
+  auto type_name = synapse_helpers::graph::name_suffix_from_type(
       habana_helpers::pytorch_to_synapse_type(dtype), use_int64);
-  HABANA_ASSERT(
-      absl::holds_alternative<std::string_view>(string_or_error),
-      "Error getting suffix/precision type: ",
-      Logger::synStatusToStr(
-          absl::get<synapse_helpers::synapse_error>(string_or_error).status));
 
-  return std::string{guid}.append(1, '_').append(
-      absl::get<std::string_view>(string_or_error));
+  return std::string{guid}.append(1, '_').append(type_name);
 }
 
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
@@ -281,11 +275,7 @@ static void launchRecipe(
     device.add_wait_events_on_stream(in_event_addr, stream_handle);
 
     auto& recipe_counter = device.get_active_recipe_counter();
-    bool status = recipe->launch(
-        input_buffers, output_buffers, address_lock, stream_handle);
-    if (!status) {
-      TORCH_CHECK(false, "syn launch failed");
-    }
+    recipe->launch(input_buffers, output_buffers, address_lock, stream_handle);
     recipe_counter.increase();
     auto holder = std::make_shared<ResourceHolder>();
     holder->address_lock = std::move(address_lock);

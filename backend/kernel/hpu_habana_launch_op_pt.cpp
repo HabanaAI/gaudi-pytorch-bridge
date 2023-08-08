@@ -4200,19 +4200,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   auto& device = HPURegistrar::get_device();
   std::string graphName{GetSynapseGraphName()};
 
-  auto create_graph_for_refinement{[&]() -> synapse_helpers::graph {
-    auto graph_or_error = synapse_helpers::graph::create_for_refinement(
-        device.syn_device(), name);
-
-    if (absl::holds_alternative<synapse_helpers::synapse_error>(
-            graph_or_error)) {
-      auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);
-      TORCH_CHECK(error.status, error.error);
-    }
-    return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
-  }};
-
-  auto syn_graph = create_graph_for_refinement();
+  auto syn_graph =
+      synapse_helpers::graph::create_for_refinement(device.syn_device(), name);
 
   // Compile the graph
   {
@@ -4282,7 +4271,7 @@ void HabanaLaunchOpPT::run_pass() {
 
   //
   // Run the compile and execute method to infer the shapes
-  static thread_local auto syn_graph =
+  auto syn_graph =
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
   CreateValueToIvalueMapForInputs();

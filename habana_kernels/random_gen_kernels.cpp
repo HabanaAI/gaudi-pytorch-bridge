@@ -393,7 +393,7 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
 
   auto guid = "random_seed_u32";
 
-  auto result = graph.add_node(
+  graph.add_node(
       std::move(syn_inputs),
       {},
       nullptr,
@@ -403,13 +403,6 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       input_layouts.data(),
       nullptr,
       false);
-  HABANA_ASSERT(
-      ok(result),
-      "Adding ",
-      guid,
-      " to graph failed with ",
-      get_error(result).error,
-      Logger::synStatusToStr(get_error(result).status));
 
   auto output = habana::createPTTensor(
       input,
@@ -434,7 +427,7 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
   // Add random_seed_u32 node to graph
   guid = "identity";
 
-  result = graph.add_node(
+  graph.add_node(
       std::move(syn_inputs),
       std::move(syn_outputs),
       nullptr,
@@ -444,13 +437,6 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       input_layouts.data(),
       output_layouts.data(),
       false);
-  HABANA_ASSERT(
-      ok(result),
-      "Adding ",
-      guid,
-      " to graph failed with ",
-      get_error(result).error,
-      Logger::synStatusToStr(get_error(result).status));
 }
 
 static auto& RandomGenKernelsKernelRegistry =

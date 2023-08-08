@@ -30,7 +30,6 @@
 #include "absl/types/variant.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/event.h"
-#include "backend/synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {
 
@@ -43,45 +42,41 @@ class graph {
   graph(graph&&) noexcept;
   graph& operator=(graph&&) = delete;
 
-  static synapse_error_v<graph> create(
+  static graph create(
       device& device,
       std::string name,
       bool dry_run = false,
       bool eager_mode = false);
 
-  static synapse_error_v<graph> create_for_refinement(
-      device& device,
-      std::string name);
+  static graph create_for_refinement(device& device, std::string name);
 
-  synapse_error_o duplicate(
-      synTensorHandleMap* tensorsMap,
-      synNodeHandleMap* nodesMap);
+  void duplicate(synTensorHandleMap* tensorsMap, synNodeHandleMap* nodesMap);
 
-  static synapse_error_o setTensorGeometry(
+  static void setTensorGeometry(
       synTensor tensor_handle,
       std::vector<int64_t> shape);
 
-  static synapse_error_o setTensorPermutation(
+  static void setTensorPermutation(
       synTensor tensor_handle,
       std::vector<uint8_t>& permute_or_empty);
 
-  synapse_error_o add_node(
+  void add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
       void* const params,
       const unsigned params_size,
-      const synapse_error_v<std::string>& node_type,
+      const std::string& node_type,
       synNodeId* ret_node_id,
       const char** input_layouts,
       const char** output_layouts,
       bool deterministic);
 
   template <typename ParamsT>
-  synapse_error_o add_node(
+  void add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,
       ParamsT* const params,
-      const synapse_error_v<std::string>& node_type,
+      const std::string& node_type,
       const char** input_layouts,
       const char** output_layouts,
       bool deterministic) {
@@ -132,7 +127,7 @@ class graph {
     uint64_t recipe_size_ = 0;
   };
 
-  synapse_error_v<std::shared_ptr<recipe_handle>> compile();
+  std::shared_ptr<recipe_handle> compile();
 
   struct OpNameContext {
     OpNameContext(graph& graph, const std::string& opName) : graph_(graph) {
@@ -158,18 +153,18 @@ class graph {
     data_edges_container_[src_node_name].insert(dst_node_name);
   };
 
-  static synapse_error_v<std::string_view> name_suffix_from_type(
+  static std::string_view name_suffix_from_type(
       synDataType type,
       bool use_int64 = false);
 
-  static synapse_error_o query_recipe_tensor_info(
+  static void query_recipe_tensor_info(
       std::shared_ptr<graph::recipe_handle> recipe_handle,
       std::vector<synRetrievedLaunchTensorInfoExt>& tensor_info_vec);
 
-  static synapse_error_v<uint64_t> query_workspace_size(
+  static uint64_t query_workspace_size(
       const graph::recipe_handle& recipe_handle);
 
-  static synapse_error_o launch(
+  static void launch(
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
@@ -179,7 +174,7 @@ class graph {
       stream& compute_stream,
       size_t active_graph_key = 0);
 
-  static synapse_error_o launch(
+  static void launch(
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,

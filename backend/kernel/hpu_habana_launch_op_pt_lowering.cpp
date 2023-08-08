@@ -152,21 +152,9 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       }
     }
     // querying synapse output tensors permutations:
-    auto&& error_optional{synapse_helpers::graph::query_recipe_tensor_info(
-        cur_rvalpsh->recipe, tensor_info_vec)};
-    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-      auto& error = error_optional.value();
-      PT_BRIDGE_FATAL(
-          "syn query recipe tensor info encountered : ",
-          error.error,
-          " ",
-          Logger::formatStatusMsg(error.status));
-      TORCH_CHECK(
-          false,
-          std::string("syn query recipe tensor info failed ") +
-              std::string(error.error) + std::string(" ") +
-              Logger::formatStatusMsg(error.status));
-    }
+    synapse_helpers::graph::query_recipe_tensor_info(
+        cur_rvalpsh->recipe, tensor_info_vec);
+
     // updating the BE tensor and the cache record with the permutation
     for (auto& info : tensor_info_vec) {
       HABANA_ASSERT(persistent_to_tensor_id.count(info.tensorId));
@@ -465,29 +453,12 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
 
   std::chrono::steady_clock::time_point t_start;
   t_start = std::chrono::steady_clock::now();
-  auto&& error_variant{syn_graph_ptr->compile()};
+  auto cur_recipe = syn_graph_ptr->compile();
   auto t_compile = std::chrono::steady_clock::now() - t_start;
   t_compile_ns =
       std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
 
-  if (ABSL_PREDICT_FALSE(
-          absl::holds_alternative<synapse_helpers::synapse_error>(
-              error_variant))) {
-    auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
-
-    PT_BRIDGE_FATAL(
-        "syn compile encountered : ",
-        error.error,
-        " ",
-        Logger::formatStatusMsg(error.status),
-        " compile time ",
-        t_compile_ns,
-        " ns");
-  }
-
   RecipeValueSpec::increment_compile_count();
-
-  auto cur_recipe = get_value(std::move(error_variant));
   // No need to allocate for lazy eager shape agnostic cache hit scenario
   if (allocate_rval) {
     cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe, jit_ir_graph);
@@ -504,20 +475,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   }
 
   // Get workspace size of the compiled recipe
-  auto&& ws_size_result{
-      synapse_helpers::graph::query_workspace_size(*cur_recipe)};
-  if (ABSL_PREDICT_FALSE(
-          absl::holds_alternative<synapse_helpers::synapse_error>(
-              ws_size_result))) {
-    auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
-    PT_BRIDGE_FATAL(
-        "workspace size query failed: ",
-        error.error,
-        " ",
-        Logger::formatStatusMsg(error.status));
-    TORCH_CHECK(false, "workspace size query failed");
-  }
-  rv.workspace_size = get_value(ws_size_result);
+  rv.workspace_size = synapse_helpers::graph::query_workspace_size(*cur_recipe);
 }
 
 void habana::HabanaLaunchOpPT::ConstructPatchingTable() {

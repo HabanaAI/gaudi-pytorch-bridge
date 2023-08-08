@@ -789,21 +789,7 @@ void RecipeValueSpec::update_output_permutation() {
     }
 
     // querying synapse output tensors permutations:
-    auto&& error_optional{synapse_helpers::graph::query_recipe_tensor_info(
-        recipe, tensor_info_vec)};
-    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-      auto& error = error_optional.value();
-      PT_BRIDGE_FATAL(
-          "syn query recipe tensor info encountered : ",
-          error.error,
-          " ",
-          Logger::formatStatusMsg(error.status));
-      TORCH_CHECK(
-          false,
-          std::string("syn query recipe tensor info failed ") +
-              std::string(error.error) + std::string(" ") +
-              Logger::formatStatusMsg(error.status));
-    }
+    synapse_helpers::graph::query_recipe_tensor_info(recipe, tensor_info_vec);
 
     size_t count = 0;
     for (auto& info : tensor_info_vec) {
@@ -1745,7 +1731,7 @@ void RecipeValueSpec::launch(
           }
         }
 
-        auto&& error_optional{synapse_helpers::graph::launch(
+        synapse_helpers::graph::launch(
             device,
             *recipe,
             workspace_size,
@@ -1753,17 +1739,9 @@ void RecipeValueSpec::launch(
             address_lock,
             ext_events,
             stream_handle,
-            active_graph_key_)};
+            active_graph_key_);
         habana_lazy::log_dev_mem_stats(
             "Post-Launch", get_graph_name(), workspace_size);
-        if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-          auto& error = error_optional.value();
-          PT_BRIDGE_FATAL(
-              "syn launch encountered : ",
-              error.error,
-              " ",
-              Logger::formatStatusMsg(error.status));
-        }
       } else {
         PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");
       }
@@ -1853,30 +1831,17 @@ void RecipeValueSpec::launch(
         }
       }
 
-      auto&& error_optional{synapse_helpers::graph::launch(
+      synapse_helpers::graph::launch(
           device,
           *recipe,
           workspace_size,
           syn_launch_info,
           address_lock,
           ext_events,
-          stream_handle)};
+          stream_handle);
 
       habana_lazy::log_dev_mem_stats(
           "Post-Launch", get_graph_name(), workspace_size);
-
-      if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-        auto& error = error_optional.value();
-        PT_BRIDGE_FATAL(
-            "syn launch encountered : ",
-            error.error,
-            " ",
-            Logger::formatStatusMsg(error.status));
-        TORCH_CHECK(
-            false,
-            std::string("syn launch failed ") + std::string(error.error) +
-                std::string(" ") + Logger::formatStatusMsg(error.status));
-      }
     }
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");

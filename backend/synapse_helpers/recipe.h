@@ -32,7 +32,7 @@ class recipe {
       const std::vector<std::string>& input_names,
       const std::vector<std::string>& output_names);
   void populate_syn_tensor_ids();
-  bool launch(
+  void launch(
       const std::vector<void*>& in_buffers,
       const std::vector<void*>& out_buffers,
       std::unique_ptr<device_ptr_lock>& addr_locked,
