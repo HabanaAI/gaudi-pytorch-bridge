@@ -78,9 +78,7 @@ def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax):
 
 
 @register_meta([torch.ops.hpu.fp8_fast_softmax.default])
-def meta_fp8_fast_softmax(
-    input, mask, scale, softmax_scale, stochastic, is_amax
-):
+def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax):
     out = input.new_empty(input.shape, dtype=torch.int8)
     amax = input.new_empty((), dtype=torch.float32)
     return out, amax
@@ -160,9 +158,7 @@ def meta_optimizer_lamb_fused_norm(grads, scale):
 
 
 @register_meta([torch.ops.hpu.optimizer_resource_apply_momentum.default])
-def meta_optimizer_resource_apply_momentum(
-    params_momentum_buf_list, dp_list, momentum
-):
+def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, momentum):
     return
 
 
@@ -272,6 +268,13 @@ def meta_fp8_index_select_v2(self, dim, index):
     if self.dim() > 0:
         result_size[dim] = index.numel()
     return self.new_empty(result_size)
+
+
+@register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
+def meta_scaled_masked_triangular_softmax(
+    self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode
+):
+    return self.new_empty(self.shape)
 
 
 def activate_hpu_custom_op_meta():

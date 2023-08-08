@@ -7442,4 +7442,21 @@ at::Tensor fp8_index_select_v2_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(fp8_index_select_v2, hpu_op)
 }
 
+at::Tensor scaled_masked_triangular_softmax_lazy(
+    const at::Tensor& self,
+    const at::Tensor& start_end,
+    double inv_scale_attn,
+    int64_t grouped_batch_size,
+    bool use_max,
+    int64_t mode) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::scaled_masked_triangular_softmax",
+      {self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode},
+      {{self.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_triangular_softmax, op)
+}
 } // namespace habana_lazy

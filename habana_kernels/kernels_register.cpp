@@ -1944,6 +1944,22 @@ at::Tensor& kv_reorder_wrap(
   return kv_reorder_lazy(self, start, end, beam_idx);
 }
 
+at::Tensor scaled_masked_triangular_softmax_wrap(
+    const at::Tensor& self,
+    const at::Tensor& start_end,
+    double inv_scale_attn,
+    int64_t grouped_batch_size,
+    bool use_max,
+    int64_t mode) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_6ARGS(
+      self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode));
+
+  return scaled_masked_triangular_softmax_lazy(
+      self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode);
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2450,6 +2466,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::fp8_repeat_v2(Tensor self, SymInt[] repeats) -> Tensor");
   m.def(
       "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
+  m.def(
+      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2498,6 +2516,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_index_copy_", fp8_index_copy_wrap);
   m.impl("hpu::fp8_repeat_v2", fp8_repeat_v2_wrap);
   m.impl("hpu::fp8_index_select_v2", fp8_index_select_v2_wrap);
+  m.impl(
+      "hpu::scaled_masked_triangular_softmax",
+      scaled_masked_triangular_softmax_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

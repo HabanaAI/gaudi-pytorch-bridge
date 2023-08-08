@@ -483,6 +483,13 @@ at::Tensor retain_softmax_consumer_wrap(
     const at::Tensor& self,
     const at::Tensor& max,
     const at::Tensor& exp_sum_recpr);
+at::Tensor scaled_masked_triangular_softmax_wrap(
+    const at::Tensor& self,
+    const at::Tensor& start_end,
+    double inv_scale_attn,
+    int64_t grouped_batch_size,
+    bool use_max,
+    int64_t mode);
 
 } // namespace ops
 } // namespace vision

@@ -839,4 +839,11 @@ at::Tensor fp8_index_select_v2_lazy(
     const at::Tensor& self,
     int64_t dim,
     const at::Tensor& index);
+at::Tensor scaled_masked_triangular_softmax_lazy(
+    const at::Tensor& self,
+    const at::Tensor& start_end,
+    double inv_scale_attn,
+    int64_t grouped_batch_size,
+    bool use_max,
+    int64_t mode);
 } // namespace habana_lazy

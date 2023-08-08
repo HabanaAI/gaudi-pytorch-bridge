@@ -24,4 +24,9 @@ struct ScaledMaskedSoftmax : OpBackend {
 
 FILL_PARAMS_DECL(FillScaledMaskedSoftmaxParams)
 
+struct ScaledMaskedTriangularSoftmax : OpBackend {
+  ScaledMaskedTriangularSoftmax(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
 } // namespace habana
