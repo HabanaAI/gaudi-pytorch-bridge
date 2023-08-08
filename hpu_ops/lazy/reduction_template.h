@@ -15,5 +15,5 @@
 #include "hpu_ops/common/reduction_template.h"
 
 namespace habana {
-HPU_REDUCTION_TEMPLATE_FRONTEND(habana_lazy::LazyOp)
+HPU_REDUCTION_TEMPLATE_FRONTEND_LAZY(habana_lazy::LazyOp)
 } // namespace habana

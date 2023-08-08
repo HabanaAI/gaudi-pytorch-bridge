@@ -33,14 +33,6 @@
 namespace habana {
 namespace eager {
 
-// helper function to create JIT graph with single node defined by input symbol
-// TODO remove
-std::shared_ptr<torch::jit::Graph> create_simple_JIT(
-    const at::Symbol& symbol,
-    const SmallTensorVector& inputs,
-    const std::vector<OutputSpec>& outputs,
-    const habana_lazy::ir::MetaData& metadata);
-
 class EagerOpBase {
  public:
   std::vector<at::IValue>& get_inputs() {
@@ -83,15 +75,40 @@ class EagerOpBase {
     m_dont_preallocate_outputs = true;
   }
 
-  explicit EagerOpBase(
-      const at::Symbol symbol,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0)
-      : m_symbol{symbol},
-        m_out_shapes{std::move(out_shapes)},
+ private:
+  auto process_EagerOpBase_input(const at::Symbol symbol) {
+    return symbol;
+  }
+
+  auto process_EagerOpBase_input(const std::string& qualstring) {
+    return at::Symbol::fromQualString(qualstring);
+  }
+
+  auto process_EagerOpBase_input(
+      std::vector<std::vector<int64_t>>&& out_shapes,
+      const at::Stack&) {
+    return out_shapes;
+  }
+
+  auto process_EagerOpBase_input(
+      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
+          out_shapes_fn,
+      const at::Stack& inputs) {
+    return out_shapes_fn ? out_shapes_fn(inputs)
+                         : std::vector<std::vector<int64_t>>{};
+  }
+
+ public:
+  template <
+      class T,
+      class U = std::vector<at::IValue>,
+      class V = std::vector<std::vector<int64_t>>>
+  EagerOpBase(T&& symbol, U&& inputs, V&& out_shapes = {}, int out_index = 0)
+      : m_symbol{process_EagerOpBase_input(std::forward<T>(symbol))},
+        m_out_shapes{std::move(
+            process_EagerOpBase_input(std::forward<V>(out_shapes), inputs))},
         m_out_index{out_index},
-        m_inputs(inputs) {
+        m_inputs(std::forward<U>(inputs)) {
     validate_inputs(m_inputs);
   }
 
@@ -116,42 +133,7 @@ class EagerOpBase {
 template <typename ReturnType>
 class EagerOp : public EagerOpBase {
  public:
-  explicit EagerOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0)
-      : EagerOpBase(
-            at::Symbol::fromQualString(qualstring),
-            inputs,
-            std::move(out_shapes),
-            out_index) {}
-
-  explicit EagerOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      std::vector<std::vector<int64_t>> out_shapes)
-      : EagerOpBase(
-            at::Symbol::fromQualString(qualstring),
-            inputs,
-            std::move(out_shapes),
-            {}) {}
-
-  explicit EagerOp(
-      const std::string& qualstring,
-      const std::vector<at::IValue>& inputs,
-      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
-          out_shapes_fn,
-      int out_index = 0)
-      : EagerOpBase(
-            at::Symbol::fromQualString(qualstring),
-            inputs,
-            {},
-            out_index) {
-    if (out_shapes_fn) {
-      m_out_shapes = out_shapes_fn(inputs);
-    }
-  }
+  using EagerOpBase::EagerOpBase;
 
   EagerOp(EagerOp&) = default;
   EagerOp(const EagerOp&) = default;

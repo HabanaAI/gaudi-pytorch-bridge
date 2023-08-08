@@ -38,7 +38,6 @@ inline bool get_keepdim(
                                    : false;
 }
 
-template <typename T>
 struct CommonReductionFrontendTemplate {
   at::optional<uint8_t> m_dtype_index;
   at::optional<uint8_t> m_dim_index;
@@ -52,26 +51,46 @@ struct CommonReductionFrontendTemplate {
     m_keepdim_index = keepdim_index;
     m_dtype_index = dtype_index;
   }
-
 };
 
-#define HPU_REDUCTION_TEMPLATE_FRONTEND(OpClass)                         \
-  template <typename T>                                                  \
-  class ReductionFrontendTemplate                                        \
-      : public OpClass<T>,                                               \
-        public CommonReductionFrontendTemplate<T> {                      \
-   public:                                                               \
-    ReductionFrontendTemplate(                                           \
-        const std::string& qualstring,                                   \
-        const std::vector<at::IValue>& inputs,                           \
-        const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn) \
-        : OpClass<T>(qualstring, inputs, out_shapes_fn, -1) {}           \
-    ReductionFrontendTemplate(                                           \
-        const std::string& qualstring,                                   \
-        const std::vector<at::IValue>& inputs,                           \
-        const sizes_vec& out_shapes)                                     \
-        : OpClass<T>(qualstring, inputs, out_shapes, -1) {}              \
-    T get_result_overrideable() override;                                \
+#define HPU_REDUCTION_TEMPLATE_FRONTEND(OpClass)                             \
+  template <typename T>                                                      \
+  class ReductionFrontendTemplate : public OpClass<T>,                       \
+                                    public CommonReductionFrontendTemplate { \
+   public:                                                                   \
+    ReductionFrontendTemplate(                                               \
+        const std::string& qualstring,                                       \
+        std::vector<at::IValue>&& inputs,                                    \
+        const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)     \
+        : OpClass<T>(qualstring, std::move(inputs), out_shapes_fn, -1) {}    \
+    ReductionFrontendTemplate(                                               \
+        const std::string& qualstring,                                       \
+        std::vector<at::IValue>&& inputs,                                    \
+        sizes_vec&& out_shapes)                                              \
+        : OpClass<T>(                                                        \
+              qualstring,                                                    \
+              std::move(inputs),                                             \
+              std::move(out_shapes),                                         \
+              -1) {}                                                         \
+    T get_result_overrideable() override;                                    \
+  };
+
+#define HPU_REDUCTION_TEMPLATE_FRONTEND_LAZY(OpClass)                        \
+  template <typename T>                                                      \
+  class ReductionFrontendTemplate : public OpClass<T>,                       \
+                                    public CommonReductionFrontendTemplate { \
+   public:                                                                   \
+    ReductionFrontendTemplate(                                               \
+        const std::string& qualstring,                                       \
+        const std::vector<at::IValue>& inputs,                               \
+        const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)     \
+        : OpClass<T>(qualstring, inputs, out_shapes_fn, -1) {}               \
+    ReductionFrontendTemplate(                                               \
+        const std::string& qualstring,                                       \
+        const std::vector<at::IValue>& inputs,                               \
+        const sizes_vec& out_shapes)                                         \
+        : OpClass<T>(qualstring, inputs, out_shapes, -1) {}                  \
+    T get_result_overrideable() override;                                    \
   };
 
 } // namespace habana
