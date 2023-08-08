@@ -136,6 +136,7 @@ def test_as_strided(dtype):
         assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
+        assert result_hpu.cpu().equal(result_cpu)
 
 
 @pytest.mark.parametrize("dtype", all_dtypes)
@@ -146,7 +147,17 @@ def test_as_strided_scatter(dtype):
         assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
+        assert result_hpu.cpu().equal(result_cpu)
 
+@pytest.mark.parametrize("dtype", all_dtypes)
+def test_slice_scatter(dtype):
+    results = run_test("slice_scatter", dtype)
+    for result_cpu, result_hpu in results:
+        assert result_hpu.size() == result_cpu.size()
+        assert result_hpu.stride() == result_cpu.stride()
+        assert result_hpu.dtype == result_cpu.dtype
+        assert result_hpu.layout == result_cpu.layout
+        assert result_hpu.cpu().equal(result_cpu)
 
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_expand(dtype):

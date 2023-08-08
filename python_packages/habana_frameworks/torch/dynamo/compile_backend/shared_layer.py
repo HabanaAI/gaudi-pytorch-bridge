@@ -26,6 +26,7 @@ hpu_supported_op_list = {
     "copy",
     "full",
     "getitem",
+    "slice_scatter",
 }
 
 hpu_fallback_op_list = [

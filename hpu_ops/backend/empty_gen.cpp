@@ -152,10 +152,4 @@ static const auto& EmptyKernelRegistry =
     habana::KernelRegistry()
         .add("aten::empty_like", KERNEL_FN_GLOBAL(habana::EmptyLike))
         .add("aten::empty.memory_format", KERNEL_FN_GLOBAL(habana::Empty))
-        .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided))
-        .add(
-            "aten::zeros_like",
-            KERNEL_FN_GLOBAL(
-                habana::EmptyLike)); // zeros_like is same as empty_like since
-                                     // empty_like also memsets created tensor
-                                     // with zeros
+        .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided));
