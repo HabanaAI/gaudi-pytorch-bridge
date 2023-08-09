@@ -96,7 +96,6 @@ def run_test(aten_name, dtype):
         return next((x for x in op_db if x.aten_name == aten_name), None)
 
     opinfo = get_op_info(aten_name)
-    results = []
     for sample_input in opinfo.reference_inputs("cpu", dtype):
         t_inp, t_args, t_kwargs = (
             sample_input.input,
@@ -123,8 +122,9 @@ def run_test(aten_name, dtype):
             t_kwargs,
         )
 
-        results.append((result_cpu, result_hpu))
-    return results
+        results = list(zip(result_cpu, result_hpu))
+        return results
+    return []
 
 
 @pytest.mark.parametrize("dtype", all_dtypes)
@@ -280,3 +280,9 @@ def test_cat():
     hpu_output = compiled_fnc(t1, t2)
 
     torch.allclose(hpu_output.to(device="cpu"), cpu_reference)
+
+@pytest.mark.parametrize("dtype", all_dtypes)
+def test_unbind_opdbtest(dtype):
+    results = run_test("unbind", dtype)
+    for (a, b) in results:
+        assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)

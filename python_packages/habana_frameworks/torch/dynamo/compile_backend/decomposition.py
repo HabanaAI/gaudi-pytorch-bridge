@@ -237,6 +237,7 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.threshold.out,
         aten.threshold_backward.grad_input,
         aten.trace.out,
+        aten.unbind.int,
         aten.unfold.default,
         aten.unfold_backward.default,
         aten.unfold_backward.out,
