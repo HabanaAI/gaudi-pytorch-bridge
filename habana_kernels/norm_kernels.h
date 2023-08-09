@@ -399,67 +399,6 @@ class FusedNormLazyOperator : public FusedNormOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 };
-
-class InstanceNormOperator : public habana::HabanaOperator {
- public:
-  // Used in training mode
-  InstanceNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("instance_norm_fwd", scalarType)) {
-    this->CreateSynContext(device_id);
-
-    // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.tpc_input_order = {0, 2, 1};
-  }
-  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  // used to compute output shapes of current mean and var
-  static std::vector<int64_t> compute_output_shape(at::Tensor input);
-};
-
-class InstanceNormBackwardOperator : public habana::HabanaOperator {
- public:
-  // Used in training mode
-  InstanceNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("instance_norm_bwd", scalarType)) {
-    this->CreateSynContext(device_id);
-
-    // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign({
-        habana::LayoutFormat::NHWC,
-        habana::LayoutFormat::NHWC,
-        habana::LayoutFormat::ANY,
-        habana::LayoutFormat::ANY,
-        habana::LayoutFormat::ANY,
-    });
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NHWC,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-  }
-  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  // used to compute output shapes of current mean and var
-  static std::vector<int64_t> compute_output_shape(at::Tensor input);
-};
-
 class GroupNormForwardOperator : public habana::HabanaOperator {
  public:
   GroupNormForwardOperator(int device_id, c10::ScalarType scalarType)

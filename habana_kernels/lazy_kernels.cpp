@@ -120,6 +120,9 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   copy_node->AddInputPtTensors(input_pt_vec);
   flush_op(1);
 }
+constexpr size_t INPUT_BATCH_INDEX = 0;
+constexpr size_t INPUT_CHANNEL_INDEX = 1;
+
 } // namespace
 
 namespace habana_lazy {
@@ -4519,7 +4522,9 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
     double eps) {
   PT_LAZY_TRACE;
 
-  auto mean_var_shape = InstanceNormOperator::compute_output_shape(input);
+  auto mean_var_shape = {
+      input.sizes().vec()[INPUT_BATCH_INDEX],
+      input.sizes().vec()[INPUT_CHANNEL_INDEX]};
 
   using T = std::tuple<Tensor, Tensor, Tensor>;
   LazyOp<T> k(
@@ -4539,8 +4544,7 @@ std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
     const Tensor& gamma) {
   PT_LAZY_TRACE;
 
-  auto grad_beta_gamma_shape =
-      InstanceNormBackwardOperator::compute_output_shape(input);
+  auto grad_beta_gamma_shape = {input.sizes().vec()[INPUT_CHANNEL_INDEX]};
   using T = std::tuple<Tensor, Tensor, Tensor>;
   LazyOp<T> k(
       "hpu::instance_norm_backward",

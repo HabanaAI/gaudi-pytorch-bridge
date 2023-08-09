@@ -2356,9 +2356,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
   m.def(
-      "instance_norm(Tensor input, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)");
+      "instance_norm(Tensor input, Tensor weight, Tensor bias, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
+      "instance_norm_backward(Tensor input, Tensor grad_in, Tensor mean, Tensor istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
   m.def("view(Tensor input, Tensor shape) -> Tensor");
   m.def(
       "slice(Tensor input, Tensor shape, Tensor step,  Tensor start) -> (Tensor)");

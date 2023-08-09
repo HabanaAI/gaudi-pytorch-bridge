@@ -58,5 +58,6 @@ if is_lazy():
 else:
     # Initialize torch.compile backend in non-lazy mode.
     import habana_frameworks.torch.dynamo.compile_backend
+    import habana_frameworks.torch.dynamo._custom_op_meta_registrations
 
 _enable_profiler_if_needed()

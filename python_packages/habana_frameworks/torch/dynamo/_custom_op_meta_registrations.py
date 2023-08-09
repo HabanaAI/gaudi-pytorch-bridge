@@ -19,6 +19,20 @@ _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
     "hpu", "IMPL", "Meta"
 )
 
+@register_meta([torch.ops.hpu.instance_norm.default])
+def instance_norm(input, weight_opt, bias_opt, eps):
+    out = torch.empty_like(input)
+    mean_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
+    istd_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
+    return [out, mean_tensor, istd_tensor]
+
+@register_meta([torch.ops.hpu.instance_norm_backward.default])
+def instance_norm_bwd(input, grad_in, mean, istd, gamma):
+    out = torch.empty_like(input)
+    grad_beta_tensor = input.new_empty((input.shape[1]), dtype=torch.float32)
+    grad_gamma_tensor = input.new_empty((input.shape[1]), dtype=torch.float32)
+    return [out, grad_beta_tensor, grad_gamma_tensor]
+
 
 @register_meta([torch.ops.hpu.cast_to_fp8.default])
 def meta_cast_to_fp8(input, scale, stochastic, out, amax):

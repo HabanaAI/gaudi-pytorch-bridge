@@ -132,6 +132,8 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/index_copy_gen.cpp
           backend/index_put_gen.cpp
           backend/index_select_gen.cpp
+          backend/instance_norm_gen.cpp
+          backend/instance_norm_backward_gen.cpp
           backend/isfinite_isinf_isnan_gen.cpp
           backend/isposneginf_gen.cpp
           backend/kthvalue_gen.cpp

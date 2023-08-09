@@ -1,0 +1,61 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+import torch
+import pytest
+import habana_frameworks.torch.core as htcore
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_instance_norm(dtype):
+    b, c, h, w = 2, 16, 8, 4
+    input_tensor = torch.rand((b, c, h, w), dtype=dtype).to('hpu')
+    def fn(input_tensor):
+        m = torch.nn.functional.instance_norm(input_tensor)
+        return m
+
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    result = compiled_fn(input_tensor)
+    expected = compiled_fn(input_tensor.to('cpu'))
+
+    tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-3
+    assert torch.allclose(result.cpu(), expected, atol=tolerance, rtol=tolerance)
+
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_instance_norm_fwd_bwd(dtype):
+    b, c, h, w = 2, 16, 8, 4
+    input_tensor = torch.rand((b, c, h, w), dtype=dtype).detach()
+    input_tensor.requires_grad = True
+    input_tensor_hpu = input_tensor.to('hpu').detach()
+    input_tensor_hpu.requires_grad = True
+
+    def fn(input_tensor):
+        m = torch.nn.functional.instance_norm(input_tensor)
+        return m
+
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    result = compiled_fn(input_tensor_hpu)
+    expected = compiled_fn(input_tensor)
+
+    grad_out_cpu = torch.rand_like(expected)
+    grad_out_hpu = grad_out_cpu.to('hpu').detach()
+    grad_out_hpu.requires_grad = True
+
+    expected.backward(grad_out_cpu)
+    grad_cpu = input_tensor.grad
+
+    result.backward(grad_out_hpu)
+    grad_hpu = input_tensor_hpu.grad
+
+    tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-3
+
+    assert torch.allclose(result.to('cpu'), expected, atol=tolerance, rtol=tolerance)
+    assert torch.allclose(grad_hpu.to('cpu'), grad_cpu, atol=tolerance, rtol=tolerance)
