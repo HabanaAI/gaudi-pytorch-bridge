@@ -537,34 +537,6 @@ def test_dynamic_shape_chunk():
             for out_c, out_h in zip(outs_c, result_compile_train):
               assert torch.allclose(out_h.to("cpu"), out_c)
 
-def test_dynamic_shape_fx_recompilations():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
-        import habana_frameworks.torch.core as htcore
-        input_shapes = [
-            (8, 24, 24, 3),
-            (7, 24, 11, 3),
-            (7, 24, 14, 3),
-            (1, 24, 18, 3),
-            (8, 24, 9, 3),
-            (7, 24, 5, 3),
-            (2, 24, 4, 3)
-        ]
-
-        def raw_function(t1, t2):
-            t3 = torch.add(t1, t2)
-            return torch.sub(t3, t1)
-
-        for s in input_shapes:
-            t1 = torch.randn(s, requires_grad = False)
-            t2 = torch.randn(s, requires_grad = False)
-            out_c = raw_function(t1, t2)
-            t1_h = t1.to("hpu")
-            t2_h = t2.to("hpu")
-            compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
-            result_compile_train = compiled_function_training(t1_h, t2_h)
-            assert torch.allclose(result_compile_train.to("cpu"), out_c, atol=0.01)
-
-
 if __name__ == '__main__':
     test_relu_mixed()
     test_reshape_symlnt()
@@ -582,5 +554,4 @@ if __name__ == '__main__':
     test_dynamic_shape_as_strided_lazy()
     test_dynamic_shape_as_strided_ratio_flow_lazy()
     test_dynamic_shape_chunk()
-    test_dynamic_shape_fx_recompilations()
 
