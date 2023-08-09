@@ -4572,6 +4572,15 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   }
   auto ranges =
       current_dbipsh_->CalculateShapes(graph_input_info.current_bucket_id);
+  auto new_ds_token = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
+
+  if (new_ds_token != cur_ds_token_) {
+    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+        input_refs, graph_key, op_strs, new_ds_token);
+    current_dbipsh_->SetRecipeKeyForBucket(
+        current_bucket_id_, cur_rargpsh->hashCode());
+    DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
+  }
 
   if (ranges.empty()) {
     if (graph_input_info.max_policy ==

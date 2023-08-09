@@ -153,6 +153,10 @@ Bucket::Bucket(
   token_ = habana_helpers::UniqueTokenGenerator::get_gen().token(
       ranges_, dynamic_dims_, shapes_);
 }
+void Bucket::setToken(const InpTensorShapes& shapes_) {
+  token_ = habana_helpers::UniqueTokenGenerator::get_gen().token(
+      ranges_, dynamic_dims_, shapes_);
+}
 
 uint64_t UniqueTokenGenerator::token(
     DynamicRanges& ranges,
@@ -940,6 +944,7 @@ bool DynamicBucketInfo::UpdateBucketWithPolicy(
         max_policy != DynamicDimsPolicy::DEFAULT) {
       const PadShapes& pad_shapes = PadShapes{};
       buckets_[bucket_id].setRanges(CalculateRanges(shapes, pad_shapes));
+      buckets_[bucket_id].setToken(shapes_);
     }
     return true;
   }

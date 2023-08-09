@@ -249,6 +249,8 @@ class Bucket {
   uint64_t getToken() const {
     return token_;
   }
+  void setToken(const InpTensorShapes& shapes_);
+
   const DynamicRanges& getRanges() const {
     return ranges_;
   }
