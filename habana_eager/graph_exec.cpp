@@ -89,12 +89,17 @@ GraphExec::GraphExec(
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
 
+  std::string jit_graph_name = "";
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH)) {
+    jit_graph_name = m_graph_name;
+  }
+
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
       input_refs,
       0ull /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
-      m_graph_name,
+      jit_graph_name,
       IsDynamicGraph());
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
