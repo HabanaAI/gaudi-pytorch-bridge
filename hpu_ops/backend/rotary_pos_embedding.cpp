@@ -18,7 +18,14 @@ namespace habana {
 RotaryPosEmbedding::RotaryPosEmbedding(
     int device_id,
     c10::ScalarType scalar_type)
-    : OpBackend(device_id, "rope_st2_fwd", scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(
+          device_id,
+          "rotary_pos_embedding_fwd",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {}
 
 void RotaryPosEmbedding::AddNode(
     synapse_helpers::graph& graph,
@@ -27,6 +34,7 @@ void RotaryPosEmbedding::AddNode(
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto sin = getNextInput<TensorsPair>(stackGetter);
   auto cos = getNextInput<TensorsPair>(stackGetter);
+  auto position_ids = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto offset = getNextInput<int>(stackGetter);
   auto mode = getNextInput<int>(stackGetter);
 
@@ -35,6 +43,9 @@ void RotaryPosEmbedding::AddNode(
   params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
 
   std::vector<synTensor> inputs = {input.syn_t, sin.syn_t, cos.syn_t};
+  if (position_ids) {
+    inputs.push_back(position_ids.value().syn_t);
+  }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {input.pt_t.sizes(), input.pt_t.scalar_type(), 0}};

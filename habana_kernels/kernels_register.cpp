@@ -1742,14 +1742,16 @@ at::Tensor rotary_pos_embedding_wrap(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
+    const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " rotary_pos_embedding :", DUMP_5ARGS(input, sin, cos, offset, mode));
+      " rotary_pos_embedding :",
+      DUMP_6ARGS(input, sin, cos, position_ids, offset, mode));
 
-  return rotary_pos_embedding_lazy(input, sin, cos, offset, mode);
+  return rotary_pos_embedding_lazy(input, sin, cos, position_ids, offset, mode);
 }
 
 at::Tensor rotary_pos_embedding_backward_wrap(
@@ -2412,7 +2414,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_bounds_check_indices(Tensor(a!) indices, Tensor(b!) offsets, Tensor(c!) warning, Tensor rows_per_table, int bounds_check_mode, Tensor? weights) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
-      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, int offset, int mode) -> Tensor");
+      "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
   m.def(

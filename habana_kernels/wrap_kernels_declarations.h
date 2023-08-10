@@ -412,6 +412,7 @@ at::Tensor rotary_pos_embedding_wrap(
     const at::Tensor& input,
     const at::Tensor& sin,
     const at::Tensor& cos,
+    const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode);
 at::Tensor rotary_pos_embedding_backward_wrap(
