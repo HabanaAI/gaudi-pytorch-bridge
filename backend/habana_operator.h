@@ -235,16 +235,16 @@ struct KernelMetaData {
 
 class OutputMetaData {
  public:
-  std::string name;
-  std::string module_name;
+  std::string name{};
+  std::string module_name{};
   bool persistent{false};
   bool external{false};
   at::ScalarType dtype{at::ScalarType::Undefined};
-  std::vector<int64_t> shape;
-  std::vector<int64_t> strides;
-  at::Layout layout;
-  at::MemoryFormat mem_format;
-  std::optional<at::Tensor> allocated_tensor;
+  std::vector<int64_t> shape{};
+  std::vector<int64_t> strides{};
+  at::Layout layout{};
+  at::MemoryFormat mem_format{};
+  std::optional<at::Tensor> allocated_tensor{};
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(
       at::ScalarType dtype,

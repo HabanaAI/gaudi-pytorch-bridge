@@ -24,7 +24,6 @@ dtypes = [
 ]
 
 
-@pytest.mark.skip(reason="SW-155131")
 @pytest.mark.parametrize("right", [True, False])
 @pytest.mark.parametrize("out_int32", [True, False])
 @pytest.mark.parametrize("dtype", dtypes)
@@ -57,7 +56,6 @@ def test_hpu_searchsorted_input(right, out_int32, dtype, sequence_shape, input_s
     assert hpu_results[0].dtype == cpu_results[0].dtype
 
 
-@pytest.mark.skip(reason="SW-155131")
 @pytest.mark.parametrize("out_int32", [True, False])
 @pytest.mark.parametrize("right", [False, True])
 @pytest.mark.parametrize("dtype", dtypes)
@@ -87,7 +85,6 @@ def test_hpu_searchsorted_scalar(out_int32, right, dtype):
     assert hpu_results[0].dtype == cpu_results[0].dtype
 
 
-@pytest.mark.skip(reason="SW-155131")
 @pytest.mark.parametrize(
     "right, side",
     [
@@ -126,7 +123,6 @@ def test_searchsorted_side(right, side):
     )
 
 
-@pytest.mark.skip(reason="SW-155131")
 @pytest.mark.parametrize(
     "name, value, shape",
     [
@@ -158,7 +154,6 @@ def test_searchsorted_sorter(name, value, shape):
     )
 
 
-@pytest.mark.skip(reason="SW-155131")
 def test_searchsorted_out():
     torch.manual_seed(0)
     shape = (4, 2)
