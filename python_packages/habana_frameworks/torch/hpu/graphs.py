@@ -123,7 +123,8 @@ class graph(object):
 
     def __init__(self,
                  hpu_graph,
-                 stream=None):
+                 stream=None,
+                 dry_run=False):
         # Lazy-init of default_capture_stream helps avoid circular-import errors.
         # Not thread safe, but graphs already have the general (explicitly documented)
         # restriction that only one capture may be underway at a time in the process.
@@ -134,6 +135,7 @@ class graph(object):
         assert self.capture_stream is not None
         self.stream_ctx = htorch.hpu.stream(self.capture_stream)
         self.hpu_graph = hpu_graph
+        self.dry_run = dry_run
 
     def __enter__(self):
         # Free as much memory as we can for the graph
@@ -142,7 +144,7 @@ class graph(object):
 
         self.stream_ctx.__enter__()
         self.capture_stream.is_capture = True
-        self.hpu_graph.capture_begin()
+        self.hpu_graph.capture_begin(self.dry_run)
 
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -152,7 +154,7 @@ class graph(object):
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
 def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input=False,
-    asynchronous=False, disable_tensor_cache=False):
+    asynchronous=False, disable_tensor_cache=False, dry_run=False):
 
     '''
     callables (torch.nn.Module or Python function, or tuple of these) – Callable or callables to graph.
@@ -171,6 +173,9 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
         Defaults to False.
 
     disable_tensor_cache (bool): If True, tensors won't be cached in hpu graph and memory can be saved.
+        Defaults to False.
+
+    dry_run (bool): If True, avoid actual launch of recipe.
         Defaults to False.
 
     '''
@@ -227,7 +232,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     for func, args, fwd_graph in zip(callables,
                                      sample_args,
                                      fwd_graphs):
-        with htorch.hpu.graph(fwd_graph):
+        with htorch.hpu.graph(fwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             if disable_tensor_cache:
                 fwd_graph.mark_user_inputs(args)
             outputs = func(*args)
@@ -249,7 +254,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
         assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
         static_grad_outputs = tuple(torch.empty_like(o) for o in static_outputs)
 
-        with htorch.hpu.graph(bwd_graph):
+        with htorch.hpu.graph(bwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
                 bwd_graph.mark_user_inputs(get_user_input_tensor_list(static_grad_outputs, ())
@@ -717,7 +722,7 @@ class TensorPacker:
         return data
 
 class GraphModel(torch.nn.Module):
-    def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False):
+    def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False):
         super(GraphModel, self).__init__()
         self.model = model
         self.input_packer = TensorPacker()
@@ -729,6 +734,7 @@ class GraphModel(torch.nn.Module):
         self.allow_unused_input = allow_unused_input
         self.asynchronous = asynchronous
         self.disable_tensor_cache = disable_tensor_cache
+        self.dry_run = dry_run
 
     def forward(self, *args):
         full_args = self.input_packer.unpack(args, self.input_meta)
@@ -747,7 +753,7 @@ class GraphModel(torch.nn.Module):
         self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
         self.hpu_graph = make_graphed_callables(self, tensor_args, allow_unused_input=self.allow_unused_input,
-         asynchronous=self.asynchronous, disable_tensor_cache=self.disable_tensor_cache)
+         asynchronous=self.asynchronous, disable_tensor_cache=self.disable_tensor_cache, dry_run=self.dry_run)
 
     def assert_not_dataparallel(self):
         assert not isinstance(self.model, torch.nn.parallel.DataParallel) and \
@@ -805,6 +811,7 @@ class ModuleCacher(torch.nn.Module):
         self.forward_cnt = 0
         self.set_iterations_call_cnt = 0
         self.disable_tensor_cache = False
+        self.dry_run = False
 
     def set_iteration_count(self, iter_num):
         self.forward_cnt = iter_num
@@ -821,7 +828,7 @@ class ModuleCacher(torch.nn.Module):
 
     def cache_insert(self, input_id, *args, **kwargs):
         self.hpugraph_tracing = True
-        graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous, self.disable_tensor_cache)
+        graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous, self.disable_tensor_cache, self.dry_run)
         graph_model.init_hpu_graph(*args, **kwargs)
         self.model_dict[input_id] = graph_model
         ret = self.cache_replay(input_id, *args, **kwargs)
@@ -894,7 +901,7 @@ class ModuleCacher(torch.nn.Module):
         return self.orig_model(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
-        disable_tensor_cache=False):
+        disable_tensor_cache=False, dry_run=True):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
         if not inplace:
             model = copy.copy(model)
@@ -914,8 +921,9 @@ class ModuleCacher(torch.nn.Module):
         self.model.capture_end = self.capture_end
         self.verbose = verbose
         self.log_frequency = log_frequency
-        env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE", "False").lower() in ["true", "1"]
-        self.disable_tensor_cache = disable_tensor_cache if env_tensor_cache is False else True
+        env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
+        self.disable_tensor_cache =  disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
+        self.dry_run = dry_run
         return self.model
 
     def log_stats(self):
