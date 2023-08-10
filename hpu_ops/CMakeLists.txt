@@ -207,6 +207,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/rotary_pos_embedding.cpp
           backend/sdpa_gen.cpp
           backend/rrelu_with_noise_gen.cpp
+          backend/scalar_tensor_gen.cpp
           backend/scaled_masked_softmax.cpp
           backend/scaled_triangular_softmax.cpp
           backend/scatter_gen.cpp

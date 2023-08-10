@@ -182,6 +182,7 @@ set(hpu_ops_tests_src
   hpu_ops/roll.cpp
   hpu_ops/round.cpp
   hpu_ops/rrelu_with_noise.cpp
+  hpu_ops/scalar_tensor.cpp
   hpu_ops/scatter.cpp
   hpu_ops/scatter_reduce.cpp
   hpu_ops/searchsorted.cpp
