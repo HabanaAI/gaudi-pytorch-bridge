@@ -312,16 +312,6 @@ def full_like(
 def bernoulli(input, p, *, generator=None):
     return torch.bernoulli(torch.full_like(input, p), generator=generator)
 
-@register_custom_decomposition(aten.squeeze.dim, hpu_backend_decompositions_common)
-def squeeze(input, dim):
-    return torch.squeeze(input, [dim])
-
-@register_custom_decomposition(aten.squeeze.default, hpu_backend_decompositions_common)
-def squeeze(input):
-    inp_size = len(input.size())
-    dim_list = list(range(0, inp_size))
-    return torch.squeeze(input, dim_list)
-
 def get_hpu_decompositions(is_training: bool):
     if configuration_flags["use_decompositions"]:
         if is_training:
