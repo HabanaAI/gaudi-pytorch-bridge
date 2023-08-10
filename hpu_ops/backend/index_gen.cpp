@@ -451,7 +451,6 @@ void IndexHabanaOperator::AddNode(
         broadcast_to_size.end(),
         1,
         std::multiplies<int64_t>());
-
     for (i = 0; i < self.dim(); i++) {
       repeats_needed[i] = 1;
       int64_t total_elements_above = 1;
@@ -528,7 +527,8 @@ void IndexHabanaOperator::AddNode(
             size,
             c10::nullopt));
         if (index_all_elems[dim] && (broadcast_to_size_numel == 1) &&
-            (repeat_interleaves_needed[dim] == 1)) {
+            (repeat_interleaves_needed[dim] == 1) &&
+            (repeats_needed[dim] == 1)) {
           std::vector<int64_t> expanded_size{1};
           for (auto s : index_tensor_to_use.back().pt_shape()) {
             expanded_size.push_back(s);
@@ -668,7 +668,6 @@ void IndexHabanaOperator::AddNode(
             cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
       }
     }
-
     auto tensorlist = stack[1].toTensorList().vec();
     auto scalar_type = tensorlist[0].scalar_type();
     int64_t dim = 0;

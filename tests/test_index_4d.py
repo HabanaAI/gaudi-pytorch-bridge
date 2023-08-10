@@ -1,12 +1,13 @@
 import torch
+import habana_frameworks.torch.core as htcore
 
 s0 = 5
 s1 = 4
 s2 = 3
 s3 = 3
 def index_test(device, i) -> torch.Tensor:
-    x = torch.arange(s0*s1*s2*s3, device=device).view(s0, s1, s2, s3)
-    #x = torch.arange(s0*s1*s2*s3).view(s0, s1, s2, s3).to(device)
+    #x = torch.arange(s0*s1*s2*s3, device=device).view(s0, s1, s2, s3)
+    x = torch.arange(s0*s1*s2*s3).view(s0, s1, s2, s3).to(device)
     a = torch.Tensor([0, 2]).to(device).to(torch.int64)
     b = torch.Tensor([1, 2]).to(device).to(torch.int64)
     c = torch.Tensor([0, 1]).to(device).to(torch.int64)
