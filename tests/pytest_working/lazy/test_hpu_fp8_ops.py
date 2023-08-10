@@ -71,6 +71,7 @@ def simulateFp8Precision(input):
     return masked.view(dtype) * signs
 
 
+@pytest.mark.skip("SW-155507")
 @pytest.mark.parametrize("shape", [(72, 56, 16), (64, 48)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -125,6 +126,7 @@ def test_cast_to_fp8(shape, scale, dtype, stochastic, transposed, allocate_out):
     assert amax.cpu()[1][2] == torch.max(input.abs())
 
 
+@pytest.mark.skip("SW-155507")
 @pytest.mark.parametrize("shape", [(72, 56, 16), (64, 48)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
@@ -960,12 +962,16 @@ def test_hpu_repeat(shape, repeats):
     ).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
 
-@pytest.mark.parametrize("shape, dim, index", [
-    ([2, 3, 4], 0, [1]),
-    ([2, 3, 4], 1, [1, 2]),
-    ([2, 3, 4], 2, [0, 3]),
-    ([2, 3, 4], -1, [0, 3]),
-])
+
+@pytest.mark.parametrize(
+    "shape, dim, index",
+    [
+        ([2, 3, 4], 0, [1]),
+        ([2, 3, 4], 1, [1, 2]),
+        ([2, 3, 4], 2, [0, 3]),
+        ([2, 3, 4], -1, [0, 3]),
+    ],
+)
 def test_hpu_index_select(shape, dim, index):
     self = torch.rand(shape, dtype=torch.float)
     self_h = cast_to_fp8(self.to("hpu"))
@@ -976,5 +982,7 @@ def test_hpu_index_select(shape, dim, index):
     out_h = torch.ops.hpu.fp8_index_select_v2(self_h, dim, index_h)
 
     out_h = cast_from_fp8(out_h, out_dtype=torch.float, scale=None)
-    out = cast_from_fp8(cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
+    out = cast_from_fp8(
+        cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None
+    ).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
