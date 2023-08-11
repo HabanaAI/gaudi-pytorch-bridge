@@ -26,6 +26,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_set>
+#include <utility>
 
 #include <ATen/Tensor.h>
 #include <absl/hash/hash.h>
@@ -709,36 +710,108 @@ class HabanaLaunchOpPT {
   // --------------------
 };
 
-class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
+/**
+ * Controls underlying thread pool execution.
+ * Thread safe.
+ */
+class ThreadPoolControl {
  public:
-  static std::future<void> m_compile_thread_handle;
-  static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(
-        num_threads, habana_helpers::QT_LockFree);
-    return thread_pool_obj;
+  /**
+   * @param num_threads Number of available threads in underlying pool
+   */
+  explicit ThreadPoolControl(const size_t num_threads)
+      : m_num_threads{num_threads},
+        m_thread_pool_obj{m_num_threads, habana_helpers::QT_LockFree} {};
+
+  ThreadPoolControl(const ThreadPoolControl&) = delete;
+  ThreadPoolControl& operator=(const ThreadPoolControl&) = delete;
+  ThreadPoolControl(ThreadPoolControl&&) = delete;
+  ThreadPoolControl& operator=(ThreadPoolControl&&) = delete;
+  ~ThreadPoolControl() = default;
+
+  /**
+   * Wait until thread pool is done.
+   * Thread safe.
+   */
+  void JoinPendingThread() {
+    std::shared_future<void> shared_thread_handle;
+    {
+      std::unique_lock lock{m_thread_handle_mutex};
+      shared_thread_handle = m_thread_handle;
+    }
+    if (shared_thread_handle.valid()) {
+      PT_LAZY_EXEC_THREAD("Waiting for thread to finish");
+      try {
+        WaitUntilThreadPoolIsDone();
+        shared_thread_handle.get();
+      } catch (std::exception&) {
+      }
+    }
   }
 
-  static void queueStatus() {
-    while (getInstance().has_queued_items.load()) {
-      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
+  /**
+   * Schedules work to thread pool and stores handle to scheduled work.
+   * Thread safe.
+   *
+   * @param f Function with work
+   * @param args Arguments to work
+   */
+  template <class F, class... Args>
+  void ScheduleWorkAndUpdateThreadHandle(F&& f, Args&&... args) {
+    auto handle = m_thread_pool_obj.enqueue<F, Args...>(
+        std::forward<F>(f), std::forward<Args>(args)...);
+    std::unique_lock lock{m_thread_handle_mutex};
+    m_thread_handle = std::move(handle);
+  }
+
+ private:
+  /**
+   * Size of underlying thread pool.
+   */
+  const size_t
+      m_num_threads; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+
+  /**
+   * Underlying thread pool.
+   */
+  habana_helpers::ThreadPool m_thread_pool_obj;
+
+  /**
+   * Handle to last scheduled work in thread pool.
+   */
+  std::shared_future<void> m_thread_handle GUARDED_BY(m_thread_handle_mutex);
+
+  /**
+   * Guarding accesses to thread handle.
+   */
+  std::mutex m_thread_handle_mutex;
+
+  /**
+   * Busy waits until underlying thread pool is stopped or still has items.
+   */
+  void WaitUntilThreadPoolIsDone() {
+    while (m_thread_pool_obj.has_queued_items.load()) {
+      if (m_thread_pool_obj.m_stop ||
+          !m_thread_pool_obj.has_queued_items.load()) {
         break;
       }
     }
     return;
   }
+};
 
-  static void JoinPendingExecuteThread() {
-    if (m_compile_thread_handle.valid()) {
-      PT_LAZY_EXEC_THREAD("Waiting for compile thread to finish");
-      // If the future is already ready when below line executes, it can
-      // create an exception. Ignore the exception as the wait is already
-      // over.
-      try {
-        queueStatus();
-        m_compile_thread_handle.get();
-      } catch (std::exception& e) {
-      }
-    }
+/**
+ * Exposed thread pool that is used for graph compilation.
+ */
+class Singleton_CompileThreadPool {
+ public:
+  /**
+   * Returns reference to ThreadPoolControl that is controlling graph
+   * compilation thread pool.
+   */
+  static ThreadPoolControl& getInstance() {
+    static ThreadPoolControl thread_pool_control_obj{num_threads};
+    return thread_pool_control_obj;
   }
 
  private:
@@ -749,36 +822,18 @@ class Singleton_CompileThreadPool : public HabanaLaunchOpPT {
       delete;
 };
 
-class Singleton_ExecThreadPool : public HabanaLaunchOpPT {
+/**
+ * Exposes thread pool that is used for graph execution.
+ */
+class Singleton_ExecThreadPool {
  public:
-  static std::future<void> m_exec_thread_handle;
-  static habana_helpers::ThreadPool& getInstance() {
-    static habana_helpers::ThreadPool thread_pool_obj(
-        num_threads, habana_helpers::QT_LockFree);
-    return thread_pool_obj;
-  }
-
-  static void queueStatus() {
-    while (getInstance().has_queued_items.load()) {
-      if (getInstance().m_stop || !getInstance().has_queued_items.load()) {
-        break;
-      }
-    }
-    return;
-  }
-
-  static void JoinPendingExecuteThread() {
-    if (m_exec_thread_handle.valid()) {
-      PT_LAZY_EXEC_THREAD("Waiting for compile thread to finish");
-      // If the future is already ready when below line executes, it can
-      // create an exception. Ignore the exception as the wait is already
-      // over.
-      try {
-        queueStatus();
-        m_exec_thread_handle.get();
-      } catch (std::exception& e) {
-      }
-    }
+  /**
+   * Returns reference to ThreadPoolControl that is controlling graph execution
+   * thread pool.
+   */
+  static ThreadPoolControl& getInstance() {
+    static ThreadPoolControl thread_pool_control_obj{num_threads};
+    return thread_pool_control_obj;
   }
 
  private:

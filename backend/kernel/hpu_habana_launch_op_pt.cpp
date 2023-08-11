@@ -68,9 +68,6 @@ using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana {
 
-std::future<void> Singleton_CompileThreadPool::m_compile_thread_handle;
-std::future<void> Singleton_ExecThreadPool::m_exec_thread_handle;
-
 // static initializations
 const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     // Add aten string here for ops to support
@@ -3663,14 +3660,13 @@ void HabanaLaunchOpPT::run(
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
 
-        auto doNothingLambda = [] {};
-        Singleton_CompileThreadPool::m_compile_thread_handle =
-            Singleton_CompileThreadPool::getInstance().enqueue(doNothingLambda);
+        Singleton_CompileThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle([] {});
 
-        Singleton_CompileThreadPool::JoinPendingExecuteThread();
+        Singleton_CompileThreadPool::getInstance().JoinPendingThread();
 
-        Singleton_ExecThreadPool::m_exec_thread_handle =
-            Singleton_ExecThreadPool::getInstance().enqueue(
+        Singleton_ExecThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle(
                 ExecuteSynapseCache,
                 hpu_stream,
                 graph_key_with_perm,
@@ -3681,7 +3677,7 @@ void HabanaLaunchOpPT::run(
                 allocated_outputs_,
                 dry_run);
 
-        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+        Singleton_ExecThreadPool::getInstance().JoinPendingThread();
       } else {
         ExecuteSynapseCache(
             hpu_stream,
@@ -3806,8 +3802,8 @@ void HabanaLaunchOpPT::run(
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-        Singleton_CompileThreadPool::m_compile_thread_handle =
-            Singleton_CompileThreadPool::getInstance().enqueue(
+        Singleton_CompileThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle(
                 CompileSynapse,
                 this,
                 nullptr,
@@ -3815,10 +3811,10 @@ void HabanaLaunchOpPT::run(
                 cur_rvalpsh,
                 true);
 
-        Singleton_CompileThreadPool::JoinPendingExecuteThread();
+        Singleton_CompileThreadPool::getInstance().JoinPendingThread();
 
-        Singleton_ExecThreadPool::m_exec_thread_handle =
-            Singleton_ExecThreadPool::getInstance().enqueue(
+        Singleton_ExecThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle(
                 ExecuteSynapse,
                 hpu_stream,
                 jit_graph_and_meta_data,
@@ -3829,7 +3825,8 @@ void HabanaLaunchOpPT::run(
                 cur_rvalpsh,
                 true,
                 dry_run);
-        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+
+        Singleton_ExecThreadPool::getInstance().JoinPendingThread();
       } else {
         CompileSynapseGraph();
         StoreShapeAgnosticGraph();
@@ -3932,8 +3929,8 @@ void HabanaLaunchOpPT::run(
           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-        Singleton_CompileThreadPool::m_compile_thread_handle =
-            Singleton_CompileThreadPool::getInstance().enqueue(
+        Singleton_CompileThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle(
                 CompileSynapse,
                 this,
                 nullptr,
@@ -3941,10 +3938,10 @@ void HabanaLaunchOpPT::run(
                 cur_rvalpsh,
                 false);
 
-        Singleton_CompileThreadPool::JoinPendingExecuteThread();
+        Singleton_CompileThreadPool::getInstance().JoinPendingThread();
 
-        Singleton_ExecThreadPool::m_exec_thread_handle =
-            Singleton_ExecThreadPool::getInstance().enqueue(
+        Singleton_ExecThreadPool::getInstance()
+            .ScheduleWorkAndUpdateThreadHandle(
                 ExecuteSynapse,
                 hpu_stream,
                 jit_graph_and_meta_data,
@@ -3955,7 +3952,7 @@ void HabanaLaunchOpPT::run(
                 cur_rvalpsh,
                 false,
                 dry_run);
-        Singleton_ExecThreadPool::JoinPendingExecuteThread();
+        Singleton_ExecThreadPool::getInstance().JoinPendingThread();
       } else {
         CompileSynapseGraph(false);
 
@@ -4038,24 +4035,24 @@ void HabanaLaunchOpPT::run(
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD)) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-    Singleton_CompileThreadPool::m_compile_thread_handle =
-        Singleton_CompileThreadPool::getInstance().enqueue(
-            CompileSynapse, this, &syn_graph, syn_graph_ptr, nullptr, false);
-    Singleton_CompileThreadPool::JoinPendingExecuteThread();
 
-    Singleton_ExecThreadPool::m_exec_thread_handle =
-        Singleton_ExecThreadPool::getInstance().enqueue(
-            ExecuteSynapse,
-            hpu_stream,
-            jit_graph_and_meta_data,
-            input_refs,
-            nullptr,
-            nullptr,
-            this,
-            nullptr,
-            false,
-            dry_run);
-    Singleton_ExecThreadPool::JoinPendingExecuteThread();
+    Singleton_CompileThreadPool::getInstance()
+        .ScheduleWorkAndUpdateThreadHandle(
+            CompileSynapse, this, &syn_graph, syn_graph_ptr, nullptr, false);
+    Singleton_CompileThreadPool::getInstance().JoinPendingThread();
+
+    Singleton_ExecThreadPool::getInstance().ScheduleWorkAndUpdateThreadHandle(
+        ExecuteSynapse,
+        hpu_stream,
+        jit_graph_and_meta_data,
+        input_refs,
+        nullptr,
+        nullptr,
+        this,
+        nullptr,
+        false,
+        dry_run);
+    Singleton_ExecThreadPool::getInstance().JoinPendingThread();
   } else {
     CompileSynapseGraph();
     ConstructPatchingTable();
