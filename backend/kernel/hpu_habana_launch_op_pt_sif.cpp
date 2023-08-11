@@ -57,7 +57,8 @@ using namespace jitgraph_utils;
 
 namespace habana {
 
-synapse_helpers::tensor& HabanaLaunchOpPT::allocate_synapse_tensor(
+namespace {
+synapse_helpers::tensor& allocate_synapse_tensor(
     at::Tensor& pt_tensor,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph) {
@@ -73,6 +74,7 @@ synapse_helpers::tensor& HabanaLaunchOpPT::allocate_synapse_tensor(
     return syn_tensor;
   }
 }
+} // namespace
 
 torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
     const torch::jit::Node* node,
@@ -89,7 +91,8 @@ torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
   return node_stack;
 }
 
-void HabanaLaunchOpPT::create_synapse_input(
+namespace {
+void create_synapse_input(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
@@ -121,11 +124,11 @@ void HabanaLaunchOpPT::create_synapse_input(
     }
     auto& syn_tensor = allocate_synapse_tensor(pt_tensor, habana_op, syn_graph);
     PT_DYNAMIC_SHAPE_DEBUG(
-        "Allocated synpase tensor for input tensor: ", syn_tensor.id());
+        "Allocated synapse tensor for input tensor: ", syn_tensor.id());
   }
 }
 
-void HabanaLaunchOpPT::create_synapse_inputs(
+void create_synapse_inputs(
     torch::jit::Node* node,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
@@ -164,6 +167,7 @@ void HabanaLaunchOpPT::create_synapse_inputs(
     input_idx += 1;
   }
 }
+} // namespace
 
 int64_t HabanaLaunchOpPT::get_output_tensors_count(
     const HabanaOperatorPtr& habana_op,
@@ -198,8 +202,9 @@ int64_t HabanaLaunchOpPT::get_output_tensors_count(
   return output_count;
 }
 
-OutputMetaDataVector HabanaLaunchOpPT::populate_node_output_metadata(
-    torch::jit::Node* node) {
+namespace {
+OutputMetaDataVector populate_node_output_metadata(
+    const torch::jit::Node* node) {
   OutputMetaDataVector output_metadata{};
   // tensorList and Unpack pair is supported
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
@@ -223,6 +228,7 @@ OutputMetaDataVector HabanaLaunchOpPT::populate_node_output_metadata(
   }
   return output_metadata;
 }
+} // namespace
 
 static at::Tensor GetDummyTensor(
     at::IntArrayRef sizes,
@@ -235,7 +241,8 @@ static at::Tensor GetDummyTensor(
   return t;
 }
 
-void HabanaLaunchOpPT::process_shape_tensors(
+namespace {
+void process_shape_tensors(
     const HabanaOperatorPtr& habana_op,
     std::vector<at::Tensor>& intermediate_shape_tensors_vec) {
   // Auto gen op shape tensors
@@ -261,6 +268,7 @@ void HabanaLaunchOpPT::process_shape_tensors(
     process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
   }
 }
+} // namespace
 
 void HabanaLaunchOpPT::process_outputs(
     const HabanaOperatorPtr& habana_op,

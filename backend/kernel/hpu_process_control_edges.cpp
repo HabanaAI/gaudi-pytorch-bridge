@@ -80,13 +80,25 @@ void HabanaLaunchOpPT::addSynNodes(
   }
 }
 
-bool HabanaLaunchOpPT::IsCustomOptimizer(std::string node_str) {
+namespace {
+bool IsCustomOptimizer(const std::string_view node_str) {
+  using namespace std::literals;
+  // TODO add all the optimizers
+  static constexpr std::array<std::string_view, 6>
+      custom_optimizer_nodestr_vec = {
+          "hpu::optimizer_sgd_momentum"sv,
+          "hpu::habanaOptimizerFusedAdagrad"sv,
+          "hpu::habanaOptimizerAdamW"sv,
+          "hpu::optimizer_adamw"sv,
+          "hpu::optimizer_lamb_phase1"sv,
+          "hpu::optimizer_lamb_phase2"sv};
   auto it = std::find(
       custom_optimizer_nodestr_vec.begin(),
       custom_optimizer_nodestr_vec.end(),
       node_str);
   return (it != custom_optimizer_nodestr_vec.end());
 }
+} // namespace
 
 // custom optimizer adds large number of synapse nodes (one per each learnable
 // param in the model) If ProcessControlEdges is used naively then we end up

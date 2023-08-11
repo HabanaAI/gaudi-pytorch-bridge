@@ -126,17 +126,14 @@ std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
   return id_str;
 }
 
-void HabanaLaunchOpPT::SetOpName(const std::string& name) {
-  op_name = name;
-}
-
 HabanaLaunchOpPT::HabanaLaunchOpPT(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
         optimized_jit_graph_and_meta_data)
     : name(optimized_jit_graph_and_meta_data->GetOpName()),
       graph_index(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph(optimized_jit_graph_and_meta_data->get_cached_graph()),
-      debug(optimized_jit_graph_and_meta_data->GetDbgFlag()) {
+      debug(optimized_jit_graph_and_meta_data->GetDbgFlag()),
+      use_persistent_tensors{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)} {
   refine_ds_enabled_ = optimized_jit_graph_and_meta_data->GetDynamicGraph();
   enable_fast_shape_inf_ =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE) &&
@@ -147,8 +144,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   bool is_optimized_lazy_eager =
       optimized_jit_graph_and_meta_data->GetOptimizedLazyEagerFlag();
   jit_graph_and_meta_data = optimized_jit_graph_and_meta_data;
-
-  SetOpName(name);
 
   PT_BRIDGE_DEBUG("Creating : ", SetAndGetSynapseGraphName(name, graph_index));
 
@@ -230,8 +225,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
         " is not equal to #outputs in jit graph ",
         jit_ir_graph->outputs().size());
   }
-
-  use_persistent_tensors = GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR);
 
   if (enable_tensor_dump_) {
     std::string& idstrs = SetAndGetSynapseGraphName(name, graph_index);
@@ -1345,7 +1338,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
 
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
-    std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue) {
+    CValuePtrToIValuePtrMap& value_to_ivalue) {
   const auto& node_ins = node->inputs();
   auto node_vals = node->outputs();
   HABANA_ASSERT(node_vals.size() == 1);
@@ -1600,14 +1593,18 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
      op");*/
 }
 
-std::string HabanaLaunchOpPT::DumpNodeInputs(torch::jit::Node* node) {
+namespace {
+std::string DumpNodeInputs(
+    const torch::jit::Node* const node,
+    const CValuePtrToIValuePtrMap& value_to_ivalue) {
   std::ostringstream o;
   node->print(o, 0, nullptr);
   auto str = o.str();
   if (node->input(0)->type() != torch::ListType::ofTensors()) {
     for (auto value_in : node->inputs()) {
-      if (value_to_ivalue[value_in]->isTensor()) {
-        auto tensor = value_to_ivalue[value_in]->toTensor();
+      const auto ivalue = value_to_ivalue.find(value_in);
+      if (ivalue != value_to_ivalue.end() && ivalue->second->isTensor()) {
+        const auto tensor = ivalue->second->toTensor();
         std::ostringstream o;
         o << "input Tensor ";
         o << value_in->debugName();
@@ -1620,14 +1617,18 @@ std::string HabanaLaunchOpPT::DumpNodeInputs(torch::jit::Node* node) {
   }
   return str;
 }
-std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
+
+std::string DumpNodeOutputs(
+    const torch::jit::Node* const node,
+    const CValuePtrToIValuePtrMap& value_to_ivalue) {
   std::ostringstream o;
   node->print(o, 0, nullptr);
   auto str = o.str();
   if (*node->output(0)->type() != *torch::ListType::ofTensors()) {
     for (auto value_out : node->outputs()) {
-      if (value_to_ivalue[value_out]->isTensor()) {
-        auto tensor = value_to_ivalue[value_out]->toTensor();
+      const auto ivalue = value_to_ivalue.find(value_out);
+      if (ivalue != value_to_ivalue.end() && ivalue->second->isTensor()) {
+        const auto tensor = ivalue->second->toTensor();
         std::ostringstream o;
         o << "outout Tensor ";
         o << value_out->debugName();
@@ -1640,6 +1641,7 @@ std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
   }
   return str;
 }
+} // namespace
 
 void HabanaLaunchOpPT::validateOutputShapeDynamic(
     const HabanaOperatorPtr& HabanaKernel,
@@ -1864,25 +1866,28 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 }
 
-void HabanaLaunchOpPT::ProcessGraphForConstantTensors() {
+namespace {
+
+// Utilies for marking constant tensors in JIT graph as consts in
+// Synapse graph. It works when parameter marking is done
+// from the model
+void ProcessGraphForConstantTensors(
+    const torch::jit::Graph& jit_ir_graph,
+    const CValuePtrToIValuePtrMap& value_to_ivalue) {
   PT_BRIDGE_BEGIN;
-  for (auto value_input : jit_ir_graph->inputs()) {
-    if (value_to_ivalue.find(value_input) == value_to_ivalue.end()) {
+  for (const auto* const value_input : jit_ir_graph.inputs()) {
+    auto ivalue = value_to_ivalue.find(value_input);
+    if (ivalue == value_to_ivalue.end() || !ivalue->second->isTensor()) {
       continue;
     }
-    if (!value_to_ivalue[value_input]->isTensor()) {
-      continue;
-    }
-    auto tensor = value_to_ivalue[value_input]->toTensor();
-    auto is_const_tensor = habana::is_tensor_const(tensor);
-    if (is_const_tensor) {
+    auto tensor = ivalue->second->toTensor();
+    if (habana::is_tensor_const(tensor)) {
       TensorExtraMeta::set_const_tensor(tensor, true);
-    } else {
-      continue;
     }
   }
   PT_BRIDGE_END;
 }
+} // namespace
 
 void HabanaLaunchOpPT::FillMaxValues(
     const HabanaOperatorPtr& habana_op,
@@ -2125,7 +2130,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       auto outputs_metadata = nodeOutputMetaData(node);
       jit_graph_and_meta_data->set_outputs_metadata(outputs_metadata);
     }
-    PT_BRIDGE_DEBUG(DumpNodeInputs(node));
+    PT_BRIDGE_DEBUG(DumpNodeInputs(node, value_to_ivalue));
     OutputMetaDataVector& outputs_metadata =
         jit_graph_and_meta_data->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
@@ -2351,7 +2356,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           cur_sif_tidx);
     }
 
-    PT_BRIDGE_DEBUG(DumpNodeOutputs(node));
+    PT_BRIDGE_DEBUG(DumpNodeOutputs(node, value_to_ivalue));
     // The kernel corresponding to current IR node, HabanaKernel, might create
     // one or more appended tensors. These are tensors which do not have a
     // corresponding ValPtr in the IR graph. These are either duplicate of
@@ -3729,7 +3734,7 @@ void HabanaLaunchOpPT::run(
   }
 
   CreateValueToIvalueMapForInputs();
-  ProcessGraphForConstantTensors();
+  ProcessGraphForConstantTensors(*jit_ir_graph, value_to_ivalue);
 
   if (enable_shape_agnostic_caching_) {
     ValidateInputsAndOutputsAndDisableSA(input_refs);
@@ -4793,5 +4798,4 @@ bool HabanaLaunchOpPT::is_hccl_send_mark_step() {
   }
   return lazy_info->get_is_hccl_send_mark_step();
 }
-
 } // namespace habana

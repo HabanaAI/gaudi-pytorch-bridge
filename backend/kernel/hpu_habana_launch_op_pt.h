@@ -64,9 +64,12 @@ enum ControlEdgeType {
   kCONTROL_EDGE_INPLACE_INPUT_1,
 };
 
+using CValuePtrToIValuePtrMap = std::unordered_map<CValPtr, IValPtrShared>;
+
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
-    std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue);
+    CValuePtrToIValuePtrMap& value_to_ivalue);
+
 // Api to create shape or H2d tensors with zero memory allocations.
 // Information in shape tensor is embedded in tensor meta data
 at::Tensor createDynamicTensor(const std::vector<int64_t>&, synTensorType);
@@ -153,9 +156,6 @@ class HabanaLaunchOpPT {
   void set_lazy_front_end_info(
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
-  void set_node_bcast_map(std::vector<bool>& map) {
-    node_bcast_map_ = map;
-  }
   void CompileSynapseGraph(bool allocate_rval = true);
   static void CompileSynapse(
       HabanaLaunchOpPT* hbLaunchOp,
@@ -197,8 +197,6 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;
 
   bool dry_run_ = false;
-  std::vector<bool> node_bcast_map_;
-  std::string op_name = std::string();
   std::string name = std::string();
   size_t graph_index = 0;
   std::shared_ptr<torch::jit::Graph> jit_ir_graph;
@@ -217,8 +215,6 @@ class HabanaLaunchOpPT {
 
   std::vector<TensorMetaData> input_tms;
 
-  std::string DumpNodeInputs(torch::jit::Node* node);
-  std::string DumpNodeOutputs(torch::jit::Node* node);
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
@@ -228,14 +224,15 @@ class HabanaLaunchOpPT {
   std::deque<synapse_helpers::tensor> meta_syn_tensors;
 
   std::vector<IValPtrShared> pt_stack_sh;
-  std::unordered_map<CValPtr, IValPtrShared> value_to_ivalue;
+  CValuePtrToIValuePtrMap value_to_ivalue;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
 
-  static std::unordered_map<int, size_t> m_const_checksum_map;
+  static std::unordered_map<int, size_t> m_const_checksum_map
+      GUARDED_BY(checksum_map_mtx);
   static std::mutex checksum_map_mtx;
   static void insertConstantChecksum(int id, size_t checksum) {
     std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
@@ -299,7 +296,8 @@ class HabanaLaunchOpPT {
   // inputs
   size_t num_tensor_inputs{0};
 
-  bool use_persistent_tensors{false};
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
+  const bool use_persistent_tensors;
 
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack{nullptr};
@@ -353,15 +351,6 @@ class HabanaLaunchOpPT {
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
 
-  // TODO add all the optimizers
-  std::vector<std::string> custom_optimizer_nodestr_vec = {
-      "hpu::optimizer_sgd_momentum",
-      "hpu::habanaOptimizerFusedAdagrad",
-      "hpu::habanaOptimizerAdamW",
-      "hpu::optimizer_adamw",
-      "hpu::optimizer_lamb_phase1",
-      "hpu::optimizer_lamb_phase2"};
-
   // TODO collect the control edge structures in a child class
   std::unordered_map<torch::jit::Node*, std::pair<size_t, size_t>>
       dfs_time_in_out_map;
@@ -376,11 +365,6 @@ class HabanaLaunchOpPT {
   // Count for intermediate synapse tensors in a graph
   // intermediates syn tensors can be both persistent and non-persistent
   int64_t intermediate_syn_tensors_count{0};
-
-  // Utilies for marking constant tensors in JIT graph as consts in
-  // Synapse graph. It works when parameter marking is done
-  // from the model
-  void ProcessGraphForConstantTensors();
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
@@ -496,7 +480,6 @@ class HabanaLaunchOpPT {
       at::Tensor* tensor,
       torch::jit::Value* value_in,
       bool persistence = true);
-  bool IsCustomOptimizer(std::string node_str);
 
   // Patching related
   void AddAtenIntermediate(
@@ -636,39 +619,21 @@ class HabanaLaunchOpPT {
   // AllocateAndAddSynapseNode for the output shape computation.
 
   static std::unordered_set<std::string> disabled_jit_ir_ops_;
-  synapse_helpers::tensor& allocate_synapse_tensor(
-      at::Tensor& pt_tensor,
-      const HabanaOperatorPtr& habana_op,
-      synapse_helpers::graph& syn_graph);
 
   torch::jit::Stack create_stack_for_node(
       const torch::jit::Node* node,
       bool& flag,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
-  void create_synapse_input(
-      CValPtr valIn,
-      const HabanaOperatorPtr& hpuOp,
-      synapse_helpers::graph& syn_graph,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
-  void create_synapse_inputs(
-      torch::jit::Node* node,
-      const HabanaOperatorPtr& habana_op,
-      synapse_helpers::graph& syn_graph,
       std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
 
   int64_t get_output_tensors_count(
       const HabanaOperatorPtr& habana_op,
       synapse_helpers::graph& syn_graph);
 
-  OutputMetaDataVector populate_node_output_metadata(torch::jit::Node* node);
   void process_outputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node,
       std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
-  void process_shape_tensors(
-      const HabanaOperatorPtr& habana_op,
-      std::vector<at::Tensor>& intermediate_shape_tensors_vec);
 
   void visit_prim_node(
       const torch::jit::Node* node,

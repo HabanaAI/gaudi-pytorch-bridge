@@ -57,13 +57,11 @@ struct Launcher {
 struct HabanaLaunchOpLauncher : Launcher {
   HabanaLaunchOpLauncher(
       const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
-      const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
-      std::vector<bool>& bcast_map)
+      const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info)
       : habana_launch_op_(graph_meta) {
     if (info) {
       habana_launch_op_.set_lazy_front_end_info(info);
     }
-    habana_launch_op_.set_node_bcast_map(bcast_map);
   }
 
   void Run(torch::jit::Stack& stack, bool dry_run) override {
@@ -100,15 +98,14 @@ struct ClusteredProgramLauncher : Launcher {
 std::unique_ptr<Launcher> CreateLauncher(
     std::size_t graph_hash,
     const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
-    const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info,
-    std::vector<bool>& bcast_map) {
+    const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info) {
   static bool is_clustered_program_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM);
 
   if (is_clustered_program_enabled) {
     return std::make_unique<ClusteredProgramLauncher>(graph_hash, graph_meta);
   }
-  return std::make_unique<HabanaLaunchOpLauncher>(graph_meta, info, bcast_map);
+  return std::make_unique<HabanaLaunchOpLauncher>(graph_meta, info);
 }
 
 } // namespace
@@ -169,8 +166,7 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
 
-  auto launcher =
-      CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo, node_bcast_map_);
+  auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo);
   try {
     launcher->Run(stack, dry_run);
   } catch (const std::exception& e) {
