@@ -333,7 +333,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest_DynamicShape) {
 
 TEST_F(LazyLossKernelTest, BCELossTest) {
   auto input = torch::randn({6, 1});
-  auto target = torch::randn({6, 1}); // Nx1
+  auto target = torch::rand({6, 1}); // Nx1
   auto grad_output = torch::randn({1});
 
   torch::Tensor hinput = input.to(torch::kHPU);

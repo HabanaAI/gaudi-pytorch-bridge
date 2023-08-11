@@ -25,12 +25,12 @@ TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_cmptopshp) {
 
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum);
   auto result = torch::binary_cross_entropy(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum);
 

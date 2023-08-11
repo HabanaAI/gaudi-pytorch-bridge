@@ -42,8 +42,8 @@ TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
 TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
   const std::vector<int64_t> dimensions{3, 3};
   torch::Tensor A = torch::randn(dimensions);
-  int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kInt);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
 
   torch::Tensor value = torch::randn({}); // Only 0-dim tensor accesped
   auto hA = A.to(torch::kHPU);
@@ -60,8 +60,8 @@ TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
 TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceTest) {
   const std::vector<int64_t> dimensions{3, 3};
   torch::Tensor A = torch::randn(dimensions);
-  int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kInt);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
   Scalar value = 35;
 
   auto hA = A.to(torch::kHPU);

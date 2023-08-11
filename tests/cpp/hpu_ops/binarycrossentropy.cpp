@@ -29,12 +29,12 @@ TEST_F(HpuOpTest, bce_usual_3D_sum) {
 
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum);
   auto result = torch::binary_cross_entropy(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum);
 
@@ -48,12 +48,12 @@ TEST_F(HpuOpTest, bce_usual_4D_none_bf16) {
 
   auto expected = torch::binary_cross_entropy(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ {},
       at::Reduction::None);
   auto result = torch::binary_cross_entropy(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ {},
       at::Reduction::None);
 
@@ -123,13 +123,13 @@ TEST_F(HpuOpTest, bce_out_3D_sum) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum,
       result);
@@ -147,13 +147,13 @@ TEST_F(HpuOpTest, bce_out_2D_none) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::None,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetHpuInput(2),
       at::Reduction::None,
       result);
@@ -175,13 +175,13 @@ TEST_F(HpuOpTest, bce_out_4D_mean) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Mean,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid((GetHpuInput(1))),
       /*weight*/ GetHpuInput(2),
       at::Reduction::Mean,
       result);
@@ -205,13 +205,13 @@ TEST_F(HpuOpTest, bce_out_5D_sum) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetHpuInput(2),
       at::Reduction::Sum,
       result);
@@ -232,13 +232,13 @@ TEST_F(HpuOpTest, bce_out_5D_mean) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ {},
       at::Reduction::Mean,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ {},
       at::Reduction::Mean,
       result);
@@ -256,13 +256,13 @@ TEST_F(HpuOpTest, bce_out_5D_none) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ {},
       at::Reduction::None,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ {},
       at::Reduction::None,
       result);
@@ -322,13 +322,13 @@ TEST_F(HpuOpTest, bce_out_3D_none_bf16) {
 
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)).to(torch::kFloat),
-      /*target*/ GetCpuInput(1).to(torch::kFloat),
+      /*target*/ torch::sigmoid(GetCpuInput(1)).to(torch::kFloat),
       /*weight*/ GetCpuInput(2).to(torch::kFloat),
       at::Reduction::None,
       expected);
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::None,
       result);
