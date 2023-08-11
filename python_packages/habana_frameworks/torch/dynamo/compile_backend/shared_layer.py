@@ -27,6 +27,7 @@ hpu_supported_op_list = {
     "full",
     "getitem",
     "slice_scatter",
+    "alias",
 }
 
 hpu_fallback_op_list = {
