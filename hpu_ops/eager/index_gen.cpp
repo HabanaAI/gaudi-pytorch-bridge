@@ -30,10 +30,11 @@ FALLBACK_CHECK(
   // boolean or they are on CPU
   for (auto input : indices_in) {
     auto o1 = input.toOptional<at::Tensor>();
-    if (o1.has_value() && o1.value().defined() &&
-        o1.value().device() == torch::kCPU) {
+
+    if ((o1.has_value() && o1.value().defined() &&
+         o1.value().device() == torch::kCPU) ||
+        (!o1.has_value() && o1->defined()))
       return false;
-    }
   }
   return true;
 };

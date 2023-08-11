@@ -167,6 +167,20 @@ at::Tensor& hpu_wrap::_index_put_impl_(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
   }
+  at::Stack stack = {indices};
+  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
+  for (auto input : indices_in) {
+    auto o1 = input.toOptional<at::Tensor>();
+    // torch.compile seems to insert optional index tensors which "has no value,
+    // but is defined". we don't handle this in HPU at present. This type of
+    // tensors don't seem to come with eager mode or regular python advanced
+    // indexing notations. Ref: SW-148494
+    if (!o1.has_value() && o1->defined()) {
+      return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+          OpSupportLevel::Value::unsupported_dtype,
+          PARAMS2(self, indices, values, accumulate, unsafe));
+    }
+  }
   return habana::eager::_index_put_impl_eager(
       self, indices, values, accumulate, unsafe);
 }
