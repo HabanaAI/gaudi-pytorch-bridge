@@ -114,10 +114,6 @@ at::Tensor pin_memory(
 at::Tensor _pin_memory(
     const at::Tensor& self,
     c10::optional<c10::Device> device);
-at::Tensor linear(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias);
 
 } // namespace hpu_wrap
 
@@ -360,18 +356,6 @@ std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
     at::ScalarType dtype);
-at::Tensor linear_ex_wrap(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const at::ScalarType dtype);
-std::vector<at::Tensor> linear_ex_backward_wrap(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& bias_grad_opt,
-    const at::ScalarType dtype);
 at::Tensor habana_random_seed_wrap(const at::Tensor& input);
 std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     const at::Tensor& permute,

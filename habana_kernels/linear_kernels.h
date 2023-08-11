@@ -186,63 +186,6 @@ class MatmulBackwardOperator : public HabanaOperator {
   std::vector<HabanaOperatorPtr> ReshapeOpList;
 };
 
-class LinearForwardHelperOperator : public HabanaOperator {
- public:
-  LinearForwardHelperOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("linear_fwd", scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class LinearForwardOperator : public HabanaOperator {
- public:
-  LinearForwardOperator(int device_id) : HabanaOperator("linear_fwd") {
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class LinearBackward2Operator : public HabanaOperator {
- public:
-  LinearBackward2Operator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("linear_temp_bwd", scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-class LinearBackwardOperator : public HabanaOperator {
- public:
-  LinearBackwardOperator(int device_id) : HabanaOperator("linear_bwd") {
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 class MatMulBwdOperator : public HabanaOperator {
  public:
   MatMulBwdOperator(int device_id, c10::ScalarType scalarType)

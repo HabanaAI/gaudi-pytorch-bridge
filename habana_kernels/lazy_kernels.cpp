@@ -6302,85 +6302,6 @@ at::Tensor& recv_hpu_lazy_(
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(recv_, k, tensor)
 }
 
-Tensor linear_non2d_hpu_lazy(
-    const Tensor& input,
-    const Tensor& weight,
-    const c10::optional<Tensor>& bias_opt,
-    const c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  /* Implements:
-    auto output = at::matmul(input, weight.t());
-    if (bias->defined()) {
-      output.add_(*bias);
-    }
-    return output;
-  */
-
-  c10::ScalarType out_dtype =
-      dtype.has_value() ? dtype.value() : input.dtype().toScalarType();
-  auto sizes = habana::MatMulOperator::compute_output_shape(
-      input, weight, true /*weight transposed*/);
-  LazyOp<at::Tensor> k("aten::linear", {input, weight, bias_opt}, {sizes});
-  k.set_scalar_types({out_dtype});
-  RUN_MAYBE_WITH_ACC_THREAD(linear, k)
-}
-
-std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& bias_grad_opt,
-    const c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_TRACE;
-  /*
-  Implements:
-    std::tuple<Tensor, Tensor> result;
-    variable_list saved_vars = ctx->get_saved_variables();
-    Tensor bias_grad;
-    Tensor weight_grad;
-    Tensor weight_trnsp = saved_vars[1].t();
-
-    result =
-        matmul_backward_hpu_lazy(grad_output[0], saved_vars[0], weight_trnsp);
-
-    if (saved_vars[2].defined()) {
-      bias_grad = grad_output[0].sum(0);
-    }
-
-    weight_grad = std::get<1>(result).t();
-    return {std::get<0>(result), weight_grad, bias_grad};
-  */
-
-  c10::ScalarType out_dtype =
-      dtype.has_value() ? dtype.value() : input.dtype().toScalarType();
-  auto bias_elem_count =
-      bias_opt.value_or(Tensor()).defined() ? weight.sizes().vec()[0] : 1;
-  std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
-  LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
-      "hpu::linear_ex_bwd",
-      {grad_output, input, weight, bias_opt.has_value(), bias_grad_opt},
-      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
-  k.set_scalar_types({out_dtype, out_dtype, out_dtype});
-  std::vector<at::Tensor> out_v;
-  auto out = k.get_result();
-  for_each_in_tuple(
-      out, [&out_v](const auto& result) { out_v.push_back(result); });
-  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
-    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
-  };
-
-  std::vector<at::Tensor> res_vec;
-  res_vec.emplace_back(std::get<0>(out));
-  res_vec.emplace_back(std::get<1>(out));
-  if (bias_opt.value_or(Tensor()).defined()) {
-    res_vec.emplace_back(std::get<02>(out));
-  } else {
-    res_vec.emplace_back(Tensor());
-  }
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res_vec)
-}
-
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -6747,41 +6668,6 @@ at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> hpu_op{"hpu::fp8_reshape", {input, shape}, {shape.vec()}};
   RUN_MAYBE_WITH_ACC_THREAD(fp8_reshape, hpu_op)
-}
-
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& grad_output,
-    const at::Tensor& weight,
-    ::std::array<bool, 3> output_mask) {
-  PT_LAZY_TRACE;
-  PT_LAZY_OP_TRACE;
-  c10::optional<at::Tensor> bias_opt;
-  auto bias_elem_count = output_mask[2] ? weight.sizes().vec()[0] : 1;
-  std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
-  LazyOp<std::tuple<Tensor, Tensor, Tensor>> k(
-      "hpu::linear_bwd",
-      {grad_output, input, weight, output_mask[2]},
-      {input.sizes().vec(), weight.sizes().vec(), bias_grad_sizes});
-  std::vector<at::Tensor> out_v;
-  auto out = k.get_result();
-  for_each_in_tuple(
-      out, [&out_v](const auto& result) { out_v.push_back(result); });
-  auto func = [op = std::move(k), out_v = std::move(out_v)]() mutable {
-    op.call(std::tie(out_v[0], out_v[1], out_v[2]));
-  };
-
-  std::vector<at::Tensor> res_vec;
-  res_vec.emplace_back(std::get<0>(out));
-  res_vec.emplace_back(std::get<1>(out));
-  if (output_mask[2]) {
-    res_vec.emplace_back(std::get<02>(out));
-  } else {
-    res_vec.emplace_back(Tensor());
-  }
-  std::tuple<at::Tensor, at::Tensor, at::Tensor> res(
-      res_vec[0], res_vec[1], res_vec[2]);
-  RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(linear_bwd, func, res)
 }
 
 inline bool is_main_thread_and_lazy_collectives_enabled() {

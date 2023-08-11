@@ -129,33 +129,6 @@ std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap_py(
       torch::python::detail::py_object_to_dtype(dtype));
 }
 
-at::Tensor linear_ex_wrap_py(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    py::object dtype) {
-  return linear_ex_wrap(
-      input,
-      weight,
-      bias_opt,
-      torch::python::detail::py_object_to_dtype(dtype));
-}
-std::vector<at::Tensor> linear_ex_backward_wrap_py(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& bias_grad_opt,
-    py::object dtype) {
-  return linear_ex_backward_wrap(
-      grad_output,
-      input,
-      weight,
-      bias_opt,
-      bias_grad_opt,
-      torch::python::detail::py_object_to_dtype(dtype));
-}
-
 at::Tensor habana_random_seed(const at::Tensor& input) {
   return habana_random_seed_wrap(input);
 }
@@ -225,11 +198,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "matmul_ex_backward",
       &matmul_ex_backward_wrap_py,
       "MatmulBackward with explicit dtype");
-  m.def("linear_ex", &linear_ex_wrap_py, "Linear with explicit dtype");
-  m.def(
-      "linear_ex_backward",
-      &linear_ex_backward_wrap_py,
-      "LinearBackward with explicit dtype");
   m.def(
       "random_seed",
       &habana_random_seed,

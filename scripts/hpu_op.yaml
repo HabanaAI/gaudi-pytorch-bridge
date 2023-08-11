@@ -3668,6 +3668,25 @@ linalg_vector_norm.out:
   dtypes: [BFloat16, Float]
   op_backend: VecNormOp
 
+linear:
+  output_meta: LinearMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: linear_fwd
+  out_ids: [0]
+
+linear_backward:
+  output_meta: LinearBackwardMeta
+  custom_fill_params: FillLinearBwdParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: linear_temp_bwd
+  out_ids: [0, 0, 0]
+
 linspace.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int]

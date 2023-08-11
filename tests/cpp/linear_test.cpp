@@ -44,7 +44,7 @@ TEST_F(LazyLinearTest, LinearBwdTest) {
   at::Tensor hgrad_in, hgrad_wt, hgrad_bias;
   std::array<bool, 3> mask{1, 1, 0};
   std::tie(hgrad_in, hgrad_wt, hgrad_bias) =
-      habana_lazy::linear_bwd_hpu_lazy(hin, hgrad_out, hwt, mask);
+      torch::linear_backward(hin, hgrad_out, hwt, mask);
 
   // HbLazyTensor::StepMarker({});
 

@@ -239,7 +239,6 @@ list(APPEND misc_tests_src
   graph_optimize_passes.cpp
   habana_lazy_test_infra.cpp
   inference_pass_tests.cpp
-  linear_2d_bwd.cpp
   linear_test.cpp
   mem_hlml_tests.cpp
   main.cpp

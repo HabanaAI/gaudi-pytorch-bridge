@@ -67,39 +67,6 @@ Tensor hpu_wrap::_pin_memory(
       to_string(device));
   return pin_memory_hpu(self, device);
 }
-/*
- PT1.12 introduced a change in linear() to use addmm instead of matmul
- in case of 3d input. This caused a perf regression on HPU. In order to
- circumvent this regression we register linear() ( a compound op) so that
- it gets dispatched as such to HPU. We use essentially the same linear()
- impl. as in PyTorch but removing the PT1.12 change and other code not
- relevant to HPU. Ref. aten/src/ATen/native/Linear.cpp
- Ref. https://jira.habana-labs.com/browse/SW-93519 for details.
-*/
-Tensor linear_(
-    const Tensor& input,
-    const Tensor& weight,
-    const c10::optional<Tensor>& bias_opt) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "HpuOp linear:",
-      " input=",
-      to_string(input),
-      " weight=",
-      to_string(weight),
-      " bias_opt=",
-      to_string(bias_opt));
-
-  auto bias = bias_opt.has_value()
-      ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
-      : c10::MaybeOwned<Tensor>::owned(c10::in_place);
-  if ((!GET_ENV_FLAG_NEW(PT_DO_NOT_LOWER_LINEAR_OP)) && input.dim() == 2 &&
-      bias->defined()) {
-    // Fused op is marginally faster.
-    return at::addmm(*bias, input, weight.t());
-  }
-  return linear_non2d_hpu_lazy(input, weight, bias_opt);
-}
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_OP_TRACE;
@@ -1509,29 +1476,6 @@ std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
   return matmul_backward_hpu_lazy(grad_output, self, other, dtype);
 }
 
-at::Tensor linear_ex_wrap(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const at::ScalarType dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  return linear_non2d_hpu_lazy(input, weight, bias_opt, dtype);
-}
-
-std::vector<at::Tensor> linear_ex_backward_wrap(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& bias_grad_opt,
-    const at::ScalarType dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  return linear_non2d_bwd_hpu_lazy(
-      grad_output, input, weight, bias_opt, bias_grad_opt, dtype);
-}
-
 Tensor habana_random_seed_wrap(const at::Tensor& input) {
   PT_LAZY_OP_TRACE;
   PT_OP_INFO(" habana_random_seed:", " input=", to_string(input));
@@ -1964,63 +1908,6 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   return MatmulFunction::apply(self, other);
 }
 
-struct LinearFunction : public torch::autograd::Function<LinearFunction> {
-  static at::Tensor forward(
-      AutogradContext* ctx,
-      Tensor input,
-      Tensor weight,
-      c10::optional<Tensor> bias_opt) {
-    auto bias = bias_opt.has_value()
-        ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
-        : c10::MaybeOwned<Tensor>::owned(c10::in_place);
-    ctx->save_for_backward({input, weight, *bias});
-    at::Tensor result;
-    result = linear_(input, weight, bias_opt);
-    return result;
-  }
-
-  static variable_list backward(
-      AutogradContext* ctx,
-      variable_list grad_output) {
-    std::tuple<Tensor, Tensor> result;
-    variable_list saved_vars = ctx->get_saved_variables();
-    Tensor input = saved_vars[0];
-    Tensor weight = saved_vars[1];
-    Tensor bias_opt = saved_vars[2];
-    return linear_non2d_bwd_hpu_lazy(grad_output[0], input, weight, bias_opt);
-  }
-};
-
-Tensor hpu_wrap::linear(
-    const Tensor& input,
-    const Tensor& weight,
-    const c10::optional<Tensor>& bias_opt) {
-  PT_KERNEL_DEBUG(
-      "HpuOp linear:",
-      " input=",
-      to_string(input),
-      " weight=",
-      to_string(weight),
-      " bias_opt=",
-      to_string(bias_opt));
-  if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPOUND_LOWERING_OPS)) {
-    auto bias = bias_opt.has_value()
-        ? c10::MaybeOwned<Tensor>::borrowed(*bias_opt)
-        : c10::MaybeOwned<Tensor>::owned(c10::in_place);
-    if (input.dim() == 2 && bias->defined()) {
-      // Fused op is marginally faster.
-      return at::addmm(*bias, input, weight.t());
-    }
-    auto output = at::matmul(input, weight.t());
-    if (bias->defined()) {
-      output.add_(*bias);
-    }
-    return output;
-  } else {
-    return LinearFunction::apply(input, weight, bias_opt);
-  }
-}
-
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2337,10 +2224,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::add_.Tensor(Tensor(a) self, Tensor other, Scalar alpha) -> Tensor(a)");
   m.def(
       "hpu::add_.Scalar(Tensor(a) self, Scalar other, Scalar alpha) -> Tensor(a)");
-  m.def(
-      "hpu::linear_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False) -> (Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::linear_ex_bwd(Tensor grad_out, Tensor input, Tensor weight, bool bias_g=False, Tensor? bias_grad_out=None) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::identity(Tensor self) -> (Tensor)");
   m.def(
       "hpu::habana_cast_sr_mode(Tensor input, Scalar type, bool stochastic_rounding, int seed=0) -> (Tensor)");

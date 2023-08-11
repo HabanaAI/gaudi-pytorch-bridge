@@ -573,19 +573,6 @@ at::Tensor& recv_hpu_lazy_(
     int64_t src_rank,
     int64_t tag,
     int64_t comm_id);
-
-at::Tensor linear_non2d_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::ScalarType> dtype = c10::nullopt);
-std::vector<at::Tensor> linear_non2d_bwd_hpu_lazy(
-    const at::Tensor& grad_output,
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias_opt,
-    const c10::optional<at::Tensor>& bias_grad_opt = c10::nullopt,
-    const c10::optional<at::ScalarType> dtype = c10::nullopt);
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -706,11 +693,6 @@ at::Tensor& fp8_permute_lazy(
     at::IntArrayRef dims,
     at::Tensor& out);
 at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape);
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linear_bwd_hpu_lazy(
-    const at::Tensor& self,
-    const at::Tensor& grad_output,
-    const at::Tensor& weight,
-    ::std::array<bool, 3> output_mask);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> native_group_norm_hpu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight,
