@@ -231,10 +231,6 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
         tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
     )
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
-    print("CPU index_put result = ",cpu_res)
-    print("HPU index_put result = ",hpu_res.to('cpu'))
-
-    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
 
 def test_constant_pad_nd():
     def raw_function(x, device):
