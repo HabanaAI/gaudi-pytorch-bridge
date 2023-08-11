@@ -155,6 +155,18 @@ bool isListNode(torch::jit::Node* node) {
   return is_list_node;
 }
 
+namespace {
+inline bool IsControlEdgeTypeInplace(ControlEdgeType cet) {
+  switch (cet) {
+    case kCONTROL_EDGE_INPLACE_INPUT_0:
+    case kCONTROL_EDGE_INPLACE_INPUT_1:
+      return true;
+    default:
+      return false;
+  }
+}
+} // namespace
+
 void HabanaLaunchOpPT::PrepareBlockingNodeList(
     Node* node,
     ControlEdgeType control_type) {

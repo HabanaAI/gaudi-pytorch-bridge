@@ -64,17 +64,6 @@ enum ControlEdgeType {
   kCONTROL_EDGE_INPLACE_INPUT_1,
 };
 
-inline bool IsControlEdgeTypeInplace(ControlEdgeType cet) {
-  switch (cet) {
-    case kCONTROL_EDGE_INPLACE_INPUT_0:
-    case kCONTROL_EDGE_INPLACE_INPUT_1:
-      return true;
-    default:
-      return false;
-  }
-}
-
-LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
     std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue);
@@ -274,7 +263,6 @@ class HabanaLaunchOpPT {
   std::unordered_map<void*, tensor_or_ref> buff_to_syn_tensor_map;
   std::vector<PtTensorInfoShared> duplicate_outtinfos;
 
-  size_t dma_input_idx{0};
   size_t appended_index{0};
   size_t intermediate_index{0};
   size_t shape_index{0};
@@ -403,9 +391,6 @@ class HabanaLaunchOpPT {
       synapse_helpers::tensor& out_syntensor,
       PtTensorInfoShared& ti,
       IValPtrShared ivpsh);
-  LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
-  void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
-  void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   bool nodeOutputPersistencePerValue(
@@ -456,7 +441,6 @@ class HabanaLaunchOpPT {
   std::string& SetAndGetSynapseGraphName(
       const std::string& name,
       size_t g_index);
-  void SetSynapseGraphName(const std::string& name, size_t g_index);
   void SetOpName(const std::string& name);
   PtTensorInfoShared ProcessPersistentNodeOutput(
       const IValPtrShared& ivpsh,
@@ -485,8 +469,6 @@ class HabanaLaunchOpPT {
   void handlePrimListConstructNode(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
-
-  void PrintRecipeInputs();
 
   std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
@@ -549,14 +531,6 @@ class HabanaLaunchOpPT {
   // To clear the non static members
   void ClearMembers(bool is_shape_inference = false);
   void CopyInputStack(torch::jit::Stack& input_st);
-
-  // TODO: Check whether the swap destruct paradigm provides any performance
-  // gain
-  template <class T>
-  void ClearMember(T& m_container) {
-    T empty;
-    std::swap(m_container, empty);
-  }
 
   // No need to allocate for lazy eager shape agnostic cache hit scenario
   // API for populating Synapse tensor info which needs to be used
@@ -684,11 +658,6 @@ class HabanaLaunchOpPT {
       synapse_helpers::graph& syn_graph);
 
   OutputMetaDataVector populate_node_output_metadata(torch::jit::Node* node);
-  void print_stack(torch::jit::Stack& st);
-  void print_val_to_ival_map(
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
-  void print_graph_outputs(
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
   void process_outputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node,
@@ -697,8 +666,6 @@ class HabanaLaunchOpPT {
   void process_shape_tensors(
       const HabanaOperatorPtr& habana_op,
       std::vector<at::Tensor>& intermediate_shape_tensors_vec);
-  void print_tidx_to_tensor_map(
-      const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
 
   void visit_prim_node(
       const torch::jit::Node* node,

@@ -314,64 +314,6 @@ void HabanaLaunchOpPT::process_outputs(
   }
 }
 
-void HabanaLaunchOpPT::print_stack(torch::jit::Stack& st) {
-  PT_DYNAMIC_SHAPE_DEBUG("stack.size=", st.size(), ", details::");
-  for (size_t idx = 0; idx < st.size(); idx++) {
-    PT_DYNAMIC_SHAPE_DEBUG(habana_helpers::DebugString(st.at(idx)));
-  }
-}
-
-void HabanaLaunchOpPT::print_val_to_ival_map(
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
-  PT_DYNAMIC_SHAPE_DEBUG(
-      "\nval_to_ival_map_begin",
-      "\n size=",
-      val_to_ival_map.size(),
-      ",  details::");
-  for (auto p : val_to_ival_map) {
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "%",
-        p.first->debugName(),
-        " -> ",
-        habana_helpers::DebugString(p.second));
-  }
-  PT_DYNAMIC_SHAPE_DEBUG("val_to_ival_map_end");
-}
-
-void HabanaLaunchOpPT::print_graph_outputs(
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
-  PT_DYNAMIC_SHAPE_DEBUG("\nGraph Outputs");
-  for (auto graph_output : jit_ir_graph->outputs()) {
-    HABANA_ASSERT(
-        val_to_ival_map.count(graph_output),
-        "Output for %",
-        graph_output->debugName(),
-        " is missing from val_to_ival_map");
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "%",
-        graph_output->debugName(),
-        " -> ",
-        habana_helpers::DebugString(val_to_ival_map[graph_output]));
-  }
-}
-
-void HabanaLaunchOpPT::print_tidx_to_tensor_map(
-    const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
-  PT_DYNAMIC_SHAPE_DEBUG("\nAfter hybrid output sif pass tidx_to_tensor_map");
-  std::vector<size_t> tidx_vec;
-  for (auto const& p : tidx_to_tensor_map) {
-    tidx_vec.emplace_back(p.first);
-  }
-
-  std::sort(tidx_vec.begin(), tidx_vec.end());
-  for (auto const& idx : tidx_vec) {
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "sif_tidx : ",
-        idx,
-        habana_helpers::DebugString(tidx_to_tensor_map.at(idx)));
-  }
-}
-
 void HabanaLaunchOpPT::visit_prim_node(
     const torch::jit::Node* node,
     std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
@@ -443,7 +385,6 @@ void HabanaLaunchOpPT::RunHybridSif(
   std::vector<at::Tensor> input_shape_tensors_vec;
   std::vector<at::Tensor> intermediate_shape_tensors_vec;
   for (auto* node : jit_ir_graph->nodes()) {
-    // print_val_to_ival_map(val_to_ival_map);
     std::string op_name(node->kind().toQualString());
 
     PT_DYNAMIC_SHAPE_DEBUG(" Visiting op ", op_name, " for node ", *node);
@@ -497,8 +438,6 @@ void HabanaLaunchOpPT::RunHybridSif(
         create_stack_for_node(node, is_mapped_flag, val_to_ival_map);
     HABANA_ASSERT(
         is_mapped_flag, "Cannot proceed with unmapped input for ", op_name);
-
-    // print_stack(op_input_stack);
 
     // Collect input shape tensors, To add them at last after graph inputs
     // Add only shape tensors and input describing shape tensors and
@@ -652,11 +591,6 @@ void HabanaLaunchOpPT::RunHybridSif(
           habana_helpers::DebugString(inter_tensor));
     }
   }
-
-  // For debugging
-  // print_val_to_ival_map(val_to_ival_map);
-  // print_graph_outputs(val_to_ival_map);
-  // print_tidx_to_tensor_map(tidx_to_tensor_map);
 
   PT_BRIDGE_END;
 }

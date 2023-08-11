@@ -126,14 +126,6 @@ std::string& HabanaLaunchOpPT::SetAndGetSynapseGraphName(
   return id_str;
 }
 
-void HabanaLaunchOpPT::SetSynapseGraphName(
-    const std::string& name,
-    size_t g_index) {
-  if (id_str == std::string()) {
-    id_str = makeIdStr(name, g_index);
-  }
-}
-
 void HabanaLaunchOpPT::SetOpName(const std::string& name) {
   op_name = name;
 }
@@ -3152,19 +3144,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   current_dbipsh_->get_statistics()->DumpAndNextStep();
   PT_BRIDGE_END;
-}
-
-void HabanaLaunchOpPT::PrintRecipeInputs() {
-  std::ostream& O = std::cout;
-
-  O << "aten_inputs #" << num_inputs << "::" << '\n';
-  size_t idx{0};
-  for (size_t i = pt_stack_sh.size() - num_inputs; i < pt_stack_sh.size();
-       i++) {
-    auto vp = jit_ir_graph->inputs().at(i);
-    O << idx++ << " : %" << vp->debugName() << " : ";
-    habana_helpers::DebugString(pt_stack_sh.at(i));
-  }
 }
 
 void RecipeValueSpec::create_outdup(
