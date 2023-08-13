@@ -38,9 +38,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("inference"));
   m.def(
       "graph_launch",
-      [](size_t recipe_id,
-         const py::tuple& inputs,
-         std::vector<at::Tensor>& outputs) {
+      [](size_t recipe_id, const py::tuple& inputs) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -48,10 +46,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         }
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return torch::jit::createPyObjectForStack(
-            graph_storage.launch_recipe(recipe_id, stack, outputs));
+            graph_storage.launch_recipe(recipe_id, stack));
       },
       py::return_value_policy::copy,
       py::arg("recipe_id"),
-      py::arg("inputs"),
-      py::arg("outputs"));
+      py::arg("inputs"));
 }

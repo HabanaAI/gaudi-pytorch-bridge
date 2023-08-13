@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #pragma once
-#include <c10/util/ArrayRef.h>
 #include <torch/csrc/jit/ir/ir.h>
 
 namespace jitgraph_utils {
@@ -32,5 +31,4 @@ int inplaceInputId(const torch::jit::Node* node);
 inline bool isInplace(const torch::jit::Node* node) {
   return inplaceInputId(node) >= 0;
 }
-c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node);
 } // namespace jitgraph_utils

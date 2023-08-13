@@ -1,4 +1,4 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -43,10 +43,9 @@ add_library(habana_pytorch2_frontend OBJECT
           ops/eager_op.cpp
           passes/add_attribute_alpha.cpp
           passes/detect_weights_tensors.cpp
-          passes/get_outputs_order_in_graph.cpp
           passes/handle_input_views.cpp
           passes/handle_tupple_on_output.cpp
-          passes/remove_detach_op.cpp
+	  passes/remove_detach_op.cpp
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
           passes/replace_dynamic_ops.cpp
@@ -78,14 +77,14 @@ add_library(habana_pytorch2_frontend OBJECT
 
 target_include_directories(habana_pytorch2_frontend
   PUBLIC
-  ${PROJECT_SOURCE_DIR})
+    ${PROJECT_SOURCE_DIR})
 target_include_directories(habana_pytorch2_frontend SYSTEM
   PUBLIC
-  $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
-  ${PYTHON_INCLUDE_DIRS})
+    $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
+    ${PYTHON_INCLUDE_DIRS})
 
 target_compile_definitions(habana_pytorch2_frontend PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch2_frontend PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
@@ -93,13 +92,13 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${PROJECT_SOURCE_DIR
 target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch2_frontend
   PRIVATE
-  habana_serialization
-  pytorch_synapse_utils_shim
-  torch
-  nlohmann_json::nlohmann_json
-  absl::strings
-  absl::str_format
-  npu::hllogger
+    habana_serialization
+    pytorch_synapse_utils_shim
+    torch
+    nlohmann_json::nlohmann_json
+    absl::strings
+    absl::str_format
+    npu::hllogger
 )
 
 # this is to make sure that gen_op.py is invoked before habana_pytorch2_frontend
