@@ -367,13 +367,13 @@ def test_multiple_graph_capture_with_views():
     loss_hpu_vec = []
     loss_cpu_vec = []
 
-def test_wrap_hpugraphs_max_graphs():
+def test_wrap_hpugraphs_max_graphs(max_graphs=10):
     D_in, H, D_out, inner = 2, 2, 2, 4
     N = [1, 2, 3, 4, 5]
     module1_cpu = Model(D_in, H, inner).to('cpu')
     module1_hpu = _kernel_copy_to_device(module1_cpu,"hpu")
     loss_fn = torch.nn.MSELoss()
-    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, max_graphs=2)
+    module1_hpu = ht.hpu.wrap_in_hpu_graph(module1_hpu, max_graphs=max_graphs)
     ITER = 20
     real_inputs_cpu = []
     real_targets_cpu = []
@@ -411,4 +411,5 @@ if __name__ == "__main__":
     test_cached_module_training(disable_tensor_cache=True)
     test_graph_capture_scalar(disable_tensor_cache=True)
     test_multiple_graph_capture_with_views()
-    test_wrap_hpugraphs_max_graphs()
+    test_wrap_hpugraphs_max_graphs(max_graphs=2)
+    test_wrap_hpugraphs_max_graphs(max_graphs=None)

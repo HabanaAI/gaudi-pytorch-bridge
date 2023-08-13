@@ -505,7 +505,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     dry_run = True if disable_tensor_cache else dry_run
 
     if cached is None:
-        if len(cache) == max_graphs:
+        if max_graphs is not None and len(cache) == max_graphs:
             return orig_fwd(*args, **kwargs)
 
         with htorch.hpu.stream(stream):
@@ -561,7 +561,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     # print("Graph count: ", len(cache), htorch.hpu.memory.memory_stats())
     return out
 
-def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=10):
+def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -597,7 +597,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
         return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
     return forward
 
-def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=10):
+def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
