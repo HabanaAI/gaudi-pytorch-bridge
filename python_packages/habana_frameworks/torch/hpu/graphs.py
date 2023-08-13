@@ -589,7 +589,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
     orig_fwd = func
 
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run)
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
     return forward
 
 def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=10):
