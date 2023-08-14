@@ -6511,7 +6511,7 @@ squeeze.dim:
   acc_thread: true
 
 squeeze.dims:
-  custom_output_shape: SqueezeDimsOutputShape
+  output_meta: SqueezeDimsMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int]

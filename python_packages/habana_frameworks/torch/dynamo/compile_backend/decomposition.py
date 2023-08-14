@@ -321,6 +321,16 @@ def sort(
     k = a.size(dim)
     return torch.topk(a, k, dim, descending)
 
+@register_custom_decomposition(torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common)
+def squeeze(input, dim):
+    return torch.squeeze(input, [dim])
+
+@register_custom_decomposition(torch.ops.aten.squeeze.default, hpu_backend_decompositions_common)
+def squeeze(input):
+    inp_size = len(input.size())
+    dim_list = list(range(0, inp_size))
+    return torch.squeeze(input, dim_list)
+
 def get_hpu_decompositions(is_training: bool):
     if configuration_flags["use_decompositions"]:
         if is_training:

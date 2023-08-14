@@ -18,25 +18,30 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-sizes_vec SqueezeDimsOutputShape(const at::Stack& stack) {
+OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto dims = stack[1].toIntList().vec();
   auto output_shape = self.sizes().vec();
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
 
-  if (output_shape.size() == 1) {
-    return {output_shape};
-  }
+  if (output_shape.size() == 1 && dims.size() == 1 && output_shape[0] == 1) {
+    meta.shape = {};
+  } else if (output_shape.size() == 1) {
+    meta.shape = output_shape;
+  } else {
+    at::wrap_all_dims(dims, self.dim());
+    std::sort(dims.begin(), dims.end(), std::greater<int64_t>());
 
-  at::wrap_all_dims(dims, self.dim());
-  std::sort(dims.begin(), dims.end(), std::greater<int64_t>());
-
-  for (auto dim : dims) {
-    if (output_shape[dim] == 1) {
-      output_shape.erase(output_shape.begin() + dim);
+    for (auto dim : dims) {
+      if (output_shape[dim] == 1) {
+        output_shape.erase(output_shape.begin() + dim);
+      }
     }
+    meta.shape = output_shape;
   }
 
-  return {output_shape};
+  return {meta};
 }
 
 void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -44,7 +49,9 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto dims = getNextInput<std::vector<int64_t>>(stackGetter);
   auto rank = self.pt_t.dim();
-  auto dtype = ScalarType();
+  auto meta = SqueezeDimsMeta(stack)[0];
+  auto output_shape = meta.shape;
+  auto dtype = meta.dtype;
   auto intermediate_shape = self.pt_t.sizes().vec();
 
   at::wrap_all_dims(dims, rank);
@@ -56,11 +63,8 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   if (valid_dims.empty() || rank == 1) {
-    auto out = BuildOp(
-        graph,
-        "identity",
-        {self.syn_t},
-        {{self.pt_t.sizes().vec(), ScalarType(), 0}});
+    auto out =
+        BuildOp(graph, "identity", {self.syn_t}, {{output_shape, dtype, 0}});
     syn_out(0) = std::move(out[0]);
     return;
   }
