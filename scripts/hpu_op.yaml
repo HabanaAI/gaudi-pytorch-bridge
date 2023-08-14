@@ -1801,9 +1801,9 @@ clamp_.Tensor:
 clamp.out:
   custom_fill_params: FillClampParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min, max]
   guid: clamp_fwd
   # op_validator: check-node-with-shared-layer
@@ -2410,13 +2410,13 @@ embedding_dense_backward:
   dtypes:
     Gaudi:
       grad_output: [BFloat16, Float]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi2:
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi3:
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
   fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
   custom_output_shape: EmbeddingDenseBwdOutputShape
   guid: embedding_dense_pt_bwd
