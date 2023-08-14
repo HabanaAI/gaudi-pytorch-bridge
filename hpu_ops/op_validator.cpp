@@ -20,6 +20,7 @@
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "op_backend.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 
@@ -128,7 +129,13 @@ bool fillGuidParamInfoWithTensor(
   for (int64_t dim = 0; dim < t.dim(); ++dim) {
     int64_t syn_dim = t.dim() - dim - 1;
     auto sym_dim = t.sym_size(dim);
-    if (sym_dim.is_symbolic()) {
+    if (
+#if IS_PYTORCH_AT_LEAST(2, 1)
+        sym_dim.is_heap_allocated()
+#else
+        sym_dim.is_symbolic()
+#endif
+    ) {
       tensor.layout.layout[syn_dim] = 1;
     } else {
       tensor.layout.layout[syn_dim] = sym_dim.as_int_unchecked();
