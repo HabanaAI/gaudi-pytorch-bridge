@@ -26,13 +26,18 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     if scale == None:
         scale = 1.0/math.sqrt(q.size(-1))
 
-    # Work around to handle is_causal in in case source seq len < target seq len
-    # Create the triangular mask, pass it usual attention mask. So clear is_causal flag
+    # Work around to handle is_causal in case source seq len < target seq len.
+    # Create the triangular mask and pass it as usual attention mask. So clear is_causal flag.
+    # Make it a float mask that can be added to the S tensor (S = q@k.transpose)
     if is_causal:
         seq_len_N_t = q.size(-2)
         seq_len_N_s = k.size(-2)
         if seq_len_N_s < seq_len_N_t:
-            attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool, device = q.device).tril(diagonal=0)
+            LNG = -3.0e38 #Close to -ve max for bfloat or float
+            if q.dtype == torch.float16:
+                LNG = -6.5e4
+            inv_causal_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=q.dtype, device = q.device).triu(diagonal=1)
+            attn_mask =  inv_causal_mask * LNG
             is_causal = False
 
     fwd = torch.ops.hpu.sdpa_fwd
