@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -22,10 +22,19 @@ void RollHabanaOperator::AddNode(
   auto shift = stack.at(shiftIndex).toIntVector();
   auto axis = stack.at(axisIndex).toIntVector();
 
-  auto input_shape = input.sizes();
+  // Handle the case for dims=None, SW-154508
+  bool flatten_and_restore = axis.empty();
+
+  auto original_input_shape = input.sizes();
+  auto input_shape = original_input_shape;
+  int64_t flattened_size = 0;
 
   HABANA_ASSERT(
       shift.size() >= 1, "roll: shift must be a scalar or a 1-D vector.");
+
+  if (flatten_and_restore)
+    axis.push_back(0);
+
   HABANA_ASSERT(
       axis.size() >= 1, "roll: axis must be a scalar or a 1-D vector.");
   HABANA_ASSERT(
@@ -40,6 +49,15 @@ void RollHabanaOperator::AddNode(
 
   auto intermediate_input = syn_in(0);
   std::vector<synapse_helpers::tensor> intermediate_output;
+  std::vector<synapse_helpers::tensor> reshape;
+
+  if (flatten_and_restore) {
+    flattened_size = input.numel();
+    reshape.emplace_back(ReshapeHelper(
+        graph, intermediate_input, {flattened_size}, ScalarType()));
+    intermediate_input = reshape.at(0).get();
+    input_shape = c10::ArrayRef<int64_t>(flattened_size);
+  }
 
   unsigned int to_shift, remain_shift, mod_shift;
 
@@ -67,8 +85,9 @@ void RollHabanaOperator::AddNode(
     }
     remain_shift = input_shape[axis_flat] - to_shift;
 
-    auto is_final_output =
-        i == axisElementsCount - 1 ? c10::make_optional<int>(0) : c10::nullopt;
+    auto is_final_output = !flatten_and_restore && i == (axisElementsCount - 1)
+        ? c10::make_optional<int>(0)
+        : c10::nullopt;
 
     if (to_shift != 0 && remain_shift != 0) {
       // Calculate the output shape
@@ -106,7 +125,13 @@ void RollHabanaOperator::AddNode(
     }
     intermediate_input = intermediate_output.at(0).get();
   }
-  syn_out(0) = std::move(intermediate_output.at(0));
+
+  if (flatten_and_restore) {
+    syn_out(0) = ReshapeHelper(
+        graph, intermediate_input, original_input_shape, ScalarType(), 0);
+  } else {
+    syn_out(0) = std::move(intermediate_output.at(0));
+  }
 }
 
 } // namespace habana
