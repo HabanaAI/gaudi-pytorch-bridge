@@ -28,4 +28,12 @@ struct EmptyStrided : OpBackend {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
+// Non core aten op but included in fx graph
+// Since tensor sizes needs to be extracted from self, a graph pass to transform
+// to aten::empty cannot be used
+// https://github.com/pytorch/pytorch/issues/104871
+struct EmptyLike : OpBackend {
+  EmptyLike(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
 } // namespace habana

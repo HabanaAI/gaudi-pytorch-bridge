@@ -64,7 +64,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.elu_backward.default,
         aten.elu_backward.grad_input,
         aten.embedding_dense_backward.out,
-        aten.empty_like.default,
         aten.eye.default,
         aten.eye.m,
         aten.eye.out,
