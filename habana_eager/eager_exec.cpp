@@ -234,8 +234,6 @@ torch::jit::Stack EagerExec::launch() {
 
   prune_duplicate_stack_inputs(stack, parent_vec);
 
-  mark_maybe_grad_view();
-
   auto& cache{OptimizedJitGraphCache::GetOptimizedJitCache()};
   size_t key{calculate_operator_key(parent_vec, orig_inputs)};
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
@@ -251,12 +249,25 @@ torch::jit::Stack EagerExec::launch() {
       // perform this operation for the cache hit case as well
       auto in = val.toTensor();
       auto input_smeta{habana::get_storage_extra_meta(in)};
+      auto input_tmeta{habana::get_tensor_extra_meta(in)};
 
-      if (habana::is_view_lowering(in) || !in.is_contiguous()) {
+      if (input_tmeta->is_view_lowering() || !in.is_contiguous()) {
         // modify the backend tensor of the view as the base
         auto impl = in.unsafeGetTensorImpl();
-        impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
         impl->set_storage_offset(0);
+
+        std::vector<int64_t> base_sizes;
+        if (input_smeta && input_smeta->get_memory_permutation().size()) {
+          base_sizes = input_smeta->get_base_tensor_size();
+        } else {
+          int64_t elem_size = c10::elementSize(
+              habana_helpers::getInternalDtype(in.scalar_type()));
+          auto total_num_elements =
+              (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
+          base_sizes = {total_num_elements};
+        }
+
+        impl->set_sizes_contiguous(base_sizes);
         PT_EAGER_DEBUG(
             "Eager op: Input tensor converted to base for the cache hit case");
       }
@@ -444,10 +455,9 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   // hash view attribute
   auto input_smeta{habana::get_storage_extra_meta(t)};
   auto input_tmeta{habana::get_tensor_extra_meta(t)};
-  key = at::hash_combine(key, static_cast<size_t>(habana::is_view_lowering(t)));
+  key = at::hash_combine(
+      key, static_cast<size_t>(input_tmeta->is_view_lowering()));
   key = at::hash_combine(key, static_cast<size_t>(t.is_contiguous()));
-  key =
-      at::hash_combine(key, static_cast<size_t>(input_tmeta->is_view_tensor()));
 
   // for views - base tensor size used in JIT IR pass varies w.r.t. permutation
   // for views as well as non views - we need to incorporate permute information
@@ -461,12 +471,14 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
     }
   }
 
-  if (habana::is_view_lowering(t) || !t.is_contiguous()) {
-    auto base_smeta{habana::get_storage_base_meta(t)};
-    for (auto s : base_smeta->get_memory_permutation()) {
-      key = at::hash_combine(key, s);
-    }
+  // hash partial view for views on output
+  // tensor permutation not supported for write on output views
+  auto is_partial_view = (t.nbytes() != t.storage().nbytes());
+  if (is_partial_view) {
+    key = at::hash_combine(key, is_partial_view);
+  }
 
+  if (input_tmeta->is_view_lowering() || !t.is_contiguous()) {
     // TODO: remove the below code block once the node params are patched.
     for (auto s : t.strides())
       key = at::hash_combine(key, s);
@@ -673,36 +685,6 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     }
   }
   return true;
-}
-
-/*
-Enabling permutations on view outputs is risky. The below code performs pattern
-matching to enable it conditionally for grad views on a all reduce bucket. Fork
-reference: pytorch-fork/torch/csrc/distributed/c10d/reducer.cpp Pattern: The
-tensor marked should be a out tensor belonging to mul.out kernel variant and is
-a contiguous view on a 1D buffer
-*/
-void EagerExec::mark_maybe_grad_view() {
-  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT))
-    return;
-  if (std::string(m_symbol.toQualString()) != "aten::mul")
-    return;
-  if (m_eager_op_meta_data.op_kind_ != InplaceOut)
-    return;
-  if (!m_inputs.back().isTensor())
-    return;
-  auto& t = m_inputs.back().toTensor();
-  if (!t.is_contiguous())
-    return;
-  auto tmeta{habana::get_tensor_extra_meta(t)};
-  if (!tmeta->is_view_tensor())
-    return;
-  if (habana::get_base_tensor_size(t).size() != 1)
-    return;
-  // setting this flag will allow permutations on the view output
-  tmeta->set_maybe_grad_view();
-  PT_EAGER_DEBUG(
-      "Marked grad view. size: ", t.sizes(), " offset ", t.storage_offset());
 }
 
 } // namespace eager

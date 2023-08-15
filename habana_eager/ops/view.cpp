@@ -39,16 +39,31 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   return out;
 }
 
+void view_propagate_permutation_task(at::Tensor base_t, at::Tensor view_t) {
+  PT_EAGER_TRACE;
+
+  auto input_smeta{habana::get_storage_extra_meta(base_t)};
+  auto output_smeta{habana::get_storage_extra_meta(view_t)};
+  auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
+
+  // once we set view tensor, JIT IR pass will get invoked.
+  // We need JIT IT pass under the following cases
+  // base has permutation or the view is non-contiguous
+  auto base_permute = input_smeta->get_memory_permutation();
+  if (base_permute.size() != 0) {
+    output_smeta->set_memory_permutation(base_permute);
+  }
+
+  output_tmeta->set_view_lowering(
+      (base_permute.size() != 0) || (!view_t.is_contiguous()));
+}
+
 void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   PT_EAGER_TRACE;
   auto input_tmeta{habana::get_tensor_extra_meta(base_t)};
   auto input_smeta{habana::get_storage_extra_meta(base_t)};
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
   auto output_smeta{habana::get_storage_extra_meta(view_t)};
-
-  TORCH_CHECK(
-      !input_tmeta->is_maybe_grad_view(),
-      " Multilevel views on bucket grad view neither expected,  nor supported");
 
   // propagate the base size unconditionally.
   // This is important in multilevel views. Example: the first view can be
@@ -59,6 +74,20 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   output_smeta->set_base_tensor_size(base_sizes.vec());
 
   output_tmeta->set_view_tensor();
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
+    SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            [base_t = std::move(base_t), view_t = std::move(view_t)]() mutable {
+              return habana_helpers::SingleTonLoweringThreadPool::getInstance()
+                  .enqueue(
+                      view_propagate_permutation_task,
+                      std::move(base_t),
+                      std::move(view_t));
+            });
+  } else {
+    view_propagate_permutation_task(std::move(base_t), std::move(view_t));
+  }
 }
 
 at::Tensor alias(const at::Tensor& self) {
@@ -78,12 +107,26 @@ at::Tensor unfold(
 }
 
 at::Tensor create_base(const at::Tensor& self) {
-  auto base = at::empty(
-      habana::get_base_tensor_size(self),
-      self.options(),
-      c10::MemoryFormat::Contiguous);
+  auto self_impl = self.unsafeGetTensorImpl();
+  auto self_smeta{habana::get_storage_extra_meta(self)};
+  at::Tensor base;
+  if (self_smeta->get_memory_permutation().size()) {
+    base = at::empty(
+        self_smeta->get_base_tensor_size(),
+        self.options(),
+        c10::MemoryFormat::Contiguous);
+  } else {
+    auto base_size = (int64_t)(
+        habana_helpers::GetNBytes(self_impl) /
+        c10::elementSize(habana_helpers::getInternalDtype(self.scalar_type())));
+    base = at::empty(base_size, self.options(), c10::MemoryFormat::Contiguous);
+  }
 
   base.unsafeGetTensorImpl()->set_storage_keep_dtype(self.storage());
+
+  // propagate permutation to base
+  auto base_smeta{habana::get_storage_extra_meta(base)};
+  base_smeta->set_memory_permutation(self_smeta->get_memory_permutation());
   return base;
 }
 

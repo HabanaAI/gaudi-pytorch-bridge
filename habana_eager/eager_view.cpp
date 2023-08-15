@@ -27,7 +27,7 @@ contents*/
 std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "aten::zero_",
     "aten::fill_",
-    "hpu::bernoulli_",
+    "hpu::bernoulli_"
     "hpu::uniform_",
     "hpu::random_",
     "hpu::normal_",
@@ -127,8 +127,16 @@ JitNode* insert_strided_view_node(
       input.scalar_type(), input.device(), p.getViewSizes()));
 
   auto* impl = input.unsafeGetTensorImpl();
-  impl->set_sizes_contiguous(habana::get_base_tensor_size(input));
   impl->set_storage_offset(0);
+  std::vector<int64_t> base_sizes;
+  auto input_tmeta{habana::get_tensor_extra_meta(input)};
+  auto input_smeta{habana::get_storage_extra_meta(input)};
+  if (input_smeta->get_memory_permutation().size()) {
+    base_sizes = input_smeta->get_base_tensor_size();
+  } else {
+    base_sizes = {p.getTotalElements()};
+  }
+  impl->set_sizes_contiguous(base_sizes);
 
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), input.sizes()));
@@ -207,7 +215,8 @@ size_t get_node_output_idx(JitNode* node, size_t idx) {
 }
 
 bool is_view(const at::Tensor& t) {
-  return (habana::is_view_lowering(t) || (!t.is_contiguous()));
+  auto tmeta{habana::get_tensor_extra_meta(t)};
+  return (tmeta->is_view_lowering() || (!t.is_contiguous()));
 }
 
 void collect_output_view_param(

@@ -158,7 +158,6 @@ class EagerExec {
       bool eager_compiler_supported);
   bool is_eager_compiler_supported_for_graph(
       std::shared_ptr<torch::jit::Graph>& graph);
-  void mark_maybe_grad_view();
 };
 
 std::vector<at::IValue> convert_inputs_to_backend_tensors(
