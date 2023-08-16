@@ -46,6 +46,11 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   auto output_tmeta{habana::get_tensor_extra_meta(view_t)};
   auto output_smeta{habana::get_storage_extra_meta(view_t)};
 
+  if (input_smeta == nullptr)
+    return;
+
+  HABANA_ASSERT(output_smeta);
+
   TORCH_CHECK(
       !input_tmeta->is_maybe_grad_view(),
       " Multilevel views on bucket grad view neither expected,  nor supported");
