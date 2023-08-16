@@ -287,3 +287,18 @@ def test_unbind_opdbtest(dtype):
     results = run_test("unbind", dtype)
     for (a, b) in results:
         assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+
+@pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
+def test_nonzero(shape_in):
+    def fn(tensor):
+        return torch.nonzero(tensor)
+    cpu_tensor = torch.randint(10, shape_in) > 5
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    compiled_cpu = torch.compile(fn)
+    cpu_res = compiled_cpu(cpu_tensor)
+
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(hpu_tensor)
+
+    assert torch.equal(cpu_res, hpu_res.to("cpu"))
