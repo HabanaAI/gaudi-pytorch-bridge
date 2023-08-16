@@ -401,3 +401,87 @@ TEST_F(ShapeAgnosticTest, GeluView) {
     }
   }
 }
+
+// Test where strided_view with strides on FCD is replaced
+// by strided_view with contiguous strides on FCD and permute op
+TEST_F(ShapeAgnosticTest, StridedPermute) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {32, 64};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 =
+          torch::arange(in_shapes[i]).to(torch::dtype(torch::kFloat32));
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      // strided on fcd i.e dim 'x'
+      auto in1 = in0.as_strided({3, 4}, {1, 3}, 1);
+      in1.add_(-1.0);
+
+      // graph -> strided_view non-contiguous + add_ + strided_insert
+      // after permute pass
+      // graph -> strided_view contiguous + permute + add_ + strided_insert
+      auto in1_hpu = in0_hpu.as_strided({3, 4}, {1, 3}, 1);
+      in1_hpu.add_(-1.0);
+
+      EXPECT_EQ(allclose(in1, in1_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+// Test where strided_view with strides on FCD is replaced
+// by strided_view with contiguous strides on FCD and permute op
+TEST_F(ShapeAgnosticTest, StridedPermute2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  std::vector<std::vector<int64_t>> in_shapes{
+      {1024, 1024}, {64, 16, 128, 64}, {64, 128, 16, 64}, {64, 16, 64, 128}};
+  std::vector<std::vector<int64_t>> in_strides{
+      {1, 1024},
+      {131072, 64, 1024, 1},
+      {131072, 64, 8192, 1},
+      {131072, 64, 1, 1024}};
+  if (device.type() == synDeviceGaudi2) {
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      int64_t total_tensor_size = std::accumulate(
+          in_shapes[i].begin(),
+          in_shapes[i].end(),
+          1,
+          std::multiplies<int64_t>());
+      torch::Tensor in0 = torch::rand({total_tensor_size});
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      auto in1 = in0.as_strided(in_shapes[i], in_strides[i], 0);
+      auto in1_hpu = in0_hpu.as_strided(in_shapes[i], in_strides[i], 0);
+
+      EXPECT_EQ(allclose(in1, in1_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+// Test where strided_view with strides on FCD is replaced
+// by strided_view with contiguous strides on FCD and permute op
+// Test with Permute order '4' with expand i.e. 0 stride on dim '1'
+// Expand dim[1] - 5, org size = 6144, expand size = 6144 x 5
+TEST_F(ShapeAgnosticTest, StridedPermute3) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  std::vector<std::vector<int64_t>> in_shapes{
+      {16, 32, 3, 5, 4}, {16, 32, 3, 5, 4}};
+  std::vector<std::vector<int64_t>> in_strides{
+      {384, 1, 128, 0, 32}, {384, 1, 128, 0, 32}};
+  if (device.type() == synDeviceGaudi2 || device.type() == synDeviceGaudi3) {
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      torch::Tensor in0 = torch::rand({6144});
+      auto in0_hpu = in0.to(torch::kHPU);
+
+      auto in1 = in0.as_strided(in_shapes[i], in_strides[i], 0);
+      auto in1_hpu = in0_hpu.as_strided(in_shapes[i], in_strides[i], 0);
+
+      EXPECT_EQ(allclose(in1, in1_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}

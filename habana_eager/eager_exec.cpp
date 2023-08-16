@@ -23,6 +23,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_view.h"
 #include "habana_eager/ops/eager_op.h"
+#include "passes/handle_views_insert_permute.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
@@ -658,6 +659,7 @@ void EagerExec::post_process_eager_graph(
     PT_EAGER_DEBUG("Apply I/O View Handling pass.");
     HandleInputOutputViews(
         graph, m_inputs, m_eager_op_meta_data, eager_compiler_supported);
+    habana::graph::pass::HandleStridedViewsAndInsertPermute(graph);
   }
 }
 

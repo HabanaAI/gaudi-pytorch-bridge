@@ -43,16 +43,6 @@ std::unordered_set<std::string> ops_needing_cast = {
     "aten::gt",
     "aten::lt"};
 
-void set_deterministic(JitNode* node) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-    auto one = torch::jit::attr::alpha;
-    auto& gconfig = HPURegistrar::get_hpu_global_config();
-    node->i_(one, gconfig.getDeterministic());
-    PT_EAGER_DEBUG(
-        "Deterministic val during Jit Node creation: ", node->i(one));
-  }
-}
-
 void insert_cast_node(
     std::shared_ptr<JitGraph> graph,
     JitNode* node,
@@ -326,6 +316,16 @@ JitNode* insert_strided_insert_node(
 }
 
 } // namespace
+
+void set_deterministic(JitNode* node) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+    auto one = torch::jit::attr::alpha;
+    auto& gconfig = HPURegistrar::get_hpu_global_config();
+    node->i_(one, gconfig.getDeterministic());
+    PT_EAGER_DEBUG(
+        "Deterministic val during Jit Node creation: ", node->i(one));
+  }
+}
 
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,

@@ -86,5 +86,7 @@ void HandleInputOutputViews(
     const EagerOpMetaData& eager_op_meta_data,
     bool eager_compiler_supported);
 
+void set_deterministic(JitNode* node);
+
 } // namespace eager
 } // namespace habana

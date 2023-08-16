@@ -10,6 +10,28 @@
 #pragma once
 #include "backend/habana_operator.h"
 
+namespace habana {
+inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
+  switch (pt_type) {
+    case c10::ScalarType::Float:
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Int:
+    case c10::ScalarType::Byte:
+    case c10::ScalarType::Char:
+    case c10::ScalarType::Short:
+    case c10::ScalarType::Bool:
+    case c10::ScalarType::Half:
+#if HAVE_FP8_SUPPORT
+    case c10::ScalarType::Float8_e5m2:
+    case c10::ScalarType::Float8_e4m3fn:
+#endif
+      return true;
+    default:
+      return false;
+  }
+}
+} // namespace habana
+
 //
 // Cat Operator
 class CatOperator : public habana::HabanaOperator {
