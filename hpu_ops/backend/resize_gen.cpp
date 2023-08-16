@@ -31,6 +31,7 @@ void ResizeHabanaOperator::AddNode(
   // this is inplceOp persistance forced to true
   OutputMetaData outMetaData;
   outMetaData.persistent = true;
+  outMetaData.external = GetOutputMetaData(0).external; // temp WA for SW-156952
   const auto& output =
       habana::createPTTensor(t, sizes, t.options(), memory_format_opt, true);
   AllocateSynapseOutput(graph, output, outMetaData);

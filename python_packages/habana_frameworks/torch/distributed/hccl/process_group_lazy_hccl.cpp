@@ -45,12 +45,13 @@ bool resizeTensor(
   for (size_t i = 0; i < tensors.size(); i++) {
     auto btensor_type = tensors[i].scalar_type();
     changed[i] = false;
-    if ((at::kChar == btensor_type || at::kByte == btensor_type) &&
+    if ((at::kChar == btensor_type || at::kByte == btensor_type ||
+         at::kBool == btensor_type) &&
         tensors[i].numel() % 2 != 0) {
       changed[i] = true;
       sizeList[i] = tensors[i].sizes().vec();
       strideList[i] = tensors[i].strides().vec();
-      tensors[i].resize_(tensors[i].numel() + 1);
+      tensors[i] = tensors[i].resize_(tensors[i].numel() + 1);
       change = true;
     }
   }
@@ -64,7 +65,7 @@ void restoreTensorsize(
     std::vector<std::vector<int64_t>>& strideList) {
   for (size_t i = 0; i < tensors.size(); i++) {
     if (changed[i] == true) {
-      tensors[i].resize_(tensors[i].numel() - 1);
+      tensors[i] = tensors[i].resize_(sizeList[i]);
       tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
           sizeList[i], strideList[i]);
     }

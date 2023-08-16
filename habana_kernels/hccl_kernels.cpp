@@ -63,6 +63,16 @@ void getCountDatatype(
     int64_t& numel,
     hcclDataType_t& tensor_data_type) {
   switch (scalar_type) {
+    case at::kBool:
+      TORCH_CHECK(numel % 2 == 0, "Bool elements count not even")
+      if (numel % 4 == 0) {
+        numel = numel / 4;
+        tensor_data_type = getHCCLDataType(at::kFloat);
+      } else {
+        numel = numel / 2;
+        tensor_data_type = getHCCLDataType(at::kBFloat16);
+      }
+      break;
     case at::kChar:
     case at::kByte:
       numel = (numel * sizeof(char)) / sizeof(uint16_t);
