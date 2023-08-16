@@ -2241,7 +2241,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       std::unordered_map<int64_t, std::vector<int64_t>> index2maxvalues;
       // Currently max update which is less than bucket range issue exists for
       // slice. If other node needs this, can be added here.
-      update_max =
+      update_max = update_max ||
           ((habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
            (habana::ShapeInference::GetMaxPolicyInUse() ==

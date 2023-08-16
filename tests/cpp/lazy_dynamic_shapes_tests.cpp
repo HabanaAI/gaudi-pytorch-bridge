@@ -810,10 +810,10 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
   int N = 1;
   int C = 4;
   int H = 24;
-  std::vector<int> W_values{16, 18, 20};
-  std::vector<int> in_start{0, 2, 3};
-  std::vector<int> in_end{8, 10, 12};
-  std::vector<int> in_step{1, 1, 1};
+  std::vector<int> W_values{16, 18, 20, 36};
+  std::vector<int> in_start{0, 2, 3, 28};
+  std::vector<int> in_end{8, 10, 12, 36};
+  std::vector<int> in_step{1, 1, 1, 1};
   for (int i = 0; i < W_values.size(); i++) {
     int W = W_values[i];
     PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
