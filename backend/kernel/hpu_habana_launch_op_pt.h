@@ -149,7 +149,7 @@ class HabanaLaunchOpPT {
 
   static std::unordered_set<std::string> watchlist_;
   static std::unordered_map<size_t, habana_helpers::InpTensorShapes>
-      ref_input_shape_map;
+      ref_input_shape_map_;
 
   static bool isControlEdge(torch::jit::Node* node);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
@@ -169,7 +169,7 @@ class HabanaLaunchOpPT {
   static void ExecuteSynapse(
       synapse_helpers::hpuStream_t hpu_stream,
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
-          jit_graph_and_meta_data,
+          jit_graph_and_meta_data_,
       at::ArrayRef<torch::jit::IValue> input_refs,
       std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr,
@@ -184,29 +184,31 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPT* hbLaunchOp,
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
       std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
-      std::optional<std::vector<at::Tensor>> allocated_outputs_,
+      std::optional<std::vector<at::Tensor>> allocated_outputs,
       bool dry_run = false);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
-  std::unordered_map<int64_t, int64_t> m_ival_hash_to_input_index_map = {};
+  std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
  private:
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
-  std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info = nullptr;
+  std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info_ =
+      nullptr;
 
   bool dry_run_ = false;
-  std::string name = std::string();
-  size_t graph_index = 0;
-  std::shared_ptr<torch::jit::Graph> jit_ir_graph;
-  bool debug;
-  std::string id_str = std::string();
-  std::string op_strs = std::string();
-  size_t graph_key = 0;
+  std::string name_ = std::string();
+  size_t graph_index_ = 0;
+  std::shared_ptr<torch::jit::Graph> jit_ir_graph_;
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
+  const bool debug_;
+  std::string id_str_ = std::string();
+  std::string op_strs_ = std::string();
+  size_t graph_key_ = 0;
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
-      jit_graph_and_meta_data = nullptr;
-  synapse_helpers::graph* syn_graph_ptr = nullptr;
+      jit_graph_and_meta_data_ = nullptr;
+  synapse_helpers::graph* syn_graph_ptr_ = nullptr;
   std::vector<std::vector<int64_t>> out_shapes{};
 
   size_t prim_nodes_ival_counter{0};
@@ -423,7 +425,7 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
   const std::string& GetSynapseGraphName() {
-    return SetAndGetSynapseGraphName(name, graph_index);
+    return SetAndGetSynapseGraphName(name_, graph_index_);
   }
   std::string& SetAndGetSynapseGraphName(
       const std::string& name,
@@ -461,7 +463,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
     auto rvpsh{RecipeCacheLRU::get_cache().get(spec_key)};
     if (nullptr != rvpsh && nullptr == rvpsh->jit_graph_) {
-      rvpsh->jit_graph_ = jit_ir_graph;
+      rvpsh->jit_graph_ = jit_ir_graph_;
     }
     return rvpsh;
   }

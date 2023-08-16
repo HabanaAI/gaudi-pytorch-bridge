@@ -372,10 +372,10 @@ void HabanaLaunchOpPT::RunHybridSif(
       "\nRunning hybrid shape inference on graph: ", GetSynapseGraphName());
   habana::PrintStack(*pt_stack);
   PT_DYNAMIC_SHAPE_DEBUG(
-      "JIT_IR_Graph_BEGIN\n", jit_ir_graph->toString(), "JIT_IR_Graph_END\n");
+      "JIT_IR_Graph_BEGIN\n", jit_ir_graph_->toString(), "JIT_IR_Graph_END\n");
 
   std::unordered_map<CValPtr, torch::jit::IValue> val_to_ival_map;
-  auto graph_inputs = jit_ir_graph->inputs();
+  auto graph_inputs = jit_ir_graph_->inputs();
   TORCH_CHECK(input_refs.size() == graph_inputs.size(), "Input size mismatch");
   for (size_t i = 0; i < graph_inputs.size(); i++) {
     auto input = graph_inputs[i];
@@ -394,7 +394,7 @@ void HabanaLaunchOpPT::RunHybridSif(
 
   std::vector<at::Tensor> input_shape_tensors_vec;
   std::vector<at::Tensor> intermediate_shape_tensors_vec;
-  for (auto* node : jit_ir_graph->nodes()) {
+  for (auto* node : jit_ir_graph_->nodes()) {
     std::string op_name(node->kind().toQualString());
 
     PT_DYNAMIC_SHAPE_DEBUG(" Visiting op ", op_name, " for node ", *node);
