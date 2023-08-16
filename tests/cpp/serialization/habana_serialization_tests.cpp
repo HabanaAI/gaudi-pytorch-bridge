@@ -29,6 +29,37 @@
 using namespace std;
 using namespace habana;
 
+class HabanaSerializationRecipeTest : public ::testing::Test {
+  std::string m_cache_path;
+  bool m_cache_overriden = false;
+
+  void SetUp() override {
+    m_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+    overrideEmptyCachePathEnv();
+  }
+
+  void TearDown() override {
+    if (m_cache_overriden) {
+      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "", 1); // set empty path
+    }
+  }
+
+ private:
+  void overrideEmptyCachePathEnv() {
+    const std::string dafault_cache_path = "cache_dir";
+    if (m_cache_path == "") {
+      m_cache_overriden = true;
+      m_cache_path = dafault_cache_path;
+      SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, m_cache_path.c_str(), 1);
+    }
+  }
+
+ protected:
+  const std::string& getCachePath() const {
+    return m_cache_path;
+  }
+};
+
 TEST(HabanaSerializationTest, TensorOptionsTest) {
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
@@ -81,21 +112,14 @@ int removeFiles(const char* dir) {
   return count;
 }
 
-TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
+TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  setenv("HABANA_PGM_LRU_MAX", "3", 3);
-  std::string cache_path_ = "cache_dir";
-  std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (cache_path == "") {
-    cache_path = cache_path_;
-    SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, cache_path.c_str(), 1);
-  }
   RecipeCacheLRU::get_cache().ResetDiskCache();
   // make sure dir is empty.
-  if (fs::exists(fs::path(cache_path))) {
-    auto removedFilesCount = removeFiles(cache_path.c_str());
+  if (fs::exists(fs::path(getCachePath()))) {
+    auto removedFilesCount = removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {
@@ -110,6 +134,9 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
   torch::Tensor recipe_wt = {};
   for (int i = 0; i < 5; i++) {
     int recipe_no = i % 4;
+    if (recipe_no == 0) {
+      RecipeCacheLRU::get_cache().clear();
+    }
     auto in =
         torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
     auto wt = torch::randn(
@@ -139,7 +166,7 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
     // ensure that disk cache thread stored recipes on disk
     RecipeCacheLRU::get_cache().FlushDiskCache();
 
-    int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
+    int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i < 4) {
       ASSERT_EQ(recipe_files_count, (i + 1));
     } else if (i == 4) {
@@ -153,21 +180,14 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest1) {
   EXPECT_EQ(allclose(res1, res2), true);
 }
 
-TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
+TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  std::string cache_path_ = "cache_dir";
-  std::string curr_path = fs::current_path();
-  std::string cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
-  if (cache_path == "") {
-    cache_path = cache_path_;
-    SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, cache_path.c_str(), 1);
-  }
   RecipeCacheLRU::get_cache().ResetDiskCache();
   // make sure dir is empty.
-  if (fs::exists(fs::path(cache_path))) {
-    auto removedFilesCount = removeFiles(cache_path.c_str());
+  if (fs::exists(fs::path(getCachePath()))) {
+    auto removedFilesCount = removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {
@@ -193,7 +213,7 @@ TEST(HabanaSerializationTest, serializeDeserializeRecipeTest2) {
     // ensure that disk cache thread stored recipes on disk
     RecipeCacheLRU::get_cache().FlushDiskCache();
 
-    int recipe_files_count = getFilesCount(cache_path.c_str(), ".recipe");
+    int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i == 0) {
       originalRecipe = result;
       size_t one = 1;
