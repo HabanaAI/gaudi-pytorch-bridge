@@ -15,6 +15,10 @@ import torch
 import habana_frameworks.torch as ht
 from test_utils import compare_tensors, _kernel_copy_to_device
 import pytest
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import Format, DelayedScaling
+import habana_frameworks.torch.hpex.experimental.transformer_engine as te
+import numpy as np
+from test_utils import is_gaudi1
 
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()
@@ -189,7 +193,10 @@ class Net(torch.nn.Module):
             y = self.fc4(z)
         return {'x' : x, 'y' : y}, z
 
-def test_cached_module_training(disable_tensor_cache=False):
+@pytest.mark.parametrize("disable_tensor_cache", [True, False])
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_cached_module_training(disable_tensor_cache, dry_run):
+    torch.manual_seed(12345)
     model = Net().to('hpu')
     state_dict = copy.deepcopy(model.state_dict())
     optimizer = torch.optim.SGD(model.parameters(),lr=0.1)
@@ -398,6 +405,83 @@ def test_wrap_hpugraphs_max_graphs(max_graphs=10):
         loss_cpu_vec.append(loss_cpu)
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
+@pytest.mark.parametrize("disable_tensor_cache", [True, False])
+def test_cached_module_training_fp8(disable_tensor_cache):
+    torch.manual_seed(12345)
+    input0 = torch.tensor([0.1, 0.2, 0.3, 0.4]).to('hpu')
+    input1 = torch.tensor([1, 2, 3, 4]).to('hpu')
+    input2 = torch.tensor([10, 20, 30, 40]).to('hpu')
+    input3 = torch.tensor([100, 200, 300, 400]).to('hpu')
+
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=1,
+        amax_compute_algo="max",
+        margin=0,
+        reduce_amax=False,
+    )
+
+    torch.manual_seed(12345)
+    my_linear_ref = te.Linear(4, 3, bias=True)
+    torch.manual_seed(12345)
+    my_linear_test = te.Linear(4, 3, bias=True)
+
+    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
+        out_ref = my_linear_ref(input0)
+        loss_ref = out_ref.sum()
+        loss_ref.backward()
+        out_test = my_linear_test(input0)
+        loss_test = out_test.sum()
+        loss_test.backward()
+
+        grad_w_ref = my_linear_ref.weight.grad.clone().to(torch.float).cpu().detach()
+        grad_b_ref = my_linear_ref.bias.grad.clone().to(torch.float).cpu().detach()
+        grad_w_test = my_linear_test.weight.grad.clone().to(torch.float).cpu().detach()
+        grad_b_test = my_linear_test.bias.grad.clone().to(torch.float).cpu().detach()
+        assert np.array_equal(out_test.cpu().to(torch.float).detach().numpy(),
+                                out_ref.cpu().to(torch.float).detach().numpy(), equal_nan=True), f"Out data mismatch at init run"
+        assert np.array_equal(grad_w_test.numpy(),
+                                grad_w_ref.numpy(), equal_nan=True), f"Grad weight data mismatch at init run"
+        assert np.array_equal(grad_b_test.numpy(),
+                                grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at init run"
+        my_linear_ref.zero_grad(set_to_none=False)
+        my_linear_test.zero_grad(set_to_none=False)
+
+        # Wrap the modules in hpu_graph wrapper
+        fp8_meta = my_linear_test.save_fp8_meta()
+        x = torch.zeros_like(input1)
+        my_linear_test = ht.hpu.ModuleCacher(max_graphs=10)(have_grad_accumulation=True, model=my_linear_test, inplace=True, disable_tensor_cache=disable_tensor_cache)
+        out_x = my_linear_test(x).cpu()
+        my_linear_test.load_fp8_meta(fp8_meta)
+        my_linear_test.zero_grad()
+
+        # Run recorded graph n times
+        for i in range(0, len(inputs)):
+            my_linear_test.set_iteration_count(i)
+            out_test = my_linear_test(inputs[i])
+            loss_test = out_test.sum()
+            loss_test.backward()
+            grad_w_test = my_linear_test.weight.grad.clone().to(torch.float).cpu().detach()
+            grad_b_test = my_linear_test.bias.grad.clone().to(torch.float).cpu().detach()
+
+            out_ref = my_linear_ref(inputs[i])
+            loss_ref = out_ref.sum()
+            loss_ref.backward()
+            grad_w_ref = my_linear_ref.weight.grad.clone().to(torch.float).cpu().detach()
+            grad_b_ref = my_linear_ref.bias.grad.clone().to(torch.float).cpu().detach()
+
+            assert np.array_equal(out_test.cpu().to(torch.float).detach().numpy(),
+                                    out_ref.cpu().to(torch.float).detach().numpy(), equal_nan=True), f"Out data mismatch at {i}"
+            assert np.array_equal(grad_w_test.numpy(),
+                                    grad_w_ref.numpy(), equal_nan=True), f"Grad weight data mismatch at {i}"
+            assert np.array_equal(grad_b_test.numpy(),
+                                    grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at {i}"
+
+
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
@@ -407,8 +491,12 @@ if __name__ == "__main__":
     test_graph_capture_simple()
     test_graph_training()
     test_tensor_packer()
-    test_cached_module_training()
-    test_cached_module_training(disable_tensor_cache=True)
+    test_cached_module_training(disable_tensor_cache=False, dry_run=False)
+    test_cached_module_training(disable_tensor_cache=False, dry_run=True)
+    test_cached_module_training(disable_tensor_cache=True, dry_run=False)
+    test_cached_module_training(disable_tensor_cache=True, dry_run=True)
+    test_cached_module_training_fp8(disable_tensor_cache=False)
+    test_cached_module_training_fp8(disable_tensor_cache=True)
     test_graph_capture_scalar(disable_tensor_cache=True)
     test_multiple_graph_capture_with_views()
     test_wrap_hpugraphs_max_graphs(max_graphs=2)

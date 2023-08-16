@@ -539,7 +539,8 @@ void SingleHPUGraph::replayV3(
         if (!hbl.getDataPtr()->tensor_data) {
           auto& stride_params_opt = hbl.getDataPtr()->stride_params;
           if (stride_params_opt.has_value()) {
-            habana_lazy::HbLazyTensorViews::AttachStorageToViews(t, hbl);
+            hbl = habana_lazy::GetHbLazyTensor(
+                habana_lazy::HbLazyTensorViews::HandleViewsD2H(t));
           } else {
             TORCH_CHECK(
                 0, "Neither storage attached to input tensor, not its view.")
