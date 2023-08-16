@@ -38,12 +38,8 @@ FALLBACK_CHECK(
   return true;
 };
 
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexFE, at::Tensor) {
-  TORCH_CHECK(
-      0, "IndexFE is not expected to be called for PT 2.0 as i is DFDT");
-}
-
-HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
+  m_symbol = at::Symbol::fromQualString("hpu::index");
   auto& sub_inputs = get_inputs();
   const at::Tensor self = sub_inputs.at(0).toTensor();
   c10::ArrayRef<c10::IValue> indices_in_orig = sub_inputs.at(1).toListRef();
@@ -186,9 +182,4 @@ HPU_OP_FRONTEND_CUSTOM_CTOR(eager::EagerOp, IndexOutFE, -1, at::Tensor&) {
     get_inputs().at(4) = num_index_tensors;
   }
 }
-
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(eager::EagerOp, IndexOutFE, at::Tensor&) {
-  return get_index_result_out(get_inputs());
-}
-
 } // namespace habana

@@ -133,50 +133,6 @@ bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
       (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut));
 }
 
-static std::vector<size_t> get_input_tensors_positions(
-    JitNode* node,
-    const std::vector<at::IValue>& inputs,
-    const EagerOpMetaData& eager_op_meta_data) {
-  PT_EAGER_DEBUG("JIT node inputs count : ", node->inputs().size());
-  PT_EAGER_DEBUG("JIT node outputs count : ", node->outputs().size());
-  PT_EAGER_DEBUG("Total inputs : ", inputs.size());
-
-  auto& out_indices = eager_op_meta_data.out_indices_;
-  if (eager_op_meta_data.op_kind_ == InplaceOut) {
-    HABANA_ASSERT(!out_indices.empty());
-    PT_EAGER_DEBUG("Total output tensors : ", out_indices.size());
-    HABANA_ASSERT(inputs.size() >= out_indices.size());
-  }
-
-  std::vector<size_t> in_indices;
-  in_indices.reserve(inputs.size());
-
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    auto val = inputs[i];
-    if (!(val.isTensor() || val.isTensorList())) {
-      continue;
-    }
-
-    switch (eager_op_meta_data.op_kind_) {
-      case InplaceOut:
-        // if size of out_indices >1, then it is a tuple. In this case, there is
-        // no inplace variant. The input and out tensors wont be same.
-        // Consequently, the strided views are added for out tensors as well.
-        // Refer: test_aminmax_multi_output_view_col2
-        if (!out_indices.count(i) || (out_indices.size() > 1))
-          in_indices.push_back(i);
-        break;
-      case Inplace:
-      case OutOfPlace:
-      default:
-        in_indices.push_back(i);
-        break;
-    }
-  }
-
-  return in_indices;
-}
-
 size_t get_node_output_idx(
     const EagerOpMetaData& op_meta_data,
     JitNode* node,
@@ -184,13 +140,10 @@ size_t get_node_output_idx(
   int out_idx = -1;
   if (node->outputs().size() == 1) {
     out_idx = 0;
-  } else if (
-      (op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut) &&
-      (op_meta_data.out_indices_.size() > 1)) {
+  } else if (op_meta_data.num_out_tensors_ > 1) {
     // the input and output value pointers of out tensors wont match if the out
     // tensors are part of tuple
-    auto num_inputs = node->inputs().size() - op_meta_data.out_indices_.size();
-    out_idx = idx - num_inputs;
+    out_idx = idx + op_meta_data.num_out_tensors_ - node->inputs().size();
   } else {
     auto value = node->input(idx);
     PT_EAGER_DEBUG("[get_node_output_idx] Search for output value = ", value);
@@ -215,10 +168,6 @@ void collect_output_view_param(
     const std::vector<at::IValue>& inputs,
     const EagerOpMetaData& eager_op_meta_data,
     std::vector<StridedOutInfo>& strided_out_info) {
-  if (eager_op_meta_data.out_indices_.empty()) {
-    return;
-  }
-
   auto parse_output_tensor = [&eager_op_meta_data,
                               &inputs,
                               &node,
@@ -227,29 +176,30 @@ void collect_output_view_param(
     HABANA_ASSERT(
         out_ival.isTensor(), "Expected tensor input, when parsing idx: ", idx);
     auto output_tensor = out_ival.toTensor();
-    if (is_view(output_tensor)) {
-      HABANA_ASSERT(
-          inputs[idx].isTensor(),
-          "Tensor lists containing views are unsupported. Failed for idx: ",
-          idx);
-
-      StridedOutInfo s;
-      auto node_output_idx = get_node_output_idx(eager_op_meta_data, node, idx);
-      s.index = node_output_idx;
-      s.tensor = output_tensor;
-      s.value = node->input(idx);
-      s.param = std::make_unique<ViewParam>();
-      s.param->setParam(output_tensor);
-      s.dtype = output_tensor.scalar_type();
-      strided_out_info.emplace_back(std::move(s));
-      PT_EAGER_DEBUG(
-          "[collect_output_view_param] JIT node outputs count = ",
-          node->outputs().size(),
-          "idx = ",
-          idx,
-          "node_output_idx = ",
-          node_output_idx);
+    if (!is_view(output_tensor)) {
+      return;
     }
+    HABANA_ASSERT(
+        inputs[idx].isTensor(),
+        "Tensor lists containing views are unsupported. Failed for idx: ",
+        idx);
+
+    StridedOutInfo s;
+    auto node_output_idx = get_node_output_idx(eager_op_meta_data, node, idx);
+    s.index = node_output_idx;
+    s.tensor = output_tensor;
+    s.value = node->input(idx);
+    s.param = std::make_unique<ViewParam>();
+    s.param->setParam(output_tensor);
+    s.dtype = output_tensor.scalar_type();
+    strided_out_info.emplace_back(std::move(s));
+    PT_EAGER_DEBUG(
+        "[collect_output_view_param] JIT node outputs count = ",
+        node->outputs().size(),
+        " idx = ",
+        idx,
+        " node_output_idx = ",
+        node_output_idx);
   };
 
   for (auto& idx : eager_op_meta_data.out_indices_) {
@@ -264,9 +214,21 @@ void collect_output_view_param(
       parse_output_tensor(idx, inputs[idx]);
     }
   }
+
+  size_t inputs_size = inputs.size();
+  for (size_t i = inputs_size - eager_op_meta_data.num_out_tensors_;
+       i < inputs_size;
+       i++) {
+    if (inputs[i].isTensorList()) {
+      for (const at::Tensor& t : inputs[i].toTensorList())
+        parse_output_tensor(i, t);
+    } else {
+      parse_output_tensor(i, inputs[i]);
+    }
+  }
 }
 
-JitNode* replace_with_out_of_place_op(
+static JitNode* replace_with_out_of_place_op(
     std::shared_ptr<JitGraph>& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
@@ -275,10 +237,7 @@ JitNode* replace_with_out_of_place_op(
 
   auto new_node = graph->create(c10::Symbol::fromQualString(new_kind));
   new_node->addInput(node->input(0));
-  auto num_inputs = node->inputs().size();
-  if (eager_op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut) {
-    num_inputs -= eager_op_meta_data.out_indices_.size();
-  }
+  auto num_inputs = node->inputs().size() - eager_op_meta_data.num_out_tensors_;
   for (size_t i = 1; i < num_inputs; ++i) {
     new_node->addInput(node->input(i));
   }
@@ -391,11 +350,9 @@ void HandleInputOutputViews(
         node, inputs, eager_op_meta_data, strided_out_info);
   }
 
-  auto input_tensor_pos =
-      get_input_tensors_positions(node, inputs, eager_op_meta_data);
-
+  int num_inputs = node->inputs().size();
   std::vector<JitNode*> strided_view_nodes;
-  strided_view_nodes.reserve(input_tensor_pos.size());
+  strided_view_nodes.reserve(num_inputs);
 
   auto insert_stride_if_view = [&strided_view_nodes, &graph](
                                    at::Tensor& input_tensor,
@@ -413,14 +370,12 @@ void HandleInputOutputViews(
     strided_view_nodes.push_back(jit_node);
   };
 
-  for (auto idx : input_tensor_pos) {
+  for (auto idx = 0u; idx < num_inputs; ++idx) {
     auto val = inputs.at(idx);
-    HABANA_ASSERT(val.isTensor() || val.isTensorList(), "Non-tensor value");
     if (val.isTensor()) {
       auto& t = val.toTensor();
       insert_stride_if_view(t, node, idx);
-    } else {
-      // tensorlist
+    } else if (val.isTensorList()) {
       JitNode* list_node = node->input(idx)->node();
       size_t li = 0;
       for (auto& t : val.toTensorVector()) {
@@ -449,55 +404,51 @@ void HandleInputOutputViews(
     insert_control_edge_node(graph, node, last_node);
   }
 
-  if (is_inplace_op) {
-    if (strided_out_info.empty()) {
-      return;
-    }
-
-    // We reach this point if the op type is inplace or inplace-out with strided
-    // output. Note, output view param is already collected.
-
-    JitNode* new_node = node;
-    // These kernels completely ignore the data in input tensor and hence the
-    // input tensor can be reused by updating inplace. Further it also avoids
-    // implementing out of place variants
-    if (underscored_ops_reported_as_non_inplace.find(
-            node->kind().toQualString()) ==
-        underscored_ops_reported_as_non_inplace.end()) {
-      if (eager_op_meta_data.out_indices_.size() <= 1)
-        new_node =
-            replace_with_out_of_place_op(graph, node, eager_op_meta_data);
-    }
-
-    PT_EAGER_DEBUG(
-        "\nSI node insertion:=====================\n",
-        "JIT_IR_Graph_BEGIN\n",
-        "Graph ",
-        "[Before]",
-        '\n',
-        graph->toString(),
-        "JIT_IR_Graph_END\n");
-
-    for (size_t idx = 0; idx < strided_out_info.size(); idx++) {
-      auto si_node = insert_strided_insert_node(
-          graph, new_node, eager_op_meta_data, strided_out_info.at(idx));
-
-      if (ops_needing_cast.find(new_node->kind().toQualString()) ==
-          ops_needing_cast.end())
-        continue;
-
-      insert_cast_node(graph, si_node, new_node, strided_out_info.at(idx));
-    }
-
-    PT_EAGER_DEBUG(
-        "\nSI node insertion:=====================\n",
-        "JIT_IR_Graph_BEGIN\n",
-        "Graph ",
-        "[After]",
-        '\n',
-        graph->toString(),
-        "JIT_IR_Graph_END\n");
+  if (!is_inplace_op or strided_out_info.empty()) {
+    return;
   }
+
+  // We reach this point if the op type is inplace or inplace-out with strided
+  // output. Note, output view param is already collected.
+
+  JitNode* new_node = node;
+  // These kernels completely ignore the data in input tensor and hence the
+  // input tensor can be reused by updating inplace. Further it also avoids
+  // implementing out of place variants
+  if (!underscored_ops_reported_as_non_inplace.count(
+          node->kind().toQualString())) {
+    if (eager_op_meta_data.num_out_tensors_ <= 1)
+      new_node = replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+  }
+
+  PT_EAGER_DEBUG(
+      "\nSI node insertion:=====================\n",
+      "JIT_IR_Graph_BEGIN\n",
+      "Graph ",
+      "[Before]",
+      '\n',
+      graph->toString(),
+      "JIT_IR_Graph_END\n");
+
+  for (size_t idx = 0; idx < strided_out_info.size(); idx++) {
+    auto si_node = insert_strided_insert_node(
+        graph, new_node, eager_op_meta_data, strided_out_info.at(idx));
+
+    if (ops_needing_cast.find(new_node->kind().toQualString()) ==
+        ops_needing_cast.end())
+      continue;
+
+    insert_cast_node(graph, si_node, new_node, strided_out_info.at(idx));
+  }
+
+  PT_EAGER_DEBUG(
+      "\nSI node insertion:=====================\n",
+      "JIT_IR_Graph_BEGIN\n",
+      "Graph ",
+      "[After]",
+      '\n',
+      graph->toString(),
+      "JIT_IR_Graph_END\n");
 }
 
 } // namespace eager

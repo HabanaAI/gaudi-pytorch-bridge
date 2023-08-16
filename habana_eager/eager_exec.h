@@ -43,10 +43,10 @@ class OutputSpecsOrTensors {
   std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>> m_outputs;
 };
 
-enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknowType };
+enum eagerOpKind { OutOfPlace = 0, InplaceOut = 1, Inplace = 2, UnknownType };
 
 struct EagerOpMetaData {
-  EagerOpMetaData() : op_kind_(UnknowType) {}
+  EagerOpMetaData() : op_kind_(UnknownType) {}
 
   EagerOpMetaData(
       eagerOpKind kind,
@@ -54,18 +54,21 @@ struct EagerOpMetaData {
       std::unordered_set<size_t> out_indices)
       : op_kind_(kind), op_name_(name), out_indices_(out_indices) {}
 
+  EagerOpMetaData(eagerOpKind kind, std::string name, size_t num_out_tensors)
+      : op_kind_(kind), op_name_(name), num_out_tensors_(num_out_tensors) {}
+
   std::string to_string() const {
     std::string s = "{ ";
     switch (op_kind_) {
       default:
-        s.append("UnknowType }");
+        s.append("UnknownType }");
         return s;
       case OutOfPlace:
         s.append("OutOfPlace }");
         return s;
       case InplaceOut:
-        s.append("InplaceOut, ");
-        break;
+        s.append("InplaceOut (" + std::to_string(num_out_tensors_) + ")}");
+        return s;
       case Inplace:
         s.append("Inplace, ");
         break;
@@ -87,6 +90,7 @@ struct EagerOpMetaData {
   eagerOpKind op_kind_;
   std::string op_name_;
   std::unordered_set<size_t> out_indices_;
+  size_t num_out_tensors_ = 0;
 };
 
 /**

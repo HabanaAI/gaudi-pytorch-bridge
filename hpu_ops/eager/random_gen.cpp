@@ -20,7 +20,12 @@
 namespace habana {
 // Generators can't be represented in JIT graph
 // https://github.com/pytorch/pytorch/issues/64005
-static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
+static void ConvertGeneratorToSeedTensor(
+    at::Symbol& symbol,
+    at::IValue& gen_to_seed) {
+  symbol = at::Symbol::fromQualString(
+      "hpu::" + std::string(symbol.toUnqualString()));
+
   int seed = get_seed_hpu(gen_to_seed.toOptional<at::Generator>());
   at::TensorOptions o;
   o = o.dtype(at::kInt).device(at::kHPU);
@@ -28,24 +33,24 @@ static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
-  ConvertGeneratorToSeedTensor(get_inputs().back());
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor) {
-  ConvertGeneratorToSeedTensor(get_inputs().back());
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     eager::EagerOp,
     GeneratorToSeed,
     std::tuple<at::Tensor, at::Tensor>) {
-  ConvertGeneratorToSeedTensor(get_inputs().back());
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     eager::EagerOp,
     GeneratorToSeedOut,
     at::Tensor&) {
-  ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().rbegin()[1]);
 }
 } // namespace habana

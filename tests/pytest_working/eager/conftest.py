@@ -12,7 +12,7 @@
 
 import pytest
 import os
-from pytest_working.test_utils import generic_setup_teardown_env
+
 
 @pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():

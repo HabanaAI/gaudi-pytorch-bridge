@@ -48,9 +48,5 @@ std::vector<int64_t> ComputeIndexOperatorOutputShape(
     const at::Tensor& input,
     at::TensorList indices);
 
-at::Tensor get_index_result(at::Tensor input, std::vector<int64_t> shape);
-
-at::Tensor& get_index_result_out(std::vector<at::IValue> inputs_vec);
-
 std::vector<int64_t> get_index_result_shape(std::vector<at::IValue> inputs_vec);
 } // namespace habana

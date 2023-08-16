@@ -110,8 +110,7 @@ class EagerOpBase {
  protected:
   torch::jit::Stack run(OutputSpecsOrTensors&& out_spec_or_tensors);
 
-  const at::Symbol m_symbol;
-  const std::set<size_t> m_metadata_indices;
+  at::Symbol m_symbol;
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
   std::vector<at::IValue> m_inputs;

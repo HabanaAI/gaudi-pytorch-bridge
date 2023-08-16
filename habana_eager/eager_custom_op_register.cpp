@@ -47,8 +47,6 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
       {input, scale, stochastic_rounding, is_amax, dtype},
       CastToFp8V2OutputShape};
   hpu_op.set_scalar_types({dtype.value(), at::ScalarType::Float});
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::cast_to_fp8_v2", {}});
   return hpu_op.call();
 }
 
@@ -100,8 +98,6 @@ at::Tensor cast_from_fp8(
       "hpu::cast_from_fp8 with int8 input is not available in Eager mode.");
   eager::EagerOp<at::Tensor> hpu_op{
       "hpu::cast_from_fp8", {input, scale, out_dtype}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::cast_from_fp8", {0}});
   hpu_op.set_scalar_types({out_dtype});
   return hpu_op.call();
 }
@@ -122,8 +118,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout(
       {input, p, scale, stochastic_rounding, is_amax, dtype},
       {input.sizes().vec(), input.sizes().vec(), amax_size},
       0};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_dropout", {}});
   hpu_op.set_scalar_types(
       {dtype.value(), c10::ScalarType::Char, c10::ScalarType::Float});
   return hpu_op.call();
@@ -154,8 +148,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
       {input, scale, stochastic_rounding, is_amax, dtype},
       {input.sizes().vec(), input.sizes().vec(), amax_size},
       0};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_gelu_v2", {}});
   hpu_op.set_scalar_types(
       {dtype.value(), input.scalar_type(), c10::ScalarType::Float});
   return hpu_op.call();
@@ -204,8 +196,6 @@ at::Tensor& fp8_gemm(
        accumulate,
        out},
       Fp8GemmV2OutputShape};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut, "hpu::fp8_gemm", {10}});
   return hpu_op.call(out);
 }
 
@@ -236,8 +226,6 @@ at::Tensor fp8_gemm_v2(
        bias,
        accumulate},
       Fp8GemmV2OutputShape};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_gemm_v2", {}});
   hpu_op.set_scalar_types({out_dtype});
   return hpu_op.call();
 }
@@ -261,8 +249,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
       {grad, input, scale, retain, stochastic_rounding, is_amax, dtype},
       {out_size, bgrad_size, amax_size},
       0};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::fp8_bgrad_dgelu", {}});
   hpu_op.set_scalar_types(
       {dtype.value(), input.scalar_type(), c10::ScalarType::Float});
   return hpu_op.call();
@@ -316,11 +302,6 @@ void optimizer_resource_apply_momentum(
       "hpu::optimizer_resource_apply_momentum",
       {params_momentum_buf_list, dp_list, momentum}};
 
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut,
-       "hpu::optimizer_resource_apply_momentum",
-       {0}});
-
   hpu_op.call(params_momentum_buf_list);
 }
 
@@ -340,9 +321,6 @@ void optimizer_lars(
   eager::EagerOp<void> hpu_op{
       "hpu::optimizer_lars",
       {params, grads, skip_masks, eeta, weight_decay, eps, lr}};
-
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut, "hpu::optimizer_lars", {1}});
 
   hpu_op.call(grads);
 }
@@ -442,10 +420,6 @@ void optimizer_ema(
 
   eager::EagerOp<void> hpu_op{
       "hpu::optimizer_ema", {model_inputs, updated_ema, decay}};
-
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut, "hpu::optimizer_ema", {1}});
-
   hpu_op.call(updated_ema);
 }
 
@@ -491,11 +465,6 @@ void optimizer_adamw(
        epsilon,
        weight_decay,
        has_weight_decay}};
-
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut,
-       "hpu::optimizer_adamw",
-       {1, 2, 3}});
 
   hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
 }
@@ -710,8 +679,6 @@ at::Tensor conv2d_fp8(
       {input, weight, bias, stride, padding, dilation, groups, out_dtype},
       Conv2dFp8OutputShape};
   hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::OutOfPlace, "hpu::conv2d_fp8", {}});
   return hpu_op.call();
 }
 

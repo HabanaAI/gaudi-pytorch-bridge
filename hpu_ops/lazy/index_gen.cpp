@@ -13,8 +13,6 @@
 
 #include "generated/lazy/gather.h"
 #include "generated/lazy/index.h"
-#include "habana_kernels/lazy_kernels.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/indexing_ops_helper.h"
 
@@ -180,35 +178,13 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     }
 }
 
-template <>
-IndexFE<at::Tensor>::IndexFE(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs_orig,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(
-          qualstring,
-          inputs_orig,
-          out_shapes_fn,
-          -1) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, IndexFE, at::Tensor) {
   habana_lazy::NoAccThread no_acc_thread;
   index_fe(get_inputs());
 }
 
-HPU_OP_FRONTEND_CUSTOM_CTOR(habana_lazy::LazyOp, IndexOutFE, -1, at::Tensor&) {
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, IndexOutFE, at::Tensor&) {
   index_fe(get_inputs());
 }
 
-template <>
-at::Tensor IndexFE<at::Tensor>::get_result_overrideable() {
-  auto res_shape = get_index_result_shape(get_inputs());
-  const at::Tensor input = get_inputs()[0].toTensor();
-  return get_index_result(input, res_shape);
-}
-
-HPU_OP_FRONTEND_CREATE_RESULT_ONLY(
-    habana_lazy::LazyOp,
-    IndexOutFE,
-    at::Tensor&) {
-  return get_index_result_out(get_inputs());
-}
 } // namespace habana

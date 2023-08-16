@@ -19,7 +19,12 @@ static void ScalarPToTensor(at::IValue& p, at::ScalarType dtype) {
   p = at::scalar_tensor(p.toScalar(), at::TensorOptions(at::kHPU).dtype(dtype));
 }
 
-static void ConvertGeneratorToSeedTensor(at::IValue& gen_to_seed) {
+static void ConvertGeneratorToSeedTensor(
+    at::Symbol& symbol,
+    at::IValue& gen_to_seed) {
+  symbol = at::Symbol::fromQualString(
+      "hpu::" + std::string(symbol.toUnqualString()));
+
   int seed = get_seed_hpu(gen_to_seed.toOptional<at::Generator>());
   at::TensorOptions o;
   o = o.dtype(at::kInt).device(at::kHPU);
@@ -30,13 +35,13 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliFE, at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p, inputs[0].toTensor().scalar_type());
 
-  ConvertGeneratorToSeedTensor(get_inputs().back());
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliOutFE, at::Tensor&) {
   auto& p = get_inputs()[1];
   ScalarPToTensor(p, inputs[0].toTensor().scalar_type());
 
-  ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
+  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().rbegin()[1]);
 }
 } // namespace habana

@@ -370,16 +370,6 @@ std::vector<int64_t> ComputeIndexOperatorOutputShape(
   return output_shape;
 }
 
-at::Tensor get_index_result(at::Tensor input, std::vector<int64_t> shape) {
-  return habana_lazy::empty_hpu_lazy(
-      shape, input.options(), input.suggest_memory_format(), false);
-}
-
-at::Tensor& get_index_result_out(std::vector<at::IValue> inputs_vec) {
-  at::Tensor& output = inputs_vec[5].toTensor();
-  return output;
-}
-
 std::vector<int64_t> get_index_result_shape(
     std::vector<at::IValue> inputs_vec) {
   const at::Tensor input = inputs_vec[0].toTensor();

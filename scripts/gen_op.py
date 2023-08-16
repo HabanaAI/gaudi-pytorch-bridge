@@ -931,18 +931,24 @@ def frontend(
     param_vars,
     inplace_op_info,
     meta_vars,
-    fe_call_args,
+    call_args,
     sig,
     is_eager_frontend,
     is_check_kernel_support,
 ):
-    ns = "hpu" if ctxop.custom_schema() else "aten"
+    ns = "hpu" if ctxop.custom_schema() and not is_eager_frontend else "aten"
     aten_opname = get_aten_opname(aten_sig)
     opname = aten_opname.split(".")[0]
     overload = aten_opname.split(".")[1] if len(aten_opname.split(".")) > 1 else None
     schema_fn = ns + "::" + opname
     op_frontend_class = ctxop.get_op_frontend_class()
     code = ""
+
+    fe_call_args = ""
+    if len(call_args):
+        fe_call_args = "{}".format(", ".join(call_args))
+        if "std::tuple" in rtype:
+            fe_call_args = f"{rtype}({fe_call_args})"
 
     # TODO safe cast check should be done for out variants without type promotion too
     # https://jira.habana-labs.com/browse/SW-111202
@@ -1187,12 +1193,17 @@ def frontend(
                     code += "  RUN_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(fname)
         else:
             if is_eager_frontend and is_eager_op_supported:
-                code_line = '{{{}, "{}", {{{}}}}}'.format(
-                    inplace_op_info[0],
-                    inplace_op_info[1],
-                    ", ".join(map(str, inplace_op_info[2])),
+                eager_op_info_args = (
+                    len(call_args)
+                    if is_out_fn(fname)
+                    else f"decltype(eager::EagerOpMetaData::out_indices_){{{', '.join(map(str, inplace_op_info[2]))}}}"
                 )
-                code += "  hpu_op.set_eager_op_info({});\n".format(code_line)
+                code += (
+                    f"  hpu_op.set_eager_op_info({{"
+                    f"{inplace_op_info[0]}, "
+                    f'"{inplace_op_info[1]}", '
+                    f"{eager_op_info_args}}});\n"
+                )
             code += "  {}hpu_op.call({})".format(
                 "" if rtype == "void" else "return ", fe_call_args
             )
@@ -1480,7 +1491,7 @@ def is_inplace_or_out_op(opname):
 
 
 def get_eager_op_info(ctxop, opname):
-    type = "habana::eager::eagerOpKind::"
+    type = "eager::eagerOpKind::"
     if opname.endswith("_out"):
         type += "InplaceOut"
     elif opname.endswith("_grad_input"):
@@ -1493,25 +1504,12 @@ def get_eager_op_info(ctxop, opname):
     else:
         type += "OutOfPlace"
 
-    ns = "hpu" if ctxop.custom_schema() else "aten"
     name = opname
-    if type != "habana::eager::eagerOpKind::OutOfPlace":
+    if type != "eager::eagerOpKind::OutOfPlace":
         name = opname.rsplit("_", 1)[0]
-    op_name = ns + "::" + name
+    op_name = "aten::" + name
 
     return type, op_name
-
-
-def create_outputs_indices_list_by_schema(schema):
-    substring = schema[: schema.find("->")]
-    substring = substring.replace(" *", "")
-    inputs = substring.split(", ")
-    out_indices = []
-    for index, input in enumerate(inputs):
-        pattern = r"Tensor\([a-z]!\)"
-        if re.findall(pattern, input):
-            out_indices.append(index)
-    return out_indices
 
 
 inplace_params_blacklist = [
@@ -1615,16 +1613,7 @@ def generate_code(
         fc
     ), "Cannot find all params specified for {}.".format(fc[0])
 
-    fe_call_args = ""
-    if len(call_args):
-        fe_call_args = "{}".format(", ".join(call_args))
-        if type_core(tree.children[0]) == "::std::tuple":
-            fe_call_args = "{}({})".format(rtype, fe_call_args)
-
-    if ctxop.custom_schema():
-        out_indices = create_outputs_indices_list_by_schema(ctxop.custom_schema())
-
-    inplace_op_info = [op_type, op_name, out_indices]
+    inplace_op_info = (op_type, op_name, out_indices)
 
     op_frontend += frontend(
         ctxop,
@@ -1636,7 +1625,7 @@ def generate_code(
         param_vars,
         inplace_op_info,
         meta_param_vars,
-        fe_call_args,
+        call_args,
         sig,
         is_eager_frontend,
         is_check_kernel_support,

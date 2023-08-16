@@ -130,77 +130,98 @@ TEST_F(HpuOpTest, bernoulli_out) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
-  GenerateIntInputs(1, {{3, 3}}, 0, 2);
-  auto input1 = GetCpuInput(0).to(torch::kBFloat16);
-  auto input2 = input1.to(torch::kHPU);
+  GenerateInputs(1, {{64, 64}}, torch::kBFloat16);
+  auto input = GetHpuInput(0);
 
-  auto expected = torch::empty(0, torch::kInt);
-  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out1 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
+  auto out2 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
 
   SetSeed();
-  torch::bernoulli_outf(input1, at::detail::getDefaultCPUGenerator(), expected);
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out1);
   SetSeed();
-  torch::bernoulli_outf(input2, at::detail::getDefaultCPUGenerator(), result);
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out2);
 
-  EXPECT_TRUE(expected.equal(result));
+  EXPECT_TRUE(out1.equal(out2));
+
+  auto out3 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out3);
+
+  EXPECT_FALSE(out1.equal(out3));
 }
 
 TEST_F(HpuOpTest, bernoulli_out_2) {
-  if (isGaudi3()) {
+  if (isGaudi3() or isGaudi()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
-  GenerateIntInputs(1, {{3, 3}}, 0, 2);
-  auto input1 = GetCpuInput(0).to(torch::kBFloat16);
-  auto input2 = input1.to(torch::kHPU);
+  GenerateInputs(1, {{64, 64}}, torch::kHalf);
+  auto input = GetHpuInput(0);
 
-  auto expected = torch::empty(0, torch::kInt);
-  auto result = torch::empty(0, torch::kInt).to(torch::kHPU);
+  auto out1 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
+  auto out2 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
 
-  torch::manual_seed(31);
-  torch::bernoulli_outf(input1, at::detail::getDefaultCPUGenerator(), expected);
-  torch::manual_seed(31);
-  torch::bernoulli_outf(input2, at::detail::getDefaultCPUGenerator(), result);
+  SetSeed();
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out1);
+  SetSeed();
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out2);
 
-  EXPECT_TRUE(expected.equal(result));
+  EXPECT_TRUE(out1.equal(out2));
+
+  auto out3 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
+  torch::bernoulli_outf(input, at::detail::getDefaultCPUGenerator(), out3);
+
+  EXPECT_FALSE(out1.equal(out3));
 }
 
 TEST_F(HpuOpTest, bernoulli_out_scalar1) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
-  GenerateIntInputs(2, {{3, 3}, {3, 3}}, 0, 2);
-  auto input1 = GetHpuInput(0).to(torch::kBFloat16);
-  auto input2 = GetHpuInput(1).to(torch::kBFloat16);
+  GenerateInputs(1, {{64, 64}}, torch::kBFloat16);
+  auto input = GetHpuInput(0);
 
-  auto result1 = torch::empty(0, torch::kBFloat16).to(torch::kHPU);
-  auto result2 = result1;
+  auto out1 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
+  auto out2 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
 
   SetSeed();
-  torch::bernoulli_outf(
-      input1, 0.8, at::detail::getDefaultCPUGenerator(), result1);
+  torch::bernoulli_outf(input, 0.8, at::detail::getDefaultCPUGenerator(), out1);
   SetSeed();
-  torch::bernoulli_outf(
-      input2, 0.8, at::detail::getDefaultCPUGenerator(), result2);
+  torch::bernoulli_outf(input, 0.8, at::detail::getDefaultCPUGenerator(), out2);
 
-  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(out1.equal(out2));
+
+  auto out3 =
+      torch::empty(0, at::TensorOptions(torch::kBFloat16).device(at::kHPU));
+  torch::bernoulli_outf(input, 0.8, at::detail::getDefaultCPUGenerator(), out3);
+
+  EXPECT_FALSE(out1.equal(out3));
 }
 
 TEST_F(HpuOpTest, bernoulli_out_scalar2) {
-  GenerateIntInputs(2, {{3, 3}, {3, 3}}, 0, 2);
-  auto input1 = GetHpuInput(0).to(torch::kFloat32);
-  auto input2 = GetHpuInput(1).to(torch::kFloat32);
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
+  GenerateInputs(1, {{64, 64}}, torch::kHalf);
+  auto input = GetHpuInput(0);
 
-  auto result1 = torch::empty(0, torch::kFloat32).to(torch::kHPU);
-  auto result2 = result1;
+  auto out1 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
+  auto out2 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
 
   SetSeed();
-  torch::bernoulli_outf(
-      input1, 0.3, at::detail::getDefaultCPUGenerator(), result1);
+  torch::bernoulli_outf(input, 0.3, at::detail::getDefaultCPUGenerator(), out1);
   SetSeed();
-  torch::bernoulli_outf(
-      input2, 0.3, at::detail::getDefaultCPUGenerator(), result2);
+  torch::bernoulli_outf(input, 0.3, at::detail::getDefaultCPUGenerator(), out2);
 
-  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(out1.equal(out2));
+
+  auto out3 = torch::empty(0, at::TensorOptions(torch::kHalf).device(at::kHPU));
+  torch::bernoulli_outf(input, 0.3, at::detail::getDefaultCPUGenerator(), out3);
+
+  EXPECT_FALSE(out1.equal(out3));
 }
 
 TEST_F(HpuOpTest, random_) {

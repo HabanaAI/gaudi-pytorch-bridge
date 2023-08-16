@@ -30,32 +30,33 @@ OutputMetaDataVector AddCOpsMeta(const at::Stack& stack) {
 
 std::shared_ptr<void> FillAddCompositeParams(
     const at::Stack& stack,
-    enum modes mode_t,
+    BinaryWithAlphaMode_t mode,
     size_t& size) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
   auto out_scalar_type = stack[inp_idx].toTensor().scalar_type();
 
+  params->mode = mode;
   // if alpha is not equal to 1 then it is passed as tensor (4th input),
   // otherwise as params
-  if (c10::isFloatingType(out_scalar_type))
-    params->alpha.f = 1.0f;
-  else
-    params->alpha.i = 1;
-
-  if (mode_t == mul)
-    params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CMUL;
-  else if (mode_t == div)
-    params->mode = BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV;
+  auto val =
+      stack[val_scalar_idx].isScalar() ? stack[val_scalar_idx].toScalar() : 1;
+  if (c10::isFloatingType(out_scalar_type)) {
+    get<float>(params->alpha) = val.to<float>();
+  } else {
+    get<int>(params->alpha) = val.to<int>();
+  }
 
   return params;
 }
 
 std::shared_ptr<void> FillAddcmulParams(const at::Stack& stack, size_t& size) {
-  return FillAddCompositeParams(stack, mul, size);
+  return FillAddCompositeParams(
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CMUL, size);
 }
 
 std::shared_ptr<void> FillAddcdivParams(const at::Stack& stack, size_t& size) {
-  return FillAddCompositeParams(stack, div, size);
+  return FillAddCompositeParams(
+      stack, BinaryWithAlphaMode_t::BINARY_WITH_ALPHA_MODE_CDIV, size);
 }
 
 } // namespace habana

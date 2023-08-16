@@ -16,10 +16,5 @@ namespace habana {
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     eager::EagerOp,
     TopKFE,
-    std::tuple<at::Tensor&, at::Tensor&>) {
-  auto& k_input = get_inputs()[1];
-
-  // TODO: Remove this tensor https://jira.habana-labs.com/browse/SW-120925
-  k_input = at::empty(k_input.toInt(), at::kHPU);
-}
+    std::tuple<at::Tensor&, at::Tensor&>) {}
 } // namespace habana
