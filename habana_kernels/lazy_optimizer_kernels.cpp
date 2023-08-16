@@ -221,8 +221,7 @@ void optimizer_sgd_hpu_lazy(
   habana_lazy::NoAccThread no_acc_thread;
 
   LazyOptimizationOp<void> loo(
-      "hpu::habanaOptimizerFusedSGD",
-      {gradients, weights, lr, wd, mom, damp, nesterov});
+      "hpu::optimizer_sgd", {gradients, weights, lr, wd, mom, damp, nesterov});
 
   loo.call(weights);
 }
@@ -241,7 +240,7 @@ void optimizer_sgd_momentum_hpu_lazy(
   habana_lazy::NoAccThread no_acc_thread;
 
   LazyOptimizationOp<void> loo(
-      "hpu::habanaOptimizerFusedSGDMomentum",
+      "hpu::optimizer_sgd_momentum",
       {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov});
   loo.call(weights, momentum, OPTIMIZER::SGD_MOMENTUM);
 }

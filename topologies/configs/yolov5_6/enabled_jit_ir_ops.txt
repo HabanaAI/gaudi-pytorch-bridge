@@ -40,7 +40,7 @@ hpu::control_edge_
 hpu::expand
 hpu::habana_d2d_memcpy_other
 #hpu::optimizer_ema
-#hpu::habanaOptimizerFusedSGDMomentum
+#hpu::optimizer_sgd_momentum
 hpu::index
 hpu::native_batch_norm_rmv
 hpu::scatter_nd

@@ -945,7 +945,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
-      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
+      "optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
 }
 
 static auto& OptimizerKernelsKernelRegistry =
@@ -960,11 +960,9 @@ static auto& OptimizerKernelsKernelRegistry =
         .add(
             "hpu::habanaOptimizerFusedAdagrad",
             KERNEL_FN(OptimizerFusedAdagradOperator))
+        .add("hpu::optimizer_sgd", KERNEL_FN(OptimizerFusedSGDOperator))
         .add(
-            "hpu::habanaOptimizerFusedSGD",
-            KERNEL_FN(OptimizerFusedSGDOperator))
-        .add(
-            "hpu::habanaOptimizerFusedSGDMomentum",
+            "hpu::optimizer_sgd_momentum",
             KERNEL_FN(OptimizerFusedSGDMomentumOperator))
         .add(
             "hpu::habanaOptimizerLars",
