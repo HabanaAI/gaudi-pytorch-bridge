@@ -553,7 +553,7 @@ void FlattenOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isInt(), "Input arg 2 for Flatten op needs to be Int type");
   TORCH_CHECK(
-      inputs[1].isInt(), "Input arg 3 for Flatten op needs to be Int type");
+      inputs[2].isInt(), "Input arg 3 for Flatten op needs to be Int type");
 
   auto self = inputs[0].toTensor();
   auto start_dim = inputs[1].toInt();
