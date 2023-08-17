@@ -47,19 +47,18 @@ NonZeroEager::NonZeroEager(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(NonzeroMeta);
 }
 
-static float round_dims(NonZeroParams_t self_params, int group_size) {
+float round_dims(const at::Tensor& input_tensor, int group_size) {
   auto group_size_f = static_cast<float>(group_size);
   auto last_dim_rounded =
-      std::ceil(
-          self_params.sizes[(int)self_params.sizes.size() - 1] / group_size_f) *
+      std::ceil(input_tensor.sizes()[input_tensor.dim() - 1] / group_size_f) *
       group_size_f;
   return last_dim_rounded;
 }
 
-std::vector<int64_t> compute_output_st_shape(NonZeroParams_t self_params) {
+std::vector<int64_t> compute_output_st_shape(const at::Tensor& input_tensor) {
   constexpr int group_size = 64;
-  auto last_dim_rounded = round_dims(self_params, group_size);
-  auto out_st_shape = self_params.sizes;
+  auto last_dim_rounded = round_dims(input_tensor, group_size);
+  auto out_st_shape = input_tensor.sizes().vec();
   auto group_size_aligned_dim =
       (long int)last_dim_rounded / (long int)group_size;
   out_st_shape.pop_back();
@@ -68,19 +67,17 @@ std::vector<int64_t> compute_output_st_shape(NonZeroParams_t self_params) {
   return out_st_shape;
 }
 
-std::vector<int64_t> compute_nonzero_output_shape(
-    NonZeroParams_t self_params,
-    bool use_tpc_impl) {
-  auto input_shape = self_params.sizes;
+std::vector<int64_t> compute_nonzero_output_shape(const at::Tensor& self) {
+  auto input_shape = self.sizes();
   int dimensions = input_shape.size();
-  auto elements = self_params.numel;
+  auto elements = self.numel();
   if ((habana::HPURegistrar::get_device().type() !=
        synDeviceType::synDeviceGreco) and
-      (dimensions <= 4) and (dimensions > 0) and !use_tpc_impl) {
+      (self.dim() <= 4) and (self.dim() > 0)) {
     elements = 1;
-    auto last_dim_rounded = round_dims(self_params, 64);
-    for (unsigned i = 0; i < dimensions - 1; i++) {
-      elements *= self_params.sizes[i];
+    auto last_dim_rounded = round_dims(self, 64);
+    for (unsigned i = 0; i < self.sizes().size() - 1; i++) {
+      elements *= self.sizes()[i];
     }
     elements = elements * last_dim_rounded;
   }
@@ -88,45 +85,44 @@ std::vector<int64_t> compute_nonzero_output_shape(
   return output_shape;
 }
 
-std::vector<synapse_helpers::tensor> NonZeroCommon(
-    OpBackend* op,
+void NonZeroEager::AddNode(
     synapse_helpers::graph& graph,
-    NonZeroParams_t self_params,
-    synTensor self_synin,
-    c10::optional<int> final_result_index,
-    DimVector& shape_tensor_shape,
-    bool use_tpc_impl = false) {
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto shape_tensor_shape = DimVector{5};
+  std::vector<synTensor> nonzero_synTensor;
   std::vector<synapse_helpers::tensor> nonzero;
-  int64_t self_dims = (int64_t)self_params.sizes.size();
-  if (self_dims > 4 || use_tpc_impl) {
-    auto guid = get_guid_with_precision("non_zero_fwd", self_params.dtype);
-    auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
+
+  if (self.dim() > 4) {
+    auto guid = get_guid_with_precision("non_zero_fwd", self.scalar_type());
+    auto output_shape = compute_nonzero_output_shape(self);
     // outputs - coordinates tensor is of output_shape with maximum
     // self.numel()xself.dim() shape
     //  and shape_tensor is having 5D shape filled by tpc with actual num of
     //  nonzero elems
     synDataType synType = syn_type_uint32;
-    std::vector<synTensor> inputs = {self_synin};
+    std::vector<synTensor> inputs = {syn_in(0)};
     nonzero = OpBackend::BuildNode(
-        op,
+        this,
         graph,
         {guid,
          std::move(inputs),
-         {{output_shape, c10::ScalarType::Int, final_result_index, DATA_TENSOR},
+         {{output_shape, c10::ScalarType::Int, 0, DATA_TENSOR},
           {shape_tensor_shape,
            c10::ScalarType::Int,
            c10::nullopt,
            DATA_TENSOR,
            synType}}});
-    return std::move(nonzero);
+    syn_out(0) = std::move(nonzero.at(0));
+    nonzero_synTensor.emplace_back(nonzero.at(1).get());
   } else {
     auto v2_guid =
-        get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
-    auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
-    auto st_shape = compute_output_st_shape(self_params);
+        get_guid_with_precision("non_zero_v2_fwd", self.scalar_type());
+    auto output_shape = compute_nonzero_output_shape(self);
+    auto st_shape = compute_output_st_shape(self);
     // Need to create a reshape_shape_tensor for nonzero_v2 guid here
-    std::vector<synTensor> inputs = {self_synin};
-    op->CreateShapeTensorInput(
+    std::vector<synTensor> inputs = {syn_in(0)};
+    CreateShapeTensorInput(
         graph, c10::ScalarType::Int, st_shape, inputs, SHAPE_TENSOR, true);
     // outputs - coordinates tensor is of output_shape with maximum
     // self.numel()xself.dim() shape
@@ -136,11 +132,11 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
     params.group_size = 64;
     synDataType synType = syn_type_uint32;
     nonzero = OpBackend::BuildNode(
-        op,
+        this,
         graph,
         {v2_guid,
          std::move(inputs),
-         {{output_shape, c10::ScalarType::Int, final_result_index, DATA_TENSOR},
+         {{output_shape, c10::ScalarType::Int, 0, DATA_TENSOR},
           {shape_tensor_shape,
            c10::ScalarType::Int,
            c10::nullopt,
@@ -148,30 +144,15 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
            synType}},
          &params,
          sizeof(params)});
-    return std::move(nonzero);
+    syn_out(0) = std::move(nonzero.at(0));
+    nonzero_synTensor.emplace_back(nonzero.at(1).get());
   }
-}
-
-void NonZeroEager::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  std::vector<synapse_helpers::tensor> nonzero;
-  auto shape_tensor_shape = DimVector{5};
-
-  NonZeroParams_t self_params;
-  self_params.dtype = self.scalar_type();
-  self_params.sizes = self.sizes().vec();
-  self_params.numel = self.numel();
-  nonzero =
-      NonZeroCommon(this, graph, self_params, syn_in(0), 0, shape_tensor_shape);
-  syn_out(0) = std::move(nonzero.at(0));
   // Add cast for second syn_out - this has to be of type syn_type_uint32
   auto cast_out_shape = OpBackend::BuildNode(
       this,
       graph,
       {"cast_u32_to_i32",
-       {nonzero.at(1).get()},
+       nonzero_synTensor,
        {{shape_tensor_shape, c10::ScalarType::Int, 1}}});
   syn_out(1) = std::move(cast_out_shape.at(0));
 }

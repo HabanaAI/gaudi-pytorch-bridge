@@ -144,20 +144,3 @@ def test_unsqueeze(dim):
     result_cpu = raw_function(cpu_tensor)
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
-
-@pytest.mark.parametrize(
-    "accumulate", [False]
-)
-def test_index_put_bool_mask_only(accumulate):
-    def fn(tensor, bool_mask, value, accumulate):
-        return tensor.index_put([bool_mask], value, accumulate)
-
-    tensor = torch.randn(256)
-    bool_mask = torch.randn(256) > 0.5
-    values = torch.tensor(-1000.0)
-    print(bool_mask)
-
-    cpu_res = fn(tensor, bool_mask, values, accumulate)
-    hpu_res = fn(tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate)
-
-    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)

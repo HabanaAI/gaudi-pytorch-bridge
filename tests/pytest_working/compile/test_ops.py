@@ -12,9 +12,7 @@
 import torch
 import torch.nn as nn
 import pytest
-from functools import reduce
 from torch.testing._internal.common_methods_invocations import op_db
-
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import habana_frameworks.torch.utils.experimental as htexp
 
@@ -206,31 +204,6 @@ def test_unsqueeze(dtype, dim):
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
-
-@pytest.mark.parametrize("self_shape", [(6,), (4, 6)])
-@pytest.mark.parametrize("indices_shape", [(6,), (4, 6)])
-@pytest.mark.parametrize("accumulate", [False, True])
-def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
-    def fn(tensor, bool_mask, value, accumulate):
-        return tensor.index_put([bool_mask], value, accumulate)
-
-    if len(self_shape) < len(indices_shape):
-        pytest.skip("Invalid case self.dim() < indices.dim()")
-    self_numel = reduce(lambda x, y: x * y, list(self_shape))
-    indices_numel = reduce(lambda x, y: x * y, list(indices_shape))
-    tensor = torch.arange(self_numel).view(self_shape)
-    mask_in = torch.arange(indices_numel).view(indices_shape)
-    bool_mask = mask_in > indices_numel / 3
-    values = torch.tensor([-100])
-
-    compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, bool_mask, values, accumulate)
-
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
-    hpu_res = compiled_hpu(
-        tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
-    )
-    assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
 
 def test_constant_pad_nd():
