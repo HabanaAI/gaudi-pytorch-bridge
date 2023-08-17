@@ -901,6 +901,16 @@ TEST_F(LazyBasicKernelTest, viewinsert_broadcast) {
   EXPECT_EQ(allclose(a, ha.cpu(), 0.001, 0.001), true);
 }
 
+TEST_F(LazyBasicKernelTest, gather_neg_dim) {
+  torch::Tensor inp = torch::randn({2});
+  auto indx = torch::randint(0, 2, {2}, torch::kInt64);
+  auto hinp = inp.to(torch::kHPU);
+  auto hindx = indx.to(torch::kHPU);
+  auto cpuout = torch::gather(inp, -1, indx, 0);
+  auto hpuout = torch::gather(hinp, -1, hindx, 0);
+  EXPECT_EQ(allclose(cpuout, hpuout.cpu(), 0.001, 0.001), true);
+}
+
 TEST_F(LazyBasicKernelTest, DISABLED_noncontigD2H_nonblocking) {
   torch::Tensor A = torch::randn({2, 2});
   auto hA = A.to(torch::kHPU);
