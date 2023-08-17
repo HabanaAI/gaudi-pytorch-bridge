@@ -194,6 +194,18 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_const_tensor_ = is_const_tensor;
   }
 
+  void set_nbytes_inference(size_t _bytes) {
+    nbytes_inference_ = _bytes;
+  }
+
+  at::optional<size_t> get_nbytes_inference() const {
+    return nbytes_inference_;
+  }
+
+  bool has_nbytes_inference_valid() const {
+    return nbytes_inference_.has_value();
+  }
+
   void set_tensor_size(c10::IntArrayRef s) {
     sizes_ = s;
   }
@@ -421,6 +433,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   std::shared_ptr<serialization::ConstSectionDataSerialize> const_section_data_;
   size_t size_{0};
   size_t el_size_{0};
+  at::optional<size_t> nbytes_inference_;
   HostDataType dt_type_{HostDataType::INVALID_T};
   ShapeTensorStruct shape_tensor_struct_{};
   bool is_redundant_ = false;

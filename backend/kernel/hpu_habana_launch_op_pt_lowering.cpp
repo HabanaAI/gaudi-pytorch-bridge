@@ -305,6 +305,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
     if (src.has_storage()) {
       auto tmeta{get_tensor_extra_meta(src)};
+      auto smeta{habana::get_storage_extra_meta(src)};
+      auto permutation = smeta->get_memory_permutation();
+      auto allow = smeta->get_dont_allow_permutation();
       PT_BRIDGE_DEBUG("tensor is_const_tensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
         if (tmeta->is_const_tensor()) {
@@ -378,6 +381,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                     old_size,
                     " < ",
                     section_size);
+                tmeta->set_nbytes_inference(old_size);
                 at::DataPtr data =
                     src.storage().allocator()->allocate(section_size);
                 src.storage().set_data_ptr(std::move(data));
@@ -400,6 +404,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 std::this_thread::yield();
               }
               insertConstantChecksum(const_id, checksum);
+              auto new_extra_smeta{habana::get_storage_extra_meta(src)};
+              new_extra_smeta->set_memory_permutation(permutation);
+              new_extra_smeta->set_dont_allow_permutation(allow);
             } else {
               HABANA_ASSERT(
                   m_const_checksum_map[const_id] == checksum,

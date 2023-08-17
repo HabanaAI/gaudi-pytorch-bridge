@@ -15,6 +15,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/runtime_config.h"
+#include "backend_meta.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
 // c10::BackendMeta in the TensorImpl and we don't have to rely on
@@ -194,6 +195,11 @@ StorageExtraMeta* get_storage_extra_meta(
         " without an Allocation Context. Returning nullptr..");
     return nullptr;
   }
+  auto tmeta = get_ctensor_extra_meta(*tensor_impl);
+  if (tmeta->has_nbytes_inference_valid()) {
+    nbytes = tmeta->get_nbytes_inference();
+  }
+
   if (nbytes.has_value() && nbytes.value() > alloc_ctx->num_bytes) {
     // It's possible for i.e. as_strided() called with bigger size than the
     // original buffer.
