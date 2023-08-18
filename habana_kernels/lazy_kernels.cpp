@@ -7478,4 +7478,22 @@ at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
 }
 
+at::Tensor conv2d_fp8_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
+    int64_t groups,
+    c10::optional<at::ScalarType> out_dtype) {
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::conv2d_fp8",
+      {input, weight, bias, stride, padding, dilation, groups, out_dtype},
+      Conv2dFp8OutputShape};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
+
+  RUN_MAYBE_WITH_ACC_THREAD(fp8_index_select_v2, hpu_op)
+}
+
 } // namespace habana_lazy

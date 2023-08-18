@@ -696,6 +696,25 @@ at::Tensor& in_place_interleave_(at::Tensor& self) {
       false, "hpu::in_place_interleave_ is not available in Eager mode.");
 }
 
+at::Tensor conv2d_fp8(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
+    int64_t groups,
+    c10::optional<at::ScalarType> out_dtype) {
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::conv2d_fp8",
+      {input, weight, bias, stride, padding, dilation, groups, out_dtype},
+      Conv2dFp8OutputShape};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::OutOfPlace, "hpu::conv2d_fp8", {}});
+  return hpu_op.call();
+}
+
 TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
@@ -783,6 +802,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
+  m.def(
+      "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -829,6 +850,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
   m.impl("hpu::in_place_interleave_", in_place_interleave_);
+  m.impl("hpu::conv2d_fp8", conv2d_fp8);
 }
 
 } // namespace eager

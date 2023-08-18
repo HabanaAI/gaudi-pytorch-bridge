@@ -851,4 +851,13 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
     int64_t grouped_batch_size,
     bool use_max,
     int64_t mode);
+at::Tensor conv2d_fp8_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
+    int64_t groups,
+    c10::optional<at::ScalarType> out_dtype);
 } // namespace habana_lazy

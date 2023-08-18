@@ -1003,3 +1003,31 @@ def test_in_place_interleave(shape, dtype):
     output_ref = torch.index_select(input, 0, index)
 
     assert torch.equal(input_hpu.cpu(), output_ref)
+
+
+@pytest.mark.parametrize("N, C, H, W", [(8,3,28,28), (4, 6, 16, 16)])
+@pytest.mark.parametrize("out_channels", [16])
+@pytest.mark.parametrize("kernel", [(2, 2), (4, 6)])
+@pytest.mark.parametrize("stride", [(1, 1), (2, 2)])
+@pytest.mark.parametrize("padding", [(0, 0), (1, 1)])
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
+def test_conv2d_fp8(
+    N, C, H, W, out_channels, kernel, stride, padding, bias, out_dtype, fp8_dtype
+):
+    torch.manual_seed(12345)
+
+    input_cpu = torch.randn((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+    input_hpu = input_cpu.to("hpu").to(fp8_dtype)
+
+    weight_cpu = torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+    weight_hpu = weight_cpu.to("hpu").to(fp8_dtype)
+
+    bias_cpu = torch.rand(out_channels, dtype=out_dtype).to(fp8_dtype).to(out_dtype) if bias else None
+    bias_hpu = bias_cpu.to("hpu").to(fp8_dtype) if bias else None
+
+    conv = torch.ops.hpu.conv2d_fp8(input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype)
+    conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, bias_cpu, stride, padding, 1, 1)
+
+    compare_tensors(conv, conv_ref, atol=1e-2, rtol=1e-2)

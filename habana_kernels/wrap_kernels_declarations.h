@@ -450,6 +450,36 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale);
+at::Tensor masked_batch_gemm_wrap(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const at::Tensor& mask_a,
+    const at::Tensor& mask_b,
+    bool trans_a,
+    bool trans_b);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
+    const at::Tensor& self);
+at::Tensor retain_softmax_consumer_wrap(
+    const at::Tensor& self,
+    const at::Tensor& max,
+    const at::Tensor& exp_sum_recpr);
+at::Tensor scaled_masked_triangular_softmax_wrap(
+    const at::Tensor& self,
+    const at::Tensor& start_end,
+    double inv_scale_attn,
+    int64_t grouped_batch_size,
+    bool use_max,
+    int64_t mode);
+at::Tensor& in_place_interleave_wrap(at::Tensor& self);
+at::Tensor conv2d_fp8_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
+    int64_t groups,
+    c10::optional<at::ScalarType> out_dtype);
 
 namespace vision {
 namespace ops {
@@ -474,27 +504,6 @@ at::Tensor roi_align_bwd_wrap(
     int64_t w,
     int64_t sampling_ratio,
     bool aligned);
-at::Tensor masked_batch_gemm_wrap(
-    const at::Tensor& a,
-    const at::Tensor& b,
-    const at::Tensor& mask_a,
-    const at::Tensor& mask_b,
-    bool trans_a,
-    bool trans_b);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
-    const at::Tensor& self);
-at::Tensor retain_softmax_consumer_wrap(
-    const at::Tensor& self,
-    const at::Tensor& max,
-    const at::Tensor& exp_sum_recpr);
-at::Tensor scaled_masked_triangular_softmax_wrap(
-    const at::Tensor& self,
-    const at::Tensor& start_end,
-    double inv_scale_attn,
-    int64_t grouped_batch_size,
-    bool use_max,
-    int64_t mode);
-at::Tensor& in_place_interleave_wrap(at::Tensor& self);
 
 } // namespace ops
 } // namespace vision

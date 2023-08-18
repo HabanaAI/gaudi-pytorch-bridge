@@ -1955,6 +1955,28 @@ at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
   return in_place_interleave_lazy(self);
 }
 
+at::Tensor conv2d_fp8_wrap(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
+    int64_t groups,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(DUMP_8ARGS(
+      input, weight, bias, stride, padding, dilation, groups, out_dtype));
+
+  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
+    return conv2d_fp8_lazy(
+        input, weight, bias, stride, padding, dilation, groups, out_dtype);
+  } else {
+    TORCH_CHECK(false, "FP8 data type is not available on this device.")
+  }
+}
+
 /***********************************************************************************
  * Kernels requiring autograd override
  **********************************************************************************/
@@ -2464,6 +2486,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
+  m.def(
+      "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2516,6 +2540,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);
   m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
+  m.impl("hpu::conv2d_fp8", conv2d_fp8_wrap);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

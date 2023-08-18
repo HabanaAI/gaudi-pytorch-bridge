@@ -26,6 +26,8 @@ static auto GetFp8Dtypes(const at::IValue& dtype) {
   return std::make_pair(pt_dtype, syn_dtype);
 }
 
+/********** CastToFp8 **********/
+
 CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_to_fp8", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(2);
@@ -72,6 +74,8 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(1) = std::move(casted[1]);
   }
 }
+
+/********** CastToFp8V2 **********/
 
 sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   auto input_sv = stack[0].toTensor().sizes().vec();
@@ -139,6 +143,8 @@ void CastToFp8V2::AddNode(
   }
 }
 
+/********** Fp8CastTranspose **********/
+
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -197,6 +203,8 @@ void Fp8CastTranspose::AddNode(
     syn_out(2) = std::move(casted[2]);
   }
 }
+
+/********** Fp8CastTransposeBgrad **********/
 
 Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
     int device_id,
@@ -261,6 +269,8 @@ void Fp8CastTransposeBgrad::AddNode(
     syn_out(3) = std::move(casted[3]);
   }
 }
+
+/********** Fp8CastTransposeBgradDgelu **********/
 
 Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
     int device_id,
@@ -335,6 +345,8 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   }
 }
 
+/********** CastFromFp8 **********/
+
 CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_from_fp8", scalar_type, {0}, {}, {}, false) {}
 
@@ -362,6 +374,8 @@ void CastFromFp8::AddNode(
 
   syn_out(0) = std::move(casted[0]);
 }
+
+/********** Fp8Dropout **********/
 
 sizes_vec Fp8DropoutOutputShape(const at::Stack& stack) {
   std::vector<int64_t> amax_size{1};
@@ -425,6 +439,8 @@ void Fp8Dropout::AddNode(
   }
 }
 
+/********** Fp8Gelu **********/
+
 Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gelu", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(3);
@@ -474,6 +490,8 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(2) = std::move(gelu[2]);
   }
 }
+
+/********** Fp8GeluV2 **********/
 
 sizes_vec Fp8GeluV2OutputShape(const at::Stack& stack) {
   std::vector<int64_t> amax_size{1};
@@ -532,6 +550,8 @@ void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_out(2) = std::move(gelu[2]);
   }
 }
+
+/********** Fp8BgradDgelu **********/
 
 sizes_vec Fp8BgradDgeluOutputShape(const at::Stack& stack) {
   std::vector<int64_t> amax_size{1};
@@ -597,6 +617,8 @@ void Fp8BgradDgelu::AddNode(
   }
 }
 
+/********** Fp8FastSoftmaxOutputShape **********/
+
 sizes_vec Fp8FastSoftmaxOutputShape(const at::Stack& stack) {
   std::vector<int64_t> amax_size{1};
   auto out_size = stack_tensor(stack, 0).sizes().vec();
@@ -654,6 +676,8 @@ void Fp8FastSoftmax::AddNode(
   }
 }
 
+/********** Fp8Layernorm **********/
+
 Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_layernorm", scalar_type, {}, {}, {}, true) {
   SetNumOutTensors(4);
@@ -709,6 +733,8 @@ void Fp8Layernorm::AddNode(
     syn_out(3) = std::move(layernorm[3]);
   }
 }
+
+/********** Fp8Gemm **********/
 
 Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
@@ -768,6 +794,8 @@ void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   syn_out(0) = std::move(gemm[0]);
 }
+
+/********** Fp8GemmV2 **********/
 
 sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
   auto A = stack_tensor(stack, 0);
@@ -848,6 +876,8 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(gemm[0]);
 }
 
+/********** Fp8Transpose **********/
+
 Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_transpose", scalar_type, {}, {}, {}, true) {}
 
@@ -872,6 +902,8 @@ void Fp8Transpose::AddNode(
 
   syn_out(0) = std::move(transpose[0]);
 }
+
+/********** Fp8Permute **********/
 
 Fp8Permute::Fp8Permute(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_permute", scalar_type, {}, {}, {}, true) {}
@@ -902,6 +934,8 @@ void Fp8Permute::AddNode(
   syn_out(0) = std::move(transpose[0]);
 }
 
+/********** Fp8Reshape **********/
+
 sizes_vec Fp8ReshapeOutputShape(const at::Stack& stack) {
   return {stack[1].toIntList().vec()};
 }
@@ -929,6 +963,8 @@ void Fp8Reshape::AddNode(
   syn_out(0) = std::move(reshape[0]);
 }
 
+/********** Fp8Copy_ **********/
+
 Fp8Copy_::Fp8Copy_(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_copy_", scalar_type, {}, {0}, {}, false) {}
 
@@ -946,6 +982,8 @@ void Fp8Copy_::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   syn_out(0) = std::move(copy[0]);
 }
+
+/********** Fp8KvReorder **********/
 
 Fp8KvReorder::Fp8KvReorder(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_kv_reorder", scalar_type, {}, {0}, {}, false) {}
@@ -987,6 +1025,8 @@ void Fp8KvReorder::AddNode(
   syn_out(0) = std::move(selective_gather[0]);
 }
 
+/********** Fp8IndexCopy_ **********/
+
 Fp8IndexCopy_::Fp8IndexCopy_(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_index_copy_", scalar_type, {}, {0}, {}, false) {
 }
@@ -1019,6 +1059,8 @@ void Fp8IndexCopy_::AddNode(
 
   syn_out(0) = std::move(copy[0]);
 }
+
+/********** Fp8RepeatV2 **********/
 
 sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
@@ -1097,6 +1139,8 @@ void Fp8RepeatV2::AddNode(
   syn_out(0) = std::move(result[0]);
 }
 
+/********** Fp8IndexSelectV2 **********/
+
 sizes_vec Fp8IndexSelectV2OutputShape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   int dim = stack[1].toInt();
@@ -1154,6 +1198,8 @@ void Fp8IndexSelectV2::AddNode(
   syn_out(0) = std::move(result[0]);
 }
 
+/********** InPlaceInterleave **********/
+
 InPlaceInterleave::InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -1197,6 +1243,119 @@ void InPlaceInterleave::AddNode(
   syn_out(0) = std::move(output[0]);
 }
 
+/********** Conv2dFp8 **********/
+
+static int64_t ComputeOutputSize(
+    const int64_t input_dim,
+    const int64_t padding,
+    const int64_t dilation,
+    const int64_t kernel_size,
+    const int64_t stride) {
+  return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) / stride +
+      1;
+}
+
+sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
+  auto shape_in = stack_tensor(stack, 0).sizes();
+  auto shape_wt = stack_tensor(stack, 1).sizes();
+  const auto stride = stack[3].toIntList().vec();
+  const auto padding = stack[4].toIntList().vec();
+  const auto dilation = stack[5].toIntList().vec();
+  const int64_t groups = stack[6].toInt();
+
+  std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
+  for (int i = 0; i < 2; ++i) {
+    out_shape.push_back(ComputeOutputSize(
+        shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
+  }
+
+  return {out_shape};
+}
+
+static synConvolutionParams FillConv2dFp8Params(
+    const at::IntArrayRef& weight,
+    const at::IntArrayRef& stride,
+    const at::IntArrayRef& padding,
+    const at::IntArrayRef& dilation,
+    int64_t groups) {
+  synConvolutionParams params{};
+  params.dH = stride[0];
+  params.dW = stride[1];
+  params.kH = weight[2];
+  params.kW = weight[3];
+  params.dilH = dilation[0];
+  params.dilW = dilation[1];
+  params.setPadT(padding[0]);
+  params.setPadB(padding[0]);
+  params.setPadL(padding[1]);
+  params.setPadR(padding[1]);
+  params.nGroups = groups;
+
+  return params;
+}
+
+Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "spatial_convolution",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {
+  SetComputeOutputShapes(Conv2dFp8OutputShape);
+}
+
+void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 8, "Conv2dFp8 must have 8 input arguments");
+
+  StackGetter stackGetter(stack, "Conv2dFp8::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto weight = getNextInput<TensorsPair>(stackGetter);
+  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto stride = getNextInput<std::vector<int64_t>>(stackGetter);
+  auto padding = getNextInput<std::vector<int64_t>>(stackGetter);
+  auto dilation = getNextInput<std::vector<int64_t>>(stackGetter);
+  auto groups = getNextInput<int>(stackGetter);
+  auto pt_dtype =
+      stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::BFloat16);
+
+  TORCH_CHECK(
+      input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,
+      "Input and weight must be 4D tensors");
+  if (bias) {
+    TORCH_CHECK(
+        bias->pt_t.dim() == 1 and
+            bias->pt_t.sizes()[0] == weight.pt_t.sizes()[0],
+        "Bias must be 1D tensor with size equal to weight dim0");
+  }
+
+  SetSynapseLayouts(
+      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
+      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+
+  auto out_shape = Conv2dFp8OutputShape(stack)[0];
+  std::vector<synTensor> syn_inputs{input.syn_t, weight.syn_t};
+  if (bias) {
+    syn_inputs.push_back(bias->syn_t);
+  }
+  auto params = FillConv2dFp8Params(
+      weight.pt_t.sizes().vec(), stride, padding, dilation, groups);
+
+  NodeAttr::NodeOutputAttr nodeOutputAttr{out_shape, pt_dtype, 0};
+  NodeAttr nodeAttr{
+      guid_, syn_inputs, {nodeOutputAttr}, &params, sizeof(params)};
+
+  auto conv = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid_, syn_inputs, {{out_shape, pt_dtype, 0}}, &params, sizeof(params)});
+
+  syn_out(0) = std::move(conv[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1233,4 +1392,5 @@ static const auto& CastKernelRegistry =
             KERNEL_FN_GLOBAL(habana::Fp8IndexSelectV2))
         .add(
             "hpu::in_place_interleave_",
-            KERNEL_FN_GLOBAL(habana::InPlaceInterleave));
+            KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
+        .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8));
