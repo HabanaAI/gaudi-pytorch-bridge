@@ -77,18 +77,22 @@ void GetValuesAndScalarIndexesFromListConstruct(
 
 void CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
-    torch::jit::Node* aten_view_node,
-    const c10::Symbol& hpu_view_symbol,
+    torch::jit::Node* aten_node,
+    const c10::Symbol& hpu_symbol,
     c10::ArrayRef<torch::jit::Value*> inputs) {
-  torch::jit::WithInsertPoint insert_guard{aten_view_node};
-  auto hpu_view_node{
-      graph->insertNode(graph->create(hpu_view_symbol, inputs, 0))};
+  torch::jit::WithInsertPoint insert_guard{aten_node};
+  auto hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
   int output_count = 0;
-  for (auto output : aten_view_node->outputs()) {
-    hpu_view_node->addOutput()->copyMetadata(output);
+  for (auto output : aten_node->outputs()) {
+    hpu_node->addOutput()->copyMetadata(output);
     output->replaceAllUsesAfterNodeWith(
-        hpu_view_node, hpu_view_node->output(output_count));
+        hpu_node, hpu_node->output(output_count));
     output_count = output_count + 1;
+  }
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
+    auto one = torch::jit::attr::alpha;
+    hpu_node->i_(one, aten_node->i(one));
   }
 }
 

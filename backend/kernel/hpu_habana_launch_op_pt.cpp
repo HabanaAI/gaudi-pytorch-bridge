@@ -1414,6 +1414,24 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
   HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
 }
 
+at::Tensor createDynamicTensor(
+    const std::vector<int64_t>& size,
+    synTensorType type) {
+  auto allocator = habana::getHABANADeviceAllocator();
+  constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
+  auto dtype = c10::ScalarType::Float;
+
+  at::Tensor tensor = at::detail::empty_generic(
+      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);
+
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  tmeta->set_tensor_type(type);
+  tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  PT_EAGER_DEBUG(
+      "Created dynamic tensor of type:", type, ", size:", tensor.sizes());
+  return tensor;
+}
+
 void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
   const auto& node_ins = node->inputs();
   auto node_vals = node->outputs();
@@ -2770,14 +2788,22 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
       if (tensor_type == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
         if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-          new_tensor = at::empty(
-                           tensor.sizes(),
-                           tensor.options().dtype(),
-                           tensor.suggest_memory_format())
-                           .to(at::kHPU);
+          new_tensor = createDynamicTensor(tensor.sizes().vec(), tensor_type);
         } else {
           new_tensor = habana_lazy::empty_hpu_lazy(
               tensor.sizes(),
+              tensor.options(),
+              tensor.suggest_memory_format(),
+              true,
+              tensor_type);
+        }
+      } else if (tensor_type == SHAPE_TENSOR) {
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+          new_tensor =
+              createDynamicTensor(dynamic_shapes.at(i).get_dims(), tensor_type);
+        } else {
+          new_tensor = habana_lazy::empty_hpu_lazy(
+              dynamic_shapes.at(i).get_dims(),
               tensor.options(),
               tensor.suggest_memory_format(),
               true,

@@ -173,6 +173,8 @@ def enable_dynamic_shape():
 def disable_dynamic_shape():
     _hpu_C.disable_dynamic_shape()
 
+def get_dynamic_shape_status() -> bool:
+    return _hpu_C.get_dynamic_shape_status()
 
 def enable_inference_mode():
     _hpu_C.enable_inference_mode()

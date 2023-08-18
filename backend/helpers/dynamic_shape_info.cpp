@@ -24,15 +24,14 @@ thread_local bool m_enable_refine_dynamic_shape{
     GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
 
 void SetRefineDynamicShape(bool flag) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
+  auto hpu_mod = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  if (hpu_mod == 1) {
     m_enable_refine_dynamic_shape = flag;
     if (lazy_to_backend::is_lazy_inference_call_context()) {
       SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
     }
-  } else {
-    PT_DYNAMIC_SHAPE_WARN(
-        "PT2.0: SetRefineDynamicShape expected to call only for lazy mode, value:",
-        flag);
+  } else if (hpu_mod == 0) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, flag, 1);
   }
 }
 
@@ -45,17 +44,17 @@ void DisableRefineDynamicShape() {
 }
 
 bool GetRefineDynamicShapeStatus() {
-  // This function has to be called only in lazy mode.
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) {
-    PT_DYNAMIC_SHAPE_WARN(
-        "PT2.0: GetRefineDynamicShapeStatus expected to call only for lazy mode");
+  auto hpu_mod = GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
+  if (hpu_mod == 1) {
+    if (!lazy_to_backend::is_lazy_inference_call_context()) {
+      return m_enable_refine_dynamic_shape;
+    }
+    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  } else if (hpu_mod == 0) {
+    return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  } else {
     return false;
   }
-
-  if (!lazy_to_backend::is_lazy_inference_call_context()) {
-    return m_enable_refine_dynamic_shape;
-  }
-  return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 }
 
 void SetHybridSIFTorchCompile(bool flag) {

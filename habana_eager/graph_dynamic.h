@@ -43,7 +43,6 @@ struct DynamicGraphMetaData {
 
 int64_t GetSymintValue(torch::jit::Stack&, uint64_t);
 std::string GetDynamicTensorName(const std::string&, synTensorType type);
-at::Tensor createDynamicTensor(const std::vector<int64_t>&, synTensorType);
 template <typename T>
 std::vector<T> GetH2DTensorHostData(at::Tensor& tensor);
 

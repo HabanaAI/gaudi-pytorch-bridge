@@ -42,18 +42,6 @@ std::string GetDynamicTensorName(
   return t_name;
 }
 
-at::Tensor createDynamicTensor(
-    const std::vector<int64_t>& size,
-    synTensorType type) {
-  // TODO need to get a proper type and memory format for tensor creation
-  at::Tensor tensor = at::empty(size, c10::ScalarType::Float).to("hpu");
-  auto tmeta = get_tensor_extra_meta(tensor);
-  tmeta->set_tensor_type(type);
-  PT_EAGER_DEBUG(
-      "Created dynamic tensor of type:", type, ", size:", tensor.sizes());
-  return tensor;
-}
-
 template <typename T>
 std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
   std::vector<T> host_data;

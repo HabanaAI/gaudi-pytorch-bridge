@@ -67,6 +67,9 @@ enum ControlEdgeType {
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
     std::unordered_map<CValPtr, IValPtrShared>& value_to_ivalue);
+// Api to create shape or H2d tensors with zero memory allocations.
+// Information in shape tensor is embedded in tensor meta data
+at::Tensor createDynamicTensor(const std::vector<int64_t>&, synTensorType);
 
 struct DynamicShapeInfo {
   habana_helpers::InpTensorShapes act_input_tshapes;
