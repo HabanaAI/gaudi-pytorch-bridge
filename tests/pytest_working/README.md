@@ -8,4 +8,4 @@ Directories content:
 - `lazy/` tests to run only with `--mode=lazy / PT_HPU_LAZY_MODE=1`
 - `eager/` tests to run only with `--mode=eager / PT_HPU_LAZY_MODE=0`
 - `compile/` tests to run only with `--mode=graph / PT_HPU_LAZY_MODE=0`
-- `fused_ops/` TODO
+- `any_mode/` tests to run with any mode setting, they are wrote in universal way

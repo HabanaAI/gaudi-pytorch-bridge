@@ -117,10 +117,47 @@ bool is_view_op_needed(const at::Tensor& t) {
   return (habana::is_view_lowering(t) || (!t.is_contiguous()));
 }
 
+void _assert_tensors_sizes(const at::Tensor& src, const at::Tensor& dst) {
+  HABANA_ASSERT(
+      dst.nbytes() >= src.nbytes(),
+      "dst size: ",
+      dst.nbytes(),
+      " src size: ",
+      src.nbytes());
+}
+
+void _assert_tensors_dtypes(const at::Tensor& src, const at::Tensor& dst) {
+  HABANA_ASSERT(
+      dst.dtype() == src.dtype(),
+      "dst dtype: ",
+      dst.dtype(),
+      " src dtype: ",
+      src.dtype());
+}
+
+at::Tensor _hpu_cast(const at::Tensor& dst, const at::Tensor& src) {
+  habana::eager::EagerOp<at::Tensor&> hpu_op{
+      "hpu::_copy_from", {src, dst}, {dst.sizes().vec()}, 1};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
+  return hpu_op.call(const_cast<at::Tensor&>(dst));
+}
+
+at::Tensor _hpu_cast(
+    const at::Tensor& src,
+    const at::TensorOptions& options,
+    const c10::MemoryFormat& mem_format) {
+  auto dst = at::empty(src.sizes(), options, mem_format);
+  return _hpu_cast(dst, src);
+}
+
 at::Tensor _copy_from_d2h(
     const at::Tensor& self,
     const at::Tensor& dst,
     bool non_blocking) {
+  _assert_tensors_sizes(self, dst);
+  _assert_tensors_dtypes(self, dst);
+
   auto self_ = self;
   // To Do - join pending not required here once copy d2h
   // also comes through pipeline SW-126657
@@ -172,6 +209,9 @@ at::Tensor _copy_from_h2d(
     const at::Tensor& self,
     const at::Tensor& dst,
     bool non_blocking) {
+  _assert_tensors_sizes(self, dst);
+  _assert_tensors_dtypes(self, dst);
+
   at::Tensor result;
   // Special handling for Long/Double tensors
   // Downcast sent data (implicitly backend will treat it as Int/Float anyway)
@@ -219,13 +259,7 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     // needed. As there is no explicit hpu::cast kind of eager-op, we
     // use hpu::_copy_from, which takes care of cast in the back-end.
     if (!same_data_type) {
-      at::Tensor cast_out =
-          at::empty(self.sizes(), dst.options(), c10::MemoryFormat::Contiguous);
-      habana::eager::EagerOp<at::Tensor&> hpu_op{
-          "hpu::_copy_from", {self, cast_out}, {cast_out.sizes().vec()}, 1};
-      hpu_op.set_eager_op_info(
-          {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
-      self_ = hpu_op.call(const_cast<at::Tensor&>(cast_out));
+      self_ = _hpu_cast(self, dst.options(), c10::MemoryFormat::Contiguous);
     }
     result = add_strided_insert(dst, self_);
   } else {
@@ -267,15 +301,31 @@ at::Tensor _copy_from(
       dst_device);
 
   at::Tensor result;
+  auto src = self;
+  bool same_data_type = (dst.scalar_type() == self.scalar_type());
+
   // Special handling for Long/Double tensors
   // Unpack received data (implicitly received as Int/Float half of buffer)
   if (dst_device == at::kCPU) {
-    result = _copy_from_d2h(self, dst, non_blocking);
+    if (!same_data_type) {
+      src = _hpu_cast(
+          self,
+          dst.options().device(src.device()),
+          c10::MemoryFormat::Contiguous);
+    }
+    result = _copy_from_d2h(src, dst, non_blocking);
   } else if (src_device == at::kCPU) {
-    result = _copy_from_h2d(self, dst, non_blocking);
+    if (!same_data_type) {
+      auto tmp = at::empty_like(src, src.options().device(dst.device()));
+      tmp = _copy_from_h2d(src, tmp, non_blocking);
+      result = _hpu_cast(dst, tmp);
+    } else {
+      result = _copy_from_h2d(src, dst, non_blocking);
+    }
   } else {
-    result = _copy_from_d2d(self, dst);
+    result = _copy_from_d2d(src, dst);
   }
+
   return result;
 }
 
