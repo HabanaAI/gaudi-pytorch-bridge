@@ -526,7 +526,7 @@ void IndexHabanaOperator::AddNode(
             params,
             size,
             c10::nullopt));
-        if (index_all_elems[dim] && (broadcast_to_size_numel == 1) &&
+        if ((broadcast_to_size_numel == 1) &&
             (repeat_interleaves_needed[dim] == 1) &&
             (repeats_needed[dim] == 1)) {
           std::vector<int64_t> expanded_size{1};
@@ -662,6 +662,25 @@ void IndexHabanaOperator::AddNode(
         }
         cat_input_tensor.emplace_back(
             ReshapeHelper(graph, rpt_op[0].get(), expanded_size, index_dtype));
+        cat_input_synTensor.emplace_back(
+            cat_input_tensor[cat_input_tensor.size() - 1].get());
+        cat_input_index.emplace_back(
+            cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
+      } else if (!index_all_elems[dim]) {
+        //"explicit_index_pos - 1" used below because we already incremented
+        // explicit_index_pos
+        auto t_sz = indices.get(explicit_index_pos - 1).sizes().vec();
+        std::vector<int64_t> expanded_size{1};
+        for (auto s : t_sz) {
+          expanded_size.push_back(s);
+        }
+        cat_input_tensor.emplace_back(ReshapeHelper(
+            graph,
+            syn_in(explicit_index_pos), // no "-1" as indices tensors start from
+                                        // pos-1 in syn_in
+            expanded_size,
+            index_dtype));
+
         cat_input_synTensor.emplace_back(
             cat_input_tensor[cat_input_tensor.size() - 1].get());
         cat_input_index.emplace_back(
