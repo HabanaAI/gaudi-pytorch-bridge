@@ -566,6 +566,27 @@ def test_dynamic_shape_fx_recompilations():
             result_compile_train = compiled_function_training(t1_h, t2_h)
             assert torch.allclose(result_compile_train.to("cpu"), out_c, atol=0.01)
 
+def test_dynamic_shape_adaptiveAvgPool2d():
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}):
+        import habana_frameworks.torch.core as htcore
+        input_shapes = [
+            (16, 2048, 7, 7),
+            (26, 2048, 7, 8),
+            (27, 2048, 7, 8),
+        ]
+
+        def raw_function(t):
+            m = nn.AdaptiveAvgPool2d((7, 7))
+            return m(t)
+
+        for s in input_shapes:
+            t = torch.randn(s, requires_grad = False)
+            out_c = raw_function(t)
+            t_h = t.to("hpu")
+            compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+            result_compile_train = compiled_function_training(t_h)
+            assert torch.allclose(result_compile_train.to("cpu"), out_c, atol=0.01)
+
 
 if __name__ == '__main__':
     test_relu_mixed()
@@ -585,4 +606,5 @@ if __name__ == '__main__':
     test_dynamic_shape_as_strided_ratio_flow_lazy()
     test_dynamic_shape_chunk()
     test_dynamic_shape_fx_recompilations()
+    test_dynamic_shape_adaptiveAvgPool2d()
 

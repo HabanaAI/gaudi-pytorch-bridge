@@ -102,6 +102,13 @@ void ComputeGraphHashCode(
       size_t pos = cstr.find(':');
       if (pos != std::string::npos && pos < cstr.size() - 1)
         cstr = cstr.substr(pos + 1);
+      if (dynamic_graph) {
+        size_t pos_comment = cstr.find('#');
+        if (pos_comment != std::string::npos && pos_comment < cstr.size() - 1) {
+          cstr = cstr.substr(0, pos_comment - 1);
+          cstr.append("\n");
+        }
+      }
       op_strs.append(cstr);
       idx_const_map.emplace(idx, cstr);
     }
