@@ -86,6 +86,11 @@ std::shared_ptr<HcclCommunicator> HcclCommunicator::Create(
 
 std::shared_ptr<HcclCommunicator> HcclCommunicator::Get(int64_t id) {
   std::lock_guard<std::mutex> lock(HcclCommunicator::communicator_map_mutext_);
+
+  if (communicator_map_.find(id) == communicator_map_.end()) {
+    return nullptr;
+  }
+
   return communicator_map_.at(id).lock();
 }
 
