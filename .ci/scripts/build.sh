@@ -1945,29 +1945,12 @@ run_lightning_habana_fw_tests()
     fi
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
-        pushd $LIGHTNING_HABANA_FORK_ROOT/tests/
-        if [[ "$__dut" = "sim" ]]; then
-            export ENABLE_EXEUTION_ON_GAUDI_SIM=1
-        fi
-        echo "Executing Lightning fabric tests on HPU"
-        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter test_fabric/ --forked --junit-xml="${__xml}fabric_fw_uts.xml" ${__marker})
+        pushd $LIGHTNING_HABANA_FORK_ROOT/internal/scripts
+
+        echo "Executing Lightning Habana CI tests on HPU"
+        (set -x; bash run_ci.sh -d ${__dut})
         ((__test_status=__test_status || $?))
 
-        echo "Executing Lightning Habana tests"
-        pip freeze list
-        (set -x; eval ${__pytorch_lightning_qa_tests_exe} -v $__failures $__py_filter test_pytorch --forked -o xfail_strict=false\
-         --hmp-bf16 'test_pytorch/ops_bf16.txt'\
-         --hmp-fp32 'test_pytorch/ops_fp32.txt' --junit-xml="${__xml}lightning_fw_uts_8.xml" ${__marker})
-        ((__test_status=__test_status || $?))
-
-        popd
-        pushd $LIGHTNING_HABANA_FORK_ROOT/examples/pytorch
-        echo "Executing Lightning Habana examples"
-        pip freeze list
-        (set -x; eval python mnist_trainer.py)
-        ((__test_status=__test_status || $?))
-        (LOWER_LIST=ops_fp32_mnist.txt FP32_LIST=ops_bf16_mnist.txt python mnist_trainer.py -r autocast)
-        ((__test_status=__test_status || $?))
         popd
     fi
 
