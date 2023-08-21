@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import torch
 import os
 import habana_frameworks.torch.core as htcore
@@ -26,7 +38,7 @@ class SharedObject:
 
     def read_timestamp(self):
         return self.read_values()[1]
-    
+
     def read_memory(self):
         return self.read_values()[2]
 
@@ -45,7 +57,7 @@ def test_hlml_timestamp_is_updated():
         time.sleep(3)
         timestamp1 = so.read_timestamp()
         assert timestamp0 < timestamp1
-    
+
 
 def test_hlml_memory_is_updated():
     # provoke initialization
