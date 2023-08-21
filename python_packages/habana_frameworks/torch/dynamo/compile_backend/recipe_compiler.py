@@ -14,8 +14,9 @@ import torch
 import logging
 
 from .config import configuration_flags
+from .logger import get_compile_backend_logger, dump_fx_graph
 
-logger = logging.getLogger("aot_hpu_backend")
+logger = get_compile_backend_logger()
 
 
 class HabanaGraphModule(torch.nn.Module):
@@ -34,6 +35,7 @@ class HabanaGraphModule(torch.nn.Module):
         if self._recipe_id is None:
             self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=tuple(args),
                                             dynamic=self._dynamic, inference=self._inference)
+            dump_fx_graph(self._fx_module, self._recipe_id)
         return graph_launch(recipe_id=self._recipe_id, inputs=tuple(args))
 
 
