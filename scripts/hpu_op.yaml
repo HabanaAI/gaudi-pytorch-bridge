@@ -6632,7 +6632,7 @@ sum.dim_IntList:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Int, Half]
-  guid: reduce_sum_multi_dim_fwd
+  guid: reduce_sum_fwd
   out_ids: [0]
 
 sum.IntList_out:
