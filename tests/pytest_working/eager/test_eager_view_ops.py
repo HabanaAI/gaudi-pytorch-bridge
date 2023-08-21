@@ -475,3 +475,27 @@ def test_lt_inplace():
 
     ha_cpu = ha.cpu()
     assert torch.allclose(ha_cpu, a, atol = 0.001, rtol = 0.001)
+
+def test_eq_view():
+    torch.manual_seed(0)
+    a = torch.arange(4).to(torch.float)
+    res = torch.zeros(4, dtype=torch.bool)
+    a_view = a.as_strided((2,2), (1,2))
+    res_view = res.as_strided((2,2), (1,2))
+
+    ha = a.to('hpu')
+    hres = res.to('hpu')
+    ha_view = ha.as_strided((2,2), (1,2))
+    hres_view = hres.as_strided((2,2), (1,2))
+
+    #first eq op, scalar dtype double
+    torch.eq(a_view, 0.0, out=res_view)
+    torch.eq(ha_view, 0.0, out=hres_view)
+    hres_view_cpu = hres_view.cpu()
+    assert torch.equal(hres_view_cpu, res_view)
+
+    #second eq op, scalar dtype long
+    torch.eq(a_view, 0, out=res_view)
+    torch.eq(ha_view, 0, out=hres_view)
+    hres_view_cpu = hres_view.cpu()
+    assert torch.equal(hres_view_cpu, res_view)

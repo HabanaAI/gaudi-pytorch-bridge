@@ -425,6 +425,9 @@ size_t EagerExec::calculate_operator_key(
             // TODO: remove from hash
             optimized_key =
                 at::hash_combine(optimized_key, at::IValue::hash(input));
+
+            optimized_key =
+                at::hash_combine(optimized_key, at::IValue::hash(input.type()));
           },
           [this, &optimized_key, &input_hash_values, &inp_index](
               const at::Tensor& tensor) {
