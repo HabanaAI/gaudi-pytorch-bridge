@@ -159,6 +159,22 @@ def test_aminmax_multi_output_view_col():
     assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol = 0.001, rtol = 0.001)
     assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol = 0.001, rtol = 0.001)
 
+def test_aminmax_multi_output_view_col2():
+    cpu_tensor = torch.randn([2, 5])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_min_tensor = torch.randn([10])
+    hpu_min_tensor = cpu_min_tensor.to("hpu")
+
+    cpu_max_tensor = torch.randn([10])
+    hpu_max_tensor = cpu_max_tensor.to("hpu")
+
+    torch.aminmax(cpu_tensor, dim=0, out = [cpu_min_tensor[::2], cpu_max_tensor[::2]])
+    torch.aminmax(hpu_tensor, dim=0, out = [hpu_min_tensor[::2], hpu_max_tensor[::2]])
+
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol = 0.001, rtol = 0.001)
+
 def test_d2d_noncontiguous_views_src():
     cpu_src_tensor = torch.randn([4])
     hpu_src_tensor = cpu_src_tensor.to("hpu")
@@ -499,3 +515,42 @@ def test_eq_view():
     torch.eq(ha_view, 0, out=hres_view)
     hres_view_cpu = hres_view.cpu()
     assert torch.equal(hres_view_cpu, res_view)
+
+def test_sort_out():
+    torch.manual_seed(0)
+    a = torch.randn([10])
+    ha = a.to('hpu')
+
+    b = torch.empty([20])
+    hb = b.to('hpu')
+
+    c = torch.empty([10]).to(torch.long)
+    hc = c.to('hpu')
+
+    torch.sort(a, out=[b[::2], c])
+    torch.sort(ha, out=[hb[::2], hc])
+
+    hb_cpu = hb.cpu()
+    assert torch.allclose(hb_cpu, b, atol = 0.001, rtol = 0.001)
+
+def test_add_out():
+    torch.manual_seed(0)
+    def fn():
+        a = torch.randn([10])
+        ha = a.to('hpu')
+
+        b = torch.randn([22])
+        hb = b.to('hpu')
+
+        torch.add(a, 1.0, out=b[2::2])
+        torch.add(ha, 1.0, out=hb[2::2])
+
+        hb_cpu = hb.cpu()
+        assert torch.allclose(hb_cpu, b, atol = 0.001, rtol = 0.001)
+
+    fn()
+    # test cache hit
+    fn()
+
+
+

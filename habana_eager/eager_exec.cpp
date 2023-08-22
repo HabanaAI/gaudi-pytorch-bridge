@@ -243,26 +243,6 @@ torch::jit::Stack EagerExec::launch() {
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
   if (graph_and_meta) {
     PT_EAGER_DEBUG("Eager Op JIT graph cache HIT for key ", key);
-    for (const auto& val : stack) {
-      if (!val.isTensor()) {
-        continue;
-      }
-
-      // If an input tensor is not contiguous view handling JIT IR pass
-      // would have modified the input tensor to base tensor. Need to
-      // perform this operation for the cache hit case as well
-      auto in = val.toTensor();
-      auto input_smeta{habana::get_storage_extra_meta(in)};
-
-      if (habana::is_view_lowering(in) || !in.is_contiguous()) {
-        // modify the backend tensor of the view as the base
-        auto impl = in.unsafeGetTensorImpl();
-        impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
-        impl->set_storage_offset(0);
-        PT_EAGER_DEBUG(
-            "Eager op: Input tensor converted to base for the cache hit case");
-      }
-    }
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
     auto graph{create_eager_graph(orig_inputs)};
@@ -293,6 +273,26 @@ torch::jit::Stack EagerExec::launch() {
     cache.Add(key, graph_and_meta);
   }
   graph_and_meta->set_output_shapes(m_outputs.get_shapes());
+
+  for (const auto& val : stack) {
+    if (!val.isTensor()) {
+      continue;
+    }
+
+    // If an input tensor is not contiguous view handling JIT IR pass
+    // would have modified the input tensor to base tensor. Need to
+    // perform this operation for the cache hit case as well
+    auto in = val.toTensor();
+    auto input_smeta{habana::get_storage_extra_meta(in)};
+
+    if (habana::is_view_lowering(in) || !in.is_contiguous()) {
+      // modify the backend tensor of the view as the base
+      auto impl = in.unsafeGetTensorImpl();
+      impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
+      impl->set_storage_offset(0);
+      PT_EAGER_DEBUG("Eager op: Input tensor converted to base");
+    }
+  }
 
   try {
     habana::HabanaLaunchOpPT habana_launch_op_{graph_and_meta};

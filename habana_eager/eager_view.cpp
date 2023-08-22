@@ -116,10 +116,6 @@ JitNode* insert_strided_view_node(
   jit_node->output(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), p.getViewSizes()));
 
-  auto* impl = input.unsafeGetTensorImpl();
-  impl->set_sizes_contiguous(habana::get_base_tensor_size(input));
-  impl->set_storage_offset(0);
-
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), input.sizes()));
 
@@ -163,7 +159,11 @@ static std::vector<size_t> get_input_tensors_positions(
 
     switch (eager_op_meta_data.op_kind_) {
       case InplaceOut:
-        if (!out_indices.count(i))
+        // if size of out_indices >1, then it is a tuple. In this case, there is
+        // no inplace variant. The input and out tensors wont be same.
+        // Consequently, the strided views are added for out tensors as well.
+        // Refer: test_aminmax_multi_output_view_col2
+        if (!out_indices.count(i) || (out_indices.size() > 1))
           in_indices.push_back(i);
         break;
       case Inplace:
@@ -177,11 +177,21 @@ static std::vector<size_t> get_input_tensors_positions(
   return in_indices;
 }
 
-size_t get_node_output_idx(JitNode* node, size_t idx) {
+size_t get_node_output_idx(
+    const EagerOpMetaData& op_meta_data,
+    JitNode* node,
+    size_t idx) {
+  int out_idx = -1;
   if (node->outputs().size() == 1) {
-    return 0;
+    out_idx = 0;
+  } else if (
+      (op_meta_data.op_kind_ == habana::eager::eagerOpKind::InplaceOut) &&
+      (op_meta_data.out_indices_.size() > 1)) {
+    // the input and output value pointers of out tensors wont match if the out
+    // tensors are part of tuple
+    auto num_inputs = node->inputs().size() - op_meta_data.out_indices_.size();
+    out_idx = idx - num_inputs;
   } else {
-    int out_idx = -1;
     auto value = node->input(idx);
     PT_EAGER_DEBUG("[get_node_output_idx] Search for output value = ", value);
     for (auto i = 0; i < node->outputs().size(); i++) {
@@ -192,8 +202,8 @@ size_t get_node_output_idx(JitNode* node, size_t idx) {
       }
     }
     HABANA_ASSERT(out_idx != -1, "Invalid node output index!");
-    return (size_t)out_idx;
   }
+  return (size_t)out_idx;
 }
 
 bool is_view(const at::Tensor& t) {
@@ -209,7 +219,10 @@ void collect_output_view_param(
     return;
   }
 
-  auto parse_output_tensor = [&inputs, &node, &strided_out_info](
+  auto parse_output_tensor = [&eager_op_meta_data,
+                              &inputs,
+                              &node,
+                              &strided_out_info](
                                  const size_t idx, const at::IValue& out_ival) {
     HABANA_ASSERT(
         out_ival.isTensor(), "Expected tensor input, when parsing idx: ", idx);
@@ -219,8 +232,9 @@ void collect_output_view_param(
           inputs[idx].isTensor(),
           "Tensor lists containing views are unsupported. Failed for idx: ",
           idx);
+
       StridedOutInfo s;
-      auto node_output_idx = get_node_output_idx(node, idx);
+      auto node_output_idx = get_node_output_idx(eager_op_meta_data, node, idx);
       s.index = node_output_idx;
       s.tensor = output_tensor;
       s.value = node->input(idx);
@@ -360,12 +374,6 @@ void HandleInputOutputViews(
 
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Op Name: ", node->kind().toQualString());
-  bool is_inplace_op = check_inplace_op(eager_op_meta_data);
-  std::vector<StridedOutInfo> strided_out_info;
-  if (is_inplace_op) {
-    collect_output_view_param(
-        node, inputs, eager_op_meta_data, strided_out_info);
-  }
 
   PT_EAGER_DEBUG(
       "\nSV node insertion:=====================\n",
@@ -375,6 +383,13 @@ void HandleInputOutputViews(
       '\n',
       graph->toString(),
       "JIT_IR_Graph_END\n");
+
+  bool is_inplace_op = check_inplace_op(eager_op_meta_data);
+  std::vector<StridedOutInfo> strided_out_info;
+  if (is_inplace_op) {
+    collect_output_view_param(
+        node, inputs, eager_op_meta_data, strided_out_info);
+  }
 
   auto input_tensor_pos =
       get_input_tensors_positions(node, inputs, eager_op_meta_data);
@@ -449,7 +464,9 @@ void HandleInputOutputViews(
     if (underscored_ops_reported_as_non_inplace.find(
             node->kind().toQualString()) ==
         underscored_ops_reported_as_non_inplace.end()) {
-      new_node = replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+      if (eager_op_meta_data.out_indices_.size() <= 1)
+        new_node =
+            replace_with_out_of_place_op(graph, node, eager_op_meta_data);
     }
 
     PT_EAGER_DEBUG(
