@@ -107,7 +107,7 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         dataset = kwargs.get('dataset', args[0] if args else None)
         transform = dataset.transform
-        self.is_train =  not transform.val
+        self.is_train = not transform.val
         self._media_ssd_dl_handle_vars(kwargs)
         root = dataset.img_folder
         annotate_file = dataset.annotate_file
@@ -120,15 +120,25 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
         else:
             raise ValueError("Unsupported device")
 
-        from habana_frameworks.medialoaders.torch.media_dataloader_mediapipe import HPUMediaPipe
-        pipeline = HPUMediaPipe(a_torch_transforms=transform, a_root=root, a_annotation_file=annotate_file, a_batch_size=self.batch_size,
-                                a_shuffle=self.shuffle, a_drop_last=self.drop_last, a_prefetch_count=self.prefetch_factor,
-                                a_num_instances=num_instances, a_instance_id=instance_id, a_model_ssd=True, a_device=media_device_type)
+        from habana_frameworks.medialoaders.torch.mediapipe_ssd import SSDMediaPipe
+
+        pipeline = SSDMediaPipe(a_device='cpu',
+                                a_is_train=self.is_train,
+                                a_root=root,
+                                a_annotation_file=annotate_file,
+                                a_width=300,
+                                a_height=300,
+                                a_batch_size=self.batch_size,
+                                a_shuffle=self.shuffle,
+                                a_drop_last=self.drop_last,
+                                a_prefetch_count=self.prefetch_factor,
+                                a_num_instances=num_instances,
+                                a_instance_id=instance_id,
+                                a_num_threads=7)
 
         from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUSsdPytorchIterator
         self.iterator = HPUSsdPytorchIterator(mediapipe=pipeline)
         print(f"Running with Habana media DataLoader with num_instances = {num_instances}, instance_id = {instance_id}.")
-
 
     def __iter__(self):
         return iter(self.iterator)
