@@ -11,3 +11,5 @@ config:
     ubuntu18.04: "off"
   dependantComponents:
     - component: deepspeed_fork
+    - component: pt_next
+      silentMode: true
