@@ -176,6 +176,7 @@ inline constexpr std::string_view to_string(const ParamType& t) {
   return "<UNKNOWN_PARAM_TYPE>";
 }
 
+static constexpr int INVALID_CONST_ID = -1;
 struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::intrusive_ptr<BaseTensorExtraMeta> clone(
       const c10::intrusive_ptr<BaseTensorExtraMeta>& ptr) const override {
@@ -239,7 +240,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   }
 
   bool has_valid_const_id() const {
-    return (const_id_ != -1);
+    return (const_id_ != INVALID_CONST_ID);
   }
 
   void set_tensor_type(synTensorType tensor_type) {
@@ -438,7 +439,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   ShapeTensorStruct shape_tensor_struct_{};
   bool is_redundant_ = false;
   int id_{-1};
-  int const_id_{-1};
+  int const_id_{INVALID_CONST_ID};
   int total_elem_{0};
   // view meta
   bool is_view_{false};
@@ -480,24 +481,39 @@ inline TensorExtraMeta* get_tensor_extra_meta(
 }
 
 inline bool is_tensor_const(const at::TensorImpl& impl, bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return false;
+  }
   return get_ctensor_extra_meta(impl, relax)->is_const_tensor();
 }
 
 inline bool is_tensor_const(const at::Tensor& tensor, bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return false;
+  }
   return get_tensor_extra_meta(tensor, relax)->is_const_tensor();
 }
 
 inline int get_tensor_const_id(const at::TensorImpl& impl, bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return INVALID_CONST_ID;
+  }
   return get_ctensor_extra_meta(impl, relax)->get_const_id();
 }
 
 inline int get_tensor_const_id(const at::Tensor& tensor, bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return INVALID_CONST_ID;
+  }
   return get_tensor_extra_meta(tensor, relax)->get_const_id();
 }
 
 inline bool is_tensor_const_with_valid_const_id(
     const at::TensorImpl& impl,
     bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return false;
+  }
   auto tmeta = get_ctensor_extra_meta(impl, relax);
   if (tmeta->is_const_tensor()) {
     HABANA_ASSERT(
@@ -510,6 +526,9 @@ inline bool is_tensor_const_with_valid_const_id(
 inline bool is_tensor_const_with_valid_const_id(
     const at::Tensor& tensor,
     bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return false;
+  }
   auto tmeta = get_tensor_extra_meta(tensor, relax);
   if (tmeta->is_const_tensor()) {
     HABANA_ASSERT(
@@ -524,14 +543,22 @@ inline void set_tensor_const(
     bool is_const,
     int const_id,
     bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return;
+  }
   auto tmeta = get_tensor_extra_meta(tensor, relax);
   tmeta->set_is_const_tensor(is_const);
   PT_BRIDGE_DEBUG(
       "set_tensor_const: is_const ", is_const, " const_id: ", const_id);
   if (is_const) {
-    HABANA_ASSERT(const_id != -1, "Const id can not be -1 for constant tensors")
     HABANA_ASSERT(
-        tmeta->get_const_id() == -1 or tmeta->get_const_id() == const_id,
+        const_id != INVALID_CONST_ID,
+        "Const id cannot be ",
+        INVALID_CONST_ID,
+        " for constant tensors")
+    HABANA_ASSERT(
+        tmeta->get_const_id() == INVALID_CONST_ID ||
+            tmeta->get_const_id() == const_id,
         "Constant id already set for the tensor")
     tmeta->set_const_id(const_id);
   }
@@ -541,6 +568,9 @@ inline void get_and_set_tensor_const(
     const at::Tensor& tensor_src,
     const at::Tensor& tensor,
     bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return;
+  }
   auto tmeta_src = get_tensor_extra_meta(tensor_src, relax);
   auto is_src_const = tmeta_src->is_const_tensor();
   auto src_const_id = tmeta_src->get_const_id();
@@ -551,6 +581,9 @@ inline void get_and_set_tensor_const(
     const at::TensorImpl& impl,
     const at::Tensor& tensor,
     bool relax = false) {
+  if (!habana_helpers::IsInferenceMode()) {
+    return;
+  }
   auto is_src_const = get_ctensor_extra_meta(impl, relax)->is_const_tensor();
   get_tensor_extra_meta(tensor, relax)->set_is_const_tensor(is_src_const);
   auto src_const_id = get_ctensor_extra_meta(impl, relax)->get_const_id();

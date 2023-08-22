@@ -1875,6 +1875,10 @@ void ProcessGraphForConstantTensors(
     const torch::jit::Graph& jit_ir_graph,
     const CValuePtrToIValuePtrMap& value_to_ivalue) {
   PT_BRIDGE_BEGIN;
+  if (!habana_helpers::IsInferenceMode()) {
+    PT_BRIDGE_END;
+    return;
+  }
   for (const auto* const value_input : jit_ir_graph.inputs()) {
     auto ivalue = value_to_ivalue.find(value_input);
     if (ivalue == value_to_ivalue.end() || !ivalue->second->isTensor()) {

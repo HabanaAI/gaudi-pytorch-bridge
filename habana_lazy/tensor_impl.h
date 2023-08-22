@@ -160,10 +160,16 @@ class HbInternalTensorImpl : public c10::TensorImpl {
   static void AtenInitialize();
 
   void SetIsConstTensor(bool is_const) {
+    if (!habana_helpers::IsInferenceMode()) {
+      return;
+    }
     get_tensor_extra_meta().set_is_const_tensor(is_const);
   }
 
   bool IsConstTensor() const {
+    if (!habana_helpers::IsInferenceMode()) {
+      return false;
+    }
     return get_ctensor_extra_meta().is_const_tensor();
   }
 
