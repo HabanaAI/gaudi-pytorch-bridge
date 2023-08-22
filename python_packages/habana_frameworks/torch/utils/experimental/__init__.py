@@ -5,6 +5,7 @@ from habana_frameworks.torch.utils._experimental_C import synDeviceType
 from habana_frameworks.torch.utils import _experimental_C
 import habana_frameworks.torch.hpu.memory as htmem
 from habana_frameworks.torch.utils.experimental.detect_recompilation import detect_recompilation_auto_model, data_dynamicity, const_shape_dataloader
+import sys
 
 _model_params_initialized = False
 _optim_state_initialized = False
@@ -112,7 +113,8 @@ def _set_profiler_tracer_memory(device_id) -> int:
     if _is_available():
         try:
             return _experimental_C.set_profiler_tracer_memory(device_id)
-        except:
+        except Exception as e:
+            print("Call for set_profiler_tracer_memory failed with: ", e, file=sys.stderr)
             return 0
     else:
         return 0
