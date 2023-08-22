@@ -971,7 +971,7 @@ TEST_F(LazyBinaryKernelTest, MaxDim2Dim1) {
       allclose(std::get<1>(out_hpu).to(at::kCPU), std::get<1>(out_cpu)));
 }
 
-// Also validates ComputeOutputShape for GUID mult_fwd_f32 and add_fwd_f32
+// Also validates InferOutputMeta for GUID mult_fwd_f32 and add_fwd_f32
 TEST_F(LazyBinaryKernelTest, AddFwdF32) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -988,7 +988,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdF32) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID cast_f32_to_bf16, mult_fwd_bf16,
+// Also validates InferOutputMeta for GUID cast_f32_to_bf16, mult_fwd_bf16,
 // add_fwd_bf16 and cast_bf16_to_f32
 TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -1014,7 +1014,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdBf16) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID cast_f32_to_i32, mult_fwd_i32,
+// Also validates InferOutputMeta for GUID cast_f32_to_i32, mult_fwd_i32,
 // add_fwd_i32 and cast_i32_to_f32
 TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -1040,7 +1040,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdI32withCast) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID mult_fwd_f32/bf16/i32,
+// Also validates InferOutputMeta for GUID mult_fwd_f32/bf16/i32,
 // Constant_f32/bf16/i32 and add_fwd_f32/bf16/i32 with second argument as scalar
 TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -1075,7 +1075,7 @@ TEST_F(LazyBinaryKernelTest, AddFwdWithScalar) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID sub_fwd_f32
+// Also validates InferOutputMeta for GUID sub_fwd_f32
 TEST_F(LazyBinaryKernelTest, SubFwdF32) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1092,7 +1092,7 @@ TEST_F(LazyBinaryKernelTest, SubFwdF32) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID sub_fwd_f16
+// Also validates InferOutputMeta for GUID sub_fwd_f16
 TEST_F(LazyBinaryKernelTest, SubFwdBf16) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1111,7 +1111,7 @@ TEST_F(LazyBinaryKernelTest, SubFwdBf16) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID div_fwd_f32
+// Also validates InferOutputMeta for GUID div_fwd_f32
 TEST_F(LazyBinaryKernelTest, DivFwdF32Scalar) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1128,7 +1128,7 @@ TEST_F(LazyBinaryKernelTest, DivFwdF32Scalar) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID div_fwd_f16
+// Also validates InferOutputMeta for GUID div_fwd_f16
 TEST_F(LazyBinaryKernelTest, DivFwdBf16Scalar) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1145,7 +1145,7 @@ TEST_F(LazyBinaryKernelTest, DivFwdBf16Scalar) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID pow_fwd_f32
+// Also validates InferOutputMeta for GUID pow_fwd_f32
 TEST_F(LazyBinaryKernelTest, PowFwdF32) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1167,7 +1167,7 @@ TEST_F(LazyBinaryKernelTest, PowFwdF32) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID pow_fwd_f16
+// Also validates InferOutputMeta for GUID pow_fwd_f16
 TEST_F(LazyBinaryKernelTest, PowFwdF16) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1195,7 +1195,7 @@ enum class OpMode {
   Output,
 };
 
-// Also validates ComputeOutputShape for GUID atan2_fwd_f32
+// Also validates InferOutputMeta for GUID atan2_fwd_f32
 static void TestAtan2(OpMode opMode, bool ndims) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);

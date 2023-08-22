@@ -47,10 +47,10 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-habana::OutputShapeInfRetType habana::ThresholdBackwardOperator::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
+habana::InferOutputMetaRetType habana::ThresholdBackwardOperator::
+    InferOutputMeta(torch::jit::Stack& inputs) {
   auto self = inputs[1].toTensor();
-  habana::OutputShapeInfRetType out;
+  habana::InferOutputMetaRetType out;
   out.AddOutputTensor(habana::TensorMetaData(
       self.sizes().vec(),
       HabanaOperator::CalculateStrides(

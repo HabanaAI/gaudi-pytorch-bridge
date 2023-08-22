@@ -109,18 +109,18 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
   }
 }
 
-habana::OutputShapeInfRetType habana::BinaryInplaceOperatorWithAlpha::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
+habana::InferOutputMetaRetType habana::BinaryInplaceOperatorWithAlpha::
+    InferOutputMeta(torch::jit::Stack& inputs) {
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   if (inputs[2].toScalar().toFloat() != 1.0) {
     // Multiplication between arg2 and alpha is required
     auto mulOp = make_operator<habana::MulOperator>(
         this->p_context_->device_id_, this->scalarType_);
     torch::jit::Stack mulOp_stack{inputs[1], inputs[2]};
-    auto mulOp_out = out.call_ComputeOutputShape(mulOp, mulOp_stack);
+    auto mulOp_out = out.call_InferOutputMeta(mulOp, mulOp_stack);
     auto out_tensor = mulOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   }
@@ -189,15 +189,15 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
       std::move(binaryOp->GetSynOutputs()[0]));
 }
 
-habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
+    InferOutputMeta(torch::jit::Stack& inputs) {
+  InferOutputMetaRetType out;
   auto binaryOp = make_operator<BinaryInplaceOperatorWithAlpha>(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
   if (inputs[0].isTensor() &&
       inputs[1].isTensor()) { // First 2 inputs are both tensors
-    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -209,11 +209,11 @@ habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
     auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
     auto const_out_tensor = constOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(const_out_tensor));
 
-    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
   }
   return out;
@@ -265,11 +265,11 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
       deterministic);
 }
 
-habana::OutputShapeInfRetType habana::BinaryInplaceOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType habana::BinaryInplaceOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   Tensor arg1 = inputs[0].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       arg1.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -335,14 +335,14 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
       std::move(binaryInplaceOp->GetSynOutputs()[0]));
 }
 
-habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperator::
-    ComputeOutputShape(torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperator::
+    InferOutputMeta(torch::jit::Stack& inputs) {
+  InferOutputMetaRetType out;
   auto binaryOp = make_operator<BinaryInplaceOperator>(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
-    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -354,11 +354,11 @@ habana::OutputShapeInfRetType habana::BinaryInplaceWrapperOperator::
     auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto constOp_out = out.call_ComputeOutputShape(constOp, constOp_stack);
+    auto constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
     auto const_out_tensor = constOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(const_out_tensor));
 
-    auto binaryOp_out = out.call_ComputeOutputShape(binaryOp, inputs);
+    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
   }
   return out;

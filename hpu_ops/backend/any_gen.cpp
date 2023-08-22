@@ -46,7 +46,7 @@ static synapse_helpers::tensor AnyCommonFunc(
   if (dtype != self.scalar_type()) {
     cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
         op, graph, input, self.sizes(), self.scalar_type(), dtype));
-    if (!op->isMetaMode()) {
+    if (!op->isOutputInfMode()) {
       input = cast->get();
     }
   }

@@ -363,10 +363,10 @@ class ToDtypeOperator : public habana::HabanaOperator {
   }
 };
 
-OutputShapeInfRetType MemCopyOperator::ComputeOutputShape(
+InferOutputMetaRetType MemCopyOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -405,14 +405,14 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
-OutputShapeInfRetType IdentityOperator::ComputeOutputShape(
+InferOutputMetaRetType IdentityOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   if (self.dim() == 0) {
     SET_SIZE_STRIDE_1D(self);
   }
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -444,11 +444,11 @@ void IdentityOperator::AllocateAndAddSynapseNode(
 /*************************************************************************
  * @brief Kernel implementation for dummy, used for graph ordering
  ************************************************************************/
-OutputShapeInfRetType DummyOperator::ComputeOutputShape(
+InferOutputMetaRetType DummyOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   int out_index = inputs.size() - 1;
   auto output = inputs[out_index].toTensor();
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -612,7 +612,7 @@ Tensor pin_memory_hpu(
   return tensor;
 }
 
-OutputShapeInfRetType SliceInsertOperator::ComputeOutputShape(
+InferOutputMetaRetType SliceInsertOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> shape = self.sizes().vec();
@@ -623,7 +623,7 @@ OutputShapeInfRetType SliceInsertOperator::ComputeOutputShape(
       HabanaOperator::CalculateStrides(shape, self.suggest_memory_format()),
       self.scalar_type(),
       self.suggest_memory_format());
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(metaData);
 
   if (!have_shape_tensor) {
@@ -1303,11 +1303,11 @@ void StridedInsertOperator::compute_params(
   }
 }
 
-OutputShapeInfRetType StridedInsertOperator::ComputeOutputShape(
+InferOutputMetaRetType StridedInsertOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto orig_t = inputs[0].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       orig_t.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1458,7 +1458,7 @@ std::vector<int64_t> GetStridedViewOperatorStrides(
 }
 } // namespace
 
-OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
+InferOutputMetaRetType StridedViewOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> size;
@@ -1488,7 +1488,7 @@ OutputShapeInfRetType StridedViewOperator::ComputeOutputShape(
     strides = inputs[2].toIntVector();
   }
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto tensor_meta_data = TensorMetaData(
       size, strides, self.scalar_type(), self.suggest_memory_format());
   out.AddOutputTensor(tensor_meta_data);

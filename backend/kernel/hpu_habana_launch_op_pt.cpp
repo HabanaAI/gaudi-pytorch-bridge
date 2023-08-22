@@ -736,7 +736,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
 int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
     const HabanaOperatorPtr& habana_op,
     torch::jit::Node* node,
-    OutputShapeInfRetType& op_output_shape) {
+    InferOutputMetaRetType& op_output_shape) {
   auto output_nodes = node->outputs();
   auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
 
@@ -968,7 +968,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 }
 
 void HabanaLaunchOpPT::ProcessShapeTensorsCS(
-    const OutputShapeInfRetType& output,
+    const InferOutputMetaRetType& output,
     std::vector<IdxTensorTup>& intermediate_shape_tensor_cs) {
   auto shape_tensors = output.GetShapeTensor();
 
@@ -1633,7 +1633,7 @@ std::string HabanaLaunchOpPT::DumpNodeOutputs(torch::jit::Node* node) {
 
 void HabanaLaunchOpPT::validateOutputShapeDynamic(
     const HabanaOperatorPtr& HabanaKernel,
-    const OutputShapeInfRetType& output_shape_handle,
+    const InferOutputMetaRetType& output_shape_handle,
     const std::string& opname) {
   auto lowering_kernels = HabanaKernel->GetKernels();
   auto output_shape_kernels = output_shape_handle.GetKernels();
@@ -1700,7 +1700,7 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
         t);
   }
   // for validation of shape tensor we rely on output shape tensor added
-  // before intermediate shape tensor in ComputeOutputShape
+  // before intermediate shape tensor in InferOutputMeta
   // Auto gen op shape tensors
   if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
     for (const auto& st : op->GetShapeTensors()) {
@@ -1746,7 +1746,7 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
 
 void HabanaLaunchOpPT::validateOutputShapeNonDynamic(
     const HabanaOperatorPtr& HabanaKernel,
-    const OutputShapeInfRetType& output_shape_handle,
+    const InferOutputMetaRetType& output_shape_handle,
     const std::string& opname) {
   auto lowering_kernels = HabanaKernel->GetKernels();
   auto output_shape_kernels = output_shape_handle.GetKernels();
@@ -1797,7 +1797,7 @@ void HabanaLaunchOpPT::validateOutputShapeNonDynamic(
 
 void HabanaLaunchOpPT::validateOutputShape(
     const HabanaOperatorPtr& HabanaKernel,
-    const OutputShapeInfRetType& output_shape_handle,
+    const InferOutputMetaRetType& output_shape_handle,
     const synapse_helpers::graph& syn_graph,
     const std::string& opname) {
   auto lowering_kernels = HabanaKernel->GetKernels();
@@ -2010,7 +2010,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // Collect inputs shape tensors accross all nodes
   std::vector<size_t> inputs_shape_tensors_vec;
   // Collect intermediate shape tensors accross all nodes for not supporting
-  // ComputeOutputShape
+  // InferOutputMeta
   std::vector<size_t> intermediate_shape_tensors_vec;
   int inx = 0;
   for (auto* node : graph_nodes) {
@@ -2184,9 +2184,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     static std::unordered_set<std::string> cs_jit_ir_ops_;
     static std::unordered_set<std::string> empty_cs_jit_ir_ops_;
 
-    habana::OutputShapeInfRetType kernel_output_cs(true);
+    habana::InferOutputMetaRetType kernel_output_cs(true);
     if (!disabled_jit_ir_ops_.count(node_qual_str)) {
-      // Either the ComputeOutputShape flow is getting validated or
+      // Either the InferOutputMeta flow is getting validated or
       // fast shape inference is running for dynamic shapes or
       // shape agnostic flow is enabled for eager.
       if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
@@ -2208,11 +2208,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         if (auto op = std::dynamic_pointer_cast<OpBackend>(csHabanaKernel)) {
           op->SetOutputMetadata(outputs_metadata);
         }
-        kernel_output_cs = csHabanaKernel->ComputeOutputShape(input_stack);
+        kernel_output_cs = csHabanaKernel->InferOutputMeta(input_stack);
         if (!kernel_output_cs.empty()) {
           // Output shape info based flow
           PT_DYNAMIC_SHAPE_DEBUG(
-              "After ComputeOutputShape for ",
+              "After InferOutputMeta for ",
               node_qual_str,
               ": sif tensor id = ",
               habana::ShapeInference::GetSifTensorId());
@@ -2226,19 +2226,19 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
                 HabanaKernel, kernel_output_cs, syn_graph, opname);
             if (cs_jit_ir_ops_.count(node_qual_str) == 0) {
               PT_DYNAMIC_SHAPE_DEBUG(
-                  "ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
+                  "InferOutputMeta_JIT_IR_OP: ", node_qual_str);
               cs_jit_ir_ops_.insert(node_qual_str);
             }
           } catch (std::exception& e) {
             kernel_output_cs.set_empty();
             if (disabled_jit_ir_ops_.count(node_qual_str) == 0) {
               PT_DYNAMIC_SHAPE_DEBUG(
-                  "DISABLED_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
+                  "DISABLED_InferOutputMeta_JIT_IR_OP: ", node_qual_str);
               disabled_jit_ir_ops_.insert(node_qual_str);
             }
             TORCH_CHECK(
                 false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
-                "ComputeOutputShape validation failed for op ",
+                "InferOutputMeta validation failed for op ",
                 node_qual_str,
                 " what(): ",
                 e.what());
@@ -2246,12 +2246,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         } else {
           if (empty_cs_jit_ir_ops_.count(node_qual_str) == 0) {
             PT_DYNAMIC_SHAPE_DEBUG(
-                "Empty_ComputeOutputShape_JIT_IR_OP: ", node_qual_str);
+                "Empty_InferOutputMeta_JIT_IR_OP: ", node_qual_str);
             empty_cs_jit_ir_ops_.insert(node_qual_str);
           }
           TORCH_CHECK(
               false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
-              "ComputeOutputShape method not available for validation of op ",
+              "InferOutputMeta method not available for validation of op ",
               node_qual_str);
         }
       }
@@ -2461,7 +2461,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     // Generate patching info for intermediate shape tensors for nodes not
-    // supporting ComputeOutputShape during fast sif
+    // supporting InferOutputMeta during fast sif
     for (auto const& idx : intermediate_shape_tensors_vec) {
       auto tensor_idx = habana::ShapeInference::ReadAndIncrementSifTensorId();
       auto ret =

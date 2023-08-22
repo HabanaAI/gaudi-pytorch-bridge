@@ -53,7 +53,7 @@ class DropoutOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(
@@ -76,7 +76,7 @@ class RandomShuffleOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -104,7 +104,7 @@ class RandpermOperatorHT : public RandpermOperator {
   RandpermOperatorHT(int device_id, c10::ScalarType scalarType)
       : RandpermOperator(device_id, scalarType) {}
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(

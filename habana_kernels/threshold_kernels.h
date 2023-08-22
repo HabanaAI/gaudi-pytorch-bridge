@@ -25,7 +25,7 @@ class ThresholdBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata);
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 } // namespace habana

@@ -521,9 +521,9 @@ void HabanaLaunchOpPT::RunHybridSif(
 
     auto propagate_shape{[&]() -> void {
       PT_BRIDGE_BEGIN;
-      // Non ComputeOutputShape based path, adjust SifTensrorId
+      // Non OutputShapeInf based path, adjust SifTensrorId
       PT_DYNAMIC_SHAPE_DEBUG(
-          "Using non ComputeOutputShape based flow. Going to add tpc kernel ",
+          "Using non OutputShapeInf based flow. Going to add tpc kernel ",
           habana_op->GetGuid(),
           " for ",
           op_name);
@@ -551,15 +551,14 @@ void HabanaLaunchOpPT::RunHybridSif(
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);
       }
-      auto output_shape_info = habana_op->ComputeOutputShape(op_input_stack);
+      auto output_shape_info = habana_op->InferOutputMeta(op_input_stack);
       if (output_shape_info.empty()) {
-        PT_DYNAMIC_SHAPE_DEBUG(
-            "ComputeOutputShape is not supported for ", op_name);
+        PT_DYNAMIC_SHAPE_DEBUG("OutputShapeInf is not supported for ", op_name);
         propagate_shape();
       } else {
         // Output shape info based flow
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Using ComputeOutputShape shape info based flow for ",
+            "Using OutputShapeInf shape info based flow for ",
             habana_op->GetGuid(),
             ", ",
             op_name);
@@ -609,7 +608,7 @@ void HabanaLaunchOpPT::RunHybridSif(
         }
       }
     } else {
-      PT_DYNAMIC_SHAPE_DEBUG("ComputeOutputShape is disabled for ", op_name);
+      PT_DYNAMIC_SHAPE_DEBUG("OutputShapeInf is disabled for ", op_name);
       propagate_shape();
     }
   }
@@ -641,7 +640,7 @@ void HabanaLaunchOpPT::RunHybridSif(
     }
 
     // For all intermediate shape tensors for nodes not supporting
-    // ComputeOutputShape create a sif mapping
+    // OutputShapeInf create a sif mapping
     for (auto const& inter_tensor : intermediate_shape_tensors_vec) {
       auto inter_sif_tid =
           habana::ShapeInference::ReadAndIncrementSifTensorId();

@@ -21,6 +21,6 @@ namespace habana {
 struct ExpandOp : OpBackend {
   ExpandOp(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack);
-  OutputShapeInfRetType ComputeOutputShape(const torch::jit::Stack& inputs);
+  InferOutputMetaRetType OutputShapeInf(const torch::jit::Stack& inputs);
 };
 } // namespace habana

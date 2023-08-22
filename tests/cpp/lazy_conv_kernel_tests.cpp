@@ -198,7 +198,7 @@ class LazyConvKernelGraphTest : public habana_lazy_test::LazyTest {
   }
 };
 
-// Also validates ComputeOutputShape for Conv Bwd
+// Also validates OutputShapeInf for Conv Bwd
 TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -273,7 +273,7 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for Conv2d
+// Also validates OutputShapeInf for Conv2d
 TEST_F(LazyConvKernelTest, ConvExecTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -294,7 +294,7 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for ConvTranspose2d
+// Also validates OutputShapeInf for ConvTranspose2d
 TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -313,7 +313,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for ConvTranspose2d
+// Also validates OutputShapeInf for ConvTranspose2d
 TEST_F(LazyConvKernelTest, ConvTranspose2dG2Test) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -346,7 +346,7 @@ TEST_F(LazyConvKernelTest, Conv2dG2Test) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
-// Also validates ComputeOutputShape for ConvTranspose3d
+// Also validates OutputShapeInf for ConvTranspose3d
 TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -366,7 +366,7 @@ TEST_F(LazyConvKernelTest, ConvTranspose3dTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for ConvTranspose3d
+// Also validates OutputShapeInf for ConvTranspose3d
 TEST_F(LazyConvKernelTest, ConvTranspose3dG2Test) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -421,7 +421,7 @@ TEST_F(LazyConvKernelTest, Conv3dG2Test) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
-// Also validates ComputeOutputShape for Conv2d
+// Also validates OutputShapeInf for Conv2d
 TEST_F(LazyConvKernelTest, ConvInferenceTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);

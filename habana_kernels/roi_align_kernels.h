@@ -31,7 +31,7 @@ class RoiAlignFwdOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -54,7 +54,7 @@ class RoiAlignBwdOperator : public HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -79,7 +79,7 @@ class RoiAlignBwdImplOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -103,7 +103,7 @@ class QuadTreeFwdImplOperator : public HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::BSN});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(

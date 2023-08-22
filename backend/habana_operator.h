@@ -129,13 +129,13 @@ struct TensorMetaData {
       : sizes(sz), strides(st), dtype(type), mf(f) {}
 };
 
-// Return value for ComputeOutputShape Function
-class OutputShapeInfRetType;
+// Return value for InferOutputMeta Function
+class InferOutputMetaRetType;
 using IdxTensorTup = std::tuple<int32_t, at::Tensor>;
-using OutputShapeInfRetTypePtr = std::shared_ptr<OutputShapeInfRetType>;
-class OutputShapeInfRetType {
+using InferOutputMetaRetTypePtr = std::shared_ptr<InferOutputMetaRetType>;
+class InferOutputMetaRetType {
  public:
-  OutputShapeInfRetType(bool flag = false) : empty_flag(flag) {}
+  InferOutputMetaRetType(bool flag = false) : empty_flag(flag) {}
   bool empty() {
     return empty_flag;
   }
@@ -153,10 +153,10 @@ class OutputShapeInfRetType {
   size_t GetKernelSize() {
     return kernel_outputs.size();
   }
-  OutputShapeInfRetTypePtr& GetKernel(size_t index) {
+  InferOutputMetaRetTypePtr& GetKernel(size_t index) {
     return kernel_outputs.at(index);
   }
-  const std::vector<OutputShapeInfRetTypePtr>& GetKernels() const {
+  const std::vector<InferOutputMetaRetTypePtr>& GetKernels() const {
     return kernel_outputs;
   }
   const std::vector<IdxTensorTup>& GetOutputTensor() const {
@@ -166,11 +166,11 @@ class OutputShapeInfRetType {
     return shape_tensors;
   }
 
-  OutputShapeInfRetType call_ComputeOutputShape(
+  InferOutputMetaRetType call_InferOutputMeta(
       HabanaOperatorPtr kernel,
       torch::jit::Stack& inputs);
 
-  const std::vector<OutputShapeInfRetTypePtr> GetKernelOutputs() const {
+  const std::vector<InferOutputMetaRetTypePtr> GetKernelOutputs() const {
     return kernel_outputs;
   }
 
@@ -180,7 +180,7 @@ class OutputShapeInfRetType {
   std::vector<IdxTensorTup> shape_tensors;
   std::vector<IdxTensorTup> dup_tensors;
 
-  std::vector<OutputShapeInfRetTypePtr> kernel_outputs;
+  std::vector<InferOutputMetaRetTypePtr> kernel_outputs;
   bool empty_flag{false};
 };
 
@@ -363,7 +363,7 @@ class HabanaOperator {
       const std::vector<at::Tensor>& inputs,
       bool is_persistent = false);
 
-  virtual OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+  virtual InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
 
   //
   // Method to add a single tensor to graph builder context, also populates the

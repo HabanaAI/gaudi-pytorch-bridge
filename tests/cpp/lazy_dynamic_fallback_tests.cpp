@@ -168,7 +168,7 @@ TEST_F(LazyDynamicFallbackTest, FallbackCatTest) {
   }
 }
 
-// Also validates ComputeOutputShape for concat and strided_view
+// Also validates InferOutputMeta for concat and strided_view
 TEST_F(LazyDynamicFallbackTest, MaskRcnnAsStridedTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {

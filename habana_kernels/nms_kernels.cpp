@@ -328,9 +328,9 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(postnms_op->GetOutputs()[2]));
 }
 
-OutputShapeInfRetType BatchedNMSOperator::ComputeOutputShape(
+InferOutputMetaRetType BatchedNMSOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
 
   auto boxes = inputs[0].toTensor();
   auto scores = inputs[1].toTensor();

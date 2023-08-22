@@ -359,7 +359,7 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
 }
 
-// Also validates ComputeOutputShape for BCELogitsFwd
+// Also validates InferOutputMeta for BCELogitsFwd
 TEST_F(LazyLossKernelTest, BCELogitsFwdLossTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);

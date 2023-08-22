@@ -14,13 +14,13 @@
 #include "hpu_ops/expand.h"
 
 namespace habana {
-OutputShapeInfRetType ExpandOp::ComputeOutputShape(
+InferOutputMetaRetType ExpandOp::OutputShapeInf(
     const torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
 
   std::vector<int64_t> expandedSizes;
   std::vector<int64_t> expandedStrides;
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   if (inputs[1].isIntList()) {
     auto size = inputs[1].toIntList();
     std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(

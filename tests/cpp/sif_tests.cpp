@@ -410,7 +410,7 @@ TEST_F(SifTest, AllReduceWithControlEdge_Test) {
   validate_shape_end();
 }
 
-// To Do: Enable this below test once ComputeOutputShape is fixed for at::prod
+// To Do: Enable this below test once InferOutputMeta is fixed for at::prod
 TEST_F(SifTest, DISABLED_Fill_Add) {
   validate_shape_start();
 
@@ -552,9 +552,9 @@ TEST_F(SifTest, IndexSubSiluBwd) {
   validate_sif_end();
 }
 
-// Hybrid SIF test, Tests Matmul/Matmul Bwd with out ComputeOutputShape
-// Matmul/Matmul Bwd does not support ComputeOutputShape
-// Skip ComputeOutputShape validation
+// Hybrid SIF test, Tests Matmul/Matmul Bwd with out InferOutputMeta
+// Matmul/Matmul Bwd does not support InferOutputMeta
+// Skip InferOutputMeta validation
 TEST_F(SifTest, MatmulFwdBwd) {
   if (isGaudi3()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";

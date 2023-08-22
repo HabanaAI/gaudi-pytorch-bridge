@@ -29,7 +29,7 @@ class NonZeroOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
   static float round_dims(const at::Tensor& input_tensor, int group_size);
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_st_shape(

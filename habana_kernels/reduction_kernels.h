@@ -29,7 +29,7 @@ class ReduceOperator : public HabanaOperator {
         {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -82,7 +82,7 @@ class MeanOperator : public ReduceOperator {
             get_guid_with_precision("reduce_mean_fwd", scalar_type)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -117,7 +117,7 @@ class SumDimOutOperator : public ReduceOperator {
             device_id,
             get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
 
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -136,7 +136,7 @@ class SumDimOperator : public ReduceOperator {
             get_guid_with_precision("reduce_sum_fwd", scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -159,7 +159,7 @@ class SumOperator : public ReduceOperator {
       : SumOperator(
             device_id,
             get_guid_with_precision("reduce_sum_fwd", scalarType)) {}
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -208,7 +208,7 @@ class ReduceSumBwdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 
@@ -225,7 +225,7 @@ class ReduceMeanBwdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 

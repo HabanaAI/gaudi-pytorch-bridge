@@ -59,9 +59,9 @@ void CustomOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, params.get(), params_size);
 }
 
-OutputShapeInfRetType CustomOperator::ComputeOutputShape(
+InferOutputMetaRetType CustomOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto self = inputs[0].toTensor();
   auto outputs_desc = op_desc_.getOutputs();
   for (unsigned i = 0; i < op_desc_.getOutputsSize(); ++i) {

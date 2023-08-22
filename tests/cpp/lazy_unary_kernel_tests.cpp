@@ -928,7 +928,7 @@ TEST_F(LazyUnaryKernelTest, EluBackwardTest) {
       /*equal_nan*/ true));
 }
 
-// Also Validates ComputeOutputShape for GUID cast_u8_to_f32, cast_f32_to_i32,
+// Also Validates InferOutputMeta for GUID cast_u8_to_f32, cast_f32_to_i32,
 // cast_i32_to_bf16
 TEST_F(LazyUnaryKernelTest, CastU8F32I32) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -947,7 +947,7 @@ TEST_F(LazyUnaryKernelTest, CastU8F32I32) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also Validates ComputeOutputShape for cast bf16->i32, i32->u8 and u8->bf16
+// Also Validates InferOutputMeta for cast bf16->i32, i32->u8 and u8->bf16
 // cast bf16->i32 validates GUIDs cast_bf16_to_f32 and cast_f32_to_i32
 // cast i32->u8 validates GUID cast_i32_to_u8
 // cast u8->bf16 validates GUIDs cast_u8_to_f32 and cast_f32_to_bf16
@@ -968,7 +968,7 @@ TEST_F(LazyUnaryKernelTest, CastBF16I32U8BF16) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also Validates ComputeOutputShape for cast byte to bool
+// Also Validates InferOutputMeta for cast byte to bool
 TEST_F(LazyUnaryKernelTest, CastF32I32ByteBool) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -990,7 +990,7 @@ TEST_F(LazyUnaryKernelTest, CastF32I32ByteBool) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also Validates ComputeOutputShape for GUID cast_f32_to_i8, identity,
+// Also Validates InferOutputMeta for GUID cast_f32_to_i8, identity,
 // cast_i8_to_f32
 TEST_F(LazyUnaryKernelTest, CastIdentity) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -1007,7 +1007,7 @@ TEST_F(LazyUnaryKernelTest, CastIdentity) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also Validates ComputeOutputShape for GUID memcpy
+// Also Validates InferOutputMeta for GUID memcpy
 TEST_F(LazyUnaryKernelTest, CopyD2D) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -1031,7 +1031,7 @@ TEST_F(LazyUnaryKernelTest, CopyD2D) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for GUID atan2_fwd_f32
+// Also validates InferOutputMeta for GUID atan2_fwd_f32
 template <bool outMode, class F>
 static void TestInfNan(bool ndims, c10::ScalarType dType, F ptFun) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {

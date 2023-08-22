@@ -73,11 +73,11 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType BatchNormInfOperator::ComputeOutputShape(
+InferOutputMetaRetType BatchNormInfOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto input = inputs[0].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1231,13 +1231,13 @@ std::vector<int64_t> InstanceNormOperator::compute_output_shape(
   return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
 }
 
-OutputShapeInfRetType InstanceNormOperator::ComputeOutputShape(
+InferOutputMetaRetType InstanceNormOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   const auto input = inputs[0].toTensor();
   auto beta = inputs[1].toTensor();
   auto mean_var_shape = InstanceNormOperator::compute_output_shape(input);
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1334,7 +1334,7 @@ std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
   return {input.sizes().vec()[channels_idx]};
 }
 
-OutputShapeInfRetType InstanceNormBackwardOperator::ComputeOutputShape(
+InferOutputMetaRetType InstanceNormBackwardOperator::InferOutputMeta(
     Stack& in_stack) {
   auto input = in_stack[0].toTensor();
   auto mean = in_stack[2].toTensor();
@@ -1342,7 +1342,7 @@ OutputShapeInfRetType InstanceNormBackwardOperator::ComputeOutputShape(
   auto grad_beta_gamma_shape =
       InstanceNormBackwardOperator::compute_output_shape(input);
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1582,13 +1582,13 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType BatchNormForwardOperator::ComputeOutputShape(
+InferOutputMetaRetType BatchNormForwardOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   const auto input = inputs[0].toTensor();
   const auto running_mean = inputs[3].toTensor();
   const auto running_var = inputs[4].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1726,12 +1726,12 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType BatchNormBackwardOperator::ComputeOutputShape(
+InferOutputMetaRetType BatchNormBackwardOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   const auto input = inputs[0].toTensor();
   const auto weight = inputs[4].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   // grad_in_nhwc
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),

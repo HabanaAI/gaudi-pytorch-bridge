@@ -30,7 +30,7 @@ class BinaryOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_shape(
@@ -58,7 +58,7 @@ class BinaryWrapperOperator : public habana::HabanaOperator {
       const OutputMetaDataVector& output_metadata) final;
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
  protected:
@@ -96,7 +96,7 @@ class BinaryOperatorWithAlpha : public BinaryOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 
@@ -112,7 +112,7 @@ class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
  protected:

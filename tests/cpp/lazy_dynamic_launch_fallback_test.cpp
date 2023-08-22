@@ -44,7 +44,7 @@ class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
   }
 };
 
-// Also validates ComputeOutputShape for broadcast
+// Also validates InferOutputMeta for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
@@ -71,7 +71,7 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest) {
 }
 
 // This test requires fallback
-// Also validates ComputeOutputShape for broadcast
+// Also validates InferOutputMeta for broadcast
 TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {

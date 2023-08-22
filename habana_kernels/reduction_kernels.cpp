@@ -121,9 +121,9 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
-OutputShapeInfRetType ReduceOperator::ComputeOutputShape(
+InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   // output tensor
   Tensor output = inputs[0].toTensor();
   Tensor self = inputs[1].toTensor();
@@ -173,7 +173,7 @@ OutputShapeInfRetType ReduceOperator::ComputeOutputShape(
     std::vector<c10::IValue> stack;
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(shape));
-    auto reshape_out = out.call_ComputeOutputShape(ReshapeOp, stack);
+    auto reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
     self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
 
     int64_t reshaped_in_dim_data[reshaped_in_dim_size];
@@ -224,7 +224,7 @@ OutputShapeInfRetType ReduceOperator::ComputeOutputShape(
     stack.emplace_back(IValue(self_reshaped));
     stack.emplace_back(IValue(output.sizes()));
     // reshape output
-    auto reshape1_out = out.call_ComputeOutputShape(ReshapeOp, stack);
+    auto reshape1_out = out.call_InferOutputMeta(ReshapeOp, stack);
     // since reshape is directly realized at synapse guid level
     auto reshape_ptr = out.GetKernel(out.GetKernelSize() - 1);
     reshape_ptr->RemoveOutput(0);
@@ -532,7 +532,7 @@ ReduceOperator::CreateReductionGraph(
   return std::make_tuple(std::move(syn_tensor_in), std::move(syn_tensor_out));
 }
 
-OutputShapeInfRetType SumDimOperator::ComputeOutputShape(
+InferOutputMetaRetType SumDimOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 4) {
     auto self = inputs[0].toTensor();
@@ -561,7 +561,7 @@ OutputShapeInfRetType SumDimOperator::ComputeOutputShape(
         habana::createPTTensor(self, {0}, self.options(), memory_format, false);
     inputs.insert(inputs.begin(), IValue(output));
   }
-  return ReduceOperator::ComputeOutputShape(inputs);
+  return ReduceOperator::InferOutputMeta(inputs);
 }
 void SumDimOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -618,7 +618,7 @@ void SumDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-OutputShapeInfRetType SumDimOutOperator::ComputeOutputShape(
+InferOutputMetaRetType SumDimOutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toIntList();
@@ -642,7 +642,7 @@ OutputShapeInfRetType SumDimOutOperator::ComputeOutputShape(
   // Move the output at begining
   inputs.insert(inputs.begin(), IValue(output));
   inputs.erase(inputs.end());
-  return ReduceOperator::ComputeOutputShape(inputs);
+  return ReduceOperator::InferOutputMeta(inputs);
 }
 
 void SumDimOutOperator::AllocateAndAddSynapseNode(
@@ -740,8 +740,7 @@ void ProdDimOperator::AllocateAndAddSynapseNode(
   ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
-OutputShapeInfRetType SumOperator::ComputeOutputShape(
-    torch::jit::Stack& inputs) {
+InferOutputMetaRetType SumOperator::InferOutputMeta(torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
     Tensor self = inputs[0].toTensor();
     Tensor output = habana::createPTTensor(
@@ -759,7 +758,7 @@ OutputShapeInfRetType SumOperator::ComputeOutputShape(
     inputs.insert(inputs.begin() + 2, IValue(dim));
     inputs.insert(inputs.begin() + 3, IValue(keepdim));
   }
-  return ReduceOperator::ComputeOutputShape(inputs);
+  return ReduceOperator::InferOutputMeta(inputs);
 }
 void SumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -811,7 +810,7 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-OutputShapeInfRetType MeanOperator::ComputeOutputShape(
+InferOutputMetaRetType MeanOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
     Tensor self = inputs[0].toTensor();
@@ -831,7 +830,7 @@ OutputShapeInfRetType MeanOperator::ComputeOutputShape(
     inputs.insert(inputs.begin() + 2, IValue(dim));
     inputs.insert(inputs.begin() + 3, IValue(keepdim));
   }
-  return ReduceOperator::ComputeOutputShape(inputs);
+  return ReduceOperator::InferOutputMeta(inputs);
 }
 void MeanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -994,12 +993,12 @@ void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType ReduceSumBwdOperator::ComputeOutputShape(
+InferOutputMetaRetType ReduceSumBwdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto grad_out = inputs[0].toTensor();
   auto dim_arr_vec = inputs[1].toIntVector();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(habana::TensorMetaData(
       dim_arr_vec,
       HabanaOperator::CalculateStrides(
@@ -1044,12 +1043,12 @@ void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType ReduceMeanBwdOperator::ComputeOutputShape(
+InferOutputMetaRetType ReduceMeanBwdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto grad_out = inputs[0].toTensor();
   auto dim_arr_vec = inputs[1].toIntVector();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(habana::TensorMetaData(
       dim_arr_vec,
       HabanaOperator::CalculateStrides(

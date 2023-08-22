@@ -149,13 +149,13 @@ void PadOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-OutputShapeInfRetType PadOperatorHT::ComputeOutputShape(
+InferOutputMetaRetType PadOperatorHT::InferOutputMeta(
     torch::jit::Stack& inputs) {
   std::vector<int64_t> shape;
   auto input = inputs[0].toTensor();
   shape = inputs[2].toTensor().sizes().vec();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       shape,
       HabanaOperator::CalculateStrides(shape, input.suggest_memory_format()),

@@ -50,7 +50,7 @@ class MemCopyOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     this->setNoComputeFlag();
   }
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
@@ -69,7 +69,7 @@ class IdentityOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     this->setNoComputeFlag();
   }
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
@@ -84,7 +84,7 @@ class DummyOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -161,7 +161,7 @@ class SliceInsertOperator : public habana::HabanaOperator {
       c10::List<int64_t> paramsList,
       const synapse_helpers::graph& graph);
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void ReuseMemoryAndAddSynapseNode(
@@ -207,7 +207,7 @@ class StridedInsertOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -273,7 +273,7 @@ class StridedViewOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NCHW});
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   void compute_params(
       synStridedOpParams& params,

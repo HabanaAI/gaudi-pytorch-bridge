@@ -50,9 +50,9 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-OutputShapeInfRetType UnaryOperator::ComputeOutputShape(
+InferOutputMetaRetType UnaryOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto input = inputs[0].toTensor();
   out.AddOutputTensor(TensorMetaData(
       input.sizes().vec(),

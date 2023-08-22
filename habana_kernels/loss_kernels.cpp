@@ -140,7 +140,7 @@ void KlDivOperator::AllocateAndAddSynapseNode(
   }
 }
 
-OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
+InferOutputMetaRetType KlDivOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto target = inputs[1].toTensor();
@@ -150,20 +150,20 @@ OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
   torch::jit::Stack stack;
   HabanaOperatorPtr log_exp_op;
   HabanaOperatorPtr threshold_op;
-  OutputShapeInfRetType out;
-  OutputShapeInfRetType out_log_exp_op;
-  OutputShapeInfRetType out_threshold_op;
+  InferOutputMetaRetType out;
+  InferOutputMetaRetType out_log_exp_op;
+  InferOutputMetaRetType out_threshold_op;
   if (log_target) {
     log_exp_op =
         make_operator<ExpOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_log_exp_op = out.call_ComputeOutputShape(log_exp_op, stack);
+    out_log_exp_op = out.call_InferOutputMeta(log_exp_op, stack);
     stack.clear();
   } else {
     log_exp_op =
         make_operator<LogOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_log_exp_op = out.call_ComputeOutputShape(log_exp_op, stack);
+    out_log_exp_op = out.call_InferOutputMeta(log_exp_op, stack);
     stack.clear();
 
     threshold_op = make_operator<ThresholdBackwardOperator>(
@@ -172,7 +172,7 @@ OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
         IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0))),
         IValue(target),
         IValue(0.0f)};
-    out_threshold_op = out.call_ComputeOutputShape(threshold_op, stack);
+    out_threshold_op = out.call_InferOutputMeta(threshold_op, stack);
     stack.clear();
   }
 
@@ -183,7 +183,7 @@ OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
                    : IValue(std::get<1>(out_threshold_op.GetOutputTensor(0))),
       IValue(self),
       IValue(1)};
-  auto out_sub_op = out.call_ComputeOutputShape(sub_op, stack);
+  auto out_sub_op = out.call_InferOutputMeta(sub_op, stack);
   stack.clear();
 
   auto mul_op1 =
@@ -192,7 +192,7 @@ OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
       (log_target) ? IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0)))
                    : IValue(target),
       IValue(std::get<1>(out_sub_op.GetOutputTensor(0)))};
-  auto out_mul_op1 = out.call_ComputeOutputShape(mul_op1, stack);
+  auto out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
   stack.clear();
 
   if (reduction != at::Reduction::Reduction::None) {
@@ -204,7 +204,7 @@ OutputShapeInfRetType KlDivOperator::ComputeOutputShape(
     stack = {
         IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))),
         IValue(self.scalar_type())};
-    auto out_sum_mean_op = out.call_ComputeOutputShape(sum_mean_op, stack);
+    auto out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
     stack.clear();
 
     auto out_tensor = out_sum_mean_op.GetOutputTensor(0);
@@ -319,7 +319,7 @@ void KlDivBwdOperator::AllocateAndAddSynapseNode(
   }
 }
 
-OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
+InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto grad_out = inputs[0].toTensor();
   auto self = inputs[1].toTensor();
@@ -329,13 +329,13 @@ OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
 
   torch::jit::Stack stack;
   HabanaOperatorPtr exp_op;
-  OutputShapeInfRetType out;
-  OutputShapeInfRetType out_exp_op;
+  InferOutputMetaRetType out;
+  InferOutputMetaRetType out_exp_op;
   if (log_target) {
     exp_op =
         make_operator<ExpOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_exp_op = out.call_ComputeOutputShape(exp_op, stack);
+    out_exp_op = out.call_InferOutputMeta(exp_op, stack);
     stack.clear();
   }
 
@@ -352,7 +352,7 @@ OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
         : static_cast<HabanaOperatorPtr>(make_operator<ReduceMeanBwdOperator>(
               self.device().index(), self.scalar_type()));
     stack = {IValue(grad_out), IValue(size_arr), IValue(0)};
-    auto out_sum_mean_op = out.call_ComputeOutputShape(sum_mean_op, stack);
+    auto out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
     stack.clear();
 
     auto shape1 = self.sizes().vec();
@@ -361,7 +361,7 @@ OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
     stack = {
         IValue(std::get<1>(out_sum_mean_op.GetOutputTensor(0))),
         IValue(shape1)};
-    auto out_reshape_op = out.call_ComputeOutputShape(reshape_op, stack);
+    auto out_reshape_op = out.call_InferOutputMeta(reshape_op, stack);
     stack.clear();
 
     auto mul_op1 =
@@ -371,13 +371,13 @@ OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
         IValue(std::get<1>(out_reshape_op.GetOutputTensor(0))),
         (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
                      : IValue(target)};
-    auto out_mul_op1 = out.call_ComputeOutputShape(mul_op1, stack);
+    auto out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
     stack.clear();
 
     auto mul_op3 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))), IValue(-1)};
-    auto out_mul_op3 = out.call_ComputeOutputShape(mul_op3, stack);
+    auto out_mul_op3 = out.call_InferOutputMeta(mul_op3, stack);
     stack.clear();
 
     auto out_tensor = out_mul_op3.GetOutputTensor(0);
@@ -389,13 +389,13 @@ OutputShapeInfRetType KlDivBwdOperator::ComputeOutputShape(
         IValue(grad_out),
         (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
                      : IValue(target)};
-    auto out_mul_op2 = out.call_ComputeOutputShape(mul_op2, stack);
+    auto out_mul_op2 = out.call_InferOutputMeta(mul_op2, stack);
     stack.clear();
 
     auto mul_op4 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(std::get<1>(out_mul_op2.GetOutputTensor(0))), IValue(-1)};
-    auto out_mul_op4 = out.call_ComputeOutputShape(mul_op4, stack);
+    auto out_mul_op4 = out.call_InferOutputMeta(mul_op4, stack);
     stack.clear();
 
     auto out_tensor = out_mul_op4.GetOutputTensor(0);

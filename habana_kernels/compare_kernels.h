@@ -29,7 +29,7 @@ class CompareOutOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
  protected:
@@ -51,7 +51,7 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
@@ -73,7 +73,7 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs);

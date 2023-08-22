@@ -709,10 +709,10 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
   return p_context_->syn_outputs_.back();
 }
 
-habana::OutputShapeInfRetType habana::HabanaOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType habana::HabanaOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   static_cast<void>(inputs);
-  OutputShapeInfRetType ret(true);
+  InferOutputMetaRetType ret(true);
   return ret;
 }
 
@@ -848,7 +848,7 @@ habana::RegisterKernel& habana::KernelRegistry() {
 
 habana::HabanaOperator::~HabanaOperator() = default;
 
-void habana::OutputShapeInfRetType::AddTensor(
+void habana::InferOutputMetaRetType::AddTensor(
     const TensorMetaData& data,
     std::vector<IdxTensorTup>& v) {
   auto sif_tensor_id_ = habana::ShapeInference::ReadAndIncrementSifTensorId();
@@ -858,54 +858,53 @@ void habana::OutputShapeInfRetType::AddTensor(
   v.emplace_back(std::make_tuple(sif_tensor_id_, tensor));
 }
 
-void habana::OutputShapeInfRetType::AddOutputTensor(
+void habana::InferOutputMetaRetType::AddOutputTensor(
     const TensorMetaData& data) {
   AddTensor(data, output_tensors);
 }
 
-void habana::OutputShapeInfRetType::AddIntermediateTensor(
+void habana::InferOutputMetaRetType::AddIntermediateTensor(
     const TensorMetaData& data) {
-  OutputShapeInfRetType output;
+  InferOutputMetaRetType output;
   output.AddOutputTensor(data);
-  kernel_outputs.emplace_back(std::make_shared<OutputShapeInfRetType>(output));
+  kernel_outputs.emplace_back(std::make_shared<InferOutputMetaRetType>(output));
 }
 
-void habana::OutputShapeInfRetType::AddShapeTensor(const TensorMetaData& data) {
+void habana::InferOutputMetaRetType::AddShapeTensor(
+    const TensorMetaData& data) {
   AddTensor(data, shape_tensors);
 }
 
-void habana::OutputShapeInfRetType::AddDupTensor(
+void habana::InferOutputMetaRetType::AddDupTensor(
     const habana::TensorMetaData& data) {
   AddTensor(data, dup_tensors);
 }
 
-habana::OutputShapeInfRetType habana::OutputShapeInfRetType::
-    call_ComputeOutputShape(
-        HabanaOperatorPtr kernel,
-        torch::jit::Stack& inputs) {
+habana::InferOutputMetaRetType habana::InferOutputMetaRetType::
+    call_InferOutputMeta(HabanaOperatorPtr kernel, torch::jit::Stack& inputs) {
   HABANA_ASSERT(kernel.get() != nullptr, "kernel cannot be null");
-  auto output = kernel->ComputeOutputShape(inputs);
+  auto output = kernel->InferOutputMeta(inputs);
   kernel_outputs.emplace_back(
-      std::make_shared<habana::OutputShapeInfRetType>(output));
+      std::make_shared<habana::InferOutputMetaRetType>(output));
   return output;
 }
 
-const habana::IdxTensorTup& habana::OutputShapeInfRetType::GetOutputTensor(
+const habana::IdxTensorTup& habana::InferOutputMetaRetType::GetOutputTensor(
     size_t index) {
   HABANA_ASSERT(index <= output_tensors.size(), "index out of range");
   return output_tensors.at(index);
 }
 
-const habana::IdxTensorTup& habana::OutputShapeInfRetType::GetShapeTensor(
+const habana::IdxTensorTup& habana::InferOutputMetaRetType::GetShapeTensor(
     size_t index) {
   HABANA_ASSERT(index <= shape_tensors.size(), "index out of range");
   return shape_tensors.at(index);
 }
 
-void habana::OutputShapeInfRetType::MoveToOutput(habana::IdxTensorTup&& data) {
+void habana::InferOutputMetaRetType::MoveToOutput(habana::IdxTensorTup&& data) {
   output_tensors.emplace_back(data);
 }
 
-void habana::OutputShapeInfRetType::RemoveOutput(size_t index) {
+void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {
   output_tensors.erase(output_tensors.begin() + index);
 }

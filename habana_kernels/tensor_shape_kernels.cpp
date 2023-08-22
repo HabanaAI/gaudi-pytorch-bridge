@@ -141,10 +141,9 @@ Tensor CatOperator::CheckAllocateOutput(
   return out;
 }
 
-OutputShapeInfRetType CatOperator::ComputeOutputShape(
-    torch::jit::Stack& inputs) {
+InferOutputMetaRetType CatOperator::InferOutputMeta(torch::jit::Stack& inputs) {
   auto out_tensor = CheckAllocateOutput(inputs, OutputMetaData());
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       out_tensor.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -218,7 +217,7 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
   return std::make_tuple(self_sizes, self_strides);
 }
 
-OutputShapeInfRetType TransposeOperator::ComputeOutputShape(
+InferOutputMetaRetType TransposeOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   auto dim0_ = inputs[1].toInt();
@@ -228,7 +227,7 @@ OutputShapeInfRetType TransposeOperator::ComputeOutputShape(
   std::tie(self_sizes, self_strides) =
       TransposeOperator::compute_output_shape(self, dim0_, dim1_);
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       self_sizes,
       self_strides,
@@ -319,7 +318,7 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::
   return std::make_tuple(new_sizes, new_strides);
 }
 
-OutputShapeInfRetType PermuteOperator::ComputeOutputShape(
+InferOutputMetaRetType PermuteOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   const auto dims = inputs[1].toIntVector();
@@ -327,7 +326,7 @@ OutputShapeInfRetType PermuteOperator::ComputeOutputShape(
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       new_sizes,
       new_strides,
@@ -421,7 +420,7 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
   }
 }
 
-OutputShapeInfRetType ReshapeOperator::ComputeOutputShape(
+InferOutputMetaRetType ReshapeOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   std::vector<int64_t> inferred_size;
   Tensor self = inputs[0].toTensor();
@@ -444,7 +443,7 @@ OutputShapeInfRetType ReshapeOperator::ComputeOutputShape(
     memory_format = at::MemoryFormat::Contiguous;
   }
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto tensor_meta_data = TensorMetaData(
       inferred_size,
       HabanaOperator::CalculateStrides(inferred_size, memory_format),
@@ -573,7 +572,7 @@ void FlattenOperator::AllocateAndAddSynapseNode(
   ReshapeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
-OutputShapeInfRetType ViewOperator::ComputeOutputShape(
+InferOutputMetaRetType ViewOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   if (inputs[1].isIntList()) {
@@ -587,7 +586,7 @@ OutputShapeInfRetType ViewOperator::ComputeOutputShape(
     inputs.push_back(IValue(inferred_dims));
   }
 
-  return ReshapeOperator::ComputeOutputShape(inputs);
+  return ReshapeOperator::InferOutputMeta(inputs);
 }
 
 void ViewOperator::AllocateAndAddSynapseNode(
@@ -620,13 +619,13 @@ void ViewOperator::AllocateAndAddSynapseNode(
   ReshapeOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
 
-OutputShapeInfRetType BroadcastOperator::ComputeOutputShape(
+InferOutputMetaRetType BroadcastOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
 
   std::vector<int64_t> expandedSizes;
   std::vector<int64_t> expandedStrides;
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   if (inputs[1].isIntList()) {
     auto size = inputs[1].toIntList();
     std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(

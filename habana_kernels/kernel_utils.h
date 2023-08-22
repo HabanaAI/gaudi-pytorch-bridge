@@ -66,7 +66,7 @@ class CastOutOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::ANY, habana::LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
-  habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -91,7 +91,7 @@ class CastOperator : public CastOutOperator {
       : CastOutOperator(device_id, guid) {
     kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY});
   }
-  habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -110,7 +110,7 @@ class ConstantOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
 
-  habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -150,7 +150,7 @@ class ConstantOutOperator : public habana::HabanaOperator {
     kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
 
-  habana::OutputShapeInfRetType ComputeOutputShape(
+  habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(

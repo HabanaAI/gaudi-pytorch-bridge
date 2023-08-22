@@ -137,14 +137,14 @@ void GatherOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType GatherOperator::ComputeOutputShape(
+InferOutputMetaRetType GatherOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto index = inputs[2].toTensor();
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
   }
   auto output = AllocateOutput(inputs, OutputMetaData());
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -1454,12 +1454,12 @@ bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
   return true;
 }
 
-habana::OutputShapeInfRetType ScatterNdONNXOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType ScatterNdONNXOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto inp = inputs[0].toTensor();
   auto shape_out = inp.sizes().vec();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   // output tensor
   out.AddOutputTensor(TensorMetaData(
       shape_out,
@@ -1498,9 +1498,9 @@ void ScatterNdONNXOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-habana::OutputShapeInfRetType ScatterNdOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType ScatterNdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
 
   auto inp = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
@@ -1619,11 +1619,11 @@ void IndexSelectOperator::AllocateAndAddSynapseNode(
   inputs.pop_back();
 }
 
-OutputShapeInfRetType IndexSelectOperator::ComputeOutputShape(
+InferOutputMetaRetType IndexSelectOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   bool sparse_grad = false;
   inputs.emplace_back(IValue(sparse_grad));
-  return GatherOperator::ComputeOutputShape(inputs);
+  return GatherOperator::InferOutputMeta(inputs);
 }
 
 void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1787,7 +1787,7 @@ void SliceOperator::ValidateSliceInputs(
       start);
 }
 
-OutputShapeInfRetType SliceOperator::ComputeOutputShape(
+InferOutputMetaRetType SliceOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   std::vector<int64_t> out_shape;
@@ -1820,7 +1820,7 @@ OutputShapeInfRetType SliceOperator::ComputeOutputShape(
       HabanaOperator::CalculateStrides(out_shape, self.suggest_memory_format()),
       self.scalar_type(),
       self.suggest_memory_format());
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(metaData);
 
   if (!has_shape_tensor) {
@@ -2239,9 +2239,9 @@ std::vector<T> get_start_step_end(const IntArrayRef& shape) {
   return d;
 }
 
-OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
+InferOutputMetaRetType ArangeOperatorHT::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   if (inputs.size() == 3) {
     auto output_shape_tensor = inputs[2].toTensor();
     auto result = inputs[1].toTensor();
@@ -2309,7 +2309,7 @@ OutputShapeInfRetType ArangeOperatorHT::ComputeOutputShape(
       auto castOp = make_operator<CastOutOperator>(
           this->p_context_->device_id_, "cast_i32_to_i8");
       torch::jit::Stack stack = {IValue(output_range), IValue(result)};
-      auto castOp_out = out.call_ComputeOutputShape(castOp, stack);
+      auto castOp_out = out.call_InferOutputMeta(castOp, stack);
       auto out_tensor = castOp_out.GetOutputTensor(0);
       out.MoveToOutput(std::move(out_tensor));
     }
@@ -2766,7 +2766,7 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
+InferOutputMetaRetType UniqueOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   int elements = self.numel();
@@ -2775,7 +2775,7 @@ OutputShapeInfRetType UniqueOperator::ComputeOutputShape(
   std::vector<int64_t> inverse_tensor_shape{elements};
   std::vector<int64_t> counts_tensor_shape{elements};
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(habana::TensorMetaData(
       output_shape,
       HabanaOperator::CalculateStrides(
@@ -2830,12 +2830,12 @@ std::vector<int64_t> SqueezeOperator::compute_output_shape(
   return out_shape;
 }
 
-OutputShapeInfRetType SqueezeOperator::ComputeOutputShape(
+InferOutputMetaRetType SqueezeOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto input = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto out_shape = SqueezeOperator::compute_output_shape(input, dim);
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       out_shape,
       HabanaOperator::CalculateStrides(
@@ -2889,7 +2889,7 @@ std::vector<int64_t> UnsqueezeOperator::compute_output_shape(
   return out_shape;
 }
 
-OutputShapeInfRetType UnsqueezeOperator::ComputeOutputShape(
+InferOutputMetaRetType UnsqueezeOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto input = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
@@ -2902,7 +2902,7 @@ OutputShapeInfRetType UnsqueezeOperator::ComputeOutputShape(
       input.scalar_type(),
       input.suggest_memory_format());
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(metaData);
 
   return out;

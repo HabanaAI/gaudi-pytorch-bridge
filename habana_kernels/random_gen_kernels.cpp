@@ -71,9 +71,9 @@ at::Tensor get_seed_tensor_hpu(const c10::optional<Generator>& gen) {
 
 using namespace habana;
 
-OutputShapeInfRetType RandomShuffleOperator::ComputeOutputShape(
+InferOutputMetaRetType RandomShuffleOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto self = inputs[0].toTensor();
   out.AddOutputTensor(TensorMetaData(
       self.sizes().vec(),
@@ -107,9 +107,9 @@ void RandomShuffleOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-OutputShapeInfRetType RandpermOperatorHT::ComputeOutputShape(
+InferOutputMetaRetType RandpermOperatorHT::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto host_tensor = inputs[0].toTensor();
   auto output = inputs[2].toTensor();
   auto scalar_type = output.scalar_type();
@@ -119,14 +119,14 @@ OutputShapeInfRetType RandpermOperatorHT::ComputeOutputShape(
       this->p_context_->device_id_, scalar_type);
   torch::jit::Stack stack{
       IValue(host_tensor), IValue(arangeOutput), IValue(output)};
-  auto arange_op_out = out.call_ComputeOutputShape(arangeOp, stack);
+  auto arange_op_out = out.call_InferOutputMeta(arangeOp, stack);
 
   stack.clear();
   stack.emplace_back(IValue(arangeOutput));
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, scalar_type);
 
-  auto randShuffle_op_out = out.call_ComputeOutputShape(randShuffleOp, stack);
+  auto randShuffle_op_out = out.call_InferOutputMeta(randShuffleOp, stack);
   auto randShuffle_op_tensor = randShuffle_op_out.GetOutputTensor()[0];
 
   out.MoveToOutput(std::move(randShuffle_op_tensor));
@@ -321,11 +321,11 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-OutputShapeInfRetType DropoutOperator::ComputeOutputShape(
+InferOutputMetaRetType DropoutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   // output
   out.AddOutputTensor(habana::TensorMetaData(
       self.sizes().vec(),

@@ -173,7 +173,7 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  if (!isMetaMode()) {
+  if (!isOutputInfMode()) {
     // remove total_weight from output as it is unsupported
     p_context_->syn_outputs_.pop_back();
     // dummy output in place of total_weight

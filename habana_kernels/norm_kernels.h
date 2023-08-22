@@ -66,7 +66,7 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
          synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
   }
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -130,7 +130,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
     preprocessing_done = false;
   }
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
@@ -204,7 +204,7 @@ class BatchNormInfOperator : public habana::HabanaOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   }
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void AllocateAndAddSynapseNode(
@@ -419,7 +419,7 @@ class InstanceNormOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY});
     kernel_meta_data_.tpc_input_order = {0, 2, 1};
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -450,7 +450,7 @@ class InstanceNormBackwardOperator : public habana::HabanaOperator {
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

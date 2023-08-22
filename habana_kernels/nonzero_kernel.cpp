@@ -107,13 +107,13 @@ std::vector<int64_t> NonZeroOperator::compute_output_shape(
   return output_shape;
 }
 
-OutputShapeInfRetType NonZeroOperator::ComputeOutputShape(
+InferOutputMetaRetType NonZeroOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   if (self.dim() > 4) {
     auto output_shape = compute_output_shape(self);
     std::vector<int64_t> shape_tensor_shape = {5};
-    OutputShapeInfRetType out;
+    InferOutputMetaRetType out;
     auto metaData = TensorMetaData(
         output_shape,
         HabanaOperator::CalculateStrides(
@@ -133,7 +133,7 @@ OutputShapeInfRetType NonZeroOperator::ComputeOutputShape(
 
   } else {
     SetGuid(get_guid_with_precision("non_zero_v2_fwd", self.scalar_type()));
-    OutputShapeInfRetType out;
+    InferOutputMetaRetType out;
     // (i) This output_describing_shape_tensor is created to be used by
     // "reshape" node within CGUID. This should be created within CGUID in
     // future. (ii) This shape tensor should not be created in as part of

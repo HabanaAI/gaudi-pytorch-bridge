@@ -81,9 +81,9 @@ inline void _allocate_or_resize_output_with_indices(
 }
 } // namespace
 
-OutputShapeInfRetType TopkOutOperator::ComputeOutputShape(
+InferOutputMetaRetType TopkOutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
 
   auto self = inputs[0].toTensor();
   int64_t dim_ = inputs[2].toInt();
@@ -276,7 +276,7 @@ void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
-OutputShapeInfRetType TopkOperator::ComputeOutputShape(
+InferOutputMetaRetType TopkOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   if (inputs.size() == 5) {
     Tensor self = inputs[0].toTensor();
@@ -292,7 +292,7 @@ OutputShapeInfRetType TopkOperator::ComputeOutputShape(
     inputs.push_back(IValue(values));
     inputs.push_back(IValue(indices));
   }
-  auto out = TopkOutOperator::ComputeOutputShape(inputs);
+  auto out = TopkOutOperator::InferOutputMeta(inputs);
   if (inputs.size() == 7) {
     inputs.erase(inputs.cbegin() + 5);
     inputs.erase(inputs.cbegin() + 6);

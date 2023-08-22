@@ -343,11 +343,11 @@ ns_CastKernel::ParamsV2 CastOutOperator::synapse_cast_params_v2_builder(
   return params;
 }
 
-habana::OutputShapeInfRetType CastOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType CastOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto castOp = make_operator<habana::LazyCast>(
       p_context_->device_id_, inputs[1].toScalarType());
-  return castOp->ComputeOutputShape(inputs);
+  return castOp->InferOutputMeta(inputs);
 }
 
 void CastOperator::AllocateAndAddSynapseNode(
@@ -363,10 +363,10 @@ void CastOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(castOp->GetOutputs()[0]));
 }
 
-habana::OutputShapeInfRetType CastOutOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType CastOutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto output = inputs[1].toTensor();
-  habana::OutputShapeInfRetType out;
+  habana::InferOutputMetaRetType out;
   out.AddDupTensor(habana::TensorMetaData(
       output.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -407,7 +407,7 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-habana::OutputShapeInfRetType ConstantOutOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType ConstantOutOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto output = inputs[0].toTensor();
   auto tensor_meta_data = habana::TensorMetaData(
@@ -416,7 +416,7 @@ habana::OutputShapeInfRetType ConstantOutOperator::ComputeOutputShape(
           output.sizes(), output.suggest_memory_format()),
       output.scalar_type(),
       output.suggest_memory_format());
-  habana::OutputShapeInfRetType out;
+  habana::InferOutputMetaRetType out;
   out.AddOutputTensor(tensor_meta_data);
   out.AddShapeTensor(tensor_meta_data);
   return out;
@@ -474,7 +474,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-habana::OutputShapeInfRetType ConstantOperator::ComputeOutputShape(
+habana::InferOutputMetaRetType ConstantOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto input = inputs[0].toTensor();
   auto tensor_meta_data = habana::TensorMetaData(
@@ -483,7 +483,7 @@ habana::OutputShapeInfRetType ConstantOperator::ComputeOutputShape(
           input.sizes(), input.suggest_memory_format()),
       input.scalar_type(),
       input.suggest_memory_format());
-  habana::OutputShapeInfRetType out;
+  habana::InferOutputMetaRetType out;
   out.AddOutputTensor(tensor_meta_data);
   out.AddShapeTensor(tensor_meta_data);
   return out;

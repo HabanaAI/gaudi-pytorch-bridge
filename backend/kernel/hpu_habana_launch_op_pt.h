@@ -465,7 +465,7 @@ class HabanaLaunchOpPT {
   int64_t ProcessSynapseOutputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node,
-      OutputShapeInfRetType& outputs);
+      InferOutputMetaRetType& outputs);
   void ProcessStridedInsertAtOutput(
       torch::jit::Node*,
       HabanaOperatorPtr,
@@ -478,7 +478,7 @@ class HabanaLaunchOpPT {
       std::vector<size_t>& inputs_shape_tensors,
       bool isRecursiveCall = false);
   void ProcessShapeTensorsCS(
-      const OutputShapeInfRetType& output,
+      const InferOutputMetaRetType& output,
       std::vector<IdxTensorTup>& intermediate_shape_tensor_cs);
   void handlePrimNodes(torch::jit::Node* node);
   void handlePrimConstantNode(torch::jit::Node* node);
@@ -575,15 +575,15 @@ class HabanaLaunchOpPT {
   void UpdateOutputs(RecipeValueSpec& rv);
   void validateOutputShapeNonDynamic(
       const HabanaOperatorPtr& HabanaKernel,
-      const OutputShapeInfRetType& output_shape_handle,
+      const InferOutputMetaRetType& output_shape_handle,
       const std::string& opname);
   void validateOutputShapeDynamic(
       const HabanaOperatorPtr& HabanaKernel,
-      const OutputShapeInfRetType& output_shape_handle,
+      const InferOutputMetaRetType& output_shape_handle,
       const std::string& opname);
   void validateOutputShape(
       const HabanaOperatorPtr& HabanaKernel,
-      const OutputShapeInfRetType& output_shape_handle,
+      const InferOutputMetaRetType& output_shape_handle,
       const synapse_helpers::graph& syn_graph,
       const std::string& opname);
 
@@ -654,7 +654,7 @@ class HabanaLaunchOpPT {
 
   // Fast shape inference specific members and functions
   // Currently fast shape inference is realized through a pass which works in
-  // hybrid mode. This hybrid shape inference pass uses ComputeOutputShape
+  // hybrid mode. This hybrid shape inference pass uses OutputShapeInf
   // for JIT OPs whenever possible, otherwise falls back to
   // AllocateAndAddSynapseNode for the output shape computation.
 

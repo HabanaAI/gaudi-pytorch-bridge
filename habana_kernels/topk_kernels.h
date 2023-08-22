@@ -25,7 +25,7 @@ class TopkOutOperator : public HabanaOperator {
     values_persistent = false;
     indices_persistent = false;
   }
-  virtual OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs);
+  virtual InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -46,7 +46,7 @@ class TopkOperator : public TopkOutOperator {
       : TopkOutOperator(device_id, guid) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-  OutputShapeInfRetType ComputeOutputShape(torch::jit::Stack& inputs) override;
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

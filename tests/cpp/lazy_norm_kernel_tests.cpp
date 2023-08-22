@@ -192,7 +192,7 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for BatchNormFwd
+// Also validates InferOutputMeta for BatchNormFwd
 TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -351,7 +351,7 @@ TEST_F(LazyNormKernelTest, BatchNormAffineFalseForwardExecute) {
   EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
 }
 
-// Also validates ComputeOutputShape for BatchNormInf
+// Also validates InferOutputMeta for BatchNormInf
 TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -388,7 +388,7 @@ TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for BatchNormBwd
+// Also validates InferOutputMeta for BatchNormBwd
 TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);

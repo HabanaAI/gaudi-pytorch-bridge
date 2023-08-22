@@ -58,7 +58,7 @@ class SliceOperator : public HabanaOperator {
       std::vector<int64_t>& step,
       std::vector<int64_t>& start);
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> GetH2DTensorData(
@@ -111,7 +111,7 @@ class GatherOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
@@ -232,7 +232,7 @@ class IndexSelectOperator : public GatherOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
@@ -254,7 +254,7 @@ class ScatterNdONNXOperator : public HabanaOperator {
     scalarType_ = scalarType;
   }
 
-  virtual habana::OutputShapeInfRetType ComputeOutputShape(
+  virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
@@ -283,7 +283,7 @@ class ScatterNdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) final;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
  protected:
@@ -404,7 +404,7 @@ class ArangeOperatorHT : public ArangeOperator {
   ArangeOperatorHT(int device_id, c10::ScalarType scalarType)
       : ArangeOperator(device_id, scalarType) {}
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   virtual void AllocateAndAddSynapseNode(
@@ -440,7 +440,7 @@ class UniqueOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
@@ -481,7 +481,7 @@ class SqueezeOperator : public HabanaOperator {
       const at::Tensor& self,
       int64_t dim);
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 
@@ -506,7 +506,7 @@ class UnsqueezeOperator : public HabanaOperator {
       const at::Tensor& self,
       int64_t dim);
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 

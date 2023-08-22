@@ -24,9 +24,9 @@
 
 using namespace habana;
 
-OutputShapeInfRetType RoiAlignFwdOperator::ComputeOutputShape(
+InferOutputMetaRetType RoiAlignFwdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto input = inputs[0].toTensor();
   auto num_rois = inputs[2].toTensor();
   auto output_h = inputs[3].toInt();
@@ -101,9 +101,9 @@ void RoiAlignFwdOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &roi_params, sizeof(roi_params));
 }
 
-OutputShapeInfRetType RoiAlignBwdOperator::ComputeOutputShape(
+InferOutputMetaRetType RoiAlignBwdOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto rois = inputs[1].toTensor();
   torch::jit::Stack temp(inputs);
 
@@ -112,17 +112,16 @@ OutputShapeInfRetType RoiAlignBwdOperator::ComputeOutputShape(
         make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
     torch::jit::Stack castOp_stack = {
         inputs[1].toTensor(), c10::ScalarType::Float};
-    auto cast_op_out = out.call_ComputeOutputShape(cast_op, castOp_stack);
+    auto cast_op_out = out.call_InferOutputMeta(cast_op, castOp_stack);
   }
 
   auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
       this->p_context_->device_id_, c10::ScalarType::Float);
-  auto quad_tree_op_out = out.call_ComputeOutputShape(quad_tree_op, inputs);
+  auto quad_tree_op_out = out.call_InferOutputMeta(quad_tree_op, inputs);
 
   auto roi_bwd_impl_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
-  auto roi_bwd_impl_op_out =
-      out.call_ComputeOutputShape(roi_bwd_impl_op, inputs);
+  auto roi_bwd_impl_op_out = out.call_InferOutputMeta(roi_bwd_impl_op, inputs);
   auto roi_bwd_impl_op_tensor = roi_bwd_impl_op_out.GetOutputTensor()[0];
   out.MoveToOutput(std::move(roi_bwd_impl_op_tensor));
 
@@ -173,11 +172,11 @@ void RoiAlignBwdOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(roi_bwd_op->GetOutputs()[0]));
 }
 
-OutputShapeInfRetType RoiAlignBwdImplOperator::ComputeOutputShape(
+InferOutputMetaRetType RoiAlignBwdImplOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto input_shape = inputs[3].toTensor();
   auto grad_out = inputs[0].toTensor();
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       input_shape.sizes().vec(),
       HabanaOperator::CalculateStrides(
@@ -244,14 +243,14 @@ void RoiAlignBwdImplOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &roi_params, sizeof(roi_params));
 }
 
-OutputShapeInfRetType QuadTreeFwdImplOperator::ComputeOutputShape(
+InferOutputMetaRetType QuadTreeFwdImplOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto rois = inputs[1].toTensor();
   auto num_rois = inputs[2].toTensor();
   auto input_shape = inputs[3].toTensor();
   std::vector<int64_t> output_size = {
       input_shape.sizes()[0], 256, num_rois.sizes()[0] + 1};
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       output_size,
       HabanaOperator::CalculateStrides(

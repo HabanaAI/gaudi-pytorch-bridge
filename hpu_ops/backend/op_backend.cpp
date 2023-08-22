@@ -87,7 +87,7 @@ OpBackend::OpBackend(
 }
 
 synTensor OpBackend::syn_in(int index) {
-  if (isMetaMode()) {
+  if (isOutputInfMode()) {
     return nullptr;
   }
 
@@ -95,7 +95,7 @@ synTensor OpBackend::syn_in(int index) {
 }
 
 sh::tensor& OpBackend::syn_out(int index) {
-  if (isMetaMode()) {
+  if (isOutputInfMode()) {
     // create dummy tensor with out incrementing tensor id
     static auto ph = sh::tensor::create_placeholder(
         0, {}, {}, false, std::string(), DATA_TENSOR, false);
@@ -105,7 +105,7 @@ sh::tensor& OpBackend::syn_out(int index) {
 }
 
 synTensor OpBackend::syn_seed() {
-  if (isMetaMode()) {
+  if (isOutputInfMode()) {
     return nullptr;
   }
 
@@ -139,7 +139,7 @@ void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
 
     auto constant = ConstantHelper(graph, val);
 
-    if (!isMetaMode()) {
+    if (!isOutputInfMode()) {
       // Set output from constant as input to this node at index m_scalar_id
       p_context_->syn_inputs_.emplace(
           p_context_->syn_inputs_.cbegin() + m_scalar_id, std::move(constant));
@@ -286,7 +286,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
         input_type,
         m_scalar_type);
 
-    if (!isMetaMode()) {
+    if (!isOutputInfMode()) {
       // Replace the input with the casted input
       syn_inputs_cast_.emplace(i, std::move(cast));
     }
@@ -392,11 +392,11 @@ sh::tensor OpBackend::IdentityHelper(
 }
 
 void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
-  if (isMetaMode()) {
+  if (isOutputInfMode()) {
     if (m_is_outfn) { // out place fn
       for (int i = m_num_out_tensors; i > 0; --i) {
         const auto& t = stack.at(stack.size() - i).toTensor();
-        m_meta.AddOutputTensor(TensorMetaData(
+        m_output_inf_meta.AddOutputTensor(TensorMetaData(
             t.sizes().vec(),
             t.strides().vec(),
             t.scalar_type(),
@@ -410,7 +410,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
             ? static_cast<at::List<at::Tensor>>(ival.toTensor())
             : ival.toTensorList();
         for (const at::Tensor& tensor : tensors) {
-          m_meta.AddOutputTensor(TensorMetaData(
+          m_output_inf_meta.AddOutputTensor(TensorMetaData(
               tensor.sizes().vec(),
               tensor.strides().vec(),
               tensor.scalar_type(),
@@ -421,7 +421,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       if (UsesOutputMeta()) {
         auto meta = OutputMeta(stack);
         for (const auto& metadata : meta) {
-          m_meta.AddOutputTensor(TensorMetaData(
+          m_output_inf_meta.AddOutputTensor(TensorMetaData(
               metadata.shape,
               HabanaOperator::CalculateStrides(
                   metadata.shape, at::MemoryFormat::Contiguous),
@@ -441,7 +441,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
                 outshapes.empty() ? tensors[i].sizes() : outshapes[i];
             const auto& strides = HabanaOperator::CalculateStrides(
                 outshape.vec(), at::MemoryFormat::Contiguous);
-            m_meta.AddOutputTensor(TensorMetaData(
+            m_output_inf_meta.AddOutputTensor(TensorMetaData(
                 outshape.vec(),
                 strides,
                 tensors[i].scalar_type(),
@@ -457,8 +457,8 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   AddNodeToSynapseGraph(graph, params.get(), size);
 }
 
-OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
-  m_meta_mode = true;
+InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
+  m_output_inf_mode = true;
   auto& device = habana::HPURegistrar::get_device(0).syn_device();
   auto graph = sh::graph::create(device, {}, true);
 
@@ -471,9 +471,9 @@ OutputShapeInfRetType OpBackend::ComputeOutputShape(at::Stack& stack) {
   }
 
   AddNode(graph, stack);
-  m_meta_mode = false;
+  m_output_inf_mode = false;
 
-  return m_meta;
+  return m_output_inf_meta;
 }
 
 void OpBackend::PopulateMetadata(
@@ -555,8 +555,8 @@ void OpBackend::CreateShapeTensorInput(
     synTensorType shape_tensor_type,
     bool force_create) {
   // Add intermediate shape tensor
-  if (isMetaMode()) {
-    auto& meta = GetMeta();
+  if (isOutputInfMode()) {
+    auto& meta = GetOutputInfMeta();
     const auto& st = GetProxyTensor(dtype, sizes);
     const auto& md = TensorMetaData(
         st.sizes().vec(),
@@ -581,8 +581,8 @@ std::vector<sh::tensor> OpBackend::BuildNode(
     OpBackend* op,
     sh::graph& graph,
     NodeAttr node_attr) {
-  if (op->isMetaMode()) {
-    auto& meta = op->GetMeta();
+  if (op->isOutputInfMode()) {
+    auto& meta = op->GetOutputInfMeta();
     const auto& output_attrs_size = node_attr.output_attrs.size();
     std::vector<sh::tensor> out;
     out.reserve(output_attrs_size);
@@ -878,7 +878,7 @@ sh::tensor OpBackend::BuildConstantTensor(
     sh::graph& graph,
     const at::Scalar& val,
     [[maybe_unused]] const at::IntArrayRef outshape) {
-  if (op->isMetaMode()) {
+  if (op->isOutputInfMode()) {
     // dummy synapse tensor
     return sh::tensor::create_placeholder({1}, {1});
   }
@@ -1054,7 +1054,8 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
       " tensors was given");
   if (nrOfInTensors == allowedNrOfInTensors + 1) {
     HABANA_ASSERT(
-        op->isMetaMode() || validCountTensorRank == allowedValidCountTensorRank,
+        op->isOutputInfMode() ||
+            validCountTensorRank == allowedValidCountTensorRank,
         "ScatterND ValidCount tensor must have rank 1");
   }
 

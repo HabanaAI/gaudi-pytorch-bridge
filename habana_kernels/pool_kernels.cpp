@@ -66,7 +66,7 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
 }
 } // namespace
 
-OutputShapeInfRetType MaxPool2dOperator::ComputeOutputShape(
+InferOutputMetaRetType MaxPool2dOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -78,7 +78,7 @@ OutputShapeInfRetType MaxPool2dOperator::ComputeOutputShape(
   auto shape_out = compute_pool_kernel_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   // output tensor
   out.AddOutputTensor(TensorMetaData(
       shape_out,

@@ -86,9 +86,9 @@ std::vector<int64_t> RepeatOperatorHT::ComputeRepeatShapefromH2DTensor(
   return repeat;
 }
 
-OutputShapeInfRetType RepeatOperatorHT::ComputeOutputShape(
+InferOutputMetaRetType RepeatOperatorHT::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
 
@@ -107,7 +107,7 @@ OutputShapeInfRetType RepeatOperatorHT::ComputeOutputShape(
     auto reshapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, input.scalar_type());
     torch::jit::Stack temp_stack = {IValue(input), IValue(reshapeSize)};
-    out.call_ComputeOutputShape(reshapeOp, temp_stack);
+    out.call_InferOutputMeta(reshapeOp, temp_stack);
   }
 
   auto out_metadata = TensorMetaData(
@@ -221,9 +221,9 @@ std::vector<int64_t> RepeatInlvOperator::compute_output_shape(
   return outshape;
 }
 
-OutputShapeInfRetType RepeatInlvOperator::ComputeOutputShape(
+InferOutputMetaRetType RepeatInlvOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto input = inputs[0].toTensor();
   auto out_shape = inputs[3].toTensor();
   auto out_metadata = TensorMetaData(
@@ -305,9 +305,9 @@ std::vector<int64_t> RepeatInlvOperatorHT::ComputeRepeatShapefromH2DTensor(
   return repeat;
 }
 
-OutputShapeInfRetType RepeatInlvOperatorHT::ComputeOutputShape(
+InferOutputMetaRetType RepeatInlvOperatorHT::InferOutputMeta(
     torch::jit::Stack& inputs) {
-  OutputShapeInfRetType out;
+  InferOutputMetaRetType out;
   auto input = inputs[0].toTensor();
   auto repeats_ht = inputs[1].toTensor();
 

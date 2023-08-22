@@ -38,7 +38,7 @@ class MaxPool2dOperator : public HabanaOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 };
 } // namespace habana

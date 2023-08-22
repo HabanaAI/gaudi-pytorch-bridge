@@ -25,7 +25,7 @@ class BinaryInplaceOperator : public habana::HabanaOperator {
       : HabanaOperator(guid), scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -42,7 +42,7 @@ class BinaryInplaceWrapperOperator : public habana::HabanaOperator {
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -71,7 +71,7 @@ class BinaryInplaceOperatorWithAlpha : public BinaryInplaceOperator {
       const std::string& guid,
       c10::ScalarType scalarType)
       : BinaryInplaceOperator(device_id, guid, scalarType) {}
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -85,7 +85,7 @@ class BinaryInplaceWrapperOperatorWithAlpha : public habana::HabanaOperator {
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
-  virtual OutputShapeInfRetType ComputeOutputShape(
+  virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

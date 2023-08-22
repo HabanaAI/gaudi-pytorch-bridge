@@ -15,7 +15,7 @@ using namespace at;
 
 class LazyBinaryInplaceKernelTest : public habana_lazy_test::LazyTest {};
 
-// Also validates ComputeOutputShape for MulInplace
+// Also validates InferOutputMeta for MulInplace
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -39,7 +39,7 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for MulInplaceScalar
+// Also validates InferOutputMeta for MulInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -62,7 +62,7 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for MulInplaceScalarBf16
+// Also validates InferOutputMeta for MulInplaceScalarBf16
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -87,7 +87,7 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for AddInplaceScalar
+// Also validates InferOutputMeta for AddInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -110,7 +110,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also validates ComputeOutputShape for SubInplaceScalar
+// Also validates InferOutputMeta for SubInplaceScalar
 TEST_F(LazyBinaryInplaceKernelTest, SubInplaceScalarTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -246,7 +246,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
-// Also validates ComputeOutputShape for DivInplace
+// Also validates InferOutputMeta for DivInplace
 TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);

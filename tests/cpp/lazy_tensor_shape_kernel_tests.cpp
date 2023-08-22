@@ -100,7 +100,7 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
   EXPECT_EQ(allclose(result, exp), true);
 }
 
-// Also Validates ComputeOutputShape for concat
+// Also Validates InferOutputMeta for concat
 TEST_F(LazyTensorShapeKernelTest, CatTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -394,7 +394,7 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
-// Also Validates ComputeOutputShape for transpose
+// Also Validates InferOutputMeta for transpose
 TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
@@ -408,7 +408,7 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
 
-// Also Validates ComputeOutputShape for transpose
+// Also Validates InferOutputMeta for transpose
 TEST_F(LazyTensorShapeKernelTest, TransposeTest2) {
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
