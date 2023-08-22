@@ -173,17 +173,30 @@ def enable_dynamic_shape():
 def disable_dynamic_shape():
     _hpu_C.disable_dynamic_shape()
 
+
 def enable_inference_mode():
     _hpu_C.enable_inference_mode()
+
 
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
+
 def enable_const_section_serialization(path, clear_path):
     _hpu_C.enable_const_section_serialization(str(path), clear_path)
 
+
 def disable_const_section_serialization():
     _hpu_C.enable_const_section_serialization("", False)
+
+
+def enable_matmul3d_2d_reshape():
+    _hpu_C.enable_matmul3d_2d_reshape()
+
+
+def disable_matmul3d_2d_reshape():
+    _hpu_C.disable_matmul3d_2d_reshape()
+
 
 def is_bf16_supported():
     r"""Check if bf16 is supported."""

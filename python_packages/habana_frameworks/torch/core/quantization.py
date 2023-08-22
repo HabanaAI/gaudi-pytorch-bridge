@@ -107,13 +107,24 @@ def _check_params_as_const(model=None) -> None:
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
 
-def hpu_initialize(model=None, optimizer=None, args=None):
+_set_env = 1
+def hpu_set_env():
+    global _set_env
     hpu.enable_inference_mode()
-    if "PT_HPU_MATMUL3D_2D_RESHAPE" not in environ:
-        environ["PT_HPU_MATMUL3D_2D_RESHAPE"] = "1"
-    # media WA to not convert imagenet label tensor to int64
+    hpu.enable_matmul3d_2d_reshape()
+    _set_env = 0
+
+def hpu_initialize(model=None, optimizer=None, args=None):
+    global _set_env
+    if _set_env == 1:
+        hpu.enable_inference_mode()
+        hpu.enable_matmul3d_2d_reshape()
     if model is not None:
         #_mark_params_as_const(model=model)
         _read_min_max_overwrite()
         with _e_handler():
             _handle_quant_stats(model)
+
+def hpu_reset_env():
+    hpu.disable_inference_mode()
+    hpu.disable_matmul3d_2d_reshape()

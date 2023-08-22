@@ -24,4 +24,8 @@ bool IsInferenceMode();
 bool IsConstSectionSerialization();
 std::string GetConstSectionSerializationPath();
 bool ShouldClearConstSectionPath();
+
+void EnableMatmul3d2dReshape();
+void DisableMatmul3d2dReshape();
+bool IsMatmul3d2dReshapeEnabled();
 } // namespace habana_helpers

@@ -616,7 +616,7 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
 
-  bool reshape_3d_2d = GET_ENV_FLAG_NEW(PT_HPU_MATMUL3D_2D_RESHAPE);
+  bool reshape_3d_2d = habana_helpers::IsMatmul3d2dReshapeEnabled();
   auto tensor1 = inputs[0].toTensor();
   auto tensor2 = inputs[1].toTensor();
   auto dim_tensor1 = tensor1.dim();

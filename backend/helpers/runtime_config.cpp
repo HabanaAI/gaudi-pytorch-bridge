@@ -52,4 +52,18 @@ bool IsConstSectionSerialization() {
 bool ShouldClearConstSectionPath() {
   return habana_helpers::clear_const_section_path;
 }
+
+bool enable_matmul3d_2d_reshape{GET_ENV_FLAG_NEW(PT_HPU_MATMUL3D_2D_RESHAPE)};
+
+void EnableMatmul3d2dReshape() {
+  enable_matmul3d_2d_reshape = true;
+}
+
+void DisableMatmul3d2dReshape() {
+  enable_matmul3d_2d_reshape = false;
+}
+
+bool IsMatmul3d2dReshapeEnabled() {
+  return enable_matmul3d_2d_reshape;
+}
 } // namespace habana_helpers

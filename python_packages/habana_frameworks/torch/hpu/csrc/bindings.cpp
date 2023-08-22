@@ -324,6 +324,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](const char* path, bool clear_path) {
         habana_helpers::EnableConstSectionSerialization(path, clear_path);
       });
+  m.def("enable_matmul3d_2d_reshape", []() {
+    habana_helpers::EnableMatmul3d2dReshape();
+  });
+  m.def("disable_matmul3d_2d_reshape", []() {
+    habana_helpers::DisableMatmul3d2dReshape();
+  });
 
   m.doc() = "This module registers hpu backend.";
 }

@@ -25,7 +25,9 @@ from .torch_overwrites import overwrite_torch_functions
 from .step_closure import add_step_closure, iter_mark_step, mark_step
 
 # expose common APIs
+from .quantization import hpu_set_env
 from .quantization import hpu_initialize
+from .quantization import hpu_reset_env
 
 # expose habana_frameworks.torch.hpu as torch.hpu
 torch._register_device_module('hpu', hpu)

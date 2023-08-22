@@ -41,7 +41,6 @@ def test_const_serialization_cache():
 
     _mark_params_as_const(model)
     _check_params_as_const(model)
-    htorch.core.hpu_initialize(model)
 
     X = torch.randn((3, 3, 16))
 

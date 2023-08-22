@@ -56,7 +56,7 @@ def test_same_graph_with_diff_const():
     _mark_params_as_const(conv2_hpu)
 
     import habana_frameworks.torch.core as htcore
-    htcore.hpu_initialize()
+    htcore.hpu_set_env()
     with torch.no_grad():
         output1_hpu = conv1_hpu(input_tensor_hpu)
         htcore.mark_step()
@@ -71,6 +71,8 @@ def test_same_graph_with_diff_const():
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(
         output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+
+    htcore.hpu_reset_env()
 
 
 @pytest.mark.xfail(reason="Modification of constants differently across recipe is not supported")
@@ -99,7 +101,6 @@ def test_same_const_across_recipes():
         output1 = conv_layer1(input_tensor1)
         output2 = conv_layer1(input_tensor2)
 
-
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     input_tensor1_hpu = input_tensor1.to(hpu)
@@ -109,7 +110,7 @@ def test_same_const_across_recipes():
     _mark_params_as_const(conv_layer1_hpu)
 
     import habana_frameworks.torch.core as htcore
-    htcore.hpu_initialize()
+    htcore.hpu_set_env()
 
     with torch.no_grad():
         output1_hpu = conv_layer1_hpu(input_tensor1_hpu)
@@ -124,3 +125,5 @@ def test_same_const_across_recipes():
     #    output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
     #numpy.testing.assert_allclose(
     #    output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+
+    htcore.hpu_reset_env()
