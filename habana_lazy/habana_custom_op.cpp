@@ -13,6 +13,8 @@ std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::CustomOp>(getSchemaName(), inputs);
 
+  verifyInputOutputIndexes();
+
   std::vector<at::Tensor> results;
   auto outputs_desc = getOutputs();
   for (unsigned out_idx = 0; out_idx < getOutputsSize(); ++out_idx) {
@@ -39,11 +41,11 @@ const HabanaCustomOpDescriptor HabanaCustomOpDescriptor::getCustomOpDescriptor(
   return habana::KernelRegistry().get_custom_op_desc(op);
 }
 
-std::string HabanaCustomOpDescriptor::getSchemaName() const {
+const std::string& HabanaCustomOpDescriptor::getSchemaName() const {
   return node_desc_.schema_name;
 }
 
-std::string HabanaCustomOpDescriptor::getGuid() const {
+const std::string& HabanaCustomOpDescriptor::getGuid() const {
   return node_desc_.tpc_guid;
 }
 
@@ -102,6 +104,19 @@ void registerKernel(HabanaCustomOpDescriptor& new_desc) {
         return std::make_shared<habana::CustomOperator>(device_id, desc);
       },
       new_desc);
+}
+
+void HabanaCustomOpDescriptor::verifyInputOutputIndexes() {
+  auto check_unique = [](auto&& descriptors) {
+    std::unordered_set<unsigned> unique_indexes;
+    for (auto&& descriptor : descriptors) {
+      TORCH_CHECK(
+          unique_indexes.insert(descriptor.index).second,
+          "Indexes must be unique");
+    }
+  };
+  check_unique(inputs_);
+  check_unique(outputs_);
 }
 } // namespace custom_op
 } // namespace habana
