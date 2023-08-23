@@ -314,7 +314,6 @@ def test_nonzero(shape_in):
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
-
 @pytest.mark.parametrize(
     "init_val, dtype",
     [
@@ -353,3 +352,76 @@ def test_rand(shape_in):
     hpu_res2 = compiled_hpu(shape_in, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+@pytest.mark.parametrize("shape_in", [(4, 3)])
+def test_randn(shape_in):
+    def fn(shape_in, g):
+        return torch.randn(shape_in, generator=g, device="hpu")
+    g = None
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(123)
+    hpu_res1 = compiled_hpu(shape_in, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(shape_in, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
+@pytest.mark.parametrize("shape_in", [(4,)])
+def test_normal_ff(shape_in):
+    def fn(mean, stddev, shape_in, g):
+        return torch.normal(mean, stddev, shape_in, generator=g, device="hpu")
+    g = None
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(123)
+    hpu_res1 = compiled_hpu(0.0, 1.0, shape_in, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(0.0, 1.0, shape_in, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+    torch.manual_seed(123)
+    hpu_res3 = compiled_hpu(0.5, 1.0, shape_in, g)
+    torch.manual_seed(123)
+    hpu_res4 = compiled_hpu(0.5, 1.0, shape_in, g)
+    assert torch.equal(hpu_res3.to("cpu"), hpu_res4.to("cpu"))
+    torch.manual_seed(123)
+    hpu_res5 = compiled_hpu(0.0, 2.0, shape_in, g)
+    torch.manual_seed(123)
+    hpu_res6 = compiled_hpu(0.0, 2.0, shape_in, g)
+    assert torch.equal(hpu_res5.to("cpu"), hpu_res6.to("cpu"))
+
+@pytest.mark.parametrize("shape_in", [(4,)])
+def test_normal_tf(shape_in):
+    def fn(mean, g):
+        return torch.normal(mean, 1.0, generator=g)
+    g = None
+    mean=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(123)
+    hpu_res1 = compiled_hpu(mean, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(mean, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
+@pytest.mark.parametrize("shape_in", [(4,)])
+def test_normal_ft(shape_in):
+    def fn(std, g):
+        return torch.normal(0.5, std, generator=g)
+    g = None
+    std=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(123)
+    hpu_res1 = compiled_hpu(std, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(std, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
+@pytest.mark.parametrize("shape_in", [(4,)])
+def test_normal_tt(shape_in):
+    def fn(mean, std, g):
+        return torch.normal(mean, std, generator=g)
+    mean=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    g = None
+    std=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(123)
+    hpu_res1 = compiled_hpu(mean, std, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(mean, std, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))

@@ -43,7 +43,6 @@ hpu_fallback_op_list = {
     "initial_seed",
     "get_rng_state",
     "set_rng_state",
-    "randn",
     "randint",
     "rand_like",
     "randn_like",
@@ -51,7 +50,6 @@ hpu_fallback_op_list = {
     "randperm",
     "poisson",
     "multinomial",
-    "normal",
     # Other
     "slice_backward",  # SW-146680
     "addcmul",

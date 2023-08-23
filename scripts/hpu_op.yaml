@@ -3862,6 +3862,18 @@ _logcumsumexp:
   custom_fill_params: FillCumsumParams
   out_ids: [0]
 
+log_normal_:
+  custom_fill_params: FillLogNormalParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+  guid: log_normal_fwd
+  inplace_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: RandomSeedTensorInput
+  schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
+
 log_sigmoid_backward:
   dtypes: [Float]
   op_backend: LogSigmoidBackward
@@ -5137,17 +5149,53 @@ normal_:
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
 
-log_normal_:
-  custom_fill_params: FillLogNormalParams
+normal.float_float:
+  output_meta: NormalMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
-  guid: log_normal_fwd
-  inplace_ids: [0]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: normal_float_float
+  out_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: RandomSeedTensorInput
-  schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
+  op_backend: NormalBE
+  schema_args: "(float mean, float std, SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
+
+normal.Tensor_float:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: normal_tensor_float
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  schema_args: "(Tensor mean, float stddev, *, Tensor seed) -> Tensor"
+
+normal.float_Tensor:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: normal_float_tensor
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  schema_args: "(float mean, Tensor stddev, *, Tensor seed) -> Tensor"
+
+normal.Tensor_Tensor:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: normal_tensor_tensor
+  out_ids: [0]
+  op_frontend: GeneratorToSeed
+  op_backend: NormalBE
+  schema_args: "(Tensor mean, Tensor stddev, *, Tensor seed) -> Tensor"
 
 norm.out:
   output_meta: NormOpMeta
