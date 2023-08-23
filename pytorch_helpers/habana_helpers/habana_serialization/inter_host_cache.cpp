@@ -325,7 +325,7 @@ bool InterHostCache::send_file(std::string cache_id) {
   // Limited namespace scope.
   {
     using namespace Logger;
-    PT_HABHELPER_TRACE("InterHostCache Send", cache_id);
+    PT_HABHELPER_INFO("InterHostCache Send", cache_id);
   }
 
   size_t num;
@@ -372,7 +372,7 @@ bool InterHostCache::recv_file(std::string cache_id) {
   // Limited namespace scope
   {
     using namespace Logger;
-    PT_HABHELPER_TRACE("InterHostCache Recv", cache_id);
+    PT_HABHELPER_INFO("InterHostCache Recv", cache_id);
   }
 
   size_t num;
