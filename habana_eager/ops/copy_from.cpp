@@ -213,6 +213,10 @@ at::Tensor _copy_from_h2d(
   _assert_tensors_dtypes(self, dst);
 
   at::Tensor result;
+
+  // Make sure eager thread is finished before using values to copy.
+  SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
+
   // Special handling for Long/Double tensors
   // Downcast sent data (implicitly backend will treat it as Int/Float anyway)
   auto temp_self = self;
