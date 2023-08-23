@@ -7,6 +7,7 @@ sourceControl:
     - 3rd-parties
     - automation
     - devops/cd_release
+    - embedded-specs
     - pytorch-fork
     - pytorch-integration
     - pytorch-training-tests
