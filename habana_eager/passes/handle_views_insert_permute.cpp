@@ -246,9 +246,12 @@ void HandleStridedViewsAndInsertPermute(
           permute_node, permute_node->output(0));
 
       // destroy old strided_view node
+      // and its data i.e. old shapes and strides nodes
+      auto old_shapes_node = node->input(1)->node();
+      auto old_strides_node = node->input(2)->node();
       node->destroy();
-
-      // ToDo: Clean unused free input nodes
+      old_shapes_node->destroy();
+      old_strides_node->destroy();
     }
     PT_EAGER_DEBUG(
         "\nPermute node insertion:=====================\n",
