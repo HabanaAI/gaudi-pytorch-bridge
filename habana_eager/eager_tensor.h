@@ -76,14 +76,8 @@ namespace eager {
 class HbEagerTensorPool {
  public:
   static HbEagerTensorPool& getInstance() {
-    if (!instance_) {
-      instance_ = new HbEagerTensorPool();
-      instance_->handle = std::async(
-          std::launch::async,
-          &HbEagerTensorPool::extend_empty_tensor_pool,
-          instance_);
-    }
-    return *instance_;
+    static HbEagerTensorPool instance_;
+    return instance_;
   }
 
  public:
@@ -104,7 +98,6 @@ class HbEagerTensorPool {
   at::Tensor get_tensor();
 
  private:
-  static HbEagerTensorPool* instance_;
   std::deque<at::Tensor> tensor_pool;
   std::deque<at::Tensor> tensor_pool_other;
 

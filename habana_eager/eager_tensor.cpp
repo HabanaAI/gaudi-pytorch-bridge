@@ -19,8 +19,6 @@
 namespace habana {
 namespace eager {
 
-HbEagerTensorPool* HbEagerTensorPool::instance_ = nullptr;
-
 at::Tensor HbEagerTensorPool::get_tensor() {
   if (tensor_pool.empty()) {
     handle.wait();
@@ -44,7 +42,7 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
   if (take_timestamp) {
     t_start = std::chrono::steady_clock::now();
   }
-  auto backend_tensor = get_tensor();
+  auto backend_tensor = at::empty({}, c10::nullopt);
   // get extra meta to force allocation of BackendMetadata
   // to ensure it is shared between FE and BE tensor
   get_tensor_extra_meta(frontend_tensor);
