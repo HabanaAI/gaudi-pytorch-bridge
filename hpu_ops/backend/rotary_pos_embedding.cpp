@@ -70,13 +70,50 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto cos = getNextInput<TensorsPair>(stackGetter);
   auto offset = getNextInput<int>(stackGetter);
 
+  auto output_shape = grad_in.pt_t.sizes().vec();
+
+  std::vector<synTensor> inputs{grad_in.syn_t};
+  std::vector<synapse_helpers::tensor> maybe_sliced;
+
+  if (offset > 0) {
+    auto sliced_shape = sin.pt_t.sizes().vec();
+    sliced_shape.back() = output_shape.back();
+
+    synSliceParamsV2 slice_params{};
+    slice_params.axes[0] = 0;
+    slice_params.starts[0] = offset;
+    slice_params.ends[0] = output_shape.back() + offset;
+    slice_params.steps[0] = 1;
+
+    auto sin_slice = BuildOp(
+        graph,
+        "slice",
+        {sin.syn_t},
+        {{sliced_shape, ScalarType()}},
+        &slice_params,
+        sizeof(slice_params));
+    maybe_sliced.emplace_back(std::move(sin_slice[0]));
+    inputs.push_back(maybe_sliced[0].get());
+
+    auto cos_slice = BuildOp(
+        graph,
+        "slice",
+        {cos.syn_t},
+        {{sliced_shape, ScalarType()}},
+        &slice_params,
+        sizeof(slice_params));
+    maybe_sliced.emplace_back(std::move(cos_slice[0]));
+    inputs.push_back(maybe_sliced[1].get());
+  } else {
+    inputs.push_back(sin.syn_t);
+    inputs.push_back(cos.syn_t);
+  }
+
   ns_RoPESt2::Params params{};
   params.offset = offset;
 
-  std::vector<synTensor> inputs = {grad_in.syn_t, sin.syn_t, cos.syn_t};
-
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {grad_in.pt_t.sizes(), grad_in.pt_t.scalar_type(), 0}};
+      {output_shape, grad_in.pt_t.scalar_type(), 0}};
 
   auto grad_out = OpBackend::BuildNode(
       this, graph, {GetGuid(), inputs, output_attrs, &params, sizeof(params)});
