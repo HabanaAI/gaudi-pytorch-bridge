@@ -20,8 +20,21 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace synapse_helpers {
+
+namespace {
+
+std::size_t RoundToPageSize(std::size_t s) {
+  std::size_t page_size = ::getpagesize();
+  std::size_t result = s + (page_size - 1);
+  result /= page_size;
+  result *= page_size;
+  return result;
+}
+
+} // namespace
 
 std::string HlMlMemoryReporter::MakePath(int device_index) {
   std::string path;
@@ -36,7 +49,13 @@ HlMlMemoryReporter::HlMlMemoryReporter(int device_index) {
 }
 
 HlMlMemoryReporter::~HlMlMemoryReporter() {
-  ::munmap(m_data, sizeof(*m_data));
+  if (m_data != nullptr) {
+    std::size_t file_size = RoundToPageSize(sizeof(*m_data));
+    ::munmap(m_data, file_size);
+  }
+  if (m_fd != -1) {
+    ::close(m_fd);
+  }
   ::shm_unlink(m_path.c_str());
 }
 
@@ -60,33 +79,35 @@ int HlMlMemoryReporter::OpenSharedObject() {
 }
 
 hlml_shm_data* HlMlMemoryReporter::MmapSharedObject() {
-  int fd = OpenSharedObject();
+  m_fd = OpenSharedObject();
 
   try {
-    auto data = PrepareSharedObject(fd);
-    ::close(fd);
+    auto data = PrepareSharedObject(m_fd);
     return data;
   } catch (const Error&) {
     // If something went wrong just clean up resources and continue
     // exceptional flow.
-    ::close(fd);
+    ::close(m_fd);
+    m_fd = -1;
     ::shm_unlink(m_path.c_str());
     throw;
   }
 }
 
 hlml_shm_data* HlMlMemoryReporter::PrepareSharedObject(int fd) {
-  int err = ::ftruncate(fd, sizeof(*m_data));
+  std::size_t file_size = RoundToPageSize(sizeof(*m_data));
+
+  int err = ::ftruncate(fd, file_size);
   if (err == -1) {
     throw Error("ftruncate", errno);
   }
 
-  void* ptr =
-      ::mmap(0, sizeof(*m_data), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  void* ptr = ::mmap(0, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (ptr == (void*)MAP_FAILED) {
     throw Error("mmap", errno);
   }
 
+  PT_SYNHELPER_WARN("Allocated hlml shared memory", ptr);
   auto* object = reinterpret_cast<hlml_shm_data*>(ptr);
   object->version = HLML_SHM_VERSION;
   return object;

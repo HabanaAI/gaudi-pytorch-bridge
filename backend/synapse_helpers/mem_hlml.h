@@ -70,7 +70,8 @@ class HlMlMemoryReporter {
   hlml_shm_data* MmapSharedObject();
 
   std::string m_path;
-  hlml_shm_data* m_data;
+  hlml_shm_data* m_data = nullptr;
+  int m_fd = -1;
 };
 
 /**
