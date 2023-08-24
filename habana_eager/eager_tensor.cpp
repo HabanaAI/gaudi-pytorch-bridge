@@ -19,8 +19,27 @@
 namespace habana {
 namespace eager {
 
+HbEagerTensorPool::HbEagerTensorPool() {
+  extend_empty_tensor_pool();
+}
+
+void HbEagerTensorPool::extend_empty_tensor_pool() {
+  handle_ = std::async(std::launch::async, [this]() {
+    for (size_t i = 0; i < pool_size_; ++i)
+      tensor_pool_other_.push_front(at::empty({}, c10::nullopt));
+  });
+}
+
 at::Tensor HbEagerTensorPool::get_tensor() {
-  return at::empty({}, c10::nullopt);
+  if (tensor_pool_.empty()) {
+    handle_.wait();
+    std::swap(tensor_pool_, tensor_pool_other_);
+    extend_empty_tensor_pool();
+  }
+
+  auto t = tensor_pool_.back();
+  tensor_pool_.pop_back();
+  return t;
 }
 
 /** - Note on time:
@@ -30,10 +49,12 @@ at::Tensor HbEagerTensorPool::get_tensor() {
 at::Tensor HbEagerTensorPool::get_backend_tensor(
     const at::Tensor& frontend_tensor) {
   std::chrono::steady_clock::time_point t_start;
+  const bool take_timestamp =
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP);
   if (take_timestamp) {
     t_start = std::chrono::steady_clock::now();
   }
-  auto backend_tensor = at::empty({}, c10::nullopt);
+  auto backend_tensor = getInstance().get_tensor();
   // get extra meta to force allocation of BackendMetadata
   // to ensure it is shared between FE and BE tensor
   get_tensor_extra_meta(frontend_tensor);
@@ -69,24 +90,5 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
   return backend_tensor;
 }
 
-bool HbEagerTensorPool::is_view(__attribute__((unused))
-                                at::Tensor& backend_tensor) {
-  HABANA_ASSERT(0, "HbEagerTensorPool::is_view Unimplemented");
-  return false;
-}
-
-at::Tensor HbEagerTensorPool::get_base_tensor(at::Tensor& backend_tensor) {
-  HABANA_ASSERT(0, "HbEagerTensorPool::get_base_tensor Unimplemented");
-
-  // TBD: Can we use the _base() from TensorBase? Does it rely on autograd mode
-  // alone?
-  HABANA_ASSERT(
-      is_view(backend_tensor),
-      "HbEagerTensorPool::get_base_tensor called on a non-view tensor");
-  at::Tensor base;
-  // The base will be a 1D tensor, that will be created on the complete storage
-  // pointed to by the backend_tensor.
-  return base;
-}
 } // namespace eager
 } // namespace habana

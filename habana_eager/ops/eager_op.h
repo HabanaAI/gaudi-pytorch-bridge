@@ -280,7 +280,7 @@ class EagerOp : public EagerOpBase {
         get_inputs().at(0).toTensor().options().dtype(
             c10::CppTypeToScalarType<T>::value),
         at::MemoryFormat::Contiguous);
-    run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
+    run({HbEagerTensorPool::get_backend_tensor(result)});
     return result.item().template to<T>();
   }
 
@@ -382,7 +382,7 @@ class EagerOp : public EagerOpBase {
 
     auto result = get_result();
     if (!m_dont_preallocate_outputs) {
-      run({HbEagerTensorPool::getInstance().get_backend_tensor(result)});
+      run({HbEagerTensorPool::get_backend_tensor(result)});
       return result;
     } else {
       m_is_pipeline_supported = false;
@@ -390,8 +390,7 @@ class EagerOp : public EagerOpBase {
           result.scalar_type(), result.device(), result.sizes().vec()};
       auto stack = run({out_spec});
       HABANA_ASSERT(stack.size() == 1); // single output only
-      return HbEagerTensorPool::getInstance().get_backend_tensor(
-          stack.at(0).toTensor());
+      return HbEagerTensorPool::get_backend_tensor(stack.at(0).toTensor());
     }
   }
 
@@ -403,8 +402,7 @@ class EagerOp : public EagerOpBase {
 
     std::vector<at::Tensor> out_tensors;
     habana::for_each_in_tuple(result, [&out_tensors](const auto& el) {
-      out_tensors.emplace_back(
-          HbEagerTensorPool::getInstance().get_backend_tensor(el));
+      out_tensors.emplace_back(HbEagerTensorPool::get_backend_tensor(el));
     });
 
     run(std::move(out_tensors));
@@ -422,8 +420,7 @@ class EagerOp : public EagerOpBase {
 
     std::vector<at::Tensor> out_tensors;
     for (auto& el : result) {
-      out_tensors.emplace_back(
-          HbEagerTensorPool::getInstance().get_backend_tensor(el));
+      out_tensors.emplace_back(HbEagerTensorPool::get_backend_tensor(el));
     };
 
     run(std::move(out_tensors));

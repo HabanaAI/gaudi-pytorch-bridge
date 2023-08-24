@@ -157,39 +157,36 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
 
   traversing_ivalues<ProcessList::asList>(
       ivalues,
-      overloaded{
-          // metadata
-          [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
-          // scalars
-          [&stack](const at::Scalar& s) { stack.push_back(s); },
-          // tensors
-          [&stack](const at::Tensor& t) {
-            if (t.device().type() == c10::DeviceType::HPU) {
-              stack.push_back(
-                  HbEagerTensorPool::getInstance().get_backend_tensor(t));
-              return;
-            }
+      overloaded{// metadata
+                 [&stack](const torch::jit::IValue& v) { stack.push_back(v); },
+                 // scalars
+                 [&stack](const at::Scalar& s) { stack.push_back(s); },
+                 // tensors
+                 [&stack](const at::Tensor& t) {
+                   if (t.device().type() == c10::DeviceType::HPU) {
+                     stack.push_back(HbEagerTensorPool::get_backend_tensor(t));
+                     return;
+                   }
 
-            if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
-              stack.push_back(t);
-              return;
-            }
+                   if (t.unsafeGetTensorImpl()->is_wrapped_number()) {
+                     stack.push_back(t);
+                     return;
+                   }
 
-            HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-          },
-          [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
-            c10::List<at::Tensor> l;
-            l.reserve(list.size());
-            for (auto& v : list) {
-              HABANA_ASSERT(v.isTensor())
-              auto& t = v.toTensor();
-              HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
-              l.push_back(
-                  HbEagerTensorPool::getInstance().get_backend_tensor(t));
-            }
+                   HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+                 },
+                 [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
+                   c10::List<at::Tensor> l;
+                   l.reserve(list.size());
+                   for (auto& v : list) {
+                     HABANA_ASSERT(v.isTensor())
+                     auto& t = v.toTensor();
+                     HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
+                     l.push_back(HbEagerTensorPool::get_backend_tensor(t));
+                   }
 
-            stack.push_back(l);
-          }});
+                   stack.push_back(l);
+                 }});
   return stack;
 }
 

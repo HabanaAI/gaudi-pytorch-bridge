@@ -76,39 +76,28 @@ namespace eager {
 class HbEagerTensorPool {
  public:
   static HbEagerTensorPool& getInstance() {
-    static HbEagerTensorPool instance_;
-    return instance_;
+    static thread_local HbEagerTensorPool instance;
+    return instance;
   }
 
  public:
-  at::Tensor get_backend_tensor(const at::Tensor& frontend_tensor);
+  static at::Tensor get_backend_tensor(const at::Tensor& frontend_tensor);
 
  private:
-  HbEagerTensorPool() = default;
+  HbEagerTensorPool();
   ~HbEagerTensorPool() = default;
   HbEagerTensorPool(const HbEagerTensorPool&) = delete;
   HbEagerTensorPool& operator=(const HbEagerTensorPool&) = delete;
 
-  void extend_empty_tensor_pool() {
-    for (unsigned int i = 0; i < pool_size; ++i) {
-      tensor_pool_other.push_front(at::empty({}, c10::nullopt));
-    }
-  }
-
+  void extend_empty_tensor_pool();
   at::Tensor get_tensor();
 
  private:
-  std::deque<at::Tensor> tensor_pool;
-  std::deque<at::Tensor> tensor_pool_other;
+  std::deque<at::Tensor> tensor_pool_;
+  std::deque<at::Tensor> tensor_pool_other_;
+  std::future<void> handle_;
 
-  bool is_view(at::Tensor& backend_tensor);
-  at::Tensor get_base_tensor(at::Tensor& backend_tensor);
-
-  std::future<void> handle;
-
-  const unsigned int pool_size{GET_ENV_FLAG_NEW(PT_HPU_EAGER_TENSOR_POOL_SIZE)};
-  const bool take_timestamp{
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_TENSOR_TIMESTAMP)};
+  const size_t pool_size_{GET_ENV_FLAG_NEW(PT_HPU_EAGER_TENSOR_POOL_SIZE)};
 };
 
 } // namespace eager
