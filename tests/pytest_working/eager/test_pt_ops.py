@@ -13,6 +13,7 @@
 import numpy as np
 import torch
 import pytest
+from functools import reduce
 
 def test_argmax():
     def test(func, cpu_tensor):
@@ -144,3 +145,30 @@ def test_unsqueeze(dim):
     result_cpu = raw_function(cpu_tensor)
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+
+@pytest.mark.parametrize("self_shape", [(6,), (4, 6)])
+@pytest.mark.parametrize("indices_shape", [(6,), (4, 6)])
+@pytest.mark.parametrize(
+    "accumulate", [False, True]
+)
+def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
+    def fn(tensor, bool_mask, value, accumulate):
+        return tensor.index_put([bool_mask], value, accumulate)
+    if (len(self_shape) < len(indices_shape)):
+        pytest.skip("Invalid case self.dim() < indices.dim()")
+    self_numel = reduce(lambda x, y: x*y, list(self_shape))
+    indices_numel = reduce(lambda x, y: x*y, list(indices_shape))
+    tensor = torch.arange(self_numel).view(self_shape)
+    mask_in = torch.arange(indices_numel).view(indices_shape)
+    bool_mask = mask_in > indices_numel/3
+    values = torch.tensor([-100])
+
+    compiled_cpu = torch.compile(fn)
+    cpu_res = compiled_cpu(tensor, bool_mask, values, accumulate)
+
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(
+        tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
+    )
+
+    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)

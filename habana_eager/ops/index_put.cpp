@@ -302,7 +302,6 @@ at::Tensor& _index_put_impl_eager(
     bool unsafe) {
   c10::List<c10::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
-
   if (advanced_indexing) {
     // if we have boolean mask tensors, convert them to long int indices
     indices = check_for_boolean_advanced_indexing(indices_in);
@@ -369,6 +368,7 @@ at::Tensor& _index_put_impl_eager(
       std::all_of(indices_vec.cbegin(), indices_vec.cend(), [](const auto& i) {
         return i.scalar_type() == c10::ScalarType::Bool;
       });
+  auto only_single_index_tensor = ((int)indices_vec.size() == 1) ? true : false;
   auto self_clone = self;
   for (size_t i = 0; i < indices_vec.size(); i++) {
     if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
@@ -387,35 +387,55 @@ at::Tensor& _index_put_impl_eager(
   std::vector<at::Tensor> indices_vec_out{};
   at::Tensor nzt;
 
-  if (areAllIndicesBool) {
+  if (areAllIndicesBool &&
+      (advanced_indexing || !only_single_index_tensor ||
+       !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED))) {
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto ind = indices_vec.at(i);
       at::Tensor nz = ind.nonzero();
-      std::vector<at::Tensor> list;
       if (!nz.dim()) { // bool mask has all False entries
         return self;
-      } else
-        nzt = at::nonzero(indices_vec.at(i));
+      } else {
+        auto expanded_ind = indices_vec.at(i).expand_as(self);
+        nzt = at::nonzero(expanded_ind);
+      }
       indices_vec_out.emplace_back(nzt);
     }
   }
 
   at::TensorList indices_final =
-      areAllIndicesBool ? indices_vec_out : indices_vec;
+      (areAllIndicesBool &&
+       (advanced_indexing || !only_single_index_tensor ||
+        !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)))
+      ? indices_vec_out
+      : indices_vec;
   if (habana_helpers::GetRefineDynamicShapeStatus() ||
       GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
     TORCH_WARN(
         "index_put: PT2.0: Dynamic shape handling - not expected to hit this condition?");
   }
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::_index_put_impl_eager", {self, indices_final, value, accumulate}};
-  auto result = hpu_op.call();
+  at::Tensor result;
+  if (areAllIndicesBool && !advanced_indexing && only_single_index_tensor &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
+    habana::eager::EagerOp<at::Tensor> hpu_op{
+        "hpu::_index_put_impl_bool_eager",
+        {self, indices_final, value, accumulate}};
+    result = hpu_op.call();
+  } else {
+    habana::eager::EagerOp<at::Tensor> hpu_op{
+        "hpu::_index_put_impl_eager", {self, indices_final, value, accumulate}};
+    result = hpu_op.call();
+  }
   self.copy_(result);
   return self;
 }
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
       "_index_put_impl_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
+}
+TORCH_LIBRARY_FRAGMENT(hpu, m) {
+  m.def(
+      "_index_put_impl_bool_eager(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
 }
 } // namespace eager
 } // namespace habana

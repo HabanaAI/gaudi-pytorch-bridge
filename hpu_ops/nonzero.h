@@ -17,7 +17,14 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
-std::vector<int64_t> compute_nonzero_output_shape(const at::Tensor& self);
+typedef struct NonZeroParams {
+  c10::ScalarType dtype;
+  std::vector<int64_t> sizes;
+  int64_t numel;
+} NonZeroParams_t;
+std::vector<int64_t> compute_nonzero_output_shape(
+    NonZeroParams_t self_params,
+    bool use_tpc_impl = false);
 struct NonZeroEager : OpBackend {
   NonZeroEager(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;

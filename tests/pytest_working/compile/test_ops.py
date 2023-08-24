@@ -15,6 +15,7 @@ import pytest
 from torch.testing._internal.common_methods_invocations import op_db
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import habana_frameworks.torch.utils.experimental as htexp
+from functools import reduce
 
 
 all_dtypes = [

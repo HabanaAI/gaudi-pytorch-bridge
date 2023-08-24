@@ -44,16 +44,24 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   auto NonzeroMeta = [](const at::Stack& stack) {
     const auto& self = stack_tensor(stack, 0);
     OutputMetaDataVector meta(2);
-    meta.at(0).shape = compute_nonzero_output_shape(self);
+    NonZeroParams_t self_params;
+    self_params.dtype = self.scalar_type();
+    self_params.sizes = self.sizes().vec();
+    self_params.numel = self.numel();
+    meta.at(0).shape = compute_nonzero_output_shape(self_params);
     meta.at(0).dtype = c10::ScalarType::Long;
     meta.at(1).shape = {5};
     meta.at(1).dtype = at::ScalarType::Int;
     return meta;
   };
+  NonZeroParams_t self_params;
+  self_params.dtype = self.scalar_type();
+  self_params.sizes = self.sizes().vec();
+  self_params.numel = self.numel();
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::nonzero_eager",
       {self},
-      {compute_nonzero_output_shape(self), shape_tensor_shape},
+      {compute_nonzero_output_shape(self_params), shape_tensor_shape},
       0};
   hpu_op.SetOutputMetaFn(NonzeroMeta);
   auto result_nonzero = hpu_op.call();
