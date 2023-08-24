@@ -201,15 +201,8 @@ bool habana_helpers::isLongTypeSupported(const std::string_view guid) {
   // This is a temporary solution, in the future Synapse will allow us to call
   // i64 version for all kernels and will add i64->i32 cast when needed.
   using namespace std::literals;
-  // Note: For 1 item, benchmark shown 400% improvement using constexpr array
-  // (+any_of) over absl::flat_hash_set (+contains). Adding more items requires
-  // reevaluation of results. For reference on why
-  // https://www.youtube.com/watch?v=INn3xa4pMfg
-  static constexpr std::array<std::string_view, 1> supported_guids{"cast_"sv};
-  return std::any_of(
-      supported_guids.begin(), supported_guids.end(), [&guid](auto&& v) {
-        return guid == v;
-      });
+  static const std::unordered_set<std::string_view> supported_guids{"cast_"sv};
+  return supported_guids.find(guid) != supported_guids.end();
 }
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get
