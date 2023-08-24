@@ -99,6 +99,7 @@ set(hpu_ops_tests_src
   hpu_ops/dot.cpp
   hpu_ops/_efficientzerotensor.cpp
   hpu_ops/elu.cpp
+  hpu_ops/embedding.cpp
   hpu_ops/entr.cpp
   hpu_ops/eq.cpp
   hpu_ops/erfc.cpp
