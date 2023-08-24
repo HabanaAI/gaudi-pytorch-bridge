@@ -23,6 +23,11 @@
 namespace habana {
 namespace graph {
 
+using IVal = torch::jit::IValue;
+using IValPtrShared = std::shared_ptr<IVal>;
+using CValPtr = const torch::jit::Value*;
+using ValueIvalueMap = std::unordered_map<CValPtr, IValPtrShared>;
+
 struct SymIntData {
   std::vector<int64_t> values;
 };

@@ -27,7 +27,7 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_view_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
+    ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(2 == aten_view_node->inputs().size());
   static const auto hpu_view_symbol{c10::Symbol::fromQualString("hpu::view")};
@@ -51,11 +51,15 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
       st_size,
       scalar_indexes);
 
+  // Use actual reshape sizes and avoid sizes with dims "-1"
+  auto out_tensors = getOutputTensers(aten_view_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+
   // Step2: Create shape tensor and insert to graph inputs.
   auto view_st_name =
       GetDynamicTensorName(v_view_shape->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
-      CreateSTAndInsertToDSStack(st_size, scalar_indexes, m_dmeta);
+      CreateSTAndInsertToDSStack(inferred_st_sizes, scalar_indexes, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -68,7 +72,8 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
       graph,
       aten_view_node,
       hpu_view_symbol,
-      {aten_view_node->input(0), v_st_tensor});
+      {aten_view_node->input(0), v_st_tensor},
+      value_ivalue_map);
 
   return true;
 }
@@ -92,9 +97,10 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_as_strided_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
+    ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(4 == aten_as_strided_node->inputs().size());
+  auto in_tensors = getInputTensers(aten_as_strided_node, value_ivalue_map);
   auto self = in_tensors[0];
   auto as_strided_shape = aten_as_strided_node->inputs().at(1);
   auto as_strided_stride = aten_as_strided_node->inputs().at(2);
@@ -193,7 +199,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         hpu_as_strided_orig_symbol,
         {aten_as_strided_node->input(0),
          v_st_sizes_tensor,
-         v_st_strides_tensor});
+         v_st_strides_tensor},
+        value_ivalue_map);
   } else {
     std::vector<int64_t> values_offset;
     values_offset.push_back(offset_value);
@@ -235,7 +242,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         {aten_as_strided_node->input(0),
          v_st_sizes_tensor,
          v_st_strides_tensor,
-         v_st_offset_tensor});
+         v_st_offset_tensor},
+        value_ivalue_map);
   }
   InputPatchPair patch_info(
       &AsStridedOperatorDS::UpdateDynamicInputs, dtensor_indexes);
@@ -303,9 +311,10 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* strided_insert_node,
     torch::jit::Stack& in_stack,
     GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
+    ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(4 == strided_insert_node->inputs().size());
+  auto in_tensors = getInputTensers(strided_insert_node, value_ivalue_map);
   auto self = in_tensors[0];
   auto strided_insert_stride = strided_insert_node->inputs().at(2);
   auto strided_insert_offset = strided_insert_node->inputs().at(3);
@@ -386,7 +395,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
         hpu_strided_insert_orig_symbol,
         {strided_insert_node->input(0),
          strided_insert_node->input(1),
-         v_st_strides_tensor});
+         v_st_strides_tensor},
+        value_ivalue_map);
   } else {
     std::vector<int64_t> values_offset;
     values_offset.push_back(offset_value);
@@ -423,7 +433,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
         {strided_insert_node->input(0),
          strided_insert_node->input(1),
          v_st_strides_tensor,
-         v_st_offset_tensor});
+         v_st_offset_tensor},
+        value_ivalue_map);
   }
   InputPatchPair patch_info(
       &StridedInsertOperatorDS::UpdateDynamicInputs, dtensor_indexes);

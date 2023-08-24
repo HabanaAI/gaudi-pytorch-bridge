@@ -45,7 +45,8 @@ void CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
     torch::jit::Node* aten_view_node,
     const c10::Symbol& hpu_view_symbol,
-    c10::ArrayRef<torch::jit::Value*> inputs);
+    c10::ArrayRef<torch::jit::Value*> inputs,
+    ValueIvalueMap& value_ivalue_map);
 
 void UpdateShapeTensorSize(
     at::Tensor& dtensor,
@@ -106,13 +107,56 @@ class DynamicOp {
       torch::jit::Node* node,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
 
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,
       std::vector<habana::graph::SymIntData>& scalar_list,
       std::vector<c10::IValue>& orig_stack);
+
+  std::vector<at::Tensor> getInputTensers(
+      const torch::jit::Node* node,
+      ValueIvalueMap& value_ivalue_map) {
+    std::vector<at::Tensor> in_tensors;
+    for (const auto& input : node->inputs()) {
+      PT_EAGER_DEBUG("Node input name = ", input->debugName());
+      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      HABANA_ASSERT(
+          ivalue != nullptr,
+          "Node = ",
+          node->kind().toQualString(),
+          ", input = ",
+          input->debugName(),
+          " not found in value_ivalue_map!!");
+      if (ivalue->isTensor()) {
+        in_tensors.push_back(ivalue->toTensor());
+      }
+    }
+    return in_tensors;
+  }
+
+  std::vector<at::Tensor> getOutputTensers(
+      const torch::jit::Node* node,
+      ValueIvalueMap& value_ivalue_map) {
+    std::vector<at::Tensor> out_tensors;
+    for (const auto& output : node->outputs()) {
+      PT_EAGER_DEBUG("Node output name = ", output->debugName());
+      auto ivalue = value_ivalue_map[const_cast<torch::jit::Value*>(output)];
+      HABANA_ASSERT(
+          ivalue != nullptr,
+          "Node = ",
+          node->kind().toQualString(),
+          ", output = ",
+          output->debugName(),
+          " not found in value_ivalue_map!!");
+      if (ivalue->isTensor()) {
+        out_tensors.push_back(ivalue->toTensor());
+      }
+    }
+    return out_tensors;
+  }
+
   virtual ~DynamicOp() {}
 };
 
@@ -148,7 +192,7 @@ class ViewOperatorDS : public DynamicOp {
       torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,
@@ -163,7 +207,7 @@ class RepeatOperatorDS : public DynamicOp {
       torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,
@@ -178,7 +222,7 @@ class TopkOperatorDS : public DynamicOp {
       torch::jit::Node*,
       torch::jit::Stack& org_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,
@@ -193,7 +237,7 @@ class AsStridedOperatorDS : public DynamicOp {
       torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,
@@ -208,7 +252,7 @@ class StridedInsertOperatorDS : public DynamicOp {
       torch::jit::Node*,
       torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
-      std::vector<at::Tensor>& in_tensors,
+      ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
       std::vector<torch::jit::IValue*>& dtensor_list,

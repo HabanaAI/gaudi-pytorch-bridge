@@ -22,10 +22,6 @@ namespace habana {
 namespace graph {
 namespace pass {
 
-using IVal = torch::jit::IValue;
-using IValPtrShared = std::shared_ptr<IVal>;
-using CValPtr = const torch::jit::Value*;
-
 struct HandleDynamicOpsPass {
   explicit HandleDynamicOpsPass(
       std::shared_ptr<torch::jit::Graph> graph,
@@ -172,25 +168,6 @@ struct HandleDynamicOpsPass {
     dumpValueIValueMap();
   }
 
-  std::vector<at::Tensor> getInputTensers(const torch::jit::Node* node) {
-    std::vector<at::Tensor> in_tensors;
-    for (const auto& input : node->inputs()) {
-      PT_EAGER_DEBUG("Node input name = ", input->debugName());
-      auto ivalue = m_value_ivalue_map[const_cast<torch::jit::Value*>(input)];
-      HABANA_ASSERT(
-          ivalue != nullptr,
-          "Node = ",
-          node->kind().toQualString(),
-          ", input = ",
-          input->debugName(),
-          " not found in m_value_ivalue_map!!");
-      if (ivalue->isTensor()) {
-        in_tensors.push_back(ivalue->toTensor());
-      }
-    }
-    return in_tensors;
-  }
-
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
     bool changed{false};
     GraphInputIndexMap org_stack_index_map;
@@ -205,9 +182,8 @@ struct HandleDynamicOpsPass {
       if (!dsOp)
         continue;
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
-      std::vector<at::Tensor> in_tensors = getInputTensers(node);
       changed = dsOp->ReplaceWithDynamicHPUOp(
-          node, org_stack, org_stack_index_map, in_tensors, m_dmeta);
+          node, org_stack, org_stack_index_map, m_value_ivalue_map, m_dmeta);
     }
 
     // Second pass: remove all nodes that are no longer necessary.
@@ -231,7 +207,7 @@ struct HandleDynamicOpsPass {
 
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::shared_ptr<DynamicGraphMetaData> m_dmeta;
-  std::unordered_map<CValPtr, IValPtrShared> m_value_ivalue_map;
+  ValueIvalueMap m_value_ivalue_map;
 };
 
 void HandleDynamicOps(

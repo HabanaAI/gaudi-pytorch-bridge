@@ -79,7 +79,8 @@ void CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
     torch::jit::Node* aten_node,
     const c10::Symbol& hpu_symbol,
-    c10::ArrayRef<torch::jit::Value*> inputs) {
+    c10::ArrayRef<torch::jit::Value*> inputs,
+    ValueIvalueMap& value_ivalue_map) {
   torch::jit::WithInsertPoint insert_guard{aten_node};
   auto hpu_node{graph->insertNode(graph->create(hpu_symbol, inputs, 0))};
   int output_count = 0;
@@ -87,6 +88,7 @@ void CreateAndInsertDynamicNodeToGraph(
     hpu_node->addOutput()->copyMetadata(output);
     output->replaceAllUsesAfterNodeWith(
         hpu_node, hpu_node->output(output_count));
+    value_ivalue_map[hpu_node->output(output_count)] = value_ivalue_map[output];
     output_count = output_count + 1;
   }
 
@@ -183,7 +185,7 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_repeat_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
+    ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(2 == aten_repeat_node->inputs().size());
   auto v_repeat_shape = aten_repeat_node->inputs().at(1);
@@ -220,7 +222,8 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
       graph,
       aten_repeat_node,
       hpu_repeat_symbol,
-      {aten_repeat_node->input(0), v_h2d_tensor});
+      {aten_repeat_node->input(0), v_h2d_tensor},
+      value_ivalue_map);
 
   return true;
 }
@@ -258,7 +261,7 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_topk_node,
     torch::jit::Stack& org_stack,
     GraphInputIndexMap& org_stack_index_map,
-    std::vector<at::Tensor>& in_tensors,
+    ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(5 == aten_topk_node->inputs().size());
   static const auto hpu_topk_symbol{c10::Symbol::fromQualString("hpu::topk")};
@@ -292,7 +295,8 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
        v_st_tensor,
        aten_topk_node->input(2),
        aten_topk_node->input(3),
-       aten_topk_node->input(4)});
+       aten_topk_node->input(4)},
+      value_ivalue_map);
 
   return true;
 }
