@@ -35,14 +35,17 @@ def permute_4d_5d_tensor(tensor, to_filters_last):
             tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
     return tensor
 
-@pytest.mark.xfail(reason="Graph compile failed")
-@pytest.mark.parametrize("dim, wd", [
-    (3, 0.1),
-    (4, 0.1),
-    (5, 0.1),
-    (5, 0.09),
-    (5, 0.08),
-])
+
+@pytest.mark.parametrize(
+    "dim, wd",
+    [
+        (3, 0.1),
+        (4, 0.1),
+        (5, 0.1),
+        (5, 0.09),
+        (5, 0.08),
+    ],
+)
 def test_fused_adam(dim, wd):
     d1, d2, lr = 320, 256, 0.1
     eps = 1e-6
@@ -102,6 +105,12 @@ def test_fused_adam(dim, wd):
     max1 = x_cpu - y_cpu
     max1 = max1.abs()
     print(x_cpu.max(), y_cpu.max(), max1.max())
-    comp = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
+    comp = np.allclose(
+        x_cpu.detach().numpy(),
+        y_cpu.detach().numpy(),
+        atol=0.001,
+        rtol=1.0e-3,
+        equal_nan=True,
+    )
 
-    assert comp, 'Optimizer output match'
+    assert comp, "Optimizer output match"

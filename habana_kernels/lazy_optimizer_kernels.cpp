@@ -89,8 +89,7 @@ void optimizer_adamw_hpu_lazy(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const at::Tensor& modified_wd_t,
-    const bool is_wd_modified) {
+    const double modified_wd) {
   PT_LAZY_TRACE;
   std::vector<at::Tensor> gradients_v;
   std::vector<at::Tensor> weights_v;
@@ -108,6 +107,9 @@ void optimizer_adamw_hpu_lazy(
   handle_collective(weights_v);
   handle_collective(exp_avg_v);
   handle_collective(exp_avg_sq_v);
+  at::Tensor modified_wd_t = get_tensor_for_scalar(modified_wd);
+
+  bool is_wd_modified = modified_wd != 1.0;
 
   auto func = [gradients_v = std::move(gradients_v),
                weights_v = std::move(weights_v),

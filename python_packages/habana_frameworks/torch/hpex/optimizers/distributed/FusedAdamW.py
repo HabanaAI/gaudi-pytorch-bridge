@@ -18,6 +18,7 @@ from torch.optim import Optimizer
 
 from typing import List, Dict, Optional, Tuple
 from torch import Tensor
+from habana_frameworks.torch.utils.internal import is_lazy
 
 # The following Function is a modified version of _FunctionalFuseAdamW from
 # torch/distributed/optim/functional_adamw.py
@@ -89,6 +90,7 @@ class FusedAdamW(object):
         # param group as it's not a common use case.
         self.param_group = {"params": params}
         self.neg_step_list = []  # For Habana Impl
+        self.is_lazy = is_lazy()
         self.modified_wd_list = []
 
     def step_param(self, param: Tensor, grad: Optional[Tensor]):
@@ -205,28 +207,42 @@ class FusedAdamW(object):
             [neg_step], dtype=torch.float, requires_grad=False
         ).to(params[0].device, non_blocking=True)
         self.neg_step_list.append(neg_step_t)
+        eps = self.defaults["eps"]  # group["eps"],
 
         # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
         # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
         # perform weight decay unconditonally.
         modified_wd = 1.0 - self.defaults["weight_decay"] * self.defaults["lr"]
-        modified_wd_t = torch.tensor(
-            [modified_wd], dtype=torch.float, requires_grad=False
-        ).to(params[0].device, non_blocking=True)
-        self.modified_wd_list.append(modified_wd_t)
 
-        eps = self.defaults["eps"]  # group["eps"],
+        if self.is_lazy:
+            with torch.no_grad():
+                torch.ops.hpu.optimizer_adamw(
+                    grads,  # grad_list,
+                    params_with_grad,  # wt_list,
+                    exp_avgs,  # exp_avg_list,
+                    exp_avg_sqs,  # exp_avg_sq_list,
+                    neg_step_t,
+                    beta1,
+                    beta2,
+                    eps,
+                    modified_wd,
+                )
+        else:
+            modified_wd_t = torch.tensor(
+                [modified_wd], dtype=torch.float, requires_grad=False
+            ).to(params[0].device, non_blocking=True)
+            self.modified_wd_list.append(modified_wd_t)
 
-        with torch.no_grad():
-            torch.ops.hpu.optimizer_adamw(
-                grads,  # grad_list,
-                params_with_grad,  # wt_list,
-                exp_avgs,  # exp_avg_list,
-                exp_avg_sqs,  # exp_avg_sq_list,
-                neg_step_t,
-                beta1,
-                beta2,
-                eps,
-                modified_wd_t,
-                modified_wd != 1.0,
-            )
+            with torch.no_grad():
+                torch.ops.hpu.optimizer_adamw(
+                    grads,  # grad_list,
+                    params_with_grad,  # wt_list,
+                    exp_avgs,  # exp_avg_list,
+                    exp_avg_sqs,  # exp_avg_sq_list,
+                    neg_step_t,
+                    beta1,
+                    beta2,
+                    eps,
+                    modified_wd_t,
+                    modified_wd != 1.0,
+                )

@@ -519,8 +519,6 @@ void runAdamwOptTest(
   auto epsilon = 1e-3;
   auto step = 0;
 
-  auto weight_decay_t = torch::full({1}, weight_decay).to("hpu");
-
   optimizer_adamw_hpu_wrap(
       gradients,
       weights,
@@ -530,8 +528,7 @@ void runAdamwOptTest(
       beta1,
       beta2,
       epsilon,
-      weight_decay_t,
-      weight_decay != 1.0);
+      weight_decay);
 
   // CPU calculations
   auto step_size = lr;

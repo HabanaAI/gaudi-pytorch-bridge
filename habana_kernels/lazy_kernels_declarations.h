@@ -418,8 +418,7 @@ void optimizer_adamw_hpu_lazy(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const at::Tensor& weight_decay,
-    const bool has_weight_decay);
+    const double weight_decay);
 at::Tensor fused_norm_hpu_lazy(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,

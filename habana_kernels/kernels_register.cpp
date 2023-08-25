@@ -844,13 +844,12 @@ void optimizer_adamw_hpu_wrap(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const at::Tensor& weight_decay,
-    const bool has_weight_decay) {
+    const double weight_decay) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
-      DUMP_10ARGS(
+      DUMP_9ARGS(
           gradient_vec,
           weight_vec,
           exp_avg_vec,
@@ -859,8 +858,7 @@ void optimizer_adamw_hpu_wrap(
           beta1,
           beta2,
           epsilon,
-          weight_decay,
-          has_weight_decay));
+          weight_decay));
 
   TORCH_CHECK(
       (weight_vec.size() > 0),
@@ -875,8 +873,7 @@ void optimizer_adamw_hpu_wrap(
       beta1,
       beta2,
       epsilon,
-      weight_decay,
-      has_weight_decay);
+      weight_decay);
 }
 
 Tensor fused_norm_hpu_wrap(
@@ -2263,7 +2260,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
-      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
+      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(

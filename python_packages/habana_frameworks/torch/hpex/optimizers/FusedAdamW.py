@@ -17,6 +17,7 @@ import torch
 from torch.optim import Optimizer
 
 from habana_frameworks.torch import core as htcore
+from habana_frameworks.torch.utils.internal import is_lazy
 
 
 class FusedAdamW(Optimizer):
@@ -30,25 +31,17 @@ class FusedAdamW(Optimizer):
         bias_correction: bool = True,
     ):
         if lr < 0.0:
-            raise ValueError(
-                "Invalid learning rate: {} - should be >= 0.0".format(lr)
-            )
+            raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
         if not 0.0 <= betas[0] < 1.0:
             raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(
-                    betas[0]
-                )
+                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[0])
             )
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(
-                    betas[1]
-                )
+                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[1])
             )
         if not 0.0 <= eps:
-            raise ValueError(
-                "Invalid epsilon value: {} - should be >= 0.0".format(eps)
-            )
+            raise ValueError("Invalid epsilon value: {} - should be >= 0.0".format(eps))
         defaults = dict(
             lr=lr,
             betas=betas,
@@ -59,6 +52,7 @@ class FusedAdamW(Optimizer):
         super().__init__(params, defaults)
 
         self.neg_step_list = []
+        self.is_lazy = is_lazy()
         self.modified_wd_list = []
 
     def step_wrap(step_func):
@@ -119,7 +113,6 @@ class FusedAdamW(Optimizer):
                 exp_avg_sq_list.append(exp_avg_sq)
 
             if len(wt_list) > 0:
-
                 beta1, beta2 = group["betas"]
                 if "step" in group:
                     group["step"] += 1
@@ -143,16 +136,12 @@ class FusedAdamW(Optimizer):
                     bias_correction1 = 1.0 - pow(beta1, group["step"])
                     bias_correction2 = 1.0 - pow(beta2, group["step"])
                     step_size = (
-                        step_size
-                        * math.sqrt(bias_correction2)
-                        / bias_correction1
+                        step_size * math.sqrt(bias_correction2) / bias_correction1
                     )
 
                 neg_step = -step_size
                 neg_step_t = (
-                    torch.tensor(
-                        [neg_step], dtype=torch.float, requires_grad=False
-                    )
+                    torch.tensor([neg_step], dtype=torch.float, requires_grad=False)
                     .to(wt_list[0].dtype)
                     .to(wt_list[0].device, non_blocking=True)
                 )
@@ -163,26 +152,39 @@ class FusedAdamW(Optimizer):
                 # perform weight decay unconditonally.
                 modified_wd = 1.0 - group["weight_decay"] * group["lr"]
 
-                modified_wd_t = (
-                    torch.tensor(
-                        [modified_wd], dtype=torch.float, requires_grad=False
+                if self.is_lazy:
+                    torch.ops.hpu.optimizer_adamw(
+                        grad_list,
+                        wt_list,
+                        exp_avg_list,
+                        exp_avg_sq_list,
+                        neg_step_t,
+                        beta1,
+                        beta2,
+                        group["eps"],
+                        modified_wd,
                     )
-                    .to(wt_list[0].dtype)
-                    .to(wt_list[0].device, non_blocking=True)
-                )
-                self.modified_wd_list.append(modified_wd_t)
+                else:
+                    modified_wd_t = (
+                        torch.tensor(
+                            [modified_wd], dtype=torch.float, requires_grad=False
+                        )
+                        .to(wt_list[0].dtype)
+                        .to(wt_list[0].device, non_blocking=True)
+                    )
+                    self.modified_wd_list.append(modified_wd_t)
 
-                torch.ops.hpu.optimizer_adamw(
-                    grad_list,
-                    wt_list,
-                    exp_avg_list,
-                    exp_avg_sq_list,
-                    neg_step_t,
-                    beta1,
-                    beta2,
-                    group["eps"],
-                    modified_wd_t,
-                    modified_wd != 1.0,
-                )
+                    torch.ops.hpu.optimizer_adamw(
+                        grad_list,
+                        wt_list,
+                        exp_avg_list,
+                        exp_avg_sq_list,
+                        neg_step_t,
+                        beta1,
+                        beta2,
+                        group["eps"],
+                        modified_wd_t,
+                        modified_wd != 1.0,
+                    )
 
         return loss
