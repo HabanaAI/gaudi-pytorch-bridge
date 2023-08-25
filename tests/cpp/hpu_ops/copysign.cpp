@@ -25,7 +25,7 @@ TEST_F(HpuOpTest, copysign_out_tensor) {
       torch::empty(0, torch::TensorOptions(torch::kFloat).device("hpu"));
 
   torch::copysign_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::copysign_outf(GetHpuInput(0), GetCpuInput(1), result);
+  torch::copysign_outf(GetHpuInput(0), GetHpuInput(1), result);
 
   Compare(expected, result);
 }
@@ -42,7 +42,7 @@ TEST_F(HpuOpTest, copysign_out_bf16) {
       torch::empty(0, torch::TensorOptions(torch::kFloat).device("hpu"));
 
   torch::copysign_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::copysign_outf(GetHpuInput(0), GetCpuInput(1), result);
+  torch::copysign_outf(GetHpuInput(0), GetHpuInput(1), result);
 
   Compare(expected, result);
 }
@@ -59,7 +59,7 @@ TEST_F(HpuOpTest, copysign_out_int) {
       torch::empty(0, torch::TensorOptions(torch::kBFloat16).device("hpu"));
 
   torch::copysign_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::copysign_outf(GetHpuInput(0), GetCpuInput(1), result);
+  torch::copysign_outf(GetHpuInput(0), GetHpuInput(1), result);
 
   Compare(expected, result);
 }
@@ -92,7 +92,7 @@ TEST_F(HpuOpTest, copysign_out_bc) {
       torch::empty(0, torch::TensorOptions(torch::kFloat).device("hpu"));
 
   torch::copysign_outf(GetCpuInput(0), GetCpuInput(1), expected);
-  torch::copysign_outf(GetHpuInput(0), GetCpuInput(1), result);
+  torch::copysign_outf(GetHpuInput(0), GetHpuInput(1), result);
 
   Compare(expected, result);
 }
@@ -149,7 +149,7 @@ TEST_F(HpuOpTest, copysign_bc) {
   GenerateInputs(2, {torch::kBFloat16, torch::kBFloat16});
 
   auto expected = torch::copysign(GetCpuInput(0), GetCpuInput(1));
-  auto result = torch::copysign(GetHpuInput(0), GetCpuInput(1));
+  auto result = torch::copysign(GetHpuInput(0), GetHpuInput(1));
 
   Compare(expected, result);
 }

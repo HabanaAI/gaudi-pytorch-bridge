@@ -32,7 +32,7 @@ TEST_F(HpuOpTest, mse_loss_bwd) {
   auto expected = torch::mse_loss_backward(
       GetCpuInput(2), GetCpuInput(0), GetCpuInput(1), reduction);
   auto result = torch::mse_loss_backward(
-      GetCpuInput(2), GetHpuInput(0), GetHpuInput(1), reduction);
+      GetHpuInput(2), GetHpuInput(0), GetHpuInput(1), reduction);
   Compare(expected, result);
 }
 

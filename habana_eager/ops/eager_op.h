@@ -158,12 +158,10 @@ class EagerOp : public EagerOpBase {
     }
 
     if (self.sizes() != out_shape) {
-      HABANA_ASSERT(
-          self.numel() == 0 || self.sizes().empty(),
-          "Got a non-empty out tensor for out operation. Out shape: ",
-          self.sizes(),
-          ", out numel: ",
-          self.numel());
+      if (self.numel() == 0 || self.sizes().empty())
+        PT_EAGER_WARN(
+            "Got a non-empty out tensor for out operation. Out shape: ",
+            self.sizes());
       THHTensor_resizeNd(
           self.unsafeGetTensorImpl(),
           out_shape.size(),

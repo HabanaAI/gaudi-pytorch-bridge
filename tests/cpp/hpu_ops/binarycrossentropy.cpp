@@ -329,7 +329,7 @@ TEST_F(HpuOpTest, bce_out_3D_none_bf16) {
   torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
       /*target*/ torch::sigmoid(GetHpuInput(1)),
-      /*weight*/ GetCpuInput(2),
+      /*weight*/ GetHpuInput(2),
       at::Reduction::None,
       result);
 
