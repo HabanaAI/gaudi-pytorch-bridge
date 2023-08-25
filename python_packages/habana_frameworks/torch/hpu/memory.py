@@ -113,6 +113,10 @@ def _extended_memory_summary_dict(device: Optional[_device_t] = None)->dict:
 def _extended_memory_summary(device: Optional[_device_t] = None)->str:
     return _format_memory_summary(_extended_memory_summary_dict)
 
+def _get_hlml_shared_object_name(device: Optional[_device_t] = None)->str:
+    if device is None:
+        device = 0
+    return _hpu_C.get_hlml_shared_object_name(device)
 
 def memory_reserved(device: Optional[_device_t] = None) -> int:
     r"""Returns the current HPU memory managed by caching allocator in bytes for a given device."""

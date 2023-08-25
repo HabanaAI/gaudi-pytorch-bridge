@@ -23,7 +23,7 @@ using namespace synapse_helpers;
 
 struct MemHlMlReporterTests : public ::testing::Test {
   void SetUp() override {
-    memory_reporter = std::make_shared<HlMlMemoryReporter>(15);
+    memory_reporter = std::make_shared<HlMlMemoryReporter>(15, false);
   }
 
   void TearDown() override {

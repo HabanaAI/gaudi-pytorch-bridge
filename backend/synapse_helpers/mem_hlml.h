@@ -45,8 +45,11 @@ class HlMlMemoryReporter {
   /**
    * Creates memory reporter for shared memory object associated with
    * given device.
+   *
+   * @param resolve_index - flag controlling if given device index should be
+   *  corrected using synGetDeviceInfo. Useful only for testing.
    */
-  HlMlMemoryReporter(int device_index);
+  HlMlMemoryReporter(int device_index, bool resolve_index = true);
 
   /**
    * During destruction we cleanup resources.
@@ -62,6 +65,11 @@ class HlMlMemoryReporter {
    * Updates timestamp in shared object
    */
   void PublishTimestamp();
+
+  /**
+   * Get path
+   */
+  std::string GetPath() const;
 
  private:
   std::string MakePath(int device_index);

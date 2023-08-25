@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <synapse_api.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -26,12 +27,13 @@ namespace synapse_helpers {
 
 namespace {
 
-std::size_t RoundToPageSize(std::size_t s) {
-  std::size_t page_size = ::getpagesize();
-  std::size_t result = s + (page_size - 1);
-  result /= page_size;
-  result *= page_size;
-  return result;
+int ResolveDeviceIndex(int device_index) {
+  synDeviceInfo device_info;
+  auto status = ::synDeviceGetInfo(device_index, &device_info);
+  if (status == synFail) {
+    throw HlMlMemoryReporter::Error("synDeviceGetInfo", EINVAL);
+  }
+  return device_info.deviceId;
 }
 
 } // namespace
@@ -43,14 +45,19 @@ std::string HlMlMemoryReporter::MakePath(int device_index) {
   return path;
 }
 
-HlMlMemoryReporter::HlMlMemoryReporter(int device_index) {
+HlMlMemoryReporter::HlMlMemoryReporter(
+    int device_index,
+    bool resolve_device_index) {
+  if (resolve_device_index) {
+    device_index = ResolveDeviceIndex(device_index);
+  }
   m_path = MakePath(device_index);
   m_data = MmapSharedObject();
 }
 
 HlMlMemoryReporter::~HlMlMemoryReporter() {
   if (m_data != nullptr) {
-    std::size_t file_size = RoundToPageSize(sizeof(*m_data));
+    std::size_t file_size = sizeof(*m_data);
     ::munmap(m_data, file_size);
   }
   if (m_fd != -1) {
@@ -70,7 +77,7 @@ void HlMlMemoryReporter::PublishTimestamp() {
 int HlMlMemoryReporter::OpenSharedObject() {
   int flags = O_CREAT | O_TRUNC | O_RDWR;
 
-  int fd = shm_open(m_path.c_str(), flags, 0777);
+  int fd = shm_open(m_path.c_str(), flags, 0666);
   if (fd == -1) {
     throw Error("shm_open", errno);
   }
@@ -95,7 +102,7 @@ hlml_shm_data* HlMlMemoryReporter::MmapSharedObject() {
 }
 
 hlml_shm_data* HlMlMemoryReporter::PrepareSharedObject(int fd) {
-  std::size_t file_size = RoundToPageSize(sizeof(*m_data));
+  std::size_t file_size = sizeof(*m_data);
 
   int err = ::ftruncate(fd, file_size);
   if (err == -1) {
@@ -111,6 +118,10 @@ hlml_shm_data* HlMlMemoryReporter::PrepareSharedObject(int fd) {
   auto* object = reinterpret_cast<hlml_shm_data*>(ptr);
   object->version = HLML_SHM_VERSION;
   return object;
+}
+
+std::string HlMlMemoryReporter::GetPath() const {
+  return m_path;
 }
 
 namespace {

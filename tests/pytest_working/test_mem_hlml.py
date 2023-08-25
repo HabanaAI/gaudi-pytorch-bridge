@@ -12,18 +12,21 @@
 
 import torch
 import os
-import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch as ht
 import time
 import mmap
 import struct
 
-SHM_PATH = "/dev/shm/mem_usage_accel0"
+SHM_PREFIX_PATH = "/dev/shm"
 SHM_SIZE = 3 * 8 # 3 * uint64_t
 SHM_VERSION = 1
 
 class SharedObject:
-    def __init__(self, path = SHM_PATH):
-        self._path = path
+    def __init__(self):
+        so_name = ht.hpu.memory._get_hlml_shared_object_name()
+        if so_name.startswith("/"):
+            so_name = so_name[1:]
+        self._path = os.path.join(SHM_PREFIX_PATH, so_name)
 
     def __enter__(self):
         with open(self._path, "rb") as fd:

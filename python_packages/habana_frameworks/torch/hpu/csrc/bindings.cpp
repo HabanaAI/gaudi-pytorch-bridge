@@ -58,6 +58,19 @@ const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
   return stats;
 }
 
+const std::string get_hlml_shared_object_name(int device_id) {
+  // We don't support index addresed device and for multi node
+  // runs, every node has seperate copy of synapse lib and will
+  // get device with index 0, so ignoring device_id for now.
+  auto& device = habana::HPURegistrar::get_device();
+  auto& device_memory = device.get_device_memory();
+  auto hlml_reporter = device_memory.get_hlml_memory_reporter();
+  if (hlml_reporter) {
+    return hlml_reporter->GetPath();
+  }
+  return "";
+}
+
 void reset_peak_memory_stats(int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
@@ -195,6 +208,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_memory_summary", [](int id) {
     auto mem_stat_str = get_mem_stat_summary(id);
     return mem_stat_str;
+  });
+  m.def("get_hlml_shared_object_name", [](int id) {
+    return get_hlml_shared_object_name(id);
   });
   m.def("get_extended_memory_summary", []() {
     return get_extended_mem_stat_summary();

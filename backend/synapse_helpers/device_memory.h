@@ -98,6 +98,10 @@ class device_memory {
   synapse_helpers::MemoryReporter* get_memory_reporter();
   void recordStream(void* ptr, synapse_helpers::hpuStream_t stream);
 
+  std::shared_ptr<HlMlMemoryReporter> get_hlml_memory_reporter() const {
+    return m_hlml_memory_reporter;
+  }
+
  private:
   device& device_;
   pool_allocator::PoolStrategyType pool_strategy_;
