@@ -482,6 +482,60 @@ def test_cached_module_training_fp8(disable_tensor_cache):
                                     grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at {i}"
 
 
+def test_module_cacher_no_requires_grad():
+    class Network(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.hidden = torch.nn.Linear(4, 4)
+
+        def forward(self, x, z):
+            x = self.hidden(x)
+            x = torch.relu_(x)
+            with torch.no_grad():
+                y = x.new_ones(*x.shape, requires_grad=False)[-1]
+                y = (y+2) * x
+                z = z + y*x
+                k = x
+            return {"T1": x, "T2": y, "T3": z, "T4": k, "flag": 2}
+
+    torch.manual_seed(12345)
+    model = Network().to('hpu')
+    state_dict = copy.deepcopy(model.state_dict())
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    meta_args = [((4, 4)), ((4, 4))]
+
+    net_input = []
+    net_output = []
+    for i in range(2):
+        for item in meta_args:
+            x = torch.randn(item[0]).to('hpu')
+            x.requires_grad_()
+            y = torch.randn(item[0]).to('hpu')
+            net_input.append({'x': x, 'z': y})
+            net_output.append(torch.randn(item[0]).to('hpu'))
+
+    def train_model():
+        m = 0
+        for inp, y in zip(net_input, net_output):
+            output = model(**inp)
+            y_pred = output["T1"] + output["T2"] + output["T3"] + output["T4"]
+            optimizer.zero_grad(set_to_none=True)
+            loss = torch.nn.functional.mse_loss(y_pred, y)
+            loss.backward()
+            optimizer.step()
+            ht.core.mark_step()
+            inp['x'].grad.add_(1.0)
+            m = m + inp['x'].grad.sum()
+            inp['x'].grad.zero_()
+        return loss.cpu(), m.cpu()
+
+    loss_original, m_original = train_model()
+    model.load_state_dict(state_dict)
+    ht.hpu.ModuleCacher()(model=model, inplace=True)
+    loss_cached, m_cached = train_model()
+    assert loss_original == loss_cached
+    assert m_original == m_cached
+
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
@@ -501,3 +555,4 @@ if __name__ == "__main__":
     test_multiple_graph_capture_with_views()
     test_wrap_hpugraphs_max_graphs(max_graphs=2)
     test_wrap_hpugraphs_max_graphs(max_graphs=None)
+    test_module_cacher_no_requires_grad()

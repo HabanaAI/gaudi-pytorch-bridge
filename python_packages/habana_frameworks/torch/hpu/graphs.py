@@ -251,17 +251,19 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                 reversed(per_callable_static_outputs),
                 reversed(bwd_graphs),
                 reversed(per_callable_module_params)):
-        assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
-        static_grad_outputs = tuple(torch.empty_like(o) for o in static_outputs)
+        # assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
+        static_grad_outputs = tuple(
+            torch.empty_like(o) if o.requires_grad else None for o in static_outputs
+        )
 
         with htorch.hpu.graph(bwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
                 bwd_graph.mark_user_inputs(get_user_input_tensor_list(static_grad_outputs, ())
                                        + get_user_input_tensor_list(args, ()))
-            grad_inputs = torch.autograd.grad(outputs=static_outputs,
+            grad_inputs = torch.autograd.grad(outputs=tuple(o for o in static_outputs if o.requires_grad),
                                               inputs=autograd_inputs,
-                                              grad_outputs=static_grad_outputs,
+                                              grad_outputs=tuple(o for o in static_grad_outputs if o is not None),
                                               only_inputs=True,
                                               allow_unused=allow_unused_input)
 
@@ -322,9 +324,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                     matched_input_index = bwd_graph.get_user_input_match_indices()
                     i = 0
                     for g, grad in zip(static_grad_outputs, grads):
-                        if g is None:
-                            assert grad is None
-                        else:
+                        if g is not None:
                             if i not in matched_input_index:
                                 g.copy_(grad)
                             marked_grads = marked_grads + (grad, )
@@ -334,9 +334,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                     return tuple(b.detach() if b is not None else b for b in static_grad_inputs)
                 else:
                     for g, grad in zip(static_grad_outputs, grads):
-                        if g is None:
-                            assert grad is None
-                        else:
+                        if g is not None:
                             # if g.data_ptr() != grad.data_ptr():
                             #     g.copy_(grad)
                             g.copy_(grad)
@@ -661,13 +659,8 @@ class TensorPacker:
 
     def _pack(self, outs, tensor_list):
         if torch.is_tensor(outs):
-            if self._is_out_pack and (not outs.requires_grad):
-                if self._verbose:
-                    print('[WARNING] Tensor with requires_grad=False added to pack')
-                return outs
-            else:
-                metadata = self.Index(len(tensor_list))
-                tensor_list.append(outs)
+            metadata = self.Index(len(tensor_list))
+            tensor_list.append(outs)
 
         elif isinstance(outs, tuple):
             metadata = list(copy.copy(outs))
