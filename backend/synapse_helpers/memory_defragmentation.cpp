@@ -36,7 +36,8 @@ MemoryBlock::MemoryBlock(const MemoryBlock& other)
       handle_{other.handle_},
       ptr_{other.ptr_},
       size_{other.size_},
-      actual_size_{other.actual_size_} {}
+      actual_size_{other.actual_size_},
+      stream_{other.stream_} {}
 
 MemoryBlock& MemoryBlock::operator=(const MemoryBlock& other) {
   if (this == &other) {
@@ -48,6 +49,7 @@ MemoryBlock& MemoryBlock::operator=(const MemoryBlock& other) {
   ptr_ = other.ptr_;
   size_ = other.size_;
   actual_size_ = other.actual_size_;
+  stream_ = other.stream_;
 
   return *this;
 }
@@ -57,12 +59,14 @@ MemoryBlock::MemoryBlock(
     synapse_helpers::mem_handle::id_t handle,
     int8_t* ptr,
     size_t size,
-    size_t actual_size)
+    size_t actual_size,
+    hpuStream_t stream)
     : state_(state),
       handle_(handle),
       ptr_(ptr),
       size_(size),
-      actual_size_(actual_size) {}
+      actual_size_(actual_size),
+      stream_(stream) {}
 
 std::string MemoryBlock::DebugString() const {
   std::string ret;
@@ -189,7 +193,12 @@ bool MemoryDefragementer::CollectResourceInformation(
           " Actual size:: ",
           mem_actual_size);
       in_use_memory_blocks.emplace_back(
-          mem_state, h2p.id_, mem_ptr, mem_size, mem_actual_size);
+          mem_state,
+          h2p.id_,
+          mem_ptr,
+          mem_size,
+          mem_actual_size,
+          h2p.ptr_size_.stream_);
     }
   }
 
@@ -210,7 +219,8 @@ bool MemoryDefragementer::CollectResourceInformation(
         0,
         workspace_ptr_,
         workspace_size_,
-        workspace_size_);
+        workspace_size_,
+        0);
   }
 
   std::sort(in_use_memory_blocks.begin(), in_use_memory_blocks.end());
@@ -237,7 +247,12 @@ bool MemoryDefragementer::CreateMemoryMap(
   if (in_use_memory_blocks.empty()) {
     auto mem_block_size = ptr_diff(mem_end_ptr_, mem_start_ptr_);
     memory_blocks.emplace_back(
-        MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+        MemoryState::FREE,
+        0,
+        mem_start_ptr_,
+        mem_block_size,
+        mem_block_size,
+        0);
     PT_DEVMEM_DEBUG(
         "CreateMemoryMap:: ptr:: ",
         (void*)mem_start_ptr_,
@@ -256,7 +271,12 @@ bool MemoryDefragementer::CreateMemoryMap(
   if (first_memory_block.ptr_ != mem_start_ptr_) {
     auto mem_block_size = ptr_diff(first_memory_block.ptr_, mem_start_ptr_);
     memory_blocks.emplace_back(
-        MemoryState::FREE, 0, mem_start_ptr_, mem_block_size, mem_block_size);
+        MemoryState::FREE,
+        0,
+        mem_start_ptr_,
+        mem_block_size,
+        mem_block_size,
+        0);
     PT_DEVMEM_DEBUG(
         "CreateMemoryMap:: ptr:: ",
         (void*)mem_start_ptr_,
@@ -287,7 +307,7 @@ bool MemoryDefragementer::CreateMemoryMap(
         if (mem_block_size == 0)
           break;
         memory_blocks.emplace_back(
-            MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size);
+            MemoryState::FREE, 0, ptr_next, mem_block_size, mem_block_size, 0);
         PT_DEVMEM_DEBUG(
             "CreateMemoryMap:: ptr:: ",
             (void*)ptr_next,
@@ -303,7 +323,12 @@ bool MemoryDefragementer::CreateMemoryMap(
 
     // adding occupied memory block
     memory_blocks.emplace_back(
-        it->state_, it->handle_, it->ptr_, it->size_, it->actual_size_);
+        it->state_,
+        it->handle_,
+        it->ptr_,
+        it->size_,
+        it->actual_size_,
+        it->stream_);
     PT_DEVMEM_DEBUG(
         "CreateMemoryMap:: ptr:: ",
         (void*)it->ptr_,
@@ -312,7 +337,9 @@ bool MemoryDefragementer::CreateMemoryMap(
         " State::",
         MemoryStateToString(it->state_),
         " Actual size:: ",
-        it->actual_size_);
+        it->actual_size_,
+        " Stream",
+        it->stream_);
   }
 
   // handling a case of free memory block after last occupied memory block
@@ -326,7 +353,8 @@ bool MemoryDefragementer::CreateMemoryMap(
         0,
         last_alloc_ptr_end,
         mem_block_size,
-        mem_block_size);
+        mem_block_size,
+        0);
     PT_DEVMEM_DEBUG(
         "CreateMemoryMap:: ptr:: ",
         (void*)last_alloc_ptr_end,

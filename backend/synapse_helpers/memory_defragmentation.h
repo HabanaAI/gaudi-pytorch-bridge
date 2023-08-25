@@ -35,7 +35,8 @@ struct MemoryBlock {
       synapse_helpers::mem_handle::id_t handle,
       int8_t* ptr,
       size_t size,
-      size_t actual_size);
+      size_t actual_size,
+      hpuStream_t stream);
 
   std::string DebugString() const;
 
@@ -48,6 +49,7 @@ struct MemoryBlock {
   int8_t* ptr_ = nullptr;
   size_t size_ = 0;
   size_t actual_size_ = 0;
+  hpuStream_t stream_ = 0;
 };
 
 struct Region {

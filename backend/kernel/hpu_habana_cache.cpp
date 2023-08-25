@@ -1694,61 +1694,127 @@ void RecipeValueSpec::launch(
       device.register_producer_on_stream(stream_handle, ext_events.at(i));
     }
 
-    // Use wrapper for resources that must survive async part of the compute.
-    struct ResourceHolder {
-      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
-      std::vector<at::Tensor> output_tensors_;
-      std::vector<at::Tensor> input_tensors_;
-      std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
-      synapse_helpers::active_recipe_counter* recipe_counter_ptr;
-      size_t active_graph_key_;
-    };
-    auto resource_holder = std::shared_ptr<ResourceHolder>(
-        new ResourceHolder(), [](ResourceHolder* resource_holder) {
-          auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
-          delete resource_holder;
-          recipe_counter_ptr->decrease_and_notify();
-          if (synapse_helpers::memory_reporter_enable() &&
-              resource_holder->active_graph_key_ > 0) {
-            auto& device = HPURegistrar::get_device();
-            synapse_helpers::MemoryReporter* reporter =
-                device.get_device_memory().get_memory_reporter();
-            reporter->getGraphStats()->removeLiveGraph(
-                resource_holder->active_graph_key_);
-          }
-          PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
-        });
-    // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
-    // corresponding recipe is finished on stream
-    const auto& recipe_ptr = recipe;
-    resource_holder->recipe_id_ = recipe_ptr;
-    resource_holder->input_tensors_ = ptRefs;
-    resource_holder->output_tensors_ = outPtRefs;
-    resource_holder->address_lock = std::move(address_lock);
-    resource_holder->recipe_counter_ptr = &recipe_counter;
-    resource_holder->active_graph_key_ = active_graph_key_;
-    // ResourceHolder could be used directly as callback, if we would only
-    // implement operator(), but copying of ResourceHolder would result in
-    // copying of all shared_ptr stored inside (including std::vector). To make
-    // sharing more lightweight we hide ResourceHolder behind one shared_ptr.
-    // This indirection allows us to maintain only one shared reference.
-    auto cleanup_callback = [resource_holder]() mutable {
-      resource_holder.reset();
-    };
+    if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM) &&
+          GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
+      // Use wrapper for resources that must survive async part of the compute.
+      struct ResourceHolder {
+        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+        std::vector<at::Tensor> output_tensors_;
+        std::vector<at::Tensor> input_tensors_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
+        size_t active_graph_key_;
+      };
+      auto resource_holder = std::shared_ptr<ResourceHolder>(
+          new ResourceHolder(), [](ResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            delete resource_holder;
+            recipe_counter_ptr->decrease_and_notify();
+            if (synapse_helpers::memory_reporter_enable() &&
+                resource_holder->active_graph_key_ > 0) {
+              auto& device = HPURegistrar::get_device();
+              synapse_helpers::MemoryReporter* reporter =
+                  device.get_device_memory().get_memory_reporter();
+              reporter->getGraphStats()->removeLiveGraph(
+                  resource_holder->active_graph_key_);
+            }
+            PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
+          });
+      // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
+      // corresponding recipe is finished on stream
+      const auto& recipe_ptr = recipe;
+      resource_holder->recipe_id_ = recipe_ptr;
+      resource_holder->input_tensors_ = ptRefs;
+      resource_holder->output_tensors_ = outPtRefs;
+      resource_holder->address_lock = std::move(address_lock);
+      resource_holder->recipe_counter_ptr = &recipe_counter;
+      resource_holder->active_graph_key_ = active_graph_key_;
+      // ResourceHolder could be used directly as callback, if we would only
+      // implement operator(), but copying of ResourceHolder would result in
+      // copying of all shared_ptr stored inside (including std::vector). To
+      // make sharing more lightweight we hide ResourceHolder behind one
+      // shared_ptr. This indirection allows us to maintain only one shared
+      // reference.
+      auto cleanup_callback = [resource_holder]() mutable {
+        resource_holder.reset();
+      };
 
-    device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, cleanup_callback);
-    // Launch collective ops
-    HABANA_ASSERT(
-        collective_kernels_info.empty() ||
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
-    for (auto kernel_info : collective_kernels_info) {
-      CollectiveOperator* collective =
-          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
-      HABANA_ASSERT(collective);
-      PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
-      collective->RunCollective(
-          kernel_info->input_tensor_infos, true, cleanup_callback);
+      device.register_producer_on_stream(
+          std::move(outDevPtr), stream_handle, cleanup_callback);
+      // Launch collective ops
+      HABANA_ASSERT(
+          collective_kernels_info.empty() ||
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
+      for (auto kernel_info : collective_kernels_info) {
+        CollectiveOperator* collective =
+            dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
+        HABANA_ASSERT(collective);
+        PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
+        collective->RunCollective(
+            kernel_info->input_tensor_infos, true, cleanup_callback);
+      }
+    } else {
+      // Use wrapper for resources that must survive async part of the compute.
+      struct ResourceHolder {
+        std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_id_;
+        std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
+        synapse_helpers::active_recipe_counter* recipe_counter_ptr;
+        size_t active_graph_key_;
+      };
+      auto resource_holder = std::shared_ptr<ResourceHolder>(
+          new ResourceHolder(), [](ResourceHolder* resource_holder) {
+            auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            delete resource_holder;
+            recipe_counter_ptr->decrease_and_notify();
+            if (synapse_helpers::memory_reporter_enable() &&
+                resource_holder->active_graph_key_ > 0) {
+              auto& device = HPURegistrar::get_device();
+              synapse_helpers::MemoryReporter* reporter =
+                  device.get_device_memory().get_memory_reporter();
+              reporter->getGraphStats()->removeLiveGraph(
+                  resource_holder->active_graph_key_);
+            }
+            PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
+          });
+      // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
+      // corresponding recipe is finished on stream
+      const auto& recipe_ptr = recipe;
+      resource_holder->recipe_id_ = recipe_ptr;
+      resource_holder->address_lock = std::move(address_lock);
+      resource_holder->recipe_counter_ptr = &recipe_counter;
+      resource_holder->active_graph_key_ = active_graph_key_;
+      // ResourceHolder could be used directly as callback, if we would only
+      // implement operator(), but copying of ResourceHolder would result in
+      // copying of all shared_ptr stored inside (including std::vector). To
+      // make sharing more lightweight we hide ResourceHolder behind one
+      // shared_ptr. This indirection allows us to maintain only one shared
+      // reference.
+      auto cleanup_callback = [resource_holder]() mutable {
+        resource_holder.reset();
+      };
+
+      device.register_producer_on_stream(
+          std::move(outDevPtr), stream_handle, cleanup_callback);
+      for (auto data_ptr : inDevPtr) {
+        device.get_device_memory().recordStream(
+            reinterpret_cast<void*>(data_ptr), hpu_stream);
+      }
+      for (auto data_ptr : outDevPtr) {
+        device.get_device_memory().recordStream(
+            reinterpret_cast<void*>(data_ptr), hpu_stream);
+      }
+      // Launch collective ops
+      HABANA_ASSERT(
+          collective_kernels_info.empty() ||
+          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
+      for (auto kernel_info : collective_kernels_info) {
+        CollectiveOperator* collective =
+            dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
+        HABANA_ASSERT(collective);
+        PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
+        collective->RunCollective(
+            kernel_info->input_tensor_infos, true, cleanup_callback);
+      }
     }
 
   } else {

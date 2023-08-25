@@ -75,30 +75,18 @@ class BinUtils {
       const Bin::FreeChunkSet::iterator& citer) const;
 };
 
-class RetryHandler {
- public:
-  RetryHandler();
-
-  void* pool_alloc_chunk(
-      std::function<void*(size_t num_bytes)> alloc_func,
-      int max_millis_to_wait,
-      size_t bytes);
-  /* Called to notify clients that some memory was returned. */
-  void NotifyDealloc();
-
- private:
-  std::mutex mutex_;
-  std::condition_variable memory_returned_;
-};
-
 class CoalescedStringentPooling : public PoolingStrategy {
  public:
-  CoalescedStringentPooling();
+  CoalescedStringentPooling(device& device);
   ~CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size, [[maybe_unused]] bool is_workspace)
       const override;
+  void* pool_alloc_chunk(
+      uint64_t size,
+      hpuStream_t stream,
+      bool use_stream = false) const override;
   void pool_free_chunk(void* p) const override;
   void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
       const override;
@@ -119,6 +107,9 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void print_pool_stats() const override;
   size_t get_max_cntgs_chunk_size() const override;
   void set_defragmenter_state(bool started) const override;
+  void record_stream(void* ptr, hpuStream_t stream) const override;
+  bool is_stream_uses_empty(void* p) const override;
+  void synchronize_and_free_events() const override;
 
   void get_memory_mask(std::vector<uint64_t>& mmask) const;
 
@@ -144,11 +135,16 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable bool high_memory_allocated_ = false;
   mutable bool defragmenter_state_started_ = false;
   mutable MemoryStats stats;
-  mutable RetryHandler retry_handler;
+  device& device_;
 
-  void* alloc_chunk(uint64_t size) const;
+  void* alloc_chunk(uint64_t size, hpuStream_t stream, bool use_stream = false)
+      const;
   void delete_chunk(void* p) const;
-  Chunk* reuse_chunks(uint64_t size) const;
+  void delete_chunk(void* p, hpuStream_t stream) const;
+  Chunk* reuse_chunks(
+      uint64_t size,
+      hpuStream_t stream,
+      bool use_stream = false) const;
   void try_splitting_chunks(Chunk* chunk, uint64_t size) const;
   Chunk* try_to_merge(Chunk* c) const;
   void merge(Chunk* c1, Chunk* c2) const;
@@ -158,7 +154,13 @@ class CoalescedStringentPooling : public PoolingStrategy {
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   mutable std::mutex sp_mutex;
 
-  void* FindChunkPtr(uint64_t bin_index, size_t num_bytes) const;
+  void* FindChunkPtr(
+      uint64_t bin_index,
+      size_t num_bytes,
+      hpuStream_t stream,
+      bool use_stream = false) const;
+  void insert_events(Chunk* chunk) const;
+  void process_events(void) const;
 
   class SmallAllocs {
    public:
@@ -194,6 +196,9 @@ class CoalescedStringentPooling : public PoolingStrategy {
   };
 
   mutable std::unique_ptr<SmallAllocs> small_allocs_;
+  mutable std::
+      unordered_map<hpuStream_t, std::deque<std::pair<synEventHandle, Chunk*>>>
+          hpu_events;
 };
 } // namespace pool_allocator
 } // namespace synapse_helpers

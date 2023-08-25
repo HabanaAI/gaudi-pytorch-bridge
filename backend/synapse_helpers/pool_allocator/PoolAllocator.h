@@ -14,6 +14,7 @@
 #include <synapse_api_types.h>
 #include <mutex>
 #include "backend/synapse_helpers/device_mem_stats.h"
+#include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/util.h"
 
 namespace synapse_helpers {
@@ -43,6 +44,12 @@ class PoolingStrategy {
   virtual void pool_destroy() const = 0;
   virtual void* pool_alloc_chunk(uint64_t size, bool is_workspace = false)
       const = 0;
+  virtual void* pool_alloc_chunk(
+      [[maybe_unused]] uint64_t size,
+      [[maybe_unused]] hpuStream_t stream,
+      [[maybe_unused]] bool use_stream = false) const {
+    return nullptr;
+  }
   virtual void pool_free_chunk(void* p) const = 0;
   virtual void* extend_high_memory_allocation(
       uint64_t size,
@@ -80,6 +87,14 @@ class PoolingStrategy {
   }
 
   virtual void set_defragmenter_state([[maybe_unused]] bool running) const {}
+
+  virtual void record_stream(
+      [[maybe_unused]] void* ptr,
+      [[maybe_unused]] hpuStream_t stream) const {}
+  virtual bool is_stream_uses_empty([[maybe_unused]] void* p) const {
+    return true;
+  };
+  virtual void synchronize_and_free_events() const {};
 };
 
 class SubAllocator {
@@ -87,7 +102,7 @@ class SubAllocator {
   PoolingStrategy* strategy_;
 
  public:
-  SubAllocator(PoolingStrategy* strategy = nullptr) : strategy_(strategy) {}
+  SubAllocator(PoolingStrategy* strategy) : strategy_(strategy) {}
 
   ~SubAllocator() {
     delete this->strategy_;
@@ -108,6 +123,11 @@ class SubAllocator {
 
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const {
     return this->strategy_->pool_alloc_chunk(size, is_workspace);
+  }
+
+  void* pool_alloc_chunk(uint64_t size, hpuStream_t stream, bool use_stream)
+      const {
+    return this->strategy_->pool_alloc_chunk(size, stream, use_stream);
   }
 
   void pool_free_chunk(void* p) const {
@@ -174,6 +194,18 @@ class SubAllocator {
 
   void set_defragmenter_state(bool started) const {
     this->strategy_->set_defragmenter_state(started);
+  }
+
+  void record_stream(void* ptr, hpuStream_t stream) const {
+    this->strategy_->record_stream(ptr, stream);
+  }
+
+  bool is_stream_uses_empty(void* p) const {
+    return this->strategy_->is_stream_uses_empty(p);
+  }
+
+  void synchronize_and_free_events() const {
+    this->strategy_->synchronize_and_free_events();
   }
 };
 

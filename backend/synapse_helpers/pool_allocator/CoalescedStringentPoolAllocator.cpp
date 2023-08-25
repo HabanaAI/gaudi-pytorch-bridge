@@ -94,7 +94,8 @@ void BinUtils::RemoveFreeChunkIterFromBin(
   c->bin_index = kInvalidBinNum;
 }
 
-CoalescedStringentPooling::CoalescedStringentPooling() {
+CoalescedStringentPooling::CoalescedStringentPooling(device& device)
+    : device_{device} {
   pool_id = 0;
   chunk_count = 0;
   allocted_chunk_size = 0;
@@ -254,8 +255,10 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   stats.bytes_in_use += 0x80;
   bytes_in_use += 0x80;
   stats.pre_allocate_size += 0x80;
-  const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
+  const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(
+      SmallAllocs::kSize, 0 /*default stream*/, false /*use_stream*/));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
+
   small_allocs_ = std::make_unique<SmallAllocs>(
       std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
           chunk_ptr, free_chunk));
@@ -366,7 +369,9 @@ bool CoalescedStringentPooling::is_memory_available(
 // Returns a pointer to an underlying allocated chunk of size 'num_bytes'.
 void* CoalescedStringentPooling::FindChunkPtr(
     uint64_t bin_index,
-    size_t num_bytes) const {
+    size_t num_bytes,
+    hpuStream_t stream,
+    bool use_stream) const {
   // First identify the first bin that could satisfy num_bytes.
   for (; bin_index < kNumBins; bin_index++) {
     // Start searching from the first bin for the smallest chunk that fits
@@ -376,7 +381,15 @@ void* CoalescedStringentPooling::FindChunkPtr(
          ++citer) {
       Chunk* chunk = *citer;
       HABANA_ASSERT(!chunk->used);
-      if (chunk->size >= num_bytes) {
+      bool got_chunk = false;
+      if (use_stream) {
+        got_chunk =
+            (chunk->size >= num_bytes &&
+             (chunk->associated_to_stream && stream == chunk->stream));
+      } else {
+        got_chunk = (chunk->size >= num_bytes);
+      }
+      if (got_chunk) {
         // We found an existing chunk that fits us that wasn't in use, so remove
         // it from the free bin structure prior to using.
         bin_utils->RemoveFreeChunkIterFromBin(&b->free_chunks, citer);
@@ -563,9 +576,12 @@ uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   return ctgs_chunks_size;
 }
 
-Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
+Chunk* CoalescedStringentPooling::reuse_chunks(
+    uint64_t size,
+    hpuStream_t stream,
+    bool use_stream) const {
   int bin_index = bin_utils->BinIndexForSize(size);
-  Chunk* free_chunk = (Chunk*)FindChunkPtr(bin_index, size);
+  Chunk* free_chunk = (Chunk*)FindChunkPtr(bin_index, size, stream, use_stream);
   if (free_chunk == nullptr) {
     PT_DEVMEM_DEBUG(
         "CS_POOL:: no more reusable chunk: defragment or extend !!");
@@ -580,6 +596,8 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
       free_chunk->size);
   bin_utils->RemoveFreeChunkFromBin(free_chunk);
   free_chunk->used = true;
+  free_chunk->associated_to_stream = true;
+  free_chunk->stream = stream;
   return free_chunk;
 }
 
@@ -676,33 +694,28 @@ void* CoalescedStringentPooling::pool_alloc_chunk(
     uint64_t size,
     [[maybe_unused]] bool is_workspace) const {
   std::unique_lock<std::mutex> lock(sp_mutex);
-  // for perf mode, the retry_on_failure has to disabled.
-  bool retry_on_failure = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_ENABLE_RETRY);
-  void* ptr = alloc_chunk(size);
-
-  if (retry_on_failure) {
-    if (ptr != nullptr) {
-      return ptr;
-    } else {
-      lock.unlock();
-      // If return value is nullptr, then wait up to 'max_millis_to_wait'
-      // milliseconds, retrying each time a call to DeleteChunk() is detected,
-      // until either a good pointer is returned or the deadline is exhausted.
-      // for perf mode this needs to be disabled.
-      static const int64_t kMaxMillisToWait =
-          GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ALLOC_RETRY_WAIT_MS);
-      ptr = retry_handler.pool_alloc_chunk(
-          [this](size_t size) { return alloc_chunk(size); },
-          kMaxMillisToWait,
-          size);
-      return ptr;
-    }
-  }
+  process_events();
+  void* ptr = alloc_chunk(size, 0 /*default_stream*/, false /*use_stream*/);
   log_synDeviceAlloc(reinterpret_cast<uint64_t>(ptr), size);
   return ptr;
 }
 
-void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
+void* CoalescedStringentPooling::pool_alloc_chunk(
+    uint64_t size,
+    hpuStream_t stream,
+    bool use_stream) const {
+  std::unique_lock<std::mutex> lock(sp_mutex);
+  process_events();
+  void* ptr = alloc_chunk(size, stream, use_stream);
+
+  log_synDeviceAlloc(reinterpret_cast<uint64_t>(ptr), size);
+  return ptr;
+}
+
+void* CoalescedStringentPooling::alloc_chunk(
+    uint64_t size,
+    hpuStream_t stream,
+    bool use_stream) const {
   void* ptr = nullptr;
   PT_DEVMEM_DEBUG("CS_POOL:: alloc_chunk requested size::", size);
 
@@ -712,8 +725,11 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         size);
   }
 
-  if (small_allocs_)
+  // now use smallalloc only for default stream
+  if (small_allocs_ && stream == 0) {
     ptr = small_allocs_->Allocate(size);
+  }
+
   if (ptr != nullptr) {
     ++stats.num_allocs;
     ++stats.total_allocs;
@@ -735,7 +751,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
       p,
       " for size :: ",
       size);
-  auto old_chunk = reuse_chunks(size);
+  auto old_chunk = reuse_chunks(size, stream, use_stream);
   if (old_chunk) {
     ++chunk_count;
     auto prevptr = old_chunk->prev ? old_chunk->prev->memptr : 0;
@@ -801,6 +817,8 @@ void CoalescedStringentPooling::try_splitting_chunks(
 
   new_chunk->used = false;
   new_chunk->freed_counter = 0;
+  new_chunk->stream = chunk->stream;
+  new_chunk->associated_to_stream = chunk->associated_to_stream;
 
   // maintain the prev and next pointers
   // c1<->c2 ==> c1<->new_chunk<->c2
@@ -842,6 +860,9 @@ void CoalescedStringentPooling::try_splitting_chunks(
 }
 
 void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
+  if (c2->event_count > 0 || !c2->stream_uses.empty())
+    return;
+
   PT_DEVMEM_DEBUG(
       "Merge C1::",
       c1,
@@ -972,9 +993,23 @@ void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   PT_DEVMEM_DEBUG("CS_POOL:: pool_free_chunk");
   std::unique_lock<std::mutex> lock(sp_mutex);
   log_synDeviceDeallocate(reinterpret_cast<uint64_t>(ptr));
-  delete_chunk(ptr);
-  lock.unlock();
-  retry_handler.NotifyDealloc();
+  if ((uint64_t)ptr == 0) {
+    PT_DEVMEM_DEBUG("CS_POOL:: null ptr");
+    return;
+  }
+  if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
+    delete_chunk(ptr);
+  } else {
+    PT_DEVMEM_DEBUG("CS_POOL:: ptr to delete::", (uint64_t)ptr);
+    auto it = chunks.find((uint64_t)ptr);
+    HABANA_ASSERT(it != chunks.end());
+    Chunk* chunk = it->second;
+    if (!chunk->stream_uses.empty()) {
+      insert_events(chunk);
+    } else {
+      delete_chunk(ptr);
+    }
+  }
 }
 
 void CoalescedStringentPooling::delete_chunk(void* ptr) const {
@@ -1053,6 +1088,138 @@ size_t CoalescedStringentPooling::allocated_size(const void* ptr) const {
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
   return chunk->size;
+}
+
+void CoalescedStringentPooling::synchronize_and_free_events() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  // Synchronize on outstanding events and then free associated blocks.
+  for (auto& st : hpu_events) {
+    for (auto& e : st.second) {
+      synEventHandle event = std::move(e.first);
+      Chunk* chunk = e.second;
+
+      auto status = synEventSynchronize(event);
+      if (synStatus::synSuccess != status) {
+        PT_DEVMEM_FATAL(
+            Logger::formatStatusMsg(status), "Event synchronization failed");
+      }
+
+      chunk->event_count--;
+      if (chunk->event_count == 0) {
+        delete_chunk(chunk);
+      }
+      device_.get_event_handle_cache().release_handle(event);
+    }
+  }
+
+  hpu_events.clear();
+}
+
+void CoalescedStringentPooling::process_events() const {
+  // Process outstanding HpuEvents. Events that are completed are
+  // removed from the queue, and the 'event_count' for the
+  // corresponding allocation is decremented. We maintain a separate
+  // list of events per stream to avoid head-of-line delays if one
+  // or more streams has long-running operations.
+
+  // Iterate over different streams.
+  for (auto it = hpu_events.begin(); it != hpu_events.end();) {
+    // Iterate over this stream's (event, block) pairs.
+    while (!it->second.empty()) {
+      auto& e = it->second.front();
+      synEventHandle event = e.first;
+      Chunk* chunk = e.second;
+
+      auto status = synEventQuery(event);
+      auto res = false;
+      if (synStatus::synSuccess == status) {
+        res = true;
+      }
+      if (!res) {
+        e.first = event;
+        break;
+      } else {
+        device_.get_event_handle_cache().release_handle(event);
+      }
+
+      chunk->event_count--;
+      if (chunk->event_count == 0) {
+        delete_chunk(chunk);
+      }
+      it->second.pop_front();
+    }
+
+    if (it->second.empty()) {
+      it = hpu_events.erase(it);
+    } else {
+      it++;
+    }
+  }
+}
+
+void CoalescedStringentPooling::insert_events(Chunk* chunk) const {
+  stream_set streams(std::move(chunk->stream_uses));
+  AT_ASSERT(chunk->stream_uses.empty());
+  for (auto& stream : streams) {
+    // for default stream it will use compute stream
+    synapse_helpers::stream& s = device_.get_stream(stream);
+    synEventHandle event = device_.get_event_handle_cache().get_free_handle();
+    auto status = synEventRecord(event, s);
+    if (synStatus::synSuccess != status) {
+      PT_DEVMEM_FATAL(
+          "synStreamRecordEvent failed: ",
+          status,
+          " for stream::",
+          s,
+          " Event::",
+          event);
+    }
+
+    chunk->event_count++;
+    hpu_events[stream].emplace_back(event, chunk);
+  }
+}
+
+bool CoalescedStringentPooling::is_stream_uses_empty(void* ptr) const {
+  if ((uint64_t)ptr == 0) {
+    PT_DEVMEM_DEBUG("CS_POOL is_stream_uses_empty:: null ptr");
+    return true;
+  }
+  std::unique_lock<std::mutex> lock(sp_mutex);
+  if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
+    return true;
+  }
+
+  PT_DEVMEM_DEBUG("CS_POOL:: ptr to record_stream::", (uint64_t)ptr);
+  auto it = chunks.find((uint64_t)ptr);
+  HABANA_ASSERT(it != chunks.end());
+  Chunk* chunk = it->second;
+  return chunk->stream_uses.empty();
+}
+
+void CoalescedStringentPooling::record_stream(void* ptr, hpuStream_t stream)
+    const {
+  if ((uint64_t)ptr == 0) {
+    PT_DEVMEM_DEBUG("CS_POOL record_stream:: null ptr");
+    return;
+  }
+  std::unique_lock<std::mutex> lock(sp_mutex);
+  if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
+    return;
+  }
+
+  PT_DEVMEM_DEBUG("CS_POOL:: ptr to record_stream::", (uint64_t)ptr);
+  auto it = chunks.find((uint64_t)ptr);
+  HABANA_ASSERT(it != chunks.end());
+  Chunk* chunk = it->second;
+  HABANA_ASSERT(chunk->used);
+  synapse_helpers::stream& s = device_.get_stream(stream);
+  if (s == device_.get_stream(chunk->stream)) {
+    // ignore uses on the allocation stream, since those don't require any
+    // special synchronization
+    return;
+  }
+  chunk->stream_uses.insert(stream);
 }
 
 CoalescedStringentPooling::SmallAllocs::SmallAllocs(
@@ -1325,47 +1492,5 @@ void CoalescedStringentPooling::reset_peak_mem_stats() const {
   stats.peak_bytes_in_use = 0;
 }
 
-RetryHandler::RetryHandler() {}
-void* RetryHandler::pool_alloc_chunk(
-    std::function<void*(size_t num_bytes)> alloc_func,
-    int max_millis_to_wait,
-    size_t num_bytes) {
-  if (num_bytes == 0) {
-    PT_DEVMEM_DEBUG("Request to allocate 0 bytes");
-    return nullptr;
-  }
-  void* ptr = nullptr;
-  uint64_t deadline_micros = 0;
-  bool first = true;
-  while (ptr == nullptr) {
-    ptr = alloc_func(num_bytes);
-    if (ptr == nullptr) {
-      std::chrono::time_point<std::chrono::system_clock> time_now =
-          std::chrono::system_clock::now();
-      auto duration = time_now.time_since_epoch();
-      uint64_t now =
-          std::chrono::duration_cast<std::chrono::microseconds>(duration)
-              .count();
-      if (first) {
-        deadline_micros = now + max_millis_to_wait * 1000;
-        first = false;
-      }
-      if (now < deadline_micros) {
-        std::unique_lock<std::mutex> cond_lock(mutex_);
-        memory_returned_.wait_for(
-            cond_lock,
-            std::chrono::milliseconds((deadline_micros - now) / 1000));
-      } else {
-        return alloc_func(num_bytes);
-      }
-    }
-  }
-  return ptr;
-}
-
-inline void RetryHandler::NotifyDealloc() {
-  std::unique_lock<std::mutex> cond_lock(mutex_);
-  memory_returned_.notify_all();
-}
 } // namespace pool_allocator
 } // namespace synapse_helpers

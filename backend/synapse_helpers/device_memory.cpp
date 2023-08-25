@@ -94,7 +94,7 @@ device_memory::device_memory(device& device) : device_{device} {
       try {
         PT_DEVMEM_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
         suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::CoalescedStringentPooling());
+            new pool_allocator::CoalescedStringentPooling(device_));
         if (suballoc_ == nullptr) {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
@@ -194,76 +194,6 @@ size_t device_memory::get_max_cntgs_chunk_size() const {
   return suballoc_->get_max_cntgs_chunk_size();
 }
 
-void device_memory::insert_events(AllocInfo* alloc_info) {
-  stream_set streams(std::move(alloc_info->stream_uses));
-  AT_ASSERT(alloc_info->stream_uses.empty());
-  for (auto& stream : streams) {
-    hpuEvent_t event = device_.create_event(0);
-    device_.record_event(event, stream);
-
-    alloc_info->event_count++;
-    std::lock_guard<std::mutex> lock(event_mutex);
-    hpu_events[stream].emplace_back(event, alloc_info);
-  }
-}
-
-void device_memory::process_events() {
-  // Process outstanding HpuEvents. Events that are completed are
-  // removed from the queue, and the 'event_count' for the
-  // corresponding allocation is decremented. We maintain a separate
-  // list of events per stream to avoid head-of-line delays if one
-  // or more streams has long-running operations.
-
-  // Iterate over different streams.
-  std::lock_guard<std::mutex> lock(event_mutex);
-  for (auto it = hpu_events.begin(); it != hpu_events.end();) {
-    // Iterate over this stream's (event, block) pairs.
-    while (!it->second.empty()) {
-      auto& e = it->second.front();
-      hpuEvent_t event = e.first;
-      AllocInfo* alloc_info = e.second;
-
-      auto res = device_.query_event(event);
-      if (!res) {
-        e.first = event;
-        break;
-      } else {
-        device_.delete_event(event, 0);
-      }
-
-      alloc_info->event_count--;
-      if (alloc_info->event_count == 0) {
-        device_.get_device_memory().free(alloc_info->ptr);
-      }
-      it->second.pop_front();
-    }
-
-    if (it->second.empty()) {
-      it = hpu_events.erase(it);
-    } else {
-      it++;
-    }
-  }
-}
-
-AllocInfo* device_memory::get_alloc_info(void* ptr, bool remove) {
-  std::lock_guard<std::mutex> lock(alloc_mutex);
-  auto it = allocInfoMap.find(ptr);
-  if (it == allocInfoMap.end()) {
-    return nullptr;
-  }
-  AllocInfo* alloc_info = it->second;
-  if (remove) {
-    allocInfoMap.erase(it);
-  }
-  return alloc_info;
-}
-
-void device_memory::add_allocInfo(AllocInfo* allocInfo) {
-  std::lock_guard<std::mutex> lock(alloc_mutex);
-  allocInfoMap[allocInfo->ptr] = allocInfo;
-}
-
 #define DEFAULT_RECIPE_COUNT 0
 
 // warapper for malloc/free for pool startegy not equal to 5
@@ -315,37 +245,97 @@ synStatus device_memory::deallocate(void* ptr) {
   return status;
 }
 
+synStatus device_memory::alloc(
+    void** v_ptr,
+    uint64_t size,
+    hpuStream_t stream) {
+  uint64_t ptr{0};
+  synStatus status{synStatus::synSuccess};
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    ptr = (uint64_t)suballoc_->pool_alloc_chunk(block_align(size), stream);
+
+    if ((void*)ptr == nullptr) {
+      memory_reporter_event_create(device_, MEM_REPORTER_ALLOC_FAILS);
+      PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
+      status = synFail;
+    }
+    log_synDeviceMemStats(*this);
+    *v_ptr = reinterpret_cast<void*>(ptr);
+  } else {
+    status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
+
+    if (synStatus::synSuccess != status) {
+      PT_DEVMEM_DEBUG(
+          Logger::formatStatusMsg(status),
+          "synDeviceMalloc failed, requested size ",
+          size);
+    } else {
+      *v_ptr = reinterpret_cast<void*>(ptr);
+      log_synDeviceMemStats(*this);
+    }
+  }
+
+  return status;
+}
+
 synStatus device_memory::malloc(
     void** v_ptr,
     uint64_t size,
     hpuStream_t stream) {
   synStatus status{synStatus::synSuccess};
-  // Processes end-of-life events for outstanding allocations used on
-  // multiple streams (checks if their GPU-side uses are complete and
-  // recycles their memory if so)
-  process_events();
-  void* ptr = nullptr;
-  malloc(&ptr, size);
-  *v_ptr = ptr;
-  AllocInfo* alloc_info = new AllocInfo(stream, *v_ptr);
-  add_allocInfo(alloc_info);
+  uint64_t ptr{0};
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    ptr = mem_handle::reinterpret_to_pointer(
+        mem_handle(handle2pointer_.Insert(size, stream)));
+
+    *v_ptr = reinterpret_cast<void*>(ptr);
+  } else {
+    status = alloc((void**)&ptr, size);
+    *v_ptr = reinterpret_cast<void*>(ptr);
+  }
+
+  log_synDeviceMalloc(ptr, size, status);
+  record(*v_ptr, size, true);
   return status;
 }
 
 synStatus device_memory::free_with_stream(void* free_ptr) {
   synStatus status{synStatus::synSuccess};
-  if (!free_ptr) {
+  if (nullptr == free_ptr) {
     return status;
   }
-  AllocInfo* alloc_info = get_alloc_info(free_ptr, true /* remove */);
-  if (!alloc_info) {
-    PT_DEVMEM_FATAL("invalid device pointer: ", free_ptr);
-  }
+  PT_DEVMEM_DEBUG(
+      "free_with_stream for ptr", reinterpret_cast<uint64_t>(free_ptr));
 
-  if (!alloc_info->stream_uses.empty()) {
-    insert_events(alloc_info);
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    auto h = mem_handle::reinterpret_from_pointer(
+        reinterpret_cast<uint64_t>(free_ptr));
+    if (h.offset() != 0) {
+      PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
+    }
+    const auto id = h.id();
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (handle2pointer_.checkIdIsReset(id))
+      return status;
+    auto ptr_and_size = handle2pointer_.GetPtrSize(id);
+    bool is_stream_uses_empty = true;
+    if (ptr_and_size.ptr_ != nullptr) {
+      is_stream_uses_empty = suballoc_->is_stream_uses_empty(ptr_and_size.ptr_);
+      PT_DEVMEM_DEBUG("free_with_stream ptr", ptr_and_size.ptr_);
+      deallocate(ptr_and_size.ptr_);
+    }
+    if (is_stream_uses_empty) {
+      handle2pointer_.Erase(id);
+      log_synDeviceMemStats(*this);
+      log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+      record(free_ptr, 0, false);
+    } // TODO fixme if there are other stream, need to erase the h_id
   } else {
-    free(free_ptr);
+    status = deallocate(free_ptr);
+    log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+    record(free_ptr, 0, false);
   }
   return status;
 }
@@ -400,17 +390,22 @@ synStatus device_memory::free(void* free_ptr) {
 }
 
 void device_memory::recordStream(void* ptr, hpuStream_t stream) {
-  AllocInfo* alloc_info = get_alloc_info(ptr);
-  // alloc_info must not be null reaching here
-  TORCH_INTERNAL_ASSERT(
-      alloc_info != nullptr, "No allocated block can be found");
-
-  if (stream == alloc_info->stream) {
-    // ignore uses on the allocation stream, since those don't require any
-    // special synchronization
+  if (nullptr == ptr) {
     return;
   }
-  alloc_info->stream_uses.insert(stream);
+  PT_DEVMEM_DEBUG("record_stream for ptr", reinterpret_cast<uint64_t>(ptr));
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+    auto h =
+        mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
+    if (h.offset() != 0) {
+      PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
+    }
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto id = h.id();
+    auto ptr_and_size = handle2pointer_.GetPtrSize(id);
+    suballoc_->record_stream(ptr_and_size.ptr_, stream);
+  }
 }
 
 void* device_memory::workspace_alloc(
@@ -617,12 +612,14 @@ struct HandleMover {
       mem_handle::id_t handle,
       void* source_pointer,
       size_t size,
-      size_t actual_size)
+      size_t actual_size,
+      hpuStream_t stream)
       : handle_(handle),
         source_pointer_(source_pointer),
         destination_pointer_(nullptr),
         size_(size),
-        actual_size_(actual_size) {}
+        actual_size_(actual_size),
+        stream_(stream) {}
 
   void* GetSource() const {
     return source_pointer_;
@@ -655,16 +652,14 @@ struct HandleMover {
     allocator.pool_free_chunk(source_pointer_);
   }
 
-  void Allocate(
-      pool_allocator::SubAllocator& allocator,
-      HandlesMap& h2pMap,
-      bool workspace) {
-    destination_pointer_ = allocator.pool_alloc_chunk(actual_size_, workspace);
+  void Allocate(pool_allocator::SubAllocator& allocator, HandlesMap& h2pMap) {
+    destination_pointer_ =
+        allocator.pool_alloc_chunk(actual_size_, stream_, false);
     if (destination_pointer_ == nullptr) {
       PT_DEVMEM_FATAL("destination_pointer_ allocation failed");
     }
     h2pMap.SetPtrSize(
-        handle_, HandlesMap::PtrSize(destination_pointer_, size_));
+        handle_, HandlesMap::PtrSize(destination_pointer_, size_, stream_));
   }
 
   mem_handle::id_t handle_;
@@ -672,6 +667,7 @@ struct HandleMover {
   void* destination_pointer_;
   size_t size_;
   size_t actual_size_;
+  hpuStream_t stream_;
 };
 } // namespace defragment
 } // namespace
@@ -800,7 +796,7 @@ bool device_memory::defragment_memory(
     }
 
     movers.emplace_back(
-        it->handle_, it->ptr_, it->size_, block_align(it->size_));
+        it->handle_, it->ptr_, it->size_, block_align(it->size_), it->stream_);
   }
 
   if (movers.empty()) {
@@ -813,7 +809,7 @@ bool device_memory::defragment_memory(
       mover.Deallocate(*suballoc_);
 
     for (auto& mover : movers) {
-      mover.Allocate(*suballoc_, handle2pointer_, workspace_grow);
+      mover.Allocate(*suballoc_, handle2pointer_);
 
       if (not mover.moveRequired()) {
         PT_DEVMEM_DEBUG("Skipping. Resource was not moved in memory");
@@ -993,7 +989,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
           ptr_size.ptr_,
           " of size: ",
           ptr_size.size_);
-      alloc(&ptr_size.ptr_, ptr_size.size_);
+      alloc(&ptr_size.ptr_, ptr_size.size_, ptr_size.stream_);
       handle2pointer_.SetPtrSize(h.id(), ptr_size);
     }
     return {ptr_size.ptr_, ptr_size.size_};

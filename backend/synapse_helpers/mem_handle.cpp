@@ -149,14 +149,14 @@ void HandlesMap::check_id_overflow(
   }
 }
 
-mem_handle::id_t HandlesMap::Insert(size_t size) {
+mem_handle::id_t HandlesMap::Insert(size_t size, hpuStream_t stream) {
   bucket_type bucket_index = getBucketIndexForGivenTensorSize(size);
   const uint64_t offset_bits = bucketInfo[bucket_index].offset_bits;
   if (!free_handles_[bucket_index].empty()) {
     uint64_t id = free_handles_[bucket_index].front();
     check_id_overflow(id, size, offset_bits);
     free_handles_[bucket_index].pop();
-    handles_[bucket_index][id] = Record(size);
+    handles_[bucket_index][id] = Record(size, stream);
     PT_SYNHELPER_DEBUG("Reuse handleid ::", id, " Size::", size);
     return create_memhandle_from_bucket_index_and_handle_index(
         bucket_index, id);
@@ -165,7 +165,7 @@ mem_handle::id_t HandlesMap::Insert(size_t size) {
       PT_SYNHELPER_FATAL("All possible device memory handles has been used");
       return mem_handle::invalid_handle;
     }
-    handles_[bucket_index].emplace_back(size);
+    handles_[bucket_index].emplace_back(size, stream);
     auto id_inside_bucket = handles_[bucket_index].size() - 1;
     check_id_overflow(id_inside_bucket, size, offset_bits);
     PT_SYNHELPER_DEBUG(

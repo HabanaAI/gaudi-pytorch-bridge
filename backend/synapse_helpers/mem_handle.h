@@ -104,14 +104,16 @@ class HandlesMap {
   struct PtrSize {
     void* ptr_ = nullptr;
     size_t size_ = 0;
+    hpuStream_t stream_ = 0;
     PtrSize() = default;
-    PtrSize(size_t size) : size_(size){};
-    PtrSize(void* ptr, size_t size) : ptr_(ptr), size_(size){};
+    PtrSize(size_t size, hpuStream_t stream) : size_(size), stream_(stream){};
+    PtrSize(void* ptr, size_t size, hpuStream_t stream)
+        : ptr_(ptr), size_(size), stream_(stream){};
   };
 
   HandlesMap();
 
-  mem_handle::id_t Insert(size_t size);
+  mem_handle::id_t Insert(size_t size, hpuStream_t stream = 0);
   void check_id_overflow(mem_handle::id_t id, size_t size, uint64_t offset_bit);
   PtrSize GetPtrSize(mem_handle::id_t id) const;
   void SetPtrSize(mem_handle::id_t id, PtrSize ptr_size);
@@ -181,7 +183,8 @@ class HandlesMap {
     bool active_ = false;
     bool reset_ = false;
     Record() = default;
-    Record(size_t size) : ptr_size_(size), active_(true) {}
+    Record(size_t size, hpuStream_t stream)
+        : ptr_size_(size, stream), active_(true) {}
   };
   void CheckId(uint64_t handle_index, bucket_type index) const;
 

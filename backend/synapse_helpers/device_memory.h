@@ -25,12 +25,11 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/types/optional.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/device_mem_reporter.h"
 #include "backend/synapse_helpers/mem_handle.h"
+#include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/synapse_error.h"
 #include "backend/synapse_helpers/synchronous_counter.h"
 #include "mem_hlml.h"
@@ -38,19 +37,8 @@
 #include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
 
-using stream_set = absl::flat_hash_set<synapse_helpers::hpuStream_t>;
 namespace synapse_helpers {
 class device;
-
-struct AllocInfo {
-  synapse_helpers::hpuStream_t stream; // allocation stream
-  stream_set stream_uses; // streams on which the block was used
-  void* ptr{nullptr}; // memory ptr
-  int event_count{0}; // number of outstanding HPU events
-
-  AllocInfo(synapse_helpers::hpuStream_t stream, void* ptr)
-      : stream(stream), stream_uses(), ptr(ptr) {}
-};
 
 class device_memory {
  public:
@@ -115,7 +103,9 @@ class device_memory {
   HandlesMap handle2pointer_;
   device_ptr get_pointer(mem_handle);
   synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);
+  synStatus alloc(void** v_ptr, uint64_t size, hpuStream_t stream);
   synStatus deallocate(void* ptr);
+  synStatus deallocate(void* ptr, hpuStream_t stream);
   void check_and_limit_recipe_execution(size_t size);
   bool defragment_memory(
       size_t alignment,
@@ -130,15 +120,6 @@ class device_memory {
   void record(void* ptr, size_t size, bool alloc);
 
   MemoryReporter mem_reporter;
-  std::mutex alloc_mutex;
-  absl::flat_hash_map<void*, AllocInfo*> allocInfoMap;
-  std::mutex event_mutex;
-  std::unordered_map<hpuStream_t, std::deque<std::pair<hpuEvent_t, AllocInfo*>>>
-      hpu_events;
-  void add_allocInfo(AllocInfo* allocInfo);
-  AllocInfo* get_alloc_info(void* ptr, bool remove = false);
-  void insert_events(AllocInfo* alloc_info);
-  void process_events(void);
   void init_hlml_memory();
   std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
   std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
