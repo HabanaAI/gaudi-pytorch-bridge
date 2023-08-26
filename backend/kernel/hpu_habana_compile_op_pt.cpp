@@ -77,8 +77,7 @@ void habana::HabanaCompile::CompileSynapse(
   }
 
   if (hb_launch_op->get_enable_shape_agnostic_caching_() &&
-      hb_launch_op->get_jit_graph_and_meta_data()
-          ->get_is_shape_agnostic_supported()) {
+      hb_launch_op->get_is_shape_agnostic_supported()) {
     if (is_shape_agnostic_cache_miss) {
       hb_launch_op->CompileSynapseGraph();
       hb_launch_op->StoreShapeAgnosticGraph();

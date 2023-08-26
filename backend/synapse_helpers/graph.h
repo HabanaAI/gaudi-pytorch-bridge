@@ -37,7 +37,7 @@ class graph {
  public:
   graph() = delete;
   ~graph();
-  graph(const graph&) = delete;
+  graph(const graph&) noexcept;
   graph& operator=(const graph&) = delete;
   graph(graph&&) noexcept;
   graph& operator=(graph&&) = delete;
@@ -110,6 +110,10 @@ class graph {
     in_build_phase_ = flag;
   }
 
+  bool get_build_phase() {
+    return in_build_phase_;
+  }
+
   struct recipe_handle {
     synRecipeHandle syn_recipe_handle_{nullptr};
     std::string recipe_name_{""};
@@ -120,7 +124,6 @@ class graph {
     explicit recipe_handle(){};
     ~recipe_handle();
 
-    recipe_handle(const recipe_handle&) = delete;
     recipe_handle& operator=(const recipe_handle&) = delete;
     recipe_handle(recipe_handle&&) = delete;
     recipe_handle& operator=(recipe_handle&&) = delete;
@@ -336,6 +339,7 @@ class graph {
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
   bool eager_mode_{false};
+  bool donot_destroy_original_graph_{false};
 };
 
 } // namespace synapse_helpers

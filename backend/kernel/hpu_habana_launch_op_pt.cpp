@@ -3685,6 +3685,8 @@ void HabanaLaunchOpPT::run(
       HABANA_ASSERT(
           eager_mode == true,
           "eager_mode is expected true for supporting shape agnostic graph");
+      is_shape_agnostic_supported_ =
+          jit_graph_and_meta_data_->get_is_shape_agnostic_supported();
       constexpr bool dry_run__ = false;
       auto syn_graph =
           std::make_shared<synapse_helpers::graph>(habana_helpers::create_graph(
@@ -3783,9 +3785,13 @@ void HabanaLaunchOpPT::run(
       // from SAG recipe (from dtensorinfos))
       habana_helpers::Singleton_CompileThreadPool::getInstance()
           .JoinPendingThread();
+      get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
+          get_cur_rvalpsh());
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
-      syn_graph_ptr_ = cur_rvalpsh->shape_agnostic_synapse_graph_;
+      is_shape_agnostic_supported_ = true;
+      syn_graph_ptr_ = std::make_shared<synapse_helpers::graph>(
+          *(cur_rvalpsh->shape_agnostic_synapse_graph_.get()));
 
       std::vector<synTensorHandleMap> tensorsMap(
           syn_graph_ptr_->get_num_of_tensors());
@@ -3841,10 +3847,11 @@ void HabanaLaunchOpPT::run(
 
       // To check if any other members just like ntensorbytes also need to be
       // updated
-      rv.ntensorbytes = 0;
+      // SAG cache hit case - to avoid race condition with execute thread
+      hpu_op_ntensorbytes_ = 0;
       for (auto& ti : *rv.dtensorinfos) {
         if (!ti->is_duplicate()) {
-          rv.ntensorbytes += ti->get_size();
+          hpu_op_ntensorbytes_ += ti->get_size();
         }
       }
 

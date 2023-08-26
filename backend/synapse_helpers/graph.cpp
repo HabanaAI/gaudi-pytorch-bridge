@@ -246,6 +246,26 @@ void graph::setTensorSectionOffset(synTensor tensor_handle, uint64_t offset) {
   PT_SYNHELPER_END;
 }
 
+graph::graph(const graph& other) noexcept
+    : device_{other.device_},
+      name_{other.name_},
+      is_valid_{other.is_valid_},
+      in_build_phase_(other.in_build_phase_),
+      in_execution_phase_(other.in_execution_phase_),
+      graph_handle_(other.graph_handle_),
+      dry_run_(other.dry_run_),
+      numInterTensors(other.numInterTensors),
+      is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
+      eager_mode_(other.eager_mode_) {
+  numTensors = other.numTensors;
+  numShapeTensors = other.numShapeTensors;
+  numNodes = other.numNodes;
+  graph_is_empty_ = other.graph_is_empty_;
+  // Setting the below flag to true so that the synapse graph
+  // is destroyed only when original graph gets destroyed
+  donot_destroy_original_graph_ = true;
+}
+
 graph::graph(graph&& other) noexcept
     : device_{other.device_},
       name_{other.name_},
@@ -264,7 +284,7 @@ graph::graph(graph&& other) noexcept
 graph::~graph() {
   if (is_valid_) {
     PT_SYNHELPER_DEBUG("Graph destroy.");
-    if (graph_handle_ != nullptr) {
+    if (graph_handle_ != nullptr && !donot_destroy_original_graph_) {
       synGraphDestroy(graph_handle_);
     }
 

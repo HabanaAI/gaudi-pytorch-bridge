@@ -506,19 +506,27 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   if (allocate_rval) {
     cur_rvalpsh = std::make_shared<RecipeValueSpec>(cur_recipe, jit_ir_graph_);
   } else {
-    cur_rvalpsh->recipe = cur_recipe;
+    // SAG cache hit case - to avoid race condition with execute thread
+    hpu_op_recipe_ = cur_recipe;
   }
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
-      cur_rvalpsh->recipe->syn_recipe_handle_);
+      cur_recipe->syn_recipe_handle_);
   RecipeValueSpec& rv = *cur_rvalpsh;
 
   if (habana_helpers::IsInferenceMode()) {
     HabanaLaunchOpPT::PostCompilationStepForConstTensors(rv);
   }
 
-  // Get workspace size of the compiled recipe
-  rv.workspace_size = synapse_helpers::graph::query_workspace_size(*cur_recipe);
+  if (allocate_rval) {
+    // Get workspace size of the compiled recipe
+    rv.workspace_size =
+        synapse_helpers::graph::query_workspace_size(*cur_recipe);
+  } else {
+    // SAG cache hit case - to avoid race condition with execute thread
+    hpu_op_workspace_size_ =
+        synapse_helpers::graph::query_workspace_size(*cur_recipe);
+  }
 }
 
 void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {

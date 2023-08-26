@@ -210,6 +210,23 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return enable_4stage_pipeline_;
   }
 
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> get_hpu_op_recipe()
+      const {
+    return hpu_op_recipe_;
+  }
+
+  bool get_is_shape_agnostic_supported() const {
+    return is_shape_agnostic_supported_;
+  }
+
+  uint64_t get_hpu_op_workspace_size() const {
+    return hpu_op_workspace_size_;
+  }
+
+  size_t get_hpu_op_ntensorbytes() const {
+    return hpu_op_ntensorbytes_;
+  }
+
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
@@ -287,7 +304,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
-  // permutation_info_-------------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // permutation_info_saver_-------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
+  // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // hpu_op_workspace_size_--------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
+  // hpu_op_ntensorbytes_----------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
 
   static void RunHybridSif(
@@ -468,6 +489,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // in lowering thread in order to have ability execute compile and execution
   // in another threads
   std::unique_ptr<PermutationInfoSaver> permutation_info_saver_;
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> hpu_op_recipe_{
+      nullptr};
+  bool is_shape_agnostic_supported_ = false;
+  uint64_t hpu_op_workspace_size_{0};
+  size_t hpu_op_ntensorbytes_{0};
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph

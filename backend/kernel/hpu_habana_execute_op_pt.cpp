@@ -29,18 +29,19 @@ void habana::HabanaExecute::ExecuteSynapse(
     return;
   }
   if (hb_launch_op->get_enable_shape_agnostic_caching_() &&
-      hb_launch_op->get_jit_graph_and_meta_data()
-          ->get_is_shape_agnostic_supported()) {
+      hb_launch_op->get_is_shape_agnostic_supported()) {
     if (is_shape_agnostic_cache_miss) {
-      hb_launch_op->get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-          hb_launch_op->get_cur_rvalpsh());
       hb_launch_op->ExecuteSynapseGraph(hpu_stream);
-
       synGraphDestroy(
           hb_launch_op->syn_graph_ptr_->get_duplicate_graph_handle());
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache miss (end)");
     } else {
       RecipeValueSpec& rv = *hb_launch_op->get_cur_rvalpsh();
+      // SAG cache hit case - to avoid race condition with compile thread
+      rv.recipe = hb_launch_op->get_hpu_op_recipe();
+      rv.workspace_size = hb_launch_op->get_hpu_op_workspace_size();
+      // SAG cache hit case - to avoid race condition with lowering thread
+      rv.ntensorbytes = hb_launch_op->get_hpu_op_ntensorbytes();
       hb_launch_op->ExecuteSynapseGraph(hpu_stream);
 
       synGraphDestroy(
