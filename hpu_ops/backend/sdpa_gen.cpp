@@ -47,6 +47,12 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   std::vector<int64_t> v_bdim_sizes{
       v_shape.begin(), v_shape.begin() + rank - 2};
 
+  // The following infer sizes also serves to do the shape compatibility
+  // checks needed for dynamic shapes causing an exception if the shapes
+  // are not compatible for broadcast.
+  // Assumption: Only the batch dims are checked for compatibility.
+  // The matrix dims are assumed to conform to matrix mul rules.
+
   // Batch dim sizes of Q@K.transpose after broadcast
   auto qkt_shape = at::infer_size(q_bdim_sizes, k_bdim_sizes);
   // Batch dim sizes of output  i.e Q@K.transpose)@v after broadcast
@@ -67,13 +73,44 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
 }
 
 sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
+  // g is grad tensor input into BWD, corr. tensor dO in CGUID
+  auto g = stack_tensor(stack, 0);
   auto q = stack_tensor(stack, 1);
   auto k = stack_tensor(stack, 2);
   auto v = stack_tensor(stack, 3);
+  auto p = stack_tensor(stack, 4);
 
+  int64_t rank = q.dim();
   std::vector<int64_t> q_shape = q.sizes().vec();
   std::vector<int64_t> k_shape = k.sizes().vec();
   std::vector<int64_t> v_shape = v.sizes().vec();
+  std::vector<int64_t> g_shape = g.sizes().vec();
+  std::vector<int64_t> p_shape = p.sizes().vec();
+
+  std::vector<int64_t> q_bdim_sizes{
+      q_shape.begin(), q_shape.begin() + rank - 2};
+  std::vector<int64_t> k_bdim_sizes{
+      k_shape.begin(), k_shape.begin() + rank - 2};
+  std::vector<int64_t> v_bdim_sizes{
+      v_shape.begin(), v_shape.begin() + rank - 2};
+  std::vector<int64_t> g_bdim_sizes{
+      g_shape.begin(), g_shape.begin() + rank - 2};
+  std::vector<int64_t> p_bdim_sizes{
+      p_shape.begin(), p_shape.begin() + rank - 2};
+
+  // The following infer sizes are to do the shape compatibility
+  // checks needed for dynamic shapes. This will cause an exception
+  // if the shapes are not compatible for broadcast.
+  // Assumption: Only the batch dims are checked for compatibility.
+  // The matrix dims are assumed to conform to matrix mul rules.
+  // dp, dv, dq, dk are the derivatives calculated in the SDPA
+  // BWD CGUID. So do shape compatibility checks using the tensor
+  // shapes involved in the matrtix multiplications needed for
+  // these derivatives.
+  auto dp_shape = at::infer_size(g_bdim_sizes, v_bdim_sizes);
+  auto dv_shape = at::infer_size(p_bdim_sizes, g_bdim_sizes);
+  auto dq_shape = at::infer_size(p_bdim_sizes, k_bdim_sizes);
+  auto dk_shape = at::infer_size(p_bdim_sizes, q_bdim_sizes);
 
   return {q_shape, k_shape, v_shape};
 }
