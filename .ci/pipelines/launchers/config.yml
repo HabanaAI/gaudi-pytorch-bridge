@@ -137,3 +137,8 @@ launchers:
   silentMode: true
   gerritTriggerMap:
   - repository: lightning-habana-fork
+- testToLaunch: pt_next/Test_dependent_Build_pt_next_u20
+  silentMode: true
+  gerritTriggerMap:
+  - repository: pytorch-integration
+
