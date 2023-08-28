@@ -459,7 +459,7 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
     """
     from packaging.version import Version
 
-    if Version(torch.__version__) < Version("2.1"):
+    if Version(Version(torch.__version__).base_version) < Version("2.1"):
         return pass_fake_propagation_legacy(ctx)
     else:
         return pass_fake_propagation_current(ctx)
