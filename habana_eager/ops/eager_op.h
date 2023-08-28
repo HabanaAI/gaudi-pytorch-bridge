@@ -76,14 +76,6 @@ class EagerOpBase {
   }
 
  private:
-  auto process_EagerOpBase_input(const at::Symbol symbol) {
-    return symbol;
-  }
-
-  auto process_EagerOpBase_input(const std::string& qualstring) {
-    return at::Symbol::fromQualString(qualstring);
-  }
-
   auto process_EagerOpBase_input(
       std::vector<std::vector<int64_t>>&& out_shapes,
       const at::Stack&) {
@@ -100,15 +92,18 @@ class EagerOpBase {
 
  public:
   template <
-      class T,
-      class U = std::vector<at::IValue>,
-      class V = std::vector<std::vector<int64_t>>>
-  EagerOpBase(T&& symbol, U&& inputs, V&& out_shapes = {}, int out_index = 0)
-      : m_symbol{process_EagerOpBase_input(std::forward<T>(symbol))},
-        m_out_shapes{std::move(
-            process_EagerOpBase_input(std::forward<V>(out_shapes), inputs))},
+      class T = std::vector<at::IValue>,
+      class U = std::vector<std::vector<int64_t>>>
+  EagerOpBase(
+      const std::string& qualstring,
+      T&& inputs,
+      U&& out_shapes = {},
+      int out_index = 0)
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_out_shapes{
+            process_EagerOpBase_input(std::forward<U>(out_shapes), inputs)},
         m_out_index{out_index},
-        m_inputs(std::forward<U>(inputs)) {
+        m_inputs(std::forward<T>(inputs)) {
     validate_inputs(m_inputs);
   }
 
