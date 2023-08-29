@@ -78,9 +78,6 @@ GraphExec::GraphExec(
   m_is_pipeline_supported =
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && !m_dynamic;
 
-  // TODO: remove it when pipelining will be working
-  m_is_pipeline_supported = false;
-
   RunGraphPasses(example_inputs);
   LogRecipeInfo(example_inputs);
 
@@ -204,7 +201,7 @@ torch::jit::Stack GraphExec::launch(
 
   HandleWeightPermutation(backend_inputs);
 
-  if (m_is_pipeline_supported) {
+  if (m_is_pipeline_supported && backend_outputs.size() > 0) {
     habana::eager::SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
             [this,

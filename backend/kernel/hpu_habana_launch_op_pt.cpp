@@ -587,7 +587,14 @@ void HabanaLaunchOpPT::GetSynapseInputs(
 
   if (populate_seed) {
     int seed = get_seed_hpu(c10::nullopt);
-    at::Tensor seed_tensor = at::tensor(seed).to(at::kHPU);
+
+    at::Tensor seed_cpu_tensor = at::tensor(seed);
+    at::Tensor seed_tensor = at::empty(
+        seed_cpu_tensor.sizes(),
+        seed_cpu_tensor.options().device(c10::DeviceType::HPU),
+        c10::MemoryFormat::Contiguous);
+    habana_helpers::copy_data_to_device(seed_cpu_tensor, seed_tensor, false);
+
     auto& syn_tensor = habana_op->AllocateSeed(*syn_graph_ptr_, seed_tensor);
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
         seed_tensor,
