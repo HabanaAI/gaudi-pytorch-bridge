@@ -1945,7 +1945,7 @@ run_lightning_habana_fw_tests()
     fi
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
-        pushd $LIGHTNING_HABANA_FORK_ROOT/internal/scripts
+        pushd $LIGHTNING_HABANA_FORK_ROOT/internal_ci/scripts
 
         echo "Executing Lightning Habana CI tests on HPU"
         (set -x; bash run_ci.sh -d ${__dut})
