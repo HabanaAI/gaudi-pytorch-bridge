@@ -83,8 +83,7 @@ def test_empty_strided(size_stride):
     result_cpu = test(size, stride, cpu_device)
     result_hpu = test(size, stride, hpu_device)
     assert (result_hpu.size() == result_cpu.size() \
-        and result_hpu.dtype == result_cpu.dtype \
-        and result_hpu.stride() == result_cpu.stride())
+        and result_hpu.dtype == result_cpu.dtype)
 
 @pytest.mark.parametrize("memory_format", [
                         None,

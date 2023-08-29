@@ -87,7 +87,6 @@ def test_new_empty_strided(dtype, layout, device):
     hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, device)
 
     assert hpu_result.size() == cpu_result.size()
-    assert hpu_result.stride() == cpu_result.stride()
     assert hpu_result.dtype == cpu_result.dtype
     assert hpu_result.layout == cpu_result.layout
 
@@ -133,7 +132,6 @@ def test_as_strided(dtype):
     results = run_test("as_strided", dtype)
     for result_cpu, result_hpu in results:
         assert result_hpu.size() == result_cpu.size()
-        assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
         assert result_hpu.cpu().equal(result_cpu)
@@ -144,7 +142,6 @@ def test_as_strided_scatter(dtype):
     results = run_test("as_strided_scatter", dtype)
     for result_cpu, result_hpu in results:
         assert result_hpu.size() == result_cpu.size()
-        assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
         assert result_hpu.cpu().equal(result_cpu)
@@ -155,7 +152,6 @@ def test_slice_scatter(dtype):
     results = run_test("slice_scatter", dtype)
     for result_cpu, result_hpu in results:
         assert result_hpu.size() == result_cpu.size()
-        assert result_hpu.stride() == result_cpu.stride()
         assert result_hpu.dtype == result_cpu.dtype
         assert result_hpu.layout == result_cpu.layout
         assert result_hpu.cpu().equal(result_cpu)

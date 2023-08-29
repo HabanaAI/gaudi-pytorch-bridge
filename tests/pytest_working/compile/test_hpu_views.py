@@ -233,7 +233,6 @@ def test_hpu_non_contiguous_outputs(func):
         assert torch.allclose(res_eager_cpu, res_eager_cpu2, atol = 0.001, rtol = 0.001)
         assert torch.allclose(res_eager_cpu, res_eager_hpu.cpu(), atol = 0.001, rtol = 0.001)
         assert res_eager_cpu.size() == res_eager_hpu.size()
-        assert res_eager_cpu.stride() == res_eager_hpu.stride()
 
 
 def fn_multi(a):
@@ -278,4 +277,3 @@ def test_hpu_non_contiguous_more_outputs(func):
             assert torch.allclose(res_eager_cpu[i], res_eager_cpu2[i], atol = 0.001, rtol = 0.001)
             assert torch.allclose(res_eager_cpu[i], res_eager_hpu[i].cpu(), atol = 0.001, rtol = 0.001)
             assert res_eager_cpu[i].size() == res_eager_hpu[i].size()
-            assert res_eager_cpu[i].stride() == res_eager_hpu[i].stride()

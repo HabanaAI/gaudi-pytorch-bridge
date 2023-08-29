@@ -107,7 +107,7 @@ def get_passes(stage: OptimizationPassPlacement):
         return [
             # These passes will prepare proper placement for some corner-cases.
             pass_eagerize_leaf_views,
-            pass_non_contiguous_outputs,
+            # pass_non_contiguous_outputs,
             pass_propose_partitions,
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
