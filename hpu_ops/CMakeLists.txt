@@ -206,6 +206,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/sdpa_gen.cpp
           backend/rrelu_with_noise_gen.cpp
           backend/scaled_masked_softmax.cpp
+          backend/scaled_triangular_softmax.cpp
           backend/scatter_gen.cpp
           backend/searchsorted_gen.cpp
           backend/select_backward_gen.cpp
@@ -216,7 +217,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/slice_backward_gen.cpp
           backend/smooth_l1_loss_gen.cpp
           backend/softmax_gen.cpp
-          backend/softmax_retain.cpp
           backend/softplus_gen.cpp
           backend/sort_gen.cpp
           backend/split_gen.cpp

@@ -457,12 +457,15 @@ at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
-    const at::Tensor& self);
-at::Tensor retain_softmax_consumer_wrap(
+at::Tensor scaled_triangular_softmax_wrap(
     const at::Tensor& self,
-    const at::Tensor& max,
-    const at::Tensor& exp_sum_recpr);
+    double inv_scale_attn,
+    const c10::optional<at::Tensor>& exp_sum_recpr,
+    const c10::optional<at::Tensor>& max);
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+scaled_triangular_softmax_retain_wrap(
+    const at::Tensor& self,
+    double inv_scale_attn);
 at::Tensor scaled_masked_triangular_softmax_wrap(
     const at::Tensor& self,
     const at::Tensor& start_end,

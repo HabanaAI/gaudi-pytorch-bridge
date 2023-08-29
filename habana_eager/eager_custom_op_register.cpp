@@ -794,39 +794,44 @@ at::Tensor masked_batch_gemm(
   return hpu_op.call();
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer(
-    const at::Tensor& self) {
+at::Tensor scaled_triangular_softmax(
+    const at::Tensor& self,
+    double inv_scale_attn,
+    const c10::optional<at::Tensor>& exp_sum_recpr,
+    const c10::optional<at::Tensor>& max) {
   PT_OP_TRACE;
   PT_EAGER_TRACE;
-  PT_OP_INFO("retain_softmax_producer :", DUMP_ARG(self));
+  PT_OP_INFO(
+      "scaled_triangular_softmax :",
+      DUMP_4ARGS(self, inv_scale_attn, exp_sum_recpr, max));
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::scaled_triangular_softmax",
+      {self, inv_scale_attn, exp_sum_recpr, max},
+      {self.sizes().vec()},
+      0};
+
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> scaled_triangular_softmax_retain(
+    const at::Tensor& self,
+    double inv_scale_attn) {
+  PT_OP_TRACE;
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));
 
   auto out_shape = self.sizes().vec();
   auto retain_output_shape = out_shape;
   retain_output_shape.back() = 1;
   eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::retain_softmax_producer",
-      {self},
+      "hpu::scaled_triangular_softmax_retain",
+      {self, inv_scale_attn},
       {out_shape, retain_output_shape, retain_output_shape},
       0};
   hpu_op.set_scalar_types(
-      {self.scalar_type(), self.scalar_type(), c10::ScalarType::Float});
-
-  return hpu_op.call();
-}
-
-at::Tensor retain_softmax_consumer(
-    const at::Tensor& self,
-    const at::Tensor& max,
-    const at::Tensor& exp_sum_recpr) {
-  PT_OP_TRACE;
-  PT_EAGER_TRACE;
-  PT_OP_INFO("retain_softmax_consumer :", DUMP_3ARGS(self, max, exp_sum_recpr));
-
-  eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::retain_softmax_consumer",
-      {self, max, exp_sum_recpr},
-      {self.sizes().vec()},
-      0};
+      {self.scalar_type(), c10::ScalarType::Float, self.scalar_type()});
 
   return hpu_op.call();
 }
@@ -978,9 +983,9 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
   m.def("control_edge_(Tensor(a) self)-> Tensor(a)");
   m.def(
-      "hpu::retain_softmax_producer(Tensor self) -> (Tensor, Tensor, Tensor)");
+      "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
-      "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
+      "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
@@ -1042,8 +1047,10 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rms_norm", rms_norm);
   m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm);
-  m.impl("hpu::retain_softmax_producer", retain_softmax_producer);
-  m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer);
+  m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax);
+  m.impl(
+      "hpu::scaled_triangular_softmax_retain",
+      scaled_triangular_softmax_retain);
   m.impl("hpu::fp8_copy_", fp8_copy_);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);
   m.impl("hpu::kv_reorder_", kv_reorder);

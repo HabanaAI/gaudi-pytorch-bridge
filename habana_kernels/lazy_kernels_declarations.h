@@ -813,12 +813,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_lazy(
-    const at::Tensor& self);
-at::Tensor retain_softmax_consumer_lazy(
+at::Tensor scaled_triangular_softmax_lazy(
     const at::Tensor& self,
-    const at::Tensor& max,
-    const at::Tensor& exp_sum_recpr);
+    double inv_scale_attn,
+    const c10::optional<at::Tensor>& exp_sum_recpr,
+    const c10::optional<at::Tensor>& max);
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+scaled_triangular_softmax_retain_lazy(
+    const at::Tensor& self,
+    double inv_scale_attn);
 at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src);
 at::Tensor& fp8_kv_reorder_lazy(
     at::Tensor& self,

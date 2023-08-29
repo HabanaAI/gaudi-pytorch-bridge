@@ -228,19 +228,19 @@ def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
     return out
 
 
-@register_meta([torch.ops.hpu.retain_softmax_producer.default])
-def meta_retain_softmax_producer(input):
+@register_meta([torch.ops.hpu.scaled_triangular_softmax.default])
+def meta_scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr, sum):
+    return input.new_empty(input.shape)
+
+
+@register_meta([torch.ops.hpu.scaled_triangular_softmax_retain.default])
+def meta_scaled_triangular_softmax_retain(input, inv_scale_attn):
     out_shape = input.shape
     retain_shape = out_shape[:-1] + (1,)
     out = input.new_empty(out_shape)
-    max = input.new_empty(retain_shape)
     exp_sum_recpr = input.new_empty(retain_shape, dtype=torch.float32)
-    return out, max, exp_sum_recpr
-
-
-@register_meta([torch.ops.hpu.retain_softmax_consumer.default])
-def meta_retain_softmax_consumer(input, max, exp_sum_recpr):
-    return input.new_empty(input.shape)
+    max = input.new_empty(retain_shape)
+    return out, exp_sum_recpr, max
 
 
 @register_meta([torch.ops.hpu.fp8_copy_.default])

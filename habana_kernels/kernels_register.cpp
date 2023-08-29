@@ -1834,25 +1834,31 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
   return sdpa_bwd_lazy(grad, q, k, v, P, dm, p, scale);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> retain_softmax_producer_wrap(
-    const at::Tensor& self) {
-  PT_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("retain_softmax_producer :", DUMP_ARG(self));
-
-  return retain_softmax_producer_lazy(self);
-}
-
-at::Tensor retain_softmax_consumer_wrap(
+at::Tensor scaled_triangular_softmax_wrap(
     const at::Tensor& self,
-    const at::Tensor& max,
-    const at::Tensor& exp_sum_recpr) {
+    double inv_scale_attn,
+    const c10::optional<at::Tensor>& exp_sum_recpr,
+    const c10::optional<at::Tensor>& max) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " retain_softmax_consumer :", DUMP_3ARGS(self, max, exp_sum_recpr));
+      " scaled_triangular_softmax :",
+      DUMP_4ARGS(self, inv_scale_attn, exp_sum_recpr, max));
 
-  return retain_softmax_consumer_lazy(self, max, exp_sum_recpr);
+  return scaled_triangular_softmax_lazy(
+      self, inv_scale_attn, exp_sum_recpr, max);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+scaled_triangular_softmax_retain_wrap(
+    const at::Tensor& self,
+    double inv_scale_attn) {
+  PT_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      " scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));
+
+  return scaled_triangular_softmax_retain_lazy(self, inv_scale_attn);
 }
 
 at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
@@ -2474,9 +2480,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::retain_softmax_producer(Tensor self) -> (Tensor, Tensor, Tensor)");
+      "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
-      "hpu::retain_softmax_consumer(Tensor self, Tensor max, Tensor exp_sum_recpr) -> Tensor");
+      "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
   m.def(
       "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
@@ -2532,8 +2538,10 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
-  m.impl("hpu::retain_softmax_producer", retain_softmax_producer_wrap);
-  m.impl("hpu::retain_softmax_consumer", retain_softmax_consumer_wrap);
+  m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax_wrap);
+  m.impl(
+      "hpu::scaled_triangular_softmax_retain",
+      scaled_triangular_softmax_retain_wrap);
   m.impl("hpu::fp8_copy_", fp8_copy_wrap);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
   m.impl("hpu::kv_reorder_", kv_reorder_wrap);
