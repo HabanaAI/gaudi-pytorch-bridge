@@ -9,6 +9,4 @@ torchvision==0.13.1
 tensorboard==2.9.1
 lightning==2.0.7
 lightning-habana==1.0.1
-
-#torch compile with lightning
 torchmetrics>=0.8.0
