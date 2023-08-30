@@ -37,6 +37,7 @@ apply_rotary_pos_emb_v2_test_case_list = [
     ((1, 32, 1, 32), (1, 1, 4096, 32)),
     ((1, 6, 4, 6), (1, 1, 32, 6)),
     ((1, 6, 4, 6), (1, 1, 6, 6)),
+    ((2, 32, 108, 128), (1, 1, 108, 128)),
 ]
 
 apply_rotary_pos_emb_gptj_test_case_list = [
@@ -143,7 +144,9 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
             cos = torch.cat((off, cos, cos), dim=-1)
             sin = torch.cat((off, sin, sin), dim=-1)
 
-        position_ids = torch.randint(0, p_size[2], (1, p_size[2])).to(torch.long)
+        position_ids = torch.randint(0, p_size[2], (p_size[0], p_size[2])).to(
+            torch.long
+        )
 
         return p, cos, sin, position_ids
     else:
