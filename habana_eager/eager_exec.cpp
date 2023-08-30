@@ -678,8 +678,9 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     return false;
   }
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
-    if (std::string((*it)->kind().toQualString()).find("hpu::optimizer") !=
-        std::string::npos) {
+    const auto& opname = std::string((*it)->kind().toQualString());
+    if ((opname.find("hpu::optimizer") != std::string::npos) ||
+        (opname.find("hpu::fused_norm_lazy") != std::string::npos)) {
       return false;
     }
   }
