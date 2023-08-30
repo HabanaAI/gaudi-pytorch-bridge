@@ -44,11 +44,11 @@ def _get_log_path(log_file_name=DEFAULT_BACKEND_LOGGER):
     import os
     log_path_str = os.environ.get("HABANA_LOGS", ".")
     log_path = os.path.join(log_path_str)
-    os.makedirs(log_path_str, exist_ok=True)
     # Support multinode
     worker_id = os.environ.get("ID", None)
     if worker_id is not None:
         log_path = os.path.join(log_path, str(worker_id))
+    os.makedirs(log_path, exist_ok=True)
     log_file_path = os.path.join(log_path, f"{log_file_name}.log")
     return log_file_path
 
