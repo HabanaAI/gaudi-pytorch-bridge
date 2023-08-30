@@ -764,7 +764,7 @@ void HlExec::Create(
       //       c10::Symbol::fromQualString("debug::" + scope_name)));
       // }
       if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-        auto one = torch::jit::attr::alpha;
+        auto one = torch::jit::attr::deterministic;
         jit_node->i_(one, node->getDeterministic());
         PT_BRIDGE_DEBUG(
             "Deterministic val during Jit Node creation: ", jit_node->i(one));

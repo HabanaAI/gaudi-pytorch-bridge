@@ -292,7 +292,7 @@ JitNode* insert_strided_insert_node(
 
 void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-    auto one = torch::jit::attr::alpha;
+    auto one = torch::jit::attr::deterministic;
     auto& gconfig = HPURegistrar::get_hpu_global_config();
     node->i_(one, gconfig.getDeterministic());
     PT_EAGER_DEBUG(

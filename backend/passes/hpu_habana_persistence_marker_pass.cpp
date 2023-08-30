@@ -93,7 +93,7 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
 
     if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
       // Set the deterministic val
-      auto one = torch::jit::attr::alpha;
+      auto one = torch::jit::attr::deterministic;
       PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
       HabanaKernel->setDeterministic(node->i(one));
     }

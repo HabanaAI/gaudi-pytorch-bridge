@@ -43,11 +43,11 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
     graph(%0 : Tensor,
           %1 : Tensor):
       %12 : int = prim::Constant[value=1]()
-      %2.1 : Tensor = aten::mul[alpha=0](%0, %1)
-      %2 : Tensor = aten::mul[alpha=0](%2.1, %1)
-      %3 : Tensor = aten::add_[alpha=0](%2, %1, %12)
-      %4 : Tensor = aten::mul[alpha=0](%2, %1)
-      %5 : Tensor = aten::add[alpha=0](%2, %4, %12)
+      %2.1 : Tensor = aten::mul[deterministic=0](%0, %1)
+      %2 : Tensor = aten::mul[deterministic=0](%2.1, %1)
+      %3 : Tensor = aten::add_[deterministic=0](%2, %1, %12)
+      %4 : Tensor = aten::mul[deterministic=0](%2, %1)
+      %5 : Tensor = aten::add[deterministic=0](%2, %4, %12)
       return (%5))IR";
 
   auto jit_ir_graph = std::make_shared<torch::jit::Graph>();

@@ -45,7 +45,7 @@ struct AddAttributeAlphaPass {
   }
 
   bool processNode(torch::jit::Node* node, bool deterministic) {
-    auto one = torch::jit::attr::alpha;
+    auto one = torch::jit::attr::deterministic;
     node->i_(one, deterministic);
     return true;
   }

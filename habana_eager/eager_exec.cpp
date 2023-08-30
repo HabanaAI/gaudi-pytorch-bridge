@@ -370,7 +370,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   auto jit_node = graph->create(m_symbol, node_inputs, m_outputs.size());
 
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-    auto one = torch::jit::attr::alpha;
+    auto one = torch::jit::attr::deterministic;
     /*Need to set this node if the deterministic mode is ON*/
     auto& gconfig = HPURegistrar::get_hpu_global_config();
     jit_node->i_(one, gconfig.getDeterministic());
