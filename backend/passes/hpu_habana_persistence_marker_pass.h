@@ -41,8 +41,6 @@
 #include "habana_helpers/logging.h"
 
 namespace habana {
-using CValPtr = const torch::jit::Value*;
-
 // Pass data
 class PersistenceMarkerPassData {
  public:

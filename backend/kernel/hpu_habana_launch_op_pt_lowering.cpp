@@ -14,6 +14,7 @@
 #include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/runtime_config.h"
+#include "backend/kernel/control_edges_processing.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -443,6 +444,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
+  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
   bool is_c_edge_processing_required =
@@ -450,9 +452,14 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   if (refine_ds_enabled_ || is_jit_cached_graph_info_available == false ||
       is_c_edge_processing_required) {
     // Process control edges
-    HabanaLaunchOpPT::ProcessControlEdges();
+    control_edges::ProcessControlEdges(
+        *jit_ir_graph_,
+        *jit_graph_and_meta_data_,
+        jit_to_synapse_node_idx_map,
+        memory_reuse_pairs,
+        syn_graph_ptr_.get());
   }
-  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
+
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
     // No need to allocate for lazy eager shape agnostic cache hit scenario

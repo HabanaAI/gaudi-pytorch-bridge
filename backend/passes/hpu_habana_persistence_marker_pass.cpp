@@ -24,6 +24,7 @@
 
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/kernel/control_edges_processing.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
@@ -108,7 +109,7 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
     int inputId = 0;
-    if (HabanaLaunchOpPT::isControlEdge(node) ||
+    if (habana::control_edges::IsControlEdgeNode(node) ||
         habana_helpers::IsCollective(node->kind()) ||
         // must the be last condition as it can change inputId
         ((inputId = inplaceInputId(node)) >= 0)) {
@@ -134,7 +135,7 @@ void PersistenceMarkerPass::set_external_input(torch::jit::Node* node) {
 }
 
 void PersistenceMarkerPass::MarkProducerExternal(torch::jit::Value* val) {
-  while (HabanaLaunchOpPT::isControlEdge(val->node())) {
+  while (habana::control_edges::IsControlEdgeNode(val->node())) {
     val = val->node()->inputs().at(0);
   }
   if (isInGraphInputs(val) != -1) {

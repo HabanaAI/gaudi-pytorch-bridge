@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -218,23 +218,5 @@ class CompilationStatistics {
   CompilationStatistics(const CompilationStatistics&) = delete;
   void operator=(const CompilationStatistics&) = delete;
   std::mutex json_file_mutex_;
-};
-
-/**
- * @brief Used to RAII CompilationStatistics object
- * Destructor calls CompilationStatistics::DumpAndNextStep;
- *
- */
-class CompilationStatisticsScope {
- public:
-  CompilationStatisticsScope(
-      std::shared_ptr<CompilationStatistics>& compilation_statistics)
-      : compilation_statistics(compilation_statistics) {}
-  ~CompilationStatisticsScope() {
-    compilation_statistics->DumpAndNextStep();
-  }
-
- private:
-  std::shared_ptr<CompilationStatistics>& compilation_statistics;
 };
 }; // namespace habana_helpers

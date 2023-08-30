@@ -1,4 +1,4 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 add_subdirectory(synapse_helpers)
 add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
@@ -18,6 +18,7 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   backend_meta.cpp
   habana_operator.cpp
   scalar_cache.cpp
+  kernel/control_edges_processing.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp
   kernel/hpu_habana_compile_op_pt.cpp
@@ -25,7 +26,6 @@ add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpe
   kernel/hpu_habana_launch_op_pt_lowering.cpp
   kernel/hpu_habana_launch_op_pt_sif.cpp
   kernel/hpu_habana_cache.cpp
-  kernel/hpu_process_control_edges.cpp
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp
   passes/remove_inplace_ops.cpp

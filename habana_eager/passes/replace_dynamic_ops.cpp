@@ -8,7 +8,8 @@
  * and is subject to the confidentiality and license agreements under which it
  * was provided.
  *
- *******************************************************************************/
+ *******************************************************************************
+ */
 
 #include <c10/util/ArrayRef.h>
 
@@ -207,7 +208,7 @@ struct HandleDynamicOpsPass {
 
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::shared_ptr<DynamicGraphMetaData> m_dmeta;
-  ValueIvalueMap m_value_ivalue_map;
+  CValuePtrToIValuePtrMap m_value_ivalue_map;
 };
 
 void HandleDynamicOps(

@@ -37,6 +37,7 @@
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/tensor_builder.h"
+#include "backend/kernel/control_edges_processing.h"
 #include "habana_helpers/logging.h"
 
 #include "backend/kernel/ds_graph_recompile.h"
@@ -383,7 +384,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 
   for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
     synapse_helpers::tensor& syn_tensor = habana_op->SetSynapseInput(tensor);
-    tensorList->emplace_back(tensor_or_ref(syn_tensor));
+    tensorList->emplace_back(synapse_helpers::tensor_or_ref(syn_tensor));
   }
 
   pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
@@ -425,7 +426,7 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
 
     if (pt_tensor_buffer_start != nullptr) {
       buff_to_syn_tensor_map.emplace(
-          pt_tensor_buffer_start, tensor_or_ref(syn_tensor));
+          pt_tensor_buffer_start, synapse_helpers::tensor_or_ref(syn_tensor));
     }
     return syn_tensor;
   }
@@ -458,7 +459,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     PT_BRIDGE_DEBUG(
         "Allocated synpase tensor for input tensor: ", syn_tensor.id());
 
-    tensorList->emplace_back(tensor_or_ref(syn_tensor));
+    tensorList->emplace_back(synapse_helpers::tensor_or_ref(syn_tensor));
 
     std::string irn = "%" + value_in->debugName();
     PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
@@ -854,7 +855,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
                                 synapse_helpers::tensor& sh_t) {
     SharedSynTensorOrRefListPtr tensorList =
         std::make_shared<SynTensorOrRefList>();
-    tensorList->emplace_back(tensor_or_ref(sh_t));
+    tensorList->emplace_back(synapse_helpers::tensor_or_ref(sh_t));
     pt_to_synapse_tensors.emplace(
         value_to_ivalue[nodes[node_output_idx]], tensorList);
 
@@ -1112,7 +1113,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
   pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
   SharedSynTensorOrRefListPtr tensorList =
       std::make_shared<SynTensorOrRefList>();
-  tensorList->emplace_back(tensor_or_ref(syn_tensor));
+  tensorList->emplace_back(synapse_helpers::tensor_or_ref(syn_tensor));
   pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 }
 
@@ -1479,7 +1480,8 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
           tensor, *syn_graph_ptr_, true, false, tensor.scalar_type()));
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
-      tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
+      tensorList->emplace_back(
+          synapse_helpers::tensor_or_ref(meta_syn_tensors.back()));
       pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
           tensor,
@@ -1561,7 +1563,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
             tensor, *syn_graph_ptr, true, dtype));
         SharedSynTensorOrRefListPtr tensorList =
             std::make_shared<SynTensorOrRefList>();
-        tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
+        tensorList->emplace_back(synapse_helpers::tensor_or_ref(meta_syn_tensors.back()));
         pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
         if (enable_caching_) {
@@ -2214,8 +2216,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         ((opname.find("strided_insert") != std::string::npos) ||
          (opname.find("slice_insert") != std::string::npos) ||
          (opname.find("strided_view_out") != std::string::npos))) {
-      ProcessStridedInsertAtOutput(
-          node, HabanaKernel, input_stack, *syn_graph, outputs_metadata);
+      habana::control_edges::ProcessStridedInsertAtOutput(
+          node,
+          HabanaKernel,
+          input_stack,
+          syn_graph,
+          outputs_metadata,
+          memory_reuse_pairs,
+          value_to_ivalue,
+          pt_to_synapse_tensors);
     } else {
       std::unordered_map<int64_t, std::vector<int64_t>> index2maxvalues;
       // Currently max update which is less than bucket range issue exists for
@@ -4633,77 +4642,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     if (!syn_graph_ptr_->is_empty()) {
       current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
     }
-  }
-}
-
-/*Optimizes the memory usage for chain of strided inserts by reusing the input
- * memory for the graph output. Such a use case is common in allreduce*/
-void HabanaLaunchOpPT::ProcessStridedInsertAtOutput(
-    torch::jit::Node* node,
-    HabanaOperatorPtr HabanaKernel,
-    torch::jit::Stack& input_stack,
-    synapse_helpers::graph& syn_graph,
-    const OutputMetaDataVector& outputs_metadata) {
-  // strided insert as graph output (i.e. persistence set as true)
-  bool is_reuse_input = false;
-  auto val_ins = node->inputs();
-  auto node_qual_str = node->kind().toQualString();
-
-  // Check for unbroken chain of strided inserts from graph output to input
-  torch::jit::Node* input_node = node;
-  while ((strcmp(node_qual_str, "prim::Param") != 0)) {
-    input_node = val_ins[0]->node();
-    node_qual_str = input_node->kind().toQualString();
-
-    std::string node_str(node_qual_str);
-
-    // perform memory reuse if the chain has either strided/slice inserts or
-    // inplace ops add control edges between consumers of inplace/ctrl edge
-    // nodes and the last strided insert
-    if (node_str.find("strided_insert") == std::string::npos &&
-        node_str.find("slice_insert") == std::string::npos) {
-      if (nodeRequiresControlEdge(input_node) ==
-          ControlEdgeType::kCONTROL_EDGE_NONE) {
-        break;
-      } else {
-        memory_reuse_pairs.emplace_back(
-            std::make_pair(input_node->output(0), node));
-      }
-    }
-
-    val_ins = input_node->inputs();
-  }
-
-  if (strcmp(node_qual_str, "prim::Param") == 0) {
-    // reached input with unbroken chain of strided inserts
-    is_reuse_input = true;
-  }
-
-  if (is_reuse_input == false) {
-    OutputMetaDataVector md(1, outputs_metadata.at(0));
-    md.at(0).persistent = true;
-    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, md);
-  } else {
-    TORCH_CHECK(
-        value_to_ivalue.count(val_ins[0]),
-        "incorrect input for strided insert");
-    const auto& ivalue = value_to_ivalue[val_ins[0]];
-    TORCH_CHECK(
-        pt_to_synapse_tensors.find(ivalue) != pt_to_synapse_tensors.end(),
-        "incorrect ivalue for strided insert input");
-
-    input_stack.insert(input_stack.end(), *ivalue);
-    HabanaKernel->ReuseMemoryAndAddSynapseNode(
-        syn_graph,
-        input_stack,
-        *pt_to_synapse_tensors[ivalue],
-        outputs_metadata);
-
-    /* Since memory is reused we need control edges between the consumers of the
-    graph input (prim:param) and the strided insert at the graph output. Refer
-    gtest LazyBasicKernelTest.allreducewithcontroledge*/
-    // book keep the node pair that reuses same memory
-    memory_reuse_pairs.emplace_back(std::make_pair(val_ins[0], node));
   }
 }
 

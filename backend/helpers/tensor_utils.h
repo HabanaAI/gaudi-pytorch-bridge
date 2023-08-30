@@ -34,7 +34,11 @@ constexpr uint32_t NUM_TENSOR_DIMS = 5;
 using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
 using ValPtr = torch::jit::Value*;
+using CValPtr = const torch::jit::Value*;
 using SmallSizeVec = c10::SmallVector<int64_t, NUM_TENSOR_DIMS>;
+using CValuePtrToIValuePtrMap = std::unordered_map<CValPtr, IValPtrShared>;
+using SynTensorOrRefList = std::vector<synapse_helpers::tensor_or_ref>;
+using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 
 namespace habana_helpers {
 std::string DebugString(const at::Tensor& t, bool print_data = false);

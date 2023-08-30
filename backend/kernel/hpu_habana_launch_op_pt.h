@@ -36,6 +36,7 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
+#include "backend/kernel/control_edges_processing.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -49,22 +50,8 @@
 #include "habana_lazy/visualize.h"
 
 namespace habana {
-using CValPtr = const torch::jit::Value*;
-using tensor_or_ref = synapse_helpers::tensor_or_ref;
-using SynTensorOrRefList = std::vector<tensor_or_ref>;
-using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, PtTensorInfoShared>;
-
-enum ControlEdgeType {
-  kCONTROL_EDGE_NONE = 0,
-  kCONTROL_EDGE_,
-  kCONTROL_EDGE_OTHER_,
-  kCONTROL_EDGE_INPLACE_INPUT_0,
-  kCONTROL_EDGE_INPLACE_INPUT_1,
-};
-
-using CValuePtrToIValuePtrMap = std::unordered_map<CValPtr, IValPtrShared>;
 
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
@@ -151,7 +138,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   static std::unordered_map<size_t, habana_helpers::InpTensorShapes>
       ref_input_shape_map_;
 
-  static bool isControlEdge(torch::jit::Node* node);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void set_lazy_front_end_info(
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
@@ -397,7 +383,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;
-  std::unordered_map<void*, tensor_or_ref> buff_to_syn_tensor_map;
+  std::unordered_map<void*, synapse_helpers::tensor_or_ref>
+      buff_to_syn_tensor_map;
   std::vector<PtTensorInfoShared> duplicate_outtinfos;
 
   size_t appended_index{0};
@@ -469,18 +456,10 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
       jit_to_synapse_node_idx_map;
-  std::vector<torch::jit::Node*> blocking_nodes_vec;
-  std::vector<synNodeId> blocking_syn_nodes_vec;
-  std::vector<synNodeId> blocked_syn_nodes_vec;
   std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
       memory_reuse_pairs;
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
-
-  // TODO collect the control edge structures in a child class
-  std::unordered_map<torch::jit::Node*, std::pair<size_t, size_t>>
-      dfs_time_in_out_map;
-  size_t dfs_cnt = 0;
 
   // Execution mode based on frontend type
   habana_helpers::HabanaFrontendTypes execution_mode_{
@@ -525,19 +504,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void DumpStaticCompilationStatistics(
       size_t graph_key_with_perm,
       bool is_compile = false);
-  bool IsValidNode(torch::jit::Node*);
 
-  void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
-  void ProcessControlEdges();
-  ControlEdgeType nodeRequiresControlEdge(torch::jit::Node* node);
-  void PrepareBlockingNodeList(torch::jit::Node*, ControlEdgeType control_type);
-  void ProcessCustomOptControlEdges(torch::jit::graph_node_list);
-  void Dfs(torch::jit::Node*);
-  void PreprocessControlEdges();
-  bool IsControlEdgeCycle(torch::jit::Node*);
-  bool IsAncestor(torch::jit::Node*, torch::jit::Node*);
-  bool IsAncestorOrDescendant(torch::jit::Node*, torch::jit::Node*);
-  void ProcessControlEdgesForMemoryReuse();
   void HandleMappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
@@ -570,12 +537,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node,
       InferOutputMetaRetType& outputs);
-  void ProcessStridedInsertAtOutput(
-      torch::jit::Node*,
-      HabanaOperatorPtr,
-      torch::jit::Stack&,
-      synapse_helpers::graph&,
-      const OutputMetaDataVector& outputs_metadata);
   void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       std::vector<size_t>& intermediate_shape_tensors,
