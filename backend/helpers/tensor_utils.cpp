@@ -686,6 +686,9 @@ size_t habana_helpers::hash_combine_scalars(
 void habana_helpers::recalc_strides(
     std::vector<int64_t>& self_strides,
     const std::vector<int64_t>& self_sizes) {
+  if (self_strides.size() == 0) {
+    return;
+  }
   int k;
   self_strides[self_strides.size() - 1] = 1;
   for (k = self_strides.size() - 2; k >= 0; k--) {

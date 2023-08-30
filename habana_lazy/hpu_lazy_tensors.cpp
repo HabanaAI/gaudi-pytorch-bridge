@@ -851,20 +851,13 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 }
 
-at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
-  HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
-  at::Tensor pt_tensor = d->tensor_data.value();
-
-  // Make regular 0D tensors 1D
-  auto impl = habana_lazy::GetHbInternalTensorImpl(pt_tensor);
-  bool is_shape_tensor = impl && impl->isShapeTensor();
-  if (pt_tensor.dim() == 0 &&
-      !pt_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    HABANA_ASSERT(is_shape_tensor == false, "0D shape tensor encountered");
-    pt_tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
-  }
-
-  return pt_tensor;
+std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
+  std::stringstream strbuff;
+  std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
+  jit_graph->dump();
+  std::string str = strbuff.str();
+  std::cout.rdbuf(oldbuff);
+  return str;
 }
 
 void ValidateSyncInputTensors(habana_lazy::ir::ValueList& inputs) {
@@ -941,8 +934,10 @@ torch::jit::Stack PrepareInputStack(
       }
       HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     }
+
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
-    auto pt_tensor = Process0DTensor(d);
+    HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
+    at::Tensor pt_tensor = d->tensor_data.value();
     auto is_const_tensor = habana::is_tensor_const(pt_tensor);
 
     if (d->is_const_tensor && !is_const_tensor) {
