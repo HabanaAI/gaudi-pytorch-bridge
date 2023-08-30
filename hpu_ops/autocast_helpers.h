@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,36 +14,21 @@
 #pragma once
 
 #include <ATen/autocast_mode.h>
-#include <fstream>
+#include <string_view>
 #include <unordered_set>
-
-#include "habana_helpers/logging.h"
 
 namespace at {
 namespace autocast {
 
+constexpr std::string_view AUTOCAST_LOWER_LIST =
+    "PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST";
+constexpr std::string_view AUTOCAST_LOWER_LIST_DEPRECATED = "LOWER_LIST";
+constexpr std::string_view AUTOCAST_FP32_LIST = "PT_HPU_AUTOCAST_FP32_OPS_LIST";
+constexpr std::string_view AUTOCAST_FP32_LIST_DEPRECATED = "FP32_LIST";
+
 std::unordered_set<std::string> load_list(
-    const char* list_name,
-    const std::unordered_set<std::string>& default_list) {
-  auto path = std::getenv(list_name);
-  if (path == nullptr) {
-    return default_list;
-  }
-  std::ifstream file(path);
-  if (!file.is_open()) {
-    PT_BRIDGE_WARN(
-        "Failed to open file with ops to autocast: ",
-        path,
-        ". Default list loaded.");
-    return default_list;
-  }
-  std::unordered_set<std::string> list;
-  std::string line;
-  while (getline(file, line)) {
-    list.insert(line);
-  }
-  return list;
-}
+    const std::string_view list_name,
+    const std::unordered_set<std::string>& default_list);
 
 // Below lists are based on the hmp lists from
 // pytorch-integration/python_packages/habana_frameworks/torch/hpex/hmp/
@@ -134,9 +119,9 @@ static const std::unordered_set<std::string> lower_first_ops{
 // from external files, passed with below envs.
 
 static const std::unordered_set<std::string> lower_list =
-    load_list("LOWER_LIST", default_lower_ops);
+    load_list(AUTOCAST_LOWER_LIST, default_lower_ops);
 static const std::unordered_set<std::string> fp32_list =
-    load_list("FP32_LIST", default_fp32_ops);
+    load_list(AUTOCAST_FP32_LIST, default_fp32_ops);
 static const std::unordered_set<std::string> promote_list{
     "add",
     "addcmul",
@@ -151,25 +136,7 @@ static const std::unordered_set<std::string> promote_list{
     "truediv",
     "stack"};
 
-Tensor cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type) {
-  // HPU in lazy mode doesn't benefit from cached casts. Potential optimization
-  // are done in GC level. Moreover, it leaves persistent tensors from cast
-  // operations, when HPU Graphs are used or .cpu() is called in the scope of
-  // autocast. Since torch.autocast has caching enabled by default, to avoid the
-  // risk of bad performance, cached casts are permanently disabled from
-  // autocast on HPU.
-  // TODO Analyze impact of cached casts when graph mode in PT 2.0 is
-  // introduced.
-#if 0
-  return cached_cast(to_type, arg, device_type);
-#else
-  if (is_eligible(arg, device_type) && (arg.scalar_type() != to_type)) {
-    return arg.to(to_type);
-  } else {
-    return arg;
-  }
-#endif
-}
+Tensor cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type);
 
 // Overload to process optional<Tensor>
 inline c10::optional<Tensor> cast(

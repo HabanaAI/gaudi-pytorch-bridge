@@ -15,34 +15,31 @@ import pathlib
 import pytest
 from test_utils import is_gaudi1
 
-# Tests must be executed in separate pytest runs, because habana modules
-# have to be reloaded before setting custom list of ops
-
-def load_modules(custom_autocast = False):
-    if custom_autocast:
-        path = str(pathlib.Path(__file__).parent.resolve())
-        os.environ["LOWER_LIST"] = path + "/autocast_files/lower_list.txt"
-        os.environ["FP32_LIST"] = path + "/autocast_files/fp32_list.txt"
 
 def assert_dtype(tensors, dtype):
     for tensor in tensors:
-        assert tensor.dtype == dtype, f"Wrong dtype. Got {tensor.dtype}, expected {dtype}."
+        assert (
+            tensor.dtype == dtype
+        ), f"Wrong dtype. Got {tensor.dtype}, expected {dtype}."
+
 
 def assert_device(tensors, device):
     for tensor in tensors:
-        assert tensor.device == device, f"Wrong device. Got {tensor.device}, expected {device}."
+        assert (
+            tensor.device == device
+        ), f"Wrong device. Got {tensor.device}, expected {device}."
+
 
 def assert_tensors_equal(tensors, tensor_refs):
     for tensor, tensor_ref in zip(tensors, tensor_refs):
         assert torch.equal(tensor, tensor_ref)
 
-@pytest.mark.xfail
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
+
 def test_autocast():
     device = "hpu"
     dtype = torch.bfloat16
-    a = torch.rand((5, 5))*10
-    b = torch.rand((5, 5))*10
+    a = torch.rand((5, 5)) * 10
+    b = torch.rand((5, 5)) * 10
     ah = a.to(device)
     ah_bf16 = ah.to(dtype)
     bh = b.to(device)
@@ -62,15 +59,24 @@ def test_autocast():
 
     assert_dtype((mm, ls, ls2, add), dtype)
     assert_dtype((add_float,), torch.float)
-    assert_device((mm, ls, ls2, add, add_float, mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref), ah.device)
-    assert_tensors_equal((mm, ls, ls2, add, add_float), (mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref))
+    assert_device(
+        (mm, ls, ls2, add, add_float, mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref),
+        ah.device,
+    )
+    assert_tensors_equal(
+        (mm, ls, ls2, add, add_float), (mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref)
+    )
 
-@pytest.mark.xfail(reason="Wrong dtype. Got torch.float32, expected torch.bfloat16.")
+
+# Below test is meant to run manually with envs set:
+# PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST=pytest_working/autocast_files/lower_list.txt
+# PT_HPU_AUTOCAST_FP32_OPS_LIST=pytest_working/autocast_files/fp32_list.txt
+@pytest.mark.skip(reason="Can't set custom autocast list in runtime")
 def test_autocast_custom_list():
     device = "hpu"
     dtype = torch.bfloat16
-    a = torch.rand((5, 5))*10
-    b = torch.rand((5, 5))*10
+    a = torch.rand((5, 5)) * 10
+    b = torch.rand((5, 5)) * 10
     ah = a.to(device)
     ah_bf16 = ah.to(dtype)
     bh = b.to(device)
@@ -88,5 +94,9 @@ def test_autocast_custom_list():
 
     assert_dtype((add, mm), dtype)
     assert_dtype((matmul, matmul2), torch.float)
-    assert_device((add, mm, matmul, matmul2, add_ref, mm_ref, matmul_ref, matmul2_ref), ah.device)
-    assert_tensors_equal((add, mm, matmul, matmul2), (add_ref, mm_ref, matmul_ref, matmul2_ref))
+    assert_device(
+        (add, mm, matmul, matmul2, add_ref, mm_ref, matmul_ref, matmul2_ref), ah.device
+    )
+    assert_tensors_equal(
+        (add, mm, matmul, matmul2), (add_ref, mm_ref, matmul_ref, matmul2_ref)
+    )
