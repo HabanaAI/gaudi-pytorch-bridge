@@ -519,8 +519,9 @@ inline bool is_tensor_const_with_valid_const_id(
     HABANA_ASSERT(
         tmeta->has_valid_const_id(),
         "Constant tensor does not have a valid constant id");
+    return true;
   }
-  return true;
+  return false;
 }
 
 inline bool is_tensor_const_with_valid_const_id(
@@ -534,8 +535,9 @@ inline bool is_tensor_const_with_valid_const_id(
     HABANA_ASSERT(
         tmeta->has_valid_const_id(),
         "Constant tensor does not have a valid constant id");
+    return true;
   }
-  return true;
+  return false;
 }
 
 inline void set_tensor_const(
