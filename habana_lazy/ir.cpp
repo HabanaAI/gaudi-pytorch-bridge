@@ -233,7 +233,7 @@ void Value::SetNode(
     {
       std::lock_guard<std::recursive_mutex> lock(
           habana_lazy::HbContextArena::Get()->GetMutex());
-      devctx->tensors_data_opt[shared_ptr->unique_id] = m_data_ptr;
+      devctx->insert(shared_ptr->unique_id, m_data_ptr);
     }
     // Set execution status again to Registered because in case of .out op
     // variants, same tensor may have been considered as input earlier and

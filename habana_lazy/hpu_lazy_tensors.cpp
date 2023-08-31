@@ -90,8 +90,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
   {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
-    devctx->tensors_data_opt.erase(unique_id);
-
+    devctx->erase(unique_id);
     if (synapse_helpers::memory_reporter_enable()) {
       auto& device = habana::HPURegistrar::get_device();
       synapse_helpers::MemoryReporter* reporter =
@@ -120,8 +119,8 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 
   HbLazyTensorViews::HandleViewsLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
-  for (auto& uid_wptr : devctx->tensors_data_opt) {
-    std::shared_ptr<Data> data = uid_wptr.second.lock();
+  for (auto& uid : devctx->tensors_data_opt_order) {
+    std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     HABANA_ASSERT(data);
     auto id = data->unique_id;
     auto hl_t = HbLazyTensor(std::move(data));
@@ -141,7 +140,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   }
   {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    devctx->tensors_data_opt.clear();
+    devctx->clear_tensors_data();
   }
   return tensors;
 }
@@ -788,12 +787,9 @@ void HbLazyTensor::SyncTensorsGraph(
   // for tensors that will be evaluated as part of current execution. For all
   // other cases tensors_data_opt is already completely cleared in
   // GetLiveTensors.
-  if (devctx->tensors_data_opt.size()) {
+  if (devctx->tensors_data_size()) {
     for (auto& t : *tensors) {
-      if (devctx->tensors_data_opt.find(t.getTensorUniqueId()) !=
-          devctx->tensors_data_opt.end()) {
-        devctx->tensors_data_opt.erase(t.getTensorUniqueId());
-      }
+      devctx->erase(t.getTensorUniqueId());
     }
   }
 

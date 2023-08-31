@@ -423,7 +423,7 @@ void HbLazyTensorViews::add_strided_view_node_parallel_impl(
       if (shared_ptr) {
         std::lock_guard<std::recursive_mutex> lock(
             habana_lazy::HbContextArena::Get()->GetMutex());
-        devctx->tensors_data_opt[hb_result.getTensorUniqueId()] = shared_ptr;
+        devctx->insert(hb_result.getTensorUniqueId(), shared_ptr);
       }
     }
   } else {
@@ -1105,8 +1105,8 @@ void HbLazyTensorViews::HandleViewsLiveTensors(
   // bucket size.
   std::vector<HbLazyTensor> maybe_view_outputs;
 
-  for (auto& uid_wptr : devctx->tensors_data_opt) {
-    std::shared_ptr<Data> data = uid_wptr.second.lock();
+  for (auto& uid : devctx->tensors_data_opt_order) {
+    std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data != nullptr) {
       auto hl_t = HbLazyTensor(std::move(data));
 

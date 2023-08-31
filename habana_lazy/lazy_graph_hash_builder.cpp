@@ -157,8 +157,8 @@ void GraphHashBuilder::invalidateDeviceTids(c10::Device& device) {
       data->running_cntr = -1;
     }
   }
-  for (auto& uid_wptr : devctx->tensors_data_opt) {
-    std::shared_ptr<Data> data = uid_wptr.second.lock();
+  for (auto& uid : devctx->tensors_data_opt_order) {
+    std::shared_ptr<Data> data = devctx->getDataPtr(uid);
     if (data != nullptr) {
       data->running_cntr = -1;
     }

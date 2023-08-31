@@ -531,8 +531,44 @@ class HbLazyTensor {
 // training loops.
 struct HbContext {
   std::map<int64_t, std::weak_ptr<Data>> tensors_data;
-  std::map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
+  std::vector<int64_t> tensors_data_opt_order;
   ir::Value seed_ir_value;
+  void clear_tensors_data() {
+    tensors_data_opt.clear();
+    tensors_data_opt_order.clear();
+  }
+
+  size_t tensors_data_size() {
+    return tensors_data_opt.size();
+  }
+
+  void insert(int64_t unique_id, std::weak_ptr<Data> m_data_ptr) {
+    tensors_data_opt[unique_id] = m_data_ptr;
+    tensors_data_opt_order.erase(
+        std::remove(
+            tensors_data_opt_order.begin(),
+            tensors_data_opt_order.end(),
+            unique_id),
+        tensors_data_opt_order.end());
+    tensors_data_opt_order.emplace_back(unique_id);
+  }
+
+  void erase(int64_t unique_id) {
+    tensors_data_opt.erase(unique_id);
+    tensors_data_opt_order.erase(
+        std::remove(
+            tensors_data_opt_order.begin(),
+            tensors_data_opt_order.end(),
+            unique_id),
+        tensors_data_opt_order.end());
+  }
+
+  std::shared_ptr<Data> getDataPtr(int64_t unique_id) {
+    return tensors_data_opt.at(unique_id).lock();
+  }
+
+ private:
+  std::map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
 };
 
 class HbContextArena {
