@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -78,6 +90,8 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
   matmul_test({3, 4}, {2, 4, 3});
   matmul_test({12, 16, 20, 24}, {16, 24, 20});
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
+  matmul_test({10, 8, 16}, {1, 16, 12});
+  matmul_test({2, 10, 8, 16}, {2, 1, 16, 12});
 }
 
 TEST_F(LazyLinearKernelTest, MatmulBwdTest) {

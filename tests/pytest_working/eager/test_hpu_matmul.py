@@ -34,14 +34,13 @@ matmul_lazy_list = [
     ((2, 3, 4), (2, 4, 5)),
     ((2, 3, 4), (4)),
     ((2, 2, 3, 4), (2, 4, 3)),
-    ((10, 8, 16), (1, 16, 12)),
-    ((2, 10, 8, 16), (2, 1, 16, 12)),
+    # ((1, 8, 16), (10, 16, 12)), TODO: SW-158291
+    ((1, 10, 8, 16), (2, 10, 16, 12)),
 ]
 
 
-@pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("size1, size2", matmul_lazy_list)
-def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
+def test_hpu_matmul_fwd_bwd(size1, size2):
     t1 = torch.randn(size1, requires_grad=True)
     t2 = torch.randn(size2, requires_grad=True)
 
@@ -60,17 +59,11 @@ def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     loss_h = out_h.sum()
     loss_h.backward()
 
-    htcore.mark_step()
-
     grad_t1_h = t1_h.grad.cpu()
     grad_t2_h = t2_h.grad.cpu()
 
-    assert np.allclose(
-        grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3
-    ), f"Data mismatch"
-    assert np.allclose(
-        grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3
-    ), f"Data mismatch"
+    assert np.allclose(grad_t1_cpu, grad_t1_h, atol=0.001, rtol=1.0e-3)
+    assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)
 
 
 @pytest.mark.parametrize("size1, size2", matmul_lazy_list)

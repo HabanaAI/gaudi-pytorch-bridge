@@ -164,6 +164,34 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+std::vector<int64_t> compute_matmul_output_shape(
+    c10::ArrayRef<int64_t> self_sizes,
+    c10::ArrayRef<int64_t> other_sizes,
+    int64_t self_dims,
+    int64_t other_dims,
+    bool self_transposed,
+    bool other_transposed) {
+  std::vector<int64_t> output_shape;
+  if (other_dims > 1) {
+    int64_t other_dim = other_transposed ? other_dims - 2 : other_dims - 1;
+    output_shape.push_back(other_sizes[other_dim]);
+  }
+  if (self_dims > 1) {
+    int64_t self_dim = self_transposed ? self_dims - 1 : self_dims - 2;
+    output_shape.push_back(self_sizes[self_dim]);
+  }
+
+  int64_t max_dim = std::max(self_dims, other_dims);
+  for (int64_t i = 3; i <= max_dim; i++) {
+    int64_t self_dim = i > self_dims ? 1 : self_sizes[self_dims - i];
+    int64_t other_dim = i > other_dims ? 1 : other_sizes[other_dims - i];
+    output_shape.push_back(std::max(self_dim, other_dim));
+  }
+  std::reverse(output_shape.begin(), output_shape.end());
+
+  return output_shape;
+}
+
 std::vector<int64_t> habana::BmmOperator::compute_output_shape(
     const Tensor& self,
     const Tensor& mat2,
@@ -208,59 +236,13 @@ std::vector<int64_t> habana::BmmOperator::compute_output_shape(
         *(mat2_end_iter - 2))
   }
 
-  std::vector<int64_t> shape_out;
-  if ((self_dims == 5) &&
-      ((mat2_dims == 5) || (mat2_dims == 4) || (mat2_dims == 3) ||
-       (mat2_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(self_sizes[2]);
-    if (mat1_transposed) {
-      shape_out.push_back(self_sizes[4]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    } else if (mat2_transposed) {
-      shape_out.push_back(self_sizes[3]);
-      shape_out.push_back(*(mat2_end_iter - 2));
-    } else {
-      shape_out.push_back(self_sizes[3]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    }
-  } else if (
-      (self_dims == 4) &&
-      ((mat2_dims == 4) || (mat2_dims == 3) || (mat2_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    if (mat1_transposed) {
-      shape_out.push_back(self_sizes[3]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    } else if (mat2_transposed) {
-      shape_out.push_back(self_sizes[2]);
-      shape_out.push_back(*(mat2_end_iter - 2));
-    } else {
-      shape_out.push_back(self_sizes[2]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    }
-  } else if (self_dims == 3 && mat2_dims == 4) {
-    HABANA_ASSERT(
-        0 && "Input1 = 3d & Input2 = 4d is not supported for BMM by GC")
-  } else if ((self_dims == 3) && ((mat2_dims == 3) || (mat2_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    if (mat1_transposed) {
-      shape_out.push_back(self_sizes[2]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    } else if (mat2_transposed) {
-      shape_out.push_back(self_sizes[1]);
-      shape_out.push_back(*(mat2_end_iter - 2));
-    } else {
-      shape_out.push_back(self_sizes[1]);
-      shape_out.push_back(*(mat2_end_iter - 1));
-    }
-  } else if (self_dims == 2 && mat2_dims == 3) {
-    HABANA_ASSERT(
-        0 && "Input1 = 2d & Input2 = 3d is not supported for BMM by GC")
-  }
-
-  return shape_out;
+  return compute_matmul_output_shape(
+      self_sizes,
+      mat2_sizes,
+      self_dims,
+      mat2_dims,
+      mat1_transposed,
+      mat2_transposed);
 }
 
 void habana::BmmOperator::AllocateAndAddSynapseNode(
@@ -454,13 +436,6 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
     const Tensor& self,
     const Tensor& other,
     bool other_transposed) {
-  auto self_sizes = self.sizes();
-  auto other_sizes = other.sizes();
-  auto self_dims = self.dim();
-  auto other_dims = other.dim();
-  auto self_end_iter = self_sizes.end();
-  auto other_end_iter = other_sizes.end();
-
   /*
   The output shape for depends on the dimensionality of the input Tensors as
   follows:
@@ -490,12 +465,10 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
   - (MD x ND) || (ND x MD) :
     M > 1 and N > 2
     In this case bmm() is performed
-    Check habana::BmmOperator::compute_output_shape() for cases:
-    4D x 4D
+    Check habana::BmmOperator::compute_output_shape() for cases like:
+    5D x 5D
     4D x 3D
-    3D x 4D
-    2D x 3D
-    3D x 3D
+    2D x 4D
 
   - (1D x ND) || (ND x 1D) : N > 2
     1D x ND
@@ -511,84 +484,13 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
     The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be
   broadcastable). e.g., (j, 1, n, m) x (k, m, p) => (j, k, n, p)
   */
-
-  std::vector<int64_t> shape_out;
-  if (self_dims == 1 && other_dims == 1) {
-  } else if (self_dims == 2 && other_dims == 1) {
-    shape_out.push_back(self_sizes[0]);
-  } else if (self_dims == 1 && other_dims == 2) {
-    if (other_transposed) {
-      shape_out.push_back(other_sizes[0]);
-    } else {
-      shape_out.push_back(other_sizes[1]);
-    }
-  } else if (self_dims == 2 && other_dims == 2) {
-    shape_out.push_back(self_sizes[0]);
-    if (other_transposed) {
-      shape_out.push_back(other_sizes[0]);
-    } else {
-      shape_out.push_back(other_sizes[1]);
-    }
-  } else if (
-      (self_dims == 4) &&
-      ((other_dims == 4) || (other_dims == 3) || (other_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(*(self_end_iter - 2));
-    if (other_transposed) {
-      shape_out.push_back(*(other_end_iter - 2));
-    } else {
-      shape_out.push_back(*(other_end_iter - 1));
-    }
-
-  } else if (
-      (self_dims == 5) &&
-      ((other_dims == 5) || (other_dims == 4) || (other_dims == 3) ||
-       (other_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(self_sizes[2]);
-    shape_out.push_back(*(self_end_iter - 2));
-    if (other_transposed) {
-      shape_out.push_back(*(other_end_iter - 2));
-    } else {
-      shape_out.push_back(*(other_end_iter - 1));
-    }
-  } else if (self_dims == 3 && other_dims == 4) {
-    shape_out.push_back(other_sizes[0]);
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(other_sizes[3]);
-  } else if ((self_dims == 3) && ((other_dims == 3) || (other_dims == 2))) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    if (other_transposed) {
-      shape_out.push_back(*(other_end_iter - 2));
-    } else {
-      shape_out.push_back(*(other_end_iter - 1));
-    }
-  } else if (self_dims == 2 && other_dims == 3) {
-    shape_out.push_back(other_sizes[0]);
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(other_sizes[2]);
-  } else if (self_dims == 1 && other_dims == 3) {
-    shape_out.push_back(other_sizes[0]);
-    shape_out.push_back(other_sizes[2]);
-  } else if (self_dims == 3 && other_dims == 1) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-  } else if (self_dims == 4 && other_dims == 1) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(self_sizes[2]);
-  } else if (self_dims == 5 && other_dims == 1) {
-    shape_out.push_back(self_sizes[0]);
-    shape_out.push_back(self_sizes[1]);
-    shape_out.push_back(self_sizes[2]);
-    shape_out.push_back(self_sizes[3]);
-  }
-
-  return shape_out;
+  return compute_matmul_output_shape(
+      self.sizes(),
+      other.sizes(),
+      self.dim(),
+      other.dim(),
+      false,
+      other_transposed);
 }
 
 bool habana::MatMulOperator::is_gmemm_with_transpose_possible(
