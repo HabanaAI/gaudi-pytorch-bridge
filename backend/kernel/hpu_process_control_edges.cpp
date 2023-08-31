@@ -430,7 +430,7 @@ void HabanaLaunchOpPT::ProcessControlEdgesForMemoryReuse() {
             blocking_syn_nodes_vec, blocked_syn_nodes_vec);
       }
 
-      blocked_syn_nodes_vec.clear();
+      blocking_syn_nodes_vec.clear();
       blocked_syn_nodes_vec.clear();
     }
   } // for (const auto& p : memory_reuse_pairs)
