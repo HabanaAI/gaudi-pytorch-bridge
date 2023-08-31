@@ -288,6 +288,7 @@ using tuple_tensor_2_vectors = std::tuple<Tensor,::std::vector<Tensor>,::std::ve
 using tuple_4_tensors_4_int64_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,int64_t,int64_t,Tensor>;
 using tuple_2_tensors_2_int64_tensor = std::tuple<Tensor,Tensor,int64_t,int64_t,Tensor>;
 using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,Tensor,Tensor,Tensor>;
+using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 
 TORCH_LIBRARY_IMPL(_, AutocastHPU, m) {{
   m.fallback(torch::CppFunction::makeFallthrough());
@@ -2216,23 +2217,25 @@ def generate_autocast_ops(fgens, args, out_dir):
             "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor,at::Tensor,at::Tensor>",
             "tuple_4_tensors_2_int64_3_tensor",
         ),
+        (
+            "::std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>",
+            "tuple_5_vectors",
+        ),
         ("SymIntArrayRef", "IntArrayRef"),
         ("c10::SymInt", "int64_t"),
     )
 
-    blocklist = (
+    blocklist = [
         "_cummax_helper",
         "_cummin_helper",
         "fused_moving_avg_obs_fake_quant",
         "_fused_moving_avg_obs_fq_helper",
-        "_fused_adam",
-        "_fused_adamw",
         "_native_batch_norm_legit",
         "sym_size.int",
         "sym_numel",
         "sym_stride.int",
         "sym_storage_offset",
-    )
+    ] + (["_fused_adam", "_fused_adamw"] if torch.__version__ < Version("2.1") else [])
 
     def op_to_skip(function_name, op_name):
         return (
