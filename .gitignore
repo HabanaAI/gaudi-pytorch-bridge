@@ -1,7 +1,9 @@
 **/*build*/**
-.*
-!.gitignore
 !.devops/build_profiles/**
+.*
+!.ci
+!.devops
+!.gitignore
 *cache*/
 data/
 *.log
