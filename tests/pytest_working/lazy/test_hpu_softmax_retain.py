@@ -14,6 +14,9 @@ import pytest
 import habana_frameworks.torch.hpu as ht
 
 
+@pytest.mark.xfail(
+    reason="https://jira.habana-labs.com/browse/SW-158296"
+)
 @pytest.mark.parametrize("shape", [(4, 6, 8), (8, 8, 4, 16)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_softmax_retain_fwd(shape, dtype):
