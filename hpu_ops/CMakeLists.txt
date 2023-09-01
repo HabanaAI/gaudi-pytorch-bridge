@@ -44,7 +44,16 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
-                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops3.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops4.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops5.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops6.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
+                     ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
                    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
@@ -236,7 +245,16 @@ add_library(habana_pytorch_backend_ops OBJECT
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op7.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op8.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op9.cpp
-          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops3.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops4.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops5.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops6.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
+          ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
           )
 target_include_directories(habana_pytorch_backend_ops
   PUBLIC

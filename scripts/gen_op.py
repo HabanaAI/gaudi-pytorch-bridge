@@ -289,11 +289,7 @@ using tuple_4_tensors_4_int64_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,in
 using tuple_2_tensors_2_int64_tensor = std::tuple<Tensor,Tensor,int64_t,int64_t,Tensor>;
 using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,Tensor,Tensor,Tensor>;
 using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
-
-TORCH_LIBRARY_IMPL(_, AutocastHPU, m) {{
-  m.fallback(torch::CppFunction::makeFallthrough());
-}}
-
+{fallback_fallthrough}
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {{
 {ops_registrations}
 }}
@@ -301,6 +297,12 @@ TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {{
 }} // namespace
 }} // namespace autocast
 }} // namespace at
+"""
+
+_AUTOCAST_FALLBACK = """
+TORCH_LIBRARY_IMPL(_, AutocastHPU, m) {{
+  m.fallback(torch::CppFunction::makeFallthrough());
+}}
 """
 
 
@@ -2164,7 +2166,7 @@ namespace habana {{
 # for autocast are based on the default lists in autocast_helpers.h file or
 # on the external file provided via env.
 def generate_autocast_ops(fgens, args, out_dir):
-    op_registration = '  Hpu_KERNEL({function_name}, "{op_name}", {signature})\n'
+    op_registration = '  Hpu_KERNEL({function_name}, "{op_name}", {signature})'
     replacements = (
         ("::std::tuple<at::Tensor,at::Tensor>", "tuple_2_tensors"),
         ("::std::tuple<at::Tensor,at::Tensor,at::Tensor>", "tuple_3_tensors"),
@@ -2247,8 +2249,6 @@ def generate_autocast_ops(fgens, args, out_dir):
     def get_registration(fgen, op_name):
         function_name = fgen.func
         signature = fgen.funsig
-        if op_to_skip(function_name, op_name):
-            return ""
         for r in replacements:
             signature = signature.replace(*r)
         return op_registration.format(
@@ -2263,20 +2263,28 @@ def generate_autocast_ops(fgens, args, out_dir):
         if "variants" in function and "function" not in function["variants"]:
             ops_not_in_at.add(re.search(r"(.*?)\(", function["func"]).group(1))
 
-    ops_registrations = ""
+    ops_registrations = []
     for fgen in fgens:
         op_name = re.search(r"aten::(.*?)\(", fgen.aten_sig).group(1)
-        if op_name in ops_not_in_at:
+        if op_name in ops_not_in_at or op_to_skip(fgen.func, op_name):
             continue
-        ops_registrations += get_registration(fgen, op_name)
 
-    print(
-        _AUTOCAST_TEMPLATE.format(
-            gen=os.path.basename(sys.argv[0]),
-            ops_registrations=ops_registrations,
-        ),
-        file=gen_cpp_output_file(args, out_dir + "/" + "hpu_autocast_ops"),
-    )
+        ops_registrations.append(get_registration(fgen, op_name))
+
+    number_of_chunks = 10
+    chunk_size = len(ops_registrations) // number_of_chunks + 1
+
+    for i in range(number_of_chunks):
+        print(
+            _AUTOCAST_TEMPLATE.format(
+                gen=os.path.basename(sys.argv[0]),
+                fallback_fallthrough=_AUTOCAST_FALLBACK if i == 0 else "",
+                ops_registrations=("\n").join(
+                    ops_registrations[chunk_size * i : chunk_size * (i + 1)]
+                ),
+            ),
+            file=gen_cpp_output_file(args, f"{out_dir}/hpu_autocast_ops{i}"),
+        )
 
 
 def generate(args):
@@ -2858,7 +2866,6 @@ def generate_check_kernel_support_frontend(
     )
 
     for fgen_file, ffgens in fgen_files.items():
-
         op_frontend_classes = generate_op_frontend_hclasses(
             ffgens,
             frontend_class_headers,
