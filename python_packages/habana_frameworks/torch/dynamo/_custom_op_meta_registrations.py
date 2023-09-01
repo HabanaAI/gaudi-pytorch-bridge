@@ -95,8 +95,9 @@ def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax, dtype)
 
 
 @register_meta([torch.ops.hpu.fp8_fast_softmax.default])
-def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax):
-    out = input.new_empty(input.shape, dtype=torch.int8)
+def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax, dtype):
+    out_dtype = dtype if dtype else torch.int8
+    out = input.new_empty(input.shape, dtype=out_dtype)
     amax = input.new_empty((), dtype=torch.float32)
     return out, amax
 

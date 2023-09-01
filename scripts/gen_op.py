@@ -1881,6 +1881,9 @@ def generate_impl(aten_sig, overload, override_fn):
     return code
 
 
+IS_NATIVE_FP8 = hasattr(torch, "float8_e5m2")
+
+
 def generate_dtype_macro(dtypes, check_implicit_types=True):
     def generate_line(dd_pairs, suffix=""):
         code = []
@@ -1899,6 +1902,9 @@ def generate_dtype_macro(dtypes, check_implicit_types=True):
                     "dtype, Double is added as a supported dtype by the script."
                 )
 
+            if not IS_NATIVE_FP8:
+                dtypes.remove("Float8_e5m2") if "Float8_e5m2" in dtypes else None
+                dtypes.remove("Float8_e4m3fn") if "Float8_e4m3fn" in dtypes else None
             if "Float" in dtypes and "Double" not in dtypes:
                 dtypes.append("Double")
             if "Char" in dtypes and "Bool" not in dtypes:

@@ -1723,8 +1723,8 @@ bitwise_xor_.Tensor:
 bmm:
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
   out_ids: [0]
@@ -1733,8 +1733,8 @@ bmm:
 bmm.out:
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   custom_output_shape: BmmOutputShape
   guid: batch_gemm
   # op_validator: check-node-with-shared-layer
@@ -4431,8 +4431,8 @@ mm:
   custom_output_shape: MmOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
@@ -4442,8 +4442,8 @@ mm.out:
   custom_output_shape: MmOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   # op_validator: check-node-with-shared-layer
 
@@ -6531,8 +6531,8 @@ squeeze.dims:
   output_meta: SqueezeDimsMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int]
-    Gaudi3: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   guid: squeeze
   op_backend: SqueezeDims
   out_ids: [0]

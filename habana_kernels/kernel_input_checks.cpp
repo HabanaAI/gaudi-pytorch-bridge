@@ -13,6 +13,7 @@
 
 #include "habana_kernels/kernel_input_checks.h"
 #include <c10/core/ScalarType.h>
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_helpers/pt_version_check.h"
 
@@ -123,6 +124,12 @@ void OpAttributeCheck::hpu_check_ivalues(
   }
 }
 
+#if HAVE_FP8_SUPPORT
+#define FP8_DTYPES , at::ScalarType::Float8_e5m2, at::ScalarType::Float8_e4m3fn
+#else
+#define FP8_DTYPES
+#endif
+
 const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
     op_info = {
         {
@@ -136,7 +143,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long,
               at::ScalarType::Half,
               at::ScalarType::BFloat16,
-              at::ScalarType::Byte}},
+              at::ScalarType::Byte FP8_DTYPES}},
         },
         {
             "set_",
@@ -220,7 +227,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "ne",
@@ -232,7 +239,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "all",
@@ -310,7 +317,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "select_backward",
@@ -521,7 +528,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "empty_strided",
@@ -534,7 +541,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "cat",
@@ -546,7 +553,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "cat_out",
@@ -558,7 +565,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "split_with_sizes",
@@ -746,7 +753,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "split",
@@ -759,7 +766,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "upsample_nearest2d",
@@ -817,7 +824,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "matmul",
@@ -829,7 +836,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "index",
@@ -842,7 +849,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Int,
               at::ScalarType::Long,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "sub",
@@ -899,7 +906,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "eq",
@@ -910,7 +917,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Char,
               at::ScalarType::Bool,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "lt",
@@ -920,7 +927,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "ge",
@@ -930,7 +937,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "le",
@@ -940,7 +947,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "scatter_",
@@ -1817,7 +1824,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "exp_fast",
@@ -1988,7 +1995,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "ge_",
@@ -1998,7 +2005,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "instance_norm",
@@ -2102,7 +2109,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "le_",
@@ -2112,7 +2119,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "log_lut",
@@ -2275,7 +2282,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "memcpy_",
@@ -2286,7 +2293,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "memcpy_nd",
@@ -2956,7 +2963,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "reshape_",
@@ -2967,7 +2974,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Byte,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::BFloat16}},
+              at::ScalarType::BFloat16 FP8_DTYPES}},
         },
         {
             "resize",

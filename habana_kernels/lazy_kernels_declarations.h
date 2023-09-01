@@ -659,7 +659,8 @@ std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
     const c10::optional<at::Tensor>& scale,
     double softmax_scale,
     bool stochastic_rounding,
-    bool is_amax);
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_layernorm_lazy(
     const at::Tensor& input,

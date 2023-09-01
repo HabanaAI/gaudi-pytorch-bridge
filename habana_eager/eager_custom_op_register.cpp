@@ -25,12 +25,26 @@
 namespace habana {
 namespace eager {
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
-    const at::Tensor&,
-    const c10::optional<at::Tensor>&,
-    bool,
-    at::Tensor&,
-    at::Tensor&) {
-  TORCH_CHECK(false, "hpu::cast_to_fp8 is not available in Eager mode.");
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "cast_to_fp8 :",
+      DUMP_5ARGS(input, scale, stochastic_rounding, out, amax));
+
+  TORCH_CHECK(
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::cast_to_fp8 with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&>> hpu_op{
+      "hpu::cast_to_fp8",
+      {input, scale, stochastic_rounding, out, amax},
+      {input.sizes().vec(), amax.sizes().vec()}};
+  auto result = ::std::tuple<at::Tensor&, at::Tensor&>(out, amax);
+  return hpu_op.call(result);
 }
 
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
@@ -39,9 +53,15 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "cast_to_fp8_v2 :",
+      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
+
   TORCH_CHECK(
       dtype.has_value(),
       "hpu::cast_to_fp8_v2 without specified dtype is not available in Eager mode.");
+
   eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::cast_to_fp8_v2",
       {input, scale, stochastic_rounding, is_amax, dtype},
@@ -51,51 +71,125 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose(
-    const at::Tensor&,
-    const at::Tensor&,
-    bool,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&) {
-  TORCH_CHECK(false, "hpu::fp8_cast_transpose is not available in Eager mode.");
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& transposed,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_cast_transpose :",
+      DUMP_6ARGS(input, scale, stochastic_rounding, out, transposed, amax));
+
+  TORCH_CHECK(
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_cast_transpose with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
+      "hpu::fp8_cast_transpose",
+      {input, scale, stochastic_rounding, out, transposed, amax},
+      {input.sizes().vec(), transposed.sizes().vec(), amax.sizes().vec()}};
+  auto result = ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(
+      out, transposed, amax);
+  return hpu_op.call(result);
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_cast_transpose_bgrad(
-    const at::Tensor&,
-    const at::Tensor&,
-    bool,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&) {
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& transposed,
+    at::Tensor& bgrad,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_cast_transpose_bgrad :",
+      DUMP_7ARGS(
+          input, scale, stochastic_rounding, out, transposed, bgrad, amax));
+
   TORCH_CHECK(
-      false, "hpu::fp8_cast_transpose_bgrad is not available in Eager mode.");
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_cast_transpose_bgrad with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>>
+      hpu_op{
+          "hpu::fp8_cast_transpose_bgrad",
+          {input, scale, stochastic_rounding, out, transposed, bgrad, amax},
+          {input.sizes().vec(),
+           transposed.sizes().vec(),
+           bgrad.sizes().vec(),
+           amax.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, transposed, bgrad, amax);
+  return hpu_op.call(result);
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
 fp8_cast_transpose_bgrad_dgelu(
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    const c10::optional<at::Tensor>&,
-    bool,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&) {
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    const c10::optional<at::Tensor>& retain,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& transposed,
+    at::Tensor& bgrad,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_cast_transpose_bgrad_dgelu :",
+      DUMP_9ARGS(
+          grad,
+          input,
+          scale,
+          retain,
+          stochastic_rounding,
+          out,
+          transposed,
+          bgrad,
+          amax));
+
   TORCH_CHECK(
-      false,
-      "hpu::fp8_cast_transpose_bgrad_dgelu is not available in Eager mode.");
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_cast_transpose_bgrad_dgelu with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>>
+      hpu_op{
+          "hpu::fp8_cast_transpose_bgrad_dgelu",
+          {grad,
+           input,
+           scale,
+           retain,
+           stochastic_rounding,
+           out,
+           transposed,
+           bgrad,
+           amax},
+          {input.sizes().vec(),
+           transposed.sizes().vec(),
+           bgrad.sizes().vec(),
+           amax.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, transposed, bgrad, amax);
+  return hpu_op.call(result);
 }
 
 at::Tensor cast_from_fp8(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     at::ScalarType out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("cast_from_fp8 :", DUMP_3ARGS(input, scale, out_dtype));
+
   TORCH_CHECK(
       input.scalar_type() != at::ScalarType::Char,
       "hpu::cast_from_fp8 with int8 input is not available in Eager mode.");
+
   eager::EagerOp<at::Tensor> hpu_op{
       "hpu::cast_from_fp8", {input, scale, out_dtype}};
   hpu_op.set_scalar_types({out_dtype});
@@ -109,9 +203,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_dropout :",
+      DUMP_6ARGS(input, p, scale, stochastic_rounding, is_amax, dtype));
+
   TORCH_CHECK(
       dtype.has_value(),
       "hpu::fp8_dropout without specified dtype is not available in Eager mode.");
+
   std::vector<int64_t> amax_size{1};
   eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_dropout",
@@ -124,13 +224,28 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout(
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu(
-    const at::Tensor&,
-    const at::Tensor&,
-    bool,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&) {
-  TORCH_CHECK(false, "hpu::fp8_gelu is not available in Eager mode.");
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& retain,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_gelu :",
+      DUMP_6ARGS(input, scale, stochastic_rounding, out, retain, amax));
+
+  TORCH_CHECK(
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_cast_transpose_bgrad_dgelu with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
+      "hpu::fp8_gelu",
+      {input, scale, stochastic_rounding, out, retain, amax},
+      {input.sizes().vec(), input.sizes().vec(), amax.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(out, retain, amax);
+  return hpu_op.call(result);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
@@ -139,9 +254,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_gelu_v2 :",
+      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
+
   TORCH_CHECK(
       dtype.has_value(),
       "hpu::fp8_gelu_v2 without specified dtype is not available in Eager mode.");
+
   std::vector<int64_t> amax_size{1};
   eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_gelu_v2",
@@ -154,17 +275,56 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2(
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&> fp8_layernorm(
-    const at::Tensor&,
-    const at::Tensor&,
-    const at::Tensor&,
-    double,
-    const at::Tensor&,
-    bool,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&,
-    at::Tensor&) {
-  TORCH_CHECK(false, "hpu::fp8_layernorm is not available in Eager mode.");
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    double eps,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    at::Tensor& out,
+    at::Tensor& mean,
+    at::Tensor& istd,
+    at::Tensor& amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_layernorm :",
+      DUMP_10ARGS(
+          input,
+          weight,
+          bias,
+          eps,
+          scale,
+          stochastic_rounding,
+          out,
+          mean,
+          istd,
+          amax));
+
+  TORCH_CHECK(
+      out.scalar_type() != at::ScalarType::Char,
+      "hpu::fp8_layernorm with torch.int8 dtype is not available in Eager mode.");
+
+  eager::EagerOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>>
+      hpu_op{
+          "hpu::fp8_layernorm",
+          {input,
+           weight,
+           bias,
+           eps,
+           scale,
+           stochastic_rounding,
+           out,
+           mean,
+           istd,
+           amax},
+          {input.sizes().vec(),
+           mean.sizes().vec(),
+           istd.sizes().vec(),
+           amax.sizes().vec()}};
+  auto result =
+      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
+          out, mean, istd, amax);
+  return hpu_op.call(result);
 }
 
 at::Tensor& fp8_gemm(
@@ -179,9 +339,26 @@ at::Tensor& fp8_gemm(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_gemm :",
+      DUMP_11ARGS(
+          A,
+          trans_A,
+          B,
+          trans_B,
+          D,
+          out_dtype,
+          A_scale_inv,
+          B_scale_inv,
+          bias,
+          accumulate,
+          out));
+
   TORCH_CHECK(
       A.scalar_type() != at::ScalarType::Char,
       "hpu::fp8_gemm with int8 is not available in Eager mode.");
+
   eager::EagerOp<at::Tensor&> hpu_op{
       "hpu::fp8_gemm",
       {A,
@@ -210,9 +387,25 @@ at::Tensor fp8_gemm_v2(
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_gemm_v2 :",
+      DUMP_10ARGS(
+          A,
+          trans_A,
+          B,
+          trans_B,
+          D,
+          out_dtype,
+          A_scale_inv,
+          B_scale_inv,
+          bias,
+          accumulate));
+
   TORCH_CHECK(
       A.scalar_type() != at::ScalarType::Char,
       "hpu::fp8_gemm_v2 with int8 is not available in Eager mode.");
+
   eager::EagerOp<at::Tensor> hpu_op{
       "hpu::fp8_gemm_v2",
       {A,
@@ -238,9 +431,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_bgrad_dgelu :",
+      DUMP_7ARGS(
+          grad, input, scale, retain, stochastic_rounding, is_amax, dtype));
+
   TORCH_CHECK(
       dtype.has_value(),
       "hpu::fp8_bgrad_dgelu without specified dtype is not available in Eager mode.");
+
   std::vector<int64_t> out_size = input.sizes().vec();
   std::vector<int64_t> bgrad_size{out_size[1]};
   std::vector<int64_t> amax_size{1};
@@ -260,8 +460,31 @@ std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax(
     const c10::optional<at::Tensor>& scale,
     double softmax_scale,
     bool stochastic_rounding,
-    bool is_amax) {
-  TORCH_CHECK(false, "hpu::fp8_fast_softmax is not available in Eager mode.");
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "fp8_fast_softmax :",
+      DUMP_7ARGS(
+          input,
+          mask,
+          scale,
+          softmax_scale,
+          stochastic_rounding,
+          is_amax,
+          dtype));
+
+  TORCH_CHECK(
+      dtype.has_value(),
+      "hpu::fp8_fast_softmax without specified dtype is not available in Eager mode.");
+
+  std::vector<int64_t> amax_size{1};
+  eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::fp8_fast_softmax",
+      {input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype},
+      {input.sizes().vec(), amax_size}};
+  hpu_op.set_scalar_types({dtype.value(), c10::ScalarType::Float});
+  return hpu_op.call();
 }
 
 at::Tensor fp8_reshape(const at::Tensor& input, at::IntArrayRef shape) {
@@ -661,8 +884,16 @@ at::Tensor scaled_masked_triangular_softmax(
 }
 
 at::Tensor& in_place_interleave_(at::Tensor& self) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("in_place_interleave_ :", DUMP_ARG(self));
+
   TORCH_CHECK(
-      false, "hpu::in_place_interleave_ is not available in Eager mode.");
+      self.scalar_type() != at::ScalarType::Char,
+      "hpu::in_place_interleave_ with int8 is not available in Eager mode.");
+
+  eager::EagerOp<at::Tensor&> hpu_op{
+      "hpu::in_place_interleave_", {self}, {{self.sizes().vec()}}};
+  return hpu_op.call(self);
 }
 
 at::Tensor conv2d_fp8(
@@ -674,6 +905,12 @@ at::Tensor conv2d_fp8(
     at::IntArrayRef dilation,
     int64_t groups,
     c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "conv2d_fp8 :",
+      DUMP_8ARGS(
+          input, weight, bias, stride, padding, dilation, groups, out_dtype));
+
   eager::EagerOp<at::Tensor> hpu_op{
       "hpu::conv2d_fp8",
       {input, weight, bias, stride, padding, dilation, groups, out_dtype},
@@ -688,25 +925,25 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::fp8_cast_transpose(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
+      "hpu::fp8_cast_transpose(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
-      "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
+      "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
-      "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
+      "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::fp8_dropout(Tensor input, float p, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_gelu(Tensor input, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
+      "hpu::fp8_gelu(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
       "hpu::fp8_gelu_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax) -> (Tensor, Tensor)");
+      "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
+      "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(

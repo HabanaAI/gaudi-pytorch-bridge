@@ -16,14 +16,17 @@
 
 namespace habana {
 
-static auto GetFp8Dtypes(const at::IValue& dtype) {
-  auto pt_dtype =
-      dtype.toOptional<at::ScalarType>().value_or(at::ScalarType::Char);
-  auto syn_dtype = pt_dtype == at::ScalarType::Char
+static auto GetFp8Dtypes(const at::ScalarType& dtype) {
+  auto syn_dtype = dtype == at::ScalarType::Char
       ? fp8_syn_type
-      : habana_helpers::pytorch_to_synapse_type(pt_dtype);
+      : habana_helpers::pytorch_to_synapse_type(dtype);
 
-  return std::make_pair(pt_dtype, syn_dtype);
+  return std::make_pair(dtype, syn_dtype);
+}
+
+static auto GetFp8Dtypes(const at::IValue& dtype) {
+  return GetFp8Dtypes(
+      dtype.toOptional<at::ScalarType>().value_or(at::ScalarType::Char));
 }
 
 /********** CastToFp8 **********/
@@ -40,10 +43,10 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto src_type = self.scalar_type();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
   auto amax = stack_tensor(stack, 4);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -61,7 +64,7 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type}};
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 1});
   }
@@ -166,11 +169,11 @@ void Fp8CastTranspose::AddNode(
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
   auto transposed = stack_tensor(stack, 4);
   auto amax = stack_tensor(stack, 5);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -188,8 +191,8 @@ void Fp8CastTranspose::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type}};
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, dst_syn_type}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
   }
@@ -229,12 +232,12 @@ void Fp8CastTransposeBgrad::AddNode(
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
   auto transposed = stack_tensor(stack, 4);
   auto bgrad = stack_tensor(stack, 5);
   auto amax = stack_tensor(stack, 6);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -252,8 +255,8 @@ void Fp8CastTransposeBgrad::AddNode(
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type},
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, dst_syn_type},
       {bgrad.sizes(), self.scalar_type(), 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
@@ -297,12 +300,12 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   auto scale = stack[2].toOptional<torch::Tensor>().value_or(torch::Tensor());
   auto retain = stack[3].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[4].toBool();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 5);
   auto transposed = stack_tensor(stack, 6);
   auto bgrad = stack_tensor(stack, 7);
   auto amax = stack_tensor(stack, 8);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -327,8 +330,8 @@ void Fp8CastTransposeBgradDgelu::AddNode(
     syn_inputs.push_back(syn_in(retain_id));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
-      {transposed.sizes(), dst_type, 1, DATA_TENSOR, fp8_syn_type},
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
+      {transposed.sizes(), dst_type, 1, DATA_TENSOR, dst_syn_type},
       {bgrad.sizes(), self.scalar_type(), 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
@@ -453,11 +456,11 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto src_type = self.scalar_type();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 3);
   auto retain = stack_tensor(stack, 4);
   auto amax = stack_tensor(stack, 5);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -475,7 +478,7 @@ void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     syn_inputs.push_back(syn_in(1));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
       {retain.sizes(), src_type, 1}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 2});
@@ -638,7 +641,7 @@ Fp8FastSoftmax::Fp8FastSoftmax(int device_id, c10::ScalarType scalar_type)
 void Fp8FastSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 6, "Fp8FastSoftmax must have 6 input arguments");
+  TORCH_CHECK(stack.size() == 7, "Fp8FastSoftmax must have 7 input arguments");
 
   StackGetter stackGetter(stack, "Fp8FastSoftmax::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
@@ -647,6 +650,7 @@ void Fp8FastSoftmax::AddNode(
   auto softmax_scale = static_cast<float>(getNextInput<double>(stackGetter));
   auto stochastic_rounding = getNextInput<bool>(stackGetter);
   auto is_amax = getNextInput<bool>(stackGetter);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[6]);
 
   auto out_sizes = Fp8FastSoftmaxOutputShape(stack);
 
@@ -662,7 +666,7 @@ void Fp8FastSoftmax::AddNode(
     syn_inputs.push_back(scale_opt->syn_t);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_sizes[0], at::ScalarType::Char, 0, DATA_TENSOR, fp8_syn_type}};
+      {out_sizes[0], dst_type, 0, DATA_TENSOR, dst_syn_type}};
   if (is_amax) {
     output_attrs.push_back({out_sizes[1], at::ScalarType::Float, 1});
   }
@@ -692,12 +696,12 @@ void Fp8Layernorm::AddNode(
   float eps = static_cast<float>(stack[3].toDouble());
   auto scale = stack[4].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[5].toBool();
-  auto dst_type = at::ScalarType::Char;
   auto sizes = self.sizes();
   auto out = stack_tensor(stack, 6);
   auto mean = stack_tensor(stack, 7);
   auto istd = stack_tensor(stack, 8);
   auto amax = stack_tensor(stack, 9);
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
 
   bool is_amax = amax.numel() != 0;
 
@@ -716,7 +720,7 @@ void Fp8Layernorm::AddNode(
     syn_inputs.push_back(syn_in(3));
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {sizes, dst_type, 0, DATA_TENSOR, fp8_syn_type},
+      {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
       {mean.sizes(), at::ScalarType::Float, 1},
       {istd.sizes(), at::ScalarType::Float, 2}};
   if (is_amax) {
@@ -1219,26 +1223,21 @@ void InPlaceInterleave::AddNode(
   StackGetter stackGetter(stack, "InPlaceInterleave::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto shape = self.pt_t.sizes().vec();
+  auto [dst_type, dst_syn_type] = GetFp8Dtypes(self.pt_t.scalar_type());
   TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
   TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
   auto dtype = self.pt_t.scalar_type();
-  TORCH_CHECK(
-      dtype == c10::ScalarType::Char || dtype == c10::ScalarType::BFloat16,
-      "Input has to be bfloat16 or float8 dtype");
 
-  std::string guid_suffix;
-  if (dtype == c10::ScalarType::BFloat16) {
-    guid_suffix = "bf16";
-  } else {
-    guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
-  }
+  std::string guid_suffix =
+      synapse_helpers::graph::name_suffix_from_type(dst_syn_type).data();
+  std::cout << "=== guid suffix " << guid_suffix << std::endl;
   auto output = BuildNode(
       this,
       graph,
       {"in_place_interleave_fwd_" + guid_suffix,
        {self.syn_t},
-       {{shape, dtype, 0}}});
+       {{shape, dst_type, 0}}});
 
   syn_out(0) = std::move(output[0]);
 }

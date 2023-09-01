@@ -6599,15 +6599,17 @@ std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
     const c10::optional<at::Tensor>& scale,
     double softmax_scale,
     bool stochastic_rounding,
-    bool is_amax) {
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
   PT_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::fp8_fast_softmax",
-      {input, mask, scale, softmax_scale, stochastic_rounding, is_amax},
+      {input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype},
       {input.sizes().vec(), amax_size}};
-  hpu_op.set_scalar_types({c10::ScalarType::Char, c10::ScalarType::Float});
+  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
+  hpu_op.set_scalar_types({out_dtype, c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_fast_softmax, hpu_op)
 }

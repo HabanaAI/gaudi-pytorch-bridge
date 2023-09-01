@@ -12,11 +12,14 @@
 
 import pytest
 import torch
-from test_utils import compare_tensors
+from test_utils import compare_tensors, is_gaudi1
+from fp8_utils import dtype_from_string, check_native_fp8, FP8_NAMES
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
 dtypes = [torch.float, torch.bfloat16, torch.int]
+if not is_gaudi1():
+    dtypes = dtypes + FP8_NAMES
 
 
 @pytest.mark.parametrize("shape", shapes)
@@ -24,10 +27,20 @@ dtypes = [torch.float, torch.bfloat16, torch.int]
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("modify_view", [True, False])
 def test_hpu_squeeze(shape, dims, dtype, modify_view):
+    check_native_fp8(dtype)
+    is_fp8 = dtype in FP8_NAMES
+    dtype = dtype_from_string(dtype)
+
     input = (torch.randn(shape) * 5.0).to(dtype)
     input_hpu = input.to("hpu")
     result = torch.squeeze(input, dims)
     result_hpu = torch.squeeze(input_hpu, dims)
+
+    if is_fp8:
+        result = result.float()
+        input = input.float()
+        result_hpu = result_hpu.float()
+        input_hpu = input_hpu.float()
 
     if modify_view:
         result.add_(1)
@@ -44,12 +57,22 @@ def test_hpu_squeeze(shape, dims, dtype, modify_view):
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("modify_view", [True, False])
 def test_hpu_squeeze_dim0(dtype, modify_view):
+    check_native_fp8(dtype)
+    is_fp8 = dtype in FP8_NAMES
+    dtype = dtype_from_string(dtype)
+
     shape = (1,)
     dims = (0,)
     input = (torch.randn(shape) * 5.0).to(dtype)
     input_hpu = input.to("hpu")
     result = torch.squeeze(input, dims)
     result_hpu = torch.squeeze(input_hpu, dims)
+
+    if is_fp8:
+        result = result.float()
+        input = input.float()
+        result_hpu = result_hpu.float()
+        input_hpu = input_hpu.float()
 
     if modify_view:
         result.add_(1)

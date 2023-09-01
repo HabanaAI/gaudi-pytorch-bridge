@@ -19,7 +19,7 @@ from fp8_utils import (
     FP8_MAX,
     FP8_NAMES,
 )
-from test_utils import is_gaudi1
+from test_utils import is_gaudi1, compare_tensors
 import habana_frameworks.torch.core as htcore
 
 # Disable dynamic shapes
@@ -34,6 +34,43 @@ pytestmark = [
         reason="Native fp8 types are not supported in pytorch package.",
     ),
 ]
+
+
+@pytest.mark.parametrize("shape", [(64, 48)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("out_dtype", FP8_NAMES)
+def test_cast_to_fp8(shape, dtype, out_dtype):
+    out_dtype = dtype_from_string(out_dtype)
+    torch.manual_seed(12345)
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+    full_shape = (shape[0] * 2, shape[1])
+
+    scale = torch.tensor(1.3, dtype=torch.float)
+    scale_inv = scale.reciprocal()
+    scaled_input_low_precision = simulateFp8Precision(
+        input * scale.to(dtype), out_dtype
+    )
+    unscaled_input = scaled_input_low_precision * scale_inv.to(dtype)
+
+    scale_hpu = scale.to(hpu)
+    scale_inv_hpu = scale_inv.to(hpu)
+    casted = torch.empty(
+        input.shape,
+        dtype=out_dtype,
+        device=hpu,
+    )
+    amax = torch.tensor(0, dtype=torch.float).to("hpu")
+    torch.ops.hpu.cast_to_fp8(
+        input.to(hpu), scale_hpu, False, casted, amax
+    )
+    uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv_hpu, dtype)
+
+    assert torch.equal(uncasted.cpu(), unscaled_input)
+
+    assert amax.cpu() == torch.max(input.abs())
 
 
 @pytest.mark.parametrize("shape", [(64, 48)])
@@ -381,3 +418,60 @@ def test_fp8_gemm_v2(
         (((result - result_ref) / result_ref) * 100).to(torch.int)
     )
     assert np.amax(percentage_diff.numpy()) <= 15
+
+
+@pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16] + FP8_NAMES
+)
+def test_in_place_interleave(shape, dtype):
+    dtype = dtype_from_string(dtype)
+    torch.manual_seed(12345)
+    input = torch.randn(shape, dtype=torch.bfloat16) * 10.0
+    input_hpu = input.to("hpu")
+    if dtype != torch.bfloat16:
+        input_hpu, _ = torch.ops.hpu.cast_to_fp8_v2(input_hpu, None, False, False, dtype)
+        input = simulateFp8Precision(input, dtype)
+
+    indices = []
+    for i in range(int(shape[0] / 4)):
+        indices += [i] * 4
+    index = torch.tensor(indices)
+
+    torch.ops.hpu.in_place_interleave_(input_hpu)
+
+    if dtype != torch.bfloat16:
+        input_hpu = torch.ops.hpu.cast_from_fp8(input_hpu, None, torch.bfloat16)
+
+    output_ref = torch.index_select(input, 0, index)
+
+    assert torch.equal(input_hpu.cpu(), output_ref)
+
+
+@pytest.mark.parametrize("N, C, H, W", [(8,3,28,28), (4, 6, 16, 16)])
+@pytest.mark.parametrize("out_channels", [16])
+@pytest.mark.parametrize("kernel", [(2, 2), (4, 6)])
+@pytest.mark.parametrize("stride", [(1, 1), (2, 2)])
+@pytest.mark.parametrize("padding", [(0, 0), (1, 1)])
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("fp8_dtype", FP8_NAMES)
+def test_conv2d_fp8(
+    N, C, H, W, out_channels, kernel, stride, padding, bias, out_dtype, fp8_dtype
+):
+    fp8_dtype = dtype_from_string(fp8_dtype)
+    torch.manual_seed(12345)
+
+    input_cpu = torch.randn((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+    input_hpu = input_cpu.to("hpu").to(fp8_dtype)
+
+    weight_cpu = torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+    weight_hpu = weight_cpu.to("hpu").to(fp8_dtype)
+
+    bias_cpu = torch.rand(out_channels, dtype=out_dtype).to(fp8_dtype).to(out_dtype) if bias else None
+    bias_hpu = bias_cpu.to("hpu") if bias else None
+
+    conv = torch.ops.hpu.conv2d_fp8(input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype)
+    conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, bias_cpu, stride, padding, 1, 1)
+
+    compare_tensors(conv, conv_ref, atol=1e-2, rtol=1e-2)

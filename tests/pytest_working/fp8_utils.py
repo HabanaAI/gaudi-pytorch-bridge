@@ -62,8 +62,12 @@ FP8_MAX_143 = torch.tensor(240 * 0.9, dtype=torch.float)
 FP8_MAX = {"152": FP8_MAX_152, "143": FP8_MAX_143}
 
 
+def variant_from_dtype(dtype):
+    return "152" if (dtype is None or dtype is torch.float8_e5m2) else "143"
+
+
 def simulateFp8Precision(input, out_dtype=None):
-    variant = "143" if out_dtype == torch.float8_e4m3fn else "152"
+    variant = variant_from_dtype(out_dtype)
     dtype = input.dtype
     if dtype == torch.float:
         int_type = torch.int
@@ -92,7 +96,7 @@ def dtype_from_string(dtype):
         return torch.float8_e4m3fn
     if dtype == "152":
         return torch.float8_e5m2
-    return None
+    return dtype
 
 
 def check_native_fp8(dtype):
