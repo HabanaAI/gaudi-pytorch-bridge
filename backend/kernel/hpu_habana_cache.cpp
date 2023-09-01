@@ -111,6 +111,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     const std::string& op_strs)
     : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
   hash_code = graph_hash_code;
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, perm_hash_code);
   graph_with_permute_hash_code = hash_code;
@@ -130,6 +132,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, perm_hash_code);
   dynamic_hash_code = hash_code;
@@ -152,6 +156,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   ComputeH2DHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, h2d_hash_code);
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, perm_hash_code);
   /*Add deterministic flag as well here*/

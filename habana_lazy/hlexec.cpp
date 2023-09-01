@@ -625,6 +625,8 @@ size_t HlExec::GetGraphIndex(
     return visualize::GetGraphIndex(hash);
   }
 
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash = at::hash_combine(hash, sym_hash_code);
   auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   hash = at::hash_combine(hash, perm_hash_code);
 

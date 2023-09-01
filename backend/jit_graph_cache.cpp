@@ -182,6 +182,8 @@ void ComputeGraphHashCode(
       }
     }
   }
+  size_t sym_hash = habana::ComputeSymSizeHashCode(input_refs);
+  graphHashCode = at::hash_combine(graphHashCode, sym_hash);
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
   graphHashCode = at::hash_combine(graphHashCode, constid_hash);
@@ -214,6 +216,36 @@ size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
     cnt++;
   }
   return perm_hash_code;
+}
+
+size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
+  size_t sym_hash_code = 0;
+  uint32_t cnt = 0;
+  for (auto& input : input_refs) {
+    if (!input.isTensor()) {
+      // Add the hashing for SymInts/SymFloats
+      auto scalar_input = input.toScalar();
+      size_t symsize_hash{0};
+      if (input.isInt()) {
+        auto value = input.toScalar().toInt();
+        std::hash<int> valhash;
+        symsize_hash = at::hash_combine(symsize_hash, valhash(value));
+      } else if (input.isBool()) {
+        auto value = input.toScalar().toBool();
+        symsize_hash = at::hash_combine(symsize_hash, value);
+      } else if (input.isDouble()) {
+        auto value = input.toScalar().toDouble();
+        std::hash<double> valhash;
+        symsize_hash = at::hash_combine(symsize_hash, valhash(value));
+      } else {
+        HABANA_ASSERT("Unhandled Scalar");
+      }
+      sym_hash_code = at::hash_combine(sym_hash_code, cnt);
+      sym_hash_code = at::hash_combine(sym_hash_code, symsize_hash);
+    }
+    cnt++;
+  }
+  return sym_hash_code;
 }
 
 OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData() {}
@@ -313,6 +345,7 @@ void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   new_positions.clear();
   is_in_graph_outputs.clear();
   is_control_edge_processing_required = false;
+  set_jit_cached_graph_info_available_flag(false);
 }
 
 void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {

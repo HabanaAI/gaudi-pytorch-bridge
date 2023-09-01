@@ -79,7 +79,7 @@ GraphExec::GraphExec(
 
   RunGraphPasses(example_inputs);
   LogRecipeInfo(example_inputs);
-
+  PT_DYNAMIC_SHAPE_DEBUG("Is Dynamic Graph = ", IsDynamicGraph());
   torch::jit::Stack in_stack = example_inputs;
   if (IsDynamicGraph()) {
     ProcessDynamicGraph(example_inputs);

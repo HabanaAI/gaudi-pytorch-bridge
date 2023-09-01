@@ -3516,8 +3516,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors(rv);
   }
-
-  hbLaunchOp->CreateStaticCompilationDBI(graph_key_with_perm);
+  if (habana_helpers::GetRefineDynamicShapeStatus()) {
+    hbLaunchOp->CreateStaticCompilationDBI(graph_key_with_perm);
+  }
 
   // Update the stack from the recipe itself
   hbLaunchOp->UpdateOutputs(rv);
@@ -3599,6 +3600,8 @@ void HabanaLaunchOpPT::run(
 
   // Check whether dynamic shape is needed
   size_t graph_key_with_perm = graph_key_;
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  graph_key_with_perm = at::hash_combine(graph_key_with_perm, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
   graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
 
@@ -3964,9 +3967,6 @@ void HabanaLaunchOpPT::run(
         "\nStarting dynamic shape flow");
 
     jit_graph_and_meta_data_->clear_cached_graph_info();
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(
-        false); // Disable Optimized Lowering based on Cached precalculated
-                // graph information.
     ProcessHabanaFusedOpWithDS();
     return;
   }
@@ -3976,7 +3976,7 @@ void HabanaLaunchOpPT::run(
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
 
-  if (!eager_mode && refine_ds_enabled_) {
+  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
     CreateStaticCompilationDBI(graph_key_with_perm);
   }
 
