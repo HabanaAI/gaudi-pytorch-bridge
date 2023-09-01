@@ -228,21 +228,41 @@ bool handle_bool_mask_indices(
       indices_in_ivals_vec.push_back(c10::IValue(o1.value()));
     } else if (o1.has_value() && o1->defined()) {
       if (o1.value().scalar_type() == c10::ScalarType::Bool) {
-        has_bool_mask = true;
-        auto nonzero_indices = at::nonzero(o1.value());
-        t_nz = at::squeeze(nonzero_indices, 1);
-        if (t_nz.dim() > 1) {
-          std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
-          c10::IntArrayRef dims_sz(dims_sz_vec);
-          auto nz_indices = at::split_with_sizes(t_nz, dims_sz, 1);
-          for (auto i : c10::irange((int)nz_indices.size())) {
-            auto nzi = at::squeeze(nz_indices.at(i), 1).contiguous();
-            bool_indices_vec.emplace_back(nzi);
-            indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+          has_bool_mask = true;
+          auto nonzero_indices = habana_lazy::nonzero_hpu_lazy(o1.value());
+          t_nz = habana_lazy::squeeze_hpu_lazy(nonzero_indices, 1);
+          if (t_nz.dim() > 1) {
+            std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+            c10::IntArrayRef dims_sz(dims_sz_vec);
+            auto nz_indices =
+                habana_lazy::split_with_sizes_hpu_lazy(t_nz, dims_sz, 1);
+            for (auto i : c10::irange((int)nz_indices.size())) {
+              auto nzi = habana_lazy::squeeze_hpu_lazy(nz_indices.at(i), 1);
+              bool_indices_vec.emplace_back(nzi);
+              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+            }
+          } else {
+            bool_indices_vec.emplace_back(t_nz);
+            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
           }
         } else {
-          bool_indices_vec.emplace_back(t_nz);
-          indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
+          has_bool_mask = true;
+          auto nonzero_indices = at::nonzero(o1.value());
+          t_nz = at::squeeze(nonzero_indices, 1);
+          if (t_nz.dim() > 1) {
+            std::vector<int64_t> dims_sz_vec(t_nz.sizes()[1], 1);
+            c10::IntArrayRef dims_sz(dims_sz_vec);
+            auto nz_indices = at::split_with_sizes(t_nz, dims_sz, 1);
+            for (auto i : c10::irange((int)nz_indices.size())) {
+              auto nzi = at::squeeze(nz_indices.at(i), 1).contiguous();
+              bool_indices_vec.emplace_back(nzi);
+              indices_in_ivals_vec.emplace_back(c10::IValue(nzi));
+            }
+          } else {
+            bool_indices_vec.emplace_back(t_nz);
+            indices_in_ivals_vec.emplace_back(c10::IValue(t_nz));
+          }
         }
       } else {
         bool_indices_vec.emplace_back(o1.value());
