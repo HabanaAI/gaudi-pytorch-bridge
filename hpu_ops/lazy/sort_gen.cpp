@@ -16,7 +16,7 @@
 namespace habana {
 
 FALLBACK_CHECK(
-    SortFallbackCheck,
+    SortStableFallbackCheck,
     const at::Tensor& self,
     c10::optional<bool> stable,
     int64_t dim_,

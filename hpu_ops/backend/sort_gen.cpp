@@ -21,12 +21,14 @@ sizes_vec SortOutputShape(const at::Stack& stack) {
   return {{shape, shape}};
 }
 
-void Sort::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void SortStable::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto stable = stack.at(1).isNone() ? false : stack.at(1).toBool();
   auto dim_ = stack.at(2).isNone() ? self.dim() : stack.at(2).toInt();
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  bool largest = stack.at(3).isNone() ? false : stack.at(3).toBool();
+  bool descending = stack.at(3).isNone() ? false : stack.at(3).toBool();
   auto k = self.dim() ? self.size(dim) : 1;
 
   auto outshape = SortOutputShape(stack)[0];
@@ -39,7 +41,7 @@ void Sort::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // which is set in DS case.
   params.bsw = k;
   params.axis = get_dim_in_tpc_order(dim, self.dim());
-  params.bottomK = !largest;
+  params.bottomK = !descending;
   params.isVcData = false;
   params.isStable = stable;
 
@@ -66,4 +68,5 @@ void Sort::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(result[1]);
 }
+
 } // namespace habana

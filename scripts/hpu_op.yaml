@@ -6977,8 +6977,18 @@ sort.values_stable:
     Gaudi2: [Float, Int, BFloat16, Short, Half]
     Gaudi3: [Float, Int, BFloat16, Short, Half]
   custom_output_shape: SortOutputShape
-  fallback_check: [SortFallbackCheck, self, stable, dim, descending]
-  op_backend: Sort
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
+  op_backend: SortStable
+
+sort.stable:
+  dtypes:
+    Gaudi: [Float, Int, BFloat16, Short]
+    Gaudi2: [Float, Int, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, BFloat16, Short, Half]
+  fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
+  op_backend: SortStable
+  custom_output_shape: SortOutputShape
+  out_ids: [0, 0]
 
 trace:
   dtypes: [BFloat16, Float, Int]

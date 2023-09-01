@@ -354,8 +354,7 @@ def randngen(
     )
     return torch.normal(mean, stddev, generator=generator)
 
-
-@register_custom_decomposition(aten.sort, hpu_backend_decompositions_common)
+@register_custom_decomposition(aten.sort.default, hpu_backend_decompositions_common)
 def sort(
     a: utils.Tensor,
     dim: int = -1,
@@ -363,7 +362,6 @@ def sort(
 ) -> utils.Tuple[utils.Tensor, utils.Tensor]:
     k = a.size(dim) if a.dim() > 0 else 1
     return torch.topk(a, k, dim, descending)
-
 
 @register_custom_decomposition(
     torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common

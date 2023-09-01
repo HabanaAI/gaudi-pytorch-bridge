@@ -32,5 +32,46 @@ def test_sort(dim, descending):
         hresult1, hresult2 = compiled_fn(hx, dim, descending)
 
         assert torch.allclose(result1, hresult1.cpu(), atol = 0.001, rtol = 0.001)
-        #https://jira.habana-labs.com/browse/SW-154110
-        #assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+
+@pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
+@pytest.mark.parametrize("descending", [True, False])
+@pytest.mark.parametrize("stable", [True, False])
+def test_sort_stable(dim, descending, stable):
+        def fn(input, dim, descending, stable):
+            return input.sort(dim=dim, descending=descending, stable=stable)
+
+        # CPU
+        x = torch.randn([12, 10, 8, 6])
+        hx = x.to('hpu')
+
+        result1, result2 = fn(x, dim, descending, stable)
+
+        # HPU
+        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+        hresult1, hresult2 = compiled_fn(hx, dim, descending, stable)
+
+        assert torch.allclose(result1, hresult1.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)
+
+@pytest.mark.parametrize("dim", [-1])
+@pytest.mark.parametrize("descending", [False])
+@pytest.mark.parametrize("stable", [True])
+def test_sort_stable_bf16(dim, descending, stable):
+        def fn(input, dim, descending, stable):
+            return input.sort(dim=dim, descending=descending, stable=stable)
+
+        # CPU
+        x = torch.randn([8, 24, 24, 3], dtype=torch.bfloat16)
+        hx = x.to('hpu')
+
+        result1, result2 = fn(x, dim, descending, stable)
+
+        # HPU
+        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+        hresult1, hresult2 = compiled_fn(hx, dim, descending, stable)
+
+        assert torch.allclose(result1, hresult1.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result2, hresult2.cpu(), atol = 0.001, rtol = 0.001)

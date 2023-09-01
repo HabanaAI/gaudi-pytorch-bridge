@@ -611,3 +611,23 @@ def test_constant_pad_1d_output_preallocate():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
         grad = torch.ones_like(h_result)
         h_result.backward(grad)
+
+def test_op_sort():
+    sizes = [(2, 3), (10, 3), (5, 3)]
+
+    def raw_function(t):
+        out_hpu = torch.sort(t)
+        hpu_value0 = out_hpu[0]
+        return hpu_value0
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+
+    for s in sizes:
+        t = torch.randn(s)
+        result = raw_function(t)
+        t_h = t.to("hpu")
+        h_result = compiled_fn(t_h)
+        print(h_result.to("cpu"))
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
