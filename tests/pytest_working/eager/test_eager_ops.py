@@ -570,3 +570,24 @@ def test_sag_conv_relu_relu(setup_teardown_env_fixture):
     assert torch.allclose(hpu_out_a.to("cpu"), out_a, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_b.to("cpu"), out_b, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_c.to("cpu"), out_c, atol=0.001, rtol=0.001)
+
+def test_sag_batch_norm():
+    torch.manual_seed(0)
+
+    batch_norm_cpu = torch.nn.BatchNorm2d(num_features=4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    batch_norm_hpu = torch.nn.BatchNorm2d(num_features=4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True, device="hpu")
+
+    input1 = torch.randn((2, 4, 8, 8), dtype=torch.bfloat16)
+    input1_hpu = input1.to("hpu")
+
+    input2 = torch.randn((3, 4, 16, 16), dtype=torch.bfloat16)
+    input2_hpu = input2.to("hpu")
+
+    output1 = batch_norm_cpu(input1)
+    output2 = batch_norm_cpu(input2)
+
+    output1_hpu = batch_norm_hpu(input1_hpu)
+    output2_hpu = batch_norm_hpu(input2_hpu)
+
+    assert torch.allclose(output1_hpu.cpu(), output1, atol = 0.01, rtol = 0.01)
+    assert torch.allclose(output2_hpu.cpu(), output2, atol = 0.01, rtol = 0.01)

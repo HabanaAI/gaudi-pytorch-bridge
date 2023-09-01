@@ -733,15 +733,21 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
   if ((shape_inf_flag || enable_shape_agnostic_caching_) &&
       !op_output_shape.empty()) {
+    size_t exclude_outputs = 0;
+    if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+      exclude_outputs = op->GetSynImplicitOutputs().size();
+    }
     HABANA_ASSERT(
         habana_op->GetSynOutputs().size() ==
-            op_output_shape.GetOutputTensor().size(),
+            op_output_shape.GetOutputTensor().size() - exclude_outputs,
         "For node ",
         node->kind().toQualString(),
         "GetSynOutputs().size()=",
         habana_op->GetSynOutputs().size(),
         ", whereas GetOutputTensor().size()=",
-        op_output_shape.GetOutputTensor().size());
+        op_output_shape.GetOutputTensor().size(),
+        ", GetSynImplicitOutputs().size()=",
+        exclude_outputs);
   }
 
   if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
@@ -875,7 +881,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
         // persistent intermediate synapse tensor i.e. out_tensor_syn
         if (false == isInGraphOutputs(out_val)) {
-          intermediate_syn_tensors_count++;
+          intermediate_syn_tensors_count_++;
         }
         // Add node output tinfo i.e. graph output for multiple nodes graph
         // to get shape via shape inference, for ex strided insert
@@ -883,7 +889,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         //       when adding node params patching support.
         constexpr bool use_output_shape = true;
         bool shape_agn_flag = enable_shape_agnostic_caching_ &&
-            (intermediate_syn_tensors_count > 0);
+            (intermediate_syn_tensors_count_ > 0);
         handle_shape_inf(ti, use_output_shape, shape_agn_flag);
       } else if (enable_shape_agnostic_caching_) {
         // For shape agnostic flow for eager we need non-persistent info as well
@@ -898,7 +904,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
         non_persistent_intermediate_tinfos.emplace_back(ti);
         // non-persistent intermediate synapse tensor
-        intermediate_syn_tensors_count++;
+        intermediate_syn_tensors_count_++;
       }
 
       handle_postprocess(
@@ -938,6 +944,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
       // persistent tensor which an alias of an input
       PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
+      implicit_syn_tensors_count_++;
 
       handle_permutes(ti, sh_t, ivpsh);
       constexpr bool use_output_shape = false;
@@ -1685,14 +1692,20 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
   auto output_shape_vec = output_shape_handle.GetShapeTensor();
   auto output_size = output_vec.size() + output_shape_vec.size();
 
+  size_t exclude_outputs = 0;
+  if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
+    exclude_outputs = HabanaKernel->GetSynImplicitOutputs().size();
+  }
+
   HABANA_ASSERT(
-      (syn_outputs.size() + intermediate_shape_tensor_count) == output_size,
+      (syn_outputs.size() + intermediate_shape_tensor_count) ==
+          (output_size - exclude_outputs),
       "Node: ",
       opname,
       " number of output mismatch, expected: ",
       (syn_outputs.size() + intermediate_shape_tensor_count),
       " but got: ",
-      output_size);
+      (output_size - exclude_outputs));
   // compare output shape
   size_t i = 0, j = 0;
   std::vector<int64_t> t;
@@ -1778,14 +1791,19 @@ void HabanaLaunchOpPT::validateOutputShapeNonDynamic(
   auto output_vec = output_shape_handle.GetOutputTensor();
   auto output_size = output_vec.size();
 
+  size_t exclude_outputs = 0;
+  if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
+    exclude_outputs = HabanaKernel->GetSynImplicitOutputs().size();
+  }
+
   HABANA_ASSERT(
-      syn_outputs.size() == output_size,
+      syn_outputs.size() == (output_size - exclude_outputs),
       "Node: ",
       opname,
       " number of output mismatch, expected: ",
       syn_outputs.size(),
       " but got: ",
-      output_size);
+      (output_size - exclude_outputs));
   // compare output shape
   size_t j = 0;
   std::vector<int64_t> t;
@@ -3804,7 +3822,7 @@ void HabanaLaunchOpPT::run(
       if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported() &&
           ((syn_graph_ptr_->get_num_of_tensors() -
             syn_graph_ptr_->get_num_of_const_tensors()) !=
-           pt_to_synapse_tensors.size())) {
+           (pt_to_synapse_tensors.size() + implicit_syn_tensors_count_))) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
         PT_EAGER_DEBUG(
             "[SHAPE AGNOSTIC] Shape agnostic not supported for non-persistent"
@@ -3814,6 +3832,8 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr_->get_num_of_const_tensors(),
             " number of persistent tensors : ",
             pt_to_synapse_tensors.size(),
+            " number implicit tensors : ",
+            implicit_syn_tensors_count_,
             " number of syn nodes : ",
             syn_graph_ptr_->get_num_of_nodes());
       }
@@ -3822,8 +3842,8 @@ void HabanaLaunchOpPT::run(
           "[SHAPE AGNOSTIC] Shape agnostic SIF tinfo map size : ",
           sif_tidx_to_tinfo_map.size(),
           " intermediate tensors size : ",
-          intermediate_syn_tensors_count);
-      syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count);
+          intermediate_syn_tensors_count_);
+      syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
       if (eager_mode &&
           !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&

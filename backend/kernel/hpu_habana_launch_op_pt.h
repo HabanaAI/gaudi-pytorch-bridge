@@ -366,7 +366,11 @@ class HabanaLaunchOpPT {
 
   // Count for intermediate synapse tensors in a graph
   // intermediates syn tensors can be both persistent and non-persistent
-  int64_t intermediate_syn_tensors_count{0};
+  int64_t intermediate_syn_tensors_count_{0};
+
+  // Count for implicit synapse tensors which are duplicate to inputs
+  // and are persistent and not present in pt_to_synapse_tensors map
+  int64_t implicit_syn_tensors_count_{0};
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
