@@ -442,9 +442,12 @@ def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
             fake_mode = torch._subclasses.FakeTensorMode()
             fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
 
-    LegacyTensorInfoPropagation(
-        ctx.graph_module, fakemode_already_enabled, fake_mode
-    ).propagate(*fake_inputs)
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
+        # Disabling autocast in fake tensor propagation as autocasting has been
+        # already done and all dtypes has been already deduced.
+        LegacyTensorInfoPropagation(
+            ctx.graph_module, fakemode_already_enabled, fake_mode
+        ).propagate(*fake_inputs)
 
     return True
 
