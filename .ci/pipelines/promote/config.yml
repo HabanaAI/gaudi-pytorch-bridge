@@ -51,8 +51,6 @@ orchestratorConfig:
   - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_resnet50_suite
   - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bloom7b_suite
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_ci_container
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards_container
-    silentMode: true
   sanitizerConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   codeCoverageConfig:
