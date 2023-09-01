@@ -1246,7 +1246,7 @@ run_pytorch_modules_tests()
     local __pytorch_modules_tests_exe="python -m pytest"
     local __cpp_tests_exe="$PYTORCH_MODULES_RELEASE_BUILD/test_pt_integration"
     local __cpp_tests_exe_eager="$PYTORCH_MODULES_RELEASE_BUILD/test_pt2_integration"
-    local __pt_major_version=`python -m pip list | grep  "^torch\s" | tr -s [:space:] | cut -d ' ' -f 2 | cut -d '.' -f 1`
+    local __pt_major_version=$(python -m pip list | grep  "^torch\s" | tr -s '[:space:]' | cut -d ' ' -f 2 | cut -d '.' -f 1)
     local __scriptname=$(__get_func_name)
     local __xml="test_detail.xml"
     local __ld_lib="$BUILD_ROOT_RELEASE"
