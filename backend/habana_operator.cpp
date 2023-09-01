@@ -230,22 +230,6 @@ std::vector<int64_t> habana::HabanaOperator::CalculateStrides(
   return result;
 }
 
-void habana::HabanaOperator::CreateGraphAndCompile(
-    size_t key,
-    const std::vector<at::Tensor>& inputs,
-    torch::jit::Stack& stack,
-    OutputMetaDataVector& output_meta_data,
-    bool is_persistent) {
-  PT_KERNEL_DEBUG("key:", key);
-  //
-  // Create Graph
-  auto graph = habana_helpers::create_graph(
-      p_context_->device_id_, p_context_->node_type_);
-  AllocateSynapseInputs(graph, inputs, is_persistent);
-  AllocateAndAddSynapseNode(graph, stack, output_meta_data);
-  Compile(graph);
-}
-
 namespace {
 struct ResourceHolder {
   std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;

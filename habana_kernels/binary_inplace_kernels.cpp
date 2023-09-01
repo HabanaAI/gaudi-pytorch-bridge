@@ -364,36 +364,6 @@ habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperator::
   return out;
 }
 
-/************************************************************************
- * @brief Generic wrapper for all Eager mode Binary OP invocations that
- * are inplace
- ************************************************************************/
-template <class BinaryInplaceOp>
-void process_generic_tensor_inplace_binary_op(
-    const std::vector<at::Tensor>& pt_inputs,
-    torch::jit::Stack& stack,
-    const std::string& node_guid) {
-  size_t device_id = pt_inputs[0].device().index();
-  at::ScalarType scalar_type = pt_inputs[0].scalar_type();
-  std::string node_type =
-      habana::get_guid_with_precision(node_guid + "_fwd", scalar_type);
-
-  auto& device = habana::HPURegistrar::get_device(device_id);
-  BinaryInplaceOp Op(device_id, scalar_type);
-
-  size_t key = Op.GetRecipeKey(node_type, stack, true);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    auto patch_output = pt_inputs[0];
-    Op.Execute(key, pt_inputs, patch_output);
-  } else {
-    // both inputs are not required, just to match graph mode stack
-    habana::OutputMetaDataVector output_metadata(1);
-    output_metadata.at(0).persistent = true;
-    Op.CreateGraphAndCompile(key, pt_inputs, stack, output_metadata, true);
-  }
-}
-
 void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

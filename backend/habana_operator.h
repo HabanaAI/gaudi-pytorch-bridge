@@ -324,13 +324,6 @@ class HabanaOperator {
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);
 
-  virtual void CreateGraphAndCompile(
-      size_t key,
-      const std::vector<at::Tensor>& inputs,
-      torch::jit::Stack& stack,
-      OutputMetaDataVector& output_meta_data,
-      bool is_persistent);
-
   virtual void Execute(size_t key);
   virtual void Execute(size_t key, const std::vector<at::Tensor>& inputs);
   virtual void Execute(
