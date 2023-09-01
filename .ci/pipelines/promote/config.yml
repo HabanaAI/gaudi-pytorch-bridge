@@ -14,6 +14,8 @@ orchestratorConfig:
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_container
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_promote
+    silentMode: true
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed
   - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
