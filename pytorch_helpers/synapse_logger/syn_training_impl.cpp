@@ -86,6 +86,7 @@ SYN_API_PTR(synGraphCompile);
 SYN_API_PTR(synGraphCreate);
 SYN_API_PTR(synGraphCreateEager);
 SYN_API_PTR(synGraphSetAttribute);
+SYN_API_PTR(synGraphGetAttribute);
 SYN_API_PTR(synGraphDuplicate);
 SYN_API_PTR(synGraphDestroy);
 SYN_API_PTR(synMemsetD32Async);
@@ -189,6 +190,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synGraphCreate);
   SYN_API_INIT_PTR(synGraphCreateEager);
   SYN_API_INIT_PTR(synGraphSetAttribute);
+  SYN_API_INIT_PTR(synGraphGetAttribute);
   SYN_API_INIT_PTR(synGraphDuplicate);
   SYN_API_INIT_PTR(synGraphDestroy);
   SYN_API_INIT_PTR(synMemsetD32Async);
@@ -1389,6 +1391,19 @@ synStatus SYN_API_CALL synGraphSetAttribute(
   API_LOG_CALL(ARG(GraphHandle), ARG(attributes), ARG(values), ARG(size));
   synStatus status =
       lib_synapse::synGraphSetAttribute(GraphHandle, attributes, values, size);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synGraphGetAttribute(
+    synGraphHandle GraphHandle,
+    const synGraphAttribute* attributes,
+    uint64_t* values,
+    const uint32_t size) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(GraphHandle), ARG(attributes), ARG(values), ARG(size));
+  synStatus status =
+      lib_synapse::synGraphGetAttribute(GraphHandle, attributes, values, size);
   API_LOG_RESULT();
   return status;
 }

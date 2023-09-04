@@ -19,6 +19,7 @@
 namespace habana_helpers {
 bool enable_inference_mode{GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE)};
 
+bool enable_quantization = false;
 // if a proper path is set,const section serialization will be enabled.
 std::string const_section_serialize_path = "";
 // if true, remove all existingconst section files in given path.
@@ -30,6 +31,18 @@ void EnableInferenceMode() {
 
 void DisableInferenceMode() {
   enable_inference_mode = false;
+}
+
+void EnableQuantization() {
+  enable_quantization = true;
+}
+
+void DisableQuantization() {
+  enable_quantization = false;
+}
+
+bool IsQuantizationEnabled() {
+  return enable_quantization;
 }
 
 void EnableConstSectionSerialization(const char* path, bool clear_path) {

@@ -19,8 +19,13 @@ namespace habana_helpers {
 
 void EnableInferenceMode();
 void DisableInferenceMode();
-void EnableConstSectionSerialization(const char* path, bool clear_path);
 bool IsInferenceMode();
+
+void EnableQuantization();
+void DisableQuantization();
+bool IsQuantizationEnabled();
+
+void EnableConstSectionSerialization(const char* path, bool clear_path);
 bool IsConstSectionSerialization();
 std::string GetConstSectionSerializationPath();
 bool ShouldClearConstSectionPath();

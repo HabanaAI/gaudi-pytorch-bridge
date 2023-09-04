@@ -107,6 +107,12 @@ def _check_params_as_const(model=None) -> None:
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
 
+def _set_quantization_attributes(model):
+    if "HB_QUANTIZATION" in model._buffers and \
+        "quantization" in model._buffers["HB_QUANTIZATION"] and \
+        model._buffers["HB_QUANTIZATION"]["quantization"] == True :
+            hpu.enable_quantization()
+
 _set_env = 1
 def hpu_set_env():
     global _set_env
@@ -122,6 +128,7 @@ def hpu_initialize(model=None, optimizer=None, args=None):
     if model is not None:
         #_mark_params_as_const(model=model)
         _read_min_max_overwrite()
+        _set_quantization_attributes(model)
         with _e_handler():
             _handle_quant_stats(model)
 

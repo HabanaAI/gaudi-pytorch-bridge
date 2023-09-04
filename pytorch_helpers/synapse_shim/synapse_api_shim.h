@@ -55,6 +55,7 @@
   visitor(synGraphCreate);                     \
   visitor(synGraphCreateEager);                \
   visitor(synGraphSetAttribute);               \
+  visitor(synGraphGetAttribute);               \
   visitor(synGraphDuplicate);                  \
   visitor(synGraphDestroy);                    \
   visitor(synMemsetD32Async);                  \

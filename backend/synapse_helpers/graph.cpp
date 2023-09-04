@@ -133,9 +133,11 @@ graph graph::create(
 
     if (habana_helpers::IsInferenceMode()) {
       synStatus status = synSuccess;
-      uint64_t values[] = {true};
-      synGraphAttribute att[] = {GRAPH_ATTRIBUTE_INFERENCE};
-      const uint32_t size = 1;
+      bool quantizationEnabled = habana_helpers::IsQuantizationEnabled();
+      uint64_t values[] = {true, quantizationEnabled};
+      synGraphAttribute att[] = {
+          GRAPH_ATTRIBUTE_INFERENCE, GRAPH_ATTRIBUTE_QUANTIZATION};
+      const uint32_t size = 2;
       status = synGraphSetAttribute(syn_graph.graph_handle_, att, values, size);
       HABANA_ASSERT(
           status == synStatus::synSuccess,

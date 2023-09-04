@@ -183,6 +183,12 @@ def enable_inference_mode():
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
+def enable_quantization():
+    _hpu_C.enable_quantization()
+
+def disable_quantization():
+    _hpu_C.disable_quantization()
+
 
 def enable_const_section_serialization(path, clear_path):
     _hpu_C.enable_const_section_serialization(str(path), clear_path)

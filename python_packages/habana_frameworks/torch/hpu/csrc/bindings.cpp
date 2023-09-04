@@ -348,6 +348,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("disable_inference_mode", []() {
     habana_helpers::DisableInferenceMode();
   });
+  m.def("enable_quantization", []() { habana_helpers::EnableQuantization(); });
+  m.def(
+      "disable_quantization", []() { habana_helpers::DisableQuantization(); });
   m.def("record_stream", [](at::Tensor tensor, HPUStream stream) {
     habana::HPUDeviceAllocator::recordStream(
         tensor.storage().data_ptr(), stream);
