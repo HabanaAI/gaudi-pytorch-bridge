@@ -15,7 +15,6 @@ from collections import deque
 from functools import wraps
 from os import environ, path
 from typing import Union, Optional
-from torchmetrics import Metric
 
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
@@ -179,7 +178,7 @@ def overwrite_torch_functions():
 
     @wraps(torch.nn.Module.__setattr__)
     def wrap_set_attr(self, name: str, value: Union[torch.Tensor, 'torch.nn.Module']) -> None:
-        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(value) and not isinstance(value, Metric):
+        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(value) and not isinstance(self, torch._dynamo.output_graph.FakeRootModule):
             try:
                 value.custom_name = name
                 value.register_forward_pre_hook(_pre_fwd_hook)
