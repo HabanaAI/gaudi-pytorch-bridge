@@ -32,7 +32,7 @@ int64_t HcclCommunicator::GetSize() const {
 }
 
 HcclCommunicator::~HcclCommunicator() {
-  PT_LAZY_DEBUG("HcclCommunicator destroy. id = ", id_);
+  PT_DISTRIBUTED_DEBUG("HcclCommunicator destroy. id = ", id_);
   if (hccl_handle_) {
     auto status = hcclCommDestroy(*hccl_handle_);
     HABANA_ASSERT(
@@ -98,6 +98,26 @@ int HcclCommunicator::Count() {
   return HcclCommunicator::next_id_;
 }
 
+void HcclCommunicator::FlushAllStreams() {
+  const int hccl_comms_num = habana::HcclCommunicator::Count();
+  PT_DISTRIBUTED_DEBUG("Stream flushing: HCCL comms count: ", hccl_comms_num);
+
+  for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num; hccl_comm_id++) {
+    std::shared_ptr<habana::HcclCommunicator> hccl_comm =
+        habana::HcclCommunicator::Get(hccl_comm_id);
+
+    if (hccl_comm) {
+      PT_DISTRIBUTED_DEBUG(
+          "Stream flushing for HCCL comm with id=", hccl_comm_id);
+      hccl_comm->flush_stream();
+    } else {
+      PT_DISTRIBUTED_DEBUG(
+          "Stream flushing skipped, HCCL comm with given id has been already destroyed, id=",
+          hccl_comm_id);
+    }
+  }
+}
+
 HcclCommunicator::HcclCommunicator(
     int64_t id,
     int rank,
@@ -111,7 +131,7 @@ HcclCommunicator::HcclCommunicator(
 
 void HcclCommunicator::Init() {
   hcclUniqueId hccl_id;
-  PT_LAZY_DEBUG("HcclCommunicator init. id = ", id_);
+  PT_DISTRIBUTED_DEBUG("HcclCommunicator init. id = ", id_);
   if (rank_ == 0) {
     hcclResult_t result{hcclGetUniqueId(&hccl_id)};
     HABANA_ASSERT(hcclSuccess == result && "Get HCCL UniqueId Error");
