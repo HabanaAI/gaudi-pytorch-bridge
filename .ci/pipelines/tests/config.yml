@@ -37,6 +37,11 @@ testJobConfig:
       gaudi:
         hwType:
           asic:
+  topology_group_1:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
   perf:
     devices:
       gaudi2:

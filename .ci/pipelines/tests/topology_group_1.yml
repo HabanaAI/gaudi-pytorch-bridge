@@ -38,16 +38,12 @@ common:
       command: |
           pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl
 testsMap:
-  Test_pytorch_modules_gaudi2_asic_topology:
+  Test_pytorch_modules_gaudi2_asic_topology_group_1:
     dependencies:
       - TPC_FUSER
       - TPC_LLVM
     stages:
-      Run toplogy tests on gaudi2 asic:
-        filter: -t topology_ci -a smoke_gaudi2
-  Test_pytorch_modules_gaudi_asic_topology:
-    dependencies:
-      - AEON
-    stages:
-      Run toplogy tests on gaudi asic:
-        filter: -t topology_ci -a smoke
+      Run RN50 Eager bf16 1c training functional:
+        filter: -t rn50_eager_1c
+      Run RN50 Graph bf16 1c training functional:
+        filter: -t rn50_graph_1c
