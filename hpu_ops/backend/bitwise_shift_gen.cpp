@@ -28,14 +28,14 @@ static std::shared_ptr<void> FillBitwiseShiftParams(
 
 void ValidateBitwiseShiftInputShapes(const at::Stack& stack) {
   if (stack[0].isTensor() && stack[1].isTensor()) {
-    auto input_t = stack[0].toTensor();
-    auto shift_t = stack[1].toTensor();
-    auto input_t_shape = input_t.sizes().vec();
-    auto shift_t_shape = shift_t.sizes().vec();
+    auto input_t_shape = stack[0].toTensor().sizes().vec();
+    auto shift_t_shape = stack[1].toTensor().sizes().vec();
     std::reverse(input_t_shape.begin(), input_t_shape.end());
     std::reverse(shift_t_shape.begin(), shift_t_shape.end());
 
-    for (int i = 0; i < shift_t_shape.size(); i++) {
+    auto min_rank = std::min(shift_t_shape.size(), input_t_shape.size());
+
+    for (size_t i = 0; i < min_rank; i++) {
       if ((shift_t_shape[i] != 1) && (input_t_shape[i] != 1)) {
         TORCH_CHECK(
             shift_t_shape[i] == input_t_shape[i],
@@ -48,7 +48,7 @@ void ValidateBitwiseShiftInputShapes(const at::Stack& stack) {
       }
     }
   } else {
-    PT_BRIDGE_WARN("BitwiseShift Ops inputs are not tensors!!");
+    PT_BRIDGE_WARN("BitwiseShift Ops inputs are not tensors!");
   }
 }
 
