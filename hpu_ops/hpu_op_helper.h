@@ -117,7 +117,7 @@ inline std::string& update_guid_dtype(
 
 inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
   auto dim = at::maybe_wrap_dim(dim_, max_dims, /*wrap_scalar=*/true);
-  return static_cast<int>(max_dims - dim - 1);
+  return std::max(static_cast<int>(max_dims - dim - 1), 0);
 }
 
 std::vector<at::Tensor> GetMetaTensorList(
