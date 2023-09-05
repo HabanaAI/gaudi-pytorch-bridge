@@ -5,12 +5,12 @@ orchestratorConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
 # PyTorch full graph tests
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_hls_asic_perf
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_perf
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_sbs
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_sbs
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_asic_topology
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_sbs
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_sbs
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
     silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology
