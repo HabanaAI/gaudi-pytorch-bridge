@@ -110,24 +110,37 @@ static std::shared_ptr<void> FillConvolutionBackwardOverrideableParams(
   }
 }
 
+static OutputMetaData CreateMetaData(
+    const at::Tensor& input,
+    const c10::List<bool>& output_mask_in,
+    const int index) {
+  OutputMetaData meta;
+
+  meta.shape = input.sizes().vec();
+  meta.dtype = input.scalar_type();
+  meta.mem_format = input.suggest_memory_format();
+  meta.undefined = output_mask_in.size() && !output_mask_in.get(index);
+
+  return meta;
+}
+
 OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
   auto grad_output = stack_tensor(stack, 0);
   auto input = stack_tensor(stack, 1);
   auto weight = stack_tensor(stack, 2);
+  auto output_mask_in = c10::List<bool>();
 
-  OutputMetaData input_meta;
-  input_meta.shape = input.sizes().vec();
-  input_meta.dtype = input.scalar_type();
-  input_meta.mem_format = input.suggest_memory_format();
+  auto elem = stack.at(9);
+  if (!elem.isBoolList())
+    elem = stack.at(10);
+  if (elem.isBoolList())
+    output_mask_in = elem.toBoolList();
 
-  OutputMetaData weight_meta;
-  weight_meta.shape = weight.sizes().vec();
-  weight_meta.dtype = weight.scalar_type();
-  weight_meta.mem_format = weight.suggest_memory_format();
-
-  OutputMetaData grad_output_meta;
-  grad_output_meta.shape = std::vector<int64_t>{grad_output.sizes().vec()[1]};
-  grad_output_meta.dtype = grad_output.scalar_type();
+  OutputMetaData input_meta = CreateMetaData(input, output_mask_in, 0);
+  OutputMetaData weight_meta = CreateMetaData(weight, output_mask_in, 1);
+  OutputMetaData grad_output_meta =
+      CreateMetaData(grad_output, output_mask_in, 2);
+  grad_output_meta.shape = std::vector<int64_t>{grad_output_meta.shape[1]};
   grad_output_meta.mem_format = at::MemoryFormat::Contiguous;
 
   return {input_meta, weight_meta, grad_output_meta};

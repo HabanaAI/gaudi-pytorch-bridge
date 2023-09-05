@@ -398,6 +398,17 @@ class EagerOp : public EagerOpBase {
     });
 
     run(std::move(out_tensors));
+
+    // TODO: SW-159556 metadata processing should be in one place
+    if (m_output_meta_fn) {
+      const auto& meta = m_output_meta_fn(get_inputs());
+      habana::for_each_in_tuple_with_index(
+          result, [&](auto& result, size_t index) {
+            if (meta[index].undefined)
+              result = at::Tensor();
+          });
+    }
+
     return result;
   }
 
@@ -468,7 +479,7 @@ class EagerOp : public EagerOpBase {
             result = at::empty(
                 output_meta.shape,
                 options.dtype(output_meta.dtype),
-                at::MemoryFormat::Contiguous);
+                output_meta.mem_format);
           });
       return results;
     }

@@ -120,6 +120,13 @@ conv_transpose3d_test_case_list = [
     (1, 8, 8, 8, 320, 2, 2, 2, 256, 2, 0, 0, False),
 ]
 
+conv_bwd_with_output_mask_test_case_list = [
+    # N, H, W, C, output_mask
+    (16, 8, 6, 6, [True, True, True]),
+    (16, 8, 6, 6, [True, False, False]),
+    (16, 8, 6, 6, [False, False, False]),
+]
+
 data_type_list = [(torch.float, 0.001)]
 
 
@@ -796,6 +803,29 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
             rtol=0.01,
             equal_nan=True,
         )
+
+
+@pytest.mark.parametrize("N, H, W, C, output_mask", conv_bwd_with_output_mask_test_case_list)
+def test_hpu_conv_with_output_mask(N, H, W, C, output_mask):
+    if pytest.mode == "lazy":
+        pytest.xfail()
+
+    def check_grad(is_mask_enabled, grad, output_var_name):
+        if is_mask_enabled:
+            assert grad is not None, f"For a mask value equals to True, {output_var_name} cannot be equal to None"
+        else:
+            assert grad is None, f"For a mask value equals to False, {output_var_name} must be None"
+
+    grad_output = torch.empty(size=[N, H, W, C], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+    input = torch.empty(size=[N, H, W, C], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+    weight = torch.empty(size=[H, H, W//2, C//2], dtype=torch.float32).uniform_(-1, 1).to(hpu)
+
+    grad_input, grad_weight, grad_bias = torch.ops.aten.convolution_backward(grad_output, input, weight,
+        [0], [1, 1], [1, 1], [1, 1], False, [0, 0], 1, output_mask)
+
+    check_grad(output_mask[0], grad_input, "grad_input")
+    check_grad(output_mask[1], grad_weight, "grad_weight")
+    check_grad(output_mask[2], grad_bias, "grad_bias")
 
 
 if __name__ == "__main__":
