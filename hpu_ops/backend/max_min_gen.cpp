@@ -28,8 +28,8 @@ sizes_vec MinMaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t dim = stack.at(1).toInt();
   bool keepdim = stack.at(2).toBool();
-  auto shapes = ReductionOutputShape(self, int64_t(dim), keepdim)[0];
-  return {shapes, shapes};
+  auto shape = ReductionOutputShape(self, dim, keepdim)[0];
+  return {shape, shape};
 }
 
 OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
@@ -100,9 +100,11 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   if (self.dim() == 0) {
     auto res = BuildOp(
-        graph, "memcpy", {syn_in(0)}, {{meta[0].shape, meta[0].dtype, 0}});
+        graph, "identity", {syn_in(0)}, {{meta[0].shape, meta[0].dtype, 0}});
+    auto index =
+        ConstantHelper(graph, /*val=*/0, meta[0].dtype, meta[1].shape, 1);
     syn_out(0) = std::move(res[0]);
-    syn_out(1) = std::move(res[0]);
+    syn_out(1) = std::move(index);
   } else {
     if (keepdim) {
       auto max_dim = BuildOp(
