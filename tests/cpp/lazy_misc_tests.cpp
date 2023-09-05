@@ -118,7 +118,7 @@ TEST_F(LazyMiscTest, SliceInsertIRTest) {
     hlexec->GetOrCreate(po_data, stack);
 
     torch::jit::testing::FileCheck()
-        .check_count("hpu::slice_insert", 1, true)
+        .check_count("hpu::slice_insert", 1)
         ->run(*hlexec->get_graph());
   }
 

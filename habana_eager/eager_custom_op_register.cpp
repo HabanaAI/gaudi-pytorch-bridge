@@ -699,7 +699,6 @@ at::Tensor rotary_pos_embedding(
     const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "rotary_pos_embedding :",
@@ -719,7 +718,6 @@ at::Tensor rotary_pos_embedding_backward(
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "rotary_pos_embedding_backward :", DUMP_4ARGS(grad_in, sin, cos, offset));
@@ -737,7 +735,6 @@ std::tuple<at::Tensor, at::Tensor> rms_norm(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO("rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
 
@@ -759,7 +756,6 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     const at::Tensor& inverse_rms) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
@@ -780,7 +776,6 @@ at::Tensor masked_batch_gemm(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "masked_batch_gemm :",
@@ -799,7 +794,6 @@ at::Tensor scaled_triangular_softmax(
     double inv_scale_attn,
     const c10::optional<at::Tensor>& exp_sum_recpr,
     const c10::optional<at::Tensor>& max) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "scaled_triangular_softmax :",
@@ -817,7 +811,6 @@ at::Tensor scaled_triangular_softmax(
 std::tuple<at::Tensor, at::Tensor, at::Tensor> scaled_triangular_softmax_retain(
     const at::Tensor& self,
     double inv_scale_attn) {
-  PT_OP_TRACE;
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));

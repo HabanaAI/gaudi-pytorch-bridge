@@ -92,10 +92,6 @@ class OpBackend : public HabanaOperator {
   }
 
  protected:
-  const std::unordered_map<int, at::Scalar>& ScalarInputs() const {
-    return m_scalar_inputs;
-  }
-
   std::vector<int> ScalarId() const {
     return m_scalar_ids;
   }
@@ -463,7 +459,6 @@ class OpBackend : public HabanaOperator {
   bool m_output_inf_mode = false;
   InferOutputMetaRetType m_output_inf_meta;
 
-  std::unordered_map<int, at::Scalar> m_scalar_inputs;
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;

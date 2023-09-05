@@ -6122,7 +6122,7 @@ at::Tensor roi_align_fwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::shared_ptr<LazyOp<Tensor>> cast_op_ptr;
 
@@ -6175,7 +6175,7 @@ at::Tensor roi_align_bwd_hpu_lazy(
     int sampling_ratio,
     float spatial_scale,
     bool aligned) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> out_shape = {bs, ch, h, w};
   auto input_shape = empty_hpu_lazy(
@@ -6387,7 +6387,7 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::cast_to_fp8",
@@ -6404,7 +6404,7 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::cast_to_fp8_v2",
@@ -6423,7 +6423,7 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
     at::Tensor& out,
     at::Tensor& transposed,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::fp8_cast_transpose",
@@ -6444,7 +6444,7 @@ fp8_cast_transpose_bgrad_lazy(
     at::Tensor& transposed,
     at::Tensor& bgrad,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::fp8_cast_transpose_bgrad",
@@ -6472,7 +6472,7 @@ fp8_cast_transpose_bgrad_dgelu_lazy(
     at::Tensor& transposed,
     at::Tensor& bgrad,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::fp8_cast_transpose_bgrad_dgelu",
@@ -6501,7 +6501,7 @@ at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     at::ScalarType out_dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> hpu_op{
       "hpu::cast_from_fp8", {input, scale, out_dtype}, {input.sizes().vec()}};
@@ -6516,7 +6516,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
@@ -6537,7 +6537,7 @@ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
     at::Tensor& out,
     at::Tensor& retain,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::fp8_gelu",
@@ -6555,7 +6555,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
@@ -6577,7 +6577,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> out_size = input.sizes().vec();
   std::vector<int64_t> bgrad_size{out_size[1]};
@@ -6601,7 +6601,7 @@ std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> amax_size{1};
   LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
@@ -6626,7 +6626,7 @@ fp8_layernorm_lazy(
     at::Tensor& mean,
     at::Tensor& istd,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
       "hpu::fp8_layernorm",
@@ -6663,7 +6663,7 @@ at::Tensor& fp8_gemm_lazy(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   int64_t rank = A.dim();
@@ -6703,7 +6703,7 @@ at::Tensor fp8_gemm_v2_lazy(
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> hpu_op{
@@ -6724,7 +6724,7 @@ at::Tensor fp8_gemm_v2_lazy(
 }
 
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> hpu_op{
       "hpu::fp8_transpose", {input, out}, {out.sizes().vec()}};
@@ -6735,7 +6735,7 @@ at::Tensor& fp8_permute_lazy(
     const at::Tensor& input,
     at::IntArrayRef dims,
     at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> hpu_op{
       "hpu::fp8_permute", {input, dims, out}, {out.sizes().vec()}};
@@ -6743,7 +6743,7 @@ at::Tensor& fp8_permute_lazy(
 }
 
 at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> hpu_op{"hpu::fp8_reshape", {input, shape}, {shape.vec()}};
   RUN_MAYBE_WITH_ACC_THREAD(fp8_reshape, hpu_op)
@@ -6755,7 +6755,7 @@ at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
     const at::Tensor& weight,
     ::std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   c10::optional<at::Tensor> bias_opt;
   auto bias_elem_count = output_mask[2] ? weight.sizes().vec()[0] : 1;
   std::vector<int64_t> bias_grad_sizes(1, bias_elem_count);
@@ -6841,7 +6841,7 @@ void handle_collective(const at::ITensorListRef& list) {
 }
 
 at::Tensor habana_random_seed_lazy(const at::Tensor& input) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   std::vector<int64_t> out_shape = input.sizes().vec();
   struct Kernel : public LazyOp<at::Tensor> {
@@ -6958,7 +6958,7 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_lazy(
     const at::Tensor& lengths,
     const at::Tensor& indices,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   std::vector<at::IValue> inputs = {permute, lengths, indices};
@@ -6980,7 +6980,7 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_lazy(
     const at::Tensor& lengths,
     const at::Tensor& indices,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   std::vector<at::IValue> inputs = {permute, lengths, indices};
@@ -7002,7 +7002,7 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7018,7 +7018,7 @@ at::Tensor habana_split_permute_cat_lazy(
     int64_t batch_size,
     int64_t num_features,
     int64_t dims) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7034,7 +7034,7 @@ at::Tensor _ragged_softmax(
     int64_t dim,
     bool half_to_float,
     const at::Tensor& valid_count) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "HpuOp _ragged_softmax :",
@@ -7054,7 +7054,7 @@ at::Tensor scaled_masked_softmax_lazy(
     const at::Tensor& input,
     const at::Tensor& mask,
     double scale) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7065,7 +7065,7 @@ at::Tensor scaled_masked_softmax_lazy(
 }
 
 at::Tensor custom_softmax_lazy(const at::Tensor& input, int64_t flavor) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7081,7 +7081,7 @@ habana_bounds_check_indices_lazy(
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> op{
@@ -7096,7 +7096,7 @@ habana_bounds_check_indices_lazy(
 at::Tensor optimizer_lamb_norm_hpu_lazy(
     const std::vector<at::Tensor>& grad,
     double max_grad_norm) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_lamb_norm:",
@@ -7127,7 +7127,7 @@ void optimizer_lamb_phase1(
     const at::Tensor& bias_correction1,
     const at::Tensor& bias_correction2,
     const double weight_decay) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_lamb_phase1:",
@@ -7177,7 +7177,7 @@ void optimizer_lamb_phase2(
     const at::Tensor& neg_step,
     const double weight_decay,
     const bool use_lamb) {
-  PT_OP_TRACE
+  PT_LAZY_OP_TRACE
   PT_LAZY_TRACE;
 
   PT_OP_INFO(
@@ -7211,7 +7211,7 @@ at::Tensor rotary_pos_embedding_lazy(
     const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7227,7 +7227,7 @@ at::Tensor rotary_pos_embedding_backward_lazy(
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7242,7 +7242,7 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
@@ -7263,7 +7263,7 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     const at::Tensor& inverse_rms) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
@@ -7281,7 +7281,7 @@ at::Tensor masked_batch_gemm_lazy(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> hpu_op{
@@ -7300,7 +7300,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   c10::optional<at::Tensor> seed_opt;
@@ -7328,7 +7328,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
@@ -7354,7 +7354,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor>
 scaled_triangular_softmax_retain_lazy(
     const at::Tensor& self,
     double inv_scale_attn) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   auto out_shape = self.sizes().vec();
@@ -7371,7 +7371,7 @@ scaled_triangular_softmax_retain_lazy(
 }
 
 at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> op{"hpu::fp8_copy_", {self, src}, {{self.sizes().vec()}}};
@@ -7384,7 +7384,7 @@ at::Tensor& fp8_kv_reorder_lazy(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> op{
@@ -7400,7 +7400,7 @@ at::Tensor& kv_reorder_lazy(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> op{
@@ -7414,7 +7414,7 @@ at::Tensor& fp8_index_copy_lazy(
     int64_t dim,
     const at::Tensor& index,
     const at::Tensor& source) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> op{
@@ -7428,7 +7428,7 @@ at::Tensor& fp8_index_copy_lazy(
 at::Tensor fp8_repeat_v2_lazy(
     const at::Tensor& self,
     c10::SymIntArrayRef repeats) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> hpu_op{
       "hpu::fp8_repeat_v2", {self, repeats}, Fp8RepeatV2OutputShape};
@@ -7441,7 +7441,7 @@ at::Tensor fp8_index_select_v2_lazy(
     const at::Tensor& self,
     int64_t dim,
     const at::Tensor& index) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> hpu_op{
       "hpu::fp8_index_select_v2",
@@ -7459,7 +7459,7 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
     int64_t grouped_batch_size,
     bool use_max,
     int64_t mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
@@ -7471,7 +7471,7 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
 }
 
 at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> op{

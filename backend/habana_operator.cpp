@@ -27,6 +27,7 @@
 #include "backend/synapse_helpers/tensor_builder_base.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "hpu_ops/op_logger.h"
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
@@ -831,6 +832,71 @@ habana::RegisterKernel& habana::KernelRegistry() {
 }
 
 habana::HabanaOperator::~HabanaOperator() = default;
+
+void habana::HabanaOperator::dump(
+    torch::jit::Node* node,
+    const at::Stack& stack) {
+  PT_OP_DEBUG([&]() {
+    auto stack_printer = [](const at::Stack& stack) {
+      std::ostringstream ss;
+      std::string sep = "";
+      for (const auto& s : stack) {
+        ss << sep;
+        sep = ", ";
+        if (s.isTensor())
+          ss << habana::to_string(s.toTensor());
+        else if (s.isTensorList())
+          ss << habana::to_string(s.toTensorVector());
+        else
+          ss << habana::to_string(s);
+      }
+      ss << "\n";
+      return ss.str();
+    };
+    auto syn_tensor_printer =
+        [](const std::deque<synapse_helpers::tensor_or_ref>& tensors) {
+          std::ostringstream ss;
+          for (const synapse_helpers::tensor& t : tensors) {
+            ss << absl::StrFormat("\n%8s%s", "", t.DebugString(/*indent=*/5));
+          }
+          ss << "\n";
+          return ss.str();
+        };
+
+    auto pt_tensor_printer = [](const std::vector<at::Tensor>& tensors) {
+      std::ostringstream ss;
+      std::string sep = "";
+      for (const auto& t : tensors) {
+        ss << sep << habana::to_string(t);
+        sep = ", ";
+      }
+      ss << "\n";
+      return ss.str();
+    };
+
+    auto node_io_printer = [](at::ArrayRef<torch::jit::Value*> vals) {
+      std::ostringstream ss;
+      for (auto val : vals) {
+        ss << " " << *val->type();
+      }
+      ss << "\n";
+      return ss.str();
+    };
+
+    std::ostringstream ss;
+    ss << "Op: " << node->schema().operator_name() << "\n";
+    ss << "  Inputs:\n";
+    ss << "    stack: " << stack_printer(stack);
+    ss << "    pt_inputs: " << pt_tensor_printer(GetInputs());
+    ss << "    syn_inputs:" << syn_tensor_printer(GetSynInputs());
+    ss << "    node_inputs:" << node_io_printer(node->inputs());
+    ss << "  Outputs:\n";
+    ss << "    pt_outputs: " << pt_tensor_printer(GetOutputs());
+    ss << "    syn_outputs:" << syn_tensor_printer(GetSynOutputs());
+    ss << "    node_outputs:" << node_io_printer(node->outputs());
+    return ss.str();
+  }());
+}
 
 void habana::InferOutputMetaRetType::AddTensor(
     const TensorMetaData& data,

@@ -2067,6 +2067,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // InferOutputMeta
   std::vector<size_t> intermediate_shape_tensors_vec;
   int inx = 0;
+  PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
     std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
     watch_tensor_flag_ = false;
@@ -2237,6 +2238,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
       HabanaKernel->AllocateAndAddSynapseNode(
           *syn_graph, input_stack, outputs_metadata);
+      HabanaKernel->dump(node, input_stack);
       if (update_max) {
         UpdateMaxValues(HabanaKernel, input_stack, index2maxvalues);
       }

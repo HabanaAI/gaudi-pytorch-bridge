@@ -32,6 +32,11 @@ using namespace at;
 using namespace habana;
 using namespace habana_lazy;
 
+#define FP8_CHECK                                                              \
+  TORCH_CHECK(                                                                 \
+      synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type()), \
+      "FP8 data type is not available on this device.")
+
 bool hpu_wrap::is_pinned(
     const at::Tensor& self,
     c10::optional<at::Device> device) {
@@ -97,7 +102,7 @@ Tensor linear_(
 }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "copy_ :",
@@ -114,7 +119,7 @@ Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     SymIntArrayRef size,
     SymIntArrayRef stride) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "_reshape_alias :",
@@ -152,7 +157,7 @@ Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "embedding_bag_sum :",
@@ -177,7 +182,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "embedding_bag_sum_bwd_out :",
@@ -198,7 +203,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
 }
 
 Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_select :", " self=", to_string(self), " mask=", to_string(mask));
@@ -211,7 +216,7 @@ Tensor& hpu_wrap::masked_select_out(
     const Tensor& self,
     const Tensor& mask,
     Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_select_out :",
@@ -231,7 +236,7 @@ Tensor& hpu_wrap::scatter_add_(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "scatter_add_ :",
@@ -295,7 +300,7 @@ Tensor& hpu_wrap::index_add_out(
     const Tensor& source,
     const Scalar& alpha,
     Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "index_add_out :",
@@ -324,7 +329,7 @@ Tensor& hpu_wrap::index_fill_(
     int64_t dim,
     const Tensor& index,
     const Scalar& value) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "index_fill_ :",
@@ -332,15 +337,15 @@ Tensor& hpu_wrap::index_fill_(
       to_string(self),
       " dim=",
       to_string(dim),
-      "index=",
+      " index=",
       to_string(index),
-      "value=",
+      " value=",
       to_string(value));
   return index_fill_hpu_lazy_(self, dim, index, value);
 }
 
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "nonzero_out :", " self=", to_string(self), " out=", to_string(out));
@@ -415,7 +420,7 @@ Tensor hpu_wrap::instance_norm(
     [[maybe_unused]] double momentum,
     double eps,
     [[maybe_unused]] bool cudnn_enabled) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "instance_norm :",
@@ -533,11 +538,11 @@ at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
     c10::optional<int64_t> output_size) {
   habana_lazy::NoAccThread no_acc_thread;
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "repeat_interleave:",
-      "repeats=",
+      " repeats=",
       to_string(repeats),
       " output_size=",
       to_string(output_size));
@@ -579,7 +584,7 @@ Tensor hpu_wrap::softmax(
     const Tensor& self,
     int64_t dim,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "softmax :",
@@ -599,7 +604,7 @@ Tensor hpu_wrap::empty(
     c10::optional<Device> device,
     c10::optional<bool> pin_memory,
     c10::optional<MemoryFormat> optional_memory_format) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "empty :",
@@ -632,7 +637,7 @@ Tensor hpu_wrap::empty_strided(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "empty_strided :",
@@ -661,7 +666,7 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
     const Tensor& self,
     c10::SymIntArrayRef split_sizes,
     int64_t dim) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "split_with_sizes :",
@@ -682,7 +687,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
     const Tensor& self,
     int64_t dim,
     bool descending) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "sort :",
@@ -705,7 +710,7 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
 Tensor hpu_wrap::_unsafe_view(
     const at::Tensor& self,
     c10::SymIntArrayRef size) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "_unsafe_view:", " self=", to_string(self), " size=", to_string(size));
@@ -718,7 +723,7 @@ std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,
     c10::SymInt split_size_symint,
     int64_t dim) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "split :",
@@ -771,7 +776,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& valid_count_tensor,
     float mom,
     bool nesterov) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_sparse_sgd_with_valid_count :",
@@ -810,7 +815,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_sparse_adagrad_with_valid_count :",
@@ -845,7 +850,7 @@ void optimizer_adamw_hpu_wrap(
     const double beta2,
     const double epsilon,
     const double weight_decay) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
@@ -880,7 +885,7 @@ Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const Tensor& max_norm,
     float norm_type) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "fused_norm :",
@@ -903,7 +908,7 @@ void optimizer_adagrad_hpu_wrap(
     const float wd,
     const float lrd,
     const float epsilon) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_adagrad:",
@@ -931,7 +936,7 @@ void optimizer_ema_hpu_wrap(
     const TensorList model_inputs,
     TensorList updated_ema,
     const at::Tensor& decay) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_ema:",
@@ -952,7 +957,7 @@ void optimizer_sgd_hpu_wrap(
     const float mom,
     const float damp,
     const bool nesterov) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd:",
@@ -983,7 +988,7 @@ void optimizer_sgd_momentum_hpu_wrap(
     at::Tensor& mom,
     const float damp,
     const bool nesterov) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " optimizer_sgd_momentum:",
@@ -1017,23 +1022,23 @@ void optimizer_lars_hpu_wrap(
     const float weight_decay,
     const float eps,
     const float lr) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " optimizer_lars_hpu_wrap:",
+      "optimizer_lars_hpu_wrap:",
       " param=",
       to_string(params),
       " grad=",
       to_string(grads),
       " skipMasks=",
       to_string(skipMasks),
-      "eeta=",
+      " eeta=",
       to_string(eeta),
-      "weight_decay=",
+      " weight_decay=",
       to_string(weight_decay),
-      "eps=",
+      " eps=",
       to_string(eps),
-      "lr=",
+      " lr=",
       to_string(lr));
   return optimizer_lars_hpu_lazy(
       params, grads, skipMasks, eeta, weight_decay, eps, lr);
@@ -1043,7 +1048,7 @@ void optimizer_resource_apply_momentum_hpu_wrap(
     at::TensorList params_momentum_buf_list,
     const at::TensorList dp_list,
     const double momentum) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_resource_apply_momentum :",
@@ -1065,15 +1070,15 @@ Tensor torchvision_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
     double iou_threshold) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " torchvision_nms:",
       " boxes=",
       to_string(boxes),
-      "scores=",
+      " scores=",
       to_string(scores),
-      "iou_threshold=",
+      " iou_threshold=",
       to_string(iou_threshold));
 
   return habana_nms_hpu_lazy(boxes, scores, iou_threshold);
@@ -1084,17 +1089,17 @@ Tensor batched_nms_hpu_wrap(
     const at::Tensor& scores,
     const at::Tensor& indices,
     float iou_threshold) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " batched_nms:",
+      "batched_nms:",
       " boxes=",
       to_string(boxes),
-      "scores=",
+      " scores=",
       to_string(scores),
-      "indices=",
+      " indices=",
       to_string(indices),
-      "iou_threshold=",
+      " iou_threshold=",
       to_string(iou_threshold));
   return batched_nms_hpu_lazy(boxes, scores, indices, iou_threshold);
 }
@@ -1105,21 +1110,18 @@ std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " cast_to_fp8:",
+      "cast_to_fp8:",
       " input=",
       to_string(input),
       " scale=",
       to_string(scale),
-      ", stochastic_rounding=",
+      " stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
 }
 
 std::tuple<Tensor, Tensor> cast_to_fp8_v2_wrap(
@@ -1128,18 +1130,13 @@ std::tuple<Tensor, Tensor> cast_to_fp8_v2_wrap(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " cast_to_fp8_v2:",
+      "cast_to_fp8_v2:",
       DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
-  if (synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type())) {
-    return cast_to_fp8_v2_lazy(
-        input, scale, stochastic_rounding, is_amax, dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return cast_to_fp8_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
 }
 
 std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
@@ -1149,22 +1146,19 @@ std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
     at::Tensor& out,
     at::Tensor& transposed,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_cast_transpose:",
+      "fp8_cast_transpose:",
       " input=",
       to_string(input),
       " scale=",
       to_string(scale),
-      ", stochastic_rounding=",
+      " stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_cast_transpose_lazy(
-        input, scale, stochastic_rounding, out, transposed, amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_cast_transpose_lazy(
+      input, scale, stochastic_rounding, out, transposed, amax);
 }
 std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
     const at::Tensor& input,
@@ -1174,7 +1168,7 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
     at::Tensor& transposed,
     at::Tensor& bgrad,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       " fp8_cast_transpose_bgrad:",
@@ -1182,14 +1176,11 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
       to_string(input),
       " scale=",
       to_string(scale),
-      ", stochastic_rounding=",
+      " stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_cast_transpose_bgrad_lazy(
-        input, scale, stochastic_rounding, out, transposed, bgrad, amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_cast_transpose_bgrad_lazy(
+      input, scale, stochastic_rounding, out, transposed, bgrad, amax);
 }
 std::tuple<Tensor&, Tensor&, Tensor&, Tensor&>
 fp8_cast_transpose_bgrad_dgelu_wrap(
@@ -1202,50 +1193,44 @@ fp8_cast_transpose_bgrad_dgelu_wrap(
     at::Tensor& transposed,
     at::Tensor& bgrad,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_cast_transpose_bgrad:",
+      "fp8_cast_transpose_bgrad:",
       " input=",
       to_string(input),
       " scale=",
       to_string(scale),
-      ", stochastic_rounding=",
+      " stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_cast_transpose_bgrad_dgelu_lazy(
-        grad,
-        input,
-        scale,
-        retain,
-        stochastic_rounding,
-        out,
-        transposed,
-        bgrad,
-        amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_cast_transpose_bgrad_dgelu_lazy(
+      grad,
+      input,
+      scale,
+      retain,
+      stochastic_rounding,
+      out,
+      transposed,
+      bgrad,
+      amax);
 }
 Tensor cast_from_fp8_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
     at::ScalarType out_dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " cast_from_fp8:",
+      "cast_from_fp8:",
       " input=",
       to_string(input),
       " scale=",
       to_string(scale),
       " out_dtype=",
       to_string(out_dtype));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return cast_from_fp8_lazy(input, scale, out_dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return cast_from_fp8_lazy(input, scale, out_dtype);
 }
 std::tuple<Tensor, Tensor, Tensor> fp8_dropout_wrap(
     const at::Tensor& input,
@@ -1254,17 +1239,13 @@ std::tuple<Tensor, Tensor, Tensor> fp8_dropout_wrap(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_dropout:",
+      "fp8_dropout:",
       DUMP_6ARGS(input, p, scale, stochastic_rounding, is_amax, dtype));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_dropout_lazy(
-        input, p, scale, stochastic_rounding, is_amax, dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_dropout_lazy(input, p, scale, stochastic_rounding, is_amax, dtype);
 }
 std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
     const at::Tensor& input,
@@ -1273,21 +1254,18 @@ std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
     at::Tensor& out,
     at::Tensor& retain,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_gelu:",
+      "fp8_gelu:",
       " input=",
       to_string(input),
       " scale=",
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_gelu_lazy(input, scale, stochastic_rounding, out, retain, amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_gelu_lazy(input, scale, stochastic_rounding, out, retain, amax);
 }
 std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
     const at::Tensor& input,
@@ -1295,17 +1273,13 @@ std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_gelu_v2:",
+      "fp8_gelu_v2:",
       DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
-  if (synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type())) {
-    return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
 }
 std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
     const at::Tensor& grad,
@@ -1315,20 +1289,17 @@ std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_bgrad_dgelu:",
+      "fp8_bgrad_dgelu:",
       DUMP_7ARGS(
           grad, input, scale, retain, stochastic_rounding, is_amax, dtype));
-  if (synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type())) {
-    return fp8_bgrad_dgelu_lazy(
-        grad, input, scale, retain, stochastic_rounding, is_amax, dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_bgrad_dgelu_lazy(
+      grad, input, scale, retain, stochastic_rounding, is_amax, dtype);
 }
+
 std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
     const at::Tensor& input,
     const at::Tensor& mask,
@@ -1337,10 +1308,10 @@ std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_fast_softmax:",
+      "fp8_fast_softmax:",
       DUMP_7ARGS(
           input,
           mask,
@@ -1349,14 +1320,11 @@ std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
           stochastic_rounding,
           is_amax,
           dtype));
-  if (synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type())) {
-    return fp8_fast_softmax_lazy(
-        input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_fast_softmax_lazy(
+      input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype);
 }
+
 std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
     const at::Tensor& input,
     const at::Tensor& weight,
@@ -1368,10 +1336,10 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
     at::Tensor& mean,
     at::Tensor& istd,
     at::Tensor& amax) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_layernorm:",
+      "fp8_layernorm:",
       " input=",
       to_string(input),
       " weight=",
@@ -1384,22 +1352,20 @@ std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
       to_string(scale),
       ", stochastic_rounding=",
       to_string(stochastic_rounding));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_layernorm_lazy(
-        input,
-        weight,
-        bias,
-        eps,
-        scale,
-        stochastic_rounding,
-        out,
-        mean,
-        istd,
-        amax);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_layernorm_lazy(
+      input,
+      weight,
+      bias,
+      eps,
+      scale,
+      stochastic_rounding,
+      out,
+      mean,
+      istd,
+      amax);
 }
+
 Tensor& fp8_gemm_wrap(
     const at::Tensor& A,
     bool trans_A,
@@ -1412,10 +1378,10 @@ Tensor& fp8_gemm_wrap(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_gemm:",
+      "fp8_gemm:",
       " A=",
       to_string(A),
       " A_scale_inv=",
@@ -1434,23 +1400,21 @@ Tensor& fp8_gemm_wrap(
       to_string(bias),
       " accumulate=",
       to_string(accumulate));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_gemm_lazy(
-        A,
-        trans_A,
-        B,
-        trans_B,
-        D,
-        out_dtype,
-        A_scale_inv,
-        B_scale_inv,
-        bias,
-        accumulate,
-        out);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_gemm_lazy(
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      A_scale_inv,
+      B_scale_inv,
+      bias,
+      accumulate,
+      out);
 }
+
 Tensor fp8_gemm_v2_wrap(
     const at::Tensor& A,
     bool trans_A,
@@ -1462,10 +1426,10 @@ Tensor fp8_gemm_v2_wrap(
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_gemm_v2:",
+      "fp8_gemm_v2:",
       " A=",
       to_string(A),
       " A_scale_inv=",
@@ -1484,82 +1448,77 @@ Tensor fp8_gemm_v2_wrap(
       to_string(bias),
       " accumulate=",
       to_string(accumulate));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_gemm_v2_lazy(
-        A,
-        trans_A,
-        B,
-        trans_B,
-        D,
-        out_dtype,
-        A_scale_inv,
-        B_scale_inv,
-        bias,
-        accumulate);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_gemm_v2_lazy(
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      A_scale_inv,
+      B_scale_inv,
+      bias,
+      accumulate);
 }
+
 at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" fp8_transpose:", " input=", to_string(input));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_transpose_lazy(input, out);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  PT_OP_INFO("fp8_transpose:", " input=", to_string(input));
+  FP8_CHECK
+  return fp8_transpose_lazy(input, out);
 }
+
 at::Tensor& fp8_permute_wrap(
     const at::Tensor& input,
     at::IntArrayRef dims,
     at::Tensor& out) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " fp8_permute:", " input=", to_string(input), " dims=", to_string(dims));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_permute_lazy(input, dims, out);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+      "fp8_permute:", " input=", to_string(input), " dims=", to_string(dims));
+  FP8_CHECK
+  return fp8_permute_lazy(input, dims, out);
 }
+
 at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" fp8_reshape:", " input=", to_string(input));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_reshape_lazy(input, shape);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  PT_OP_INFO("fp8_reshape:", " input=", to_string(input));
+  FP8_CHECK
+  return fp8_reshape_lazy(input, shape);
 }
+
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,
     at::ScalarType dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   return matmul_hpu_lazy(self, other, dtype);
 }
+
 std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& other,
     at::ScalarType dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   return matmul_backward_hpu_lazy(grad_output, self, other, dtype);
 }
+
 at::Tensor linear_ex_wrap(
     const at::Tensor& input,
     const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias_opt,
     const at::ScalarType dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   return linear_non2d_hpu_lazy(input, weight, bias_opt, dtype);
 }
+
 std::vector<at::Tensor> linear_ex_backward_wrap(
     const at::Tensor& grad_output,
     const at::Tensor& input,
@@ -1567,14 +1526,14 @@ std::vector<at::Tensor> linear_ex_backward_wrap(
     const c10::optional<at::Tensor>& bias_opt,
     const c10::optional<at::Tensor>& bias_grad_opt,
     const at::ScalarType dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   return linear_non2d_bwd_hpu_lazy(
       grad_output, input, weight, bias_opt, bias_grad_opt, dtype);
 }
 
 Tensor habana_random_seed_wrap(const at::Tensor& input) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_OP_INFO(" habana_random_seed:", " input=", to_string(input));
   return habana_random_seed_lazy(input);
 }
@@ -1584,10 +1543,10 @@ std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
     const at::Tensor& lengths,
     const at::Tensor& indices,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " permute_1D_sparse_data:",
+      "permute_1D_sparse_data:",
       " permute=",
       to_string(permute),
       " lengths=",
@@ -1605,10 +1564,10 @@ std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
     const at::Tensor& lengths,
     const at::Tensor& indices,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " permute_2D_sparse_data:",
+      "permute_2D_sparse_data:",
       " permute=",
       to_string(permute),
       " lengths=",
@@ -1626,10 +1585,10 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " expand_into_jagged_permute:",
+      "expand_into_jagged_permute:",
       " permute=",
       to_string(permute),
       " input_offsets=",
@@ -1649,10 +1608,10 @@ at::Tensor habana_split_permute_cat_wrap(
     int64_t batch_size,
     int64_t num_features,
     int64_t dims) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " split_permute_cat:",
+      "split_permute_cat:",
       " input=",
       to_string(input),
       " indices=",
@@ -1672,10 +1631,10 @@ at::Tensor scaled_masked_softmax_wrap(
     const at::Tensor& input,
     const at::Tensor& mask,
     double scale) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " scaled_masked_softmax:",
+      "scaled_masked_softmax:",
       " input=",
       to_string(input),
       " mask=",
@@ -1687,10 +1646,10 @@ at::Tensor scaled_masked_softmax_wrap(
 }
 
 at::Tensor custom_softmax_wrap(const at::Tensor& input, int64_t flavor) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " custom_softmax:",
+      "custom_softmax:",
       " input=",
       to_string(input),
       " flavor=",
@@ -1707,10 +1666,10 @@ habana_bounds_check_indices_wrap(
     const at::Tensor& rows_per_table,
     int64_t bounds_check_mode,
     const c10::optional<at::Tensor>& weights) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " bounds_check_indices:",
+      "bounds_check_indices:",
       " indices=",
       to_string(indices),
       " offsets=",
@@ -1735,10 +1694,10 @@ at::Tensor rotary_pos_embedding_wrap(
     const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " rotary_pos_embedding :",
+      "rotary_pos_embedding :",
       DUMP_6ARGS(input, sin, cos, position_ids, offset, mode));
 
   return rotary_pos_embedding_lazy(input, sin, cos, position_ids, offset, mode);
@@ -1749,11 +1708,10 @@ at::Tensor rotary_pos_embedding_backward_wrap(
     const at::Tensor& sin,
     const at::Tensor& cos,
     const int64_t offset) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " rotary_pos_embedding_backward :",
-      DUMP_4ARGS(grad_in, sin, cos, offset));
+      "rotary_pos_embedding_backward :", DUMP_4ARGS(grad_in, sin, cos, offset));
 
   return rotary_pos_embedding_backward_lazy(grad_in, sin, cos, offset);
 }
@@ -1762,9 +1720,9 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     double epsilon) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
+  PT_OP_INFO("rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
 
   return rms_norm_lazy(data_in, gamma, epsilon);
 }
@@ -1774,10 +1732,10 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
     const at::Tensor& inverse_rms) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
+      "rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
 
   return rms_norm_backward_lazy(grad_in, data_in, gamma, inverse_rms);
 }
@@ -1789,7 +1747,7 @@ at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& mask_b,
     bool trans_a,
     bool trans_b) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "masked_batch_gemm :",
@@ -1809,10 +1767,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " sdpa_fwd :", DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
+      "sdpa_fwd :", DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
 
   return sdpa_fwd_lazy(q, k, v, attention_mask, p, scale, is_causal);
 }
@@ -1826,9 +1784,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(" sdpa_bwd :", DUMP_8ARGS(grad, q, k, v, P, dm, p, scale));
+  PT_OP_INFO("sdpa_bwd :", DUMP_8ARGS(grad, q, k, v, P, dm, p, scale));
 
   return sdpa_bwd_lazy(grad, q, k, v, P, dm, p, scale);
 }
@@ -1838,10 +1796,10 @@ at::Tensor scaled_triangular_softmax_wrap(
     double inv_scale_attn,
     const c10::optional<at::Tensor>& exp_sum_recpr,
     const c10::optional<at::Tensor>& max) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " scaled_triangular_softmax :",
+      "scaled_triangular_softmax :",
       DUMP_4ARGS(self, inv_scale_attn, exp_sum_recpr, max));
 
   return scaled_triangular_softmax_lazy(
@@ -1852,16 +1810,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor>
 scaled_triangular_softmax_retain_wrap(
     const at::Tensor& self,
     double inv_scale_attn) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));
+      "scaled_triangular_softmax_retain :", DUMP_2ARGS(self, inv_scale_attn));
 
   return scaled_triangular_softmax_retain_lazy(self, inv_scale_attn);
 }
 
 at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_2ARGS(self, src));
   if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
@@ -1876,14 +1834,11 @@ at::Tensor& fp8_kv_reorder_wrap(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_kv_reorder_lazy(self, start, end, beam_idx);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_kv_reorder_lazy(self, start, end, beam_idx);
 }
 
 at::Tensor& fp8_index_copy_wrap(
@@ -1891,41 +1846,32 @@ at::Tensor& fp8_index_copy_wrap(
     int64_t dim,
     const at::Tensor& index,
     const at::Tensor& source) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_4ARGS(self, dim, index, source));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_index_copy_lazy(self, dim, index, source);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_index_copy_lazy(self, dim, index, source);
 }
 
 at::Tensor fp8_repeat_v2_wrap(
     const at::Tensor& self,
     c10::SymIntArrayRef repeats) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_2ARGS(self, repeats));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_repeat_v2_lazy(self, repeats);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_repeat_v2_lazy(self, repeats);
 }
 
 at::Tensor fp8_index_select_v2_wrap(
     const at::Tensor& self,
     int64_t dim,
     const at::Tensor& index) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_3ARGS(self, dim, index));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_index_select_v2_lazy(self, dim, index);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return fp8_index_select_v2_lazy(self, dim, index);
 }
 
 at::Tensor& kv_reorder_wrap(
@@ -1933,7 +1879,7 @@ at::Tensor& kv_reorder_wrap(
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
 
@@ -1947,7 +1893,7 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
     int64_t grouped_batch_size,
     bool use_max,
     int64_t mode) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_6ARGS(
       self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode));
@@ -1957,7 +1903,7 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
 }
 
 at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_ARG(self));
 
@@ -1973,17 +1919,14 @@ at::Tensor conv2d_fp8_wrap(
     at::IntArrayRef dilation,
     int64_t groups,
     c10::optional<at::ScalarType> out_dtype) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(DUMP_8ARGS(
       input, weight, bias, stride, padding, dilation, groups, out_dtype));
 
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return conv2d_fp8_lazy(
-        input, weight, bias, stride, padding, dilation, groups, out_dtype);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
+  FP8_CHECK
+  return conv2d_fp8_lazy(
+      input, weight, bias, stride, padding, dilation, groups, out_dtype);
 }
 
 /***********************************************************************************
@@ -2015,7 +1958,7 @@ struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
 };
 
 Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
   return MatmulFunction::apply(self, other);
@@ -2086,19 +2029,19 @@ Tensor hpu_wrap::slice(
     c10::SymInt step) {
   auto temp_start = start.has_value() ? start.value().expect_int() : 0;
   auto temp_end = end.has_value() ? end.value().expect_int() : INT64_MAX;
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " slice:",
+      "slice:",
       " self=",
       to_string(self),
-      "dim=",
+      " dim=",
       to_string(dim),
-      "start=",
+      " start=",
       to_string(start),
-      "end=",
+      " end=",
       to_string(end),
-      "step=",
+      " step=",
       to_string(step));
 
   return slice_hpu_lazy(self, dim, temp_start, temp_end, step.expect_int());
@@ -2141,15 +2084,15 @@ struct DropoutFunction : public Function<DropoutFunction> {
 };
 
 Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
-  PT_OP_TRACE;
+  PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      " dropout:",
+      "dropout:",
       " input=",
       to_string(input),
-      "p=",
+      " p=",
       to_string(p),
-      "train=",
+      " train=",
       to_string(train));
   return DropoutFunction::apply(input, p, train);
 }

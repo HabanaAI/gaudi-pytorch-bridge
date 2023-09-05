@@ -320,7 +320,9 @@ class HabanaOperator {
   const std::string& GetGuid() const {
     return guid_;
   }
-  //
+
+  void dump(torch::jit::Node* node, const at::Stack& stack);
+
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);
 

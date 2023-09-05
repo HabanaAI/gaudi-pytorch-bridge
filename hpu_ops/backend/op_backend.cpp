@@ -135,10 +135,7 @@ void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
 
   for (int m_scalar_id : m_scalar_ids) {
     const at::Scalar& val = stack.at(m_scalar_id).toScalar();
-    m_scalar_inputs.emplace(m_scalar_id, val);
-
     auto constant = ConstantHelper(graph, val);
-
     if (!isOutputInfMode()) {
       // Set output from constant as input to this node at index m_scalar_id
       p_context_->syn_inputs_.emplace(

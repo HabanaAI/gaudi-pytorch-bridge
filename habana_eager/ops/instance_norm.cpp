@@ -37,7 +37,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_fwd_eager_hpu(
     const at::Tensor& weight,
     const at::Tensor& bias,
     double eps) {
-  PT_OP_TRACE;
   PT_OP_INFO("instance_norm_eager: ", DUMP_4ARGS(input, weight, bias, eps));
 
   auto InstanceNormMeta = [](const at::Stack& stack) {
@@ -69,7 +68,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     const at::Tensor& mean,
     const at::Tensor& istd,
     const at::Tensor& gamma) {
-  PT_OP_TRACE;
   PT_OP_INFO(
       "instance_norm_backward_eager: ",
       DUMP_5ARGS(input, grad_in, mean, istd, gamma));
@@ -111,7 +109,6 @@ dispatch_instance_norm_backward_hpu(
     const at::Tensor& mean,
     const at::Tensor& istd,
     const at::Tensor& gamma) {
-  PT_OP_TRACE;
   PT_OP_INFO(
       "Dispatch hpu::instance_norm_backward: ",
       DUMP_5ARGS(input, grad_in, mean, istd, gamma));
@@ -126,7 +123,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_instance_norm_hpu(
     const at::Tensor& weight,
     const at::Tensor& bias,
     double eps) {
-  PT_OP_TRACE;
   PT_OP_INFO(
       "Dispatch hpu::instance_norm: ", DUMP_4ARGS(input, weight, bias, eps));
 
@@ -222,7 +218,6 @@ at::Tensor instance_norm_autograd_wrap(
                             .to(torch::kFloat32)
                             .to(torch::kHPU));
 
-  PT_OP_TRACE;
   PT_OP_INFO(
       " instance_norm:",
       DUMP_9ARGS(

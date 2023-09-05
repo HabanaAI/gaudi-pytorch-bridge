@@ -148,6 +148,6 @@ class PTOpTrace {
   void increment_compound_ops();
 };
 
-#define PT_OP_TRACE habana_lazy::PTOpTrace pt_op_trace;
+#define PT_LAZY_OP_TRACE habana_lazy::PTOpTrace pt_op_trace;
 
 } // namespace habana_lazy

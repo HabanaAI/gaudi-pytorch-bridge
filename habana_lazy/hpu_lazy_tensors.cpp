@@ -851,15 +851,6 @@ void HbLazyTensor::SyncLiveTensorsGraph(
   }
 }
 
-std::string DumpGraph(std::shared_ptr<torch::jit::Graph> jit_graph) {
-  std::stringstream strbuff;
-  std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
-  jit_graph->dump();
-  std::string str = strbuff.str();
-  std::cout.rdbuf(oldbuff);
-  return str;
-}
-
 at::Tensor Process0DTensor(std::shared_ptr<Data>& d) {
   HABANA_ASSERT(d->tensor_data.has_value(), "Empty tensor optional");
   at::Tensor pt_tensor = d->tensor_data.value();
@@ -1139,7 +1130,7 @@ void LaunchSyncTensorsGraph(
         }
       }
       // Dump the JIT graph with PT_IRGRAPH_DEBUG
-      PT_IRGRAPH_DEBUG(DumpGraph(launch_info.hlexec.get_graph()));
+      PT_IRGRAPH_DEBUG(launch_info.hlexec.get_graph()->toString());
 
       launch_info.hlexec.Launch(
           launch_info.stack, stream_info.stream, launch_info.dry_run);
@@ -1361,7 +1352,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     PT_LAZY_DEBUG(
         "Optimized Path JIT Cache hit :: key ", optimized_lazy_eager_key);
     PT_IRGRAPH_DEBUG(
-        DumpGraph(optimized_path_jit_ir_and_mdata->get_cached_graph()));
+        optimized_path_jit_ir_and_mdata->get_cached_graph()->toString());
 
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
       auto input_map =
@@ -1423,7 +1414,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
       }
       // Dump the JIT graph with PT_IRGRAPH_DEBUG
-      PT_IRGRAPH_DEBUG(DumpGraph(hlexec.get_graph()));
+      PT_IRGRAPH_DEBUG(hlexec.get_graph()->toString());
     } else {
       for (const auto& in : po_data.inputs) {
         std::shared_ptr<Data> d = in.m_data_ptr.lock();

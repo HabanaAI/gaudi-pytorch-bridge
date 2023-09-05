@@ -30,6 +30,42 @@ void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
   rank_ = rank;
 }
 
+template <typename T>
+std::string stringify(T var) {
+  std::ostringstream ss;
+  ss << var;
+  return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& out, synDataType syn_data_type) {
+  switch (syn_data_type) {
+    case syn_type_int8:
+      return out << "int8";
+    case syn_type_bf16:
+      return out << "bf16";
+    case syn_type_float:
+      return out << "float";
+    case syn_type_int16:
+      return out << "int16";
+    case syn_type_int32:
+      return out << "int32";
+    case syn_type_uint8:
+      return out << "uint8";
+    case syn_type_fp16:
+      return out << "fp16";
+    case syn_type_fp8_143:
+      return out << "fp8_143";
+    case syn_type_fp8_152:
+      return out << "fp8_152";
+    case syn_type_int64:
+      return out << "int64";
+    case syn_type_na:
+      return out << "na";
+    default:
+      return out << "unknown-type: " << std::to_string(syn_data_type);
+  }
+}
+
 std::ostream& operator<<(
     std::ostream& out,
     const synTensorDescriptor& syn_tensor) {
@@ -231,6 +267,34 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   other.graph_ = nullptr;
 
   return *this;
+}
+
+std::string tensor::DebugString(int indent) const {
+  std::string sep = "\n";
+  int i = 0;
+  while (i++ < indent)
+    sep += "  ";
+
+  return absl::StrFormat(
+      "Tensor %s datatype=%s%sshape=%s stride=%s%sat %p internal=%p%s%s%s%s%stensor_type=%s offset=%d size=0x%x permutation=%s dont_allow_permute=%d",
+      tensor_name_,
+      stringify(type()),
+      sep,
+      stringify(shape_),
+      stringify(stride_),
+      sep,
+      this,
+      tensor_,
+      (is_persistent() ? " persistent" : " non-persistent"),
+      (is_placeholder() ? " placeholder" : ""),
+      (is_external() ? " external" : " non-external"),
+      (is_intermediate_shape_tensor() ? " intermediate shape tensor" : ""),
+      sep,
+      stringify(tensor_type()),
+      offset_,
+      total_size_bytes_,
+      stringify(permutation_),
+      dont_allow_permute_);
 }
 
 // [[deprecated("Use new Synapse APIs")]]

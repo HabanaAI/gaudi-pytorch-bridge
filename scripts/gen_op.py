@@ -883,7 +883,7 @@ def get_return_type_str(t, orig_sig):
 def generate_entry_debug_code(t, fname, params, is_eager_frontend):
     # Emits debug code for a given intercepted function.
     if not is_eager_frontend:
-        code = "  PT_OP_TRACE;\n"
+        code = "  PT_LAZY_OP_TRACE;\n"
         code += "  PT_LAZY_TRACE;\n"
     else:
         code = "  PT_EAGER_TRACE;\n"

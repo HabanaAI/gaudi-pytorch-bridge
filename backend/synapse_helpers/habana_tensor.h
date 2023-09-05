@@ -419,19 +419,7 @@ class tensor final {
 
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
 
-  std::string DebugString() const {
-    return absl::StrFormat(
-        "Tensor %s at %p, internal=%p%s%s%s%s, offset=%d, size=0x%x",
-        tensor_name_,
-        this,
-        tensor_,
-        (is_persistent() ? ", persistent" : ", non-persistent"),
-        (is_placeholder() ? ", placeholder" : ""),
-        (is_external() ? ", external" : ", non-external"),
-        (is_intermediate_shape_tensor() ? ", intermediate shape tensor" : ""),
-        offset_,
-        total_size_bytes_);
-  }
+  std::string DebugString(int indent = 0) const;
 
   static bool generate_placeholder() {
     return generate_placeholder_;
@@ -550,19 +538,23 @@ inline std::ostream& operator<<(
     std::ostream& out,
     const tensor::shape_t& dimensions) {
   out << "syn_dimensions=(";
-  auto i{dimensions.begin()};
-  out << *i;
-  for (i++; i != dimensions.end(); i++) {
-    out << ", " << *i;
+  std::string delim = "";
+  for (auto i = 0u; i < dimensions.rank().value; ++i) {
+    out << delim << dimensions[i];
+    delim = ", ";
   }
-  out << ") rank=(" << dimensions.rank().value << ")";
-  return out;
+  return out << ")";
 }
+
 inline std::ostream& operator<<(
     std::ostream& out,
     const tensor::dynamic_shape_t& d) {
+  if (d.min() == d.max()) {
+    return out << d.min();
+  }
   return out << "min : " << d.min() << ", max : " << d.max();
 }
+
 template <
     typename Integer,
     typename = std::enable_if_t<std::is_integral<Integer>::value>>
@@ -577,22 +569,7 @@ inline std::ostream& operator<<(
 }
 
 inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
-  return out << "Tensor " << tensor.tensor_name_ << " at " << &tensor
-             << ", internal=" << tensor.tensor_
-             << (tensor.is_persistent() ? ", persistent, "
-                                        : ", non-persistent, ")
-             << (tensor.is_placeholder() ? "placeholder, " : "")
-             << (tensor.is_external() ? ", external" : ", non-external")
-             << (tensor.is_intermediate_shape_tensor()
-                     ? ", intermediate shape tensor"
-                     : "")
-             << ", tensor type=" << tensor.tensor_type_
-             << ", offset=" << tensor.offset_
-             << ", size=" << tensor.total_size_bytes_ << '\n'
-             << "    shape :: " << tensor.shape_ << '\n'
-             << "    stride :: " << tensor.stride_ << '\n'
-             << "    permutation :: " << tensor.permutation_ << "\n"
-             << "    dont_allow_permutation_ :: " << tensor.dont_allow_permute_;
+  return out << tensor.DebugString(/*indent=*/2);
 }
 
 using tensor_or_ref = value_or_ref<tensor>;

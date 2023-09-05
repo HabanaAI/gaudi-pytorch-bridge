@@ -499,6 +499,8 @@ class PTFuncLog {
       " :: ",                     \
       __VA_ARGS__)
 
+#define PT_OP_TRACE(...) HLLOG_TRACE(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
+#define PT_OP_DEBUG(...) HLLOG_DEBUG(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
 #define PT_OP_INFO(...) HLLOG_INFO(PT_STATS, FORMAT_AND_MSG(__VA_ARGS__));
 
 // End of logging macros

@@ -411,13 +411,11 @@ Output::Output(const Value& v)
 
 std::string Output::ToString() const {
   std::stringstream ss;
+  ss << "id_" << unique_id;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
-    ss << "id_" << unique_id;
     auto name{m_node->GetName()};
     std::replace(name.begin(), name.end(), ':', '_');
     ss << "_" << name;
-  } else {
-    ss << "id_" << unique_id;
   }
   return ss.str();
 }
