@@ -14,13 +14,10 @@ import pytest
 import torch
 from test_utils import cpu, hpu
 
+
 @pytest.mark.parametrize("src_dtype", [torch.int8, torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("dst_dtype", [torch.int16, torch.bfloat16, torch.float32])
-@pytest.mark.parametrize("devices", [
-    (cpu, hpu),
-    (hpu, cpu),
-    (hpu, hpu)
-    ])
+@pytest.mark.parametrize("devices", [(cpu, hpu), (hpu, cpu), (hpu, hpu)])
 def test_memcpy_with_cast(src_dtype, dst_dtype, devices):
     src_device, dst_device = devices
 
