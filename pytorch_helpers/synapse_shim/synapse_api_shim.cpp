@@ -175,8 +175,11 @@ class LoggerSynapseApi {
     }
   }
   ~LoggerSynapseApi() {
-    if (synapse_logger_lib_handle_ != nullptr)
+    if (synapse_logger_lib_handle_ != nullptr) {
+      Uninstall();
       dlclose(synapse_logger_lib_handle_);
+      synapse_logger_lib_handle_ = nullptr;
+    }
   }
 
   void* DlSym(const char* sym) const {
@@ -184,7 +187,12 @@ class LoggerSynapseApi {
     return result;
   }
 
+  void Uninstall() {
+    syn_api = old_syn_api_;
+  }
+
   void Install() {
+    old_syn_api_ = syn_api;
     syn_api = &synapse_api_;
     // TODO: SW-141655 - Currently there's no hccl logger available
     // hccl_api = &hccl_api_;
@@ -192,6 +200,7 @@ class LoggerSynapseApi {
 
  private:
   void* synapse_logger_lib_handle_;
+  synapse_api_t* old_syn_api_ = nullptr;
   synapse_api_t synapse_api_;
   hccl_api_t hccl_api_;
 };
