@@ -17,8 +17,6 @@ import torch
 import torch.nn as nn
 from test_utils import cpu, hpu
 
-pytestmark = pytest.mark.xfail
-
 # N - batch
 # H - input height
 # W - input width
