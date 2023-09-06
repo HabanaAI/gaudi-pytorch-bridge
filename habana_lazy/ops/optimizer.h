@@ -103,5 +103,41 @@ class OptimizerFusedAdamw : public Node {
   }
 };
 
+class OptimizerFusedEMA : public Node {
+ public:
+  OptimizerFusedEMA() = delete;
+  OptimizerFusedEMA(
+      const at::TensorList& model_inputs,
+      at::TensorList& updated_ema,
+      const at::Tensor& decay)
+      : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerFusedEMA")) {
+    AddInputVec(model_inputs);
+    AddInputVec(updated_ema);
+    auto hl_decay = GetOrCreateHbLazyTensor(decay, c10::kHPU);
+    AddInput(hl_decay.GetIrValue());
+  }
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << Node::ToString() << ", decay=";
+    return ss.str();
+  }
+
+ private:
+  void AddInputVec(const at::TensorList& tensor_list) {
+    ValueList hl_tensors;
+    std::vector<at::Tensor> input_pt_vec;
+    for (auto& t : tensor_list) {
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
+      hl_tensor = HbLazyTensorViews::HandleViewsOrUpdate(t, hl_tensor);
+      hl_tensors.push_back(hl_tensor.GetIrValue());
+      input_pt_vec.emplace_back(t);
+    }
+
+    auto input = GetIrValueForListConstruct(hl_tensors);
+    input.mp_node->AddInputPtTensors(input_pt_vec);
+    AddInput(input);
+  }
+};
+
 }; // namespace ir
 }; // namespace habana_lazy

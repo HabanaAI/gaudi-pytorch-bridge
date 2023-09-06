@@ -450,6 +450,10 @@ void optimizer_lamb_phase2(
     const at::Tensor& neg_step,
     const double weight_decay,
     const bool use_lamb);
+void optimizer_ema_hpu_lazy(
+    const at::TensorList model_inputs,
+    at::TensorList updated_ema,
+    const at::Tensor& decay);
 void optimizer_adagrad_hpu_lazy(
     const at::TensorList& gradients,
     at::TensorList& weights,

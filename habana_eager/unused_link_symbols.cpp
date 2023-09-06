@@ -369,6 +369,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
+void optimizer_ema_hpu_wrap(
+    const TensorList model_inputs,
+    TensorList updated_ema,
+    const at::Tensor& decay) {
+  EAGER_NOT_SUPPORTED;
+}
+
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& gradients,

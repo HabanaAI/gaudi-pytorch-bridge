@@ -838,6 +838,7 @@ RegisterKernel::add op = hpu::habana_expand_into_jagged_permute
 RegisterKernel::add op = hpu::habana_nms
 RegisterKernel::add op = hpu::habanaOptimizerAdamW
 RegisterKernel::add op = hpu::habanaOptimizerFusedAdagrad
+RegisterKernel::add op = hpu::habanaOptimizerFusedEMA
 RegisterKernel::add op = hpu::optimizer_sgd
 RegisterKernel::add op = hpu::optimizer_sgd_momentum
 RegisterKernel::add op = hpu::habanaOptimizerLars

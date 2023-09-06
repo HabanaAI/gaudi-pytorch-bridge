@@ -13,8 +13,9 @@
 import math
 from copy import deepcopy
 
-import habana_frameworks.torch.core as htcore
 import torch
+import habana_frameworks.torch.core as htcore
+from habana_frameworks.torch.utils.internal import is_lazy
 from torch import nn
 
 hpu = torch.device("hpu")
@@ -49,6 +50,12 @@ class FusedEMA:
         )  # decay exponential ramp (to help early epochs) #decay
         self.updates = updates
         self.updated_ema = list(self.ema.state_dict().values())
+        if is_lazy():
+            from habana_frameworks.torch import _hpex_C
+
+            self.op = _hpex_C.fused_ema
+        else:
+            self.op = torch.ops.hpu.optimizer_ema
 
     def update(self, model):
         htcore.step_closure._mark_step_if_lazy()
@@ -59,7 +66,7 @@ class FusedEMA:
             decy = self.decay(self.updates)
             d = torch.tensor([decy]).to(hpu)
 
-        torch.ops.hpu.optimizer_ema(model_inputs, self.updated_ema, d)
+        self.op(model_inputs, self.updated_ema, d)
         htcore.step_closure._mark_step_if_lazy()
 
     def update_attr(self, model, include=(), exclude=("process_group", "reducer")):

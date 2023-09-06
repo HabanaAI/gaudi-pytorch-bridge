@@ -50,6 +50,15 @@ static void optimizer_fused_adagrad(
       gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
 }
 
+static void optimizer_fused_ema(
+    const std::vector<at::Tensor>& model_inputs,
+    std::vector<at::Tensor>& updated_ema,
+    const at::Tensor& decay) {
+  at::TensorList modelInputs(model_inputs);
+  at::TensorList updatedEma(updated_ema);
+  optimizer_ema_hpu_wrap(modelInputs, updatedEma, decay);
+}
+
 static void optimizer_fused_sgd(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
@@ -161,6 +170,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "fused_sgd",
       &optimizer_fused_sgd,
       "Compute and apply gradient update to parameters for SGD optimizer");
+  m.def(
+      "fused_ema",
+      &optimizer_fused_ema,
+      "Compute and apply exponential moving avg update in ema optimizer");
   m.def(
       "fused_sgd_momentum",
       &optimizer_fused_sgd_momentum,
