@@ -15,7 +15,6 @@ from collections import deque
 from functools import wraps
 from os import environ, path
 from typing import Union, Optional
-from torchmetrics import Metric
 
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
@@ -177,9 +176,11 @@ def overwrite_torch_functions():
 
     module_set_attr_orig = torch.nn.Module.__setattr__
 
+    #Ie9b966962fca23e5118047c3e7a47545d4c87f11 needs to be merged to resolve https://github.com/pytorch/pytorch/issues/107460
+    #torch compile will have issues with log/metric attributes until then.
     @wraps(torch.nn.Module.__setattr__)
     def wrap_set_attr(self, name: str, value: Union[torch.Tensor, 'torch.nn.Module']) -> None:
-        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(value) and not isinstance(value, Metric):
+        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(value):
             try:
                 value.custom_name = name
                 value.register_forward_pre_hook(_pre_fwd_hook)
