@@ -4778,9 +4778,9 @@ ne.Tensor_out:
 
 ne.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Long, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
   promote_to_common_type: [self, other]

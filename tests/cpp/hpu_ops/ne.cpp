@@ -8,9 +8,32 @@
  ******************************************************************************
  */
 
+#include <gtest/gtest-param-test.h>
+#include <cstdint>
+#include <unordered_map>
+#include "habana_kernels/fallback_helper.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
+
+class NeDtypeSupportTest : public testing::Test,
+                           public testing::WithParamInterface<c10::ScalarType> {
+  void SetUp() override {
+    clearRegisteredFallbacks();
+  }
+  void TearDown() override {
+    clearRegisteredFallbacks();
+  }
+
+ private:
+  void clearRegisteredFallbacks() {
+    auto& op_fallback_frequency =
+        habana::HpuFallbackHelper::get()->get_op_count();
+    (const_cast<std::unordered_map<std::string, size_t>&>(
+         op_fallback_frequency))
+        .clear();
+  }
+};
 
 TEST_F(HpuOpTest, ne_scalar_out) {
   GenerateInputs(1, torch::kFloat);
@@ -58,3 +81,31 @@ TEST_F(HpuOpTest, ne_tensor_inplace) {
 
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
+
+TEST_P(NeDtypeSupportTest, NeScalarOutTest) {
+  auto dtype = GetParam();
+  auto compare_value = at::Scalar(static_cast<int64_t>(10));
+  auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
+  auto input_tensor = torch::tensor({10, -10}, options);
+  auto output_tensor = torch::empty({2}, options.dtype(torch::kBool));
+
+  auto out_cpu =
+      torch::ne_out(input_tensor, output_tensor, compare_value).to(torch::kCPU);
+
+  const auto& op_fallback_frequency =
+      habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(
+      op_fallback_frequency.find("aten::ne.Scalar_out"),
+      op_fallback_frequency.end());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TypeSupportTest,
+    NeDtypeSupportTest,
+    testing::Values(
+        torch::kBFloat16,
+        torch::kFloat32,
+        torch::kInt32,
+        torch::kInt64,
+        torch::kInt8,
+        torch::kInt16));
