@@ -44,7 +44,6 @@ torch::jit::Stack GraphStorage::launch_recipe(
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Launching recipe_id: ", recipe_id);
-  habana::eager::JoinPendingPipelineThreads();
   HABANA_ASSERT(recipe_id < m_storage_vec.size());
   GraphExec& gexec{m_storage_vec[recipe_id]};
   return gexec.launch(inputs, outputs);

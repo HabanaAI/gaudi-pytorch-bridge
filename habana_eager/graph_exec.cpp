@@ -70,8 +70,7 @@ GraphExec::GraphExec(
       m_inference(inference) {
   PT_EAGER_TRACE;
 
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
 
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
 
@@ -217,8 +216,7 @@ torch::jit::Stack GraphExec::launch(
     if (backend_outputs.size() > 0) {
       maybe_backend_outputs = backend_outputs;
     }
-    habana::eager::SingleTonEagerContext::getInstance()
-        .JoinPendingLoweringThread();
+    habana::eager::JoinPendingPipelineThreads();
     torch::jit::Stack ret_stack =
         LaunchRecipe(backend_inputs, maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
@@ -230,8 +228,7 @@ torch::jit::Stack GraphExec::LaunchDynamicRecipe(
   PT_EAGER_TRACE;
   PT_EAGER_INFO("LaunchDynamicRecipe. is_first_launch: ", is_first_launch);
 
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
+  habana::eager::JoinPendingPipelineThreads();
 
   torch::jit::Stack stack =
       ProcessDynamicStack(original_stack, is_first_launch);
