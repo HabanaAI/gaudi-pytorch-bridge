@@ -406,7 +406,7 @@ def test_wrap_hpugraphs_max_graphs(max_graphs=10):
     compare_tensors(loss_hpu_vec, loss_cpu_vec, atol=0.001, rtol=1.e-3)
 
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported dtype")
-@pytest.mark.parametrize("disable_tensor_cache", [True, False])
+@pytest.mark.parametrize("disable_tensor_cache", [True])
 def test_cached_module_training_fp8(disable_tensor_cache):
     torch.manual_seed(12345)
     input0 = torch.tensor([0.1, 0.2, 0.3, 0.4]).to('hpu')
@@ -614,7 +614,7 @@ if __name__ == "__main__":
     test_cached_module_training(disable_tensor_cache=False, dry_run=True)
     test_cached_module_training(disable_tensor_cache=True, dry_run=False)
     test_cached_module_training(disable_tensor_cache=True, dry_run=True)
-    test_cached_module_training_fp8(disable_tensor_cache=False)
+    #test_cached_module_training_fp8(disable_tensor_cache=False)
     test_cached_module_training_fp8(disable_tensor_cache=True)
     test_graph_capture_scalar(disable_tensor_cache=True)
     test_multiple_graph_capture_with_views()

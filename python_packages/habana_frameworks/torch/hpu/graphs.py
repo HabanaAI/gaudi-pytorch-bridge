@@ -894,7 +894,7 @@ class ModuleCacher(torch.nn.Module):
         return self.orig_model(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
-        disable_tensor_cache=False, dry_run=True):
+        disable_tensor_cache=False, dry_run=False):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
         if not inplace:
             model = copy.copy(model)
