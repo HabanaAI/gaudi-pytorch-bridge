@@ -21,6 +21,16 @@ namespace habana {
 FALLBACK_CHECK(
     IndexFallbackCheck,
     [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
+  at::Stack stack = {indices};
+  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
+  for (auto input : indices_in) {
+    auto o1 = input.toOptional<at::Tensor>();
+
+    if ((o1.has_value() && o1.value().defined() &&
+         o1.value().device() == torch::kCPU) ||
+        (!o1.has_value() && o1->defined()))
+      return false;
+  }
   return true;
 };
 
@@ -67,115 +77,113 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
     indices_in = indices_in_orig;
   }
 
-    at::Tensor self_permuted = self;
-    std::vector<int64_t> self_permute_dims;
-    if (advanced_indexing) {
-      if (indices_in.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
-        for (auto input : indices_in) {
-          auto o1 = input.toOptional<at::Tensor>();
-          if (o1.has_value() && !o1->defined()) {
-            if (explicit_indices_together) {
-              explicit_indices_together = false;
-              index_tensor_group_end = dim;
-            }
-          } else if (o1.has_value() && o1->defined()) {
-            if (!explicit_indices_together) {
-              index_tensor_group_start = dim;
-              index_tensor_groups++;
-            }
-            explicit_indices_together = true;
-            auto o1_sizes = o1.value().sizes().vec();
-            num_explicit_indices++;
-          }
-          if (explicit_indices_together) {
-            index_tensor_group_end = dim;
-          }
-          dim++;
-        }
-      }
-      bool dims_permuted = false;
-
-      std::tie(
-          dims_permuted, num_index_tensors, self_permute_dims, indices_vec) =
-          generate_advanced_indexing_indices_list(inputs_vec);
-      if (dims_permuted) { // all explicitly indexed dims are now in higher
-                           // order dims.
-        for (const auto i : c10::irange(num_index_tensors)) {
-          if (i < num_explicit_indices) {
-            advanced_indexing_present.emplace_back(false);
-          } else {
-            advanced_indexing_present.emplace_back(true);
-          }
-        }
-      } else if (num_explicit_indices >= 1) {
-        for (const auto i : c10::irange(num_index_tensors)) {
-          if ((i >= index_tensor_group_start) &&
-              (i <= index_tensor_group_end)) {
-            advanced_indexing_present.emplace_back(false);
-          } else {
-            advanced_indexing_present.emplace_back(true);
-          }
-        }
-      }
-      for (int i = num_index_tensors; i < (int)indices_in.size(); i++) {
-        advanced_indexing_present.emplace_back(true);
-      }
-    } else {
+  at::Tensor self_permuted = self;
+  std::vector<int64_t> self_permute_dims;
+  if (advanced_indexing) {
+    if (indices_in.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
       for (auto input : indices_in) {
         auto o1 = input.toOptional<at::Tensor>();
-        if (o1.has_value() && o1->defined()) {
-          indices_vec.push_back(o1.value());
+        if (o1.has_value() && !o1->defined()) {
+          if (explicit_indices_together) {
+            explicit_indices_together = false;
+            index_tensor_group_end = dim;
+          }
+        } else if (o1.has_value() && o1->defined()) {
+          if (!explicit_indices_together) {
+            index_tensor_group_start = dim;
+            index_tensor_groups++;
+          }
+          explicit_indices_together = true;
+          auto o1_sizes = o1.value().sizes().vec();
+          num_explicit_indices++;
         }
-        advanced_indexing_present.emplace_back(false);
-      }
-      for (int i = 0; i < (int)self.dim(); i++) {
-        self_permute_dims.emplace_back(i);
+        if (explicit_indices_together) {
+          index_tensor_group_end = dim;
+        }
+        dim++;
       }
     }
+    bool dims_permuted = false;
+
+    std::tie(dims_permuted, num_index_tensors, self_permute_dims, indices_vec) =
+        generate_advanced_indexing_indices_list(inputs_vec);
+    if (dims_permuted) { // all explicitly indexed dims are now in higher
+                         // order dims.
+      for (const auto i : c10::irange(num_index_tensors)) {
+        if (i < num_explicit_indices) {
+          advanced_indexing_present.emplace_back(false);
+        } else {
+          advanced_indexing_present.emplace_back(true);
+        }
+      }
+    } else if (num_explicit_indices >= 1) {
+      for (const auto i : c10::irange(num_index_tensors)) {
+        if ((i >= index_tensor_group_start) && (i <= index_tensor_group_end)) {
+          advanced_indexing_present.emplace_back(false);
+        } else {
+          advanced_indexing_present.emplace_back(true);
+        }
+      }
+    }
+    for (int i = num_index_tensors; i < (int)indices_in.size(); i++) {
+      advanced_indexing_present.emplace_back(true);
+    }
+  } else {
+    for (auto input : indices_in) {
+      auto o1 = input.toOptional<at::Tensor>();
+      if (o1.has_value() && o1->defined()) {
+        indices_vec.push_back(o1.value());
+      }
+      advanced_indexing_present.emplace_back(false);
+    }
+    for (int i = 0; i < (int)self.dim(); i++) {
+      self_permute_dims.emplace_back(i);
+    }
+  }
+  for (size_t i = 0; i < indices_vec.size(); i++) {
+    if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
+      indices_vec[i] = indices_vec[i].to(c10::kHPU);
+    }
+  }
+
+  // handle views for tensorlist indices
+  at::TensorList indices_in_list(indices_vec);
+  indices_vec =
+      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
+  // for case where indices are Boolean tensor(s), convert these to integer
+  // indices using nonzero operator before calling index
+  auto bool_non_adv_indexing_case =
+      (!advanced_indexing &&
+       (indices_vec[0].scalar_type() == c10::ScalarType::Bool));
+  if (bool_non_adv_indexing_case) {
     for (size_t i = 0; i < indices_vec.size(); i++) {
-      if (indices_vec[i].device().type() != c10::DeviceType::HPU) {
-        indices_vec[i] = indices_vec[i].to(c10::kHPU);
-      }
+      auto list = torch::nonzero_numpy(indices_vec.at(i));
+      indices_vec_out.insert(
+          indices_vec_out.cend(), list.cbegin(), list.cend());
     }
+  }
+  at::TensorList indices =
+      (bool_non_adv_indexing_case) ? indices_vec_out : indices_vec;
 
-    // handle views for tensorlist indices
-    at::TensorList indices_in_list(indices_vec);
-    indices_vec =
-        habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices_in_list);
-    // for case where indices are Boolean tensor(s), convert these to integer
-    // indices using nonzero operator before calling index
-    auto bool_non_adv_indexing_case =
-        (!advanced_indexing &&
-         (indices_vec[0].scalar_type() == c10::ScalarType::Bool));
-    if (bool_non_adv_indexing_case) {
-      for (size_t i = 0; i < indices_vec.size(); i++) {
-        auto list = torch::nonzero_numpy(indices_vec.at(i));
-        indices_vec_out.insert(
-            indices_vec_out.cend(), list.cbegin(), list.cend());
-      }
-    }
-    at::TensorList indices =
-        (bool_non_adv_indexing_case) ? indices_vec_out : indices_vec;
-
-    auto indices_out_vec =
-        habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices);
-    at::TensorList indices_out_list(indices_out_vec);
-    int orig_in_tensor_type_count = (int)in_stack.size();
-    in_stack.resize(in_stack.size() + 3);
-    in_stack.at(0) = self_permuted;
-    in_stack.at(1) = indices_out_list;
-    if (3 == orig_in_tensor_type_count) { // out variant
-      auto& sub_inputs = in_stack;
-      auto out = sub_inputs.at(2).toTensor();
-      in_stack.at(2) = advanced_indexing_present;
-      in_stack.at(3) = self_permute_dims;
-      in_stack.at(4) = num_index_tensors;
-      in_stack.at(5) = out;
-    } else {
-      in_stack.at(2) = advanced_indexing_present;
-      in_stack.at(3) = self_permute_dims;
-      in_stack.at(4) = num_index_tensors;
-    }
+  auto indices_out_vec =
+      habana_lazy::HbLazyTensorViews::HandleViewsTensorList(indices);
+  at::TensorList indices_out_list(indices_out_vec);
+  int orig_in_tensor_type_count = (int)in_stack.size();
+  in_stack.resize(in_stack.size() + 3);
+  in_stack.at(0) = self_permuted;
+  in_stack.at(1) = indices_out_list;
+  if (3 == orig_in_tensor_type_count) { // out variant
+    auto& sub_inputs = in_stack;
+    auto out = sub_inputs.at(2).toTensor();
+    in_stack.at(2) = advanced_indexing_present;
+    in_stack.at(3) = self_permute_dims;
+    in_stack.at(4) = num_index_tensors;
+    in_stack.at(5) = out;
+  } else {
+    in_stack.at(2) = advanced_indexing_present;
+    in_stack.at(3) = self_permute_dims;
+    in_stack.at(4) = num_index_tensors;
+  }
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, IndexFE, at::Tensor) {

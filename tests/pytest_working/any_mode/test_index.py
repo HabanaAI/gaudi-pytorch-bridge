@@ -15,36 +15,40 @@ import torch
 from test_utils import cpu, hpu
 
 
-# optional on list cause fail
 @pytest.mark.parametrize(
     "shape, indices",
     [
         [(5, 5), ([1, 2, 3],)],
-        pytest.param((5, 5), (None, [1, 2, 3],), marks=pytest.mark.xfail(rason="SW-155102")),
-        pytest.param((2, 3, 4), (None, None,), marks=pytest.mark.xfail(rason="SW-155102")),
         pytest.param(
-            (2, 3, 4),
+            (5, 5),
             (
+                None,
+                [1, 2, 3],
+            ),
+        ),
+        pytest.param((2, 3, 4), (None, None, 0)),
+        pytest.param((2, 3, 4), ([0, 1], [2], None)),
+        [(2, 3, 8, 8), ([[[1], [0]]],)],
+        pytest.param(
+            (2, 3, 8, 8),
+            (
+                None,
                 [1, 2],
-                [3],
                 None,
             ),
-            marks=pytest.mark.xfail(rason="SW-155102"),
         ),
-        [(2, 3, 8, 8), ([[[1], [0]]],)],
-        pytest.param((2, 3, 8, 8), (None, [1, 2], None,), marks=pytest.mark.xfail(rason="SW-155102")),
     ],
 )
 def test_index(shape, indices):
-    if pytest.mode == "lazy":
-        pytest.xfail()
+    def wrapper_fn(input, indices):
+        return torch.ops.aten.index(input, indices)
 
     func = torch.ops.aten.index
     if pytest.mode == "compile":
-        func = torch.compile(torch.ops.aten.index, backend="aot_hpu_training_backend")
+        func = torch.compile(wrapper_fn, backend="aot_hpu_training_backend")
 
-    input_tensor = torch.randn(*shape, device="hpu:0")
-    indices = [torch.tensor(x, device="hpu:0") if x is not None else x for x in indices]
+    input_tensor = torch.randn(*shape, device=hpu)
+    indices = [torch.tensor(x, device=hpu) if x is not None else x for x in indices]
 
     y_cpu = func(
         input_tensor.to(cpu), [x.to(cpu) if x is not None else x for x in indices]
