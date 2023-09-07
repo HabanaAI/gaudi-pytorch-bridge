@@ -8,6 +8,8 @@
  ******************************************************************************
  */
 
+#include <gtest/gtest-param-test.h>
+#include "habana_kernels/fallback_helper.h"
 #include "util.h"
 
 #define TENSOR_TYPE_float torch::kFloat32
@@ -92,3 +94,32 @@ Gather4DOutTest(gather_out_float, float);
 Gather4DOutTest(gather_out_byte, byte);
 Gather5DOutTest(gather_out_int32, int32);
 Gather5DOutTest(gather_out_bool, bool);
+
+class GatherDtypeSupportTest : public DTypeSupportTest {};
+
+TEST_P(GatherDtypeSupportTest, GatherOutDtypeSupportTest) {
+  auto dtype = GetParam();
+  auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
+  auto input = torch::tensor({1, 2}, options);
+  auto output = torch::empty(2, options);
+  auto index = torch::tensor({0, 0}, options.dtype(torch::kInt64));
+
+  auto result =
+      torch::gather_outf(input, 0, index, false, output).to(torch::kCPU);
+  const auto& op_fallback_frequency =
+      habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(
+      op_fallback_frequency.find("aten::gather.out"),
+      op_fallback_frequency.end());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TypeSupportTest,
+    GatherDtypeSupportTest,
+    testing::Values(
+        torch::kBFloat16,
+        torch::kFloat32,
+        torch::kInt32,
+        torch::kInt64,
+        torch::kInt8,
+        torch::kInt16));

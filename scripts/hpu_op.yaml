@@ -2865,9 +2865,9 @@ gather.out:
   custom_fill_params: FillGatherParams
   custom_output_shape: GatherOutputShape
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Short, Byte, Char]
+    Gaudi2: [BFloat16, Float, Int, Long, Short, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Short, Byte, Char, Half]
   guid: gather_elements_fwd
 
 ge.Scalar_out:
