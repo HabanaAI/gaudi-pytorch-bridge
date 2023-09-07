@@ -1,0 +1,55 @@
+common:
+  dependencies:
+    - CODEC
+    - COMPLEX_GUID
+    - HCL
+    - HL_THUNK
+    - MEDIA
+    - SWTOOLS_SDK
+    - SYNAPSE
+    - SYNAPSE_UTILS
+    - TPC_KERNELS
+  config:
+    testCommand: run_pytorch_qa_tests
+    loadLKD: true
+    testXMLOutputKey: --xml
+    releaseFlag: false
+    saveToFileBeatMount: true
+  envVars:
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
+    LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
+    JOB_SCENARIO: pt_smoke_gaudi2
+  preTestStages:
+    Install Python test dependencies:
+      command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
+    Update PyTorch module:
+        command: |
+          __clean_pytorch_dev_py_deps
+          pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
+          pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
+          install_pillow_simd
+          if [ $GERRIT_PROJECT == lightning-habana-fork ]
+          then
+            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps
+          fi
+          pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+    Install media loader wheel:
+      command: |
+          pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl
+testsMap:
+  Test_pytorch_modules_gaudi2_asic_topology_2.n:
+    dependencies:
+      - TPC_FUSER
+      - TPC_LLVM
+      - PT_NEXT
+    stages:
+      Run toplogy tests on gaudi2 asic:
+        filter: -t topology_ci -a smoke_gaudi2
+  Test_pytorch_modules_gaudi_asic_topology_2.n:
+    dependencies:
+      - AEON
+      - PT_NEXT
+    stages:
+      Run toplogy tests on gaudi asic:
+        filter: -t topology_ci -a smoke
