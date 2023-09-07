@@ -6,7 +6,6 @@ testJobConfig:
           sim:
       gaudi2:
         hwType:
-          asic:
           sim:
       gaudi3:
         hwType:
