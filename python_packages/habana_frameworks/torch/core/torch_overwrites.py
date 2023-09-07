@@ -92,6 +92,14 @@ def _post_fwd_hook(module, input, output):
             pass
 
 
+class HpuMarker:
+    pass
+
+
+def _deserialize_habana_wrapper(func, marker, *args):
+    return func(*args)
+
+
 def overwrite_torch_functions():
     # wrap torch.manual_seed
 
@@ -255,3 +263,17 @@ def overwrite_torch_functions():
             return res
 
         torch.distributed.irecv = wrap_irecv
+
+    #wrap torch.Tensor._reduce_ex_internal
+
+    _original_reduce_ex_internal = torch.Tensor._reduce_ex_internal
+
+    @wraps(torch.Tensor._reduce_ex_internal)
+    def _reduce_ex_internal_habana(self, proto):
+        func, args = _original_reduce_ex_internal(self, proto)
+        if self.device.type.startswith("hpu"):
+            return _deserialize_habana_wrapper, (func, HpuMarker(), *args)
+
+        return func, args
+
+    torch.Tensor._reduce_ex_internal = _reduce_ex_internal_habana
