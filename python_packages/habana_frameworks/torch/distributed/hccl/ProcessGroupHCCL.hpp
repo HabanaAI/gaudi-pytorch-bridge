@@ -25,7 +25,6 @@
 #include <thread>
 #include <unordered_map>
 #include "backend/synapse_helpers/device_context.h"
-#include "backend/synapse_helpers/hccl_communicator.h"
 #include "process_group_hccl_base.hpp"
 
 using Work = c10d_ver::Work;
@@ -40,10 +39,11 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
     // Constructor takes a list of HABANA devices and communicators
     WorkHCCL(
         const std::vector<at::Tensor>& outputs,
-        std::shared_ptr<hcclComm_t> hccl_comm_,
-        std::shared_ptr<hccl_integration::device_context> deviceCtx);
+        const std::vector<int>& devices,
+        std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
+        std::vector<std::shared_ptr<hccl_integration::device_context>>&
+            deviceCtxts_);
     WorkHCCL(const WorkHCCL& w);
-    WorkHCCL();
 
     virtual ~WorkHCCL();
 
@@ -59,12 +59,15 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
 
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
 
+    void destroy();
+
    protected:
     // HCCL runs on a different stream. Hold tensor references which is used
     // to query completion of execution
     std::vector<at::Tensor> outputs_;
-    std::shared_ptr<hcclComm_t> hccl_comm_;
-    std::shared_ptr<hccl_integration::device_context> deviceCtx_;
+    std::vector<int> devices_;
+    std::vector<std::shared_ptr<hcclComm_t>> hccl_comms_;
+    std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts_;
     // Time point representing when the work started.
     std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
 
@@ -100,11 +103,35 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
 
   c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> initWork(
       std::vector<at::Tensor>& outputs,
-      std::shared_ptr<hcclComm_t> hccl_comm,
-      std::shared_ptr<hccl_integration::device_context> deviceCtxts);
+      std::vector<int> devices,
+      std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
+      std::vector<std::shared_ptr<hccl_integration::device_context>>&
+          deviceCtxts);
 
   void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) override;
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
+
+  void broadcastUniqueHCCLID(hcclUniqueId* hcclID);
+  std::shared_ptr<hcclComm_t> getComm(int deviceId);
+  synStreamHandle getCommStream(int deviceId);
+  std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(int deviceId);
+
+  std::vector<int> getDeviceList(const std::vector<at::Tensor>& tensors);
+  std::vector<std::shared_ptr<hcclComm_t>> getCommList(
+      const std::vector<int>& devices);
+  std::vector<std::shared_ptr<hccl_integration::device_context>>
+  getDeviceCtxtList(const std::vector<int>& devices);
+  std::vector<synStreamHandle> getCommStreams(const std::vector<int>& devices);
+
+  uint64_t hcclCommCounter_{0};
+  std::mutex mutex_;
+  void nwStreamSync();
+
+  // Maintains the list of communicators associated with the devices.
+  std::map<int, std::shared_ptr<hcclComm_t>> hccl_communicator_;
+  std::map<int, std::shared_ptr<hccl_integration::device_context>>
+      device_contexts_;
+  std::map<int, synStreamHandle> comm_streams_;
 };
 
 } // namespace c10d
