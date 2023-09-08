@@ -45,20 +45,6 @@ namespace c10d {
 
 namespace {
 
-#define HOST_SYNC()                                   \
-  {                                                   \
-    if (GET_ENV_FLAG_NEW(PT_HPU_USE_PT_STORE_SYNC)) { \
-      hostBarrier();                                  \
-    }                                                 \
-  }
-
-#define NW_STREAM_SYNC()                               \
-  {                                                    \
-    if (GET_ENV_FLAG_NEW(PT_HPU_USE_NW_STREAM_SYNC)) { \
-      nwStreamSync();                                  \
-    }                                                  \
-  }
-
 class JobThreadHCCL {
  public:
   static std::shared_ptr<habana_helpers::JobThread> getInstance() {
@@ -70,74 +56,6 @@ class JobThreadHCCL {
 
 } // namespace
 
-void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
-  if (this->emulate_distributed_) {
-    return;
-  }
-  auto hccl_rank = getRank();
-  std::string storeKey = std::to_string(hcclCommCounter_++);
-  if (hccl_rank == 0) {
-    auto vec = std::vector<uint8_t>(
-        reinterpret_cast<uint8_t*>(hcclID),
-        reinterpret_cast<uint8_t*>(hcclID) + sizeof(hcclUniqueId));
-    store_->set(storeKey, vec);
-  } else {
-    auto vec = store_->get(storeKey);
-    TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
-    std::memcpy(hcclID, vec.data(), vec.size());
-  }
-}
-
-void ProcessGroupHCCL::nwStreamSync() {
-  PT_DISTRIBUTED_BEGIN;
-  std::vector<int> devices;
-  for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
-       it++) {
-    devices.push_back(it->first);
-  }
-
-  auto comms = getCommList(devices);
-  auto commStreams = getCommStreams(devices);
-  for (size_t i = 0; i < comms.size(); i++) {
-    synStreamSynchronize(commStreams[i]);
-  }
-
-  PT_DISTRIBUTED_END;
-}
-
-std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
-  if (hccl_communicator_.find(deviceId) == hccl_communicator_.end()) {
-    hcclUniqueId hccl_id;
-    auto hccl_size = getSize();
-    auto hccl_rank = getRank();
-    if (hccl_rank == 0) {
-      hcclResult_t result{hcclGetUniqueId(&hccl_id)};
-      TORCH_CHECK(hcclSuccess == result, "Get HCCL UniqueId Error");
-    }
-    broadcastUniqueHCCLID(&hccl_id);
-    hcclComm_t new_comm;
-    hcclResult_t result{hcclSuccess};
-    if (!this->emulate_distributed_) {
-      result = hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank);
-    }
-    TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
-    std::lock_guard<std::mutex> lock(mutex_);
-    hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
-    auto deviceCtxt =
-        std::make_shared<hccl_integration::device_context>(deviceId);
-    device_contexts_[deviceId] = deviceCtxt;
-
-    synStreamHandle collective_stream;
-    deviceCtxt->acquire_collective_stream(&collective_stream);
-    comm_streams_[deviceId] = collective_stream;
-  }
-  return hccl_communicator_.find(deviceId)->second;
-}
-
-std::shared_ptr<hccl_integration::device_context> ProcessGroupHCCL::
-    getDeviceCtxt(int deviceId) {
-  return device_contexts_.find(deviceId)->second;
-}
 // TBD: Store not used for now and config done from file
 // Initial support added for multiple devices on a single node
 // So using rank as the device id.  This will be enhanced further.
@@ -145,46 +63,40 @@ ProcessGroupHCCL::ProcessGroupHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
     int size)
-    : ProcessGroupHcclBase(store, rank, size), hcclCommCounter_(0) {}
+    : ProcessGroupHcclBase(store, rank, size) {}
 
 ProcessGroupHCCL::~ProcessGroupHCCL() {
-  habana_helpers::AutoNoGIL gil_release;
+  PT_DISTRIBUTED_BEGIN;
+  goodbyeHandshake();
   destroy();
+  PT_DISTRIBUTED_END;
 }
 
 void ProcessGroupHCCL::destroy() {
-  hostBarrier();
-  device_contexts_.clear();
-  if (!this->emulate_distributed_) {
-    std::string barrier_key = std::string("ProcessGroupHCCL::destroy");
-    auto worker_count = store_->add(barrier_key, 1);
-    if (getRank() == 0) {
-      while (worker_count != size_) {
-        worker_count = store_->add(barrier_key, 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-    }
-
-    for (auto element : hccl_communicator_) {
-      hcclCommDestroy(*(element.second));
-    }
+  if (comm_) {
+    habana_helpers::AutoNoGIL gil_release;
+    comm_->flush_stream();
+    comm_.reset();
   }
-  hccl_communicator_ = {};
 }
 
 ProcessGroupHCCL::WorkHCCL::WorkHCCL(
     const std::vector<at::Tensor>& outputs,
-    const std::vector<int>& devices,
-    std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
-    std::vector<std::shared_ptr<hccl_integration::device_context>>& deviceCtxts)
+    std::shared_ptr<hcclComm_t> hccl_comm,
+    std::shared_ptr<hccl_integration::device_context> deviceCtx)
     : outputs_(outputs),
-      devices_(devices),
-      hccl_comms_(hccl_comms),
-      deviceCtxts_(deviceCtxts),
+      hccl_comm_(hccl_comm),
+      deviceCtx_(deviceCtx),
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
           c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs_));
+}
+
+ProcessGroupHCCL::WorkHCCL::WorkHCCL()
+    : future_(c10::make_intrusive<at::ivalue::Future>(
+          c10::ListType::create(c10::TensorType::get()))) {
+  future_->markCompleted();
 }
 
 ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
@@ -212,12 +124,12 @@ bool ProcessGroupHCCL::WorkHCCL::wait(std::chrono::milliseconds timeout
 
 void ProcessGroupHCCL::WorkHCCL::synchronize() {
   for (size_t i = 0; i < outputs_.size(); ++i) {
-    deviceCtxts_[i]->synchronize_output(
+    deviceCtx_->synchronize_output(
         (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
         (c10::hpu::getCurrentHPUStream()).stream());
   }
   outputs_.clear();
-  deviceCtxts_.clear();
+  deviceCtx_.reset();
 }
 
 c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupHCCL::WorkHCCL::
@@ -231,55 +143,10 @@ void ProcessGroupHCCL::WorkHCCL::abort() {
 
 c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
     std::vector<at::Tensor>& outputs,
-    std::vector<int> devices,
-    std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
-    std::vector<std::shared_ptr<hccl_integration::device_context>>&
-        deviceCtxts) {
+    std::shared_ptr<hcclComm_t> hccl_comm,
+    std::shared_ptr<hccl_integration::device_context> deviceCtx) {
   return c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>(
-      outputs, devices, hccl_comms, deviceCtxts);
-}
-
-// Get the list of devices from list of tensors
-std::vector<int> ProcessGroupHCCL::getDeviceList(
-    const std::vector<at::Tensor>& tensors) {
-  std::vector<int> res;
-  res.reserve(tensors.size());
-  for (auto& tensor : tensors) {
-    res.push_back(tensor.get_device());
-  }
-  return res;
-}
-
-std::vector<std::shared_ptr<hcclComm_t>> ProcessGroupHCCL::getCommList(
-    const std::vector<int>& devices) {
-  std::vector<std::shared_ptr<hcclComm_t>> comms(devices.size());
-  for (size_t i = 0; i < devices.size(); ++i) {
-    comms[i] = getComm(int(devices[i]));
-  }
-  return comms;
-}
-
-synStreamHandle ProcessGroupHCCL::getCommStream(int device) {
-  return comm_streams_.find(device)->second;
-}
-
-std::vector<synStreamHandle> ProcessGroupHCCL::getCommStreams(
-    const std::vector<int>& devices) {
-  std::vector<synStreamHandle> hcclStreams(devices.size());
-  for (size_t i = 0; i < devices.size(); ++i) {
-    hcclStreams[i] = getCommStream(devices[i]);
-  }
-  return hcclStreams;
-}
-
-std::vector<std::shared_ptr<hccl_integration::device_context>> ProcessGroupHCCL::
-    getDeviceCtxtList(const std::vector<int>& devices) {
-  std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts(
-      devices.size());
-  for (size_t i = 0; i < devices.size(); ++i) {
-    deviceCtxts[i] = getDeviceCtxt(devices[i]);
-  }
-  return deviceCtxts;
+      outputs, hccl_comm, deviceCtx);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
@@ -289,24 +156,24 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
   auto tensors =
       habana_lazy::HbLazyTensorViews::UpdateViewDistributed(tensors_);
 
-  const auto devices = getDeviceList(tensors);
-  auto comms = getCommList(devices);
-  auto deviceCtxts = getDeviceCtxtList(devices);
-  auto commStreams = getCommStreams(devices);
-  auto work = initWork(tensors, devices, comms, deviceCtxts);
+  auto deviceCtxt = comm_->getDeviceCtxt();
+  synStreamHandle collective_stream = comm_->getCommStream();
+  auto work = initWork(tensors, comm_->GetHcclHandle(), deviceCtxt);
 
   for (size_t i = 0; i < tensors.size(); ++i) {
-    auto deviceCtxt = deviceCtxts[i];
-    synStreamHandle collective_stream = commStreams[i];
+    TORCH_CHECK(
+        tensors[i].get_device() == 0,
+        "All tensors are expected to be assigned to device with id 0");
     synapse_helpers::device_ptr tensor_storage_ptr =
         (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
+
     deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
 
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
     auto func = [fn = fn,
                  tensor = tensors[i],
-                 comm = comms[i],
+                 comm = comm_->GetHcclHandle(),
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
                  tensor_storage_ptr = tensor_storage_ptr,
@@ -388,11 +255,9 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   auto out_view_vec =
       habana_lazy::HbLazyTensorViews::UpdateViewDistributed(outputs);
 
-  const auto devices = getDeviceList(in_view_vec);
-  auto comms = getCommList(devices);
-  auto deviceCtxts = getDeviceCtxtList(devices);
-  auto commStreams = getCommStreams(devices);
-  auto work = initWork(out_view_vec, devices, comms, deviceCtxts);
+  auto deviceCtxt = comm_->getDeviceCtxt();
+  synStreamHandle collective_stream = comm_->getCommStream();
+  auto work = initWork(out_view_vec, comm_->GetHcclHandle(), deviceCtxt);
 
   for (size_t i = 0; i < in_view_vec.size(); ++i) {
     if (in_view_vec[i].numel() == 0) {
@@ -403,8 +268,6 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
       continue;
     }
 
-    auto deviceCtxt = deviceCtxts[i];
-    synStreamHandle collective_stream = commStreams[i];
     synapse_helpers::device_ptr input_storage_ptr =
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
     synapse_helpers::device_ptr output_storage_ptr =
@@ -426,7 +289,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     auto func = [fn = fn,
                  input = std::move(input_shallow_copy),
                  output = std::move(output_shallow_copy),
-                 comm = comms[i],
+                 comm = comm_->GetHcclHandle(),
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
                  output_storage_ptr = output_storage_ptr,
@@ -502,30 +365,21 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::barrier(const BarrierOptions& opts
                                                    [[maybe_unused]]) {
   PT_DISTRIBUTED_BEGIN;
   habana_lazy::NoAccThread no_acc_thread;
-  std::vector<int> devices;
-  for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
-       it++) {
-    devices.push_back(it->first);
-  }
 
-  auto comms = getCommList(devices);
-  auto commStreams = getCommStreams(devices);
   PT_DISTRIBUTED_DEBUG(
       "[PYT-DIST] Host and device barrier from rank :: ", getRank());
   while (JobThreadHCCL::getInstance()->jobCounter() > 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+
   hostBarrier();
-  if (!this->emulate_distributed_) {
-    for (size_t i = 0; i < comms.size(); i++) {
-      hcclBarrier(*comms[i], commStreams[i]);
-    }
+
+  if (!this->emulate_distributed_ && comm_->GetHcclHandle() != nullptr) {
+    synStreamHandle collective_stream = comm_->getCommStream();
+    hcclBarrier(*comm_->GetHcclHandle(), collective_stream);
   }
 
-  std::vector<int> res;
-  std::vector<at::Tensor> outputs;
-  auto deviceCtxts = getDeviceCtxtList(devices);
-  auto work = initWork(outputs, res, comms, deviceCtxts);
+  auto work = c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>();
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -686,6 +540,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
       processGroupHccl(module, "ProcessGroupHCCL");
 
   processGroupHccl.def(py::init(&ProcessGroupHCCLRegistry::create));
+
+  {
+    // Flushing all streams in order to ensure that all events have been
+    // handled (all tensors connected with pending events are deallocated)
+    // before Python interpreter finalization. If tensor is deallocated when
+    // interpreter is down or is going down (finalizing) then cPython may
+    // issue std::terminate (abort), what will be observed in DFA report.
+
+    auto gil_release = pybind11::gil_scoped_release();
+    habana::HcclCommunicator::FlushAllStreams();
+  }
 
   py::cpp_function cleanup = []() {
     py::object dist = py::module_::import("torch.distributed");
