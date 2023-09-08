@@ -2939,6 +2939,7 @@ gelu:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Gelu
+  output_meta: GeluMeta
   out_ids: [0]
 
 gelu_:
@@ -2954,6 +2955,7 @@ gelu.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  output_meta: GeluMeta
   op_backend: Gelu
 
 gelu_backward:

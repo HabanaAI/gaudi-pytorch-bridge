@@ -15,6 +15,15 @@
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
+OutputMetaDataVector GeluMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  meta.mem_format = self.suggest_memory_format();
+  return {meta};
+}
+
 std::shared_ptr<void> FillGeluParams(
     const at::Stack& stack,
     size_t& size,
@@ -37,32 +46,18 @@ std::shared_ptr<void> FillGeluBwdParams(const at::Stack& stack, size_t& size) {
   return FillGeluParams(stack, size, 2 /*Approximation Index in Bwd pass*/);
 }
 
-std::vector<synapse_helpers::tensor> GeluCommonFunc(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input,
-    const at::IntArrayRef outshape,
-    std::shared_ptr<void> params,
-    size_t size,
-    c10::optional<int> final_result_index = c10::nullopt) {
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("gelu_fwd", op->ScalarType()),
-       std::move(input),
-       {{outshape, op->ScalarType(), final_result_index},
-        {outshape, op->ScalarType()}},
-       params.get(),
-       size});
-}
-
 void Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 0).sizes();
+  auto meta = GeluMeta(stack)[0];
   size_t size = 0;
   auto params = FillGeluFwdParams(stack, size);
-  auto Gelu =
-      GeluCommonFunc(this, graph, {syn_in(0)}, outshape, params, size, 0);
-  syn_out(0) = std::move(Gelu[0]);
+  auto gelu = BuildOp(
+      graph,
+      get_guid_with_precision("gelu_fwd", meta.dtype),
+      {syn_in(0)},
+      {{meta.shape, meta.dtype, 0}, {meta.shape, meta.dtype}},
+      params.get(),
+      size);
+  syn_out(0) = std::move(gelu[0]);
 }
 
 } // namespace habana
