@@ -14,6 +14,8 @@ This document summarizes the SynapseAI® Software PyTorch supported operators fo
 Habana® Gaudi®. Note that the operators listed below support only selected
 variants and limited optional parameters for Gaudi.
 
+For details on Fused Ops, see :ref:`custom_operators`.
+
 PyTorch Operators Support Summary
 =================================
 
@@ -74,8 +76,8 @@ upsample_nearest                       Yes      Yes      No        No       No  
 vector_norm                            Yes      Yes      No        No       No     torch.linalg
 abs                                    Yes      Yes      No        No       No     torch
 absolute                               Yes      Yes      No        No       No     torch
-acos                                   Yes      No       No        No       No     torch
-acosh                                  Yes      No       No        No       No     torch
+acos                                   Yes      Yes      No        No       No     torch
+acosh                                  Yes      Yes      No        No       No     torch
 add                                    Yes      Yes      Yes       No       No     torch
 addbmm                                 Yes      Yes      No        No       No     torch
 addcdiv                                Yes      Yes      No        No       No     torch
@@ -89,21 +91,21 @@ amin                                   Yes      Yes      Yes       No       No  
 aminmax                                Yes      Yes      Yes       Yes      No     torch
 any                                    Yes      Yes      Yes       No       Yes    torch
 arange                                 Yes      Yes      Yes       Yes      Yes    torch
-arccos                                 Yes      No       No        No       No     torch
-arccosh                                Yes      No       No        No       No     torch
-arcsin                                 Yes      No       No        No       No     torch
-arcsinh                                Yes      No       No        No       No     torch
-arctan                                 Yes      No       No        No       No     torch
-arctanh                                Yes      No       No        No       No     torch
+arccos                                 Yes      Yes      No        No       No     torch
+arccosh                                Yes      Yes      No        No       No     torch
+arcsin                                 Yes      Yes      No        No       No     torch
+arcsinh                                Yes      Yes      No        No       No     torch
+arctan                                 Yes      Yes      No        No       No     torch
+arctanh                                Yes      Yes      No        No       No     torch
 argmax                                 Yes      Yes      Yes       No       No     torch
 argmin                                 Yes      Yes      Yes       No       No     torch
-asin                                   Yes      No       No        No       No     torch
-asinh                                  Yes      No       No        No       No     torch
+asin                                   Yes      Yes      No        No       No     torch
+asinh                                  Yes      Yes      No        No       No     torch
 as_strided                             Yes      Yes      Yes       Yes      Yes    torch
-atan                                   Yes      No       No        No       No     torch
+atan                                   Yes      Yes      No        No       No     torch
 atan2                                  Yes      Yes      No        No       No     torch
 arctan2                                Yes      Yes      No        No       No     torch
-atanh                                  Yes      No       No        No       No     torch
+atanh                                  Yes      Yes      No        No       No     torch
 baddbmm                                Yes      Yes      No        No       No     torch
 bernoulli                              Yes      Yes      No        No       No     torch
 bitwise_and                            No       No       Yes       Yes      Yes    torch
@@ -123,7 +125,7 @@ clone                                  Yes      Yes      Yes       Yes      Yes 
 conj                                   Yes      Yes      Yes       No       No     torch
 copysign                               Yes      Yes      No        No       No     torch
 cos                                    Yes      Yes      No        No       No     torch
-cosh                                   Yes      No       No        No       No     torch
+cosh                                   Yes      Yes      No        No       No     torch
 count_nonzero                          Yes      Yes      Yes       Yes      Yes    torch
 cross                                  Yes      Yes      Yes       No       No     torch
 cumsum                                 Yes      Yes      Yes       No       No     torch
@@ -236,7 +238,7 @@ sign                                   Yes      Yes      No        No       No  
 signbit                                Yes      Yes      Yes       Yes      No     torch
 sin                                    Yes      Yes      No        No       No     torch
 sinc                                   Yes      Yes      No        No       No     torch
-sinh                                   Yes      No       No        No       No     torch
+sinh                                   Yes      Yes      No        No       No     torch
 sort                                   Yes      Yes      No        No       No     torch
 split_with_sizes                       Yes      Yes      Yes       No       No     torch
 sqrt                                   Yes      Yes      No        No       No     torch
@@ -249,7 +251,7 @@ sub                                    Yes      Yes      No        No       No  
 sum                                    Yes      Yes      Yes       No       Yes    torch
 t                                      Yes      Yes      Yes       Yes      Yes    torch
 take                                   Yes      Yes      Yes       No       No     torch
-tan                                    Yes      No       No        No       No     torch
+tan                                    Yes      Yes      No        No       No     torch
 tanh                                   Yes      Yes      No        No       No     torch
 topk                                   Yes      Yes      No        No       No     torch
 trace                                  Yes      Yes      Yes       No       No     torch
@@ -331,10 +333,10 @@ __or__                                 No       No       Yes       Yes      Yes 
 __rshift__                             No       No       Yes       Yes      Yes    torch.Tensor
 __xor__                                No       No       Yes       Yes      Yes    torch.Tensor
 abs                                    Yes      Yes      No        No       No     torch.Tensor
-acos                                   Yes      No       No        No       No     torch.Tensor
-acos\_                                 Yes      No       No        No       No     torch.Tensor
-acosh                                  Yes      No       No        No       No     torch.Tensor
-acosh\_                                Yes      No       No        No       No     torch.Tensor
+acos                                   Yes      Yes      No        No       No     torch.Tensor
+acos\_                                 Yes      Yes      No        No       No     torch.Tensor
+acosh                                  Yes      Yes      No        No       No     torch.Tensor
+acosh\_                                Yes      Yes      No        No       No     torch.Tensor
 add                                    Yes      Yes      Yes       No       No     torch.Tensor
 add\_                                  Yes      Yes      Yes       No       No     torch.Tensor
 addbmm                                 Yes      Yes      No        No       No     torch.Tensor
@@ -354,29 +356,29 @@ amax                                   Yes      Yes      No        No       No  
 amin                                   Yes      Yes      No        No       No     torch.Tensor
 aminmax                                Yes      Yes      Yes       Yes      No     torch.Tensor
 any                                    No       No       No        No       Yes    torch.Tensor
-arccos                                 Yes      No       No        No       No     torch.Tensor
-arccos\_                               Yes      No       No        No       No     torch.Tensor
-arccosh                                Yes      No       No        No       No     torch.Tensor
-arccosh\_                              Yes      No       No        No       No     torch.Tensor
-arcsin                                 Yes      No       No        No       No     torch.Tensor
-arcsin\_                               Yes      No       No        No       No     torch.Tensor
-arcsinh                                Yes      No       No        No       No     torch.Tensor
-arcsinh\_                              Yes      No       No        No       No     torch.Tensor
-arctan                                 Yes      No       No        No       No     torch.Tensor
-arctan\_                               Yes      No       No        No       No     torch.Tensor
-arctanh                                Yes      No       No        No       No     torch.Tensor
-arctanh\_                              Yes      No       No        No       No     torch.Tensor
+arccos                                 Yes      Yes      No        No       No     torch.Tensor
+arccos\_                               Yes      Yes      No        No       No     torch.Tensor
+arccosh                                Yes      Yes      No        No       No     torch.Tensor
+arccosh\_                              Yes      Yes      No        No       No     torch.Tensor
+arcsin                                 Yes      Yes      No        No       No     torch.Tensor
+arcsin\_                               Yes      Yes      No        No       No     torch.Tensor
+arcsinh                                Yes      Yes      No        No       No     torch.Tensor
+arcsinh\_                              Yes      Yes      No        No       No     torch.Tensor
+arctan                                 Yes      Yes      No        No       No     torch.Tensor
+arctan\_                               Yes      Yes      No        No       No     torch.Tensor
+arctanh                                Yes      Yes      No        No       No     torch.Tensor
+arctanh\_                              Yes      Yes      No        No       No     torch.Tensor
 argmax                                 Yes      Yes      No        No       No     torch.Tensor
-asin                                   Yes      No       No        No       No     torch.Tensor
-asin\_                                 Yes      No       No        No       No     torch.Tensor
-asinh                                  Yes      No       No        No       No     torch.Tensor
-asinh\_                                Yes      No       No        No       No     torch.Tensor
+asin                                   Yes      Yes      No        No       No     torch.Tensor
+asin\_                                 Yes      Yes      No        No       No     torch.Tensor
+asinh                                  Yes      Yes      No        No       No     torch.Tensor
+asinh\_                                Yes      Yes      No        No       No     torch.Tensor
 atan2                                  Yes      Yes      No        No       No     torch.Tensor
 atan2\_                                Yes      Yes      No        No       No     torch.Tensor
 arctan2                                Yes      Yes      No        No       No     torch.Tensor
 arctan2\_                              Yes      Yes      No        No       No     torch.Tensor
-atanh                                  Yes      No       No        No       No     torch.Tensor
-atanh\_                                Yes      No       No        No       No     torch.Tensor
+atanh                                  Yes      Yes      No        No       No     torch.Tensor
+atanh\_                                Yes      Yes      No        No       No     torch.Tensor
 baddbmm                                Yes      Yes      No        No       No     torch.Tensor
 baddbmm\_                              Yes      Yes      No        No       No     torch.Tensor
 bernoulli                              Yes      Yes      No        No       No     torch.Tensor
@@ -543,8 +545,8 @@ sign\_                                 Yes      Yes      No        No       No  
 signbit                                Yes      Yes      Yes       Yes      No     torch.Tensor
 sin                                    Yes      Yes      No        No       No     torch.Tensor
 sin\_                                  Yes      Yes      No        No       No     torch.Tensor
-sinh                                   Yes      No       No        No       No     torch.Tensor
-sinh\_                                 Yes      No       No        No       No     torch.Tensor
+sinh                                   Yes      Yes      No        No       No     torch.Tensor
+sinh\_                                 Yes      Yes      No        No       No     torch.Tensor
 sinc                                   Yes      Yes      No        No       No     torch.Tensor
 sort                                   Yes      Yes      No        No       No     torch.Tensor
 split_with_sizes                       Yes      Yes      Yes       No       No     torch.Tensor
@@ -559,8 +561,8 @@ sub\_                                  Yes      Yes      No        No       No  
 sum                                    Yes      Yes      No        No       No     torch.Tensor
 T                                      Yes      Yes      Yes       Yes      Yes    torch.Tensor
 t                                      Yes      Yes      Yes       Yes      Yes    torch.Tensor
-tan                                    Yes      No       No        No       No     torch.Tensor
-tan\_                                  Yes      No       No        No       No     torch.Tensor
+tan                                    Yes      Yes      No        No       No     torch.Tensor
+tan\_                                  Yes      Yes      No        No       No     torch.Tensor
 tanh                                   Yes      Yes      No        No       No     torch.Tensor
 tanh\_                                 Yes      Yes      No        No       No     torch.Tensor
 to                                     Yes      Yes      Yes       Yes      Yes    torch.Tensor
