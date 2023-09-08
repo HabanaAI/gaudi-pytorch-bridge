@@ -13,8 +13,9 @@
 import torch
 import math # for sqrt etc
 import os
-import habana_frameworks.torch.hpu.random as rand_hpu
 
+# Please refer to FusedSDPA documentation at:
+# https://docs.habana.ai/en/latest/PyTorch/Python_Packages.html#hpex-kernels-fusedsdpa
 def check_dbg_env_var(v):
     env_var_set = False
     if int(os.getenv(v, 0)) == 1 :
