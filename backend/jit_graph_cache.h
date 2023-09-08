@@ -261,7 +261,7 @@ struct OptimizedJITGraphAndMetaData {
   bool isOptimizedLazyEager = false;
   bool isJITCachedGraphInfoAvailable = false;
   std::vector<habana::OutputMetaDataVector> outputs_metadata{};
-  std::vector<IValPtrShared> prim_nodes_ivals{};
+  VecOfIValPtrSh prim_nodes_ivals{};
   std::vector<std::vector<int64_t>> new_positions{};
   std::vector<bool> is_in_graph_outputs{};
   bool is_control_edge_processing_required = false;

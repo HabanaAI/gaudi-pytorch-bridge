@@ -13,6 +13,7 @@
 
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
 #include "backend/helpers/eager_pipeline.h"
+#include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
@@ -79,7 +80,7 @@ void habana::HabanaCompile::CompileSynapse(
     if (is_shape_agnostic_cache_miss) {
       hb_launch_op->CompileSynapseGraph();
       hb_launch_op->StoreShapeAgnosticGraph();
-      hb_launch_op->ConstructPatchingTable();
+      hb_launch_op->ConstructPatchingTableAndAtenOutputs();
       hb_launch_op->UpdateSynapsePermutations();
       enqueue_execute_synapse(
           hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
@@ -99,7 +100,7 @@ void habana::HabanaCompile::CompileSynapse(
     }
   } else {
     hb_launch_op->CompileSynapseGraph();
-    hb_launch_op->ConstructPatchingTable();
+    hb_launch_op->ConstructPatchingTableAndAtenOutputs();
     hb_launch_op->UpdateSynapsePermutations();
     enqueue_execute_synapse(
         hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);

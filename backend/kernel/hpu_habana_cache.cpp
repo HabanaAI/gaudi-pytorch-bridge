@@ -295,13 +295,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << " #inputs                        : " << v.num_inputs << '\n';
   O << " #num_tensors                   : " << v.num_tensors << '\n';
 
-  O << " #aten_outputs                  : ";
-  if (v.aten_outputs) {
-    O << v.aten_outputs->size() << '\n';
-  } else {
-    O << "not populated yet" << '\n';
-  }
-
   O << " #induplicates                  : " << v.num_induplicates << '\n'
     << " #dma_inputs                    : " << v.num_dma_inputs << '\n'
     << " #intermediates                 : " << v.num_intermediates << '\n'
@@ -762,74 +755,11 @@ inline void RecipeValueSpec::update_new_tensor(
   }
 }
 
-void RecipeValueSpec::update_output_permutation() {
-  PT_BRIDGE_BEGIN;
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
-    std::vector<synRetrievedLaunchTensorInfoExt> tensor_info_vec;
-
-    std::vector<IValPtrShared> outputs = {};
-    for (size_t i = 0; i < output_tensor_ids.size(); i++) {
-      if (output_tensor_alllow_permutations.at(i)) {
-        synRetrievedLaunchTensorInfoExt record = {};
-        record.tensorId = output_tensor_ids.at(i);
-        PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] preparing to query tensor: ", record.tensorId);
-        tensor_info_vec.push_back(record);
-        outputs.emplace_back(aten_outputs->at(i));
-      }
-    }
-
-    // querying synapse output tensors permutations:
-    synapse_helpers::graph::query_recipe_tensor_info(recipe, tensor_info_vec);
-
-    size_t count = 0;
-    for (auto& info : tensor_info_vec) {
-      if (info.tensorType == TENSOR_TYPE_INVALID) {
-        PT_BRIDGE_WARN(
-            "Synapse returned a TENSOR_TYPE_INVALID when querying the persistent tensors for permutations, in tensor: ",
-            info.tensorId,
-            " . It means that the synapse tensor is not in the recipe, probably not attached to a node");
-        count++;
-        continue;
-      }
-      std::vector<uint8_t> permute_vec(
-          info.tensorPermutation, info.tensorPermutation + info.tensorDims);
-      // if this is an identity permutation we set empty permute
-      bool is_identity_perm = true;
-      for (size_t i = 0; i < permute_vec.size() - 1; ++i) {
-        if (permute_vec[i] + 1 != permute_vec[i + 1]) {
-          PT_EAGER_DEBUG(
-              "[SHAPE AGNOSTIC] Detected a real permutation (not identity)");
-          is_identity_perm = false;
-          break;
-        }
-      }
-      auto permute_or_empty =
-          is_identity_perm ? std::vector<uint8_t>() : permute_vec;
-      at::Tensor& tensor{outputs.at(count)->toTensor()};
-      PT_BACKEND_DEBUG_TENSOR(
-          tensor,
-          "[SHAPE AGNOSTIC] Synapse returned persistent tensorId=%d"
-          " HbInternal address: %s"
-          " HbInternal storage address: %s"
-          "; info.tensorPermutation = {%s}",
-          info.tensorId,
-          habana_helpers::FormatTokens::ImplPtr,
-          habana_helpers::FormatTokens::DataPtr,
-          VecToString(permute_vec));
-      habana_helpers::set_tensor_memory_permutations(tensor, permute_or_empty);
-      count++;
-    }
-  }
-
-  PT_BRIDGE_END;
-}
-
 void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
-    std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
+    std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+    std::shared_ptr<VecOfIValPtrSh>& dma_inputs_ptr,
+    VecOfIValPtrSh& aten_outputs,
     const habana::IdShapeMap& m_actual_shapes,
     const synapse_helpers::graph& synapse_graph,
     std::optional<
@@ -1135,9 +1065,6 @@ void RecipeValueSpec::update_patching_table(
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
 
-  aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
-      std::vector<IValPtrShared>(aten_output_num));
-
   output_tensor_ids = std::vector<uint64_t>(aten_output_num);
   output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
 
@@ -1202,7 +1129,7 @@ void RecipeValueSpec::update_patching_table(
         "HabanaOp recipe cache hit :: Creating new output with shape : ",
         pt_output.sizes());
     IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
-    aten_outputs->at(output_idx) = ivpsh;
+    aten_outputs.at(output_idx) = ivpsh;
 
     outputIVpshMap.emplace(ridx, ivpsh);
 
@@ -1273,7 +1200,11 @@ void RecipeValueSpec::update_patching_table(
         dtinfos_patched_count++;
       }
       create_outdup(
-          ridx, inputIVpshMap, "inputIVpshMap", is_shape_agnostic_graph);
+          ridx,
+          inputIVpshMap,
+          "inputIVpshMap",
+          aten_outputs,
+          is_shape_agnostic_graph);
     }
   }
 
@@ -1301,7 +1232,11 @@ void RecipeValueSpec::update_patching_table(
           ridx,
           " shape patching not done!");
       create_outdup(
-          ridx, intermediateIVpshMap, "intermediateIVpshMap", shape_agnostic);
+          ridx,
+          intermediateIVpshMap,
+          "intermediateIVpshMap",
+          aten_outputs,
+          shape_agnostic);
     }
   }
 
@@ -1338,7 +1273,11 @@ void RecipeValueSpec::update_patching_table(
         dtinfos_patched_count++;
       }
       create_outdup(
-          ridx, outputIVpshMap, "outputIVpshMap", is_shape_agnostic_graph);
+          ridx,
+          outputIVpshMap,
+          "outputIVpshMap",
+          aten_outputs,
+          is_shape_agnostic_graph);
     }
   }
 
@@ -1541,7 +1480,8 @@ void RecipeValueSpec::patch_launch_info(
 
 void RecipeValueSpec::MaybePrintDebugInfo(
     at::ArrayRef<torch::jit::IValue>& input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr) {
+    std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+    const VecOfIValPtrSh& aten_outputs) {
   PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
           HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {
@@ -1552,7 +1492,7 @@ void RecipeValueSpec::MaybePrintDebugInfo(
         ", #intermediates=",
         intermediate_tensors_ptr->size(),
         ", #outputs=",
-        aten_outputs->size());
+        aten_outputs.size());
 
     for (size_t idx{0}; idx < input_refs.size(); idx++) {
       ValPtr vp = (jit_graph_ ? jit_graph_->inputs().at(idx) : nullptr);
@@ -1572,9 +1512,9 @@ void RecipeValueSpec::MaybePrintDebugInfo(
         idx += 1;
       }
     }
-    if (aten_outputs) {
+    if (!aten_outputs.empty()) {
       size_t idx{0};
-      for (auto& a : *aten_outputs) {
+      for (auto& a : aten_outputs) {
         ValPtr vp = (jit_graph_ ? jit_graph_->outputs().at(idx) : nullptr);
         PT_BRIDGE_DEBUG(
             "Output[",
@@ -1601,11 +1541,13 @@ size_t get_active_graph_unique_key(const std::string& name) {
 void RecipeValueSpec::launch(
     synapse_helpers::hpuStream_t hpu_stream,
     at::ArrayRef<torch::jit::IValue>& input_refs,
-    std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
-    std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr) {
+    std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+    const VecOfIValPtrSh& aten_outputs,
+    std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr) {
   PT_BRIDGE_BEGIN;
   SelfCheck();
-  MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr);
+  TORCH_CHECK(!aten_outputs.empty());
+  MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr, aten_outputs);
 
   auto& device = HPURegistrar::get_device().syn_device();
   auto& stream_handle = device.get_stream(hpu_stream);
@@ -1663,7 +1605,7 @@ void RecipeValueSpec::launch(
     outDevPtr.reserve(
         num_inputs + num_outputs + num_input_to_outduplicates +
         num_intermediate_to_outduplicates);
-    for (auto& output : *aten_outputs) {
+    for (auto& output : aten_outputs) {
       if (output && output->isTensor()) {
         at::Tensor tensor = output->toTensor();
         outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(

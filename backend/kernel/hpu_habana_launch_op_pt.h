@@ -143,7 +143,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapseGraph(bool allocate_rval = true);
-  void ConstructPatchingTable();
+  void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
   void StoreShapeAgnosticGraph();
   void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
@@ -204,8 +204,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     stack = input_st_copy;
   }
 
-  std::shared_ptr<std::vector<IValPtrShared>> get_intermediate_tensors_ptrsh()
-      const {
+  std::shared_ptr<VecOfIValPtrSh> get_intermediate_tensors_ptrsh() const {
     return intermediate_tensors_ptr_sh_;
   }
 
@@ -298,6 +297,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // dfs_cnt-----------------------------------///----------Dynamic-Shapes-----------///----------------NA-----------------///----------------Write--------------///------------NA
   // execution_mode_---------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // allocated_outputs_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // aten_outputs_ptr_sh_----------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // intermediate_syn_tensors_count------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // intermediate_tensors_ptr_sh_--------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
@@ -346,7 +346,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // map between PT and synapse tensors
   std::deque<synapse_helpers::tensor> meta_syn_tensors;
 
-  std::vector<IValPtrShared> pt_stack_sh;
+  VecOfIValPtrSh pt_stack_sh;
   CValuePtrToIValuePtrMap value_to_ivalue;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
@@ -467,6 +467,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   std::optional<std::vector<at::Tensor>> allocated_outputs_;
 
+  std::unique_ptr<VecOfIValPtrSh> aten_outputs_ptr_sh_{nullptr};
+
   // Count for intermediate synapse tensors in a graph
   // intermediates syn tensors can be both persistent and non-persistent
   int64_t intermediate_syn_tensors_count_{0};
@@ -480,8 +482,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // At this point, only StridedView op may use it in eager mode.
   int64_t meta_attribute_nodes_count_{0};
 
-  std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr_sh_{
-      nullptr};
+  std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr_sh_{nullptr};
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph

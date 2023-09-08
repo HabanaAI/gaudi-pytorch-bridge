@@ -63,6 +63,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   syn_graph_ptr_ = nullptr;
   cur_rvalpsh = nullptr;
   intermediate_tensors_ptr_sh_ = nullptr;
+  aten_outputs_ptr_sh_ = nullptr;
 
   habana_kernels.clear();
 
@@ -499,7 +500,7 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   rv.workspace_size = synapse_helpers::graph::query_workspace_size(*cur_recipe);
 }
 
-void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
+void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
@@ -536,8 +537,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
 
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
-  rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
-      std::vector<IValPtrShared>());
   if (!enable_caching_ && !enable_shape_agnostic_caching_) {
     if (!intermediate_tinfos.empty()) {
       rv.num_intermediates = intermediate_tinfos.size();
@@ -580,7 +579,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTable() {
         output_tensorinfos.push_back(it->second);
         output_tensorinfo_map.erase(ivpsh);
       }
-      rv.aten_outputs->push_back(ivpsh);
+      aten_outputs_ptr_sh_->push_back(ivpsh);
       output_idx++;
     }
     TORCH_CHECK(
@@ -736,14 +735,12 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
   PT_BRIDGE_DEBUG(
       "HabanaOp recipe cache :: launching new recipe", rv.header_str());
 
-  std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
-      nullptr;
+  std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr = nullptr;
 
   if (get_intermediate_tensors_ptrsh()) {
     intermediate_tensors_ptr = get_intermediate_tensors_ptrsh();
   } else {
-    intermediate_tensors_ptr = std::make_shared<std::vector<IValPtrShared>>(
-        std::vector<IValPtrShared>());
+    intermediate_tensors_ptr = std::make_shared<VecOfIValPtrSh>();
     for (auto& tensor : aten_intermediates) {
       IValPtrShared ivpsh = std::make_shared<IVal>(tensor);
       intermediate_tensors_ptr->push_back(ivpsh);
@@ -765,7 +762,11 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
   }
 
   if (!dry_run_) {
-    rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr);
+    rv.launch(
+        hpu_stream,
+        input_refs,
+        intermediate_tensors_ptr,
+        *aten_outputs_ptr_sh_);
   }
   rv.update_hit_count();
 
@@ -952,7 +953,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     }
 
     // add ivpsh to outputs
-    rv.aten_outputs->push_back(ivpsh);
+    aten_outputs_ptr_sh_->push_back(ivpsh);
     output_idx++;
   }
 
@@ -1217,10 +1218,9 @@ void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
 
   // Update the stack from the recipe itself
   torch::jit::drop(*pt_stack, num_inputs);
-  for (const auto& ivpsh : *(rv.aten_outputs)) {
+  for (const auto& ivpsh : *aten_outputs_ptr_sh_) {
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
-  rv.aten_outputs = nullptr;
 }
 
 void habana::HabanaLaunchOpPT::ProcessInputStack(torch::jit::Stack& input_st) {

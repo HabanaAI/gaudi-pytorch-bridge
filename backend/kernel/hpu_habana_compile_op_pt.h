@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana {

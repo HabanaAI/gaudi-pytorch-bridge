@@ -232,7 +232,7 @@ struct RecipeValueSpec {
   RecipeValueSpec(
       std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr,
       std::shared_ptr<torch::jit::Graph> g = nullptr)
-      : recipe(r), dtensorinfos(nullptr), aten_outputs(nullptr), jit_graph_(g) {
+      : recipe(r), dtensorinfos(nullptr), jit_graph_(g) {
     count++;
     id = count;
   }
@@ -247,7 +247,6 @@ struct RecipeValueSpec {
     if (recipe != nullptr || !collective_kernels_info.empty()) {
       TORCH_CHECK(dtensorinfos != nullptr);
       TORCH_CHECK(dtensorinfos->size() == num_tinfos);
-      TORCH_CHECK(!aten_outputs->empty());
     }
   }
 
@@ -287,11 +286,11 @@ struct RecipeValueSpec {
       std::vector<int64_t> new_shape,
       std::optional<uint64_t> tensor_offset_opt = std::nullopt,
       std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt);
-  void update_output_permutation();
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
-      std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs_ptr,
+      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+      std::shared_ptr<VecOfIValPtrSh>& dma_inputs_ptr,
+      VecOfIValPtrSh& aten_outputs,
       const habana::IdShapeMap& m_actual_shapes,
       const synapse_helpers::graph& synapse_graph,
       std::optional<
@@ -308,17 +307,20 @@ struct RecipeValueSpec {
       std::vector<size_t>& external_tensor_info_indexes);
   void MaybePrintDebugInfo(
       at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr);
+      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+      const VecOfIValPtrSh& aten_outputs);
   void launch(
       synapse_helpers::hpuStream_t hpu_stream,
       at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>>& intermediate_tensors_ptr,
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr = nullptr);
+      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+      const VecOfIValPtrSh& aten_outputs,
+      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr = nullptr);
 
   void create_outdup(
       size_t ti_idx,
       std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
       std::string map_name,
+      VecOfIValPtrSh& aten_outputs,
       bool is_shape_agnostic_graph = false);
 
   static size_t get_recipe_count() {
@@ -397,6 +399,12 @@ struct RecipeValueSpec {
     graph_name = name;
   }
 
+  size_t get_aten_output_num() const {
+    return (
+        num_outputs + num_input_to_outduplicates +
+        num_intermediate_to_outduplicates + num_output_to_outduplicates);
+  }
+
   void Serialize(std::ostream& os) const;
 
   size_t Size() const {
@@ -414,7 +422,6 @@ struct RecipeValueSpec {
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
-  std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<uint64_t> output_tensor_ids{};
   std::vector<bool> output_tensor_alllow_permutations{};
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>

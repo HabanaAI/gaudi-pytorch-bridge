@@ -41,11 +41,6 @@ void habana::HabanaExecute::ExecuteSynapse(
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache miss (end)");
     } else {
       RecipeValueSpec& rv = *hb_launch_op->get_cur_rvalpsh();
-      if (hb_launch_op->get_jit_graph_and_meta_data()->GetFrontendType() !=
-          habana_helpers::HabanaFrontendTypes::EAGER) {
-        rv.update_output_permutation();
-      }
-
       hb_launch_op->ExecuteSynapseGraph(hpu_stream);
 
       synGraphDestroy(

@@ -33,6 +33,7 @@
 constexpr uint32_t NUM_TENSOR_DIMS = 5;
 using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
+using VecOfIValPtrSh = std::vector<IValPtrShared>;
 using ValPtr = torch::jit::Value*;
 using CValPtr = const torch::jit::Value*;
 using SmallSizeVec = c10::SmallVector<int64_t, NUM_TENSOR_DIMS>;

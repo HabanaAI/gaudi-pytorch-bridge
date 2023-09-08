@@ -3152,18 +3152,22 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
             current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
       }
 
-      std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
+      std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr =
+          std::make_shared<VecOfIValPtrSh>();
 
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
+      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
+          std::make_shared<VecOfIValPtrSh>();
+
+      // The aten_output_num is the total number of outputs
+      size_t aten_output_num = rv.get_aten_output_num();
+
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
 
       rv.update_patching_table(
           input_refs,
           intermediate_tensors_ptr,
           dma_inputs_ptr,
+          *aten_outputs_ptr_sh_,
           m_map_shape.m_actual_shapes,
           *syn_graph_ptr_,
           tidx_to_tensor_map,
@@ -3183,7 +3187,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
       if (!dry_run_) {
         rv.launch(
-            hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+            hpu_stream,
+            input_refs,
+            intermediate_tensors_ptr,
+            *aten_outputs_ptr_sh_,
+            dma_inputs_ptr);
       }
       if (enable_tensor_dump_) {
         DumpTensors(rv);
@@ -3252,6 +3260,7 @@ void RecipeValueSpec::create_outdup(
     size_t ti_idx,
     std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
     std::string map_name,
+    VecOfIValPtrSh& aten_outputs,
     bool is_shape_agnostic_graph) {
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
@@ -3334,7 +3343,7 @@ void RecipeValueSpec::create_outdup(
   ti.patch(pt_outdup, is_shape_agnostic_graph);
 
   IValPtrShared ivpsh = std::make_shared<IVal>(pt_outdup);
-  aten_outputs->at(output_idx) = ivpsh;
+  aten_outputs.at(output_idx) = ivpsh;
 }
 
 void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
@@ -3489,18 +3498,17 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
   PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
   PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
 
-  std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr =
-      std::make_shared<std::vector<IValPtrShared>>(
-          std::vector<IValPtrShared>());
+  std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr =
+      std::make_shared<VecOfIValPtrSh>();
 
-  std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
-      std::make_shared<std::vector<IValPtrShared>>(
-          std::vector<IValPtrShared>());
+  std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
+      std::make_shared<VecOfIValPtrSh>();
 
   rv.update_patching_table(
       input_refs,
       intermediate_tensors_ptr,
       dma_inputs_ptr,
+      *hbLaunchOp->aten_outputs_ptr_sh_,
       hbLaunchOp->m_map_shape.m_actual_shapes,
       *hbLaunchOp->syn_graph_ptr_,
       std::nullopt,
@@ -3510,7 +3518,12 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     hbLaunchOp->DumpTensors_pre(rv);
   }
   if (!dry_run) {
-    rv.launch(hpu_stream, input_refs, intermediate_tensors_ptr, dma_inputs_ptr);
+    rv.launch(
+        hpu_stream,
+        input_refs,
+        intermediate_tensors_ptr,
+        *hbLaunchOp->aten_outputs_ptr_sh_,
+        dma_inputs_ptr);
   }
 
   if (hbLaunchOp->enable_tensor_dump_) {
@@ -3662,6 +3675,13 @@ void HabanaLaunchOpPT::run(
       emitCacheEvent(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
+
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      // The aten_output_num is the total number of outputs
+      size_t aten_output_num = rv.get_aten_output_num();
+
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+
       ExecuteSynapseCache(
           hpu_stream,
           graph_key_with_perm,
@@ -3698,6 +3718,13 @@ void HabanaLaunchOpPT::run(
       emitCacheEvent(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
+
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      // The aten_output_num is the total number of outputs
+      size_t aten_output_num = rv.get_aten_output_num();
+
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = true;
@@ -3832,6 +3859,8 @@ void HabanaLaunchOpPT::run(
           intermediate_syn_tensors_count_);
       syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = false;
@@ -3876,13 +3905,10 @@ void HabanaLaunchOpPT::run(
       PT_EAGER_DEBUG(
           "HabanaOp shape agnostic graph cache hit :: static shapes");
 
-      intermediate_tensors_ptr_sh_ =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
+      intermediate_tensors_ptr_sh_ = std::make_shared<VecOfIValPtrSh>();
 
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs_ptr =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
+      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
+          std::make_shared<VecOfIValPtrSh>();
 
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle{};
       for (size_t i = 0; i < tensorsMap.size(); i++) {
@@ -3906,11 +3932,17 @@ void HabanaLaunchOpPT::run(
         RunHybridSif<dynamic_shapes_false>(local_tidx_to_tensor_map);
       }
 
+      // The aten_output_num is the total number of outputs
+      size_t aten_output_num = rv.get_aten_output_num();
+
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+
       constexpr bool is_shape_agnostic_graph = true;
       rv.update_patching_table(
           input_refs,
           intermediate_tensors_ptr_sh_,
           dma_inputs_ptr,
+          *aten_outputs_ptr_sh_,
           m_map_shape.m_actual_shapes,
           *syn_graph_ptr_,
           local_tidx_to_tensor_map,
@@ -3992,6 +4024,8 @@ void HabanaLaunchOpPT::run(
     syn_graph_ptr_->copy_graph_handle_to_duplicate();
   }
 
+  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+
   if (eager_mode && !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     PT_LAZY_EAGER_DEBUG(
@@ -4018,7 +4052,7 @@ void HabanaLaunchOpPT::run(
     }
   } else {
     CompileSynapseGraph();
-    ConstructPatchingTable();
+    ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
     ExecuteSynapseGraph(hpu_stream);
 
@@ -4077,7 +4111,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   {
     torch::jit::Stack new_stack;
     torch::jit::Stack* old_stack = nullptr;
-    std::vector<IValPtrShared> old_pt_stack_sh;
+    VecOfIValPtrSh old_pt_stack_sh;
 
     old_stack = pt_stack;
     old_pt_stack_sh = pt_stack_sh;
@@ -4128,7 +4162,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   {
     torch::jit::Stack new_stack;
     torch::jit::Stack* old_stack = nullptr;
-    std::vector<IValPtrShared> old_pt_stack_sh;
+    VecOfIValPtrSh old_pt_stack_sh;
 
     old_stack = pt_stack;
     old_pt_stack_sh = pt_stack_sh;
@@ -4198,7 +4232,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
-      ConstructPatchingTable();
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+      ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
     } catch (std::exception& e) {
       error_str = e.what();
@@ -4269,7 +4304,7 @@ void HabanaLaunchOpPT::run_shape_inference(
   PT_BRIDGE_BEGIN;
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
-  std::vector<IValPtrShared> old_pt_stack_sh;
+  VecOfIValPtrSh old_pt_stack_sh;
   m_map_shape.m_pass = pass;
   if ((pass == ShapeInfo::InferencePass::MIN_SHAPE) ||
       (pass == ShapeInfo::InferencePass::MAX_SHAPE)) {
@@ -4585,7 +4620,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       syn_graph->set_dynamic_graph(is_dynamic_graph);
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
-      ConstructPatchingTable();
+      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+      ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
       ExecuteSynapseGraph(hpu_stream);
     } catch (std::exception& e) {
@@ -4625,7 +4661,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     EvictSynapseRecipe(graph_input_info.current_bucket_id);
     BuildSynapseGraph(syn_graph);
     CompileSynapseGraph();
-    ConstructPatchingTable();
+    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+    ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
     ExecuteSynapseGraph(hpu_stream);
   }
