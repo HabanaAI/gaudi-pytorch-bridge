@@ -14,6 +14,9 @@
 #include "torch/csrc/jit/passes/subgraph_rewrite.h"
 
 #include <nlohmann/json.hpp>
+
+#include <fstream>
+
 using json = nlohmannV340::json;
 
 namespace habana_lazy {

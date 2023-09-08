@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
