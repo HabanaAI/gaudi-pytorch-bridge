@@ -107,17 +107,19 @@ def test_op_topk_static_k():
     def raw_function(t, k):
         out_hpu = torch.topk(t, k)
         hpu_value0 = out_hpu[0]
-        return hpu_value0
+        hpu_value1 = out_hpu[1]
+        return hpu_value0, hpu_value1
 
     compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
     i = 0
     for s in sizes:
         t = torch.randn(s)
-        result = raw_function(t, K[i])
+        result1, result2 = raw_function(t, K[i])
         t_h = t.to("hpu")
-        h_result = compiled_fn(t_h, K[i])
+        h_result1, h_result2 = compiled_fn(t_h, K[i])
         i = i + 1
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result1.to("cpu"), result1, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result2.to("cpu"), result2, atol = 0.001, rtol = 0.001)
 
 def test_dynamic_shape_topk_static_same_k():
     sizes = [5, 10, 15, 18, 16]

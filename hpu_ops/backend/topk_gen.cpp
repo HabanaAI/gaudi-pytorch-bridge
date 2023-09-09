@@ -29,6 +29,24 @@ sizes_vec TopkOutputShape(const at::Stack& stack) {
   return {{shape, shape}};
 }
 
+OutputMetaDataVector TopkMeta(const at::Stack& stack) {
+  auto shapes = TopkOutputShape(stack);
+  auto self = stack_tensor(stack, 0);
+  auto memoryFormat = self.suggest_memory_format();
+
+  OutputMetaData meta_value{};
+  OutputMetaData meta_index{};
+
+  meta_value.dtype = self.scalar_type();
+  meta_value.shape = shapes[0];
+  meta_value.mem_format = memoryFormat;
+
+  meta_index.dtype = c10::ScalarType::Long;
+  meta_index.shape = shapes[1];
+  meta_index.mem_format = memoryFormat;
+  return {meta_value, meta_index};
+}
+
 void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto k = stack.at(1).isScalar() ? stack.at(1).toInt()
@@ -41,7 +59,10 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
 
-  auto outshape = TopkOutputShape(stack)[0];
+  auto meta = TopkMeta(stack);
+  auto meta_value = meta[0];
+  auto meta_index = meta[1];
+  auto outshape = meta_value.shape;
 
   std::vector<synapse_helpers::tensor> result{};
 
@@ -71,7 +92,8 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       "topk",
       {std::move(syn_inputs)},
-      {{outshape, ScalarType(), 0}, {outshape, c10::ScalarType::Int, 1}},
+      {{meta_value.shape, meta_value.dtype, 0},
+       {meta_index.shape, meta_index.dtype, 1}},
       &params,
       sizeof(params));
   syn_out(0) = std::move(result[0]);

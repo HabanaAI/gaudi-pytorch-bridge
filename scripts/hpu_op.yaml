@@ -6788,7 +6788,7 @@ topk:
     Gaudi: [Float, Int, BFloat16, Short]
     Gaudi2: [Float, Int, BFloat16, Short, Half]
     Gaudi3: [Float, Int, BFloat16, Short, Half]
-  custom_output_shape: TopkOutputShape
+  output_meta: TopkMeta
   fallback_check: [TopkFallbackCheck, sorted]
   op_backend: Topk
   op_frontend: LazyTopk
@@ -6800,7 +6800,7 @@ topk.values:
     Gaudi: [Float, Int, BFloat16, Short]
     Gaudi2: [Float, Int, BFloat16, Short, Half]
     Gaudi3: [Float, Int, BFloat16, Short, Half]
-  custom_output_shape: TopkOutputShape
+  output_meta: TopkMeta
   fallback_check: [TopkFallbackCheck, sorted]
   op_frontend: TopKFE
   op_backend: Topk
