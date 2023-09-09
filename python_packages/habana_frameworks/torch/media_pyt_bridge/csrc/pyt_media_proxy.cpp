@@ -36,13 +36,13 @@ PytMediaProxy::~PytMediaProxy() {
 }
 
 uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
-  std::unique_lock<std::mutex> lock(m_mutex);
   PT_BRIDGE_DEBUG("allocatePersistentBuffer size = ", size);
   void* address{nullptr};
   auto& device = habana::HPURegistrar::get_device(device_id_);
   device.get_device_memory().malloc(&address, size);
   auto real_address = reinterpret_cast<uintptr_t>(
       device.syn_device().get_fixed_address(address));
+  std::unique_lock<std::mutex> lock(m_mutex);
   auto iterator_emplaced_pair =
       buffer_to_address_.emplace(real_address, address);
   HABANA_ASSERT(iterator_emplaced_pair.second);
@@ -62,9 +62,9 @@ void PytMediaProxy::freePersistentBuffer(uintptr_t real_address) {
 uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
-  std::unique_lock<std::mutex> lock(m_mutex);
   torch::Tensor tensor = torch::empty(shape.get_dims(), dtype);
   auto tensor_data_ptr = reinterpret_cast<uintptr_t>(tensor.data_ptr());
+  std::unique_lock<std::mutex> lock(m_mutex);
   auto iterator_emplaced_pair =
       buffer_to_output_tensor_.emplace(tensor_data_ptr, tensor);
   PT_BRIDGE_DEBUG(
@@ -76,12 +76,12 @@ uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
 uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
-  std::unique_lock<std::mutex> lock(m_mutex);
   torch::Tensor tensor = torch::empty(shape.get_dims(), dtype).to(torch::kHPU);
   auto& device = habana::HPURegistrar::get_device(device_id_);
   auto tensor_data_ptr = reinterpret_cast<uintptr_t>(
       device.syn_device().get_fixed_address(tensor.data_ptr()));
   HABANA_ASSERT(tensor_data_ptr != synapse_helpers::device_nullptr);
+  std::unique_lock<std::mutex> lock(m_mutex);
   auto iterator_emplaced_pair =
       buffer_to_output_tensor_.emplace(tensor_data_ptr, tensor);
   PT_BRIDGE_DEBUG(
