@@ -21,16 +21,6 @@ namespace habana {
 FALLBACK_CHECK(
     IndexFallbackCheck,
     [[maybe_unused]] const c10::List<c10::optional<at::Tensor>>& indices) {
-  at::Stack stack = {indices};
-  c10::ArrayRef<c10::IValue> indices_in = stack.at(0).toListRef();
-  for (auto input : indices_in) {
-    auto o1 = input.toOptional<at::Tensor>();
-
-    if ((o1.has_value() && o1.value().defined() &&
-         o1.value().device() == torch::kCPU) ||
-        (!o1.has_value() && o1->defined()))
-      return false;
-  }
   return true;
 };
 
