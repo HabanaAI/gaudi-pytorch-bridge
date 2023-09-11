@@ -547,13 +547,8 @@ def testProfiling_copy_d2h():
     endEv = ht.hpu.Event(enable_timing=True)
     startEv.record(s)
     with ht.hpu.stream(s):
-<<<<<<< HEAD:tests/test_hpu_streams.py
-        hpu_tensor.to('cpu')
-    endEv.record(s)
-=======
         hpu_tensor.to("cpu")
     endEv.record()
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_streams.py
     endEv.synchronize()
     print(f"Time Elapsed={startEv.elapsed_time(endEv)}")  # milliseconds
     print(f"After record :endEv info={repr(endEv)}")
