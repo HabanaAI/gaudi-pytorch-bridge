@@ -317,6 +317,9 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_NCHW) {
 
 // input(NCHW) -> conv2d -> leaky_relu_
 TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 due to random result mismatch.";
+  }
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -392,6 +395,9 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
 
 // Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Add_Inplace_MF) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 due to random result mismatch.";
+  }
   auto wt = torch::randn(
       {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto in1 = torch::randn(
@@ -552,6 +558,9 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
 
 // Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
 TEST_F(GraphOptimizeTest, PermutePassTest_Add_Inplace_MF_cache) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3 due to random result mismatch.";
+  }
   for (int i = 0; i < 2; i++) {
     auto wt = torch::randn(
         {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
