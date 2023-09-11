@@ -409,11 +409,6 @@ at::Tensor& _index_put_impl_eager(
         !GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)))
       ? indices_vec_out
       : indices_vec;
-  if (habana_helpers::GetRefineDynamicShapeStatus() ||
-      GET_ENV_FLAG_NEW(PT_HPU_FORCE_INDEX_PUT_FRONTEND_FALLBACK)) {
-    TORCH_WARN(
-        "index_put: PT2.0: Dynamic shape handling - not expected to hit this condition?");
-  }
   at::Tensor result;
   if (areAllIndicesBool && !advanced_indexing && only_single_index_tensor &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_INDEX_PUT_BOOL_OPTIMIZED)) {
