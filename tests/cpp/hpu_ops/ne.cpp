@@ -16,24 +16,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-class NeDtypeSupportTest : public testing::Test,
-                           public testing::WithParamInterface<c10::ScalarType> {
-  void SetUp() override {
-    clearRegisteredFallbacks();
-  }
-  void TearDown() override {
-    clearRegisteredFallbacks();
-  }
-
- private:
-  void clearRegisteredFallbacks() {
-    auto& op_fallback_frequency =
-        habana::HpuFallbackHelper::get()->get_op_count();
-    (const_cast<std::unordered_map<std::string, size_t>&>(
-         op_fallback_frequency))
-        .clear();
-  }
-};
+class NeDtypeSupportTest : public DTypeSupportTest {};
 
 TEST_F(HpuOpTest, ne_scalar_out) {
   GenerateInputs(1, torch::kFloat);
