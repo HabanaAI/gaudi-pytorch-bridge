@@ -529,6 +529,19 @@ sizes_vec LayerNormOutputShape(const at::Stack& stack) {
   return {output_sizes, shape_mean_rstd, shape_mean_rstd};
 }
 
+OutputMetaDataVector LayerNormHabanaMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto shapes = LayerNormOutputShape(stack);
+  OutputMetaDataVector metaVec(3);
+  metaVec[0].shape = shapes[0];
+  metaVec[0].dtype = self.scalar_type();
+  metaVec[1].shape = shapes[1];
+  metaVec[1].dtype = at::ScalarType::Float;
+  metaVec[2].shape = shapes[2];
+  metaVec[2].dtype = at::ScalarType::Float;
+  return metaVec;
+}
+
 static synTensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
@@ -676,18 +689,14 @@ void LayerNormHabanaOperator::AddNode(
     paramsSize = sizeof(params);
   }
 
-  auto outputShapes = LayerNormOutputShape(stack);
+  auto metas = LayerNormHabanaMeta(stack);
   int64_t mean_rstd_shape[] = {1, 1, m, 1};
 
-  auto getOutputType = [this](int i) {
-    return (i == 0) ? this->ScalarType() : c10::kFloat;
-  };
-
   std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-  for (int i = 0; i < outputShapes.size(); ++i) {
-    c10::ScalarType outputType = getOutputType(i);
+  for (int i = 0; i < metas.size(); ++i) {
+    c10::ScalarType outputType = metas[i].dtype;
     if (use_tpc_affine_path) {
-      node_output_attr.push_back({outputShapes[i], outputType, i});
+      node_output_attr.push_back({metas[i].shape, outputType, i});
     } else {
       node_output_attr.push_back(
           {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
@@ -706,8 +715,8 @@ void LayerNormHabanaOperator::AddNode(
     if (use_tpc_affine_path) {
       syn_out(i) = std::move(ln[i]);
     } else {
-      auto reshaped = ReshapeHelper(
-          graph, ln[i].get(), outputShapes[i], getOutputType(i), i);
+      auto reshaped =
+          ReshapeHelper(graph, ln[i].get(), metas[i].shape, metas[i].dtype, i);
       syn_out(i) = std::move(reshaped);
     }
   }

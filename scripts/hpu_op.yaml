@@ -4752,8 +4752,7 @@ native_layer_norm:
     Gaudi3: [BFloat16, Float, Half]
   guid: layer_norm_fwd
   op_backend: LayerNormHabanaOperator
-  custom_output_shape: LayerNormOutputShape
-  out_dtypes: [input, Float, Float]
+  output_meta: LayerNormHabanaMeta
   out_ids: [0, 0, 0]
 
 native_layer_norm_backward:
