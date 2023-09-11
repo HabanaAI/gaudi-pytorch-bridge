@@ -601,6 +601,58 @@ def test_module_cacher_propnet():
         ht.core.mark_step()
         assert torch.allclose(out_cpu, out_hpu.to('cpu'))
 
+def test_module_cacher_propnet_views():
+    torch.manual_seed(123)
+    module1_cpu = ModelPropNet()
+    torch.manual_seed(123)
+    module1_hpu = ModelPropNet().to('hpu')
+    inputs_cpu = []
+    inputs_hpu = []
+    outputs_target_cpu = []
+    outputs_target_hpu = []
+
+    for i in range(6):
+        t = torch.rand(i+1, 20)
+        inputs_cpu.extend(t)
+        inputs_hpu.extend(t.to('hpu'))
+        o = torch.tensor(1.0)
+        outputs_target_cpu.append(o)
+        outputs_target_hpu.append(o.to('hpu'))
+
+    module1_hpu = ht.hpu.ModuleCacher()(have_grad_accumulation=True, model=module1_hpu, inplace=True)
+    loss_fn = torch.nn.MSELoss()
+    optim_y_cpu = torch.optim.SGD(module1_cpu.parameters(), lr=0.1)
+    optim_y_hpu = torch.optim.SGD(module1_hpu.parameters(), lr=0.1)
+
+    optim_y_cpu.zero_grad()
+    optim_y_hpu.zero_grad()
+
+    for i in range(6):
+        module1_hpu.set_iteration_count(i)
+        out_cpu = module1_cpu(inputs_cpu[i])
+        out_hpu = module1_hpu(inputs_hpu[i])
+        loss_cpu = loss_fn(out_cpu.sum(), outputs_target_cpu[i])
+        loss_hpu = loss_fn(out_hpu.sum(), outputs_target_hpu[i])
+        loss_cpu.backward()
+        loss_hpu.backward()
+        ht.core.mark_step()
+
+        with torch.no_grad():
+            for p in module1_cpu.parameters():
+                if p is not None:
+                    p.mul_(0.5)
+
+            for p in module1_hpu.parameters():
+                if p is not None:
+                    p.mul_(0.5)
+
+        torch.nn.utils.clip_grad_norm_(module1_cpu.parameters(), 0.1)
+        torch.nn.utils.clip_grad_norm_(module1_hpu.parameters(), 0.1)
+        optim_y_cpu.step()
+        optim_y_hpu.step()
+        ht.core.mark_step()
+        assert torch.allclose(out_cpu, out_hpu.to('cpu'))
+
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
@@ -622,3 +674,4 @@ if __name__ == "__main__":
     test_wrap_hpugraphs_max_graphs(max_graphs=None)
     test_module_cacher_no_requires_grad()
     test_module_cacher_propnet()
+    test_module_cacher_propnet_views()

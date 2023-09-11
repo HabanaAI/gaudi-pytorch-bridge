@@ -286,6 +286,19 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto dtype = (PyObject*)torch::getTHPDtype(current_dtype);
     return py::reinterpret_borrow<py::object>(dtype);
   });
+  m.def("get_view_hash", [](at::Tensor t) -> size_t {
+    size_t hash = 0;
+    auto hl_t = habana_lazy::GetHbLazyTensor(t);
+    while (hl_t.getDataPtr()->stride_params.has_value()) {
+      hash = habana_lazy::HbLazyTensorViews::updateViewHash(hl_t, (size_t)hash);
+      auto& params = hl_t.getDataPtr()->stride_params.value();
+      t = (params.optype == habana_lazy::StridedOPType::kStridedOpDefault)
+          ? params.base
+          : params.parent;
+      hl_t = habana_lazy::GetHbLazyTensor(t);
+    }
+    return hash;
+  });
   py::class_<at::hpu::HPUGraph>(m, "HPUGraph").def(pybind11::init());
   m.def(
       "capture_begin", [](at::hpu::HPUGraph& graph) { graph.capture_begin(); });
