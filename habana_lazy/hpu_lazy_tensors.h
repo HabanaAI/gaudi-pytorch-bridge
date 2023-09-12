@@ -530,7 +530,7 @@ class HbLazyTensor {
 // operations and ensure the same computations are created during the
 // training loops.
 struct HbContext {
-  std::map<int64_t, std::weak_ptr<Data>> tensors_data;
+  absl::flat_hash_map<int64_t, std::weak_ptr<Data>> tensors_data;
   std::vector<int64_t> tensors_data_opt_order;
   ir::Value seed_ir_value;
   void clear_tensors_data() {
@@ -568,7 +568,7 @@ struct HbContext {
   }
 
  private:
-  std::map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
+  absl::flat_hash_map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
 };
 
 class HbContextArena {
