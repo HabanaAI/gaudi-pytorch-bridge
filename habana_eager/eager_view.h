@@ -36,7 +36,7 @@ class ViewParam {
     total_num_elements = -1;
   }
 
-  void setParam(at::Tensor& t) {
+  void setParam(const at::Tensor& t) {
     auto* impl = t.unsafeGetTensorImpl();
     sizes.clear();
     for (int64_t s : impl->sizes()) {
@@ -52,16 +52,16 @@ class ViewParam {
     total_num_elements = (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
   }
 
-  std::vector<int64_t> getViewSizes() {
+  std::vector<int64_t> getViewSizes() const {
     return sizes;
   }
-  std::vector<int64_t> getViewStrides() {
+  std::vector<int64_t> getViewStrides() const {
     return strides;
   }
-  int64_t getViewOffset() {
+  int64_t getViewOffset() const {
     return offset;
   }
-  int64_t getTotalElements() {
+  int64_t getTotalElements() const {
     return total_num_elements;
   }
 
@@ -72,17 +72,9 @@ class ViewParam {
   int64_t total_num_elements;
 };
 
-struct StridedOutInfo {
-  size_t index;
-  at::Tensor tensor;
-  JitValue* value;
-  std::unique_ptr<ViewParam> param;
-  c10::ScalarType dtype;
-};
-
 void HandleInputOutputViews(
-    std::shared_ptr<JitGraph>& graph,
-    const std::vector<at::IValue>& inputs,
+    JitGraph& graph,
+    const c10::ArrayRef<at::IValue> inputs,
     const EagerOpMetaData& eager_op_meta_data);
 
 void set_as_strided_meta(JitNode* node);

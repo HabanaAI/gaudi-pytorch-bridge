@@ -689,6 +689,9 @@ void optimizer_adamw(
        weight_decay,
        has_weight_decay}};
 
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::Inplace, "hpu::optimizer_adamw", {1, 2, 3}});
+
   hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
 }
 

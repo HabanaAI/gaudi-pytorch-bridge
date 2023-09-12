@@ -13,7 +13,13 @@
 import numpy as np
 import pytest
 import torch
+import copy
 from test_utils import cpu, hpu
+from dataclasses import dataclass, field
+from typing import Callable, List, Dict
+
+Verbose = False
+
 
 def test_relu_contiguous_view():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).view(-1)
@@ -146,11 +152,19 @@ def test_aminmax_multi_output_view_row():
     cpu_max_tensor = torch.randn([2, 5])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    cpu_min_tensor[1], cpu_max_tensor[1] = cpu_tensor.aminmax(dim=0, keepdim=True)
-    hpu_min_tensor[1], hpu_max_tensor[1] = hpu_tensor.aminmax(dim=0, keepdim=True)
+    cpu_min_tensor[1], cpu_max_tensor[1] = cpu_tensor.aminmax(
+        dim=0, keepdim=True
+    )
+    hpu_min_tensor[1], hpu_max_tensor[1] = hpu_tensor.aminmax(
+        dim=0, keepdim=True
+    )
 
-    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001)
-    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
+    )
+    assert torch.allclose(
+        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_aminmax_multi_output_view_col():
@@ -163,11 +177,19 @@ def test_aminmax_multi_output_view_col():
     cpu_max_tensor = torch.randn([10])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    cpu_min_tensor[0::2], cpu_max_tensor[0::2] = cpu_tensor.aminmax(dim=0, keepdim=True)
-    hpu_min_tensor[0::2], hpu_max_tensor[0::2] = hpu_tensor.aminmax(dim=0, keepdim=True)
+    cpu_min_tensor[0::2], cpu_max_tensor[0::2] = cpu_tensor.aminmax(
+        dim=0, keepdim=True
+    )
+    hpu_min_tensor[0::2], hpu_max_tensor[0::2] = hpu_tensor.aminmax(
+        dim=0, keepdim=True
+    )
 
-    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001)
-    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
+    )
+    assert torch.allclose(
+        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_aminmax_multi_output_view_col2():
@@ -180,11 +202,20 @@ def test_aminmax_multi_output_view_col2():
     cpu_max_tensor = torch.randn([10])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    torch.aminmax(cpu_tensor, dim=0, out = [cpu_min_tensor[::2], cpu_max_tensor[::2]])
-    torch.aminmax(hpu_tensor, dim=0, out = [hpu_min_tensor[::2], hpu_max_tensor[::2]])
+    torch.aminmax(
+        cpu_tensor, dim=0, out=[cpu_min_tensor[::2], cpu_max_tensor[::2]]
+    )
+    torch.aminmax(
+        hpu_tensor, dim=0, out=[hpu_min_tensor[::2], hpu_max_tensor[::2]]
+    )
 
-    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol = 0.001, rtol = 0.001)
-    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(
+        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
+    )
+    assert torch.allclose(
+        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
+    )
+
 
 def test_d2d_noncontiguous_views_src():
     cpu_src_tensor = torch.randn([4])
@@ -199,7 +230,9 @@ def test_d2d_noncontiguous_views_src():
     hpu_dst_tensor.copy_(hpu_src_tensor_view)
     cpu_dst_tensor.copy_(cpu_src_tensor_view)
 
-    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_d2d_noncontiguous_views_dst():
@@ -215,7 +248,9 @@ def test_d2d_noncontiguous_views_dst():
     hpu_dst_tensor_view.copy_(hpu_src_tensor)
     cpu_dst_tensor_view.copy_(cpu_src_tensor)
 
-    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_d2d_noncontiguous_views_src_dst():
@@ -234,7 +269,9 @@ def test_d2d_noncontiguous_views_src_dst():
     hpu_dst_tensor_view.copy_(hpu_src_tensor_view)
     cpu_dst_tensor_view.copy_(cpu_src_tensor_view)
 
-    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_d2h_noncontiguous_views():
@@ -280,7 +317,9 @@ def test_h2d_dst_noncontiguous_view():
 
     cpu_src_tensor[::2].copy_(cpu_src_tensor2)
 
-    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_d2d_dst_view():
@@ -296,7 +335,9 @@ def test_d2d_dst_view():
 
     cpu_src_tensor_view.copy_(cpu_src_tensor2)
 
-    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_topk_transpose():
@@ -351,7 +392,9 @@ def test_view_cache2():
     assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.xfail(reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY")
+@pytest.mark.xfail(
+    reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY"
+)
 def test_view_layout1():
     def fn(x, dev):
 
@@ -387,7 +430,9 @@ def test_d2d_src_dst_view_different_dtype():
     cpu_dst_tensor_view.copy_(cpu_src_tensor[0::2, 0::2])
     hpu_dst_tensor_view.copy_(hpu_src_tensor[0::2, 0::2])
 
-    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(
+        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
+    )
 
 
 def test_copy_inplace_2d_noncontiguous_view():
@@ -405,8 +450,8 @@ def test_copy_inplace_2d_noncontiguous_view():
 def test_view_permutation_contiguous_view_update():
     torch.manual_seed(0)
     a = torch.randn(2, 2, 6, 6)
-    ha = a.to('hpu')
-    m = torch.nn.Conv2d(2, 3, 3, stride=2, device = 'hpu')
+    ha = a.to("hpu")
+    m = torch.nn.Conv2d(2, 3, 3, stride=2, device="hpu")
     hb = m(ha)
     hc = hb[:]
     hc.fill_(0.0)
@@ -417,9 +462,10 @@ def test_view_permutation_contiguous_view_update():
 
     assert torch.allclose(hb_cpu, res, atol=0.01, rtol=0.01)
 
+
 def test_zero_inplace_2d_noncontiguous_view():
     cpu_tensor = torch.randn([2, 3])
-    hpu_tensor = cpu_tensor.to('hpu')
+    hpu_tensor = cpu_tensor.to("hpu")
 
     cpu_tensor.t_()
     hpu_tensor.t_()
@@ -427,163 +473,176 @@ def test_zero_inplace_2d_noncontiguous_view():
     cpu_tensor.zero_()
     hpu_tensor.zero_()
 
-    torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol = 0, rtol = 0)
+    torch.allclose(hpu_tensor.cpu(), cpu_tensor, atol=0, rtol=0)
+
 
 def test_tensorlist_view():
     a = torch.randn([2, 4])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
     b = torch.randn([2, 4])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
 
-    c = torch.cat([a[:,:], b[:,::2]], dim = 1)
-    hc = torch.cat([ha[:,:], hb[:,::2]], dim = 1)
+    c = torch.cat([a[:, :], b[:, ::2]], dim=1)
+    hc = torch.cat([ha[:, :], hb[:, ::2]], dim=1)
 
     hc_cpu = hc.cpu()
-    torch.allclose(hc_cpu, c, atol = 0, rtol = 0)
+    torch.allclose(hc_cpu, c, atol=0, rtol=0)
+
 
 def test_bernoulli():
     torch.manual_seed(0)
-    a = torch.empty([2, 4], dtype = torch.int32)
-    ha = a.to('hpu')
+    a = torch.empty([2, 4], dtype=torch.int32)
+    ha = a.to("hpu")
 
     av = a.view(-1).bernoulli_()
     hav = ha.view(-1).bernoulli_()
     hav_cpu = hav.cpu()
 
-    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+    torch.allclose(hav_cpu, av, atol=0, rtol=0)
+
 
 def test_normal():
     torch.manual_seed(0)
-    a = torch.empty([2, 3], dtype = torch.float)
-    ha = a.to('hpu')
+    a = torch.empty([2, 3], dtype=torch.float)
+    ha = a.to("hpu")
 
-    av = a[:,::2].normal_()
-    hav = ha[:,::2].normal_()
+    av = a[:, ::2].normal_()
+    hav = ha[:, ::2].normal_()
     hav_cpu = hav.cpu()
 
-    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+    torch.allclose(hav_cpu, av, atol=0, rtol=0)
+
 
 def test_random():
     torch.manual_seed(0)
-    a = torch.empty([3, 2], dtype = torch.float32)
-    ha = a.to('hpu')
+    a = torch.empty([3, 2], dtype=torch.float32)
+    ha = a.to("hpu")
 
     av = a.t().random_()
     hav = ha.t().random_()
     hav_cpu = hav.cpu()
 
-    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+    torch.allclose(hav_cpu, av, atol=0, rtol=0)
+
 
 def test_geometric():
-    a = torch.empty([3, 2], dtype = torch.float32)
-    ha = a.to('hpu')
+    a = torch.empty([3, 2], dtype=torch.float32)
+    ha = a.to("hpu")
 
-    av = a[::2,:].geometric_(0.1)
-    hav = ha[::2,:].geometric_(0.1)
+    av = a[::2, :].geometric_(0.1)
+    hav = ha[::2, :].geometric_(0.1)
     hav_cpu = hav.cpu()
 
-    torch.allclose(hav_cpu, av, atol = 0, rtol = 0)
+    torch.allclose(hav_cpu, av, atol=0, rtol=0)
+
 
 def test_lognormal():
     torch.manual_seed(0)
-    ha1 = torch.empty([3, 2], dtype = torch.float32).to('hpu')
-    ha1.permute(0,1).log_normal_()
+    ha1 = torch.empty([3, 2], dtype=torch.float32).to("hpu")
+    ha1.permute(0, 1).log_normal_()
     torch.manual_seed(0)
-    ha2 = torch.empty([3, 2], dtype = torch.float32).to('hpu')
-    ha2.permute(0,1).log_normal_()
+    ha2 = torch.empty([3, 2], dtype=torch.float32).to("hpu")
+    ha2.permute(0, 1).log_normal_()
 
-    assert torch.allclose(ha1.cpu(), ha2.cpu(), atol = 0.001, rtol = 0.001)
+    assert torch.allclose(ha1.cpu(), ha2.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_ge_inplace():
     torch.manual_seed(0)
     a = torch.randn([3, 2])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
 
     b = torch.randn([2, 3])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
 
-    a.transpose(0,1).ge_(b)
-    ha.transpose(0,1).ge_(hb)
+    a.transpose(0, 1).ge_(b)
+    ha.transpose(0, 1).ge_(hb)
 
     ha_cpu = ha.cpu()
-    assert torch.allclose(ha_cpu, a, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(ha_cpu, a, atol=0.001, rtol=0.001)
+
 
 def test_lt_inplace():
     torch.manual_seed(0)
     a = torch.randn([3, 2])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
 
     b = torch.randn([2, 3])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
 
-    a.permute(1,0).lt_(b)
-    ha.permute(1,0).lt_(hb)
+    a.permute(1, 0).lt_(b)
+    ha.permute(1, 0).lt_(hb)
 
     ha_cpu = ha.cpu()
-    assert torch.allclose(ha_cpu, a, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(ha_cpu, a, atol=0.001, rtol=0.001)
+
 
 def test_eq_view():
     torch.manual_seed(0)
     a = torch.arange(4).to(torch.float)
     res = torch.zeros(4, dtype=torch.bool)
-    a_view = a.as_strided((2,2), (1,2))
-    res_view = res.as_strided((2,2), (1,2))
+    a_view = a.as_strided((2, 2), (1, 2))
+    res_view = res.as_strided((2, 2), (1, 2))
 
-    ha = a.to('hpu')
-    hres = res.to('hpu')
-    ha_view = ha.as_strided((2,2), (1,2))
-    hres_view = hres.as_strided((2,2), (1,2))
+    ha = a.to("hpu")
+    hres = res.to("hpu")
+    ha_view = ha.as_strided((2, 2), (1, 2))
+    hres_view = hres.as_strided((2, 2), (1, 2))
 
-    #first eq op, scalar dtype double
+    # first eq op, scalar dtype double
     torch.eq(a_view, 0.0, out=res_view)
     torch.eq(ha_view, 0.0, out=hres_view)
     hres_view_cpu = hres_view.cpu()
     assert torch.equal(hres_view_cpu, res_view)
 
-    #second eq op, scalar dtype long
+    # second eq op, scalar dtype long
     torch.eq(a_view, 0, out=res_view)
     torch.eq(ha_view, 0, out=hres_view)
     hres_view_cpu = hres_view.cpu()
     assert torch.equal(hres_view_cpu, res_view)
 
+
 def test_sort_out():
     torch.manual_seed(0)
     a = torch.randn([10])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
 
     b = torch.empty([20])
-    hb = b.to('hpu')
+    hb = b.to("hpu")
 
     c = torch.empty([10]).to(torch.long)
-    hc = c.to('hpu')
+    hc = c.to("hpu")
 
     torch.sort(a, out=[b[::2], c])
     torch.sort(ha, out=[hb[::2], hc])
 
     hb_cpu = hb.cpu()
-    assert torch.allclose(hb_cpu, b, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(hb_cpu, b, atol=0.001, rtol=0.001)
+
 
 def test_add_out():
     torch.manual_seed(0)
+
     def fn():
         a = torch.randn([10])
-        ha = a.to('hpu')
+        ha = a.to("hpu")
 
         b = torch.randn([22])
-        hb = b.to('hpu')
+        hb = b.to("hpu")
 
         torch.add(a, 1.0, out=b[2::2])
         torch.add(ha, 1.0, out=hb[2::2])
 
         hb_cpu = hb.cpu()
-        assert torch.allclose(hb_cpu, b, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(hb_cpu, b, atol=0.001, rtol=0.001)
 
     fn()
     # test cache hit
     fn()
 
+
 def test_fill():
-    shapes = [(2,3), (4,6)]
+    shapes = [(2, 3), (4, 6)]
     for shape in shapes:
         input = torch.randn((shape), dtype=torch.bfloat16)
         input_hpu = input.to("hpu")
@@ -592,3 +651,127 @@ def test_fill():
         input_hpu.t_().fill_(10)
 
         assert torch.equal(input_hpu.cpu(), input)
+
+
+def place_on_hpu(cpu_tensors):
+    hpu_tensors = {}
+    for key, value in cpu_tensors.items():
+        hpu_tensors[key] = value.to("hpu")
+    return hpu_tensors
+
+
+@pytest.mark.parametrize("inout", ["in", "out", "inplace"])
+@pytest.mark.parametrize("ttl", ["tensor", "boolout", "fill", "tlist"])
+def test_view(ttl, inout):
+    def complex_default(obj):
+        return field(default_factory=lambda: copy.copy(obj))
+
+    @dataclass
+    class TestData:
+        num_views: int
+        command: Callable[
+            [Dict[str, torch.Tensor], List[torch.Tensor]], torch.Tensor
+        ]
+
+        num_tensors: int = 1
+        view_base_shape: List[int] = complex_default([3, 5])
+        tensor_shape: List[int] = complex_default([3])
+        normalize: bool = True
+        make_view: Callable[[torch.Tensor], torch.Tensor] = lambda t: t[
+            1, 0:5:2
+        ]
+        store_result: str = "t1"
+
+    test_data = {}
+
+    test_data[("tensor", "in")] = TestData(
+        num_views=1, command=lambda ts, vs: vs[1].logit(eps=0.01)
+    )
+
+    test_data[("tensor", "out")] = TestData(
+        num_views=2,
+        command=lambda ts, vs: torch.logit(vs[1], eps=0.01, out=vs[2]),
+    )
+
+    test_data[("tensor", "inplace")] = TestData(
+        num_views=1, command=lambda ts, vs: vs[1].logit_(eps=0.01)
+    )
+
+    test_data[("boolout", "in")] = TestData(
+        num_views=2, command=lambda ts, vs: vs[1].ge(vs[2])
+    )
+
+    test_data[("boolout", "out")] = TestData(
+        num_views=3, command=lambda ts, vs: torch.lt(vs[1], vs[2], out=vs[3])
+    )
+
+    test_data[("boolout", "inplace")] = TestData(
+        num_views=2, command=lambda ts, vs: vs[1].eq_(vs[2])
+    )
+
+    test_data[("fill", "inplace")] = TestData(
+        num_views=1, command=lambda ts, vs: vs[1].fill_(-5)
+    )
+
+    test_data[("tlist", "in")] = TestData(
+        num_views=2,
+        num_tensors=2,
+        command=lambda ts, vs: torch.cat([ts["t2"]] + vs[1:]),
+    )
+
+    test_data[("tlist", "inplace")] = TestData(
+        num_views=2,
+        num_tensors=1,
+        command=lambda ts, vs: torch._foreach_atan_([ts["t1"]] + vs[1:]),
+        normalize=False,
+    )
+
+    testcase = (ttl, inout)
+    if testcase in test_data:
+        td = test_data[(ttl, inout)]
+    else:
+        pytest.skip(f"Testcase {testcase} doesn't exist")
+
+    cpu_tensors = {}
+
+    def add_cpu_tensors(first_value, num, shape, label):
+        for i in range(num):
+            stop_value = first_value + np.prod(shape)
+            cpu_tensors[f"{label}{i+1}"] = torch.Tensor(
+                np.arange(first_value, stop_value).reshape(shape)
+            )
+            first_value = stop_value
+        return first_value
+
+    next_first_value = add_cpu_tensors(
+        1, td.num_views, td.view_base_shape, "vb"
+    )
+    next_first_value = add_cpu_tensors(
+        next_first_value, td.num_tensors, td.tensor_shape, "t"
+    )
+    if td.normalize:
+        for key in cpu_tensors.keys():
+            cpu_tensors[key] /= next_first_value - 1
+
+    if Verbose:
+        print(f"{cpu_tensors = }")
+
+    hpu_tensors = place_on_hpu(cpu_tensors)
+
+    for tensors in [cpu_tensors, hpu_tensors]:
+        views = [td.make_view(tensors[f"vb{i+1}"]) for i in range(td.num_views)]
+        views.insert(0, None)
+        result = td.command(tensors, views)
+        if result is not None:
+            tensors[td.store_result] = result
+
+    for key in cpu_tensors.keys():
+        result_cpu = cpu_tensors[key]
+        result_hpu = hpu_tensors[key]
+        if Verbose:
+            print(f"{key = }")
+            print(f"{result_cpu = }")
+            print(f"result_hpu = {result_hpu.cpu()}")
+        assert torch.allclose(
+            result_hpu.cpu(), result_cpu, atol=0.001, rtol=0.001
+        )
