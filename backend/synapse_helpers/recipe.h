@@ -22,7 +22,7 @@ class device;
 
 class recipe {
  public:
-  explicit recipe(device& device);
+  explicit recipe(device& device) : device_{device} {}
   recipe(const recipe&) = delete;
   recipe(recipe&&) = delete;
   recipe& operator=(const recipe&) = delete;
@@ -37,8 +37,9 @@ class recipe {
       const std::vector<void*>& out_buffers,
       std::unique_ptr<device_ptr_lock>& addr_locked,
       stream& compute_stream);
-  std::shared_ptr<synapse_helpers::graph::recipe_handle> getRecipeHandle();
-  ~recipe();
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> getRecipeHandle() {
+    return recipe_handle_;
+  }
 
  private:
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_handle_;
@@ -47,7 +48,7 @@ class recipe {
   uint64_t workspace_size_{0};
   device& device_;
 
-  uint64_t* tensor_ids{nullptr};
-  const char** tensor_names{nullptr};
+  std::unique_ptr<uint64_t[]> tensor_ids;
+  std::vector<const char*> tensor_names;
 };
 } // namespace synapse_helpers

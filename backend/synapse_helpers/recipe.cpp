@@ -29,7 +29,6 @@
 #include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
-recipe::recipe(device& device) : device_{device} {}
 
 bool recipe::create(synapse_helpers::graph& graph) {
   auto recipe_handle = graph.compile();
@@ -48,33 +47,32 @@ bool recipe::create(synapse_helpers::graph& graph) {
 void recipe::set_inputs_outputs_names(
     const std::vector<std::string>& input_names,
     const std::vector<std::string>& output_names) {
-  for (auto input : input_names) {
-    input_names_.emplace_back(std::move(input));
+  for (auto&& input : input_names) {
+    input_names_.emplace_back(input);
   }
-  for (auto output : output_names) {
-    output_names_.emplace_back(std::move(output));
+  for (auto&& output : output_names) {
+    output_names_.emplace_back(output);
   }
   populate_syn_tensor_ids();
 }
 
 void recipe::populate_syn_tensor_ids() {
-  if (nullptr == tensor_ids) {
+  if (!tensor_ids) {
     auto num_tensors = input_names_.size() + output_names_.size();
-    tensor_ids = new uint64_t[num_tensors];
-    tensor_names = new const char*[num_tensors];
+    tensor_ids = std::make_unique<uint64_t[]>(num_tensors);
+    tensor_names.reserve(num_tensors);
 
-    size_t tensor_idx{0};
     for (const auto& n : input_names_) {
-      tensor_names[tensor_idx++] = n.c_str();
+      tensor_names.emplace_back(n.c_str());
     }
     for (const auto& n : output_names_) {
-      tensor_names[tensor_idx++] = n.c_str();
+      tensor_names.emplace_back(n.c_str());
     }
 
     synStatus status = synTensorRetrieveIds(
         recipe_handle_->syn_recipe_handle_,
-        tensor_names,
-        tensor_ids,
+        tensor_names.data(),
+        tensor_ids.get(),
         num_tensors);
 
     if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
@@ -100,14 +98,14 @@ void recipe::launch(
         reinterpret_cast<uint64_t>(in_buffers[i]),
         DATA_TENSOR,
         {0},
-        tensor_ids[tensor_idx++]});
+        tensor_ids.get()[tensor_idx++]});
   for (size_t i = 0; i < output_names_.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfoExt{
         output_names_[i].c_str(),
         reinterpret_cast<uint64_t>(out_buffers[i]),
         DATA_TENSOR,
         {0},
-        tensor_ids[tensor_idx++]});
+        tensor_ids.get()[tensor_idx++]});
 
   std::vector<shared_event> ext_events;
   synapse_helpers::graph::launch(
@@ -120,15 +118,4 @@ void recipe::launch(
       compute_stream);
 }
 
-std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe::
-    getRecipeHandle() {
-  return recipe_handle_;
-}
-
-recipe::~recipe() {
-  if (nullptr != tensor_names) {
-    delete[] tensor_ids;
-    delete[] tensor_names;
-  }
-}
 } // namespace synapse_helpers
