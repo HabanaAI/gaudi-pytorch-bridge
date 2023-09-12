@@ -361,9 +361,6 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       (self.dim() <= HABANA_DIM_MAX),
       "Number of tensor dims larger then allowed max limit");
-  TORCH_CHECK(
-      is_hpu_supported_transpose_type(self.scalar_type()),
-      "Unsupported data type permute operation on Habana device");
 
   std::vector<int64_t> new_sizes, new_strides;
   std::tie(new_sizes, new_strides) =

@@ -170,10 +170,6 @@ void HandleStridedViewsAndInsertPermute(
       const auto node_output_tensor =
           node->output(0)->type()->cast<c10::TensorType>();
       const auto dtype = node_output_tensor->scalarType().value();
-      if (!habana::is_hpu_supported_transpose_type(dtype)) {
-        PT_EAGER_DEBUG("Unsupported data type ", dtype, " for permute pass");
-        continue;
-      }
 
       const auto device = node_output_tensor->device().value();
       const auto shapes = toIValue(node->input(1)).value().toIntVector();
