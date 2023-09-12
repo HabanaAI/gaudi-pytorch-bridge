@@ -737,6 +737,20 @@ sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
   return {input_size, weight_size, weight_size};
 }
 
+OutputMetaDataVector LayerNormBwdMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  auto shapes = LayerNormBwdOutputShape(stack);
+  OutputMetaDataVector metaVec(3);
+  metaVec[0].shape = shapes[0];
+  metaVec[0].dtype = self.scalar_type();
+  metaVec[1].shape = shapes[1];
+  metaVec[1].dtype = dtype;
+  metaVec[2].shape = shapes[2];
+  metaVec[2].dtype = dtype;
+  return metaVec;
+}
+
 void LayerNormBwdHabanaOperator::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
@@ -808,7 +822,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   synTensor mean_as_4D = storage[storage_indices[0]].get();
   synTensor rstd_as_4D = storage[storage_indices[1]].get();
 
-  auto outputShapes = LayerNormBwdOutputShape(stack);
+  auto metas = LayerNormBwdMeta(stack);
 
   ns_LayerNormKernel::Params params;
   params.epsValid = false;
@@ -817,23 +831,23 @@ void LayerNormBwdHabanaOperator::AddNode(
       graph,
       guid_,
       {input_as_4D, grad_out_as_4D, mean_as_4D, rstd_as_4D, synWeight},
-      {{sizes_as_4D, ScalarType()},
+      {{sizes_as_4D, metas[0].dtype},
        {weightShape, c10::kFloat},
        {weightShape, c10::kFloat}},
       &params,
       sizeof(params));
 
-  if (ScalarType() != c10::kFloat) {
-    for (int i = 1; i < lnbwd.size(); ++i) {
+  for (int i = 1; i < lnbwd.size(); ++i) {
+    if (metas[i].dtype != c10::kFloat) {
       lnbwd[i] = CastHelper(
-          graph, lnbwd[i].get(), weightShape, c10::kFloat, ScalarType());
+          graph, lnbwd[i].get(), weightShape, c10::kFloat, metas[i].dtype);
     }
   }
 
   static std::array<int, 3> outIds = {0, 2, 1};
   for (size_t i = 0; i < outIds.size(); ++i) {
     auto reshaped = ReshapeHelper(
-        graph, lnbwd[i].get(), outputShapes[i], ScalarType(), outIds[i]);
+        graph, lnbwd[i].get(), metas[i].shape, metas[i].dtype, outIds[i]);
     syn_out(outIds[i]) = std::move(reshaped);
   }
 }
