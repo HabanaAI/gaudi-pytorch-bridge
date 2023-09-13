@@ -85,10 +85,12 @@ def apply_rotary_pos_emb(
         For GPT-J model, the input parameters should be set as follows:
             p, cos, sin, position_ids = None, offset = 0, mode = PAIRWISE
     """
-    if p.dtype != sin.dtype:
-        sin = sin.to(p.dtype)
-    if p.dtype != cos.dtype:
-        cos = cos.to(p.dtype)
+    p_dtype = p.dtype
+
+    if p_dtype != sin.dtype:
+        sin = sin.to(p_dtype)
+    if p_dtype != cos.dtype:
+        cos = cos.to(p_dtype)
 
     return torch.ops.hpu.rotary_pos_embedding(p, sin, cos, position_ids, offset, mode.value)
 
@@ -103,6 +105,13 @@ def apply_rotary_pos_emb_bwd(
     cos, sin, offset = recalculate_params(
         cos, sin, position_ids, offset, RotaryPosEmbeddingMode.BLOCKWISE
     )
+
+    p_grad_in_dtype = p_grad_in.dtype
+
+    if p_grad_in_dtype != sin.dtype:
+        sin = sin.to(p_grad_in_dtype)
+    if p_grad_in_dtype != cos.dtype:
+        cos = cos.to(p_grad_in_dtype)
 
     return torch.ops.hpu.rotary_pos_embedding_backward(p_grad_in, sin, cos, offset)
 

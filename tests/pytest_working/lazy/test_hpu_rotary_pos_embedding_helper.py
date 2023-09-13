@@ -48,6 +48,11 @@ apply_rotary_pos_emb_gptj_test_case_list = [
     ((32, 1, 16, 64), (1, 1, 32)),
 ]
 
+apply_rotary_pos_emb_diff_dtypes_test_case_list = [
+    # p_size, cos_sin_size
+    ((1, 6, 4, 6), (1, 1, 32, 6)),
+]
+
 
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
@@ -288,4 +293,51 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 
     torch.testing.assert_close(
         output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
+    )
+
+
+@pytest.mark.parametrize(
+    "p_size, cos_sin_size",
+    apply_rotary_pos_emb_diff_dtypes_test_case_list,
+)
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("cos_dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("sin_dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
+    torch.manual_seed(12345)
+
+    p, cos, sin, position_ids = prepare_test_data(
+        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE
+    )
+
+    # Compute reference gradients on CPU using autograd
+    p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, False)
+    loss_ref = p_embed_ref.sum()
+    loss_ref.backward()
+
+    grad_p_ref = p.grad.clone().detach()
+
+    # Compute gradients on HPU
+    p_hpu = p.clone().to(dtype).to(hpu)
+    p_hpu.retain_grad()
+    cos_hpu = cos.to(cos_dtype).to(hpu)
+    sin_hpu = sin.to(sin_dtype).to(hpu)
+    position_ids_hpu = position_ids.to(hpu)
+
+    output_fwd = RotaryPosEmbeddingHelperV2.apply
+    p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
+    loss = p_embed.sum()
+    loss.backward()
+
+    if dtype == torch.float32:
+        tol = 0.002
+    else:
+        tol = 0.012
+
+    torch.testing.assert_close(
+        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
+    )
+
+    torch.testing.assert_close(
+        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
     )
