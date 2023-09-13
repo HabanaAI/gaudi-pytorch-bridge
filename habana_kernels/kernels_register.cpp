@@ -2069,7 +2069,7 @@ struct DropoutFunction : public Function<DropoutFunction> {
       at::Tensor input,
       double p,
       bool train) {
-    ctx->saved_data["p"] = p;
+    ctx->saved_data["p"] = train ? p : 0.0;
     if ((p == 0) || !train || (input.numel() == 0)) {
       return input;
     } else if (p == 1) {
