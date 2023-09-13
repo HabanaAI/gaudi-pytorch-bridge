@@ -162,7 +162,7 @@ void HPUGraph::mark_step() {
       user_inp_match.begin(), user_inp_match.end());
   PT_IRGRAPH_DEBUG("GRAPH:: captured graph");
   PT_IRGRAPH_DEBUG(
-      (captured_graph->graph_ ? (captured_graph->graph_->dump(), "")
+      (captured_graph->graph_ ? captured_graph->graph_->toString()
                               : "null graph"));
   PT_HPUGRAPH_DEBUG(
       "GRAPH:: captured input size ", captured_graph->input_vals_.size());
