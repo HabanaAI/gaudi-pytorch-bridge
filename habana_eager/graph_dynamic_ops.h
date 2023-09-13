@@ -33,7 +33,10 @@ void GetValueAndScalarIndexFromInput(
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
     int64_t& index);
-
+void GetValuesAndScalarIndexesFromListConst(
+    torch::jit::Node* node,
+    std::vector<int64_t>& values,
+    std::vector<int64_t>& scalar_indexes);
 void GetValuesAndScalarIndexesFromListConstruct(
     torch::jit::Node* node,
     torch::jit::Stack& in_stack,

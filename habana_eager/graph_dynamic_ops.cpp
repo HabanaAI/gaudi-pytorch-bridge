@@ -52,6 +52,33 @@ void GetValueAndScalarIndexFromInput(
       index);
 }
 
+void GetValuesAndScalarIndexesFromListConst(
+    torch::jit::Node* node,
+    std::vector<int64_t>& values,
+    std::vector<int64_t>& scalar_indexes) {
+  static const auto list_const_symbol{
+      c10::Symbol::fromQualString("prim::Constant")};
+  HABANA_ASSERT(
+      node->kind() == list_const_symbol,
+      "input is not a Constant, it is: ",
+      node->kind().toQualString(),
+      " node: ",
+      *node);
+
+  auto value = node->output(0);
+  torch::jit::IValue const_ivalue = torch::jit::toIValue(value).value();
+  if (const_ivalue.isIntList()) {
+    int64_t input_idx = LONG_MAX;
+    auto vec = const_ivalue.toIntVector();
+    for (auto v : vec) {
+      scalar_indexes.push_back(input_idx);
+      values.push_back(v);
+    }
+  } else {
+    HABANA_ASSERT(false, "input is not Const Ints..");
+  }
+}
+
 void GetValuesAndScalarIndexesFromListConstruct(
     torch::jit::Node* node,
     torch::jit::Stack& in_stack,
@@ -62,7 +89,7 @@ void GetValuesAndScalarIndexesFromListConstruct(
       c10::Symbol::fromQualString("prim::ListConstruct")};
   HABANA_ASSERT(
       node->kind() == list_construct_symbol,
-      "View input is not a ListConstruct, it is: ",
+      "input is not a ListConstruct, it is: ",
       node->kind().toQualString());
 
   for (auto input : node->inputs()) {

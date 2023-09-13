@@ -232,6 +232,23 @@ def test_op_as_strided():
         h_result = compiled_fn(t1_hpu)
         assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
 
+def test_op_as_strided_1():
+    inputs = [4, 6, 8]
+    sizes = [[2, 2], [3, 2], [4, 2]]
+
+    def raw_function(input_tensor, size):
+        strided_tensor = torch.as_strided(input_tensor, size, (2, 1), 0)
+        out = torch.add(strided_tensor, strided_tensor)
+        return out
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    for s1 , s2 in zip(inputs, sizes):
+        t1 = torch.randn(s1, requires_grad = False)
+        result = raw_function(t1, s2)
+        t1_hpu = t1.to("hpu")
+        h_result = compiled_fn(t1_hpu, s2)
+        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+
 @pytest.mark.skip(reason="[SW-153208] RuntimeError: undefined value s1")
 def test_op_chunk():
     input_shapes = [

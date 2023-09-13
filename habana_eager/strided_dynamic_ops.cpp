@@ -117,12 +117,17 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   // Collect ST shape and symlnt pos using ListConstruct values for sizes
   std::vector<int64_t> values_shapes;
   std::vector<int64_t> scalar_indexes_shape;
-  GetValuesAndScalarIndexesFromListConstruct(
-      shape_construct_node,
-      in_stack,
-      org_stack_index_map,
-      values_shapes,
-      scalar_indexes_shape);
+  if (shape_construct_node->kind() == torch::jit::prim::Constant) {
+    GetValuesAndScalarIndexesFromListConst(
+        shape_construct_node, values_shapes, scalar_indexes_shape);
+  } else if (shape_construct_node->kind() == torch::jit::prim::ListConstruct) {
+    GetValuesAndScalarIndexesFromListConstruct(
+        shape_construct_node,
+        in_stack,
+        org_stack_index_map,
+        values_shapes,
+        scalar_indexes_shape);
+  }
   auto as_strided_shape_st_name =
       GetDynamicTensorName(as_strided_shape->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
@@ -152,12 +157,17 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
   auto self_strides = self.strides().vec();
-  GetValuesAndScalarIndexesFromListConstruct(
-      stride_construct_node,
-      in_stack,
-      org_stack_index_map,
-      values_strides,
-      scalar_indexes_strides);
+  if (stride_construct_node->kind() == torch::jit::prim::Constant) {
+    GetValuesAndScalarIndexesFromListConst(
+        stride_construct_node, values_strides, scalar_indexes_strides);
+  } else if (stride_construct_node->kind() == torch::jit::prim::ListConstruct) {
+    GetValuesAndScalarIndexesFromListConstruct(
+        stride_construct_node,
+        in_stack,
+        org_stack_index_map,
+        values_strides,
+        scalar_indexes_strides);
+  }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
