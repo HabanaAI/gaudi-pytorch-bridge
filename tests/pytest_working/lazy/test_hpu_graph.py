@@ -653,6 +653,86 @@ def test_module_cacher_propnet_views():
         ht.core.mark_step()
         assert torch.allclose(out_cpu, out_hpu.to('cpu'))
 
+class ModelPropRandNet(torch.nn.Module):
+    def __init__(self):
+        super(ModelPropRandNet, self).__init__()
+        self.Linear1 = torch.nn.Linear(20, 25)
+        self.relu = torch.nn.ReLU()
+        self.Linear2 = torch.nn.Linear(25, 3)
+
+    def forward(self, inp):
+        inp.normal_()
+        res = self.Linear1(inp)
+        res2 = self.relu(res)
+        res3 = self.Linear2(res2)
+        res4 = self.relu(res3)
+        return res4
+
+def test_module_cacher_propnet_rand():
+    torch.manual_seed(123)
+    module1_hpu_ref = ModelPropRandNet().to('hpu')
+    torch.manual_seed(123)
+    module1_hpu = ModelPropRandNet().to('hpu')
+    inputs_hpu_ref = []
+    inputs_hpu = []
+    outputs_target_hpu_ref = []
+    outputs_target_hpu = []
+    outputs_hpu_ref = []
+    outputs_hpu = []
+
+    for i in range(6):
+        t = torch.rand(1, 20)
+        inputs_hpu_ref.append(t.to('hpu'))
+        inputs_hpu.append(t.to('hpu'))
+        o = torch.tensor(1.0)
+        outputs_target_hpu_ref.append(o.to('hpu'))
+        outputs_target_hpu.append(o.to('hpu'))
+
+    module1_hpu = ht.hpu.ModuleCacher()(have_grad_accumulation=True, model=module1_hpu, inplace=True, allow_unused_input=True, dry_run=True)
+    loss_fn = torch.nn.MSELoss()
+    optim_y_hpu_ref = torch.optim.SGD(module1_hpu_ref.parameters(), lr=0.1)
+    optim_y_hpu = torch.optim.SGD(module1_hpu.parameters(), lr=0.1)
+
+    optim_y_hpu_ref.zero_grad()
+    optim_y_hpu.zero_grad()
+    torch.manual_seed(0)
+    for i in range(6):
+        module1_hpu.set_iteration_count(i)
+        out_hpu = module1_hpu(inputs_hpu[i])
+        loss_hpu = loss_fn(out_hpu.sum(), outputs_target_hpu[i])
+        loss_hpu.backward()
+        ht.core.mark_step()
+
+        with torch.no_grad():
+            for p in module1_hpu.parameters():
+                if p is not None:
+                    p.mul_(0.5)
+
+        torch.nn.utils.clip_grad_norm_(module1_hpu.parameters(), 0.1)
+        optim_y_hpu.step()
+        ht.core.mark_step()
+        outputs_hpu.append(out_hpu.to('cpu'))
+
+    torch.manual_seed(0)
+    for i in range(6):
+        out_hpu = module1_hpu_ref(inputs_hpu_ref[i])
+        loss_hpu = loss_fn(out_hpu.sum(), outputs_target_hpu_ref[i])
+        loss_hpu.backward()
+        ht.core.mark_step()
+
+        with torch.no_grad():
+            for p in module1_hpu_ref.parameters():
+                if p is not None:
+                    p.mul_(0.5)
+
+        torch.nn.utils.clip_grad_norm_(module1_hpu_ref.parameters(), 0.1)
+        optim_y_hpu_ref.step()
+        ht.core.mark_step()
+        outputs_hpu_ref.append(out_hpu.to('cpu'))
+
+    for i in range(6):
+        assert(torch.allclose(outputs_hpu[i], outputs_hpu_ref[i]))
+
 if __name__ == "__main__":
     test_multiple_graph_capture()
     test_multiple_graph_capture_memoptimization()
@@ -675,3 +755,4 @@ if __name__ == "__main__":
     test_module_cacher_no_requires_grad()
     test_module_cacher_propnet()
     test_module_cacher_propnet_views()
+    test_module_cacher_propnet_rand()

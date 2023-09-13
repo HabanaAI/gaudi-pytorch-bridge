@@ -49,6 +49,10 @@ uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
   CPUGeneratorImpl* generator =
       get_generator_or_default<CPUGeneratorImpl>(gen, getDefaultHPUGenerator());
 
+  auto context = habana_lazy::get_device_lazy_execution_context();
+  if (context->getDryRun()) {
+    return 0;
+  }
   // Acquire lock when using random generators
   std::lock_guard<std::mutex> lock(generator->mutex_);
   return generator->random();
