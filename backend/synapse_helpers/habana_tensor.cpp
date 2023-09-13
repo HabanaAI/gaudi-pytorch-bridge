@@ -422,10 +422,7 @@ synapse_error_o tensor::create() {
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorHandleCreate failed.", status, cleanup());
 
-  if (data_type_ == syn_type_fp8_143) {
-    set_quantization_data(&dynamic_range_fp8_143_);
-  } else if (
-      habana_helpers::IsInferenceMode() && have_quantization_data_ &&
+  if (habana_helpers::IsInferenceMode() && have_quantization_data_ &&
       tensor_type_ == DATA_TENSOR) {
     set_quantization_data(&dynamic_range_);
   }

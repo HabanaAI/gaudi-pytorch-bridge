@@ -1231,7 +1231,6 @@ void InPlaceInterleave::AddNode(
 
   std::string guid_suffix =
       synapse_helpers::graph::name_suffix_from_type(dst_syn_type).data();
-  std::cout << "=== guid suffix " << guid_suffix << std::endl;
   auto output = BuildNode(
       this,
       graph,
